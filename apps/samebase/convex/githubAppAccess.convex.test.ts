@@ -222,7 +222,7 @@ function installationRepositoryFixture(args?: { ownerId?: number; ownerLogin?: s
   };
 }
 
-async function createIdentityVault(t: ConvexTest) {
+async function createIdentityRepository(t: ConvexTest) {
   const ownerUserId = await t.run(async (ctx) => {
     return await ctx.db.insert("users", {
       state: "active",
@@ -251,33 +251,33 @@ async function createIdentityVault(t: ConvexTest) {
       },
     });
   });
-  const vault = await t.mutation(
-    internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+  const repository = await t.mutation(
+    internal.repository.records.createInitializingExistingRepositoryForUser,
     {
       userId: ownerUserId,
       organizationId,
-      ghRepoId: "501",
-      ghRepoOwner: "installation-owner",
-      ghRepoName: "agent-plugins",
+      githubRepositoryDatabaseId: "501",
+      githubOwnerLogin: "installation-owner",
+      githubRepositoryName: "agent-plugins",
     },
   );
-  await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+  await t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
     userId: ownerUserId,
-    vaultId: vault.vaultId,
-    runId: vault.runId,
-    ghRepoId: "501",
-    ghRepoOwner: "installation-owner",
-    ghRepoName: "agent-plugins",
+    repositoryId: repository.repositoryId,
+    runId: repository.runId,
+    githubRepositoryDatabaseId: "501",
+    githubOwnerLogin: "installation-owner",
+    githubRepositoryName: "agent-plugins",
     defaultBranch: "main",
     visibility: "private",
   });
-  return { organizationId, ownerUserId, vaultId: vault.vaultId };
+  return { organizationId, ownerUserId, repositoryId: repository.repositoryId };
 }
 
-describe("vault GitHub token scope", () => {
-  it("scopes an old repository route to the vault stable repository ID", async () => {
+describe("repository GitHub token scope", () => {
+  it("scopes an old repository route to the repository stable repository ID", async () => {
     const t = makeConvexTest();
-    const { ownerUserId, vaultId } = await createIdentityVault(t);
+    const { ownerUserId, repositoryId } = await createIdentityRepository(t);
     await t.run(async (ctx) => {
       await ctx.db.patch(ownerUserId, { email: "nicu@samebase.com" });
     });
@@ -295,12 +295,12 @@ describe("vault GitHub token scope", () => {
     await expect(
       t.query(internal.githubAppAccess.loadInstallationAccess, {
         userId: ownerUserId,
-        target: { kind: "vault", vaultId },
+        target: { kind: "repository", repositoryId },
       }),
     ).resolves.toMatchObject({
       kind: "repository",
       githubInstallationId: "1001",
-      ghRepoId: "501",
+      githubRepositoryDatabaseId: "501",
     });
     await expect(
       asOwner.action(api.githubChecks.getCommitStatus, {
@@ -472,7 +472,7 @@ describe("viewer GitHub installation health", () => {
 describe("GitHub identity observation and approval", () => {
   it("shows a blocked repository rename, then lets an owner approve repository and owner logins", async () => {
     const t = makeConvexTest();
-    const { organizationId, ownerUserId, vaultId } = await createIdentityVault(t);
+    const { organizationId, ownerUserId, repositoryId } = await createIdentityRepository(t);
     const memberUserId = await t.run(async (ctx) => {
       const memberUserId = await ctx.db.insert("users", {
         state: "active",
@@ -489,16 +489,16 @@ describe("GitHub identity observation and approval", () => {
       return memberUserId;
     });
     const collision = await t.mutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      internal.repository.records.createInitializingExistingRepositoryForUser,
       {
         userId: ownerUserId,
         organizationId,
-        ghRepoId: "collision-repository-id",
-        ghRepoOwner: "installation-owner",
-        ghRepoName: "plugin",
+        githubRepositoryDatabaseId: "collision-repository-id",
+        githubOwnerLogin: "installation-owner",
+        githubRepositoryName: "plugin",
       },
     );
-    await t.mutation(internal.vault.records.markGithubProvisioningFailed, {
+    await t.mutation(internal.repository.records.markGithubProvisioningFailed, {
       runId: collision.runId,
     });
     const asOwner = t.withIdentity({
@@ -525,10 +525,10 @@ describe("GitHub identity observation and approval", () => {
       asMember.action(api.github.observeOrganizationGitHubIdentity, { organizationId }),
     ).resolves.toEqual({
       owner: { status: "current" },
-      vaults: [
+      repositories: [
         {
           status: "renamed",
-          vaultId,
+          repositoryId,
           repositoryName: "plugin",
           update: "blocked",
         },
@@ -536,19 +536,19 @@ describe("GitHub identity observation and approval", () => {
     });
     githubMocks.request.mockClear();
     await expect(
-      asMember.action(api.github.updateVaultGitHubRepositoryName, {
-        vaultId,
+      asMember.action(api.github.updateRepositoryGitHubRepositoryName, {
+        repositoryId,
         expectedRepositoryName: "plugin",
       }),
     ).rejects.toThrow("Organization owner access is required.");
     expect(githubMocks.request).not.toHaveBeenCalled();
 
     await t.run(async (ctx) => {
-      await ctx.db.delete(collision.vaultId);
+      await ctx.db.delete(collision.repositoryId);
     });
     await expect(
-      asOwner.action(api.github.updateVaultGitHubRepositoryName, {
-        vaultId,
+      asOwner.action(api.github.updateRepositoryGitHubRepositoryName, {
+        repositoryId,
         expectedRepositoryName: "plugin",
       }),
     ).resolves.toEqual({
@@ -579,7 +579,7 @@ describe("GitHub identity observation and approval", () => {
         status: "renamed",
         githubOwnerLogin: "renamed-owner",
       },
-      vaults: [],
+      repositories: [],
     });
     githubMocks.request.mockClear();
     await expect(
@@ -607,7 +607,7 @@ describe("GitHub identity observation and approval", () => {
 
   it("keeps owner identity separate from repository access and rejects another owner", async () => {
     const t = makeConvexTest();
-    const { organizationId, ownerUserId, vaultId } = await createIdentityVault(t);
+    const { organizationId, ownerUserId, repositoryId } = await createIdentityRepository(t);
     const asOwner = t.withIdentity({
       subject: `${ownerUserId}|github-identity-states`,
       tokenIdentifier: `test:${ownerUserId}`,
@@ -618,7 +618,7 @@ describe("GitHub identity observation and approval", () => {
     githubMocks.request.mockRejectedValue(Object.assign(new Error("Not Found"), { status: 404 }));
     await expect(observe()).resolves.toEqual({
       owner: { status: "unavailable" },
-      vaults: [],
+      repositories: [],
     });
 
     const renamedInstallation = appInstallationFixture();
@@ -631,7 +631,7 @@ describe("GitHub identity observation and approval", () => {
     });
     await expect(observe()).resolves.toEqual({
       owner: { status: "renamed", githubOwnerLogin: "renamed-owner" },
-      vaults: [{ status: "unavailable", vaultId }],
+      repositories: [{ status: "unavailable", repositoryId }],
     });
 
     githubMocks.request.mockImplementation(async (route: string) => {
@@ -652,11 +652,11 @@ describe("GitHub identity observation and approval", () => {
     });
     await expect(observe()).resolves.toEqual({
       owner: { status: "current" },
-      vaults: [{ status: "unavailable", vaultId }],
+      repositories: [{ status: "unavailable", repositoryId }],
     });
     await expect(
-      asOwner.action(api.github.updateVaultGitHubRepositoryName, {
-        vaultId,
+      asOwner.action(api.github.updateRepositoryGitHubRepositoryName, {
+        repositoryId,
         expectedRepositoryName: "plugin",
       }),
     ).rejects.toThrow("The GitHub repository moved to another owner.");

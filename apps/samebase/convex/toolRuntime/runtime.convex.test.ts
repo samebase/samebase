@@ -4,7 +4,7 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/tes
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
-import { cloudflareCreateWorkerContract } from "../vault/contracts/cloudflareAttachments";
+import { cloudflareCreateWorkerContract } from "../repository/contracts/cloudflareAttachments";
 
 type CloudflareCreateWorkerToolResult = FunctionReturnType<
   typeof internal.toolRuntime.runtime.cloudflareCreateWorkerTool
@@ -17,7 +17,7 @@ afterEach(() => {
 
 async function seedToolRuntimeOwner() {
   const t = makeConvexTest();
-  const { organizationId, userId, vaultId } = await t.run(async (ctx) => {
+  const { organizationId, userId, repositoryId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       state: "active",
       name: "Ada",
@@ -38,16 +38,17 @@ async function seedToolRuntimeOwner() {
       userId,
       role: "owner",
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "account_1",
       deletion: { state: "not_deleting" },
       state: "not_connected",
+      createdAt: 1,
     });
-    return { organizationId, userId, vaultId };
+    return { organizationId, userId, repositoryId };
   });
-  return { organizationId, t, userId, vaultId };
+  return { organizationId, t, userId, repositoryId };
 }
 
 describe("MCP tool runtime boundaries", () => {
@@ -67,12 +68,12 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("blocks a generic runtime tool before its product helper runs", async () => {
-    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { t, userId, repositoryId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
       grantedScopes: [],
-      vaultId,
+      repositoryId,
       accountId: "account_1",
       workerName: "worker-new",
       rootDirectory: "/",
@@ -81,7 +82,7 @@ describe("MCP tool runtime boundaries", () => {
 
     expect(result).toEqual({
       status: "blocked",
-      text: "Insufficient scope for vault_cloudflare_createWorker.",
+      text: "Insufficient scope for repository_cloudflare_createWorker.",
     });
   });
 
@@ -103,21 +104,22 @@ describe("MCP tool runtime boundaries", () => {
     });
   });
 
-  it("lists vaults across every current organization membership", async () => {
+  it("lists repositories across every current organization membership", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
-    const { authorizedVaultId, otherOrganizationId } = await t.run(async (ctx) => {
-      const authorizedVaultId = await ctx.db.insert("vaults", {
+    const { authorizedRepositoryId, otherRunRepositoryId } = await t.run(async (ctx) => {
+      const authorizedRepositoryId = await ctx.db.insert("repositories", {
         organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "account_1",
         deletion: { state: "not_deleting" },
         state: "not_connected",
+        createdAt: 1,
       });
-      const authorizedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      const authorizedRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId,
         userId,
-        vaultId: authorizedVaultId,
-        repositoryFullName: "tool-runtime-owner/authorized",
+        repositoryId: authorizedRepositoryId,
+        githubRepositoryFullName: "tool-runtime-owner/authorized",
         trigger: "connect_existing_repository",
         state: "succeeded",
         currentStep: "finish",
@@ -125,7 +127,7 @@ describe("MCP tool runtime boundaries", () => {
         updatedAt: 1,
         completedAt: 1,
       });
-      await ctx.db.replace(authorizedVaultId, {
+      await ctx.db.replace(authorizedRepositoryId, {
         organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "account_1",
@@ -133,11 +135,12 @@ describe("MCP tool runtime boundaries", () => {
         state: "connected",
         githubMode: "connect_existing_repository",
         runId: authorizedRunId,
-        ghRepoId: "authorized-repository",
-        name: "authorized",
+        githubRepositoryDatabaseId: "authorized-repository",
+        githubRepositoryName: "authorized",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 1,
+        createdAt: 1,
       });
       const otherOrganizationId = await ctx.db.insert("organizations", {
         githubInstallationId: "other_installation",
@@ -151,18 +154,19 @@ describe("MCP tool runtime boundaries", () => {
         userId,
         role: "member",
       });
-      const otherRunVaultId = await ctx.db.insert("vaults", {
+      const otherRunRepositoryId = await ctx.db.insert("repositories", {
         organizationId: otherOrganizationId,
         convexTeamId: "other-convex-team",
         cloudflareAccountId: "other-cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "not_connected",
+        createdAt: 1,
       });
-      const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      const otherRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: otherOrganizationId,
         userId,
-        vaultId: otherRunVaultId,
-        repositoryFullName: "other-owner/hidden",
+        repositoryId: otherRunRepositoryId,
+        githubRepositoryFullName: "other-owner/hidden",
         trigger: "connect_existing_repository",
         state: "succeeded",
         currentStep: "finish",
@@ -170,7 +174,7 @@ describe("MCP tool runtime boundaries", () => {
         updatedAt: 1,
         completedAt: 1,
       });
-      await ctx.db.replace(otherRunVaultId, {
+      await ctx.db.replace(otherRunRepositoryId, {
         organizationId: otherOrganizationId,
         convexTeamId: "other-convex-team",
         cloudflareAccountId: "other-cloudflare-account",
@@ -178,16 +182,17 @@ describe("MCP tool runtime boundaries", () => {
         state: "connected",
         githubMode: "connect_existing_repository",
         runId: otherRunId,
-        ghRepoId: "hidden-repository",
-        name: "hidden",
+        githubRepositoryDatabaseId: "hidden-repository",
+        githubRepositoryName: "hidden",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 1,
+        createdAt: 1,
       });
-      return { authorizedVaultId, otherOrganizationId };
+      return { authorizedRepositoryId, otherRunRepositoryId };
     });
 
-    const result = await t.action(internal.toolRuntime.runtime.getUserVaultsTool, {
+    const result = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -196,12 +201,15 @@ describe("MCP tool runtime boundaries", () => {
     if (result.status !== "ok") {
       throw new Error(result.text);
     }
-    expect(result.structuredContent.vaults).toEqual(
+    expect(result.structuredContent.repositories).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ _id: authorizedVaultId, organizationId }),
-        expect.objectContaining({ organizationId: otherOrganizationId }),
+        expect.objectContaining({ repositoryId: authorizedRepositoryId }),
+        expect.objectContaining({ repositoryId: otherRunRepositoryId }),
       ]),
     );
+    for (const repository of result.structuredContent.repositories) {
+      expect(repository).not.toHaveProperty("organizationId");
+    }
   });
 
   it.each([
@@ -329,12 +337,12 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {
-    const { t, userId, vaultId } = await seedToolRuntimeOwner();
+    const { t, userId, repositoryId } = await seedToolRuntimeOwner();
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
       grantedScopes: ["access_provider_connections"],
-      vaultId,
+      repositoryId,
       accountId: "account_1",
       workerName: "___",
       rootDirectory: "/",

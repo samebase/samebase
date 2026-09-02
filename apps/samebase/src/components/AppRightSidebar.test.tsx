@@ -624,7 +624,7 @@ describe("AppRightSidebarContent", () => {
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
         [
-          getFunctionName(api.vault.dashboard.getUserVaults),
+          getFunctionName(api.repository.dashboard.getUserRepositories),
           [{ hasConvexProvision: true, hasCloudflareProvision: false }],
         ],
         [
@@ -701,7 +701,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "granted" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.vault.dashboard.getUserVaults), []],
+        [getFunctionName(api.repository.dashboard.getUserRepositories), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -760,7 +760,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.vault.dashboard.getUserVaults), []],
+        [getFunctionName(api.repository.dashboard.getUserRepositories), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -796,7 +796,7 @@ describe("AppRightSidebarContent", () => {
     }
   });
 
-  it("hides onboarding after one vault has both provider attachments", async () => {
+  it("hides onboarding after one repository has both provider attachments", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
         [
@@ -807,7 +807,7 @@ describe("AppRightSidebarContent", () => {
           },
         ],
         [
-          getFunctionName(api.vault.dashboard.getUserVaults),
+          getFunctionName(api.repository.dashboard.getUserRepositories),
           [{ hasConvexProvision: true, hasCloudflareProvision: true }],
         ],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "granted" }],

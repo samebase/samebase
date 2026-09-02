@@ -245,7 +245,7 @@ describe("posthog client setup", () => {
   it("strips agent handoff fragments from pageview URLs", () => {
     expect(
       sanitizeSamebasePostHogPageviewUrl(
-        "/agents/connect#handoff=agbh_secret&returnTo=%2Fvault%2F",
+        "/agents/connect#handoff=agbh_secret&returnTo=%2Frepository%2F",
         "https://samebase.com",
       ),
     ).toBe("https://samebase.com/agents/connect");

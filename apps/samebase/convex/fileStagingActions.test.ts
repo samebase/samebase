@@ -190,7 +190,7 @@ describe("draft pull request helpers", () => {
       readOpenPullRequestForBranch({
         branch: "feature-branch",
         baseBranch: "main",
-        repositoryFullName: "test-owner/test-repo",
+        githubRepositoryFullName: "test-owner/test-repo",
         pullRequests: [
           {
             number: 42,
@@ -231,7 +231,7 @@ describe("draft pull request helpers", () => {
       readOpenPullRequestForBranch({
         branch: "feature-branch",
         baseBranch: "main",
-        repositoryFullName: "test-owner/test-repo",
+        githubRepositoryFullName: "test-owner/test-repo",
         pullRequests: [
           {
             number: 42,
@@ -256,7 +256,7 @@ describe("draft pull request helpers", () => {
       readOpenPullRequestForBranch({
         branch: "feature-branch",
         baseBranch: "main",
-        repositoryFullName: "test-owner/test-repo",
+        githubRepositoryFullName: "test-owner/test-repo",
         pullRequests: [
           {
             number: 41,
@@ -339,7 +339,7 @@ describe("draft pull request helpers", () => {
     const record = {
       _id: "file-staging-1",
       _creationTime: 1_712_345_678_901,
-      vaultId: "vault-1",
+      repositoryId: "repository-1",
       fileDeleted: false,
       kind: "binary" as const,
       filePath: "public/images/hero.png",
@@ -359,7 +359,7 @@ describe("draft pull request helpers", () => {
 
     expect(stripCreationTimeFromStagingRecord(record)).toEqual({
       _id: "file-staging-1",
-      vaultId: "vault-1",
+      repositoryId: "repository-1",
       fileDeleted: false,
       kind: "binary",
       filePath: "public/images/hero.png",
@@ -390,7 +390,7 @@ describe("draft pull request helpers", () => {
     expect(
       readLatestOpenPullRequestForBranch({
         branch: "feature-branch",
-        repositoryFullName: "test-owner/test-repo",
+        githubRepositoryFullName: "test-owner/test-repo",
         pullRequests: [
           {
             number: 41,

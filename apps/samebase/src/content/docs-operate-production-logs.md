@@ -2,7 +2,7 @@
 
 Samebase deliberately does not wrap log reading. The providers' own tools are better, and your agent
 already has them; Samebase's job is handing over the coordinates. Get them from the app list
-(dashboard, or the `get_user_vaults` MCP tool): each app carries its Convex `teamId` and
+(dashboard, or the `get_user_repositories` MCP tool): each app carries its Convex `teamId` and
 `projectId`, plus its Cloudflare `accountId` and `workerName`. The dashboard loads current provider
 observations separately and adds direct provider links when those reads succeed.
 

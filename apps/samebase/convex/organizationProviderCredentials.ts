@@ -11,6 +11,7 @@ import {
   requireOrganizationMembership,
   requireOrganizationMembershipRecord,
 } from "./organizationAccess";
+import { isLiveConnectedRepository, type ConnectedRepository } from "./repository/state";
 import { vOrganizationCloudflareAccount, vOrganizationConvexTeam } from "./organizationModel";
 import {
   vCloudflareProviderCredential,
@@ -31,10 +32,10 @@ import {
 } from "../shared/cloudflareTokenRefresh";
 import { readActiveUser } from "./userLifecycle";
 import {
-  requireVaultProviderWorkflowAuthority,
-  requireVaultProviderWorkflowContinuation,
-  vVaultProviderWorkflowAuthority,
-} from "./vaultWorkflowAuthority";
+  requireRepositoryProviderWorkflowAuthority,
+  requireRepositoryProviderWorkflowContinuation,
+  vRepositoryProviderWorkflowAuthority,
+} from "./repositoryWorkflowAuthority";
 import { MAX_ORGANIZATION_CONNECTIONS } from "./billingResourceQuotas";
 import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
 import {
@@ -44,7 +45,7 @@ import {
 import {
   requireManualProviderWriteCheckpoint,
   requireManualProviderWriteContinuation,
-} from "./vault/infrastructureOperation";
+} from "./repository/infrastructureOperation";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -64,7 +65,7 @@ const vCloudflareTokenRefreshConfiguration = object({
 
 const manualCloudflareProviderWriteArgs = {
   organizationId: id("organizations"),
-  vaultId: id("vaults"),
+  repositoryId: id("repositories"),
   userId: id("users"),
   actionId: string(),
 } as const;
@@ -73,13 +74,13 @@ async function requireManualCloudflareProviderWriteCheckpoint(
   ctx: Pick<MutationCtx, "db"> | { db: DatabaseReader },
   args: {
     organizationId: Id<"organizations">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     userId: Id<"users">;
     actionId: string;
   },
 ): Promise<void> {
-  const vault = await requireManualProviderWriteCheckpoint(ctx, args);
-  if (vault.organizationId !== args.organizationId) {
+  const repository = await requireManualProviderWriteCheckpoint(ctx, args);
+  if (repository.organizationId !== args.organizationId) {
     throw new Error("Manual provider action does not belong to this organization.");
   }
 }
@@ -88,13 +89,13 @@ async function requireManualCloudflareProviderWriteContinuation(
   ctx: Pick<MutationCtx, "db">,
   args: {
     organizationId: Id<"organizations">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     userId: Id<"users">;
     actionId: string;
   },
 ): Promise<void> {
-  const vault = await requireManualProviderWriteContinuation(ctx, args);
-  if (vault.organizationId !== args.organizationId) {
+  const repository = await requireManualProviderWriteContinuation(ctx, args);
+  if (repository.organizationId !== args.organizationId) {
     throw new Error("Manual provider action does not belong to this organization.");
   }
 }
@@ -360,15 +361,15 @@ export const loadCloudflareTokenRefreshContinuationForManualProviderWrite = inte
   },
 });
 
-export const loadForVaultProviderWorkflow = internalQuery({
-  args: { authority: vVaultProviderWorkflowAuthority },
+export const loadForRepositoryProviderWorkflow = internalQuery({
+  args: { authority: vRepositoryProviderWorkflowAuthority },
   returns: object({
     organizationId: id("organizations"),
     userId: id("users"),
     configuration: vOrganizationProviderConfiguration,
   }),
   handler: async (ctx, args) => {
-    const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
+    const authority = await requireRepositoryProviderWorkflowAuthority(ctx.db, args.authority);
     await requireRepositoryAuthorityContinuation(ctx);
     return {
       organizationId: authority.organizationId,
@@ -493,12 +494,12 @@ async function resolveOrganizationForCredentialWrite(
   return organization;
 }
 
-async function listLiveOrganizationVaultsForProviderBinding(
+async function listLiveOrganizationRepositoriesForProviderBinding(
   ctx: Pick<MutationCtx, "db">,
   organizationId: Id<"organizations">,
-): Promise<Doc<"vaults">[]> {
-  const vaults = await ctx.db
-    .query("vaults")
+): Promise<ConnectedRepository[]> {
+  const repositories = await ctx.db
+    .query("repositories")
     .withIndex("by_organization_and_state_and_deletion_state", (query) =>
       query
         .eq("organizationId", organizationId)
@@ -506,10 +507,10 @@ async function listLiveOrganizationVaultsForProviderBinding(
         .eq("deletion.state", "not_deleting"),
     )
     .take(MAX_ORGANIZATION_CONNECTIONS + 1);
-  if (vaults.length > MAX_ORGANIZATION_CONNECTIONS) {
+  if (repositories.length > MAX_ORGANIZATION_CONNECTIONS) {
     throw new Error("Organization connection limit was exceeded before provider binding.");
   }
-  return vaults;
+  return repositories.filter(isLiveConnectedRepository);
 }
 
 type ConnectConvexCredentialArgs = {
@@ -591,9 +592,12 @@ export async function connectConvexCredential(
       convexTeam: { ...organization.convexTeam, teamSlug: args.teamSlug },
     });
   }
-  for (const vault of await listLiveOrganizationVaultsForProviderBinding(ctx, organization._id)) {
-    if (vault.convexTeamId === undefined) {
-      await ctx.db.patch(vault._id, { convexTeamId: args.teamId });
+  for (const repository of await listLiveOrganizationRepositoriesForProviderBinding(
+    ctx,
+    organization._id,
+  )) {
+    if (repository.convexTeamId === undefined) {
+      await ctx.db.patch(repository._id, { convexTeamId: args.teamId });
     }
   }
   if (oauthState !== null) {
@@ -710,9 +714,12 @@ export async function connectCloudflareCredential(
       },
     });
   }
-  for (const vault of await listLiveOrganizationVaultsForProviderBinding(ctx, organization._id)) {
-    if (vault.cloudflareAccountId === undefined) {
-      await ctx.db.patch(vault._id, { cloudflareAccountId: args.account.accountId });
+  for (const repository of await listLiveOrganizationRepositoriesForProviderBinding(
+    ctx,
+    organization._id,
+  )) {
+    if (repository.cloudflareAccountId === undefined) {
+      await ctx.db.patch(repository._id, { cloudflareAccountId: args.account.accountId });
     }
   }
   if (oauthState !== null) {
@@ -782,16 +789,16 @@ export const setConvexTeamSlug = internalMutation({
   },
 });
 
-export const setConvexTeamSlugForVaultWorkflow = internalMutation({
+export const setConvexTeamSlugForRepositoryWorkflow = internalMutation({
   args: {
-    authority: vVaultProviderWorkflowAuthority,
+    authority: vRepositoryProviderWorkflowAuthority,
     expectedAuth: vStandardProviderAuth,
     teamId: string(),
     teamSlug: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const authority = await requireVaultProviderWorkflowContinuation(ctx, args.authority);
+    const authority = await requireRepositoryProviderWorkflowContinuation(ctx, args.authority);
     await setConvexTeamSlugAfterAuthority(ctx, authority.organizationId, args);
     return null;
   },
@@ -949,9 +956,9 @@ export const replaceCloudflareCredential = internalMutation({
   },
 });
 
-export const replaceCloudflareCredentialForVaultWorkflow = internalMutation({
+export const replaceCloudflareCredentialForRepositoryWorkflow = internalMutation({
   args: {
-    authority: vVaultProviderWorkflowAuthority,
+    authority: vRepositoryProviderWorkflowAuthority,
     expectedAuth: vCloudflareProviderAuth,
     auth: vCloudflareProviderAuth,
     tokenHealth: vMcpTokenHealth,
@@ -959,7 +966,7 @@ export const replaceCloudflareCredentialForVaultWorkflow = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const authority = await requireVaultProviderWorkflowContinuation(ctx, args.authority);
+    const authority = await requireRepositoryProviderWorkflowContinuation(ctx, args.authority);
     await replaceCloudflareCredentialAfterAuthority(ctx, authority.organizationId, args);
     return null;
   },
@@ -1072,9 +1079,9 @@ export const claimCloudflareTokenRefresh = internalMutation({
   },
 });
 
-export const claimCloudflareTokenRefreshForVaultWorkflow = internalMutation({
+export const claimCloudflareTokenRefreshForRepositoryWorkflow = internalMutation({
   args: {
-    authority: vVaultProviderWorkflowAuthority,
+    authority: vRepositoryProviderWorkflowAuthority,
     expectedAuth: vCloudflareProviderAuth,
     force: optional(boolean()),
     debounceMs: optional(number()),
@@ -1090,7 +1097,7 @@ export const claimCloudflareTokenRefreshForVaultWorkflow = internalMutation({
     }),
   ),
   handler: async (ctx, args) => {
-    const authority = await requireVaultProviderWorkflowContinuation(ctx, args.authority);
+    const authority = await requireRepositoryProviderWorkflowContinuation(ctx, args.authority);
     return await claimCloudflareTokenRefreshAfterAuthority(ctx, authority.organizationId, args);
   },
 });
@@ -1132,9 +1139,9 @@ export const releaseCloudflareTokenRefresh = internalMutation({
   },
 });
 
-export const releaseCloudflareTokenRefreshForVaultWorkflow = internalMutation({
+export const releaseCloudflareTokenRefreshForRepositoryWorkflow = internalMutation({
   args: {
-    authority: vVaultProviderWorkflowAuthority,
+    authority: vRepositoryProviderWorkflowAuthority,
     expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
     recordLastTokenRefreshAt: optional(boolean()),
   },
@@ -1142,7 +1149,7 @@ export const releaseCloudflareTokenRefreshForVaultWorkflow = internalMutation({
     lastTokenRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    const authority = await requireVaultProviderWorkflowContinuation(ctx, args.authority);
+    const authority = await requireRepositoryProviderWorkflowContinuation(ctx, args.authority);
     return await releaseCloudflareTokenRefreshAfterAuthority(ctx, authority.organizationId, args);
   },
 });

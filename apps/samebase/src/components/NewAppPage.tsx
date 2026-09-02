@@ -19,7 +19,7 @@ import {
   useCloudflareBuildTokens,
 } from "@/components/useCloudflareBuildTokens";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
+import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/lib/organizationRoutes";
 import {
   buildAvailableAppResourceNameSuggestion,
@@ -28,12 +28,12 @@ import {
   validateAppResourceName,
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
-import { toSafeRepoName } from "../../shared/repoName";
+import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
-} from "@/components/vault-dashboard/VaultDashboardLogos";
+} from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
@@ -42,7 +42,7 @@ import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegio
 type CreateResourceNameMode = "auto" | "manual";
 type CreateProviderNameConflict = { provider: AppResourceNameProvider; name: string };
 type CreateResourceNameCheckResult =
-  (typeof api.vault.actions.checkCreateRepositoryResourceNames)["_returnType"];
+  (typeof api.repository.actions.checkCreateRepositoryResourceNames)["_returnType"];
 type CreateResourceNameAvailability = CreateResourceNameCheckResult["convex"];
 type AppConvexConnection = (typeof api.users.getConvexConnectionStatus)["_returnType"];
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
@@ -470,9 +470,9 @@ export function NewAppProviderReadiness({
 export function NewAppPage({ organization }: { organization: ViewerOrganization }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const createRepository = useAction(api.vault.actions.createRepository);
+  const createRepository = useAction(api.repository.actions.createRepository);
   const checkCreateRepositoryResourceNames = useAction(
-    api.vault.actions.checkCreateRepositoryResourceNames,
+    api.repository.actions.checkCreateRepositoryResourceNames,
   );
   const organizationId = organization.organizationId;
   const canManageOrganization = organization.role === "owner";
@@ -533,7 +533,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const canCreateRepositoryForOrganization = organization.canCreateRepository;
   const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForOrganization;
   const createRepositoryName = newRepositoryName.trim();
-  const normalizedGitHubRepositoryName = toSafeRepoName(newRepositoryName);
+  const normalizedGitHubRepositoryName = toSafeGitHubRepositoryName(newRepositoryName);
   const defaultConvexProjectName = buildDefaultAppResourceName({
     repositoryName: newRepositoryName,
     provider: "convex",
@@ -970,10 +970,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   );
 
   const handleCreateRepository = async () => {
-    const repoName = newRepositoryName.trim();
-    if (!repoName || isCreating) return;
-    const routeRepoName = normalizedGitHubRepositoryName;
-    if (!routeRepoName) {
+    const githubRepositoryName = newRepositoryName.trim();
+    if (!githubRepositoryName || isCreating) return;
+    const routeRepositoryName = normalizedGitHubRepositoryName;
+    if (!routeRepositoryName) {
       setCreateError("Repository name is required.");
       return;
     }
@@ -1037,7 +1037,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     try {
       await createRepository({
         organizationId,
-        name: repoName,
+        githubRepositoryName,
         convexProjectName: convexProjectNameValidation.value,
         convexDeploymentRegion,
         cloudflareWorkerName: submittedCloudflareWorkerName,
@@ -1053,9 +1053,9 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       cloudflareBuildTokenSelection.setRequestedUuid(null);
       await navigate({
         href: buildPathWithTanStackSearch({
-          pathname: buildVaultDashboardRoute({
+          pathname: buildRepositoryDashboardRoute({
             owner: organization.githubOwnerLogin,
-            repoName: routeRepoName,
+            repoName: routeRepositoryName,
           }),
           search: location.search,
         }),

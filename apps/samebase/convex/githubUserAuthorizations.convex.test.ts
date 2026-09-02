@@ -138,23 +138,24 @@ async function createProvisioningAuthority(
       userId,
       role: "owner",
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
       organizationId,
       userId,
-      vaultId,
-      repositoryFullName: "Maintenance/repository",
+      repositoryId,
+      githubRepositoryFullName: "Maintenance/repository",
       trigger: "create",
       state: "running",
-      currentStep: "create_github_repo",
+      currentStep: "create_github_repository",
       createdAt: 1,
       updatedAt: 1,
     });
-    return { runId, userId, vaultId };
+    return { runId, userId, repositoryId };
   });
 }
 
@@ -813,7 +814,7 @@ describe("GitHub user authorization identity boundaries", () => {
     const claim = await t.mutation(internal.githubUserAuthorizations.claimForProvisioningRun, {
       runId: authority.runId,
       userId: authority.userId,
-      vaultId: authority.vaultId,
+      repositoryId: authority.repositoryId,
       githubUserId: "907",
     });
     if (claim.kind !== "claimed") throw new Error("Expected a workflow refresh claim.");
@@ -822,7 +823,7 @@ describe("GitHub user authorization identity boundaries", () => {
       t.mutation(internal.githubUserAuthorizations.releaseRefreshForProvisioningRun, {
         runId: authority.runId,
         userId: authority.userId,
-        vaultId: authority.vaultId,
+        repositoryId: authority.repositoryId,
         authorizationId,
         refreshStartedAt: claim.refreshStartedAt,
       }),

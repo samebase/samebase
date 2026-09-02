@@ -37,10 +37,10 @@ export type GitHubConvexCodeLocationDiscovery = {
   locations: GitHubConvexCodeLocationCandidate[];
 };
 
-/** `octokit` must use an installation token restricted to `ghRepoId`. */
+/** `octokit` must use an installation token restricted to `githubRepositoryDatabaseId`. */
 export async function resolveGitHubRepositoryById(args: {
   octokit: Octokit;
-  ghRepoId: string;
+  githubRepositoryDatabaseId: string;
   recordApiCall?: ProviderApiCallRecorder;
 }) {
   await args.recordApiCall?.({
@@ -51,7 +51,7 @@ export async function resolveGitHubRepositoryById(args: {
   });
   const accessibleRepositories = await args.octokit.request("GET /installation/repositories");
   const selectedRepository = accessibleRepositories.data.repositories.find(
-    (repository) => String(repository.id) === args.ghRepoId,
+    (repository) => String(repository.id) === args.githubRepositoryDatabaseId,
   );
   if (selectedRepository === undefined) {
     throw new Error("The GitHub App installation cannot access the selected repository.");
@@ -76,7 +76,7 @@ export async function resolveGitHubRepositoryById(args: {
     owner: ownerName,
     repo: repoName,
   });
-  if (String(repository.data.id) !== args.ghRepoId) {
+  if (String(repository.data.id) !== args.githubRepositoryDatabaseId) {
     throw new Error("GitHub repository response did not match the selected repository.");
   }
   if (
@@ -122,7 +122,7 @@ export async function fetchGitHubRepoIdentity(args: {
   const ownerId = String(response.data.owner.id);
   const defaultBranch = response.data.default_branch.trim();
   if (repoId !== args.expectedRepoId) {
-    throw new Error("GitHub repository response did not match the vault repo.");
+    throw new Error("GitHub repository response did not match the Samebase repository.");
   }
   if (!defaultBranch) {
     throw new Error("GitHub repository response did not include a default branch.");
@@ -203,7 +203,7 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
   });
   const repository = await args.octokit.rest.repos.get({ owner: args.owner, repo: args.repo });
   if (String(repository.data.id) !== args.expectedRepoId) {
-    throw new Error("GitHub repository response did not match the vault repo.");
+    throw new Error("GitHub repository response did not match the Samebase repository.");
   }
   const defaultBranch = repository.data.default_branch.trim();
   if (!defaultBranch) {

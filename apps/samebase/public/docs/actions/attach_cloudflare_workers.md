@@ -2,17 +2,17 @@
 
 # Attach Cloudflare Workers (`attach_cloudflare_workers`)
 
-MCP tool `vault_cloudflare_attachWorkers` · scope `access_provider_connections` · write
+MCP tool `repository_cloudflare_attachWorkers` · scope `access_provider_connections` · write
 
-Re-reads every selected Worker and requires one current root for the vault's immutable GitHub
+Re-reads every selected Worker and requires one current root for the repository's immutable GitHub
 repository identity before writing any attachment. The final Samebase mutation is atomic: either
 every selected Worker is attached or none are. Cloudflare configuration is not changed.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault whose GitHub repository the Workers must match.
-- `accountId` (string, required): The vault's cloudflareAccountId returned by get_user_vaults and
-  used for the preceding Worker discovery.
+- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
+  get_user_repositories and used for the preceding Worker discovery.
 - `workers` (array, required): One or more Worker name and stable tag pairs returned by
   discover_cloudflare_workers.
 

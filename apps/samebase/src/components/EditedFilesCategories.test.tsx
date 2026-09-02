@@ -17,7 +17,7 @@ describe("EditedFilesCategories", () => {
               renamed: [],
               renamedAndModified: [],
             }}
-            repositoryFullName="samebase/samebase"
+            githubRepositoryFullName="samebase/samebase"
           />
         </TestRouterProvider>,
       ),

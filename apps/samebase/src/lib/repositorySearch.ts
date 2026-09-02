@@ -1,4 +1,4 @@
-import { tryParseRepositoryFullName } from "../../shared/repoName";
+import { tryParseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
 
 type SearchableRepository = {
   name: string;
@@ -45,7 +45,7 @@ export function getFuzzyMatchIndices(query: string, target: string): number[] | 
 }
 
 function readRepositoryOwner(fullName: string): string {
-  return tryParseRepositoryFullName(fullName)?.owner ?? "";
+  return tryParseGitHubRepositoryFullName(fullName)?.owner ?? "";
 }
 
 export function findRepositorySearchMatch(

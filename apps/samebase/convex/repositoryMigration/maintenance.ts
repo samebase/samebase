@@ -201,7 +201,7 @@ async function readFreezeBlocker(
   now: number,
 ): Promise<string | null> {
   const queuedProvisioningRun = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
+    .query("workflow_repositoryProvisioning_runs")
     .withIndex("by_state", (indexQuery) => indexQuery.eq("state", "queued"))
     .first();
   if (queuedProvisioningRun !== null) {
@@ -209,7 +209,7 @@ async function readFreezeBlocker(
   }
 
   const runningProvisioningRun = await ctx.db
-    .query("workflow_vaultProvisioning_runs")
+    .query("workflow_repositoryProvisioning_runs")
     .withIndex("by_state", (indexQuery) => indexQuery.eq("state", "running"))
     .first();
   if (runningProvisioningRun !== null) {
@@ -217,7 +217,7 @@ async function readFreezeBlocker(
   }
 
   const activeProviderWrite = await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
+    .query("workflow_repositoryProvisioning_writeLocks")
     .withIndex("by_state", (indexQuery) => indexQuery.eq("state", "active"))
     .first();
   if (activeProviderWrite !== null) {
@@ -225,7 +225,7 @@ async function readFreezeBlocker(
   }
 
   const queuedDeletionRun = await ctx.db
-    .query("workflow_vaultDeletion_runs")
+    .query("workflow_repositoryDeletion_runs")
     .withIndex("by_state", (indexQuery) => indexQuery.eq("state", "queued"))
     .first();
   if (queuedDeletionRun !== null) {
@@ -233,7 +233,7 @@ async function readFreezeBlocker(
   }
 
   const runningDeletionRun = await ctx.db
-    .query("workflow_vaultDeletion_runs")
+    .query("workflow_repositoryDeletion_runs")
     .withIndex("by_state", (indexQuery) => indexQuery.eq("state", "running"))
     .first();
   if (runningDeletionRun !== null) {
@@ -249,7 +249,7 @@ async function readFreezeBlocker(
   }
 
   const activeTreeRefresh = await ctx.db
-    .query("vaults")
+    .query("repositories")
     .withIndex("by_tree_refresh_started_at", (indexQuery) =>
       indexQuery.gt("treeRefreshStartedAt", now - TREE_REFRESH_STALE_LOCK_MS),
     )

@@ -20,7 +20,7 @@ export const fixtureNotes = {
   right: "Drag left for review",
 };`;
 
-const FIXTURE_VAULT_KEY = "fixture-monaco-pane-drag-vault";
+const FIXTURE_REPOSITORY_KEY = "fixture-monaco-pane-drag-repository";
 const FIXTURE_VITE_CONFIG = `import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -86,7 +86,7 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
                     onMount={() => {}}
                     showMobileLineNumbers={false}
                     syncError={null}
-                    vaultKey={FIXTURE_VAULT_KEY}
+                    repositoryKey={FIXTURE_REPOSITORY_KEY}
                   />
                 </div>
               </div>
@@ -159,7 +159,7 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
                     onMount={() => {}}
                     showMobileLineNumbers={false}
                     syncError={null}
-                    vaultKey={FIXTURE_VAULT_KEY}
+                    repositoryKey={FIXTURE_REPOSITORY_KEY}
                   />
                 </div>
               </div>

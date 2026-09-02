@@ -53,7 +53,7 @@ const PII_KEY_MARKERS = [
   "url",
   "user",
   "uuid",
-  "vault",
+  "repository",
   "worker",
 ];
 const PII_EXACT_KEYS = ["commithash", "ref"];

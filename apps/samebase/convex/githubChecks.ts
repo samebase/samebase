@@ -59,18 +59,18 @@ type CommitStatusOkResult = Infer<typeof commitStatusOkResultValidator>;
 type CommitStatusCooldownResult = Infer<typeof commitStatusCooldownResultValidator>;
 type CommitStatusRateLimitedResult = Infer<typeof commitStatusRateLimitedResultValidator>;
 
-function readSharedCooldownMessage(vault: {
+function readSharedCooldownMessage(repository: {
   treeRefreshFailureKind?: "failed" | "rate_limited";
   treeRefreshFailureMessage?: string;
 }): string {
   if (
-    typeof vault.treeRefreshFailureMessage === "string" &&
-    vault.treeRefreshFailureMessage.length > 0
+    typeof repository.treeRefreshFailureMessage === "string" &&
+    repository.treeRefreshFailureMessage.length > 0
   ) {
-    return vault.treeRefreshFailureMessage;
+    return repository.treeRefreshFailureMessage;
   }
 
-  return vault.treeRefreshFailureKind === "rate_limited"
+  return repository.treeRefreshFailureKind === "rate_limited"
     ? "GitHub API rate limited. Auto-refresh paused."
     : "GitHub sync failed. Showing cached state.";
 }
@@ -191,21 +191,21 @@ export const getCommitStatus = action({
   },
   returns: commitStatusResultValidator,
   handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: `${owner}/${repo}`,
+    const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
+      githubRepositoryFullName: `${owner}/${repo}`,
       userId: ctx.viewer.userId,
     });
-    if (!vault) {
-      throw new Error("Vault not found");
+    if (!repository) {
+      throw new Error("Repository not found");
     }
     if (
-      typeof vault.treeRefreshCooldownUntil === "number" &&
-      vault.treeRefreshCooldownUntil > Date.now()
+      typeof repository.treeRefreshCooldownUntil === "number" &&
+      repository.treeRefreshCooldownUntil > Date.now()
     ) {
       const cooldownResult: CommitStatusCooldownResult = {
         kind: "cooldown",
-        message: readSharedCooldownMessage(vault),
-        cooldownUntilMs: vault.treeRefreshCooldownUntil,
+        message: readSharedCooldownMessage(repository),
+        cooldownUntilMs: repository.treeRefreshCooldownUntil,
       };
       return cooldownResult;
     }
@@ -221,7 +221,7 @@ export const getCommitStatus = action({
     try {
       const githubAccess = await resolveGitHubAppAccess(ctx, {
         userId: ctx.viewer.userId,
-        target: { kind: "vault", vaultId: vault._id },
+        target: { kind: "repository", repositoryId: repository.repositoryId },
       });
       const octokit = githubAccess.octokit;
 
@@ -267,8 +267,8 @@ export const getCommitStatus = action({
         }
 
         const failure = describeRepositoryTreeRefreshFailure(error);
-        await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
-          vaultId: vault._id,
+        await ctx.runMutation(internal.repository.branches.recordTreeRefreshFailure, {
+          repositoryId: repository.repositoryId,
           failureKind: failure.kind,
           failureMessage: failure.message,
           cooldownUntil: failure.cooldownUntil,

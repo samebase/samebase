@@ -245,7 +245,7 @@ describe("NewAppPage", () => {
     vi.useFakeTimers();
     const checkNames = vi.fn(async () => availableNames());
     testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
     const container = await mountPage();
@@ -291,7 +291,7 @@ describe("NewAppPage", () => {
     vi.useFakeTimers();
     const checkNames = vi.fn(async () => availableNames());
     testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
     const container = await mountPage();
@@ -380,10 +380,13 @@ describe("NewAppPage", () => {
       throw new ConvexError("A Convex project named race-app-2 already exists.");
     });
     testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
-    testState.actions.set(getFunctionName(api.vault.actions.createRepository), createRepository);
+    testState.actions.set(
+      getFunctionName(api.repository.actions.createRepository),
+      createRepository,
+    );
     const container = await mountPage();
     const repositoryInput = container.querySelector<HTMLInputElement>(
       "[aria-label='GitHub repo name']",
@@ -472,10 +475,13 @@ describe("NewAppPage", () => {
     const checkNames = vi.fn(async () => availableNames("not_required"));
     const createRepository = vi.fn(async () => undefined);
     testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
-    testState.actions.set(getFunctionName(api.vault.actions.createRepository), createRepository);
+    testState.actions.set(
+      getFunctionName(api.repository.actions.createRepository),
+      createRepository,
+    );
     const container = await mountPage();
     const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
     if (!input) {
@@ -506,7 +512,7 @@ describe("NewAppPage", () => {
     await vi.waitFor(() =>
       expect(createRepository).toHaveBeenCalledWith({
         organizationId: organization.organizationId,
-        name: "no-token-app",
+        githubRepositoryName: "no-token-app",
         convexProjectName: "no-token-app",
         convexDeploymentRegion: CONVEX_US_EAST_REGION,
         cloudflareWorkerName: "no-token-app",
@@ -525,7 +531,7 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.state = state;
     const checkNames = vi.fn(async () => availableNames());
     testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
     const container = await mountPage();
@@ -556,7 +562,7 @@ describe("NewAppPage", () => {
       throw new Error("Provider name check failed.");
     });
     testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
     const container = await mountPage();

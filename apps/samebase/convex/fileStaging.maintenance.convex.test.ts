@@ -25,18 +25,19 @@ async function createConnectedRepositoryFixture() {
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
       organizationId,
       userId,
-      vaultId,
-      repositoryFullName: "ada/editor-maintenance",
+      repositoryId,
+      githubRepositoryFullName: "ada/editor-maintenance",
       trigger: "create",
       state: "succeeded",
       currentStep: "finish",
@@ -44,7 +45,8 @@ async function createConnectedRepositoryFixture() {
       updatedAt: 2,
       completedAt: 3,
     });
-    await ctx.db.replace(vaultId, {
+    await ctx.db.replace(repositoryId, {
+      createdAt: 1,
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
@@ -52,13 +54,13 @@ async function createConnectedRepositoryFixture() {
       state: "connected",
       githubMode: "create_repository",
       runId,
-      ghRepoId: "123",
-      name: "editor-maintenance",
+      githubRepositoryDatabaseId: "123",
+      githubRepositoryName: "editor-maintenance",
       defaultBranch: "main",
       visibility: "private",
       connectedAt: 4,
     });
-    return { userId, vaultId };
+    return { userId, repositoryId };
   });
   return { t, ids };
 }
@@ -77,8 +79,8 @@ describe("repository maintenance editor write authority", () => {
     );
     await t.run(async (ctx) => {
       for (let index = 0; index < 501; index += 1) {
-        await ctx.db.insert("vaultStagedFileUpdates", {
-          vaultId: ids.vaultId,
+        await ctx.db.insert("repositoryStagedFileUpdates", {
+          repositoryId: ids.repositoryId,
           branch: "main",
           filePath: "README.md",
           version: index + 1,
@@ -96,7 +98,7 @@ describe("repository maintenance editor write authority", () => {
     vi.useFakeTimers();
     try {
       await t.mutation(internal.fileStaging.clearAllStagingForOperation, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         branch: "main",
         skipTreeUpdate: true,
@@ -126,7 +128,7 @@ describe("repository maintenance editor write authority", () => {
       }
       await expect(
         t.mutation(internal.fileStaging.deleteCollaborativeUpdatesBatch, {
-          vaultId: ids.vaultId,
+          repositoryId: ids.repositoryId,
           branch: "main",
           cutoffTimestamp: 0,
           leaseId: cleanupLease._id,
@@ -138,7 +140,7 @@ describe("repository maintenance editor write authority", () => {
       await t.finishAllScheduledFunctions(vi.runAllTimers);
 
       const result = await t.run(async (ctx) => ({
-        updates: await ctx.db.query("vaultStagedFileUpdates").collect(),
+        updates: await ctx.db.query("repositoryStagedFileUpdates").collect(),
         leases: await ctx.db.query("repositoryOperationLeases").collect(),
       }));
       expect(result).toEqual({ updates: [], leases: [] });
@@ -159,10 +161,10 @@ describe("repository maintenance editor write authority", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
     const capability = await asUser.mutation(api.fileStaging.generateUploadUrl, {
-      vaultId: ids.vaultId,
+      repositoryId: ids.repositoryId,
     });
 
-    expect(capability.operationName).toBe(`stage_uploaded_media:${ids.vaultId}`);
+    expect(capability.operationName).toBe(`stage_uploaded_media:${ids.repositoryId}`);
     const lease = await t.run(async (ctx) => await ctx.db.get(capability.leaseId));
     expect(lease).toMatchObject({
       operationId: capability.operationId,
@@ -175,7 +177,7 @@ describe("repository maintenance editor write authority", () => {
     });
     await expect(
       t.mutation(internal.fileStaging.assertMediaUploadCapability, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         leaseId: capability.leaseId,
         operationId: capability.operationId,
@@ -184,7 +186,7 @@ describe("repository maintenance editor write authority", () => {
     ).resolves.toBeNull();
     await expect(
       t.mutation(internal.fileStaging.assertMediaUploadCapability, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         leaseId: capability.leaseId,
         operationId: "another-operation",
@@ -193,11 +195,11 @@ describe("repository maintenance editor write authority", () => {
     ).rejects.toThrow("Repository operation lease is not active");
     await expect(
       t.mutation(internal.fileStaging.assertMediaUploadCapability, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         leaseId: capability.leaseId,
         operationId: capability.operationId,
-        operationName: "stage_uploaded_media:another-vault",
+        operationName: "stage_uploaded_media:another-repository",
       }),
     ).rejects.toThrow("Media upload capability does not match its repository");
     await expect(
@@ -211,8 +213,8 @@ describe("repository maintenance editor write authority", () => {
     );
     await expect(
       asUser.action(api.fileStagingActions.stageUploadedMedia, {
-        repositoryFullName: "ada/editor-maintenance",
-        vaultId: ids.vaultId,
+        githubRepositoryFullName: "ada/editor-maintenance",
+        repositoryId: ids.repositoryId,
         filePath: "notes.txt",
         storageId,
         branch: "main",
@@ -236,7 +238,7 @@ describe("repository maintenance editor write authority", () => {
     );
     await expect(
       t.mutation(internal.fileStaging.assertMediaUploadCapability, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         leaseId: frozenLeaseId,
         operationId: capability.operationId,
@@ -260,7 +262,7 @@ describe("repository maintenance editor write authority", () => {
 
     await expect(
       t.mutation(internal.fileStaging.saveToStaging, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         initialFilePath: "README.md",
         content: "initial",
         initialContent: "initial",
@@ -275,7 +277,7 @@ describe("repository maintenance editor write authority", () => {
 
     await expect(
       t.mutation(internal.collaborative.pushContentUpdate, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         filePath: "README.md",
         branch: "main",
         expectedVersion: 0,
@@ -289,7 +291,7 @@ describe("repository maintenance editor write authority", () => {
 
     await expect(
       t.mutation(internal.gitOperations.saveFileBlob, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         sha: "cached-sha",
         size: 7,
         text: "updated",
@@ -301,8 +303,8 @@ describe("repository maintenance editor write authority", () => {
       }),
     ).resolves.toBeDefined();
 
-    const refreshClaim = await t.mutation(internal.vault.branches.claimTreeRefresh, {
-      vaultId: ids.vaultId,
+    const refreshClaim = await t.mutation(internal.repository.branches.claimTreeRefresh, {
+      repositoryId: ids.repositoryId,
       leaseId: lease.leaseId,
       operationId,
       operationName,
@@ -312,8 +314,8 @@ describe("repository maintenance editor write authority", () => {
       throw new Error("Expected the admitted branch refresh to claim its lock.");
     }
     await expect(
-      t.mutation(internal.vault.branches.releaseTreeRefresh, {
-        vaultId: ids.vaultId,
+      t.mutation(internal.repository.branches.releaseTreeRefresh, {
+        repositoryId: ids.repositoryId,
         startedAt: refreshClaim.startedAt,
         markRefreshed: true,
       }),
@@ -321,7 +323,7 @@ describe("repository maintenance editor write authority", () => {
 
     await expect(
       t.mutation(internal.fileStaging.saveToStaging, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         initialFilePath: "new.md",
         content: "new",
         initialContent: "new",
@@ -333,7 +335,7 @@ describe("repository maintenance editor write authority", () => {
 
     await expect(
       t.mutation(internal.fileStaging.saveToStaging, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         initialFilePath: "new.md",
         content: "new",
         initialContent: "new",
@@ -355,7 +357,7 @@ describe("repository maintenance editor write authority", () => {
 
     await expect(
       t.mutation(internal.collaborative.pruneOldUpdates, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         branch: "main",
         filePath: "README.md",
         currentVersion: 1_000,

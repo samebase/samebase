@@ -79,12 +79,12 @@ describe("organization context acceptance fixtures", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
-      branchTrees: await ctx.db.query("observations_vaultRepository_branchTrees").collect(),
+      branchTrees: await ctx.db.query("observations_repository_branchTrees").collect(),
       memberships: await ctx.db.query("organizationMemberships").collect(),
       organizations: await ctx.db.query("organizations").collect(),
-      runs: await ctx.db.query("workflow_vaultProvisioning_runs").collect(),
+      repositories: await ctx.db.query("repositories").collect(),
+      runs: await ctx.db.query("workflow_repositoryProvisioning_runs").collect(),
       user: await ctx.db.get(userId),
-      vaults: await ctx.db.query("vaults").collect(),
     }));
 
     expect(snapshot.user).toMatchObject({
@@ -121,14 +121,19 @@ describe("organization context acceptance fixtures", () => {
           run.completedAt !== undefined,
       ),
     ).toBe(true);
-    expect(snapshot.vaults).toHaveLength(2);
-    expect(snapshot.vaults.every((vault) => vault.state === "connected")).toBe(true);
-    for (const vault of snapshot.vaults) {
+    expect(snapshot.repositories).toHaveLength(2);
+    expect(snapshot.repositories.every((repository) => repository.state === "connected")).toBe(
+      true,
+    );
+    for (const repository of snapshot.repositories) {
+      if (repository.state !== "connected") {
+        throw new Error("Acceptance repository must be connected.");
+      }
       const organization = snapshot.organizations.find(
-        (candidate) => candidate._id === vault.organizationId,
+        (candidate) => candidate._id === repository.organizationId,
       );
-      expect(vault.convexTeamId).toBe(organization?.convexTeam?.teamId);
-      expect(vault.cloudflareAccountId).toBe(organization?.cloudflareAccount?.accountId);
+      expect(repository.convexTeamId).toBe(organization?.convexTeam?.teamId);
+      expect(repository.cloudflareAccountId).toBe(organization?.cloudflareAccount?.accountId);
     }
   });
 });

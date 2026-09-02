@@ -24,7 +24,7 @@ import { Loader2 } from "lucide-react";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
-export type ConnectRepositoryRepository = Repository;
+export type ConnectRepositoryOption = Repository;
 
 type ConnectRepositoryRow = {
   repo: Repository;
@@ -107,12 +107,12 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
 export function ConnectRepository({ organization }: { organization: ViewerOrganization }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const connectedRepositories = useQuery(api.repository.dashboard.getUserRepositories) ?? [];
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
-  const connectRepository = useAction(api.vault.actions.connectRepository);
+  const connectRepository = useAction(api.repository.actions.connectRepository);
   const organizationId = organization.organizationId;
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(
@@ -146,7 +146,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
     repositoryPreview?.hasMore === true &&
     fullRepositoriesFetchedAfterMount &&
     fullQueryError == null;
-  const repositories = resolveDisplayedRepositories({
+  const displayedRepositories = resolveDisplayedRepositories({
     githubConnected: true,
     repositoryPreview,
     fullRepositories,
@@ -182,10 +182,8 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   const githubUnavailable = isGitHubUnavailable(connectError) || isGitHubUnavailable(previewError);
   const error = githubUnavailable ? null : (connectError ?? previewError);
 
-  const connectedVaults = vaults || [];
-
-  const filteredRepositories = repositories.flatMap((repo: Repository) => {
-    if (isGitHubRepositoryConnected({ repository: repo, vaults: connectedVaults })) {
+  const filteredRepositories = displayedRepositories.flatMap((repo: Repository) => {
+    if (isGitHubRepositoryConnected({ repository: repo, repositories: connectedRepositories })) {
       return [];
     }
 
@@ -217,10 +215,10 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
           connectRepository: async (args) => {
             return await connectRepository({
               organizationId,
-              ghRepoId: args.ghRepoId,
+              githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
             });
           },
-          ghRepoId: String(repository.id),
+          githubRepositoryDatabaseId: String(repository.id),
           search: location.search,
           navigateByHref: async (href) => {
             await navigate({ href });
@@ -248,7 +246,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
       githubUnavailable={githubUnavailable}
       repositoryPreviewCount={repositoryPreview?.repositories.length ?? 0}
       repositoryRows={filteredRepositories}
-      repositoryTotalCount={repositories.length}
+      repositoryTotalCount={displayedRepositories.length}
       retryingFullRepositories={retryingFullRepositories}
       searchQuery={searchQuery}
       showBackgroundError={showBackgroundError}

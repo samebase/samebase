@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import type { AppProvisioningRunStep, AppProvisioningRunTrigger } from "./appProvisioningModel";
+import type {
+  RepositoryProvisioningRunStep,
+  RepositoryProvisioningRunTrigger,
+} from "./repository/provisioningModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 type SeedRunArgs = {
   repoName: string;
-  trigger: AppProvisioningRunTrigger;
-  currentStep: AppProvisioningRunStep;
+  trigger: RepositoryProvisioningRunTrigger;
+  currentStep: RepositoryProvisioningRunStep;
   workflowId?: string;
-  vaultState?: "connected" | "provisioning";
+  repositoryState?: "connected" | "provisioning";
   activeOwnership?: boolean;
 };
 
@@ -33,18 +36,19 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       githubOwnerType: "user",
     });
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
       organizationId,
       userId,
-      vaultId,
-      repositoryFullName: `ada/${args.repoName}`,
+      repositoryId,
+      githubRepositoryFullName: `ada/${args.repoName}`,
       workflowId: args.workflowId,
       trigger: args.trigger,
       state: "running",
@@ -53,8 +57,9 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       updatedAt: 30,
     });
 
-    if (args.vaultState === "connected") {
-      await ctx.db.replace(vaultId, {
+    if (args.repositoryState === "connected") {
+      await ctx.db.replace(repositoryId, {
+        createdAt: 1,
         organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
@@ -62,14 +67,15 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
         state: "connected",
         githubMode: "create_repository",
         runId,
-        ghRepoId: "123",
-        name: args.repoName,
+        githubRepositoryDatabaseId: "123",
+        githubRepositoryName: args.repoName,
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 20,
       });
-    } else if (args.vaultState === "provisioning") {
-      await ctx.db.replace(vaultId, {
+    } else if (args.repositoryState === "provisioning") {
+      await ctx.db.replace(repositoryId, {
+        createdAt: 1,
         organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
@@ -78,14 +84,14 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
         githubMode: "create_repository",
         runId,
         startedAt: 20,
-        name: args.repoName,
+        githubRepositoryName: args.repoName,
         visibility: "private",
       });
     }
 
     if (args.activeOwnership) {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId,
         owner: { kind: "managed_run", runId },
         state: "active",
         lastWriteAt: {},
@@ -93,7 +99,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       });
     }
 
-    return { organizationId, runId, vaultId };
+    return { organizationId, runId, repositoryId };
   });
 }
 
@@ -105,7 +111,7 @@ describe("markWorkflowProvisioningFailed", () => {
       trigger: "create",
       currentStep: "attach_worker",
       workflowId: "workflow-composed-worker",
-      vaultState: "connected",
+      repositoryState: "connected",
       activeOwnership: true,
     });
     const expectedMessage = "Cloudflare Worker connection did not attach a Worker.";
@@ -119,12 +125,12 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
         .unique();
       const event = await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .query("workflow_repositoryProvisioning_events")
+        .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", ids.runId))
         .first();
       return { event, writeLock, run };
     });
@@ -156,7 +162,7 @@ describe("markWorkflowProvisioningFailed", () => {
       trigger: "retry",
       currentStep: "attach_convex",
       workflowId: "workflow-convex-team",
-      vaultState: "connected",
+      repositoryState: "connected",
       activeOwnership: true,
     });
     const expectedMessage = "Connected Convex team does not match the provisioning plan.";
@@ -180,7 +186,7 @@ describe("markWorkflowProvisioningFailed", () => {
       trigger: "retry",
       currentStep: "configure_workers_builds_for_github",
       workflowId: "workflow-cloudflare-build-token",
-      vaultState: "connected",
+      repositoryState: "connected",
       activeOwnership: true,
     });
     const providerMessage =
@@ -197,8 +203,8 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => ({
       run: await ctx.db.get(ids.runId),
       event: await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .query("workflow_repositoryProvisioning_events")
+        .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", ids.runId))
         .first(),
     }));
     expect(result).toMatchObject({
@@ -232,7 +238,7 @@ describe("markWorkflowProvisioningFailed", () => {
       trigger: "retry",
       currentStep,
       workflowId: `workflow-${repoName}`,
-      vaultState: "connected",
+      repositoryState: "connected",
       activeOwnership: true,
     });
 
@@ -245,8 +251,8 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => ({
       run: await ctx.db.get(ids.runId),
       event: await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .query("workflow_repositoryProvisioning_events")
+        .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", ids.runId))
         .first(),
     }));
     expect(result).toMatchObject({
@@ -260,14 +266,14 @@ describe("markWorkflowProvisioningFailed", () => {
     const ids = await seedRun(t, {
       repoName: "github-validation-failure",
       trigger: "create",
-      currentStep: "fetch_github_repo",
+      currentStep: "fetch_github_repository",
       workflowId: "workflow-github",
       activeOwnership: true,
     });
     await t.run(async (ctx) => {
       const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
         .unique();
       if (!writeLock) {
         throw new Error("Expected managed write lock.");
@@ -279,29 +285,29 @@ describe("markWorkflowProvisioningFailed", () => {
       runId: ids.runId,
       workflowId: "workflow-github",
       message:
-        "Error: Uncaught Error: GitHub repository response did not match the vault repo.\n    at fetchGitHubRepoIdentity",
+        "Error: Uncaught Error: GitHub repository response did not match the repository repo.\n    at fetchGitHubRepoIdentity",
     });
 
     const result = await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const event = await ctx.db
-        .query("workflow_vaultProvisioning_events")
-        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .query("workflow_repositoryProvisioning_events")
+        .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", ids.runId))
         .first();
       const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
         .unique();
       return { event, run, writeLock };
     });
-    const expectedMessage = "GitHub repository response did not match the vault repo.";
+    const expectedMessage = "GitHub repository response did not match the repository repo.";
 
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,
     });
     expect(result.event).toMatchObject({
-      step: "fetch_github_repo",
+      step: "fetch_github_repository",
       level: "error",
       message: expectedMessage,
     });
@@ -318,7 +324,7 @@ describe("markWorkflowProvisioningFailed", () => {
       repoName: "workflow-start-failure",
       trigger: "create",
       currentStep: "run_created",
-      vaultState: "provisioning",
+      repositoryState: "provisioning",
       activeOwnership: true,
     });
 
@@ -330,15 +336,15 @@ describe("markWorkflowProvisioningFailed", () => {
     const result = await t.run(async (ctx) => {
       return {
         run: await ctx.db.get(ids.runId),
-        vault: await ctx.db.get(ids.vaultId),
+        repository: await ctx.db.get(ids.repositoryId),
         writeLock: await ctx.db
-          .query("workflow_vaultProvisioning_writeLocks")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .query("workflow_repositoryProvisioning_writeLocks")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
           .unique(),
       };
     });
     expect(result.run).toMatchObject({ state: "failed" });
-    expect(result.vault).toMatchObject({
+    expect(result.repository).toMatchObject({
       state: "failed",
       githubMode: "create_repository",
       runId: ids.runId,
@@ -357,7 +363,7 @@ describe("markWorkflowProvisioningFailed", () => {
       trigger: "create",
       currentStep: "attach_worker",
       workflowId: "old-workflow",
-      vaultState: "connected",
+      repositoryState: "connected",
       activeOwnership: true,
     });
     const newerRunId = await t.run(async (ctx) => {
@@ -365,11 +371,11 @@ describe("markWorkflowProvisioningFailed", () => {
       if (!oldRun) {
         throw new Error("Expected old provisioning run.");
       }
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: ids.organizationId,
         userId: oldRun.userId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "ada/stale-workflow-failure",
+        repositoryId: ids.repositoryId,
+        githubRepositoryFullName: "ada/stale-workflow-failure",
         trigger: "retry",
         state: "running",
         currentStep: "claim_infra",
@@ -377,14 +383,14 @@ describe("markWorkflowProvisioningFailed", () => {
         updatedAt: 40,
       });
       const writeLock = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
         .unique();
       if (!writeLock) {
         throw new Error("Expected managed write lock.");
       }
       await ctx.db.replace(writeLock._id, {
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
         owner: { kind: "managed_run", runId },
         state: "active",
         lastWriteAt: { convex: 41 },
@@ -403,8 +409,8 @@ describe("markWorkflowProvisioningFailed", () => {
       return {
         run: await ctx.db.get(ids.runId),
         writeLock: await ctx.db
-          .query("workflow_vaultProvisioning_writeLocks")
-          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .query("workflow_repositoryProvisioning_writeLocks")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
           .unique(),
       };
     });

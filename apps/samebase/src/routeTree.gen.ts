@@ -27,7 +27,7 @@ import { Route as docsRouteImport } from "./routes/docs";
 import { Route as discordRouteImport } from "./routes/discord";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
-import { Route as vaultFileRouteImport } from "./routes/vault-file";
+import { Route as repositoryFileRouteImport } from "./routes/repository-file";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as orgRouteImport } from "./routes/org";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
@@ -44,11 +44,11 @@ import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflar
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminUsersRouteImport } from "./routes/admin-users";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
-import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
-import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
+import { Route as repositoryDashboardRootRouteImport } from "./routes/repository-dashboard-root";
+import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as orgSettingsRouteImport } from "./routes/org-settings";
-import { Route as orgVaultsRouteImport } from "./routes/org-vaults";
+import { Route as orgRepositoriesRouteImport } from "./routes/org-repositories";
 import { Route as orgProvidersRouteImport } from "./routes/org-providers";
 import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
 import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
@@ -57,10 +57,10 @@ import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-t
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
 import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
 import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
-import { Route as vaultSettingsRouteImport } from "./routes/vault-settings";
+import { Route as repositorySettingsRouteImport } from "./routes/repository-settings";
 import { Route as orgMembersRouteImport } from "./routes/org-members";
-import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
-import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
+import { Route as repositorySchemaProjectRouteImport } from "./routes/repository-schema-project";
+import { Route as repositoryDatabaseProjectRouteImport } from "./routes/repository-database-project";
 
 const youtubeRoute = youtubeRouteImport.update({
   id: "/youtube",
@@ -152,7 +152,7 @@ const indexRoute = indexRouteImport.update({
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultFileRoute = vaultFileRouteImport.update({
+const repositoryFileRoute = repositoryFileRouteImport.update({
   id: "/repo/$",
   path: "/repo/$",
   getParentRoute: () => rootRouteImport,
@@ -237,12 +237,12 @@ const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   path: "/admin/account-deletions",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
+const repositoryDashboardRootRoute = repositoryDashboardRootRouteImport.update({
   id: "/repo/",
   path: "/repo/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultDashboardRoute = vaultDashboardRouteImport.update({
+const repositoryDashboardRoute = repositoryDashboardRouteImport.update({
   id: "/repo/$owner/$repository",
   path: "/repo/$owner/$repository",
   getParentRoute: () => rootRouteImport,
@@ -257,7 +257,7 @@ const orgSettingsRoute = orgSettingsRouteImport.update({
   path: "/org/$owner/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
-const orgVaultsRoute = orgVaultsRouteImport.update({
+const orgRepositoriesRoute = orgRepositoriesRouteImport.update({
   id: "/org/$owner/repositories",
   path: "/org/$owner/repositories",
   getParentRoute: () => rootRouteImport,
@@ -304,7 +304,7 @@ const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
   path: "/logo/hover/carpet",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultSettingsRoute = vaultSettingsRouteImport.update({
+const repositorySettingsRoute = repositorySettingsRouteImport.update({
   id: "/repo/$owner/$repository/settings",
   path: "/repo/$owner/$repository/settings",
   getParentRoute: () => rootRouteImport,
@@ -314,16 +314,17 @@ const orgMembersRoute = orgMembersRouteImport.update({
   path: "/org/$owner/settings/members",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
+const repositorySchemaProjectRoute = repositorySchemaProjectRouteImport.update({
   id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
   path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultDatabaseProjectRoute = vaultDatabaseProjectRouteImport.update({
-  id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
-  path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
-  getParentRoute: () => rootRouteImport,
-} as any);
+const repositoryDatabaseProjectRoute =
+  repositoryDatabaseProjectRouteImport.update({
+    id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
+    path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
@@ -344,7 +345,7 @@ export interface FileRoutesByFullPath {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/youtube": typeof youtubeRoute;
-  "/repo/": typeof vaultDashboardRootRoute;
+  "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
@@ -361,7 +362,7 @@ export interface FileRoutesByFullPath {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/repo/$": typeof vaultFileRoute;
+  "/repo/$": typeof repositoryFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
@@ -370,14 +371,14 @@ export interface FileRoutesByFullPath {
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
-  "/org/$owner/repositories": typeof orgVaultsRoute;
+  "/org/$owner/repositories": typeof orgRepositoriesRoute;
   "/org/$owner/settings": typeof orgSettingsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/repo/$owner/$repository": typeof vaultDashboardRoute;
+  "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
-  "/repo/$owner/$repository/settings": typeof vaultSettingsRoute;
-  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
+  "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
+  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
+  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
@@ -398,7 +399,7 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/youtube": typeof youtubeRoute;
-  "/repo": typeof vaultDashboardRootRoute;
+  "/repo": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
@@ -415,7 +416,7 @@ export interface FileRoutesByTo {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/repo/$": typeof vaultFileRoute;
+  "/repo/$": typeof repositoryFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
@@ -424,14 +425,14 @@ export interface FileRoutesByTo {
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
-  "/org/$owner/repositories": typeof orgVaultsRoute;
+  "/org/$owner/repositories": typeof orgRepositoriesRoute;
   "/org/$owner/settings": typeof orgSettingsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/repo/$owner/$repository": typeof vaultDashboardRoute;
+  "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
-  "/repo/$owner/$repository/settings": typeof vaultSettingsRoute;
-  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
+  "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
+  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
+  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -453,7 +454,7 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/youtube": typeof youtubeRoute;
-  "/repo/": typeof vaultDashboardRootRoute;
+  "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
@@ -470,7 +471,7 @@ export interface FileRoutesById {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/repo/$": typeof vaultFileRoute;
+  "/repo/$": typeof repositoryFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
@@ -479,14 +480,14 @@ export interface FileRoutesById {
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
-  "/org/$owner/repositories": typeof orgVaultsRoute;
+  "/org/$owner/repositories": typeof orgRepositoriesRoute;
   "/org/$owner/settings": typeof orgSettingsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/repo/$owner/$repository": typeof vaultDashboardRoute;
+  "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
-  "/repo/$owner/$repository/settings": typeof vaultSettingsRoute;
-  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
+  "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
+  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
+  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -672,7 +673,7 @@ export interface RootRouteChildren {
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   youtubeRoute: typeof youtubeRoute;
-  vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
+  repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   adminUsersRoute: typeof adminUsersRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
@@ -689,7 +690,7 @@ export interface RootRouteChildren {
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
   orgRoute: typeof orgRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
-  vaultFileRoute: typeof vaultFileRoute;
+  repositoryFileRoute: typeof repositoryFileRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
@@ -698,14 +699,14 @@ export interface RootRouteChildren {
   orgConnectRepoRoute: typeof orgConnectRepoRoute;
   orgNewAppRoute: typeof orgNewAppRoute;
   orgProvidersRoute: typeof orgProvidersRoute;
-  orgVaultsRoute: typeof orgVaultsRoute;
+  orgRepositoriesRoute: typeof orgRepositoriesRoute;
   orgSettingsRoute: typeof orgSettingsRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
-  vaultDashboardRoute: typeof vaultDashboardRoute;
+  repositoryDashboardRoute: typeof repositoryDashboardRoute;
   orgMembersRoute: typeof orgMembersRoute;
-  vaultSettingsRoute: typeof vaultSettingsRoute;
-  vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
-  vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
+  repositorySettingsRoute: typeof repositorySettingsRoute;
+  repositoryDatabaseProjectRoute: typeof repositoryDatabaseProjectRoute;
+  repositorySchemaProjectRoute: typeof repositorySchemaProjectRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -840,7 +841,7 @@ declare module "@tanstack/react-router" {
       id: "/repo/$";
       path: "/repo/$";
       fullPath: "/repo/$";
-      preLoaderRoute: typeof vaultFileRouteImport;
+      preLoaderRoute: typeof repositoryFileRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pitch/print": {
@@ -959,14 +960,14 @@ declare module "@tanstack/react-router" {
       id: "/repo/";
       path: "/repo";
       fullPath: "/repo/";
-      preLoaderRoute: typeof vaultDashboardRootRouteImport;
+      preLoaderRoute: typeof repositoryDashboardRootRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/repo/$owner/$repository": {
       id: "/repo/$owner/$repository";
       path: "/repo/$owner/$repository";
       fullPath: "/repo/$owner/$repository";
-      preLoaderRoute: typeof vaultDashboardRouteImport;
+      preLoaderRoute: typeof repositoryDashboardRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pitch/print/mobile": {
@@ -987,7 +988,7 @@ declare module "@tanstack/react-router" {
       id: "/org/$owner/repositories";
       path: "/org/$owner/repositories";
       fullPath: "/org/$owner/repositories";
-      preLoaderRoute: typeof orgVaultsRouteImport;
+      preLoaderRoute: typeof orgRepositoriesRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/org/$owner/providers": {
@@ -1050,7 +1051,7 @@ declare module "@tanstack/react-router" {
       id: "/repo/$owner/$repository/settings";
       path: "/repo/$owner/$repository/settings";
       fullPath: "/repo/$owner/$repository/settings";
-      preLoaderRoute: typeof vaultSettingsRouteImport;
+      preLoaderRoute: typeof repositorySettingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/org/$owner/settings/members": {
@@ -1064,14 +1065,14 @@ declare module "@tanstack/react-router" {
       id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
       path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
       fullPath: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      preLoaderRoute: typeof vaultSchemaProjectRouteImport;
+      preLoaderRoute: typeof repositorySchemaProjectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/repo/$owner/$repository/db/$branch/project/$convexProjectId": {
       id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       fullPath: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
-      preLoaderRoute: typeof vaultDatabaseProjectRouteImport;
+      preLoaderRoute: typeof repositoryDatabaseProjectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
@@ -1096,7 +1097,7 @@ const rootRouteChildren: RootRouteChildren = {
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   youtubeRoute: youtubeRoute,
-  vaultDashboardRootRoute: vaultDashboardRootRoute,
+  repositoryDashboardRootRoute: repositoryDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   adminUsersRoute: adminUsersRoute,
   agentsConnectRoute: agentsConnectRoute,
@@ -1113,7 +1114,7 @@ const rootRouteChildren: RootRouteChildren = {
   logoTransitionLabRoute: logoTransitionLabRoute,
   orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
-  vaultFileRoute: vaultFileRoute,
+  repositoryFileRoute: repositoryFileRoute,
   logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
   logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
@@ -1122,14 +1123,14 @@ const rootRouteChildren: RootRouteChildren = {
   orgConnectRepoRoute: orgConnectRepoRoute,
   orgNewAppRoute: orgNewAppRoute,
   orgProvidersRoute: orgProvidersRoute,
-  orgVaultsRoute: orgVaultsRoute,
+  orgRepositoriesRoute: orgRepositoriesRoute,
   orgSettingsRoute: orgSettingsRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
-  vaultDashboardRoute: vaultDashboardRoute,
+  repositoryDashboardRoute: repositoryDashboardRoute,
   orgMembersRoute: orgMembersRoute,
-  vaultSettingsRoute: vaultSettingsRoute,
-  vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
-  vaultSchemaProjectRoute: vaultSchemaProjectRoute,
+  repositorySettingsRoute: repositorySettingsRoute,
+  repositoryDatabaseProjectRoute: repositoryDatabaseProjectRoute,
+  repositorySchemaProjectRoute: repositorySchemaProjectRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

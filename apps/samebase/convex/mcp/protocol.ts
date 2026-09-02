@@ -2,8 +2,8 @@ import { includes } from "@samebase/dependent/main";
 import { asRecord, isRecord, type JsonRecord } from "../jsonUtils";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
-import { createRepositoryContract } from "../vault/contracts/createRepository";
-import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
+import { createRepositoryContract } from "../repository/contracts/createRepository";
+import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
 import type { AccessKey } from "../../shared/accessModel";
 import { parseScopeTokens } from "./scopes";
 
@@ -38,7 +38,7 @@ export const MCP_V1_SUPPORTED_SCOPES: readonly AccessKey[] = Array.from(
 // is load-bearing because grant reuse compares the exact string.
 const DEFAULT_MCP_SCOPE = [
   createRepositoryContract.access,
-  getUserVaultsContract.access,
+  getUserRepositoriesContract.access,
   submitFeedbackContract.access,
 ].join(" ");
 

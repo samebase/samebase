@@ -103,7 +103,7 @@ function main(): void {
       "test",
       "-c",
       samebaseAppFilePath("playwright.live.config.ts"),
-      samebaseAppFilePath("e2e/vault-create-app.live.spec.ts"),
+      samebaseAppFilePath("e2e/repository-create-app.live.spec.ts"),
       "--project=chromium-desktop",
       ...(showBrowser ? ["--headed"] : []),
       "--grep",

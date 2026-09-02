@@ -29,7 +29,7 @@ vi.mock("convex/react", async (importOriginal) => {
             createdAt: Date.now() - 60_000,
             grantId: "grant_123",
             resource: "https://api.samebase.com/mcp",
-            scopes: ["vaults:read"],
+            scopes: ["repositories:read"],
           },
         ],
         status: "Exhausted",
@@ -67,7 +67,7 @@ describe("McpClientsSettingsSection", () => {
 
     expect(rootElement.textContent).toContain("MCP clients");
     expect(rootElement.textContent).toContain("Codex");
-    expect(rootElement.textContent).toContain("vaults:read");
+    expect(rootElement.textContent).toContain("repositories:read");
     const revokeButton = [...rootElement.querySelectorAll("button")].find(
       (button) => button.textContent === "Revoke",
     );

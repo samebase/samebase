@@ -20,7 +20,7 @@ export interface MonacoEditorSurfaceProps {
   onMount: OnMount;
   showMobileLineNumbers?: boolean;
   syncError: string | null;
-  vaultKey: string;
+  repositoryKey: string;
 }
 
 const MIN_EDITOR_HEIGHT_PX = 400;
@@ -46,7 +46,7 @@ export function MonacoEditorSurface({
   onMount,
   showMobileLineNumbers = false,
   syncError,
-  vaultKey,
+  repositoryKey,
 }: MonacoEditorSurfaceProps) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
@@ -116,7 +116,7 @@ export function MonacoEditorSurface({
     >
       <Editor
         height={`${editorHeightPx}px`}
-        path={buildMonacoFileUri({ vaultId: vaultKey, branch, filePath })}
+        path={buildMonacoFileUri({ repositoryId: repositoryKey, branch, filePath })}
         defaultValue={defaultValue}
         theme={isDark ? "vs-dark" : "vs"}
         onMount={onMount}

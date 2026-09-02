@@ -1,6 +1,6 @@
 import {
   ConnectRepositoryPageContent,
-  type ConnectRepositoryRepository,
+  type ConnectRepositoryOption,
 } from "@/components/ConnectRepository";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 
@@ -37,7 +37,7 @@ const repositories = [
     stargazers_count: 0,
     forks_count: 0,
   },
-] satisfies ConnectRepositoryRepository[];
+] satisfies ConnectRepositoryOption[];
 
 export function ConnectRepositoryVisualFixture() {
   const repositoryRows = repositories.map((repo) => {

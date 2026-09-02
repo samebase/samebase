@@ -2,8 +2,8 @@
 
 # Configure Workers Builds for GitHub (`configure_workers_builds_for_github`)
 
-MCP tool `vault_cloudflare_configureWorkersBuildsForGitHub` · scope `access_provider_connections` ·
-write
+MCP tool `repository_cloudflare_configureWorkersBuildsForGitHub` · scope
+`access_provider_connections` · write
 
 Configures the production and preview Workers Builds triggers for an attached Worker, GitHub
 repository, and root directory, then starts a production build. A trigger belonging to a different
@@ -12,8 +12,9 @@ provider configuration, and stores no trigger or status mirror in Convex.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault id containing the Worker.
-- `workerId` (string, required): Stable Samebase Worker attachment id returned by get_user_vaults.
+- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `workerId` (string, required): Stable Samebase Worker attachment id returned by
+  get_user_repositories.
 - `rootDirectory` (string, required): Repository root to write to this Worker's GitHub Builds
   triggers.
 - `buildTokenUuid` (string, required): Workers Builds token UUID returned by

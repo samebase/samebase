@@ -8,11 +8,11 @@ import {
 } from "@/lib/organizationContext";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import {
-  VaultDashboardSidebarContent,
-  VaultDashboardStaticAccountLoadingSection,
-  VaultDashboardStaticAccountSection,
-  VaultDashboardStaticAccountStatusSection,
-} from "@/components/vault-dashboard/VaultDashboardChrome";
+  RepositoryDashboardSidebarContent,
+  RepositoryDashboardStaticAccountLoadingSection,
+  RepositoryDashboardStaticAccountSection,
+  RepositoryDashboardStaticAccountStatusSection,
+} from "@/components/repository-dashboard/RepositoryDashboardChrome";
 import {
   useAppAuthPresentation,
   type AppAuthPresentationProfile,
@@ -43,7 +43,7 @@ function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | un
 
 function AppRightSidebarAccountLoadingSection() {
   return (
-    <VaultDashboardStaticAccountLoadingSection
+    <RepositoryDashboardStaticAccountLoadingSection
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
       label="checking login"
     />
@@ -52,7 +52,7 @@ function AppRightSidebarAccountLoadingSection() {
 
 function AppRightSidebarOnboardingVideo() {
   return (
-    <section className="vault-dashboard-sidebar-inset pb-3 pt-6">
+    <section className="repository-dashboard-sidebar-inset pb-3 pt-6">
       <h2 className="text-2xl font-medium">First time using Samebase?</h2>
       <a
         className="mt-2 block"
@@ -97,7 +97,7 @@ function AppRightSidebarSessionRecordingConsent() {
   return (
     <section
       aria-labelledby="session-recording-consent-heading"
-      className="vault-dashboard-sidebar-inset pb-3 pt-6"
+      className="repository-dashboard-sidebar-inset pb-3 pt-6"
     >
       <h2 id="session-recording-consent-heading" className="text-base font-semibold">
         Help improve Samebase
@@ -157,7 +157,7 @@ function AppRightSidebarProductUpdateEmailConsent() {
   return (
     <section
       aria-labelledby="product-update-email-consent-heading"
-      className="vault-dashboard-sidebar-inset pb-3 pt-6"
+      className="repository-dashboard-sidebar-inset pb-3 pt-6"
     >
       <h2 id="product-update-email-consent-heading" className="text-base font-semibold">
         Product updates
@@ -215,10 +215,10 @@ function AppRightSidebarFooter({
 
 function PublicAppRightSidebarContent({ accountPending }: { accountPending: boolean }) {
   return (
-    <VaultDashboardSidebarContent>
+    <RepositoryDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
       <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
-    </VaultDashboardSidebarContent>
+    </RepositoryDashboardSidebarContent>
   );
 }
 
@@ -236,7 +236,7 @@ function AppRightSidebarSignedInAccountSection({
   }
 
   return (
-    <VaultDashboardStaticAccountSection
+    <RepositoryDashboardStaticAccountSection
       accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
     />
@@ -249,11 +249,11 @@ function TemporaryAuthenticatedAppRightSidebarContent({
   profile: AppAuthPresentationProfile | null;
 }) {
   return (
-    <VaultDashboardSidebarContent>
+    <RepositoryDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} />
       <GlobalAppRightSidebarLinks />
       <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
-    </VaultDashboardSidebarContent>
+    </RepositoryDashboardSidebarContent>
   );
 }
 
@@ -270,9 +270,9 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
 
   return (
-    <VaultDashboardSidebarContent>
+    <RepositoryDashboardSidebarContent>
       {deleting && accountPresentation !== undefined ? (
-        <VaultDashboardStaticAccountStatusSection
+        <RepositoryDashboardStaticAccountStatusSection
           accountPresentation={accountPresentation}
           dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
           statusLabel="Deleting account"
@@ -284,7 +284,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
       {pending && accountPresentation !== undefined ? (
         <section
           aria-labelledby="pending-access-sidebar-heading"
-          className="vault-dashboard-sidebar-inset flex flex-1 flex-col justify-center py-8"
+          className="repository-dashboard-sidebar-inset flex flex-1 flex-col justify-center py-8"
           role="status"
         >
           <h2 id="pending-access-sidebar-heading" className="text-base font-semibold leading-6">
@@ -298,7 +298,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
         </section>
       ) : null}
       <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo />
-    </VaultDashboardSidebarContent>
+    </RepositoryDashboardSidebarContent>
   );
 }
 
@@ -310,7 +310,7 @@ function GlobalAppRightSidebarLinks({
   return (
     <nav
       aria-label="Account"
-      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+      className="repository-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
       <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
         All repositories
@@ -328,7 +328,7 @@ function AdminAppRightSidebarLinks() {
   return (
     <nav
       aria-label="Admin"
-      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+      className="repository-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
       <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/users">
         Users
@@ -345,7 +345,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
   return (
     <nav
       aria-label="Organization"
-      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+      className="repository-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
       <Link
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
@@ -401,7 +401,7 @@ function AuthenticatedAppRightSidebarContent({
   showAdminNavigation: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
-  const vaults = useConvexQuery(api.vault.dashboard.getUserVaults);
+  const repositories = useConvexQuery(api.repository.dashboard.getUserRepositories);
   const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
   const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
@@ -411,8 +411,10 @@ function AuthenticatedAppRightSidebarContent({
       : null;
   const organizationContextPending = surface.kind === "organization" && organizations === undefined;
   const showOnboardingVideo =
-    vaults !== undefined &&
-    !vaults.some((vault) => vault.hasConvexProvision && vault.hasCloudflareProvision);
+    repositories !== undefined &&
+    !repositories.some(
+      (repository) => repository.hasConvexProvision && repository.hasCloudflareProvision,
+    );
   const consentPrompt =
     productUpdateEmailConsent?.state === "not_decided"
       ? "product_update_email"
@@ -421,7 +423,7 @@ function AuthenticatedAppRightSidebarContent({
         : null;
 
   return (
-    <VaultDashboardSidebarContent>
+    <RepositoryDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       <GlobalAppRightSidebarLinks showOrganizations />
       <OrganizationContextControl />
@@ -433,7 +435,7 @@ function AuthenticatedAppRightSidebarContent({
         consentPrompt={consentPrompt}
         showOnboardingVideo={showOnboardingVideo}
       />
-    </VaultDashboardSidebarContent>
+    </RepositoryDashboardSidebarContent>
   );
 }
 

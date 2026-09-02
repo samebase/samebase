@@ -1,8 +1,8 @@
 export function buildMonacoAppliedCacheKey(args: {
-  vaultId: string;
+  repositoryId: string;
   branch: string;
   treeSHA: string;
   scopePrefix: string;
 }): string {
-  return `${args.vaultId}:${args.branch}:${args.treeSHA}:${args.scopePrefix}`;
+  return `${args.repositoryId}:${args.branch}:${args.treeSHA}:${args.scopePrefix}`;
 }

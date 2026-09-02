@@ -30,7 +30,7 @@ export const toolJustifications = {
       "Does not create, publish, or modify public internet state or third-party provider resources.",
     destructive_justification: noDestructiveActions,
   },
-  vault_dashboard_getUserVaults: {
+  repository_dashboard_getUserRepositories: {
     read_only_justification:
       "Lists the authenticated user's Samebase apps with repository metadata, setup state, and stable identifiers for attached provider resources. Request authentication and usage bookkeeping can update private Samebase records.",
     open_world_justification:
@@ -44,57 +44,57 @@ export const toolJustifications = {
       "Reads the Cloudflare API; it does not create, publish, or modify Cloudflare resources or public internet state.",
     destructive_justification: noDestructiveActions,
   },
-  vault_actions_createRepository: {
+  repository_actions_createRepository: {
     read_only_justification:
       "Starts a managed app provisioning workflow that creates a GitHub repository and a Convex project with the selected production region, records Samebase state, and creates Cloudflare resources only when a current Workers Builds token UUID is supplied.",
     open_world_justification:
       "Creates resources in GitHub and Convex, including one Convex production deployment in the selected region. It can create a public GitHub repository when requested and creates Cloudflare resources only when a current Workers Builds token UUID is supplied. A confirmed empty token list creates no Cloudflare Worker.",
     destructive_justification: noDestructiveActions,
   },
-  vault_actions_connectRepository: {
+  repository_actions_connectRepository: {
     read_only_justification:
-      "Creates the repository-backed Samebase vault and starts a tree sync; provider resources are not modified.",
+      "Creates the repository-backed Samebase repository and starts a tree sync; provider resources are not modified.",
     open_world_justification:
       "Reads repository metadata from GitHub; creates no external resources beyond Samebase's own record.",
     destructive_justification: noDestructiveActions,
   },
-  vault_convex_discoverProjects: {
+  repository_convex_discoverProjects: {
     read_only_justification:
       "Discovers exact convex.json files and readable Convex projects, and may refresh private Samebase connection bookkeeping while reading provider state.",
     open_world_justification:
       "Reads GitHub, Convex, and available Cloudflare Worker markers; it does not change provider or public internet state.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_createWorker: {
+  repository_cloudflare_createWorker: {
     read_only_justification:
-      "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests an initial production build.",
+      "Creates one Cloudflare Worker, records it as a repository attachment, configures its Workers Builds triggers, and requests an initial production build.",
     open_world_justification:
       "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository.",
     destructive_justification:
       "Rejects existing Worker names and existing Workers Builds connections. It does not overwrite or delete a Worker, trigger, repository, deployment, or user data.",
   },
-  vault_cloudflare_discoverWorkers: {
+  repository_cloudflare_discoverWorkers: {
     read_only_justification:
       "Lists Workers and their live repository roots, and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
     open_world_justification:
       "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
     destructive_justification: noDestructiveActions,
   },
-  vault_convex_attachProjects: {
+  repository_convex_attachProjects: {
     read_only_justification:
-      "Records selected existing Convex projects and confirmed convex.json paths as vault attachments.",
+      "Records selected existing Convex projects and confirmed convex.json paths as repository attachments.",
     open_world_justification:
       "Re-reads the selected projects from Convex and exact config blobs from GitHub, then records Samebase state; provider resources are not modified.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_attachWorkers: {
+  repository_cloudflare_attachWorkers: {
     read_only_justification:
-      "Records selected existing Cloudflare Workers as vault attachments; Workers without a verified root for this repository are rejected.",
+      "Records selected existing Cloudflare Workers as repository attachments; Workers without a verified root for this repository are rejected.",
     open_world_justification:
       "Re-reads Worker identity and live repository roots from Cloudflare, then records Samebase state; provider resources are not modified.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_configureWorkersBuildsForGitHub: {
+  repository_cloudflare_configureWorkersBuildsForGitHub: {
     read_only_justification:
       "Creates or updates the app's own Workers Builds production and preview triggers with the selected token UUID, then starts a production build.",
     open_world_justification:
@@ -102,7 +102,7 @@ export const toolJustifications = {
     destructive_justification:
       "May overwrite the app's existing production and preview build trigger configuration, including repository roots and commands, before starting a production build. It does not delete user data, repositories, deployments, or Workers.",
   },
-  vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds: {
+  repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds: {
     read_only_justification:
       "Rotates the app's Convex deploy keys, writes them into its Workers Builds trigger variables, and starts a production build.",
     open_world_justification:
@@ -110,7 +110,7 @@ export const toolJustifications = {
     destructive_justification:
       "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. It then starts a production build. It does not delete user data, deployments, or Workers.",
   },
-  vault_actions_retryInfrastructureProvisioning: {
+  repository_actions_retryInfrastructureProvisioning: {
     read_only_justification:
       "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",
     open_world_justification:
@@ -180,7 +180,7 @@ export const testCases = [
       "Inspect the existing Samebase apps already prepared in the reviewer demo account.",
     user_prompt: "List my Samebase apps and their setup status.",
     file_attachment_urls: null,
-    tools_triggered: ["vault_dashboard_getUserVaults"],
+    tools_triggered: ["repository_dashboard_getUserRepositories"],
     expected_output:
       "Returns one summary per visible app. Each summary includes its repository and independent source and provider setup states. It can include the default branch and attached resource names or identifiers when available, but must not claim that inventory is live provider state.",
     expected_output_url: null,
@@ -190,9 +190,12 @@ export const testCases = [
       "Discover Cloudflare Workers for a prepared app by using its stored provider destination.",
     user_prompt: "Show me the Cloudflare Workers I can attach to my prepared Samebase app.",
     file_attachment_urls: null,
-    tools_triggered: ["vault_dashboard_getUserVaults", "vault_cloudflare_discoverWorkers"],
+    tools_triggered: [
+      "repository_dashboard_getUserRepositories",
+      "repository_cloudflare_discoverWorkers",
+    ],
     expected_output:
-      "Reads the app inventory, passes that vault's cloudflareAccountId to Worker discovery, and reports Workers from only that account. It does not select another account or create a Cloudflare resource.",
+      "Reads the app inventory, passes that repository's cloudflareAccountId to Worker discovery, and reports Workers from only that account. It does not select another account or create a Cloudflare resource.",
     expected_output_url: null,
   },
   {
@@ -202,9 +205,9 @@ export const testCases = [
       "Create a private Samebase app under noter-guest in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
     file_attachment_urls: null,
     tools_triggered: [
-      "vault_dashboard_getUserVaults",
+      "repository_dashboard_getUserRepositories",
       "cloudflare_listWorkersBuildTokens",
-      "vault_actions_createRepository",
+      "repository_actions_createRepository",
     ],
     expected_output:
       "Reads inventory and passes aws-us-east-1 as the requested Convex production region without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",

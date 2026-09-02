@@ -45,9 +45,9 @@ const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
 
 query({
   access: "access_dashboard",
-  args: { vaultId: v.string() },
+  args: { repositoryId: v.string() },
   returns: v.object({
-    vaultId: v.string(),
+    repositoryId: v.string(),
     access: v.string(),
     userId: v.id("users"),
     userEmail: v.union(v.string(), v.null()),
@@ -56,7 +56,7 @@ query({
     expectType<Id<"users">>()(ctx.viewer.userId, true);
 
     return {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       access: ctx.viewer.requiredAccess,
       userId: ctx.viewer.userId,
       userEmail: ctx.viewer.user.email,
@@ -66,9 +66,9 @@ query({
 
 mutation({
   access: "access_app_refresh",
-  args: { vaultId: v.string() },
+  args: { repositoryId: v.string() },
   returns: v.object({
-    vaultId: v.string(),
+    repositoryId: v.string(),
     access: v.string(),
     userId: v.id("users"),
     userEmail: v.union(v.string(), v.null()),
@@ -77,7 +77,7 @@ mutation({
     expectType<Id<"users">>()(ctx.viewer.userId, true);
 
     return {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       access: ctx.viewer.requiredAccess,
       userId: ctx.viewer.userId,
       userEmail: ctx.viewer.user.email,
@@ -87,9 +87,9 @@ mutation({
 
 action({
   access: "access_app_refresh",
-  args: { vaultId: v.string() },
+  args: { repositoryId: v.string() },
   returns: v.object({
-    vaultId: v.string(),
+    repositoryId: v.string(),
     access: v.string(),
     userId: v.id("users"),
     userEmail: v.union(v.string(), v.null()),
@@ -98,7 +98,7 @@ action({
     expectType<Id<"users">>()(ctx.viewer.userId, true);
 
     return {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       access: ctx.viewer.requiredAccess,
       userId: ctx.viewer.userId,
       userEmail: ctx.viewer.user.email,

@@ -69,25 +69,27 @@ async function createQuotaFixture(args: {
           }
         : {}),
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
       organizationId,
       userId,
-      vaultId,
-      repositoryFullName: "quota-owner/host",
+      repositoryId,
+      githubRepositoryFullName: "quota-owner/host",
       trigger: "connect_existing_repository",
       state: "queued",
-      currentStep: "connect_github",
+      currentStep: "connect_github_repository",
       createdAt: 1,
       updatedAt: 1,
     });
-    await ctx.db.replace(vaultId, {
+    await ctx.db.replace(repositoryId, {
+      createdAt: 1,
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
@@ -95,13 +97,13 @@ async function createQuotaFixture(args: {
       state: "connected",
       githubMode: "connect_existing_repository",
       runId,
-      ghRepoId: "host-repository",
-      name: "host",
+      githubRepositoryDatabaseId: "host-repository",
+      githubRepositoryName: "host",
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 2,
     });
-    return { organizationId, runId, userId, vaultId };
+    return { organizationId, runId, userId, repositoryId };
   });
   return { ids, t };
 }
@@ -111,17 +113,17 @@ async function seedProjects(
   args: {
     count: number;
     organizationId: Id<"organizations">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     prefix?: string;
   },
-): Promise<Array<Id<"vaultConvexProjects">>> {
+): Promise<Array<Id<"repositoryConvexProjects">>> {
   return await t.run(async (ctx) => {
-    const ids: Array<Id<"vaultConvexProjects">> = [];
+    const ids: Array<Id<"repositoryConvexProjects">> = [];
     for (let index = 0; index < args.count; index += 1) {
       const project = projectInput(index, args.prefix);
       ids.push(
-        await ctx.db.insert("vaultConvexProjects", {
-          vaultId: args.vaultId,
+        await ctx.db.insert("repositoryConvexProjects", {
+          repositoryId: args.repositoryId,
           organizationId: args.organizationId,
           teamId: project.teamId,
           projectId: project.projectId,
@@ -146,17 +148,17 @@ async function readConnectionCounts(
   return await t.run(async (ctx) => {
     const [repositories, cloudflareWorkers, convexProjects] = await Promise.all([
       ctx.db
-        .query("vaults")
+        .query("repositories")
         .withIndex("by_organization_and_state_and_deletion_state", (query) =>
           query.eq("organizationId", organizationId).eq("state", "connected"),
         )
         .take(200),
       ctx.db
-        .query("vaultCloudflareWorkers")
+        .query("repositoryCloudflareWorkers")
         .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
         .take(200),
       ctx.db
-        .query("vaultConvexProjects")
+        .query("repositoryConvexProjects")
         .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
         .take(200),
     ]);
@@ -182,42 +184,42 @@ describe("pooled organization connection quotas", () => {
       const projectIds = await seedProjects(t, { ...ids, count: limit - 2 });
       const worker = workerInput(0);
 
-      const [workerId] = await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
-        vaultId: ids.vaultId,
+      const [workerId] = await t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         workers: [worker],
       });
       expect(workerId).toBeDefined();
       await expect(
-        t.mutation(internal.vault.convexMutations.attachProjects, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.convexMutations.attachProjects, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           projects: [projectInput(limit, "blocked")],
         }),
       ).rejects.toThrow(`Organization connection limit reached (${limit}).`);
 
       await expect(
-        t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           workers: [worker],
         }),
       ).resolves.toEqual([workerId]);
       await expect(
-        t.mutation(internal.vault.convexMutations.attachProjects, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.convexMutations.attachProjects, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           projects: [projectInput(0)],
         }),
       ).resolves.toEqual([projectIds[0]]);
       await expect(
-        t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
+          repositoryId: ids.repositoryId,
           runId: ids.runId,
           userId: ids.userId,
-          ghRepoId: "host-repository",
-          ghRepoOwner: "quota-owner",
-          ghRepoName: "host",
+          githubRepositoryDatabaseId: "host-repository",
+          githubOwnerLogin: "quota-owner",
+          githubRepositoryName: "host",
           defaultBranch: "main",
           visibility: "private",
         }),
@@ -247,20 +249,20 @@ describe("pooled organization connection quotas", () => {
     await seedProjects(t, { ...ids, count: 11 });
 
     await expect(
-      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      t.mutation(internal.repository.records.createInitializingExistingRepositoryForUser, {
         organizationId: ids.organizationId,
         userId: ids.userId,
-        ghRepoId: "existing-blocked-id",
-        ghRepoOwner: "quota-owner",
-        ghRepoName: "existing-blocked",
+        githubRepositoryDatabaseId: "existing-blocked-id",
+        githubOwnerLogin: "quota-owner",
+        githubRepositoryName: "existing-blocked",
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
     await expect(
-      t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
+      t.mutation(internal.repository.records.createInitializingSamebaseManagedRepositoryForUser, {
         organizationId: ids.organizationId,
         userId: ids.userId,
-        ghRepoOwner: "quota-owner",
-        ghRepoName: "managed-blocked",
+        githubOwnerLogin: "quota-owner",
+        githubRepositoryName: "managed-blocked",
         visibility: "private",
         description: null,
         convexProjectName: "managed-blocked",
@@ -279,7 +281,7 @@ describe("pooled organization connection quotas", () => {
     await expect(
       t.run(async (ctx) =>
         ctx.db
-          .query("vaults")
+          .query("repositories")
           .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
           .take(20),
       ),
@@ -290,22 +292,22 @@ describe("pooled organization connection quotas", () => {
     const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
     await seedProjects(t, { ...ids, count: 10 });
     const existing = await t.mutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      internal.repository.records.createInitializingExistingRepositoryForUser,
       {
         organizationId: ids.organizationId,
         userId: ids.userId,
-        ghRepoId: "existing-race-id",
-        ghRepoOwner: "quota-owner",
-        ghRepoName: "existing-race",
+        githubRepositoryDatabaseId: "existing-race-id",
+        githubOwnerLogin: "quota-owner",
+        githubRepositoryName: "existing-race",
       },
     );
     const managed = await t.mutation(
-      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
+      internal.repository.records.createInitializingSamebaseManagedRepositoryForUser,
       {
         organizationId: ids.organizationId,
         userId: ids.userId,
-        ghRepoOwner: "quota-owner",
-        ghRepoName: "managed-race",
+        githubOwnerLogin: "quota-owner",
+        githubRepositoryName: "managed-race",
         visibility: "private",
         description: null,
         convexProjectName: "managed-race",
@@ -316,37 +318,37 @@ describe("pooled organization connection quotas", () => {
         cloudflareBuildTokenUuid: "build-token",
       },
     );
-    await t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
-      vaultId: ids.vaultId,
+    await t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
+      repositoryId: ids.repositoryId,
       userId: ids.userId,
       workers: [workerInput(0, "race")],
     });
 
     await expect(
-      t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
         ...existing,
         userId: ids.userId,
-        ghRepoId: "existing-race-id",
-        ghRepoOwner: "quota-owner",
-        ghRepoName: "existing-race",
+        githubRepositoryDatabaseId: "existing-race-id",
+        githubOwnerLogin: "quota-owner",
+        githubRepositoryName: "existing-race",
         defaultBranch: "main",
         visibility: "private",
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
     await expect(
-      t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
+      t.mutation(internal.repository.records.connectSamebaseManagedRepositoryGitHub, {
         ...managed,
         userId: ids.userId,
-        ghRepoId: "managed-race-repository",
-        ghRepoOwner: "quota-owner",
-        ghRepoName: "managed-race",
+        githubRepositoryDatabaseId: "managed-race-repository",
+        githubOwnerLogin: "quota-owner",
+        githubRepositoryName: "managed-race",
         defaultBranch: "main",
         visibility: "private",
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
 
     const states = await t.run(async (ctx) =>
-      Promise.all([ctx.db.get(existing.vaultId), ctx.db.get(managed.vaultId)]),
+      Promise.all([ctx.db.get(existing.repositoryId), ctx.db.get(managed.repositoryId)]),
     );
     expect(states).toEqual([
       expect.objectContaining({ state: "provisioning" }),
@@ -363,13 +365,13 @@ describe("pooled organization connection quotas", () => {
       await seedProjects(t, { ...ids, count: 4 });
 
       const writes = await Promise.allSettled([
-        t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           workers: [workerInput(0, "concurrent")],
         }),
-        t.mutation(internal.vault.convexMutations.attachProjects, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.convexMutations.attachProjects, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           projects: [projectInput(0, "concurrent")],
         }),
@@ -390,8 +392,8 @@ describe("pooled organization connection quotas", () => {
       await seedProjects(t, { ...ids, count: 4 });
 
       await expect(
-        t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           workers: [workerInput(0, "batch"), workerInput(1, "batch")],
         }),
@@ -414,8 +416,8 @@ describe("pooled organization connection quotas", () => {
           state: "running",
           currentStep: "configure_workers_builds_for_github",
         });
-        await ctx.db.insert("workflow_vaultProvisioning_plans", {
-          vaultId: ids.vaultId,
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          repositoryId: ids.repositoryId,
           convexConfigPath: "convex.json",
           convex: {
             state: "created",
@@ -433,15 +435,15 @@ describe("pooled organization connection quotas", () => {
           createdAt: 2,
           updatedAt: 2,
         });
-        await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-          vaultId: ids.vaultId,
+        await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+          repositoryId: ids.repositoryId,
           owner: { kind: "managed_run", runId: ids.runId },
           state: "active",
           lastWriteAt: {},
           updatedAt: 2,
         });
-        return await ctx.db.insert("vaultCloudflareWorkers", {
-          vaultId: ids.vaultId,
+        return await ctx.db.insert("repositoryCloudflareWorkers", {
+          repositoryId: ids.repositoryId,
           organizationId: ids.organizationId,
           accountId: "cloudflare-account",
           workerName: "quota-worker",
@@ -466,10 +468,10 @@ describe("pooled organization connection quotas", () => {
       });
 
       await expect(
-        t.query(internal.vault.cloudflareMutations.readManagedWorkerConfigurationContext, {
+        t.query(internal.repository.cloudflareMutations.readManagedWorkerConfigurationContext, {
           runId: ids.runId,
           userId: ids.userId,
-          vaultId: ids.vaultId,
+          repositoryId: ids.repositoryId,
           workerId,
         }),
       ).rejects.toThrow("This organization needs more paid member seats.");
@@ -485,8 +487,8 @@ describe("pooled organization connection quotas", () => {
           completedAt: 3,
         });
       });
-      await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-        vaultId: ids.vaultId,
+      await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
+        repositoryId: ids.repositoryId,
         userId: ids.userId,
         actionId: "billing-limited-manual-write",
         action: "create_cloudflare_worker",
@@ -507,8 +509,8 @@ describe("pooled organization connection quotas", () => {
       });
 
       await expect(
-        t.mutation(internal.vault.cloudflareMutations.recordManualWorkerCreated, {
-          vaultId: ids.vaultId,
+        t.mutation(internal.repository.cloudflareMutations.recordManualWorkerCreated, {
+          repositoryId: ids.repositoryId,
           userId: ids.userId,
           actionId: "billing-limited-manual-write",
           accountId: "cloudflare-account",

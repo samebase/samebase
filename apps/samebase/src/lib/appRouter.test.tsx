@@ -232,8 +232,10 @@ vi.mock("@/components/FileView/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 
-vi.mock("@/components/VaultDatabaseView", () => ({
-  VaultDatabaseView: () => <div data-testid="vault-database-page">Vault database page</div>,
+vi.mock("@/components/RepositoryDatabaseView", () => ({
+  RepositoryDatabaseView: () => (
+    <div data-testid="repository-database-page">Repository database page</div>
+  ),
 }));
 
 vi.mock("@/components/PitchDeckPage", () => ({
@@ -1168,9 +1170,9 @@ describe("appRouter", () => {
   it("renders the repository database route through the database route", async () => {
     await renderRoute("/repo/samebase/samebase/db/main/project/convex-attachment");
 
-    expect(rootElement?.querySelector('[data-testid="vault-database-page"]')?.textContent).toBe(
-      "Vault database page",
-    );
+    expect(
+      rootElement?.querySelector('[data-testid="repository-database-page"]')?.textContent,
+    ).toBe("Repository database page");
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

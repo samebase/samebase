@@ -12,7 +12,7 @@ import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
 import { normalizeGitHubOwnerLogin } from "./organizations";
-import { toSafeRepoName } from "../shared/repoName";
+import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
 import {
   discoverPreviewSeedGitHubAppInstallations,
   type PreviewSeedGitHubAppInstallation,
@@ -493,7 +493,7 @@ async function ensureOrganizationContextAcceptanceOrganization(
     if (
       repositoryName.length === 0 ||
       repositoryName !== repositoryName.toLowerCase() ||
-      toSafeRepoName(repositoryName) !== repositoryName
+      toSafeGitHubRepositoryName(repositoryName) !== repositoryName
     ) {
       throw new Error("Acceptance repository names must be lowercase safe repository names.");
     }
@@ -501,63 +501,63 @@ async function ensureOrganizationContextAcceptanceOrganization(
       throw new Error(`Duplicate acceptance repository ${repositoryName}.`);
     }
     repositoryNames.add(repositoryName);
-    const ghRepoId = `acceptance-repository:${ownerLogin}/${repositoryName}`;
+    const githubRepositoryDatabaseId = `acceptance-repository:${ownerLogin}/${repositoryName}`;
 
-    const existingVault = await ctx.db
-      .query("vaults")
-      .withIndex("by_organization_and_name", (query) =>
-        query.eq("organizationId", organizationId).eq("name", repositoryName),
+    const existingRepository = await ctx.db
+      .query("repositories")
+      .withIndex("by_organization_and_github_repository_name", (query) =>
+        query.eq("organizationId", organizationId).eq("githubRepositoryName", repositoryName),
       )
       .unique();
-    let vaultId: Id<"vaults">;
-    let runId: Id<"workflow_vaultProvisioning_runs">;
+    let repositoryId: Id<"repositories">;
+    let runId: Id<"workflow_repositoryProvisioning_runs">;
     let connectRepository: boolean;
-    if (existingVault?.state === "connected") {
-      if (existingVault.githubMode !== "connect_existing_repository") {
-        throw new Error("Acceptance vault has an unsupported existing state.");
+    if (existingRepository?.state === "connected") {
+      if (existingRepository.githubMode !== "connect_existing_repository") {
+        throw new Error("Acceptance repository has an unsupported existing state.");
       }
-      vaultId = existingVault._id;
-      runId = existingVault.runId;
+      repositoryId = existingRepository._id;
+      runId = existingRepository.runId;
       connectRepository = false;
-    } else if (existingVault === null) {
+    } else if (existingRepository === null) {
       const created = await ctx.runMutation(
-        internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+        internal.repository.records.createInitializingExistingRepositoryForUser,
         {
           organizationId,
           userId: args.userId,
-          ghRepoId,
-          ghRepoOwner: ownerLogin,
-          ghRepoName: repositoryName,
+          githubRepositoryDatabaseId,
+          githubOwnerLogin: ownerLogin,
+          githubRepositoryName: repositoryName,
         },
       );
-      vaultId = created.vaultId;
+      repositoryId = created.repositoryId;
       runId = created.runId;
       connectRepository = true;
     } else if (
-      existingVault.state === "provisioning" &&
-      existingVault.githubMode === "connect_existing_repository"
+      existingRepository.state === "provisioning" &&
+      existingRepository.githubMode === "connect_existing_repository"
     ) {
-      vaultId = existingVault._id;
-      runId = existingVault.runId;
+      repositoryId = existingRepository._id;
+      runId = existingRepository.runId;
       connectRepository = true;
     } else {
-      throw new Error("Acceptance vault has an unsupported existing state.");
+      throw new Error("Acceptance repository has an unsupported existing state.");
     }
 
     if (connectRepository) {
-      await ctx.runMutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
-        vaultId,
+      await ctx.runMutation(internal.repository.records.connectExistingRepositoryGitHub, {
+        repositoryId,
         runId,
         userId: args.userId,
-        ghRepoId,
-        ghRepoOwner: ownerLogin,
-        ghRepoName: repositoryName,
+        githubRepositoryDatabaseId,
+        githubOwnerLogin: ownerLogin,
+        githubRepositoryName: repositoryName,
         defaultBranch: "main",
         visibility: "private",
       });
     }
-    await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
-      vaultId,
+    await ctx.runMutation(internal.repository.branches.upsertRepositoryBranchTree, {
+      repositoryId,
       branch: "main",
       commitSHA: `acceptance-commit:${ownerLogin}/${repositoryName}`,
       treeData: {
@@ -577,7 +577,7 @@ async function ensureOrganizationContextAcceptanceOrganization(
 
     const run = await ctx.db.get(runId);
     if (run === null) {
-      throw new Error("Acceptance vault provisioning run was not found.");
+      throw new Error("Acceptance repository provisioning run was not found.");
     }
     if (run.state !== "succeeded" || run.currentStep !== "finish") {
       const completedAt = Date.now();

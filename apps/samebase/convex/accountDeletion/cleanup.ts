@@ -11,6 +11,7 @@ type AccountDeletionTablePolicy =
   | "user_finalization"
   | "receipt"
   | "organization_preserved"
+  | "migration_source"
   | "precondition_absent"
   | "global";
 
@@ -38,27 +39,27 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   providerOAuthCallbackStates: "account_data",
   ui_user_settings: "account_data",
   ui_workspaceSidebar_layouts: "account_data",
-  ui_vaultPullRequests_filters: "account_data",
-  ui_vaultResourceLinks_settings: "account_data",
-  ui_vaultFolders: "account_data",
-  ui_vaultFolderAssignments: "account_data",
-  ui_vaultOrganizationTree_settings: "account_data",
-  vaults: "organization_preserved",
-  vaultCloudflareWorkers: "organization_preserved",
-  vaultConvexProjects: "organization_preserved",
-  observations_vaultConvexSchema_snapshots: "organization_preserved",
-  ui_vaultConvexSchemaGraph_nodeLayouts: "account_data",
-  observations_vaultRepository_branchTrees: "organization_preserved",
-  workflow_vaultProvisioning_plans: "organization_preserved",
-  workflow_vaultProvisioning_writeLocks: "organization_preserved",
-  workflow_vaultProvisioning_runs: "organization_preserved",
-  workflow_vaultProvisioning_events: "organization_preserved",
-  workflow_vaultDeletion_runs: "organization_preserved",
-  workflow_vaultDeletion_events: "organization_preserved",
-  vaultStagedFiles: "organization_preserved",
-  observations_vaultFiles_blobs: "organization_preserved",
-  ui_vaultFileTree_folderExpansions: "account_data",
-  vaultStagedFileUpdates: "organization_preserved",
+  vaults: "migration_source",
+  vaultCloudflareWorkers: "migration_source",
+  vaultConvexProjects: "migration_source",
+  observations_vaultRepository_branchTrees: "migration_source",
+  ui_vaultPullRequests_filters: "migration_source",
+  ui_vaultResourceLinks_settings: "migration_source",
+  ui_vaultFolders: "migration_source",
+  ui_vaultFolderAssignments: "migration_source",
+  ui_vaultOrganizationTree_settings: "migration_source",
+  observations_vaultConvexSchema_snapshots: "migration_source",
+  ui_vaultConvexSchemaGraph_nodeLayouts: "migration_source",
+  workflow_vaultDeletion_runs: "migration_source",
+  workflow_vaultDeletion_events: "migration_source",
+  workflow_vaultProvisioning_plans: "migration_source",
+  workflow_vaultProvisioning_writeLocks: "migration_source",
+  workflow_vaultProvisioning_runs: "migration_source",
+  workflow_vaultProvisioning_events: "migration_source",
+  vaultStagedFiles: "migration_source",
+  observations_vaultFiles_blobs: "migration_source",
+  ui_vaultFileTree_folderExpansions: "migration_source",
+  vaultStagedFileUpdates: "migration_source",
   ui_repositoryPullRequests_filters: "account_data",
   ui_repositoryResourceLinks_settings: "account_data",
   ui_repositoryTree_folders: "account_data",
@@ -105,7 +106,7 @@ type AccountDataCleanupCtx = Pick<MutationCtx, "db">;
 
 const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("done") }),
-  v.object({ state: v.literal("waiting"), blocker: v.literal("active_vault_deletion") }),
+  v.object({ state: v.literal("waiting"), blocker: v.literal("active_repository_deletion") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_app_provisioning") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_manual_provider_write") }),
   v.object({
@@ -115,13 +116,13 @@ const accountDeletionQuiescenceResult = v.union(
 );
 type AccountDeletionQuiescenceResult = Infer<typeof accountDeletionQuiescenceResult>;
 
-async function findActiveVaultDeletion(
+async function findActiveRepositoryDeletion(
   ctx: AccountDataCleanupCtx,
   userId: Id<"users">,
-): Promise<Id<"workflow_vaultDeletion_runs"> | null> {
+): Promise<Id<"workflow_repositoryDeletion_runs"> | null> {
   for (const state of ["queued", "running"] as const) {
     const run = await ctx.db
-      .query("workflow_vaultDeletion_runs")
+      .query("workflow_repositoryDeletion_runs")
       .withIndex("by_user_and_state_and_updated_at", (query) =>
         query.eq("userId", userId).eq("state", state),
       )
@@ -135,13 +136,13 @@ async function findActiveVaultDeletion(
   return null;
 }
 
-async function findActiveAppProvisioning(
+async function findActiveRepositoryProvisioning(
   ctx: AccountDataCleanupCtx,
   userId: Id<"users">,
-): Promise<Id<"workflow_vaultProvisioning_runs"> | null> {
+): Promise<Id<"workflow_repositoryProvisioning_runs"> | null> {
   for (const state of ["queued", "running"] as const) {
     const run = await ctx.db
-      .query("workflow_vaultProvisioning_runs")
+      .query("workflow_repositoryProvisioning_runs")
       .withIndex("by_user_and_state_and_updated_at", (query) =>
         query.eq("userId", userId).eq("state", state),
       )
@@ -158,9 +159,9 @@ async function findActiveAppProvisioning(
 async function findActiveManualProviderWrite(
   ctx: AccountDataCleanupCtx,
   userId: Id<"users">,
-): Promise<Id<"workflow_vaultProvisioning_writeLocks"> | null> {
+): Promise<Id<"workflow_repositoryProvisioning_writeLocks"> | null> {
   const write = await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
+    .query("workflow_repositoryProvisioning_writeLocks")
     .withIndex("by_manual_user_and_state", (query) =>
       query.eq("owner.userId", userId).eq("state", "active"),
     )
@@ -235,55 +236,6 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     const rows = await ctx.db
       .query("ui_workspaceSidebar_layouts")
       .withIndex("by_user_and_workspace_key", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultPullRequests_filters: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultPullRequests_filters")
-      .withIndex("by_user", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultResourceLinks_settings: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultResourceLinks_settings")
-      .withIndex("by_user", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultFolderAssignments: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultFolderAssignments")
-      .withIndex("by_userId_and_organizationId_and_vaultId", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultFolders: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultFolders")
-      .withIndex("by_userId_and_organizationId_and_position", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultOrganizationTree_settings: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultOrganizationTree_settings")
-      .withIndex("by_userId_and_organizationId", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultConvexSchemaGraph_nodeLayouts: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultConvexSchemaGraph_nodeLayouts")
-      .withIndex("by_user_vault_project", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_vaultFileTree_folderExpansions: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_vaultFileTree_folderExpansions")
-      .withIndex("by_user_and_vault", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },
@@ -431,10 +383,10 @@ export const inspectQuiescence = internalMutation({
   handler: async (ctx, args): Promise<AccountDeletionQuiescenceResult> => {
     const run = await readOwnedActiveRun(ctx, args);
 
-    if (await findActiveVaultDeletion(ctx, run.identity.userId)) {
-      return { state: "waiting", blocker: "active_vault_deletion" };
+    if (await findActiveRepositoryDeletion(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_repository_deletion" };
     }
-    if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
+    if (await findActiveRepositoryProvisioning(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_app_provisioning" };
     }
     if (await findActiveManualProviderWrite(ctx, run.identity.userId)) {

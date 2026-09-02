@@ -35,7 +35,7 @@ import {
   AUTHORIZATION_PROVIDER_QUERY_PARAM,
 } from "../../shared/authorizationError";
 
-export type VaultDashboardQueryDialog = "add-cloudflare" | "add-convex" | "delete";
+export type RepositoryDashboardQueryDialog = "add-cloudflare" | "add-convex" | "delete";
 
 const RouteSearchSchema_root = defineRouteSearchParams({
   "add-cloudflare": routeSearchPresenceParam({
@@ -118,7 +118,7 @@ const RouteSearchSchema_root = defineRouteSearchParams({
 type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
-const VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES = {
+const REPOSITORY_DASHBOARD_DIALOG_CLEAR_PATCHES = {
   "add-cloudflare": {
     "add-cloudflare": null,
   },
@@ -128,16 +128,16 @@ const VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES = {
   delete: {
     delete: null,
   },
-} satisfies Record<VaultDashboardQueryDialog, SearchPatch<RootRouteSearch>>;
+} satisfies Record<RepositoryDashboardQueryDialog, SearchPatch<RootRouteSearch>>;
 
-export function clearVaultDashboardQueryDialogSearch(
+export function clearRepositoryDashboardQueryDialogSearch(
   currentSearch: RootRouteSearch,
-  dialog: VaultDashboardQueryDialog,
+  dialog: RepositoryDashboardQueryDialog,
 ): RootRouteSearch {
-  return applySearchPatch(currentSearch, VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES[dialog]);
+  return applySearchPatch(currentSearch, REPOSITORY_DASHBOARD_DIALOG_CLEAR_PATCHES[dialog]);
 }
 
-export function applyVaultDashboardProviderAddSearch({
+export function applyRepositoryDashboardProviderAddSearch({
   currentSearch,
   provider,
 }: {

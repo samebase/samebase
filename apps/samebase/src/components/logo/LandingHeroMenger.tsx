@@ -25,7 +25,11 @@ import {
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
 } from "@/routeSearch/logo";
-import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
+import {
+  replaceRootLogoRouteSearch,
+  useRootRouteSearch,
+  type RootRouteSearch,
+} from "@/routeSearch/root";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -289,7 +293,8 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
         hash: true,
         replace: true,
         resetScroll: false,
-        search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextLogoSearch),
+        search: (currentSearch: RootRouteSearch) =>
+          replaceRootLogoRouteSearch(currentSearch, nextLogoSearch),
         state: true,
         to: ".",
       });

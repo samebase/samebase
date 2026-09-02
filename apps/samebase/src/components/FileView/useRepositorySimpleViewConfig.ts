@@ -13,17 +13,17 @@ type StagedSimpleViewConfigFile =
 
 export function useRepositorySimpleViewConfig(args: {
   branch: string;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   stagedConfigFile: StagedSimpleViewConfigFile;
   treeSHA: string;
-  vaultId: string;
+  repositoryId: string;
 }) {
   const loadRepositoryFileContent = useAction(api.github.getRepositoryFileContent);
   const repositoryConfigQuery = useQuery({
     queryKey: [
       "repository-simple-view-config",
-      args.vaultId,
-      args.repositoryFullName,
+      args.repositoryId,
+      args.githubRepositoryFullName,
       args.branch,
       SIMPLE_VIEW_CONFIG_PATH,
       args.treeSHA,
@@ -31,7 +31,7 @@ export function useRepositorySimpleViewConfig(args: {
     queryFn: async () => {
       try {
         return await loadRepositoryFileContent({
-          repositoryFullName: args.repositoryFullName,
+          githubRepositoryFullName: args.githubRepositoryFullName,
           filePath: SIMPLE_VIEW_CONFIG_PATH,
           branch: args.branch,
         });

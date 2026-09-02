@@ -22,8 +22,8 @@ const branchTree = [
 ];
 
 function createClearAllStagingTestContext(args: {
-  targetVaultId: string;
-  vault: {
+  targetRepositoryId: string;
+  repository: {
     userId: string;
     state: "connected";
     deletion: { state: "not_deleting" };
@@ -31,7 +31,7 @@ function createClearAllStagingTestContext(args: {
     name: string;
     defaultBranch: string;
   } | null;
-  stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
+  stagedFiles: Array<{ _id: string; repositoryId: string; branch: string }>;
 }) {
   const deletedIds: string[] = [];
   const scheduledCalls: Array<{
@@ -52,7 +52,7 @@ function createClearAllStagingTestContext(args: {
     scheduledCalls,
     ctx: {
       db: {
-        get: async (id: string) => (id === args.targetVaultId ? args.vault : null),
+        get: async (id: string) => (id === args.targetRepositoryId ? args.repository : null),
         insert: async () => `cleanup-lease-${++cleanupLeaseSequence}`,
         patch: async () => {},
         query: (table: string) => ({
@@ -77,12 +77,12 @@ function createClearAllStagingTestContext(args: {
             return {
               collect: async () => {
                 queriedScopes.push({ table, indexName, constraints });
-                if (table !== "vaultStagedFiles") {
+                if (table !== "repositoryStagedFiles") {
                   return [];
                 }
 
-                const vaultIdConstraint = constraints.find(
-                  (constraint) => constraint.field === "vaultId",
+                const repositoryIdConstraint = constraints.find(
+                  (constraint) => constraint.field === "repositoryId",
                 )?.value;
                 const branchConstraint = constraints.find(
                   (constraint) => constraint.field === "branch",
@@ -90,7 +90,7 @@ function createClearAllStagingTestContext(args: {
 
                 return args.stagedFiles.filter(
                   (file) =>
-                    file.vaultId === vaultIdConstraint &&
+                    file.repositoryId === repositoryIdConstraint &&
                     (branchConstraint === undefined || file.branch === branchConstraint),
                 );
               },
@@ -114,7 +114,7 @@ function createClearMatchingStagingSnapshotTestContext(args: {
   stagedFiles: Array<{
     _id: string;
     _creationTime: number;
-    vaultId: string;
+    repositoryId: string;
     fileDeleted: boolean;
     filePath: string;
     initialFilePath: string;
@@ -347,77 +347,77 @@ describe("buildClearAllStagingPlan", () => {
   it("uses a branch-scoped query and refresh plan when a branch is provided", () => {
     expect(
       buildClearAllStagingPlan({
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: "feature/login",
         cleanupCutoffTimestamp: 123,
-        vault: {
+        repository: {
           userId: "users:owner",
           defaultBranch: "main",
         },
       }),
     ).toEqual({
       stagingQuery: {
-        indexName: "by_vault_and_branch",
-        vaultId: "vault-1",
+        indexName: "by_repository_and_branch",
+        repositoryId: "repository-1",
         branch: "feature/login",
       },
       deleteCollaborativeUpdatesArgs: {
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: "feature/login",
         cutoffTimestamp: 123,
       },
       treeRefreshArgs: {
         userId: "users:owner",
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: "feature/login",
       },
     });
   });
 
-  it("falls back to vault-wide clearing when no branch is provided", () => {
+  it("falls back to repository-wide clearing when no branch is provided", () => {
     expect(
       buildClearAllStagingPlan({
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         cleanupCutoffTimestamp: 456,
-        vault: {
+        repository: {
           userId: "users:owner",
           defaultBranch: "main",
         },
       }),
     ).toEqual({
       stagingQuery: {
-        indexName: "by_vault",
-        vaultId: "vault-1",
+        indexName: "by_repository",
+        repositoryId: "repository-1",
       },
       deleteCollaborativeUpdatesArgs: {
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: undefined,
         cutoffTimestamp: 456,
       },
       treeRefreshArgs: {
         userId: "users:owner",
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: "main",
       },
     });
   });
 
-  it("skips tree refresh when the vault is missing", () => {
+  it("skips tree refresh when the repository is missing", () => {
     expect(
       buildClearAllStagingPlan({
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: "feature/login",
         cleanupCutoffTimestamp: 789,
-        vault: null,
+        repository: null,
       }),
     ).toEqual({
       stagingQuery: {
-        indexName: "by_vault_and_branch",
-        vaultId: "vault-1",
+        indexName: "by_repository_and_branch",
+        repositoryId: "repository-1",
         branch: "feature/login",
       },
       deleteCollaborativeUpdatesArgs: {
-        vaultId: "vault-1",
+        repositoryId: "repository-1",
         branch: "feature/login",
         cutoffTimestamp: 789,
       },
@@ -426,11 +426,11 @@ describe("buildClearAllStagingPlan", () => {
   });
 
   it("clears only the requested branch and refreshes that branch", async () => {
-    const targetVaultId = "vault-1";
+    const targetRepositoryId = "repository-1";
     const targetBranch = "feature/login";
     const context = createClearAllStagingTestContext({
-      targetVaultId,
-      vault: {
+      targetRepositoryId,
+      repository: {
         userId: "users:owner",
         state: "connected",
         deletion: { state: "not_deleting" },
@@ -439,26 +439,26 @@ describe("buildClearAllStagingPlan", () => {
         defaultBranch: "main",
       },
       stagedFiles: [
-        { _id: "feature-1", vaultId: targetVaultId, branch: targetBranch },
-        { _id: "feature-2", vaultId: targetVaultId, branch: targetBranch },
-        { _id: "main-1", vaultId: targetVaultId, branch: "main" },
-        { _id: "other-vault", vaultId: "vault-2", branch: targetBranch },
+        { _id: "feature-1", repositoryId: targetRepositoryId, branch: targetBranch },
+        { _id: "feature-2", repositoryId: targetRepositoryId, branch: targetBranch },
+        { _id: "main-1", repositoryId: targetRepositoryId, branch: "main" },
+        { _id: "other-repository", repositoryId: "repository-2", branch: targetBranch },
       ],
     });
 
     // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
     await clearAllStagingImpl(context.ctx, {
-      vaultId: targetVaultId,
+      repositoryId: targetRepositoryId,
       userId: "users:owner",
       branch: targetBranch,
     });
 
     expect(context.queriedScopes).toEqual([
       {
-        table: "vaultStagedFiles",
-        indexName: "by_vault_and_branch",
+        table: "repositoryStagedFiles",
+        indexName: "by_repository_and_branch",
         constraints: [
-          { field: "vaultId", value: targetVaultId },
+          { field: "repositoryId", value: targetRepositoryId },
           { field: "branch", value: targetBranch },
         ],
       },
@@ -469,7 +469,7 @@ describe("buildClearAllStagingPlan", () => {
         delayMs: 0,
         fnRef: internal.fileStaging.deleteCollaborativeUpdatesBatch,
         args: {
-          vaultId: targetVaultId,
+          repositoryId: targetRepositoryId,
           branch: targetBranch,
           cutoffTimestamp: expect.any(Number),
           leaseId: "cleanup-lease-1",
@@ -482,7 +482,7 @@ describe("buildClearAllStagingPlan", () => {
         fnRef: internal.github.updateRepositoryTree,
         args: {
           userId: "users:owner",
-          vaultId: targetVaultId,
+          repositoryId: targetRepositoryId,
           branch: targetBranch,
         },
       },
@@ -497,7 +497,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "matching-1",
           _creationTime: 1,
-          vaultId: "vault-1",
+          repositoryId: "repository-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
           initialFilePath: "src/old-name.ts",
@@ -512,7 +512,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         {
           _id: "changed-1",
           _creationTime: 2,
-          vaultId: "vault-1",
+          repositoryId: "repository-1",
           fileDeleted: false,
           filePath: "src/keep.ts",
           initialFilePath: "src/keep.ts",
@@ -529,12 +529,12 @@ describe("clearMatchingStagingSnapshotImpl", () => {
 
     // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
     await clearMatchingStagingSnapshotImpl(context.ctx, {
-      vaultId: "vault-1",
+      repositoryId: "repository-1",
       branch: "main",
       stagedFiles: [
         {
           _id: "matching-1",
-          vaultId: "vault-1",
+          repositoryId: "repository-1",
           fileDeleted: false,
           filePath: "src/new-name.ts",
           initialFilePath: "src/old-name.ts",
@@ -548,7 +548,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         },
         {
           _id: "changed-1",
-          vaultId: "vault-1",
+          repositoryId: "repository-1",
           fileDeleted: false,
           filePath: "src/keep.ts",
           initialFilePath: "src/keep.ts",
@@ -569,7 +569,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         delayMs: 0,
         fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
         args: {
-          vaultId: "vault-1",
+          repositoryId: "repository-1",
           branch: "main",
           filePath: "src/new-name.ts",
           cutoffTimestamp: 201,
@@ -582,7 +582,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
         delayMs: 0,
         fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
         args: {
-          vaultId: "vault-1",
+          repositoryId: "repository-1",
           branch: "main",
           filePath: "src/old-name.ts",
           cutoffTimestamp: 201,

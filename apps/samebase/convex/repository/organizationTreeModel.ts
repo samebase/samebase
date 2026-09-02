@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { boolean, id } = v;
+const { boolean, id, object } = v;
 
 export const repositoryOrganizationTreeTables = {
   /** One user's saved organization disclosure choice in the repository tree. */
@@ -13,3 +13,11 @@ export const repositoryOrganizationTreeTables = {
     .index("by_userId_and_organizationId", ["userId", "organizationId"])
     .index("by_organization", ["organizationId"]),
 };
+
+const repositoryOrganizationTreeSettingFields =
+  repositoryOrganizationTreeTables.ui_repositoryTree_organizationSettings.validator.fields;
+
+export const vRepositoryOrganizationTreeSetting = object({
+  collapsed: repositoryOrganizationTreeSettingFields.collapsed,
+  organizationId: repositoryOrganizationTreeSettingFields.organizationId,
+});

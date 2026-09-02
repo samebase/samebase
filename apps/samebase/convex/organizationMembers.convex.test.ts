@@ -1252,28 +1252,29 @@ describe("organization member lifecycle", () => {
     expect(githubMocks.getPublicUserByLogin).toHaveBeenCalledTimes(1);
   });
 
-  it("enforces active owners and blocks only target-owned active vault work", async () => {
+  it("enforces active owners and blocks only target-owned active repository work", async () => {
     const { asMember, asOwner, ids, t } = await seedMembers();
-    const vaultId = await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert("repositories", {
         state: "not_connected",
         organizationId: ids.organizationId,
         convexTeamId: "team",
         cloudflareAccountId: "account",
         deletion: { state: "not_deleting" },
+        createdAt: roundedNow,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: ids.organizationId,
         userId: ids.memberUserId,
-        vaultId,
-        repositoryFullName: "samebase-test-org/app",
+        repositoryId,
+        githubRepositoryFullName: "samebase-test-org/app",
         trigger: "create",
         state: "queued",
         currentStep: "run_created",
         createdAt: roundedNow,
         updatedAt: roundedNow,
       });
-      return vaultId;
+      return repositoryId;
     });
 
     await expect(
@@ -1288,18 +1289,18 @@ describe("organization member lifecycle", () => {
         organizationId: ids.organizationId,
         membershipId: ids.memberMembershipId,
       }),
-    ).rejects.toThrow("Wait for this member's active vault work to finish.");
+    ).rejects.toThrow("Wait for this member's active repository work to finish.");
     await expect(
       asMember.mutation(api.organizationMembers.leaveOrganization, {
         organizationId: ids.organizationId,
       }),
-    ).rejects.toThrow("Wait for this member's active vault work to finish.");
+    ).rejects.toThrow("Wait for this member's active repository work to finish.");
 
     await t.run(async (ctx) => {
       const run = await ctx.db
-        .query("workflow_vaultProvisioning_runs")
-        .withIndex("by_vault_and_state", (builder) =>
-          builder.eq("vaultId", vaultId).eq("state", "queued"),
+        .query("workflow_repositoryProvisioning_runs")
+        .withIndex("by_repository_and_state", (builder) =>
+          builder.eq("repositoryId", repositoryId).eq("state", "queued"),
         )
         .unique();
       if (run !== null) {
@@ -1319,18 +1320,19 @@ describe("organization member lifecycle", () => {
         userId: ids.memberUserId,
         role: "member",
       });
-      const otherVaultId = await ctx.db.insert("vaults", {
+      const otherRepositoryId = await ctx.db.insert("repositories", {
         state: "not_connected",
         organizationId: otherOrganizationId,
         convexTeamId: "other-team",
         cloudflareAccountId: "other-account",
         deletion: { state: "not_deleting" },
+        createdAt: roundedNow,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: otherOrganizationId,
         userId: ids.memberUserId,
-        vaultId: otherVaultId,
-        repositoryFullName: "other-owner/app",
+        repositoryId: otherRepositoryId,
+        githubRepositoryFullName: "other-owner/app",
         trigger: "create",
         state: "queued",
         currentStep: "run_created",
@@ -1339,12 +1341,12 @@ describe("organization member lifecycle", () => {
       });
     });
     const deletionRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("workflow_vaultDeletion_runs", {
+      return await ctx.db.insert("workflow_repositoryDeletion_runs", {
         state: "queued",
         organizationId: ids.organizationId,
         userId: ids.memberUserId,
-        vaultId,
-        repositoryFullName: "samebase-test-org/app",
+        repositoryId,
+        githubRepositoryFullName: "samebase-test-org/app",
         createdAt: roundedNow,
         updatedAt: roundedNow,
         attempt: { kind: "initial" },
@@ -1355,10 +1357,10 @@ describe("organization member lifecycle", () => {
           plan: {
             target: {
               kind: "samebase_managed_repository",
-              ghRepoId: "github-repository",
-              owner: "samebase-test-org",
-              name: "app",
-              repositoryFullName: "samebase-test-org/app",
+              githubRepositoryDatabaseId: "github-repository",
+              githubOwnerLogin: "samebase-test-org",
+              githubRepositoryName: "app",
+              githubRepositoryFullName: "samebase-test-org/app",
             },
             convex: { action: "skip", reason: "not_requested" },
             cloudflare: { action: "skip", reason: "not_requested" },
@@ -1372,7 +1374,7 @@ describe("organization member lifecycle", () => {
         organizationId: ids.organizationId,
         membershipId: ids.memberMembershipId,
       }),
-    ).rejects.toThrow("Wait for this member's active vault work to finish.");
+    ).rejects.toThrow("Wait for this member's active repository work to finish.");
     await t.run(async (ctx) => {
       await ctx.db.delete(deletionRunId);
     });

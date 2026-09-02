@@ -7,8 +7,8 @@ import {
   MAX_LOGO_GRID_SIZE,
 } from "@samebase/logo-model/voxel";
 import {
-  applyVaultDashboardProviderAddSearch,
-  clearVaultDashboardQueryDialogSearch,
+  applyRepositoryDashboardProviderAddSearch,
+  clearRepositoryDashboardQueryDialogSearch,
   readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
@@ -24,17 +24,17 @@ describe("rootRouteSearch", () => {
       "prod-ui": true,
     } satisfies RootRouteSearch;
 
-    expect(applyVaultDashboardProviderAddSearch({ currentSearch, provider: "cloudflare" })).toEqual(
-      {
-        "add-cloudflare": true,
-        "add-convex": undefined,
-        delete: undefined,
-        "prod-ui": true,
-      },
-    );
+    expect(
+      applyRepositoryDashboardProviderAddSearch({ currentSearch, provider: "cloudflare" }),
+    ).toEqual({
+      "add-cloudflare": true,
+      "add-convex": undefined,
+      delete: undefined,
+      "prod-ui": true,
+    });
   });
 
-  it("clears only the selected vault dashboard dialog search", () => {
+  it("clears only the selected repository dashboard dialog search", () => {
     const currentSearch = {
       "add-cloudflare": true,
       "add-convex": true,
@@ -42,15 +42,15 @@ describe("rootRouteSearch", () => {
       devtools: true,
     } satisfies RootRouteSearch;
 
-    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-cloudflare")).toEqual({
+    expect(clearRepositoryDashboardQueryDialogSearch(currentSearch, "add-cloudflare")).toEqual({
       ...currentSearch,
       "add-cloudflare": undefined,
     });
-    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "add-convex")).toEqual({
+    expect(clearRepositoryDashboardQueryDialogSearch(currentSearch, "add-convex")).toEqual({
       ...currentSearch,
       "add-convex": undefined,
     });
-    expect(clearVaultDashboardQueryDialogSearch(currentSearch, "delete")).toEqual({
+    expect(clearRepositoryDashboardQueryDialogSearch(currentSearch, "delete")).toEqual({
       ...currentSearch,
       delete: undefined,
     });

@@ -32,7 +32,7 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
     if (authReturn === "dashboard") {
       void router.navigate({
         replace: true,
-        search: (currentSearch) => ({
+        search: (currentSearch: RootRouteSearch) => ({
           ...currentSearch,
           auth: undefined,
           "auth-return": undefined,
@@ -50,7 +50,7 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
 
     const nextPath = router.buildLocation({
       hash: true,
-      search: (currentSearch) => ({
+      search: (currentSearch: RootRouteSearch) => ({
         ...currentSearch,
         auth: undefined,
         "auth-return": undefined,

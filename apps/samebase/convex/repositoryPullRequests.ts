@@ -7,8 +7,8 @@ import { internal } from "./_generated/api";
 import { action } from "./functions";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
-import type { VaultConnectedRepositoryTarget } from "./vault/model";
-import { isLiveConnectedVault } from "./vault/state";
+import type { RepositoryConnectedGitHubTarget } from "./repository/model";
+import { isLiveConnectedRepository } from "./repository/state";
 
 const { array, boolean, id, literal, number, object, string, union } = v;
 
@@ -49,7 +49,7 @@ const GITHUB_CHECK_CONCLUSIONS = [
   "STALE",
 ] as const;
 const UNKNOWN_GITHUB_STATE = "UNKNOWN" as const;
-const VAULT_SIDEBAR_SUMMARY_BATCH_SIZE = 20;
+const REPOSITORY_SIDEBAR_SUMMARY_BATCH_SIZE = 20;
 const checkRunState = union(
   ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
@@ -158,8 +158,8 @@ const vRepositoryPullRequestPage = object({
     }),
   ),
 });
-const vVaultSidebarSummary = object({
-  vaultId: id("vaults"),
+const vRepositorySidebarSummary = object({
+  repositoryId: id("repositories"),
   repository: union(
     v.null(),
     object({
@@ -172,7 +172,7 @@ export type RepositoryPullRequestPage = Infer<typeof vRepositoryPullRequestPage>
 export type RepositoryPullRequest = Infer<typeof vPullRequest>;
 export type RepositoryStatusCheckCounts = Infer<typeof vStatusCheckCounts>;
 export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
-export type VaultSidebarSummary = Infer<typeof vVaultSidebarSummary>;
+export type RepositorySidebarSummary = Infer<typeof vRepositorySidebarSummary>;
 const vBranchPullRequest = object({
   aheadBy: number(),
   pullRequest: union(
@@ -441,8 +441,8 @@ const providerMissingSidebarRepositoriesErrorSchema = z.object({
 type ProviderStatusCheckCounts = z.infer<typeof statusCheckCountsSchema>;
 type ProviderStatusCheckRollup = z.infer<typeof statusCheckRollupSchema>;
 
-function buildVaultSidebarSummariesQuery(
-  repositories: readonly VaultConnectedRepositoryTarget[],
+function buildRepositorySidebarSummariesQuery(
+  repositories: readonly RepositoryConnectedGitHubTarget[],
 ): string {
   const variableDefinitions = repositories
     .flatMap((_, index) => [
@@ -482,7 +482,7 @@ function buildVaultSidebarSummariesQuery(
     .join("\n");
 
   return `
-    query VaultSidebarSummaries(
+    query RepositorySidebarSummaries(
       ${variableDefinitions}
     ) {
       ${repositoryFields}
@@ -490,35 +490,35 @@ function buildVaultSidebarSummariesQuery(
   `;
 }
 
-function vaultSidebarSummariesVariables(
-  repositories: readonly VaultConnectedRepositoryTarget[],
+function repositorySidebarSummariesVariables(
+  repositories: readonly RepositoryConnectedGitHubTarget[],
 ): Record<string, string> {
   const variables: Record<string, string> = {};
   repositories.forEach((repository, index) => {
-    variables[`owner${index}`] = repository.owner;
-    variables[`name${index}`] = repository.name;
+    variables[`owner${index}`] = repository.githubOwnerLogin;
+    variables[`name${index}`] = repository.githubRepositoryName;
     variables[`defaultBranchRef${index}`] = `refs/heads/${repository.defaultBranch}`;
   });
   return variables;
 }
 
-export function vaultSidebarSummaryBatches(
-  repositories: readonly VaultConnectedRepositoryTarget[],
-): VaultConnectedRepositoryTarget[][] {
-  const batches: VaultConnectedRepositoryTarget[][] = [];
-  const repositoriesByOwner = new Map<string, VaultConnectedRepositoryTarget[]>();
+export function repositorySidebarSummaryBatches(
+  repositories: readonly RepositoryConnectedGitHubTarget[],
+): RepositoryConnectedGitHubTarget[][] {
+  const batches: RepositoryConnectedGitHubTarget[][] = [];
+  const repositoriesByOwner = new Map<string, RepositoryConnectedGitHubTarget[]>();
   for (const repository of repositories) {
-    const ownerRepositories = repositoriesByOwner.get(repository.owner) ?? [];
+    const ownerRepositories = repositoriesByOwner.get(repository.githubOwnerLogin) ?? [];
     ownerRepositories.push(repository);
-    repositoriesByOwner.set(repository.owner, ownerRepositories);
+    repositoriesByOwner.set(repository.githubOwnerLogin, ownerRepositories);
   }
   for (const ownerRepositories of repositoriesByOwner.values()) {
     for (
       let start = 0;
       start < ownerRepositories.length;
-      start += VAULT_SIDEBAR_SUMMARY_BATCH_SIZE
+      start += REPOSITORY_SIDEBAR_SUMMARY_BATCH_SIZE
     ) {
-      batches.push(ownerRepositories.slice(start, start + VAULT_SIDEBAR_SUMMARY_BATCH_SIZE));
+      batches.push(ownerRepositories.slice(start, start + REPOSITORY_SIDEBAR_SUMMARY_BATCH_SIZE));
     }
   }
   return batches;
@@ -657,10 +657,10 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
   };
 }
 
-export function normalizeGitHubVaultSidebarSummaries(
+export function normalizeGitHubRepositorySidebarSummaries(
   value: unknown,
-  repositories: readonly VaultConnectedRepositoryTarget[],
-): VaultSidebarSummary[] {
+  repositories: readonly RepositoryConnectedGitHubTarget[],
+): RepositorySidebarSummary[] {
   const parsed = providerSidebarResponseSchema.parse(value);
   return repositories.map((repository, index) => {
     const providerRepository = parsed[`repository${index}`];
@@ -668,16 +668,16 @@ export function normalizeGitHubVaultSidebarSummaries(
     if (
       !providerRepository ||
       !defaultBranch ||
-      String(providerRepository.databaseId) !== repository.ghRepoId ||
+      String(providerRepository.databaseId) !== repository.githubRepositoryDatabaseId ||
       defaultBranch.name !== repository.defaultBranch
     ) {
       return {
-        vaultId: repository.vaultId,
+        repositoryId: repository.repositoryId,
         repository: null,
       };
     }
     return {
-      vaultId: repository.vaultId,
+      repositoryId: repository.repositoryId,
       repository: {
         openPullRequestCount: providerRepository.pullRequests.totalCount,
         statusCheckRollup:
@@ -689,9 +689,9 @@ export function normalizeGitHubVaultSidebarSummaries(
   });
 }
 
-export function recoverGitHubVaultSidebarSummariesFromError(
+export function recoverGitHubRepositorySidebarSummariesFromError(
   error: unknown,
-  repositories: readonly VaultConnectedRepositoryTarget[],
+  repositories: readonly RepositoryConnectedGitHubTarget[],
 ): unknown {
   const parsed = providerMissingSidebarRepositoriesErrorSchema.safeParse(error);
   if (!parsed.success) {
@@ -706,13 +706,13 @@ export function recoverGitHubVaultSidebarSummariesFromError(
   return parsed.data.data;
 }
 
-export const listVaultSidebarSummaries = action({
+export const listRepositorySidebarSummaries = action({
   access: "access_dashboard",
   args: {},
-  returns: array(vVaultSidebarSummary),
-  handler: async (ctx): Promise<VaultSidebarSummary[]> => {
+  returns: array(vRepositorySidebarSummary),
+  handler: async (ctx): Promise<RepositorySidebarSummary[]> => {
     const repositories = await ctx.runQuery(
-      internal.vault.records.listConnectedRepositoriesForUser,
+      internal.repository.records.listConnectedRepositoriesForUser,
       {
         userId: ctx.viewer.userId,
       },
@@ -720,29 +720,29 @@ export const listVaultSidebarSummaries = action({
     if (repositories.length === 0) {
       return [];
     }
-    const summaries: VaultSidebarSummary[] = [];
-    for (const batch of vaultSidebarSummaryBatches(repositories)) {
+    const summaries: RepositorySidebarSummary[] = [];
+    for (const batch of repositorySidebarSummaryBatches(repositories)) {
       const firstRepository = batch.at(0);
       if (firstRepository === undefined) {
         continue;
       }
       const { octokit } = await resolveGitHubAppAccess(ctx, {
         userId: ctx.viewer.userId,
-        target: { kind: "owner", githubOwnerLogin: firstRepository.owner },
+        target: { kind: "owner", githubOwnerLogin: firstRepository.githubOwnerLogin },
       });
       const signal = createGitHubRequestDeadlineSignal();
       let providerResponse: unknown;
       try {
-        providerResponse = await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
-          ...vaultSidebarSummariesVariables(batch),
+        providerResponse = await octokit.graphql(buildRepositorySidebarSummariesQuery(batch), {
+          ...repositorySidebarSummariesVariables(batch),
           request: { signal },
         });
       } catch (error) {
         // GitHub throws for partial GraphQL responses. A missing aliased
-        // repository is still usable data for every other vault in the batch.
-        providerResponse = recoverGitHubVaultSidebarSummariesFromError(error, batch);
+        // repository is still usable data for every other repository in the batch.
+        providerResponse = recoverGitHubRepositorySidebarSummariesFromError(error, batch);
       }
-      summaries.push(...normalizeGitHubVaultSidebarSummaries(providerResponse, batch));
+      summaries.push(...normalizeGitHubRepositorySidebarSummaries(providerResponse, batch));
     }
     return summaries;
   },
@@ -751,7 +751,7 @@ export const listVaultSidebarSummaries = action({
 export const listOpenPullRequests = action({
   access: "access_dashboard",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     first: number(),
     after: union(string(), v.null()),
   },
@@ -760,23 +760,23 @@ export const listOpenPullRequests = action({
     if (!Number.isInteger(args.first) || args.first < 1 || args.first > 100) {
       throw new Error("GitHub pull request page size must be between 1 and 100.");
     }
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       userId: ctx.viewer.userId,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
     });
-    if (!isLiveConnectedVault(vault)) {
-      throw new Error("Vault not found.");
+    if (!isLiveConnectedRepository(repository)) {
+      throw new Error("Repository not found.");
     }
     const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      target: { kind: "vault", vaultId: vault._id },
+      target: { kind: "repository", repositoryId: repository._id },
     });
     const signal = createGitHubRequestDeadlineSignal();
     const page = normalizeGitHubPullRequestPage(
       await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
         owner: githubOwnerLogin,
-        name: vault.name,
-        defaultBranchRef: `refs/heads/${vault.defaultBranch}`,
+        name: repository.githubRepositoryName,
+        defaultBranchRef: `refs/heads/${repository.defaultBranch}`,
         first: args.first,
         after: args.after,
         request: { signal },
@@ -785,12 +785,12 @@ export const listOpenPullRequests = action({
     if (page.repository === null) {
       return page;
     }
-    if (String(page.repository.databaseId) !== vault.ghRepoId) {
+    if (String(page.repository.databaseId) !== repository.githubRepositoryDatabaseId) {
       throw new Error("GitHub repository identity changed.");
     }
     if (
       page.repository.defaultBranch !== null &&
-      page.repository.defaultBranch.name !== vault.defaultBranch
+      page.repository.defaultBranch.name !== repository.defaultBranch
     ) {
       throw new Error("GitHub returned another default branch ref.");
     }
@@ -801,7 +801,7 @@ export const listOpenPullRequests = action({
 export const getOpenPullRequestForBranch = action({
   access: "access_files_read",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     branch: string(),
   },
   returns: vBranchPullRequest,
@@ -810,31 +810,31 @@ export const getOpenPullRequestForBranch = action({
     if (!branch) {
       throw new Error("Branch is required.");
     }
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       userId: ctx.viewer.userId,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
     });
-    if (!isLiveConnectedVault(vault)) {
-      throw new Error("Vault not found.");
+    if (!isLiveConnectedRepository(repository)) {
+      throw new Error("Repository not found.");
     }
-    if (branch === vault.defaultBranch) {
+    if (branch === repository.defaultBranch) {
       return { aheadBy: 0, pullRequest: null };
     }
     const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
-      target: { kind: "vault", vaultId: vault._id },
+      target: { kind: "repository", repositoryId: repository._id },
     });
     const signal = createGitHubRequestDeadlineSignal();
     const [comparison, pullRequests] = await Promise.all([
       octokit.rest.repos.compareCommitsWithBasehead({
         owner: githubOwnerLogin,
-        repo: vault.name,
-        basehead: `${vault.defaultBranch}...${branch}`,
+        repo: repository.githubRepositoryName,
+        basehead: `${repository.defaultBranch}...${branch}`,
         request: { signal },
       }),
       octokit.rest.pulls.list({
         owner: githubOwnerLogin,
-        repo: vault.name,
+        repo: repository.githubRepositoryName,
         state: "open",
         head: `${githubOwnerLogin}:${branch}`,
         sort: "updated",

@@ -102,14 +102,14 @@ declare module "@tanstack/react-router" {
   interface HistoryState {
     // Marks query-dialog entries so Cancel can safely return to the entry beneath them.
     settingsDeleteAccountDialog?: true;
-    vaultDashboardDialog?:
+    repositoryDashboardDialog?:
       | {
           dialog: "add-cloudflare";
-          repairWorkerId?: Id<"vaultCloudflareWorkers">;
+          repairWorkerId?: Id<"repositoryCloudflareWorkers">;
         }
       | {
           dialog: "add-convex";
-          repairProjectId?: Id<"vaultConvexProjects">;
+          repairProjectId?: Id<"repositoryConvexProjects">;
         }
       | { dialog: "delete" };
   }

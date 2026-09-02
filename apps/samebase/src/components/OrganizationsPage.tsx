@@ -11,7 +11,7 @@ import { useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { Button } from "@/components/ui/button";
-import { GitHubProviderLogo } from "@/components/vault-dashboard/VaultDashboardLogos";
+import { GitHubProviderLogo } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
 import { useOrganizationContext, type ViewerOrganization } from "@/lib/organizationContext";

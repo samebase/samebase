@@ -33,9 +33,9 @@ import {
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
 import {
-  vVaultProviderWorkflowAuthority,
-  type VaultProviderWorkflowAuthority,
-} from "./vaultWorkflowAuthority";
+  vRepositoryProviderWorkflowAuthority,
+  type RepositoryProviderWorkflowAuthority,
+} from "./repositoryWorkflowAuthority";
 import { requireRepositoryOperationLease } from "./repositoryMigration/maintenance";
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
@@ -78,8 +78,8 @@ type CloudflareConnectionAuthority =
       userId: Id<"users">;
     }
   | {
-      kind: "vault_workflow";
-      authority: VaultProviderWorkflowAuthority;
+      kind: "repository_workflow";
+      authority: RepositoryProviderWorkflowAuthority;
     };
 type CloudflareTokenRefreshLease = Infer<typeof vCloudflareTokenRefreshLease>;
 
@@ -364,9 +364,9 @@ async function loadCloudflareProviderConfiguration(
           },
         ),
       };
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runQuery(
-        internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
+        internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
         { authority: authority.authority },
       );
     default:
@@ -399,9 +399,9 @@ async function replaceCloudflareCredentialForAuthority(
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
         },
       );
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runMutation(
-        internal.organizationProviderCredentials.replaceCloudflareCredentialForVaultWorkflow,
+        internal.organizationProviderCredentials.replaceCloudflareCredentialForRepositoryWorkflow,
         {
           authority: authority.authority,
           expectedAuth: args.expectedAuth,
@@ -436,9 +436,9 @@ async function claimCloudflareTokenRefreshForAuthority(
           force: args.force,
         },
       );
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runMutation(
-        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForVaultWorkflow,
+        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForRepositoryWorkflow,
         {
           authority: authority.authority,
           expectedAuth: args.expectedAuth,
@@ -470,9 +470,9 @@ async function releaseCloudflareTokenRefreshForAuthority(
           recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
       );
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runMutation(
-        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForVaultWorkflow,
+        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForRepositoryWorkflow,
         {
           authority: authority.authority,
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
@@ -541,11 +541,14 @@ async function resolveConnectionForAuthority(
           userId: authority.userId,
           forceRefresh,
         });
-      case "vault_workflow":
-        return await ctx.runAction(internal.cloudflareMcpOAuth.resolveConnectionForVaultWorkflow, {
-          authority: authority.authority,
-          forceRefresh,
-        });
+      case "repository_workflow":
+        return await ctx.runAction(
+          internal.cloudflareMcpOAuth.resolveConnectionForRepositoryWorkflow,
+          {
+            authority: authority.authority,
+            forceRefresh,
+          },
+        );
       default:
         authority satisfies never;
         throw new Error("Cloudflare connection authority is invalid.");
@@ -722,16 +725,16 @@ export const resolveConnectionForOrganization = internalAction({
     ),
 });
 
-export const resolveConnectionForVaultWorkflow = internalAction({
+export const resolveConnectionForRepositoryWorkflow = internalAction({
   args: {
-    authority: vVaultProviderWorkflowAuthority,
+    authority: vRepositoryProviderWorkflowAuthority,
     forceRefresh: optional(boolean()),
   },
   returns: resolveConnectionForOrganizationResultValidator,
   handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
     await resolveConnectionForAuthority(
       ctx,
-      { kind: "vault_workflow", authority: args.authority },
+      { kind: "repository_workflow", authority: args.authority },
       args.forceRefresh,
     ),
 });

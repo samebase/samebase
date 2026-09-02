@@ -10,19 +10,21 @@ import {
 } from "./fileViewShared";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
-type VaultId = NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>["_id"];
+type RepositoryId = NonNullable<
+  (typeof api.repository.records.getRepositoryByRepository)["_returnType"]
+>["repositoryId"];
 type StorageId = Id<"_storage">;
 type RepositoryOperationLeaseId = Id<"repositoryOperationLeases">;
 
-type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<{
+type GenerateUploadUrl = (args: { repositoryId: RepositoryId }) => Promise<{
   uploadUrl: string;
   leaseId: RepositoryOperationLeaseId;
   operationId: string;
   operationName: string;
 }>;
 type StageUploadedMedia = (args: {
-  repositoryFullName: string;
-  vaultId: VaultId;
+  githubRepositoryFullName: string;
+  repositoryId: RepositoryId;
   filePath: string;
   storageId: StorageId;
   branch: string;
@@ -32,30 +34,30 @@ type StageUploadedMedia = (args: {
   operationName: string;
 }) => Promise<unknown>;
 type DeletePendingUploadBlob = (args: {
-  vaultId: VaultId;
+  repositoryId: RepositoryId;
   storageId: StorageId;
 }) => Promise<unknown>;
 
 export function useFileViewMediaUpload({
   branch,
-  buildVaultFileUrl,
+  buildRepositoryFileUrl,
   deletePendingUploadBlob,
   generateUploadUrl,
   navigateByHref,
-  repositoryFullName,
+  githubRepositoryFullName,
   selectedFile,
   stageUploadedMedia,
-  vaultId,
+  repositoryId,
 }: {
   branch: string;
-  buildVaultFileUrl: (path: string) => string;
+  buildRepositoryFileUrl: (path: string) => string;
   deletePendingUploadBlob: DeletePendingUploadBlob;
   generateUploadUrl: GenerateUploadUrl;
   navigateByHref: (href: string, options?: { replace?: boolean }) => void;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   selectedFile: string;
   stageUploadedMedia: StageUploadedMedia;
-  vaultId: VaultId;
+  repositoryId: RepositoryId;
 }) {
   const mediaUploadInputRef = useRef<HTMLInputElement>(null);
   const pendingMediaUploadFolderPathRef = useRef("");
@@ -119,7 +121,7 @@ export function useFileViewMediaUpload({
       setMediaUploadError(null);
 
       void uploadMediaWithCleanup({
-        requestUploadUrl: () => generateUploadUrl({ vaultId }),
+        requestUploadUrl: () => generateUploadUrl({ repositoryId }),
         uploadFile: async (uploadUrl) => {
           const response = await fetch(uploadUrl, {
             method: "POST",
@@ -135,8 +137,8 @@ export function useFileViewMediaUpload({
         },
         stageUploadedMedia: async ({ storageId, capability }) => {
           await stageUploadedMedia({
-            repositoryFullName,
-            vaultId,
+            githubRepositoryFullName,
+            repositoryId,
             filePath: targetPath,
             // Convex returns upload ids as opaque strings over HTTP even though
             // the generated client types brand storage ids locally.
@@ -151,7 +153,7 @@ export function useFileViewMediaUpload({
         },
         deleteUploadedMedia: async (storageId) => {
           await deletePendingUploadBlob({
-            vaultId,
+            repositoryId,
             // Upload responses cannot preserve the storage id brand.
             // @ts-expect-error Upload responses are plain strings from fetch JSON.
             storageId,
@@ -166,7 +168,7 @@ export function useFileViewMediaUpload({
       })
         .then(() => {
           setPendingMediaUpload(null);
-          navigateByHref(buildVaultFileUrl(targetPath));
+          navigateByHref(buildRepositoryFileUrl(targetPath));
         })
         .catch((error: unknown) => {
           const message =
@@ -181,14 +183,14 @@ export function useFileViewMediaUpload({
     },
     [
       branch,
-      buildVaultFileUrl,
+      buildRepositoryFileUrl,
       deletePendingUploadBlob,
       generateUploadUrl,
       navigateByHref,
       pendingMediaUpload,
-      repositoryFullName,
+      githubRepositoryFullName,
       stageUploadedMedia,
-      vaultId,
+      repositoryId,
     ],
   );
 

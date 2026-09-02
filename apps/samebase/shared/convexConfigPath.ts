@@ -1,4 +1,7 @@
-import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "./vaultRootDirectory";
+import {
+  normalizeRepositoryRootDirectory,
+  REPOSITORY_ROOT_DIRECTORY,
+} from "./repositoryRootDirectory";
 
 const CONVEX_CONFIG_BASENAME = "convex.json";
 
@@ -28,6 +31,6 @@ export function getConvexConfigRootDirectory(value: string): string {
   const segments = normalizeConvexConfigPath(value).split("/");
   segments.pop();
   return segments.length === 0
-    ? VAULT_ROOT_DIRECTORY
-    : normalizeVaultRootDirectory(segments.join("/"));
+    ? REPOSITORY_ROOT_DIRECTORY
+    : normalizeRepositoryRootDirectory(segments.join("/"));
 }

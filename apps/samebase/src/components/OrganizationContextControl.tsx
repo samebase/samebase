@@ -33,7 +33,7 @@ export function OrganizationContextControl() {
   if (orderedOrganizations.length === 0) {
     return surface.kind === "organization" ? (
       <div
-        className="vault-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
+        className="repository-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
         data-testid="organization-context-control"
       >
         <span className="block w-full min-w-0 truncate text-sm font-medium" title={displayedLabel}>
@@ -59,7 +59,7 @@ export function OrganizationContextControl() {
 
   return (
     <div
-      className="vault-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
+      className="repository-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
       data-testid="organization-context-control"
     >
       <DropdownMenu>

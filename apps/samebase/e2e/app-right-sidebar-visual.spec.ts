@@ -78,7 +78,7 @@ function getRightPane(page: Page) {
 }
 
 function getAccountSection(page: Page) {
-  return getRightSidebar(page).locator(".vault-dashboard-sidebar-inset").first();
+  return getRightSidebar(page).locator(".repository-dashboard-sidebar-inset").first();
 }
 
 function getSignedInAccountSection(page: Page) {

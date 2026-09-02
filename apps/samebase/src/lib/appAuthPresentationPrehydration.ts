@@ -92,13 +92,13 @@ function InlineScript_prehydrateAppAuthPresentation(
     const accountSectionSelector =
       "[data-testid=" + cssStringLiteral(args.accountSectionTestId) + "]";
     const accountLabelSelector =
-      accountSectionSelector + " [data-vault-dashboard-account-section-label]";
+      accountSectionSelector + " [data-repository-dashboard-account-section-label]";
     const staticAccountSectionSelector =
       "[data-testid=" + cssStringLiteral(args.staticAccountSectionTestId) + "]";
     const staticAccountLabelSelector =
-      staticAccountSectionSelector + " [data-vault-dashboard-account-section-label]";
+      staticAccountSectionSelector + " [data-repository-dashboard-account-section-label]";
     const staticAccountContentSelector =
-      staticAccountSectionSelector + " [data-vault-dashboard-account-section-content]";
+      staticAccountSectionSelector + " [data-repository-dashboard-account-section-content]";
     const signedOutSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-out]";
     const signedOutLabelSelector =

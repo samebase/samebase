@@ -12,9 +12,9 @@ import {
   type FileViewLayoutVisualMode,
 } from "@/components/FileViewLayoutVisualFixture";
 import {
-  VaultOverviewVisualFixture,
-  type VaultOverviewVisualMode,
-} from "@/components/vault-dashboard/VaultOverviewVisualFixture";
+  RepositoryOverviewVisualFixture,
+  type RepositoryOverviewVisualMode,
+} from "@/components/repository-dashboard/RepositoryOverviewVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
@@ -55,9 +55,9 @@ import {
   type SidebarLayoutVisualMode,
 } from "@/components/SidebarLayoutVisualFixture";
 import {
-  VaultSyncStatusVisualFixture,
-  type VaultSyncStatusVisualMode,
-} from "@/components/VaultSyncStatusVisualFixture";
+  RepositorySyncStatusVisualFixture,
+  type RepositorySyncStatusVisualMode,
+} from "@/components/RepositorySyncStatusVisualFixture";
 import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
@@ -105,8 +105,8 @@ type VisualFixtureMode =
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
-  | VaultOverviewVisualMode
-  | VaultSyncStatusVisualMode
+  | RepositoryOverviewVisualMode
+  | RepositorySyncStatusVisualMode
   | SidebarLayoutVisualMode
   | ProviderConnectionsPageVisualMode
   | RouteUrlEditorVisualMode
@@ -166,44 +166,44 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
   | LogoSnapAnglesVisualMode
 )[];
 
-const VAULT_DASHBOARD_VISUAL_MODES = [
-  "vault-overview-v2",
-  "vault-overview-v2-auto-pagination",
-  "vault-overview-v2-cloudflare-build-status-unavailable",
-  "vault-overview-v2-cloudflare-builds-repair",
-  "vault-overview-v2-cloudflare-dialog",
-  "vault-overview-v2-cloudflare-dialog-normalized-name",
-  "vault-overview-v2-cloudflare-dialog-loading",
-  "vault-overview-v2-cloudflare-github-authorization-failed",
-  "vault-overview-v2-convex-dialog",
-  "vault-overview-v2-convex-dialog-error",
-  "vault-overview-v2-convex-dialog-loading",
-  "vault-overview-v2-convex-schema",
-  "vault-overview-v2-dev",
-  "vault-overview-v2-delete-dialog",
-  "vault-overview-v2-loading",
-  "vault-overview-v2-partial-loading",
-  "vault-overview-v2-provider-failed",
-  "vault-overview-v2-provisioning-source",
-  "vault-overview-v2-provisioning-github",
-  "vault-overview-v2-provisioning-early-empty",
-  "vault-overview-v2-provisioning-complete-empty",
-  "vault-overview-v2-provisioning-stale-empty",
-  "vault-overview-v2-provisioning-commit",
-  "vault-overview-v2-provisioning-worker",
-  "vault-overview-v2-provisioning-ready",
-  "vault-overview-v2-root",
-  "vault-overview-v2-settings",
-  "vault-overview-v2-settings-active",
-  "vault-overview-v2-settings-checking",
-  "vault-overview-v2-settings-completed",
-  "vault-overview-v2-settings-drift",
-  "vault-overview-v2-settings-loading",
-] as const satisfies readonly VaultOverviewVisualMode[];
+const REPOSITORY_DASHBOARD_VISUAL_MODES = [
+  "repository-overview-v2",
+  "repository-overview-v2-auto-pagination",
+  "repository-overview-v2-cloudflare-build-status-unavailable",
+  "repository-overview-v2-cloudflare-builds-repair",
+  "repository-overview-v2-cloudflare-dialog",
+  "repository-overview-v2-cloudflare-dialog-normalized-name",
+  "repository-overview-v2-cloudflare-dialog-loading",
+  "repository-overview-v2-cloudflare-github-authorization-failed",
+  "repository-overview-v2-convex-dialog",
+  "repository-overview-v2-convex-dialog-error",
+  "repository-overview-v2-convex-dialog-loading",
+  "repository-overview-v2-convex-schema",
+  "repository-overview-v2-dev",
+  "repository-overview-v2-delete-dialog",
+  "repository-overview-v2-loading",
+  "repository-overview-v2-partial-loading",
+  "repository-overview-v2-provider-failed",
+  "repository-overview-v2-provisioning-source",
+  "repository-overview-v2-provisioning-github",
+  "repository-overview-v2-provisioning-early-empty",
+  "repository-overview-v2-provisioning-complete-empty",
+  "repository-overview-v2-provisioning-stale-empty",
+  "repository-overview-v2-provisioning-commit",
+  "repository-overview-v2-provisioning-worker",
+  "repository-overview-v2-provisioning-ready",
+  "repository-overview-v2-root",
+  "repository-overview-v2-settings",
+  "repository-overview-v2-settings-active",
+  "repository-overview-v2-settings-checking",
+  "repository-overview-v2-settings-completed",
+  "repository-overview-v2-settings-drift",
+  "repository-overview-v2-settings-loading",
+] as const satisfies readonly RepositoryOverviewVisualMode[];
 
-const VAULT_SYNC_STATUS_VISUAL_MODES = [
-  "vault-sync-status-states",
-] as const satisfies readonly VaultSyncStatusVisualMode[];
+const REPOSITORY_SYNC_STATUS_VISUAL_MODES = [
+  "repository-sync-status-states",
+] as const satisfies readonly RepositorySyncStatusVisualMode[];
 
 const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-sidebar",
@@ -305,11 +305,11 @@ const VISUAL_FIXTURE_GROUPS = [
   },
   {
     label: "Repository Overview",
-    modes: VAULT_DASHBOARD_VISUAL_MODES,
+    modes: REPOSITORY_DASHBOARD_VISUAL_MODES,
   },
   {
     label: "Repository Sync Status",
-    modes: VAULT_SYNC_STATUS_VISUAL_MODES,
+    modes: REPOSITORY_SYNC_STATUS_VISUAL_MODES,
   },
   {
     label: "Route URL",
@@ -400,12 +400,12 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <LogoSnapAnglesVisualFixture />;
   }
 
-  if (includes(VAULT_DASHBOARD_VISUAL_MODES, mode)) {
-    return <VaultOverviewVisualFixture mode={mode} />;
+  if (includes(REPOSITORY_DASHBOARD_VISUAL_MODES, mode)) {
+    return <RepositoryOverviewVisualFixture mode={mode} />;
   }
 
-  if (mode === "vault-sync-status-states") {
-    return <VaultSyncStatusVisualFixture mode={mode} />;
+  if (mode === "repository-sync-status-states") {
+    return <RepositorySyncStatusVisualFixture mode={mode} />;
   }
 
   if (mode === "file-view-compare-sidebar" || mode === "file-view-compare-loading") {

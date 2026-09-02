@@ -5,7 +5,7 @@ import { actionContracts } from "./actionCatalog";
 describe("action catalog presentation order", () => {
   it("leads with inventory and keeps diagnostic actions at the end", () => {
     expect(actionContracts.map((contract) => contract.id)).toEqual([
-      "get_user_vaults",
+      "get_user_repositories",
       "list_workers_build_tokens",
       "create_repository",
       "connect_existing_repository",

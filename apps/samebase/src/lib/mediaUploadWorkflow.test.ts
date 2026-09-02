@@ -18,7 +18,7 @@ describe("uploadMediaWithCleanup", () => {
       uploadUrl: "https://upload.example.test",
       leaseId: "lease-123",
       operationId: "operation-123",
-      operationName: "stage_uploaded_media:vault-123",
+      operationName: "stage_uploaded_media:repository-123",
     };
     const requestUploadUrl = vi.fn(async () => capability);
     const uploadFile = vi.fn(async () => "storage-123");
@@ -48,7 +48,7 @@ describe("uploadMediaWithCleanup", () => {
           uploadUrl: "https://upload.example.test",
           leaseId: "lease-123",
           operationId: "operation-123",
-          operationName: "stage_uploaded_media:vault-123",
+          operationName: "stage_uploaded_media:repository-123",
         }),
         uploadFile: async () => "storage-123",
         stageUploadedMedia: async () => {
@@ -71,7 +71,7 @@ describe("uploadMediaWithCleanup", () => {
           uploadUrl: "https://upload.example.test",
           leaseId: "lease-123",
           operationId: "operation-123",
-          operationName: "stage_uploaded_media:vault-123",
+          operationName: "stage_uploaded_media:repository-123",
         }),
         uploadFile: async () => {
           throw uploadError;
@@ -95,7 +95,7 @@ describe("uploadMediaWithCleanup", () => {
           uploadUrl: "https://upload.example.test",
           leaseId: "lease-123",
           operationId: "operation-123",
-          operationName: "stage_uploaded_media:vault-123",
+          operationName: "stage_uploaded_media:repository-123",
         }),
         uploadFile: async () => "storage-123",
         stageUploadedMedia: async () => {

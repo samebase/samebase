@@ -3,17 +3,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { FileViewVaultUnavailableState } from "./FileView";
+import { FileViewRepositoryUnavailableState } from "./FileView";
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({ children }: { children?: ReactNode }) => children ?? null,
 }));
 
-describe("FileViewVaultUnavailableState", () => {
+describe("FileViewRepositoryUnavailableState", () => {
   it("shows a safe return link without repository data", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/repo/lost/private/main/secret.txt"]}>
-        <FileViewVaultUnavailableState />
+        <FileViewRepositoryUnavailableState />
       </TestRouterProvider>,
     );
 

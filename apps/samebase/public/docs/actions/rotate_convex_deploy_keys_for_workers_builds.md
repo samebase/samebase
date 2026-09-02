@@ -2,7 +2,7 @@
 
 # Rotate Convex deploy keys for Workers Builds (`rotate_convex_deploy_keys_for_workers_builds`)
 
-MCP tool `vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds` · scope
+MCP tool `repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds` · scope
 `access_provider_connections` · write
 
 The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
@@ -16,15 +16,16 @@ Cloudflare currently shows one shared build-variable table. Both triggers intent
 deploy keys so the production and preview keys stay visible in that UI. Keep this shared layout
 until Cloudflare exposes separate production and preview build-variable views.
 
-The Worker and project must both be attached to the vault. Their selection is input to this one
+The Worker and project must both be attached to the repository. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.
 Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
 Convex.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault id containing both resources.
-- `workerId` (string, required): Stable Samebase Worker attachment id returned by get_user_vaults.
+- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `workerId` (string, required): Stable Samebase Worker attachment id returned by
+  get_user_repositories.
 - `convexProjectId` (string, required): Attached Convex project selected for this deploy-key
   rotation.
 

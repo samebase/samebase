@@ -5,11 +5,11 @@
 - Status: Active
 - Owner: Samebase repository domain
 - Started: 2026-09-02
-- Last updated: 2026-09-02
-- Current checkpoint: Phase 2 is deployed. Phase 4 preflight found and fixed one inventory case for
-  retained deletion retries.
-- Next action: Deploy the inventory fix, confirm that its index is ready, create a full backup, and
-  start the production maintenance window.
+- Last updated: 2026-09-03
+- Current checkpoint: Production is frozen. All 21 source tables are copied to the repository
+  tables, and all 91 copy and verification jobs passed. The Phase 4 application and MCP switch is
+  ready in PR #1578.
+- Next action: Merge and deploy PR #1578 before maintenance ends.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -34,15 +34,15 @@ The rollout has two separate changes:
 
 ## Progress
 
-| Phase | Scope                                   | Status      | Evidence                                                   |
-| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------- |
-| 0     | Fix the language and migration contract | Complete    | This RFC                                                   |
-| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570) |
-| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575) |
-| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                            |
-| 4     | Drain, freeze, copy, and switch         | In progress | Production preflight                                       |
-| 5     | Stabilize the new system                | Not started |                                                            |
-| 6     | Remove old data and migration support   | Not started |                                                            |
+| Phase | Scope                                   | Status      | Evidence                                                                                                                     |
+| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Fix the language and migration contract | Complete    | This RFC                                                                                                                     |
+| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570)                                                                   |
+| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575)                                                                   |
+| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                                                                                              |
+| 4     | Drain, freeze, copy, and switch         | In progress | [PR #1577](https://github.com/samebase/samebase/pull/1577), [draft PR #1578](https://github.com/samebase/samebase/pull/1578) |
+| 5     | Stabilize the new system                | Not started |                                                                                                                              |
+| 6     | Remove old data and migration support   | Not started |                                                                                                                              |
 
 Only one phase can be `In progress`. A phase is complete only when all of its exit checks pass.
 
@@ -121,6 +121,26 @@ the agent to call the repository list tool first and use its returned `repositor
 
 The old MCP IDs, names, arguments, and result keys stop working at the cutover. There are no
 aliases. An MCP client must refresh its tool catalog after the cutover.
+
+The complete MCP tool-name cutover is:
+
+| Contract ID                                    | Final tool name                                                |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| `get_user_repositories`                        | `repository_dashboard_getUserRepositories`                     |
+| `create_repository`                            | `repository_actions_createRepository`                          |
+| `connect_existing_repository`                  | `repository_actions_connectRepository`                         |
+| `discover_convex_projects`                     | `repository_convex_discoverProjects`                           |
+| `discover_cloudflare_workers`                  | `repository_cloudflare_discoverWorkers`                        |
+| `attach_convex_projects`                       | `repository_convex_attachProjects`                             |
+| `attach_cloudflare_workers`                    | `repository_cloudflare_attachWorkers`                          |
+| `create_cloudflare_worker`                     | `repository_cloudflare_createWorker`                           |
+| `configure_workers_builds_for_github`          | `repository_cloudflare_configureWorkersBuildsForGitHub`        |
+| `rotate_convex_deploy_keys_for_workers_builds` | `repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds` |
+| `retry_infrastructure_provisioning`            | `repository_actions_retryInfrastructureProvisioning`           |
+| `list_workers_build_tokens`                    | `cloudflare_listWorkersBuildTokens`                            |
+| `submit_feedback`                              | `samebase_feedback_submit`                                     |
+| `create_browser_handoff`                       | `create_browser_handoff`                                       |
+| `get_authentication_status`                    | `samebase_auth_getAuthenticationStatus`                        |
 
 ## Why This Sequence Is Safe
 
@@ -427,12 +447,18 @@ Exit checks:
 
 ## Phase 4: Drain, Freeze, Copy, And Switch
 
-Status: Not started.
+Status: In progress.
 
 Run this phase in one announced maintenance window.
 
 Before the drain starts, create a full Convex backup that includes file storage. Record the backup
 identifier and the source deployment in this RFC.
+
+Cutover backup:
+
+- Backup identifier: `nicu-samebase-clear-butterfly-858-1788382338278`
+- Source deployment: `clear-butterfly-858`
+- Recorded: 2026-09-03, before the drain started
 
 ### Drain
 
@@ -454,6 +480,21 @@ identifier and the source deployment in this RFC.
 5. Run the complete batched copy.
 6. Run the complete exact-field, ID-map, target-ownership, and storage-reference verification.
 
+Production cutover record, times in UTC:
+
+- Draining started at `2026-09-02T21:16:28.472Z`.
+- All active provisioning, deletion, Workflow, scheduled old-function, provider-write, account
+  deletion, upload, tree-refresh, operation-lease, and token-refresh blocker counts were zero.
+- Frozen mode started at `2026-09-02T21:18:52.629Z`.
+- The final inventory completed in 70 bounded calls across 21 source tables. It found 1,404 source
+  rows, 2,509 stored ID edges, zero missing references, zero missing storage references, and 420
+  valid missing repository roots in retained deletion history.
+- All four target-clear jobs completed successfully. They removed zero rows because no earlier
+  production copy existed.
+- All 91 ordered copy and verification jobs completed successfully from `2026-09-02T21:22:32.701Z`
+  through `2026-09-02T21:23:12.936Z`. Every job is complete with a null cursor. No job failed.
+- Production remains frozen until PR #1578 is deployed and the read-only production checks pass.
+
 ### Switch
 
 1. Deploy the internal rename from `convex/vault` to `convex/repository`.
@@ -464,7 +505,8 @@ identifier and the source deployment in this RFC.
 5. Keep both old and new table definitions in the schema.
 6. Run read-only production checks for repository lists, direct routes, files, branches, pull
    requests, providers, schema views, settings, deletion history, and MCP listing.
-7. Record the deployed version and verified source and target digests.
+7. Record the deployed version, final inventory totals, and complete exact-field and relationship
+   verification results.
 8. If all checks pass, set maintenance state to `normal` and enable writes on the new tables.
 
 The switch must not run a provider mutation. It must not use the normal deletion workflow to clear

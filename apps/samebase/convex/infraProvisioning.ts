@@ -18,10 +18,13 @@ import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
-import { isAppProvisioningProviderStep, type AppProvisioningStep } from "./appProvisioningModel";
+import {
+  isRepositoryProvisioningProviderStep,
+  type RepositoryProvisioningStep,
+} from "./repository/provisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 import { requireRepositoryAuthorityContinuation } from "./repositoryMigration/maintenance";
-import { requireActiveVaultProvisioningRun } from "./vaultWorkflowAuthority";
+import { requireActiveRepositoryProvisioningRun } from "./repositoryWorkflowAuthority";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
   components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
@@ -332,15 +335,15 @@ type ProvisioningEventCtx = {
 async function appendProvisioningRunEvent(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    step: AppProvisioningStep;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
+    step: RepositoryProvisioningStep;
     level: "info" | "warn" | "error";
     message: string;
     state: "unchanged" | "queued" | "running" | "succeeded" | "failed" | "canceled";
   },
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    await ctx.runMutation(internal.repositoryProvisioningRuns.appendRunEvent, {
       runId: args.runId,
       step: args.step,
       level: args.level,
@@ -355,29 +358,29 @@ async function appendProvisioningRunEvent(
   }
 }
 
-type VaultProvisioningWriteLock = Doc<"workflow_vaultProvisioning_writeLocks">;
+type RepositoryProvisioningWriteLock = Doc<"workflow_repositoryProvisioning_writeLocks">;
 type ProvisioningWriteLockCtx = Pick<MutationCtx, "db">;
 
-async function readVaultProvisioningWriteLock(
+async function readRepositoryProvisioningWriteLock(
   ctx: ProvisioningWriteLockCtx,
-  vaultId: Id<"vaults">,
-): Promise<VaultProvisioningWriteLock | null> {
+  repositoryId: Id<"repositories">,
+): Promise<RepositoryProvisioningWriteLock | null> {
   return await ctx.db
-    .query("workflow_vaultProvisioning_writeLocks")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .query("workflow_repositoryProvisioning_writeLocks")
+    .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
     .first();
 }
 
 async function markMatchingManagedWriteLockFailed(
   ctx: ProvisioningWriteLockCtx,
   args: {
-    vaultId: Id<"vaults">;
-    runId: Id<"workflow_vaultProvisioning_runs">;
+    repositoryId: Id<"repositories">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
     now: number;
     invalidateProviderFreshness: boolean;
   },
 ): Promise<boolean> {
-  const writeLock = await readVaultProvisioningWriteLock(ctx, args.vaultId);
+  const writeLock = await readRepositoryProvisioningWriteLock(ctx, args.repositoryId);
   if (
     !writeLock ||
     writeLock.owner.kind !== "managed_run" ||
@@ -400,8 +403,8 @@ async function markMatchingManagedWriteLockFailed(
 async function cancelSupersededProvisioningRun(
   ctx: ProvisioningEventCtx,
   args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    step: AppProvisioningStep;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
+    step: RepositoryProvisioningStep;
   },
 ): Promise<void> {
   await appendProvisioningRunEvent(ctx, {
@@ -458,12 +461,12 @@ export async function resolveConvexProvisioningConnection(
   };
 }
 
-export async function resolveConvexProvisioningConnectionForVaultWorkflow(
+export async function resolveConvexProvisioningConnectionForRepositoryWorkflow(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     teamId: string;
   },
 ): Promise<{
@@ -473,13 +476,13 @@ export async function resolveConvexProvisioningConnectionForVaultWorkflow(
   convexTeamId: string;
 }> {
   const loaded = await ctx.runQuery(
-    internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
+    internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
     {
       authority: {
         kind: "provisioning",
         runId: args.runId,
         userId: args.userId,
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
       },
     },
   );
@@ -509,7 +512,7 @@ export async function resolveConvexProvisioningConnectionForVaultWorkflow(
 
 export const markWorkflowStartupFailed = internalMutation({
   args: {
-    runId: v.id("workflow_vaultProvisioning_runs"),
+    runId: v.id("workflow_repositoryProvisioning_runs"),
     message: v.string(),
   },
   returns: v.null(),
@@ -521,24 +524,24 @@ export const markWorkflowStartupFailed = internalMutation({
     if (run.state === "succeeded" || run.state === "failed" || run.state === "canceled") {
       return null;
     }
-    await requireActiveVaultProvisioningRun(ctx.db, {
+    await requireActiveRepositoryProvisioningRun(ctx.db, {
       runId: run._id,
       userId: run.userId,
-      vaultId: run.vaultId,
+      repositoryId: run.repositoryId,
     });
     await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     const safeRunError = "Provisioning workflow failed to start.";
     const eventStep = resolveWorkflowFailureEventStep(run);
-    const vault = await ctx.db.get(run.vaultId);
-    if (vault?.state === "provisioning" && vault.runId === args.runId) {
-      await ctx.runMutation(internal.vault.records.markGithubProvisioningFailed, {
+    const repository = await ctx.db.get(run.repositoryId);
+    if (repository?.state === "provisioning" && repository.runId === args.runId) {
+      await ctx.runMutation(internal.repository.records.markGithubProvisioningFailed, {
         runId: args.runId,
       });
     }
     await markMatchingManagedWriteLockFailed(ctx, {
-      vaultId: run.vaultId,
+      repositoryId: run.repositoryId,
       runId: args.runId,
       now,
       invalidateProviderFreshness: false,
@@ -552,8 +555,8 @@ export const markWorkflowStartupFailed = internalMutation({
     });
 
     console.error("infra:provision:start_failed", {
-      vaultId: run.vaultId,
-      repo: run.repositoryFullName,
+      repositoryId: run.repositoryId,
+      repo: run.githubRepositoryFullName,
       message: args.message,
     });
 
@@ -562,8 +565,8 @@ export const markWorkflowStartupFailed = internalMutation({
 });
 
 function resolveWorkflowFailureEventStep(
-  run: Pick<Doc<"workflow_vaultProvisioning_runs">, "currentStep" | "trigger">,
-): AppProvisioningStep {
+  run: Pick<Doc<"workflow_repositoryProvisioning_runs">, "currentStep" | "trigger">,
+): RepositoryProvisioningStep {
   if (run.currentStep !== "run_created") {
     return run.currentStep;
   }
@@ -576,16 +579,16 @@ function resolveWorkflowFailureEventStep(
 async function recordWorkflowRunFailure(
   ctx: MutationCtx,
   args: {
-    eventStep: AppProvisioningStep;
+    eventStep: RepositoryProvisioningStep;
     now: number;
-    run: Doc<"workflow_vaultProvisioning_runs">;
+    run: Doc<"workflow_repositoryProvisioning_runs">;
     safeRunError: string;
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.appProvisioningEvents.append, {
+  await ctx.runMutation(internal.repositoryProvisioningEvents.append, {
     userId: args.run.userId,
-    vaultId: args.run.vaultId,
-    repositoryFullName: args.run.repositoryFullName,
+    repositoryId: args.run.repositoryId,
+    githubRepositoryFullName: args.run.githubRepositoryFullName,
     runId: args.run._id,
     step: args.eventStep,
     level: "error",
@@ -619,13 +622,13 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers Builds are required before rotating Convex deploy keys.",
   "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-  "GitHub repository response did not match the vault repo.",
+  "GitHub repository response did not match the repository repo.",
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
 ];
 
 function extractUserFacingProvisioningError(args: {
   message: string;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
 }): string | null {
   const firstLine = args.message.trim().split("\n")[0]?.trim();
   if (!firstLine) {
@@ -650,7 +653,7 @@ function extractUserFacingProvisioningError(args: {
   }
 
   if (isCloudflareGitHubAppRepositoryAuthorizationError(new Error(cleaned))) {
-    return formatCloudflareGitHubAppRepositoryAuthorizationMessage(args.repositoryFullName);
+    return formatCloudflareGitHubAppRepositoryAuthorizationMessage(args.githubRepositoryFullName);
   }
 
   if (
@@ -673,7 +676,7 @@ function extractUserFacingProvisioningError(args: {
 function resolveSafeWorkflowRunError(args: {
   currentStep: string;
   message: string;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
 }): string {
   if (args.currentStep === "run_created") {
     return "Provisioning failed before the first step.";
@@ -682,14 +685,14 @@ function resolveSafeWorkflowRunError(args: {
   return (
     extractUserFacingProvisioningError({
       message: args.message,
-      repositoryFullName: args.repositoryFullName,
+      githubRepositoryFullName: args.githubRepositoryFullName,
     }) ?? `Provisioning failed during ${args.currentStep}.`
   );
 }
 
 export const markWorkflowProvisioningFailed = internalMutation({
   args: {
-    runId: v.id("workflow_vaultProvisioning_runs"),
+    runId: v.id("workflow_repositoryProvisioning_runs"),
     workflowId: v.string(),
     message: v.string(),
   },
@@ -705,28 +708,28 @@ export const markWorkflowProvisioningFailed = internalMutation({
     if (run.workflowId && run.workflowId !== args.workflowId) {
       throw new Error("Workflow failure id does not match run.");
     }
-    await requireActiveVaultProvisioningRun(ctx.db, {
+    await requireActiveRepositoryProvisioningRun(ctx.db, {
       runId: run._id,
       userId: run.userId,
-      vaultId: run.vaultId,
+      repositoryId: run.repositoryId,
     });
     await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     const eventStep = resolveWorkflowFailureEventStep(run);
-    const vaultId = run.vaultId;
-    const vault = await ctx.db.get(vaultId);
+    const repositoryId = run.repositoryId;
+    const repository = await ctx.db.get(repositoryId);
     const safeRunError = resolveSafeWorkflowRunError({
       currentStep: run.currentStep,
       message: args.message,
-      repositoryFullName: run.repositoryFullName,
+      githubRepositoryFullName: run.githubRepositoryFullName,
     });
-    if (vault?.state === "provisioning" && vault.runId === args.runId) {
-      await ctx.runMutation(internal.vault.records.markGithubProvisioningFailed, {
+    if (repository?.state === "provisioning" && repository.runId === args.runId) {
+      await ctx.runMutation(internal.repository.records.markGithubProvisioningFailed, {
         runId: args.runId,
       });
       await markMatchingManagedWriteLockFailed(ctx, {
-        vaultId,
+        repositoryId,
         runId: args.runId,
         now,
         invalidateProviderFreshness: false,
@@ -738,12 +741,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
         safeRunError,
       });
       console.error(
-        vault.githubMode === "connect_existing_repository"
+        repository.githubMode === "connect_existing_repository"
           ? "app:connect_existing:failed"
           : "app:provision:failed",
         {
-          vaultId,
-          repo: run.repositoryFullName,
+          repositoryId,
+          repo: run.githubRepositoryFullName,
           step: run.currentStep,
           message: args.message,
         },
@@ -755,12 +758,12 @@ export const markWorkflowProvisioningFailed = internalMutation({
       null;
     if (run.trigger === "connect_existing_repository") {
       sourceSetupFailureLogName = "app:connect_existing:failed";
-    } else if (run.trigger === "create" && !isAppProvisioningProviderStep(run.currentStep)) {
+    } else if (run.trigger === "create" && !isRepositoryProvisioningProviderStep(run.currentStep)) {
       sourceSetupFailureLogName = "app:provision:failed";
     }
     if (sourceSetupFailureLogName) {
       await markMatchingManagedWriteLockFailed(ctx, {
-        vaultId,
+        repositoryId,
         runId: args.runId,
         now,
         invalidateProviderFreshness: false,
@@ -772,8 +775,8 @@ export const markWorkflowProvisioningFailed = internalMutation({
         safeRunError,
       });
       console.error(sourceSetupFailureLogName, {
-        vaultId,
-        repo: run.repositoryFullName,
+        repositoryId,
+        repo: run.githubRepositoryFullName,
         step: run.currentStep,
         message: args.message,
       });
@@ -781,7 +784,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     }
 
     const markedWriteLockFailed = await markMatchingManagedWriteLockFailed(ctx, {
-      vaultId,
+      repositoryId,
       runId: args.runId,
       now,
       invalidateProviderFreshness: true,
@@ -802,8 +805,8 @@ export const markWorkflowProvisioningFailed = internalMutation({
     });
 
     console.error("infra:provision:failed", {
-      vaultId,
-      repo: run.repositoryFullName,
+      repositoryId,
+      repo: run.githubRepositoryFullName,
       step: run.currentStep,
       message: args.message,
     });

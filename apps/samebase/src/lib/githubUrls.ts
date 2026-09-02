@@ -10,14 +10,14 @@ export function encodeGitHubPath(path: string): string {
 }
 
 export function buildGitHubBranchTreeUrl(args: {
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branchName: string;
 }): string {
-  return `https://github.com/${encodeGitHubPath(args.repositoryFullName)}/tree/${encodeGitHubPath(args.branchName)}`;
+  return `https://github.com/${encodeGitHubPath(args.githubRepositoryFullName)}/tree/${encodeGitHubPath(args.branchName)}`;
 }
 
 export function buildGitHubRepositoryAppInstallationsUrl(args: {
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
 }): string {
-  return `https://github.com/${encodeGitHubPath(args.repositoryFullName)}/settings/installations`;
+  return `https://github.com/${encodeGitHubPath(args.githubRepositoryFullName)}/settings/installations`;
 }

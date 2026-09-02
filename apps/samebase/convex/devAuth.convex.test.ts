@@ -269,7 +269,7 @@ describe("devAuth password account seed", () => {
       authAccounts: await ctx.db.query("authAccounts").collect(),
       githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
-      vaults: await ctx.db.query("vaults").collect(),
+      repositories: await ctx.db.query("repositories").collect(),
     }));
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
       "preview-github-api-key",
@@ -286,7 +286,7 @@ describe("devAuth password account seed", () => {
     });
     expect(snapshot.githubUserAuthorizations).toEqual([]);
     expect(snapshot.providerCredentials).toHaveLength(3);
-    expect(snapshot.vaults).toEqual([]);
+    expect(snapshot.repositories).toEqual([]);
 
     const samebaseOrganization = snapshot.organizations.find(
       ({ githubOwnerId }) => githubOwnerId === "101",

@@ -76,7 +76,7 @@ describe("RepositoryMediaViewer", () => {
       root.render(
         <QueryClientProvider client={queryClient}>
           <RepositoryMediaViewer
-            repositoryFullName="samebase/samebase"
+            githubRepositoryFullName="samebase/samebase"
             branch={props.branch ?? "main"}
             filePath={props.filePath ?? "assets/example.png"}
             skipStaging={props.skipStaging}
@@ -103,7 +103,7 @@ describe("RepositoryMediaViewer", () => {
     await flushQueryUpdates();
 
     expect(testState.getRepositoryMediaAsset).toHaveBeenCalledWith({
-      repositoryFullName: "samebase/samebase",
+      githubRepositoryFullName: "samebase/samebase",
       filePath: "assets/example.png",
       branch: "main",
       skipStaging: false,
@@ -155,7 +155,7 @@ describe("RepositoryMediaViewer", () => {
       "https://storage.example/second",
     );
     expect(testState.getRepositoryMediaAsset).toHaveBeenLastCalledWith({
-      repositoryFullName: "samebase/samebase",
+      githubRepositoryFullName: "samebase/samebase",
       filePath: "assets/second.png",
       branch: "main",
       skipStaging: true,
@@ -214,7 +214,7 @@ describe("RepositoryMediaViewer", () => {
         <StrictMode>
           <QueryClientProvider client={queryClient}>
             <RepositoryMediaViewer
-              repositoryFullName="samebase/samebase"
+              githubRepositoryFullName="samebase/samebase"
               branch="main"
               filePath="assets/example.png"
             />

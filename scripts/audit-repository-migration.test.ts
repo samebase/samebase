@@ -20,8 +20,8 @@ describe("repository migration audit", () => {
     expect(repositoryMigrationStoredIdEdges).toHaveLength(27);
     expect(report.inventories.oldTableDefinitions).toHaveLength(21);
     expect(report.storedIdEdges).toHaveLength(27);
-    expect(report.inventories.routes).not.toHaveLength(0);
-    expect(report.inventories.browserVaultIdKeys).not.toHaveLength(0);
+    expect(report.inventories.routes).toEqual([]);
+    expect(report.inventories.browserVaultIdKeys).toEqual([]);
     expect(report.inventories.creationTimeReads).not.toHaveLength(0);
     expect(report.unclassifiedLegacyUses).toEqual([]);
     expect(report.issues).toEqual([]);

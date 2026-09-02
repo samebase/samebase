@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { array, boolean, id, number, string } = v;
+const { array, boolean, id, number, object, string } = v;
 
 export const repositoryDashboardTables = {
   /** Per-user choices that control which pull requests appear for one repository. */
@@ -27,3 +27,11 @@ export const repositoryDashboardTables = {
     .index("by_user_and_repository", ["userId", "repositoryId"])
     .index("by_repository", ["repositoryId"]),
 };
+
+const repositoryResourceLinksStateRow =
+  repositoryDashboardTables.ui_repositoryResourceLinks_settings.validator.fields;
+
+export const vRepositoryResourceLinksState = object({
+  resourceLinksOpen: repositoryResourceLinksStateRow.resourceLinksOpen,
+  repositoryId: repositoryResourceLinksStateRow.repositoryId,
+});

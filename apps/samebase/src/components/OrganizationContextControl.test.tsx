@@ -215,7 +215,7 @@ describe("OrganizationContextControl", () => {
     ).not.toBeNull();
   });
 
-  it("leaves a FileView route for the target organization vault list", async () => {
+  it("leaves a FileView route for the target organization repository list", async () => {
     testState.context.organizations = [organization("zeta"), organization("alpha")];
     testState.context.surface = {
       kind: "organization",

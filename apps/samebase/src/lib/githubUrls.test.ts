@@ -14,7 +14,7 @@ describe("githubUrls", () => {
   it("builds a branch tree URL for GitHub repository branches", () => {
     expect(
       buildGitHubBranchTreeUrl({
-        repositoryFullName: "samebase/samebase",
+        githubRepositoryFullName: "samebase/samebase",
         branchName: "codex/dashboard branch-link",
       }),
     ).toBe("https://github.com/samebase/samebase/tree/codex/dashboard%20branch-link");
@@ -23,7 +23,7 @@ describe("githubUrls", () => {
   it("builds a repository GitHub Apps settings URL", () => {
     expect(
       buildGitHubRepositoryAppInstallationsUrl({
-        repositoryFullName: "samebase/example app",
+        githubRepositoryFullName: "samebase/example app",
       }),
     ).toBe("https://github.com/samebase/example%20app/settings/installations");
   });

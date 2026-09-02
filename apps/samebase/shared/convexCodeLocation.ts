@@ -1,5 +1,8 @@
 import { getConvexConfigRootDirectory, normalizeConvexConfigPath } from "./convexConfigPath";
-import { normalizeVaultRootDirectory, VAULT_ROOT_DIRECTORY } from "./vaultRootDirectory";
+import {
+  normalizeRepositoryRootDirectory,
+  REPOSITORY_ROOT_DIRECTORY,
+} from "./repositoryRootDirectory";
 
 const CONVEX_DIRECTORY_BASENAME = "convex";
 
@@ -43,8 +46,8 @@ export function getConvexDirectoryRootDirectory(value: string): string {
   const segments = normalizeConvexDirectoryPath(value).split("/");
   segments.pop();
   return segments.length === 0
-    ? VAULT_ROOT_DIRECTORY
-    : normalizeVaultRootDirectory(segments.join("/"));
+    ? REPOSITORY_ROOT_DIRECTORY
+    : normalizeRepositoryRootDirectory(segments.join("/"));
 }
 
 export function normalizeConvexCodeLocation(location: ConvexCodeLocation): ConvexCodeLocation {

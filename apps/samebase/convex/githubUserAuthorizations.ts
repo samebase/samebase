@@ -23,7 +23,7 @@ import {
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
 import { readActiveUser } from "./userLifecycle";
-import { requireActiveVaultProvisioningContinuation } from "./vaultWorkflowAuthority";
+import { requireActiveRepositoryProvisioningContinuation } from "./repositoryWorkflowAuthority";
 import { readOwnedActiveRun } from "./accountDeletion/stepContext";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../shared/githubUserTokenRefresh";
 import {
@@ -354,9 +354,9 @@ type GitHubRefreshClaimAuthority =
   | ({ kind: "operation" } & RepositoryOperationLease)
   | {
       kind: "provisioning";
-      runId: Id<"workflow_vaultProvisioning_runs">;
+      runId: Id<"workflow_repositoryProvisioning_runs">;
       userId: Id<"users">;
-      vaultId: Id<"vaults">;
+      repositoryId: Id<"repositories">;
     };
 
 async function claimAuthorizationForUse(
@@ -389,7 +389,7 @@ async function claimAuthorizationForUse(
       await requireRepositoryOperationLease(ctx, authority);
       break;
     case "provisioning":
-      await requireActiveVaultProvisioningContinuation(ctx, authority);
+      await requireActiveRepositoryProvisioningContinuation(ctx, authority);
       break;
     default:
       authority satisfies never;
@@ -492,19 +492,19 @@ export const claimForAppConnectionUseForOperation = internalMutation({
 
 export const claimForProvisioningRun = internalMutation({
   args: {
-    runId: id("workflow_vaultProvisioning_runs"),
+    runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     githubUserId: string(),
   },
   returns: vGitHubUserAuthorizationUse,
   handler: async (ctx, args) => {
-    await requireActiveVaultProvisioningContinuation(ctx, args);
+    await requireActiveRepositoryProvisioningContinuation(ctx, args);
     return await claimForUseAfterAuthority(ctx, args, {
       kind: "provisioning",
       runId: args.runId,
       userId: args.userId,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
     });
   },
 });
@@ -564,14 +564,14 @@ export const finishRefresh = internalMutation({
 
 export const finishRefreshForProvisioningRun = internalMutation({
   args: {
-    runId: id("workflow_vaultProvisioning_runs"),
+    runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     ...finishRefreshArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireActiveVaultProvisioningContinuation(ctx, args);
+    await requireActiveRepositoryProvisioningContinuation(ctx, args);
     await finishRefreshAfterAuthority(ctx, args.userId, args);
     return null;
   },
@@ -634,14 +634,14 @@ export const releaseRefresh = internalMutation({
 
 export const releaseRefreshForProvisioningRun = internalMutation({
   args: {
-    runId: id("workflow_vaultProvisioning_runs"),
+    runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     ...releaseRefreshArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireActiveVaultProvisioningContinuation(ctx, args);
+    await requireActiveRepositoryProvisioningContinuation(ctx, args);
     await releaseRefreshAfterAuthority(ctx, args.userId, args);
     return null;
   },
@@ -822,9 +822,9 @@ type GitHubUserOctokitAuthority =
   | ({ kind: "operation"; userId: Id<"users"> } & RepositoryOperationLease)
   | {
       kind: "provisioning";
-      runId: Id<"workflow_vaultProvisioning_runs">;
+      runId: Id<"workflow_repositoryProvisioning_runs">;
       userId: Id<"users">;
-      vaultId: Id<"vaults">;
+      repositoryId: Id<"repositories">;
     };
 
 async function claimGitHubUserAuthorization(
@@ -856,7 +856,7 @@ async function claimGitHubUserAuthorization(
       return await ctx.runMutation(internal.githubUserAuthorizations.claimForProvisioningRun, {
         runId: authority.runId,
         userId: authority.userId,
-        vaultId: authority.vaultId,
+        repositoryId: authority.repositoryId,
         githubUserId,
       });
     default:
@@ -905,7 +905,7 @@ async function finishGitHubUserAuthorizationRefresh(
       await ctx.runMutation(internal.githubUserAuthorizations.finishRefreshForProvisioningRun, {
         runId: authority.runId,
         userId: authority.userId,
-        vaultId: authority.vaultId,
+        repositoryId: authority.repositoryId,
         authorizationId: args.authorizationId,
         refreshStartedAt: args.refreshStartedAt,
         accessToken: args.accessToken,
@@ -948,7 +948,7 @@ async function releaseGitHubUserAuthorizationRefresh(
       await ctx.runMutation(internal.githubUserAuthorizations.releaseRefreshForProvisioningRun, {
         runId: authority.runId,
         userId: authority.userId,
-        vaultId: authority.vaultId,
+        repositoryId: authority.repositoryId,
         authorizationId: args.authorizationId,
         refreshStartedAt: args.refreshStartedAt,
       });
@@ -1086,9 +1086,9 @@ export async function resolveGitHubUserOctokit(
 export async function resolveGitHubUserOctokitForProvisioningRun(
   ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     githubUserId: string;
   },
 ): Promise<Octokit> {
@@ -1098,7 +1098,7 @@ export async function resolveGitHubUserOctokitForProvisioningRun(
       kind: "provisioning",
       runId: args.runId,
       userId: args.userId,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
     },
     args.githubUserId,
   );
