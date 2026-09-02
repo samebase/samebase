@@ -4,8 +4,12 @@ Date: 2026-09-02
 
 ## Decision
 
-Keep the current Three.js WebGL Menger renderer in production. Continue the TypeGPU ray-march
-experiment in the isolated `/logo/webgpu/menger` lab. Do not use Redraw for this 3D Menger work.
+Use the TypeGPU ray-march renderer by default in the existing `/logo/hover/menger` lab. Keep the
+Three.js renderer in the same lab as the `?three` comparison mode. Do not use Redraw for this 3D
+Menger work.
+
+This gives both renderers the same route controls, saved view, and automatic probe behavior. It also
+removes the separate WebGPU page and its different lab behavior.
 
 The useful change is the rendering method, not only the GPU API. The lab represents the complete
 sponge as a signed distance function. It draws one full-screen triangle and finds the sponge surface
@@ -53,9 +57,9 @@ metadata.
 choice for this work. It changes the current Three.js renderer to WebGPU, but it does not remove the
 large cube and triangle counts. The package also makes the route WebGPU-only.
 
-## Lab result
+## Shared lab result
 
-The `/logo/webgpu/menger` route now has these properties:
+The default TypeGPU mode on `/logo/hover/menger` has these properties:
 
 - Depth controls from one through eight
 - Render resolution controls at 50, 75, and 100 percent
@@ -74,6 +78,8 @@ The `/logo/webgpu/menger` route now has these properties:
   threshold
 - At most one submitted render for each browser animation frame
 - A static Menger fallback when WebGPU does not start
+- The existing automatic probe, including coarse-pointer and mobile use
+- A `Use Three.js renderer` checkbox that writes the key-only `?three` query parameter
 
 ![TypeGPU Menger lab at rest](2026-09-02-typegpu-menger-hover-rest.png)
 
@@ -119,6 +125,17 @@ axis-aware material occupancy from one loop. Face-only and nearby views use the 
 The reference Three.js renderer now clears its hover pointer after browser blur. Before this change,
 it cleared only the presentation tilt, which could leave the opening active.
 
+## Landing adoption
+
+The large landing hero now lazy-loads the same TypeGPU scene at depth five and full render
+resolution. Its existing wrapper still owns the static first paint, view URL, drag snapping,
+coarse-pointer automatic probe, off-screen teardown, and failure state. The static mark stays
+visible until the first successful GPU draw.
+
+The closing-band and not-found logos stay on the generic cube renderer. Those surfaces animate
+rotation and recursive voxel shuffles, which are different from the Menger hover reveal. The Menger
+depth-transition lab also stays on its stage-based renderer.
+
 ## Main risks
 
 - Ray marching moves cost from geometry to pixels. Large canvases and high device pixel ratios can
@@ -142,12 +159,12 @@ it cleared only the presentation tilt, which could leave the opening active.
    temporal accumulation while the view is still.
 4. Add an opt-in Linux WebGPU browser job only if this route becomes a production candidate.
 
-## Production gate
+## Current integration boundary
 
-Do not replace the production renderer until the ray marcher has the required hover behavior,
-matches the logo at normal display sizes, and wins the supported-device measurements. If it passes
-those checks, use WebGPU as the enhanced renderer and keep the existing static or WebGL path as the
-fallback.
+Use TypeGPU for the large landing Menger hero and as the default `/logo/hover/menger` renderer. Keep
+Three.js available through `?three` for direct comparison and automatic fallback in the lab. Do not
+route generic voxel editing, recursive shuffle, or depth-transition motion through this fixed Menger
+distance field.
 
 ## Sources
 

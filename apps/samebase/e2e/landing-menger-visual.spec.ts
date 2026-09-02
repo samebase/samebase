@@ -61,7 +61,9 @@ async function readNumberAttribute(locator: Locator, attribute: string): Promise
   return number;
 }
 
-test("public landing uses the depth-three Menger hover scene @logo-research", async ({ page }) => {
+test("public landing uses the depth-five TypeGPU Menger hover scene @logo-research", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -73,12 +75,11 @@ test("public landing uses the depth-three Menger hover scene @logo-research", as
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(fallback).toHaveCSS("opacity", "0");
-  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
+  await expect(scene).toHaveAttribute("data-renderer", "typegpu-ray-march");
+  await expect(scene).toHaveAttribute("data-renderer-state", "ready");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "5");
   await expect(scene).toHaveAttribute("data-menger-automatic-probe", "off");
   await expect(scene).toHaveAttribute("data-automatic-probe-state", "off");
-  await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
-  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1");
-  await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.67");
   await expect(scene).toHaveAttribute("data-logo-elevation-degrees", "0");
   await expect(scene).toHaveAttribute("data-logo-rotation-degrees", "0");
 
@@ -167,7 +168,6 @@ test.describe("public landing automatic probe on a wide touch-first device", () 
     await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expect(scene).toHaveAttribute("data-menger-automatic-probe", "play");
     await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
-    await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "off");
 
     const probeProgress = await readNumberAttribute(scene, "data-automatic-probe-progress");
     await expect
@@ -185,7 +185,6 @@ test.describe("public landing automatic probe on a wide touch-first device", () 
     await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expect(scene).toHaveAttribute("data-menger-automatic-probe", "play");
     await expect(scene).toHaveAttribute("data-automatic-probe-state", "reduced-motion");
-    await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "off");
     await expect(scene).toHaveAttribute("data-hover-settled", "true");
     await waitForPaint(page);
     await expect(hero).toHaveScreenshot(
@@ -195,7 +194,7 @@ test.describe("public landing automatic probe on a wide touch-first device", () 
   });
 });
 
-test("public landing keeps the prehydration and WebGL logo bounds equal", async ({
+test("public landing keeps the prehydration and TypeGPU logo bounds equal", async ({
   browser,
   page,
 }) => {
