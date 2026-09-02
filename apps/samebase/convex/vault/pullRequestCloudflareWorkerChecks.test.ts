@@ -49,6 +49,16 @@ Script: [samebase-posthog-proxy](https://dash.cloudflare.com/${accountId}/worker
 `,
 };
 
+function withoutOptionalPreviewFields(check: CloudflareWorkerCheckRunInput) {
+  return {
+    ...check,
+    summary: (check.summary ?? "")
+      .replace(/^Version ID:.*\n/m, "")
+      .replace(/^Preview URL:.*\n/m, "")
+      .replace(/^Preview Alias URL:.*\n/m, ""),
+  };
+}
+
 it("selects checks as the Worker proof source", () => {
   expect(CLOUDFLARE_WORKER_PROOF_SOURCE).toBe("checks");
 });
@@ -144,22 +154,18 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
     });
   });
 
-  it("recovers an earlier successful alias for a pending newest check", () => {
-    const pendingCheck = {
+  it("recovers an earlier successful alias for a running newest check", () => {
+    const runningCheck = withoutOptionalPreviewFields({
       ...successfulCheck,
       status: "IN_PROGRESS",
       conclusion: null,
       detailsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/samebase/production/builds/8f72f2d5-3da6-4047-8101-17131571dc30`,
       externalId: "8f72f2d5-3da6-4047-8101-17131571dc30",
-      summary: (successfulCheck.summary ?? "")
-        .replace(
-          new RegExp(successfulCheck.externalId ?? "", "g"),
-          "8f72f2d5-3da6-4047-8101-17131571dc30",
-        )
-        .replace(/^Version ID:.*\n/m, "")
-        .replace(/^Preview URL:.*\n/m, "")
-        .replace(/^Preview Alias URL:.*\n/m, ""),
-    };
+      summary: (successfulCheck.summary ?? "").replace(
+        new RegExp(successfulCheck.externalId ?? "", "g"),
+        "8f72f2d5-3da6-4047-8101-17131571dc30",
+      ),
+    });
     expect(
       resolveCloudflareWorkerCheckRuns({
         commits: [
@@ -168,7 +174,7 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
             branch: { name: head.headRefName, prefix: "refs/heads/" },
           },
           {
-            checkRuns: [pendingCheck],
+            checkRuns: [runningCheck],
             branch: { name: head.headRefName, prefix: "refs/heads/" },
           },
         ],
@@ -195,13 +201,9 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
 
   it("recovers an earlier successful alias for a queued newest check", () => {
     const queued = {
-      ...successfulCheck,
+      ...withoutOptionalPreviewFields(successfulCheck),
       status: "QUEUED",
       conclusion: null,
-      summary: (successfulCheck.summary ?? "")
-        .replace(/^Version ID:.*\n/m, "")
-        .replace(/^Preview URL:.*\n/m, "")
-        .replace(/^Preview Alias URL:.*\n/m, ""),
     };
     expect(
       resolveCloudflareWorkerCheckRuns({
@@ -227,38 +229,30 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
 
   it("does not recover aliases for terminal or unrelated branches", () => {
     const terminal = {
-      ...successfulCheck,
+      ...withoutOptionalPreviewFields(successfulCheck),
       conclusion: "FAILURE",
-      summary: (successfulCheck.summary ?? "")
-        .replace(/^Version ID:.*\n/m, "")
-        .replace(/^Preview URL:.*\n/m, "")
-        .replace(/^Preview Alias URL:.*\n/m, ""),
     };
-    const earlier = { name: head.headRefName, prefix: "refs/heads/" };
+    const matchingHeadBranch = { name: head.headRefName, prefix: "refs/heads/" };
     expect(
       resolveCloudflareWorkerCheckRuns({
         commits: [
-          { checkRuns: [successfulCheck], branch: earlier },
-          { checkRuns: [terminal], branch: earlier },
+          { checkRuns: [successfulCheck], branch: matchingHeadBranch },
+          { checkRuns: [terminal], branch: matchingHeadBranch },
         ],
         currentHeadBranch: head.headRefName,
       }),
     ).toMatchObject({ workers: [{ preview: { state: "absent" } }] });
 
-    const pending = {
-      ...successfulCheck,
+    const runningCheck = {
+      ...withoutOptionalPreviewFields(successfulCheck),
       status: "IN_PROGRESS",
       conclusion: null,
-      summary: (successfulCheck.summary ?? "")
-        .replace(/^Version ID:.*\n/m, "")
-        .replace(/^Preview URL:.*\n/m, "")
-        .replace(/^Preview Alias URL:.*\n/m, ""),
     };
     expect(
       resolveCloudflareWorkerCheckRuns({
         commits: [
           { checkRuns: [successfulCheck], branch: { name: "other", prefix: "refs/heads/" } },
-          { checkRuns: [pending], branch: earlier },
+          { checkRuns: [runningCheck], branch: matchingHeadBranch },
         ],
         currentHeadBranch: head.headRefName,
       }),
@@ -268,7 +262,7 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
       resolveCloudflareWorkerCheckRuns({
         commits: [
           { checkRuns: [successfulCheck], branch: null },
-          { checkRuns: [pending], branch: { name: head.headRefName, prefix: "refs/heads/" } },
+          { checkRuns: [runningCheck], branch: { name: head.headRefName, prefix: "refs/heads/" } },
         ],
         currentHeadBranch: head.headRefName,
       }),

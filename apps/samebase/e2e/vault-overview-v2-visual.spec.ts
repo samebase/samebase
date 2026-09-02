@@ -288,8 +288,7 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   );
   await expect(
     firstPullRequestRow
-      .getByRole("link", { name: "Branch preview", exact: true })
-      .locator("xpath=../..")
+      .getByRole("group", { name: "Cloudflare Worker samebase-worker", exact: true })
       .getByText("May be from an earlier commit", { exact: true }),
   ).toBeVisible();
   await expect(firstPullRequestRow.getByRole("link", { name: "Built", exact: true })).toBeVisible();
@@ -298,8 +297,7 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   ).toBeVisible();
   await expect(
     firstPullRequestRow
-      .getByRole("link", { name: "precise-otter-1260", exact: true })
-      .locator("xpath=../..")
+      .getByRole("group", { name: "Convex deployment precise-otter-1260", exact: true })
       .getByText("May be from an earlier commit", { exact: true }),
   ).toBeVisible();
   const otherPreviews = firstPullRequestRow.getByRole("group", { name: "Other previews" });

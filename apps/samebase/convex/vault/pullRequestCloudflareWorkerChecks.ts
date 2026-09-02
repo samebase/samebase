@@ -11,6 +11,7 @@ import {
 import { allLimited } from "../common";
 import type { CloudflareBuildState } from "./cloudflareBuildMatching";
 import type {
+  CloudflareWorkerPreview,
   CloudflareWorkerProof,
   CloudflareWorkerProofRead,
 } from "./pullRequestCloudflareWorkerProof";
@@ -232,6 +233,61 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function hasValidWorkerCheckIdentity(args: {
+  workerName: string;
+  checkRun: CloudflareWorkerCheckRunInput;
+  logs: NonNullable<ReturnType<typeof parseCloudflareWorkerBuildLogsUrl>>;
+  buildLink: NonNullable<ReturnType<typeof markdownLink>>;
+  scriptLink: NonNullable<ReturnType<typeof markdownLink>>;
+  script: NonNullable<ReturnType<typeof parseCloudflareWorkerScriptUrl>>;
+}): boolean {
+  return (
+    args.workerName === args.logs.workerName &&
+    args.workerName === args.scriptLink.label &&
+    args.workerName === args.script.workerName &&
+    args.logs.accountId === args.script.accountId &&
+    /^[0-9a-f]{32}$/.test(args.logs.accountId) &&
+    isUuid(args.logs.buildUuid) &&
+    args.checkRun.externalId === args.logs.buildUuid &&
+    args.buildLink.label === args.logs.buildUuid &&
+    args.buildLink.url === args.checkRun.detailsUrl
+  );
+}
+
+function parseWorkerPreview(
+  fields: Map<string, string>,
+  workerName: string,
+): CloudflareWorkerPreview | "unavailable" {
+  const versionId = fields.get("Version ID");
+  const preview = fields.get("Preview URL");
+  const alias = fields.get("Preview Alias URL");
+  if (versionId !== undefined && !isUuid(versionId)) {
+    return "unavailable";
+  }
+
+  const normalizedPreview =
+    preview === undefined ? null : normalizeCloudflareWorkerPreviewUrl(preview, workerName);
+  const normalizedAlias =
+    alias === undefined ? null : normalizeCloudflareWorkerPreviewUrl(alias, workerName);
+  if (
+    (preview !== undefined && normalizedPreview === null) ||
+    (alias !== undefined && normalizedAlias === null) ||
+    (normalizedPreview !== null &&
+      versionId !== undefined &&
+      !new URL(normalizedPreview.url).hostname.startsWith(
+        `${versionId.slice(0, 8).toLowerCase()}-`,
+      )) ||
+    (normalizedPreview !== null &&
+      normalizedAlias !== null &&
+      normalizedPreview.zone !== normalizedAlias.zone)
+  ) {
+    return "unavailable";
+  }
+  return normalizedAlias === null
+    ? { state: "absent" }
+    : { state: "available", url: normalizedAlias.url, provenance: "selected_result" };
+}
+
 function parseWorkerCheckRun(
   checkRun: CloudflareWorkerCheckRunInput,
 ): CloudflareWorkerProof | null | "unavailable" {
@@ -260,42 +316,20 @@ function parseWorkerCheckRun(
     buildLink === null ||
     scriptLink === null ||
     script === null ||
-    workerName !== logs.workerName ||
-    workerName !== scriptLink.label ||
-    workerName !== script.workerName ||
-    logs.accountId !== script.accountId ||
-    !/^[0-9a-f]{32}$/.test(logs.accountId) ||
-    !isUuid(logs.buildUuid) ||
-    checkRun.externalId !== logs.buildUuid ||
-    buildLink.label !== logs.buildUuid ||
-    buildLink.url !== checkRun.detailsUrl
+    !hasValidWorkerCheckIdentity({
+      workerName,
+      checkRun,
+      logs,
+      buildLink,
+      scriptLink,
+      script,
+    })
   ) {
     return "unavailable";
   }
 
-  const versionId = fields.get("Version ID");
-  const preview = fields.get("Preview URL");
-  const alias = fields.get("Preview Alias URL");
-  if (versionId !== undefined && !isUuid(versionId)) {
-    return "unavailable";
-  }
-
-  const normalizedPreview =
-    preview === undefined ? null : normalizeCloudflareWorkerPreviewUrl(preview, workerName);
-  const normalizedAlias =
-    alias === undefined ? null : normalizeCloudflareWorkerPreviewUrl(alias, workerName);
-  if (
-    (preview !== undefined && normalizedPreview === null) ||
-    (alias !== undefined && normalizedAlias === null) ||
-    (normalizedPreview !== null &&
-      versionId !== undefined &&
-      !new URL(normalizedPreview.url).hostname.startsWith(
-        `${versionId.slice(0, 8).toLowerCase()}-`,
-      )) ||
-    (normalizedPreview !== null &&
-      normalizedAlias !== null &&
-      normalizedPreview.zone !== normalizedAlias.zone)
-  ) {
+  const preview = parseWorkerPreview(fields, workerName);
+  if (preview === "unavailable") {
     return "unavailable";
   }
 
@@ -305,10 +339,7 @@ function parseWorkerCheckRun(
     buildState: checkRunBuildState(checkRun.status, checkRun.conclusion),
     logsUrl: checkRun.detailsUrl,
     name: workerName,
-    preview:
-      normalizedAlias === null
-        ? { state: "absent" }
-        : { state: "available", url: normalizedAlias.url, provenance: "selected_result" },
+    preview,
   };
 }
 
@@ -337,19 +368,19 @@ export function resolveCloudflareWorkerCheckRuns(args: {
       current.set(identity, worker);
     }
     for (const [identity, worker] of current) {
-      const previous = selected.get(identity);
-      if (previous === undefined) {
+      const selectedWorker = selected.get(identity);
+      if (selectedWorker === undefined) {
         selected.set(identity, worker);
       } else if (
-        previous.preview.state === "absent" &&
-        (previous.buildState === "queued" || previous.buildState === "running") &&
+        selectedWorker.preview.state === "absent" &&
+        (selectedWorker.buildState === "queued" || selectedWorker.buildState === "running") &&
         worker.buildState === "success" &&
         worker.preview.state === "available" &&
         commit.branch?.name === args.currentHeadBranch &&
         commit.branch.prefix === "refs/heads/"
       ) {
         selected.set(identity, {
-          ...previous,
+          ...selectedWorker,
           preview: { ...worker.preview, provenance: "earlier_check" },
         });
       }
