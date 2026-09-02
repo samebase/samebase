@@ -257,4 +257,99 @@ describe("repository migration inventory", () => {
       }),
     ).rejects.toThrow("A repository-domain row has an invalid missing vault root.");
   });
+
+  it("allows a failed deletion attempt and its events when a successful retry removed the root", async () => {
+    const t = makeConvexTest();
+    const { organizationId, userId } = await insertFixtureRoots(t);
+    const deletedVaultId = await insertVault(t, organizationId);
+    await t.run(async (ctx) => {
+      const failedRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "failed",
+        organizationId,
+        userId,
+        vaultId: deletedVaultId,
+        repositoryFullName: "repository-migration-inventory/retried",
+        createdAt: 1,
+        updatedAt: 2,
+        attempt: { kind: "initial" },
+        workflow: { state: "not_started" },
+        currentStep: "lock_vault",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "existing_repository",
+              ghRepoId: "github-repository-id",
+              owner: "repository-migration-inventory",
+              name: "retried",
+              repositoryFullName: "repository-migration-inventory/retried",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+        lastError: "Retry required.",
+        completedAt: 2,
+      });
+      await ctx.db.insert("workflow_vaultDeletion_events", {
+        organizationId,
+        userId,
+        vaultId: deletedVaultId,
+        repositoryFullName: "repository-migration-inventory/retried",
+        runId: failedRunId,
+        step: "lock_vault",
+        level: "error",
+        message: "Deletion failed.",
+        createdAt: 2,
+      });
+      const succeededRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "succeeded",
+        organizationId,
+        userId,
+        vaultId: deletedVaultId,
+        repositoryFullName: "repository-migration-inventory/retried",
+        createdAt: 3,
+        updatedAt: 4,
+        attempt: { kind: "retry", retryOf: failedRunId },
+        workflow: { state: "started", workflowId: "repository-migration-inventory-retry" },
+        currentStep: "finish",
+        snapshot: { state: "scrubbed_after_success" },
+        completedAt: 4,
+      });
+      await ctx.db.insert("workflow_vaultDeletion_events", {
+        organizationId,
+        userId,
+        vaultId: deletedVaultId,
+        repositoryFullName: "repository-migration-inventory/retried",
+        runId: succeededRunId,
+        step: "finish",
+        level: "info",
+        message: "Deletion completed.",
+        createdAt: 4,
+      });
+      await ctx.db.delete(deletedVaultId);
+    });
+
+    const runInventory = await t.query(internal.repositoryMigration.inventory.inventoryBatch, {
+      sourceTable: "workflow_vaultDeletion_runs",
+      cursor: null,
+    });
+    expect(runInventory).toMatchObject({
+      sourceRows: 2,
+      storedIdEdges: 3,
+      missingReferences: 0,
+      validMissingRepositoryRoots: 2,
+    });
+    const eventInventory = await t.query(internal.repositoryMigration.inventory.inventoryBatch, {
+      sourceTable: "workflow_vaultDeletion_events",
+      cursor: null,
+    });
+    expect(eventInventory).toMatchObject({
+      sourceRows: 2,
+      storedIdEdges: 4,
+      missingReferences: 0,
+      validMissingRepositoryRoots: 2,
+    });
+  });
 });

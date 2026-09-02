@@ -6,9 +6,10 @@
 - Owner: Samebase repository domain
 - Started: 2026-09-02
 - Last updated: 2026-09-02
-- Current checkpoint: Phase 2 implementation is ready for review in
-  [PR #1575](https://github.com/samebase/samebase/pull/1575).
-- Next action: Review, merge, and deploy Phase 2, then confirm that all target indexes are ready.
+- Current checkpoint: Phase 2 is deployed. Phase 4 preflight found and fixed one inventory case for
+  retained deletion retries.
+- Next action: Deploy the inventory fix, confirm that its index is ready, create a full backup, and
+  start the production maintenance window.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -37,9 +38,9 @@ The rollout has two separate changes:
 | ----- | --------------------------------------- | ----------- | ---------------------------------------------------------- |
 | 0     | Fix the language and migration contract | Complete    | This RFC                                                   |
 | 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570) |
-| 2     | Add dormant migration support           | In progress | [PR #1575](https://github.com/samebase/samebase/pull/1575) |
-| 3     | Rehearse the complete cutover           | Not started |                                                            |
-| 4     | Drain, freeze, copy, and switch         | Not started |                                                            |
+| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575) |
+| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                            |
+| 4     | Drain, freeze, copy, and switch         | In progress | Production preflight                                       |
 | 5     | Stabilize the new system                | Not started |                                                            |
 | 6     | Remove old data and migration support   | Not started |                                                            |
 
@@ -299,7 +300,7 @@ Evidence:
 
 ## Phase 2: Add Dormant Migration Support
 
-Status: In progress.
+Status: Complete in [PR #1575](https://github.com/samebase/samebase/pull/1575).
 
 Deploy migration support while the old application continues to read and write only the old tables:
 
@@ -376,7 +377,14 @@ or clear functions.
 
 ## Phase 3: Rehearse The Complete Cutover
 
-Status: Not started.
+Status: Skipped by operator decision on 2026-09-02.
+
+Samebase currently has 21 repository records, and most belong to the operator. The operator accepted
+the risk of finding migration-specific data cases during the production maintenance window instead
+of building a separate preview rehearsal system. The full backup, frozen writes, unchanged source
+tables, resumable copy, exact target verification, and direct rollback boundary remain required.
+
+The requirements below record the rehearsal that was considered. They are not Phase 4 exit checks.
 
 Run the full cutover on an isolated local or preview deployment. The fixture must include:
 
@@ -444,7 +452,7 @@ identifier and the source deployment in this RFC.
 3. Take the final source inventory.
 4. Clear only target rows that the migration owns.
 5. Run the complete batched copy.
-6. Run every Phase 3 data verification check.
+6. Run the complete exact-field, ID-map, target-ownership, and storage-reference verification.
 
 ### Switch
 

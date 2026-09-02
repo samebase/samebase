@@ -131,6 +131,17 @@ async function recordRepositoryRootReference(
   throw new Error("A repository-domain row has an invalid missing vault root.");
 }
 
+async function hasSucceededDeletionHistory(ctx: QueryCtx, vaultId: Id<"vaults">): Promise<boolean> {
+  return (
+    (await ctx.db
+      .query("workflow_vaultDeletion_runs")
+      .withIndex("by_vault_and_state_and_updated_at", (indexQuery) =>
+        indexQuery.eq("vaultId", vaultId).eq("state", "succeeded"),
+      )
+      .first()) !== null
+  );
+}
+
 async function recordStorageReference(
   ctx: QueryCtx,
   counts: InventoryCounts,
@@ -326,7 +337,7 @@ export const inventoryBatch = internalQuery({
                 ctx,
                 counts,
                 row.vaultId,
-                row.state === "succeeded",
+                row.state === "succeeded" || (await hasSucceededDeletionHistory(ctx, row.vaultId)),
               );
               if (row.attempt.kind === "retry") {
                 await recordStoredReference(ctx, counts, row.attempt.retryOf);
@@ -350,7 +361,8 @@ export const inventoryBatch = internalQuery({
                 ctx,
                 counts,
                 row.vaultId,
-                run?.state === "succeeded" && run.vaultId === row.vaultId,
+                (run?.state === "succeeded" && run.vaultId === row.vaultId) ||
+                  (await hasSucceededDeletionHistory(ctx, row.vaultId)),
               );
             }
           },
