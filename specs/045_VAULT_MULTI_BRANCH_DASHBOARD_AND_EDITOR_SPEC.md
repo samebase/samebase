@@ -40,12 +40,12 @@ existence, checks, ahead/behind counts, or deleted-branch tombstones.
 
 Canonical branch routes keep the branch in one encoded route segment:
 
-- `/vault/:owner/:repoName/fs/:branch`
-- `/vault/:owner/:repoName/fs/:branch/*`
-- `/vault/:owner/:repoName/db/:branch/root`
-- `/vault/:owner/:repoName/db/:branch/mono/*`
-- `/vault/:owner/:repoName/schema/:branch/root`
-- `/vault/:owner/:repoName/schema/:branch/mono/*`
+- `/repo/:owner/:repository/fs/:branch`
+- `/repo/:owner/:repository/fs/:branch/*`
+- `/repo/:owner/:repository/db/:branch/root`
+- `/repo/:owner/:repository/db/:branch/mono/*`
+- `/repo/:owner/:repository/schema/:branch/root`
+- `/repo/:owner/:repository/schema/:branch/mono/*`
 
 Branch names are encoded with `encodeURIComponent` and decoded exactly once. Code must not recover a
 branch by splitting the file wildcard because valid branch names can contain `/`.

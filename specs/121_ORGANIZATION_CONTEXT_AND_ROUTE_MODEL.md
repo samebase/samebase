@@ -13,10 +13,10 @@
 
 ## Current Contract
 
-A Samebase account signs a user in. A Samebase organization owns the work. A vault is one GitHub
-repository inside that organization.
+A Samebase account signs a user in. A Samebase organization owns the work. A Samebase repository is
+a direct connection to one GitHub repository inside that organization.
 
-An organization is a route namespace, a visible page context, and a section in the global vault
+An organization is a route namespace, a visible page context, and a section in the global repository
 inventory. It is not hidden application state. Samebase does not save a last active organization.
 The route is the source of organization context.
 
@@ -29,7 +29,7 @@ User-owned pages use these routes:
 
 | Route       | Contract                                                                                       |
 | ----------- | ---------------------------------------------------------------------------------------------- |
-| `/vault`    | Show all current organizations as sections and their vaults.                                   |
+| `/repo`     | Show all current organizations as sections and their repositories.                             |
 | `/org`      | Show current Samebase memberships, then GitHub App installation choices that the user can add. |
 | `/settings` | Show profile, sign-in methods, MCP grants, sign-out, and account deletion.                     |
 
@@ -37,8 +37,8 @@ Organization-owned pages use these routes:
 
 | Route                          | Contract                                                                                                                     |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `/org/:owner`                  | Check access, then redirect to `/org/:owner/vaults`.                                                                         |
-| `/org/:owner/vaults`           | Show only vaults owned by this organization.                                                                                 |
+| `/org/:owner`                  | Check access, then redirect to `/org/:owner/repositories`.                                                                   |
+| `/org/:owner/repositories`     | Show only repositories owned by this organization.                                                                           |
 | `/org/:owner/providers`        | Show GitHub App health, the GitHub user authorization for a personal owner when needed, and deployment provider connections. |
 | `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                                                             |
 | `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                                                             |
@@ -49,9 +49,9 @@ The public invitation route is `/invite/:code`. Its opaque code identifies one i
 exact linked GitHub identity and explicit recipient action authorize acceptance. Spec 123 owns this
 route and the Members page behavior.
 
-Vault resources keep `/vault/:owner/:repo` and its existing child routes. This includes the shipped
-FileView path `/vault/:owner/:repo/fs/:branch/*`. This work changes the shared context around
-FileView. It does not redesign the editor.
+Repository resources use `/repo/:owner/:repository` and its existing child routes. This includes the
+shipped FileView path `/repo/:owner/:repository/fs/:branch/*`. This work changes the shared context
+around FileView. It does not redesign the editor.
 
 The routes `/providers`, `/new-app`, and `/connect-repo`, including their old owner variants, are
 not product pages. Internal links use the organization route family directly. User settings do not
@@ -59,30 +59,31 @@ use an owner search parameter.
 
 ## Organization Context
 
-The standard right navigation pane shows `All vaults` and `Organizations` directly below the
+The standard right navigation pane shows `All repositories` and `Organizations` directly below the
 signed-in account section. Shared main-pane chrome does not repeat these links. The `Organizations`
-link stays visible on global vault and organization routes. On small screens, `/vault`, `/org`,
-`/org/:owner/*`, and `/vault/:owner/:repo/*` show the standard right-pane toggle. User settings do
-not show an organization context control.
+link stays visible on global repository and organization routes. On small screens, `/repo`, `/org`,
+`/org/:owner/*`, and `/repo/:owner/:repository/*` show the standard right-pane toggle. User settings
+do not show an organization context control.
 
 A user with one or more organizations sees the same switch control below the global links. The
 switch contains only current organizations, with personal owners first and each owner type sorted by
 owner login. A user with no organizations sees no switch control.
 
 The switch keeps the same organization section when the target route supports it. A switch from a
-vault route opens the target organization's vault list. Each switch creates a normal browser history
-entry. Back, Forward, reload, and direct links read the owner from the route.
+repository route opens the target organization's repository list. Each switch creates a normal
+browser history entry. Back, Forward, reload, and direct links read the owner from the route.
 
-The right navigation pane uses the route owner. Below the switch control, it provides `Vaults`,
-`Providers`, `New app`, `Connect repository`, `Members`, and `Organization settings` in that order.
-The global vault empty state provides an `Add organization` action that opens `/org`.
+The right navigation pane uses the route owner. Below the switch control, it provides
+`Repositories`, `Providers`, `New app`, `Connect repository`, `Members`, and `Organization settings`
+in that order. The global repository empty state provides an `Add organization` action that opens
+`/org`.
 
 ## Organizations Directory
 
 `/org` is a user-global route with the standard right navigation pane and no selected organization.
 The page first lists every current Samebase membership. These rows do not depend on GitHub sign-in,
 authorization, or installation discovery. Each membership row shows `Connected to Samebase` and an
-`Open` action for `/org/:owner/vaults`.
+`Open` action for `/org/:owner/repositories`.
 
 GitHub discovery runs as an independent second data source. The page links to Account settings when
 the GitHub identity is missing and asks the user to authorize GitHub only when the authorization is
@@ -105,25 +106,25 @@ Every connection uses the exact linked GitHub sign-in identity that Spec 122 def
 `Install GitHub App` starts the GitHub App installation flow. Installing or configuring the App is
 not required when the selected installation already appears in this list.
 
-## Global Vault Inventory
+## Global Repository Inventory
 
-`/vault` is always user-global. It shows one section for each current organization, including an
-organization with no vaults. Sections use normalized owner-login order with a stable tie-breaker.
-Each section shows that user's folders for the organization, followed by vaults that are not in a
-folder. Vaults inside each group keep the existing activity order.
+`/repo` is always user-global. It shows one section for each current organization, including an
+organization with no repositories. Sections use normalized owner-login order with a stable
+tie-breaker. Each section shows that user's folders for the organization, followed by repositories
+that are not in a folder. Repositories inside each group keep the existing activity order.
 
-The page uses the same organization, folder, and vault tree component as the vault detail picker.
-Each organization row is a disclosure control with the same layout and actions in both placements.
-When no saved disclosure choice exists, `/vault` starts each organization open. Each vault links to
-`/vault/:owner/:repo`. A one-organization user still sees one named section. The page never
-redirects because of the membership count.
+The page uses the same organization, folder, and repository tree component as the repository detail
+picker. Each organization row is a disclosure control with the same layout and actions in both
+placements. When no saved disclosure choice exists, `/repo` starts each organization open. Each
+repository links to `/repo/:owner/:repository`. A one-organization user still sees one named
+section. The page never redirects because of the membership count.
 
-A vault detail picker groups all current organizations with the same tree. When no saved disclosure
-choice exists, the route organization is expanded and the other organizations are collapsed. A
-user's explicit open or closed choice for an organization is saved and appears in `/vault`,
-`/org/:owner/vaults`, and the vault detail picker. Changing a disclosure does not change the route
-or save an active organization. An empty organization shows `No vaults` when expanded. FileView
-keeps its file tree instead of this picker.
+A repository detail picker groups all current organizations with the same tree. When no saved
+disclosure choice exists, the route organization is expanded and the other organizations are
+collapsed. A user's explicit open or closed choice for an organization is saved and appears in
+`/repo`, `/org/:owner/repositories`, and the repository detail picker. Changing a disclosure does
+not change the route or save an active organization. An empty organization shows `No repositories`
+when expanded. FileView keeps its file tree instead of this picker.
 
 ## User And Organization Settings
 
@@ -165,20 +166,20 @@ keeps the requested URL and shows:
 
 - Heading: `Organization unavailable`
 - Body: `You do not have Samebase access to <owner>.`
-- Action: `All vaults`
+- Action: `All repositories`
 
 The state does not reveal if the organization exists. It does not select another organization. A
 one-time GitHub callback notice can explain an existing connection only after GitHub verifies that
 the current user controls the selected GitHub account or organization. The notice does not identify
 another Samebase member or expose an internal organization ID.
 
-A missing or inaccessible vault keeps its clean route and shows `Vault unavailable` with an
-`All vaults` action. It does not show protected vault or provider data.
+A missing or inaccessible repository keeps its clean route and shows `Repository unavailable` with
+an `All repositories` action. It does not show protected repository or provider data.
 
 When a signed-out user opens a direct link, Samebase preserves the full route through sign-in. It
-checks organization or vault access after authentication is ready.
+checks organization or repository access after authentication is ready.
 
-A user with no memberships can still use `/settings`. On `/vault`, Samebase shows:
+A user with no memberships can still use `/settings`. On `/repo`, Samebase shows:
 
 - Heading: `No organizations`
 - Body: `Connect a GitHub account or organization to Samebase.`
@@ -199,22 +200,23 @@ The server validates the return route and owner. A full-page return checks curre
 it shows organization data. If access changed during the external flow, Samebase keeps the scoped
 return route and shows the organization unavailable state.
 
-## Organization-Scoped Vault Folders
+## Organization-Scoped Repository Folders
 
-Vault folders are a personal organization aid inside one Samebase organization. Each folder stores
-one organization ID. A folder can contain only vaults owned by that organization. Folder names,
-order, and collapsed state belong to one user and one organization. An empty folder remains visible.
+Repository folders are a personal organization aid inside one Samebase organization. Each folder
+stores one organization ID. A folder can contain only repositories owned by that organization.
+Folder names, order, and collapsed state belong to one user and one organization. An empty folder
+remains visible.
 
 Organization disclosure choices also belong to one user and one organization. They control only the
-shared vault tree presentation and do not define organization access or active context.
+shared repository tree presentation and do not define organization access or active context.
 
-The same folder layout appears in `/vault`, `/org/:owner/vaults`, and the vault detail picker. The
-create action belongs to an organization section because `/vault` has no active organization.
-Deleting a folder makes its vaults ungrouped inside the same organization.
+The same folder layout appears in `/repo`, `/org/:owner/repositories`, and the repository detail
+picker. The create action belongs to an organization section because `/repo` has no active
+organization. Deleting a folder makes its repositories ungrouped inside the same organization.
 
-Folders do not own vaults, grant access, change membership, or create a route context. If the user
-loses organization access, its folders and assignments stay stored but do not appear and cannot be
-changed. This rollout adds no automatic migration or compatibility path for old folder rows.
+Folders do not own repositories, grant access, change membership, or create a route context. If the
+user loses organization access, its folders and assignments stay stored but do not appear and cannot
+be changed. This rollout adds no automatic migration or compatibility path for old folder rows.
 
 ## Folder Schema Rollout Gate
 
@@ -251,8 +253,9 @@ provider reset in RFC 122, although the operator can perform both gates in one m
 Focused route, backend, and UI tests must prove:
 
 - one, several, zero, and removed membership states
-- one shared global inventory and vault detail tree with persisted organization disclosures
-- organization-scoped folders, empty folders, ungrouped vaults, and cross-organization move denial
+- one shared global inventory and repository detail tree with persisted organization disclosures
+- organization-scoped folders, empty folders, ungrouped repositories, and cross-organization move
+  denial
 - organization access before the `/org/:owner` redirect
 - reload, direct-link, Back, and Forward behavior
 - small-screen access to the shared organization context
@@ -268,5 +271,5 @@ Focused route, backend, and UI tests must prove:
 
 Screenshot coverage must include the global inventory, one-organization and several-organization
 context, the Organizations directory and its connection choices, organization settings, user
-settings, zero membership, lost organization access, and lost vault access. Final UI acceptance uses
-the canonical Linux visual test command.
+settings, zero membership, lost organization access, and lost repository access. Final UI acceptance
+uses the canonical Linux visual test command.

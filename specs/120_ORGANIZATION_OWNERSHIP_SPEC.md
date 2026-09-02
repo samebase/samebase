@@ -291,7 +291,7 @@ a later route lookup cannot substitute another repository. After connection, rep
 use a GitHub installation token restricted to `vaults.ghRepoId`, so reuse of stored mutable route
 data cannot target another repository.
 
-The route `/vault/<owner>/<repository>` resolves the current GitHub owner login to an organization
+The route `/repo/<owner>/<repository>` resolves the current GitHub owner login to an organization
 through the viewer's membership, then resolves the vault by `organizationId` and repository name. A
 vault does not store another current copy of `organizations.githubOwnerLogin`. It does not use an
 opaque `?organization=<id>` parameter. Internal Samebase IDs are database and authorization
@@ -470,7 +470,7 @@ The rollout is ready only when focused tests and real manual checks prove:
   owner requires both the exact linked GitHub sign-in identity and the exact personal GitHub App
   user authorization.
 - A vault owner ID must match its organization owner ID.
-- `/vault/<owner>/<repository>` reloads without an organization query parameter and shows the same
+- `/repo/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
 - `/org/<owner>/providers`, `/org/<owner>/new-app`, and `/org/<owner>/connect-repo` reload with the
   same organization and never show an internal organization ID.
