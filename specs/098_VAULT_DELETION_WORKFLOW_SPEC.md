@@ -5,7 +5,7 @@
 - Status: Accepted next-phase implementation plan
 - Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
-- Last updated: 2026-08-15
+- Last updated: 2026-09-02
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
@@ -101,6 +101,13 @@ After acceptance:
 Do not hide the vault card immediately after queueing. A visible deleting or failed-deletion state
 is the user's only reliable progress surface while the vault row still exists.
 
+### Public Deletion Language
+
+The repository UI uses `Remove from Samebase` for removal of the Samebase record. When upstream
+deletion is available, the option uses `Also delete the GitHub repository`. The UI must not label
+local record removal as `Delete repository`. Internal code and workflow text can continue to use
+`vault deletion`.
+
 ### Quiescent Vault Requirement
 
 Deletion is available only for quiescent vaults. This intentionally makes half-provisioned cleanup
@@ -115,8 +122,9 @@ A vault is quiescent for deletion when:
 4. no manual provider write owner is `active`
 
 The dashboard should disable delete with a short reason while a vault is not quiescent. A direct
-selected-vault `?delete` URL, such as `/vault/samebase/samebase?delete`, for a non-quiescent vault
-keeps the delete dialog open, disables its confirmation action, and shows the same server reason.
+selected-repository `?delete` URL, such as `/repo/samebase/samebase?delete`, for a non-quiescent
+vault keeps the delete dialog open, disables its confirmation action, and shows the same server
+reason.
 
 The queueing action must also enforce this rule through the shared vault deletion eligibility
 reader. This reader combines the vault infrastructure state with an any-trigger active provisioning
@@ -690,9 +698,9 @@ permission to start deletion while a known provisioning run is active.
 
 ## Dashboard Behavior
 
-The delete dialog remains route-owned by a key-only `?delete` search flag on the selected vault
-route, for example `/vault/samebase/samebase?delete`. A `?delete` URL without a selected vault route
-is invalid and should be cleared.
+The delete dialog remains route-owned by a key-only `?delete` search flag on the selected repository
+route, for example `/repo/samebase/samebase?delete`. A `?delete` URL without a selected repository
+route is invalid and should be cleared.
 
 When the target vault is not deleting:
 

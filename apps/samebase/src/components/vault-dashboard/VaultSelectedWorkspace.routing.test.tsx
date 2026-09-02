@@ -212,7 +212,7 @@ describe("VaultSelectedWorkspace route", () => {
     });
     const workspace = makeWorkspace(vault);
 
-    await renderWorkspace(workspace, "/vault/ada/demo/settings?add-cloudflare&dev");
+    await renderWorkspace(workspace, "/repo/ada/demo/settings?add-cloudflare&dev");
     const element = rootElement;
     if (!element) {
       throw new Error("Expected the selected workspace to render.");
@@ -248,11 +248,7 @@ describe("VaultSelectedWorkspace route", () => {
       repoName,
     });
 
-    await renderWorkspace(
-      makeWorkspace(vault),
-      "/vault/noter-guest/tmp-testing-waters",
-      "overview",
-    );
+    await renderWorkspace(makeWorkspace(vault), "/repo/noter-guest/tmp-testing-waters", "overview");
     const element = rootElement;
     if (!element) {
       throw new Error("Expected the selected workspace to render.");

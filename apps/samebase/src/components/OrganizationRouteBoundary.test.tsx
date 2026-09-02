@@ -118,8 +118,8 @@ describe("OrganizationRouteBoundary", () => {
 
     expect(markup).toContain("Organization unavailable");
     expect(markup).toContain("You do not have Samebase access to samebase.");
-    expect(markup).toContain('href="/vault"');
-    expect(markup).toContain("All vaults");
+    expect(markup).toContain('href="/repo"');
+    expect(markup).toContain("All repositories");
   });
 
   it("renders a matching organization without changing its URL", () => {

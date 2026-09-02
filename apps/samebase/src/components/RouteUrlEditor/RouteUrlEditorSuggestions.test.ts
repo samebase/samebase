@@ -223,12 +223,12 @@ describe("readSuggestions", () => {
 
   it("hides router template paths from clickable path rows", () => {
     const values = readValues({
-      routeAddress: "/vault?",
+      routeAddress: "/repo?",
       routeTextBeforeCursor: "/v",
     });
 
-    expect(Object.keys(routesByPath)).toContain("/vault/$");
-    expect(values).not.toContain("/vault/$");
+    expect(Object.keys(routesByPath)).toContain("/repo/$");
+    expect(values).not.toContain("/repo/$");
     expect(values.some((value) => value.includes("$"))).toBe(false);
   });
 
@@ -376,16 +376,16 @@ describe("readSuggestions", () => {
       viewer: memberViewer,
     });
     const rootDashboardValues = readValues({
-      routeAddress: "/vault?",
-      routeTextBeforeCursor: "/vault?",
+      routeAddress: "/repo?",
+      routeTextBeforeCursor: "/repo?",
       viewer: memberViewer,
     });
     const selectedDashboardValues = readValues({
-      routeAddress: "/vault/samebase/samebase?",
-      routeTextBeforeCursor: "/vault/samebase/samebase?",
+      routeAddress: "/repo/samebase/samebase?",
+      routeTextBeforeCursor: "/repo/samebase/samebase?",
       viewer: memberViewer,
     });
-    expect(pathValues).toContain("/vault");
+    expect(pathValues).toContain("/repo");
     expect(rootDashboardValues).not.toContain("?delete");
     expect(selectedDashboardValues).toContain("?delete");
   });

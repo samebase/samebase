@@ -108,16 +108,16 @@ describe("NotFoundRoutePage", () => {
     expect(markup).not.toContain("/new-app");
     expect(markup).toContain('href="/"');
     expect(markup).toContain("/landing");
-    expect(markup).not.toContain("/vault");
+    expect(markup).not.toContain("/repo");
   });
 
-  it("sends signed-in visitors to vaults", () => {
+  it("sends signed-in visitors to repositories", () => {
     authState.isAuthenticated = true;
 
     const markup = renderToStaticMarkup(<NotFoundRoutePage />);
 
-    expect(markup).toContain('href="/vault"');
-    expect(markup).toContain("/vault");
+    expect(markup).toContain('href="/repo"');
+    expect(markup).toContain("/repo");
     expect(markup).not.toContain("/landing");
   });
 });

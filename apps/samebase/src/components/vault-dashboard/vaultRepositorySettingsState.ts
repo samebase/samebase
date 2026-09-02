@@ -110,10 +110,10 @@ export function readVaultProviderActionBlockReason(vault: VaultDashboardVault): 
   }
 
   if (vault.deletion.state === "deleting") {
-    return "Vault removal is in progress.";
+    return "Removal from Samebase is in progress.";
   }
   if (vault.deletion.state === "delete_failed") {
-    return "Retry vault removal before you change providers.";
+    return "Retry removal from Samebase before you change providers.";
   }
   return vault.hasConnectedGitHubRepository ? null : "Finish GitHub repository setup first.";
 }
@@ -159,7 +159,7 @@ function buildDetachAttachmentAction(args: {
 }): VaultRepositorySettingsAction {
   return {
     kind: "remove",
-    label: args.isDetaching ? "Removing..." : "Remove from vault",
+    label: args.isDetaching ? "Removing..." : "Remove from repository",
     disabled: args.isDetaching,
     onClick: args.onClick,
   };
@@ -356,7 +356,7 @@ function formatCloudflareConvexBuildAccessState({
         description:
           access.convexProject.state === "attached"
             ? `Convex deploy keys still use ${access.convexProject.teamId}/${access.convexProject.projectId}.`
-            : `Convex deploy keys target ${access.convexProject.teamId}/${access.convexProject.projectId}, which is not attached to this vault.`,
+            : `Convex deploy keys target ${access.convexProject.teamId}/${access.convexProject.projectId}, which is not attached to this repository.`,
       };
     case "incomplete":
       return {

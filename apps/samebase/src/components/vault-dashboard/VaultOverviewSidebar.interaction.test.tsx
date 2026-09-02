@@ -126,7 +126,7 @@ async function renderSidebar(callbacks: VaultFolderCallbacks) {
 
   await act(async () => {
     root?.render(
-      <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
+      <TestRouterProvider initialEntries={["/repo/samebase/active"]}>
         <VaultOverviewSidebar
           {...callbacks}
           folderState={{
@@ -216,7 +216,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     const onSetVaultFolderCollapsed = vi.fn(async () => {});
     const container = await renderSidebar(folderCallbacks({ onSetVaultFolderCollapsed }));
     const collapseButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Fixtures, 1 vault"]',
+      'button[aria-label="Expand Fixtures, 1 repository"]',
     );
     const folderName = [...(collapseButton?.querySelectorAll("span") ?? [])].find(
       (span) => span.textContent === "Fixtures",
@@ -238,7 +238,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     const onSetVaultFolderCollapsed = vi.fn(async () => request.promise);
     const container = await renderSidebar(folderCallbacks({ onSetVaultFolderCollapsed }));
     const collapseButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Fixtures, 1 vault"]',
+      'button[aria-label="Expand Fixtures, 1 repository"]',
     );
     if (!collapseButton) {
       throw new Error("Expand folder button not found");
@@ -262,7 +262,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     );
     const container = await renderSidebar(folderCallbacks({ onSetVaultFolderCollapsed }));
     const collapseButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Fixtures, 1 vault"]',
+      'button[aria-label="Expand Fixtures, 1 repository"]',
     );
     if (!collapseButton) {
       throw new Error("Expand folder button not found");
@@ -276,7 +276,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
 
     expect(toastMock).toHaveBeenCalledWith({
       description: "Folder could not be updated.",
-      title: "Could not update vault folders",
+      title: "Could not update repository folders",
       variant: "destructive",
     });
   });

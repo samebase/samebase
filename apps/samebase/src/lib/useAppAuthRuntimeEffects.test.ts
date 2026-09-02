@@ -140,7 +140,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/vault",
+        pathname: "/repo",
         search: "?delete",
         hash: "#vaults",
       },
@@ -149,7 +149,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/vault", {
+    useAppAuthRuntimeEffects("/repo", {
       delete: true,
     });
 
@@ -201,7 +201,7 @@ describe("useAppAuthRuntimeEffects", () => {
       replace: true,
       search: expect.any(Function),
       state: true,
-      to: "/vault",
+      to: "/repo",
     });
     const navigateOptions = navigateMock.mock.calls[0]?.[0];
     if (!navigateOptions || typeof navigateOptions.search !== "function") {
@@ -226,7 +226,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/vault",
+        pathname: "/repo",
         search: "",
         hash: "",
       },
@@ -235,7 +235,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/vault", {});
+    useAppAuthRuntimeEffects("/repo", {});
 
     expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();

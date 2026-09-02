@@ -4,7 +4,7 @@ import { signInIfNeeded } from "./liveHelpers";
 const REPO_OWNER = "nicu-chiciuc";
 const REPO_NAME = "tmp-main-branch-stress-20260309";
 const REPOSITORY_FULL_NAME = `${REPO_OWNER}/${REPO_NAME}`;
-const VAULT_DASHBOARD_ROUTE = `/vault/${REPOSITORY_FULL_NAME}`;
+const VAULT_DASHBOARD_ROUTE = `/repo/${REPOSITORY_FULL_NAME}`;
 
 const BRANCHES = {
   main: "main",
@@ -25,7 +25,7 @@ function encodeBranchSegment(branch: string): string {
 }
 
 function buildBranchRoute(branch: string): string {
-  return `/vault/${REPOSITORY_FULL_NAME}/fs/${encodeBranchSegment(branch)}`;
+  return `/repo/${REPOSITORY_FULL_NAME}/fs/${encodeBranchSegment(branch)}`;
 }
 
 function buildFileRoute(branch: string, filePath: string): string {
@@ -98,12 +98,12 @@ test.describe("vault exact-branch live flows", () => {
       waitUntil: "domcontentloaded",
     });
     await expect(page).toHaveURL(
-      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/fs/${encodeBranchSegment(BRANCHES.slash)}`),
+      new RegExp(`/repo/${REPO_OWNER}/${REPO_NAME}/fs/${encodeBranchSegment(BRANCHES.slash)}`),
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(
-      new RegExp(`/vault/${REPO_OWNER}/${REPO_NAME}/fs/${encodeBranchSegment(BRANCHES.slash)}`),
+      new RegExp(`/repo/${REPO_OWNER}/${REPO_NAME}/fs/${encodeBranchSegment(BRANCHES.slash)}`),
     );
   });
 

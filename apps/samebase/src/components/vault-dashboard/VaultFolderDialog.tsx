@@ -100,8 +100,8 @@ export function VaultFolderDialog(props: VaultFolderDialogProps) {
           <DialogTitle>{title}</DialogTitle>
           {props.kind === "delete" && props.vaultCount > 0 ? (
             <DialogDescription>
-              {props.vaultCount} {props.vaultCount === 1 ? "vault will" : "vaults will"} move to
-              Unfiled. The vaults will not be deleted.
+              {props.vaultCount} {props.vaultCount === 1 ? "repository will" : "repositories will"}
+              {" move to Unfiled. They will remain in Samebase."}
             </DialogDescription>
           ) : null}
         </DialogHeader>

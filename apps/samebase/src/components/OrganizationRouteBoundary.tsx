@@ -29,7 +29,7 @@ function OrganizationUnavailable({
         </div>
       ) : null}
       <Button asChild className="mt-6" variant="outline">
-        <Link to={DASHBOARD_ROUTE}>All vaults</Link>
+        <Link to={DASHBOARD_ROUTE}>All repositories</Link>
       </Button>
     </main>
   );

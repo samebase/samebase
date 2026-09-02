@@ -301,11 +301,11 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES,
   },
   {
-    label: "Vault Overview",
+    label: "Repository Overview",
     modes: VAULT_DASHBOARD_VISUAL_MODES,
   },
   {
-    label: "Vault Sync Status",
+    label: "Repository Sync Status",
     modes: VAULT_SYNC_STATUS_VISUAL_MODES,
   },
   {

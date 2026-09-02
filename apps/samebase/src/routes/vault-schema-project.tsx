@@ -3,7 +3,7 @@ import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
-const pathname = "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
+const pathname = "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
 
 const VaultConvexSchemaGraphView = lazy(async () => {
   const module = await import("@/components/VaultConvexSchemaGraphView");
@@ -11,13 +11,13 @@ const VaultConvexSchemaGraphView = lazy(async () => {
 });
 
 function VaultSchemaRouteComponent() {
-  const { branch, convexProjectId, owner, repo } = Route.useParams();
+  const { branch, convexProjectId, owner, repository } = Route.useParams();
 
   return (
     <AuthenticatedAppRoutePage>
       <VaultConvexSchemaGraphView
         owner={owner}
-        repoName={repo}
+        repoName={repository}
         branch={branch}
         convexProjectId={convexProjectId}
       />
@@ -25,9 +25,9 @@ function VaultSchemaRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/vault/$owner/$repo/schema/$branch/project/$convexProjectId")(
-  {
-    staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    component: VaultSchemaRouteComponent,
-  },
-);
+export const Route = createFileRoute(
+  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
+)({
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  component: VaultSchemaRouteComponent,
+});

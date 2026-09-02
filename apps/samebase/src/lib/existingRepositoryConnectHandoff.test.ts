@@ -22,8 +22,8 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     expect(connectRepository).toHaveBeenCalledWith({
       ghRepoId: "1296269",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/vault/samebase/plugin?prod-ui", undefined);
-    expect(calls).toEqual(["connect:1296269", "navigate:/vault/samebase/plugin?prod-ui:push"]);
+    expect(navigateByHref).toHaveBeenCalledWith("/repo/samebase/plugin?prod-ui", undefined);
+    expect(calls).toEqual(["connect:1296269", "navigate:/repo/samebase/plugin?prod-ui:push"]);
   });
 
   it("replaces the direct file route with the dashboard after queueing", async () => {
@@ -44,7 +44,7 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
       ghRepoId: "1296269",
     });
     expect(navigateByHref).toHaveBeenCalledWith(
-      "/vault/samebase/samebase?diff&mobileLineNumbers=1",
+      "/repo/samebase/samebase?diff&mobileLineNumbers=1",
       {
         replace: true,
       },

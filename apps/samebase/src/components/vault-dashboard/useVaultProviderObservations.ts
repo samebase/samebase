@@ -118,7 +118,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     ],
     queryFn: async () => {
       if (!vaultId) {
-        throw new Error("Vault is required to observe Cloudflare Workers.");
+        throw new Error("Repository is required to observe Cloudflare Workers.");
       }
       return await observeCloudflareWorkers({ vaultId });
     },
@@ -136,7 +136,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     ],
     queryFn: async () => {
       if (!vaultId) {
-        throw new Error("Vault is required to observe Cloudflare Workers Builds.");
+        throw new Error("Repository is required to observe Cloudflare Workers Builds.");
       }
       return await observeCloudflareWorkerBuilds({ vaultId });
     },
@@ -170,7 +170,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     ],
     queryFn: async () => {
       if (!vaultId) {
-        throw new Error("Vault is required to observe Convex build access.");
+        throw new Error("Repository is required to observe Convex build access.");
       }
       if (cloudflareBuildAccessTargets.length === 0) {
         return [];
@@ -194,7 +194,7 @@ export function useVaultProviderObservations(vault: VaultProviderObservationTarg
     ],
     queryFn: async () => {
       if (!vaultId) {
-        throw new Error("Vault is required to observe Convex projects.");
+        throw new Error("Repository is required to observe Convex projects.");
       }
       return await observeConvexProjects({ vaultId });
     },

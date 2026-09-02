@@ -1,6 +1,6 @@
 import { useAppAuthActions } from "@/authClient";
 import { OrganizationInvitationPageView } from "@/components/OrganizationInvitationPageView";
-import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/lib/organizationRoutes";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction, useConvexAuth, useMutation } from "convex/react";
@@ -35,7 +35,7 @@ export function OrganizationInvitationPage({ code }: { code: string }) {
         const result = await acceptInvitation({ code });
         await navigate({
           params: { owner: result.organizationOwnerLogin },
-          to: ORGANIZATION_VAULTS_ROUTE,
+          to: ORGANIZATION_REPOSITORIES_ROUTE,
         });
       }}
       onSignOut={signOut}

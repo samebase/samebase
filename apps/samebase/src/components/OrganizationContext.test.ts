@@ -23,8 +23,8 @@ const organization = {
 
 describe("organization context", () => {
   it.each([
-    ["/org/samebase", "vaults"],
-    ["/org/samebase/vaults", "vaults"],
+    ["/org/samebase", "repositories"],
+    ["/org/samebase/repositories", "repositories"],
     ["/org/samebase/providers", "providers"],
     ["/org/samebase/new-app", "new-app"],
     ["/org/samebase/connect-repo", "connect-repo"],
@@ -39,14 +39,14 @@ describe("organization context", () => {
     });
   });
 
-  it("reads global, account, and vault detail surfaces", () => {
+  it("reads global, account, and repository detail surfaces", () => {
     expect(readAppOrganizationSurface("/org")).toEqual({ kind: "organizations" });
-    expect(readAppOrganizationSurface("/vault")).toEqual({ kind: "allVaults" });
-    expect(readAppOrganizationSurface("/vault/Samebase/repo/src/index.ts")).toEqual({
+    expect(readAppOrganizationSurface("/repo")).toEqual({ kind: "allRepositories" });
+    expect(readAppOrganizationSurface("/repo/Samebase/repo/src/index.ts")).toEqual({
       kind: "organization",
       owner: "Samebase",
-      section: "vaults",
-      source: "vault",
+      section: "repositories",
+      source: "repository",
     });
   });
 

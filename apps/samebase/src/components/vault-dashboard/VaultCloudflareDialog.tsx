@@ -501,7 +501,7 @@ export function VaultCloudflareDialog({
     ],
     queryFn: async () => {
       if (cloudflareAccountId === undefined) {
-        throw new Error("Cloudflare account is not configured for this vault.");
+        throw new Error("Cloudflare account is not configured for this repository.");
       }
       return await discoverWorkers({ accountId: cloudflareAccountId, vaultId: vault._id });
     },

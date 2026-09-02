@@ -422,7 +422,7 @@ describe("PasswordAuthForm", () => {
     });
     expect(navigateMock).toHaveBeenCalledWith({
       search: expect.any(Function),
-      to: "/vault",
+      to: "/repo",
     });
     const navigateOptions = navigateMock.mock.calls[0]?.[0];
     if (

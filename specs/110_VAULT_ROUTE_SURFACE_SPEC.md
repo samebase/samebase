@@ -1,9 +1,9 @@
-# 110 Vault Route Surface Spec
+# 110 Repository Route Surface Spec
 
 ## Document Control
 
 - Status: Accepted
-- Owner: Samebase frontend/app shell + vault dashboard
+- Owner: Samebase frontend/app shell + repository dashboard
 - Last updated: 2026-07-21
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
@@ -13,24 +13,27 @@
 
 ## Current Contract
 
-Vault URLs start at the vault directory. Repository-specific pages live directly under that
-repository identity. Branch-scoped product surfaces are named before the encoded branch segment.
+Repository URLs start at the repository directory. Repository-specific pages live directly under
+that repository identity. Branch-scoped product surfaces are named before the encoded branch
+segment.
 
 Accepted target routes:
 
-1. Vault directory:
-   - `/vault`
-2. Vault home:
-   - `/vault/:owner/:repo`
-3. Vault settings:
-   - `/vault/:owner/:repo/settings`
+1. Repository directory:
+   - `/repo`
+2. Repository home:
+   - `/repo/:owner/:repository`
+3. Repository settings:
+   - `/repo/:owner/:repository/settings`
 4. Repository filesystem:
-   - `/vault/:owner/:repo/fs/:branch`
-   - `/vault/:owner/:repo/fs/:branch/:filePath...`
+   - `/repo/:owner/:repository/fs/:branch`
+   - `/repo/:owner/:repository/fs/:branch/:filePath...`
 5. Deployment database editor:
-   - `/vault/:owner/:repo/db/:branch/project/:convexProjectId`
+   - `/repo/:owner/:repository/db/:branch/project/:convexProjectId`
 6. Deployment schema graph:
-   - `/vault/:owner/:repo/schema/:branch/project/:convexProjectId`
+   - `/repo/:owner/:repository/schema/:branch/project/:convexProjectId`
+
+The old `/vault` route family is not registered. These URLs return Not Found without a redirect.
 
 The `:branch` segment is the exact Git branch name encoded as one path segment with
 `encodeURIComponent(...)` and decoded exactly once. Branch names containing `/` therefore stay valid
@@ -38,19 +41,20 @@ without route splitting.
 
 The `:filePath...` tail belongs only to the filesystem surface. File path segments are encoded
 individually while preserving `/` as the path separator. A file or directory named `db`, `settings`,
-or `fs` is addressed through the filesystem surface, such as `/vault/:owner/:repo/fs/:branch/db`.
+or `fs` is addressed through the filesystem surface, such as
+`/repo/:owner/:repository/fs/:branch/db`.
 
 Database and Schema routes include the `vaultConvexProjects` attachment ID because the selected
 project is part of the resource identity, not an optional view filter. A root path cannot identify a
 project because several projects may intentionally use the same Convex code location. The server
-verifies that the attachment belongs to the vault before reading provider data.
+verifies that the attachment belongs to the repository before reading provider data.
 
 File compare and commit review remain the `?compare` and `?diff` query params on filesystem routes.
 They are view modes for the selected branch/file, not separate route surfaces.
 
 ## Naming Rules
 
-1. Use named route surfaces directly after `/vault/:owner/:repo`.
+1. Use named route surfaces directly after `/repo/:owner/:repository`.
 2. Use `fs` for the repository filesystem surface.
 3. Use `db` for the deployment database surface.
 4. Do not put provider names such as `convex` in the route path for product surfaces.
@@ -63,7 +67,7 @@ The first database editor implementation only needs to link and render the produ
 branch. The accepted MVP route is:
 
 ```txt
-/vault/:owner/:repo/db/:defaultBranch/project/:convexProjectId
+/repo/:owner/:repository/db/:defaultBranch/project/:convexProjectId
 ```
 
 Preview branch database routes may reuse the same shape later, after Samebase can resolve the
@@ -87,9 +91,10 @@ only way to reach Samebase's mobile workspace sidebars.
 
 ## Non-Goals
 
-1. This spec does not require a vault settings page to ship before the database route.
+1. This spec does not require a repository settings page to ship before the database route.
 2. This spec does not require preview deployment data editing in the MVP.
-3. This spec does not preserve internal backward compatibility for superseded vault route shapes.
+3. This spec does not preserve internal backward compatibility for superseded repository route
+   shapes.
 4. This spec does not define every embedded Convex dashboard credential exchange detail; it only
    defines the Samebase browser route shape and route-level access expectations.
 
@@ -97,20 +102,20 @@ only way to reach Samebase's mobile workspace sidebars.
 
 Route implementation PRs should prove:
 
-1. Route builders emit `/vault/:owner/:repo/fs/:branch`,
-   `/vault/:owner/:repo/db/:branch/project/:convexProjectId`, and
-   `/vault/:owner/:repo/schema/:branch/project/:convexProjectId`.
+1. Route builders emit `/repo/:owner/:repository/fs/:branch`,
+   `/repo/:owner/:repository/db/:branch/project/:convexProjectId`, and
+   `/repo/:owner/:repository/schema/:branch/project/:convexProjectId`.
 2. Branch names containing `/`, spaces, or other special characters round-trip through one encoded
    branch segment.
 3. Files named `db`, `settings`, or `fs` resolve under `/fs/:branch/...`, not as repo-level pages.
 4. Convex attachment IDs round-trip through one encoded path segment.
 5. Dashboard branch links use the accepted route builders.
-6. New code does not emit the superseded `/vault/:owner/:repo/-/...` route shape.
+6. New code does not emit the superseded `/repo/:owner/:repository/-/...` route shape.
 
 ## Rollout
 
-1. Replace the current vault file route helper and parser with the `fs` route contract.
+1. Replace the current repository file route helper and parser with the `fs` route contract.
 2. Update dashboard, editor, auth-return, tests, and route suggestions to use the new helpers.
 3. Add the MVP production database editor at
-   `/vault/:owner/:repo/db/:branch/project/:convexProjectId`.
+   `/repo/:owner/:repository/db/:branch/project/:convexProjectId`.
 4. Add preview database resolution only after the production database editor is working end to end.

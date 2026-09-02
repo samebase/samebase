@@ -24,7 +24,7 @@ const testState = vi.hoisted<{
 }>(() => ({
   context: {
     organizations: undefined,
-    surface: { kind: "allVaults" },
+    surface: { kind: "allRepositories" },
   },
   location: { hash: "", search: {} },
   navigate: vi.fn<(options: { href?: string; to?: string }) => Promise<void>>(),
@@ -107,7 +107,7 @@ async function mountControl(content: React.ReactNode = <OrganizationContextContr
 describe("OrganizationContextControl", () => {
   beforeEach(() => {
     testState.context.organizations = undefined;
-    testState.context.surface = { kind: "allVaults" };
+    testState.context.surface = { kind: "allRepositories" };
     testState.location.hash = "";
     testState.location.search = {};
     testState.navigate.mockReset();
@@ -144,7 +144,7 @@ describe("OrganizationContextControl", () => {
       await Promise.resolve();
     });
 
-    expect(testState.navigate).toHaveBeenCalledWith({ href: "/org/samebase/vaults" });
+    expect(testState.navigate).toHaveBeenCalledWith({ href: "/org/samebase/repositories" });
   });
 
   it("does not show a switch when there are no organizations", async () => {
@@ -160,7 +160,7 @@ describe("OrganizationContextControl", () => {
     testState.context.surface = {
       kind: "organization",
       owner: "lost-org",
-      section: "vaults",
+      section: "repositories",
       source: "organization",
     };
     const container = await mountControl();
@@ -180,7 +180,7 @@ describe("OrganizationContextControl", () => {
     ).not.toBeNull();
   });
 
-  it("matches the vault list order without repeating All vaults", async () => {
+  it("matches the repository list order without repeating All repositories", async () => {
     testState.context.organizations = [
       organization("zeta"),
       organization("personal", "user"),
@@ -205,7 +205,7 @@ describe("OrganizationContextControl", () => {
     testState.context.surface = {
       kind: "organization",
       owner: "zeta",
-      section: "vaults",
+      section: "repositories",
       source: "organization",
     };
     const container = await mountControl();
@@ -220,8 +220,8 @@ describe("OrganizationContextControl", () => {
     testState.context.surface = {
       kind: "organization",
       owner: "zeta",
-      section: "vaults",
-      source: "vault",
+      section: "repositories",
+      source: "repository",
     };
     testState.location.hash = "#README";
     testState.location.search = { "prod-ui": true };
@@ -236,7 +236,7 @@ describe("OrganizationContextControl", () => {
     });
 
     expect(testState.navigate).toHaveBeenCalledWith({
-      href: "/org/alpha/vaults?prod-ui#README",
+      href: "/org/alpha/repositories?prod-ui#README",
     });
   });
 

@@ -20,7 +20,7 @@ describe("buildOrganizationSwitchHref", () => {
     ).toBe("/org/Target-Org/settings?prod-ui#billing");
   });
 
-  it("clears billing state when switching to All vaults and keeps unrelated URL state", () => {
+  it("clears billing state when switching to All repositories and keeps unrelated URL state", () => {
     expect(
       buildOrganizationSwitchHref({
         hash: "#billing",
@@ -30,9 +30,9 @@ describe("buildOrganizationSwitchHref", () => {
           "prod-ui": true,
           view: "compact",
         },
-        target: { kind: "allVaults" },
+        target: { kind: "allRepositories" },
       }),
-    ).toBe("/vault?prod-ui&view=compact#billing");
+    ).toBe("/repo?prod-ui&view=compact#billing");
   });
 
   it("keeps the Members section when switching organizations", () => {

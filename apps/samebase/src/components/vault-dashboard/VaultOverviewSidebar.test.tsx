@@ -106,7 +106,7 @@ describe("VaultOverviewSidebar", () => {
     const organizationId = fakeOrganizationId();
     const renamedVault = vault("agent-plugins", fakeVaultId("vault-plugin"), organizationId);
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/samebase/agent-plugins"]}>
+      <TestRouterProvider initialEntries={["/repo/samebase/agent-plugins"]}>
         <VaultOverviewSidebar
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
@@ -131,19 +131,19 @@ describe("VaultOverviewSidebar", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/agent-plugins"');
+    expect(markup).toContain('href="/repo/samebase/agent-plugins"');
     expect(markup).toContain('aria-label="samebase/agent-plugins, Loading checks"');
     expect(markup).toContain('data-vault-status="Loading checks"');
     expect(markup).not.toContain('data-vault-status="Repository name changed"');
     expect(markup).toContain(
       'aria-label="Repository name changed for samebase/agent-plugins. Open settings"',
     );
-    expect(markup).toContain('href="/vault/samebase/agent-plugins/settings"');
+    expect(markup).toContain('href="/repo/samebase/agent-plugins/settings"');
   });
 
   it("keeps the supplied vault order when the organization has no folders", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
+      <TestRouterProvider initialEntries={["/repo/samebase/active"]}>
         <VaultOverviewSidebar
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
@@ -170,7 +170,7 @@ describe("VaultOverviewSidebar", () => {
     const samebaseOrganizationId = fakeOrganizationId();
     const otherOrganizationId = fakeOrganizationId("organization-other");
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault"]}>
+      <TestRouterProvider initialEntries={["/repo"]}>
         <VaultOverviewSidebar
           {...FOLDER_CALLBACKS}
           folderState={{
@@ -213,7 +213,7 @@ describe("VaultOverviewSidebar", () => {
     const filedVault = vault("filed", fakeVaultId("vault-filed"));
     const unfiledVault = vault("unfiled", fakeVaultId("vault-unfiled"));
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault"]}>
+      <TestRouterProvider initialEntries={["/repo"]}>
         <VaultOverviewSidebar
           {...FOLDER_CALLBACKS}
           folderState={{
@@ -245,7 +245,7 @@ describe("VaultOverviewSidebar", () => {
   it("marks the selected vault without hiding it", () => {
     const selectedVault = vault("active", fakeVaultId("vault-active"));
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
+      <TestRouterProvider initialEntries={["/repo/samebase/active"]}>
         <VaultOverviewSidebar
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
@@ -290,7 +290,7 @@ describe("VaultOverviewSidebar", () => {
         useState<VaultOrganizationTreeSettings>([]);
 
       return (
-        <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
+        <TestRouterProvider initialEntries={["/repo/samebase/active"]}>
           <VaultOverviewOrganizationSidebar
             {...FOLDER_CALLBACKS}
             folderState={EMPTY_FOLDER_STATE}
@@ -355,7 +355,7 @@ describe("VaultOverviewSidebar", () => {
       const emptyOwnerButton = changedOrganizationButtons[1];
       await act(async () => emptyOwnerButton.click());
 
-      expect(rootElement.textContent).toContain("No vaults");
+      expect(rootElement.textContent).toContain("No repositories");
     } finally {
       await act(async () => root.unmount());
       rootElement.remove();

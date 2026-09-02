@@ -117,7 +117,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/org/$owner/vaults": {
+  "/org/$owner/repositories": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
@@ -144,15 +144,15 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/vault/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
-  "/vault/$": { access: "access_files_read" },
-  "/vault/$owner/$repo": { access: "access_dashboard" },
-  "/vault/$owner/$repo/settings": { access: "access_dashboard" },
-  "/vault/$owner/$repo/db/$branch/project/$convexProjectId": {
+  "/repo/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
+  "/repo/$": { access: "access_files_read" },
+  "/repo/$owner/$repository": { access: "access_dashboard" },
+  "/repo/$owner/$repository/settings": { access: "access_dashboard" },
+  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
+  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
     access: "access_schema_graph",
   },
   "/visual-fixture": {

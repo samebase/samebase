@@ -45,7 +45,7 @@ repository file existence remain live provider observations.
 
 ### Source discovery
 
-`/vault/<owner>/<repo>?add-convex` opens one vault-level dialog.
+`/repo/<owner>/<repository>?add-convex` opens one repository-level dialog.
 
 Samebase resolves the exact default-branch HEAD and recursive Git tree. It offers either:
 
@@ -124,7 +124,7 @@ dashboard reports the GitHub observation.
 `Change code location` offers only currently discovered locations, re-verifies the selected Git
 evidence, and compare-and-swaps only the code location variant.
 
-`Remove from vault` is an explicit user-intent mutation. It removes only the unchanged local
+`Remove from repository` is an explicit user-intent mutation. It removes only the unchanged local
 attachment. It never deletes the Convex project. Provider absence and a stored-team 404 never remove
 the attachment automatically.
 

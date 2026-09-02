@@ -110,10 +110,10 @@ Workers Static Assets deploys only `dist/client`, and the tagged generated block
 live outside that block. Unknown app-route navigations use Workers' `single-page-application`
 fallback to the SPA shell at `/index.html`.
 
-For a fallback request such as `/vault/samebase/samebase`, Cloudflare sends `dist/client/index.html`
+For a fallback request such as `/repo/samebase/samebase`, Cloudflare sends `dist/client/index.html`
 without changing the URL in the browser. TanStack built this file from `/`, so it contains the
 workspace shell for `/` and no route page. React's first browser render must create that same
-content. If the first render immediately uses `/vault/samebase/samebase`, the URL field, workspace
+content. If the first render immediately uses `/repo/samebase/samebase`, the URL field, workspace
 data, and route page differ from the built HTML. React then reports a hydration error and replaces
 the page.
 
@@ -318,7 +318,7 @@ Validation:
 1. `pnpm dev:worktree`
 2. `pnpm --filter samebase check`
 3. `pnpm --filter samebase build`
-4. browser smoke test of `/`, `/vault`, and `/vault/$`
+4. browser smoke test of `/`, `/repo`, and `/repo/$`
 
 ### Phase 2: Worker Dry Run
 

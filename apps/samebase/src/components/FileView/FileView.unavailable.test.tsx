@@ -12,14 +12,14 @@ vi.mock("@/components/AppWorkspaceShell", () => ({
 describe("FileViewVaultUnavailableState", () => {
   it("shows a safe return link without repository data", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/lost/private/main/secret.txt"]}>
+      <TestRouterProvider initialEntries={["/repo/lost/private/main/secret.txt"]}>
         <FileViewVaultUnavailableState />
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("Vault unavailable");
-    expect(markup).toContain("All vaults");
-    expect(markup).toContain('href="/vault"');
+    expect(markup).toContain("Repository unavailable");
+    expect(markup).toContain("All repositories");
+    expect(markup).toContain('href="/repo"');
     expect(markup).not.toContain("lost/private");
     expect(markup).not.toContain("secret.txt");
   });

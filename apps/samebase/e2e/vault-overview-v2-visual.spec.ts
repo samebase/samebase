@@ -58,28 +58,28 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
 
-test("uses the overview vault rows on the canonical root route", async ({ page }) => {
+test("uses the overview repository rows on the canonical root route", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 640 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-root");
-  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Repositories" });
 
   const samebaseLink = vaultNavigation.getByRole("link", {
     name: "samebase/samebase, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
     exact: true,
   });
-  await expect(samebaseLink).toHaveAttribute("href", "/vault/samebase/samebase");
+  await expect(samebaseLink).toHaveAttribute("href", "/repo/samebase/samebase");
   await expect(
     vaultNavigation.getByRole("link", {
       name: "samebase/marketing-site, 4/4 passed, 2 Cloudflare Workers, 3 open pull requests",
       exact: true,
     }),
-  ).toHaveAttribute("href", "/vault/samebase/marketing-site");
+  ).toHaveAttribute("href", "/repo/samebase/marketing-site");
   await expect(
     vaultNavigation.getByRole("link", {
       name: "noter/guestbook, 4/4 passed, 1 Convex project",
       exact: true,
     }),
-  ).toHaveAttribute("href", "/vault/noter/guestbook");
+  ).toHaveAttribute("href", "/repo/noter/guestbook");
   const emptyOwnerButton = vaultNavigation.getByRole("button", {
     name: "empty-owner",
     exact: true,
@@ -92,7 +92,7 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   await expect(emptyOwnerButton).toHaveAttribute("aria-expanded", "true");
   await expect(noterButton).toHaveAttribute("aria-expanded", "true");
   await expect(samebaseButton).toHaveAttribute("aria-expanded", "true");
-  await expect(fixture.getByText("No vaults", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("No repositories", { exact: true })).toBeVisible();
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
     caret: "hide",
@@ -101,7 +101,7 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   });
 });
 
-test("centers the root vault list in a wide main pane", async ({ page }) => {
+test("centers the root repository list in a wide main pane", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 640 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2-root");
 
@@ -116,7 +116,7 @@ test("centers the root vault list in a wide main pane", async ({ page }) => {
 test("shows the shared overview model on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2");
-  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Repositories" });
 
   await expect(
     vaultNavigation.getByRole("button", { name: "empty-owner", exact: true }),
@@ -140,11 +140,11 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   );
   await expect(fixture.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute(
     "href",
-    "/vault/samebase/samebase",
+    "/repo/samebase/samebase",
   );
   await expect(fixture.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute(
     "href",
-    "/vault/samebase/samebase/settings",
+    "/repo/samebase/samebase/settings",
   );
   await expect(
     fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
@@ -175,7 +175,7 @@ test("opens the production Convex Schema route", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Schema" }).click();
 
   await expect(page).toHaveURL(
-    "/vault/samebase/samebase/schema/main/project/convex-project-samebase",
+    "/repo/samebase/samebase/schema/main/project/convex-project-samebase",
   );
 });
 
@@ -196,7 +196,7 @@ test("shows comment-discovered hosting previews on desktop", async ({ page }) =>
     }),
   ).toHaveAttribute(
     "href",
-    "/vault/samebase/samebase/settings?mode=vault-overview-v2&add-cloudflare",
+    "/repo/samebase/samebase/settings?mode=vault-overview-v2&add-cloudflare",
   );
   await expect(
     otherPreviews.getByRole("link", {
@@ -338,7 +338,7 @@ test("keeps provider ownership and actions together in mobile settings", async (
     .click();
   await expect(
     page.getByRole("menuitem", {
-      name: "Remove from vault for Cloudflare Worker Samebase/domain-router",
+      name: "Remove from repository for Cloudflare Worker Samebase/domain-router",
       exact: true,
     }),
   ).toBeVisible();
@@ -351,7 +351,7 @@ test("keeps provider ownership and actions together in mobile settings", async (
     .click();
   await expect(
     page.getByRole("menuitem", {
-      name: "Remove from vault for Convex project samebase/samebase",
+      name: "Remove from repository for Convex project samebase/samebase",
       exact: true,
     }),
   ).toBeVisible();
@@ -364,12 +364,12 @@ test("keeps provider ownership and actions together in mobile settings", async (
   });
 });
 
-test("covers the mobile vault removal dialog", async ({ page }) => {
+test("covers the mobile repository removal dialog", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openVaultOverviewV2(page, "vault-overview-v2-delete-dialog");
 
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("heading", { name: /Remove Vault/ })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: /Remove .* from Samebase/ })).toBeVisible();
   await expect(dialog.getByRole("checkbox")).toHaveCount(3);
   await expect(dialog).toHaveScreenshot("vault-overview-v2-delete-dialog-mobile.png", {
     animations: "disabled",
@@ -539,7 +539,7 @@ test("uses stable shells while independent data sources load", async ({ page }) 
   await page.setViewportSize({ width: 390, height: 844 });
   const loadingFixture = await openVaultOverviewV2(page, "vault-overview-v2-loading");
 
-  await expect(loadingFixture.getByLabel("Loading vault overview")).toBeVisible();
+  await expect(loadingFixture.getByLabel("Loading repository overview")).toBeVisible();
   await expect(loadingFixture).toHaveScreenshot("vault-overview-v2-loading-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -563,7 +563,7 @@ test("uses stable shells while independent data sources load", async ({ page }) 
   });
 
   const settingsFixture = await openVaultOverviewV2(page, "vault-overview-v2-settings-loading");
-  await expect(settingsFixture.getByLabel("Loading vault settings")).toBeVisible();
+  await expect(settingsFixture.getByLabel("Loading repository settings")).toBeVisible();
   await expect(settingsFixture).toHaveScreenshot("vault-overview-v2-settings-loading-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -699,7 +699,7 @@ test("shows stable provider setup states in Settings", async ({ page }) => {
   await expect(activeFixture.getByText("A provider operation is in progress.")).toBeVisible();
   await expect(activeFixture.getByRole("button", { name: "Add Cloudflare Worker" })).toBeDisabled();
   await expect(activeFixture.getByRole("button", { name: "Add Convex project" })).toBeDisabled();
-  await expect(activeFixture.getByRole("button", { name: "Remove vault" })).toBeDisabled();
+  await expect(activeFixture.getByRole("button", { name: "Remove from Samebase" })).toBeDisabled();
   await expect(activeFixture).toHaveScreenshot("vault-overview-v2-settings-active.png", {
     animations: "disabled",
     caret: "hide",
@@ -758,7 +758,7 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
     leftMobileWidthPx: MOBILE_MINIMUM_SIDEBAR_WIDTH_PX,
     mobilePane: "left",
   });
-  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Repositories" });
 
   const selectedVault = vaultNavigation.getByRole("link", {
     name: "samebase/samebase, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",

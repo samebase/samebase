@@ -76,7 +76,7 @@ describe("typedTransitionTable", () => {
       testTransitionTable,
       {
         kind: "focused",
-        latestPath: "/vault",
+        latestPath: "/repo",
       },
       {
         path: "/logo",
@@ -98,7 +98,7 @@ describe("typedTransitionTable", () => {
       testTransitionTable,
       {
         kind: "focused",
-        latestPath: "/vault",
+        latestPath: "/repo",
       },
       {
         type: "pressedEscape",
@@ -136,7 +136,7 @@ describe("typedTransitionTable", () => {
 
     const state = {
       kind: "focused",
-      latestPath: "/vault",
+      latestPath: "/repo",
     } as const;
 
     expect(

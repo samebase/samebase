@@ -115,9 +115,9 @@ export function FileViewVaultUnavailableState() {
   return (
     <AppWorkspaceRouteChrome>
       <main className="grid gap-4 p-4">
-        <h1 className="text-base font-semibold">Vault unavailable</h1>
+        <h1 className="text-base font-semibold">Repository unavailable</h1>
         <Button asChild className="w-fit" variant="outline">
-          <Link to="/vault">All vaults</Link>
+          <Link to={DASHBOARD_ROUTE}>All repositories</Link>
         </Button>
       </main>
     </AppWorkspaceRouteChrome>
@@ -197,7 +197,7 @@ function FileViewWrapper() {
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean }) => {
-      // Preserve current user history state while the `/vault/$` route still
+      // Preserve current user history state while the `/repo/$` route still
       // depends on the intentionally encoded raw file path boundary.
       void router.navigate({
         href,
@@ -221,7 +221,7 @@ function FileViewWrapper() {
 
   /**
    * Old routes could omit the branch segment. Once we know the real branch,
-   * rewrite `/vault/:owner/:repo` into `/vault/:owner/:repo/fs/:branch`.
+   * rewrite `/repo/:owner/:repository` into `/repo/:owner/:repository/fs/:branch`.
    */
   useEffect(() => {
     if (!owner || !repoName || !branch || branchParam) {
@@ -238,7 +238,7 @@ function FileViewWrapper() {
 
   /**
    * If we recovered a file path from an old branchless URL, rewrite the URL to
-   * the canonical `/vault/:owner/:repo/fs/:branch/:file` form.
+   * the canonical `/repo/:owner/:repository/fs/:branch/:file` form.
    */
   useEffect(() => {
     if (!owner || !repoName || !branch || !branchParam || !legacyBranchlessFilePath) {
@@ -611,7 +611,7 @@ function FileViewInvalidRouteState() {
   return (
     <AppWorkspaceRouteChrome>
       <div className="flex h-full min-h-0 items-center justify-center p-6">
-        <p className="text-sm text-muted-foreground">Invalid vault route.</p>
+        <p className="text-sm text-muted-foreground">Invalid repository route.</p>
       </div>
     </AppWorkspaceRouteChrome>
   );
@@ -732,7 +732,7 @@ function FileViewInner({
   );
   const navigateByHref = useCallback(
     (href: string, options?: { replace?: boolean; resetScroll?: boolean }) => {
-      // Preserve current user history state while the `/vault/$` route still
+      // Preserve current user history state while the `/repo/$` route still
       // depends on the intentionally encoded raw file path boundary.
       void router.navigate({
         href,

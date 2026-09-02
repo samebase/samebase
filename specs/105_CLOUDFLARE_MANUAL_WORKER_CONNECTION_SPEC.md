@@ -46,7 +46,7 @@ fetches each build-token name from Cloudflare and does not store it.
 
 ### Existing Worker flow
 
-`/vault/<owner>/<repo>?add-cloudflare` opens one vault-level dialog.
+`/repo/<owner>/<repository>?add-cloudflare` opens one repository-level dialog.
 
 1. Samebase loads the vault's `cloudflareAccountId` and the organization's current credential.
 2. Samebase reads the complete Worker inventory for that account. If only legacy inventory is
@@ -144,7 +144,7 @@ Spec 115 defines Worker name and root drift and explicit updates.
 An unavailable or missing Worker remains attached under its stored root with `Needs attention`.
 Neither a warning nor a provider read authorizes a stored coordinate change.
 
-`Remove from vault` is an explicit user-intent mutation. It deletes only the unchanged local
+`Remove from repository` is an explicit user-intent mutation. It deletes only the unchanged local
 attachment and never deletes the provider resource. Provider absence may explain the attention
 state, but is not removal authority.
 

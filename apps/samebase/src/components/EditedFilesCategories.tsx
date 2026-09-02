@@ -158,7 +158,7 @@ export function EditedFilesCategories({
       });
       onFileSelected?.();
       // TODO(tanstack-router-cleanup): replace this raw href escape with typed
-      // vault-route navigation once the catch-all `/vault/$` path no longer
+      // repository-route navigation once the catch-all `/repo/$` path no longer
       // depends on manually encoded branch/file segments.
       void navigate({
         href: buildPathWithTanStackSearch({

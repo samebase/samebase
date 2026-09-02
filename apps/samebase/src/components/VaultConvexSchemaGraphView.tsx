@@ -125,7 +125,7 @@ export function VaultConvexSchemaGraphView({
     return (
       <VaultConvexSchemaGraphRouteStatusShell
         context={context}
-        status="Convex project is not attached to this vault."
+        status="Convex project is not attached to this repository."
       />
     );
   }

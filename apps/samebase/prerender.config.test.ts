@@ -31,7 +31,7 @@ describe("prerenderPages", () => {
     expect(paths).not.toContain("/youtube");
     expect(paths).not.toContain("/discord");
     expect(paths).not.toContain("/visual-fixture");
-    expect(paths).not.toContain("/vault/$");
+    expect(paths).not.toContain("/repo/$");
   });
 
   it("keeps the public landing route at the non-shell landing output path", () => {

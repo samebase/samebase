@@ -258,7 +258,7 @@ async function resolveVaultDeletionSummary(
         runId: deletion.runId,
         requestedAt: deletion.requestedAt,
         currentStep: run?.currentStep ?? "initialize_deletion",
-        message: latestEvent?.message ?? "Deleting vault.",
+        message: "Removing this repository from Samebase.",
         updatedAt: run?.updatedAt ?? latestEvent?.createdAt ?? deletion.requestedAt,
       };
     }
@@ -269,7 +269,7 @@ async function resolveVaultDeletionSummary(
         runId: deletion.runId,
         failedAt: deletion.failedAt,
         currentStep: run?.currentStep ?? "initialize_deletion",
-        message: "Vault removal failed. Retry it from the Samebase dashboard.",
+        message: "Removal from Samebase failed. Retry it from the Samebase dashboard.",
         updatedAt: run?.updatedAt ?? deletion.failedAt,
       };
     }

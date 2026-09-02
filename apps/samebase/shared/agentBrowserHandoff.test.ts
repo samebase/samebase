@@ -13,7 +13,7 @@ describe("agent browser handoff URLs", () => {
   it("puts the one-time token in the fragment only", () => {
     const url = new URL(
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/vault/samebase/samebase?prod-ui#files",
+        returnToPath: "/repo/samebase/samebase?prod-ui#files",
         siteUrl: "https://samebase.com/",
         token,
       }),
@@ -23,24 +23,24 @@ describe("agent browser handoff URLs", () => {
     expect(url.pathname).toBe("/agents/connect");
     expect(url.search).toBe("");
     expect(url.hash).toContain(`handoff=${token}`);
-    expect(url.hash).toContain("returnTo=%2Fvault%2Fsamebase%2Fsamebase%3Fprod-ui%23files");
+    expect(url.hash).toContain("returnTo=%2Frepo%2Fsamebase%2Fsamebase%3Fprod-ui%23files");
   });
 
   it("normalizes return paths to same-origin app paths", () => {
-    expect(normalizeAgentBrowserHandoffReturnToPath("/vault/?prod-ui#files")).toBe(
-      "/vault/?prod-ui#files",
+    expect(normalizeAgentBrowserHandoffReturnToPath("/repo/?prod-ui#files")).toBe(
+      "/repo/?prod-ui#files",
     );
-    expect(normalizeAgentBrowserHandoffReturnToPath("https://evil.test/vault")).toBe("/vault/");
-    expect(normalizeAgentBrowserHandoffReturnToPath("//evil.test/vault")).toBe("/vault/");
-    expect(normalizeAgentBrowserHandoffReturnToPath("/agents/connect")).toBe("/vault/");
-    expect(normalizeAgentBrowserHandoffReturnToPath("/agents/connect/")).toBe("/vault/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("https://evil.test/vault")).toBe("/repo/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("//evil.test/vault")).toBe("/repo/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("/agents/connect")).toBe("/repo/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("/agents/connect/")).toBe("/repo/");
   });
 
   it("keeps normalized return paths idempotent and same-origin", () => {
     const baseOrigin = "https://samebase.test";
     const inputs = [
-      "/vault/../providers?prod-ui#github",
-      "/vault/..//evil.test",
+      "/repo/../providers?prod-ui#github",
+      "/repo/..//evil.test",
       "/%2e%2e//evil.test",
     ];
 
@@ -49,15 +49,15 @@ describe("agent browser handoff URLs", () => {
       expect(normalizeAgentBrowserHandoffReturnToPath(normalized)).toBe(normalized);
       expect(new URL(normalized, baseOrigin).origin).toBe(baseOrigin);
     }
-    expect(normalizeAgentBrowserHandoffReturnToPath("/vault/..//evil.test")).toBe("/vault/");
-    expect(normalizeAgentBrowserHandoffReturnToPath("/%2e%2e//evil.test")).toBe("/vault/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("/repo/..//evil.test")).toBe("/repo/");
+    expect(normalizeAgentBrowserHandoffReturnToPath("/%2e%2e//evil.test")).toBe("/repo/");
   });
 
   it("accepts deployment HTTPS and loopback HTTP site URLs only", () => {
     expect(
       new URL(
         buildAgentBrowserHandoffUrl({
-          returnToPath: "/vault/",
+          returnToPath: "/repo/",
           siteUrl: "http://localhost:5176",
           token,
         }),
@@ -65,35 +65,35 @@ describe("agent browser handoff URLs", () => {
     ).toBe("http://localhost:5176");
     expect(() =>
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/vault/",
+        returnToPath: "/repo/",
         siteUrl: "http://example.test",
         token,
       }),
     ).toThrow("SITE_URL must use https");
     expect(() =>
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/vault/",
+        returnToPath: "/repo/",
         siteUrl: "javascript:alert(1)",
         token,
       }),
     ).toThrow("SITE_URL must use https");
     expect(() =>
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/vault/",
+        returnToPath: "/repo/",
         siteUrl: "https://user:password@example.test",
         token,
       }),
     ).toThrow("SITE_URL must not include credentials");
     expect(() =>
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/vault/",
+        returnToPath: "/repo/",
         siteUrl: "https://example.test/app",
         token,
       }),
     ).toThrow("SITE_URL must be an origin");
     expect(() =>
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/vault/",
+        returnToPath: "/repo/",
         siteUrl: "https://example.test/?preview=1",
         token,
       }),
@@ -107,9 +107,9 @@ describe("agent browser handoff URLs", () => {
   });
 
   it("parses the fragment and detects the handoff key", () => {
-    expect(parseAgentBrowserHandoffFragment(`#handoff=${token}&returnTo=%2Fvault%2Frepo`)).toEqual({
+    expect(parseAgentBrowserHandoffFragment(`#handoff=${token}&returnTo=%2Frepo%2Frepo`)).toEqual({
       token,
-      returnToPath: "/vault/repo",
+      returnToPath: "/repo/repo",
     });
     expect(parseAgentBrowserHandoffFragment("#handoff=agbh_short").token).toBeNull();
     expect(hasAgentBrowserHandoffFragment(`#handoff=${token}`)).toBe(true);

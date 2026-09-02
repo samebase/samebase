@@ -34,7 +34,7 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       { tanstack: "state" },
       "",
-      `/agents/connect#handoff=${token}&returnTo=%2Fvault%2Frepo%3Fprod-ui`,
+      `/agents/connect#handoff=${token}&returnTo=%2Frepo%2Frepo%3Fprod-ui`,
     );
 
     runAgentBrowserHandoffPrehydrationScript();
@@ -43,13 +43,13 @@ describe("agent browser handoff prehydration", () => {
     expect(
       JSON.parse(window.sessionStorage.getItem(AGENT_BROWSER_HANDOFF_STORAGE_KEY) ?? "{}"),
     ).toEqual({
-      returnToPath: "/vault/repo?prod-ui",
+      returnToPath: "/repo/repo?prod-ui",
       token,
     });
     expect(window.history.state).toEqual({
       tanstack: "state",
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
-        returnToPath: "/vault/repo?prod-ui",
+        returnToPath: "/repo/repo?prod-ui",
         token,
       },
     });
@@ -77,7 +77,7 @@ describe("agent browser handoff prehydration", () => {
     expect(window.location.href).toBe("http://localhost:3000/agents/connect");
     expect(window.history.state).toEqual({
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
-        returnToPath: "/vault/",
+        returnToPath: "/repo/",
         token,
       },
     });
@@ -87,14 +87,14 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       null,
       "",
-      `/agents/connect#handoff=${token}&returnTo=%2Fvault%2Frepo`,
+      `/agents/connect#handoff=${token}&returnTo=%2Frepo%2Frepo`,
     );
 
     stripAgentBrowserHandoffFragmentBeforeHydration();
 
     expect(window.location.href).toBe("http://localhost:3000/agents/connect");
     expect(consumeStoredAgentBrowserHandoff()).toEqual({
-      returnToPath: "/vault/repo",
+      returnToPath: "/repo/repo",
       token,
     });
     expect(consumeStoredAgentBrowserHandoff()).toBeNull();
@@ -104,13 +104,13 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       null,
       "",
-      `/agents/connect#handoff=${token}&returnTo=%2Fvault%2F..%2F%2Fevil.test`,
+      `/agents/connect#handoff=${token}&returnTo=%2Frepo%2F..%2F%2Fevil.test`,
     );
 
     runAgentBrowserHandoffPrehydrationScript();
 
     expect(consumeStoredAgentBrowserHandoff()).toEqual({
-      returnToPath: "/vault/",
+      returnToPath: "/repo/",
       token,
     });
   });
@@ -122,7 +122,7 @@ describe("agent browser handoff prehydration", () => {
 
     expect(window.location.href).toBe("http://localhost:3000/agents/connect/");
     expect(consumeStoredAgentBrowserHandoff()).toEqual({
-      returnToPath: "/vault/",
+      returnToPath: "/repo/",
       token,
     });
   });
@@ -131,7 +131,7 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       { tanstack: "state" },
       "",
-      "/agents/connect#handoff=agbh_short&returnTo=%2Fvault%2Frepo",
+      "/agents/connect#handoff=agbh_short&returnTo=%2Frepo%2Frepo",
     );
 
     runAgentBrowserHandoffPrehydrationScript();

@@ -17,7 +17,7 @@ export function OrganizationContextProvider({
   const surface = readAppOrganizationSurface(pathname);
   const organizationContextRequired =
     surface.kind === "organizations" ||
-    surface.kind === "allVaults" ||
+    surface.kind === "allRepositories" ||
     surface.kind === "organization";
   const viewerAccess = useQuery(api.users.currentViewerAccess, isAuthenticated ? {} : "skip");
   const organizations = useQuery(

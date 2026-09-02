@@ -12,7 +12,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 
 function readContextLabel(surface: AppOrganizationSurface): string | null {
-  if (surface.kind === "allVaults") {
+  if (surface.kind === "allRepositories") {
     return "No organization selected";
   }
   if (surface.kind === "organization") {
@@ -47,7 +47,7 @@ export function OrganizationContextControl() {
     const section =
       surface.kind === "organization" && surface.source === "organization"
         ? surface.section
-        : "vaults";
+        : "repositories";
     void navigate({
       href: buildOrganizationSwitchHref({
         hash: location.hash,

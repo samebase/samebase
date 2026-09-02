@@ -25,7 +25,7 @@ function formatVaultDatabaseNotice(
 ): string {
   switch (result.kind) {
     case "missing_vault":
-      return "Vault not found.";
+      return "Repository not found.";
     case "unsupported_branch":
       return `Production data is only available on ${result.defaultBranch} for now.`;
     case "missing_deployment":
@@ -80,9 +80,9 @@ export function VaultDatabaseView({
     vaults === undefined
       ? null
       : !vault
-        ? "Vault not found."
+        ? "Repository not found."
         : !convexProject
-          ? "Convex project is not attached to this vault."
+          ? "Convex project is not attached to this repository."
           : null;
 
   useEffect(() => {

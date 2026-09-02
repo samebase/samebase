@@ -106,7 +106,7 @@ The manifest shall contain only the minimal fields needed for stable install beh
 - `id: "/"`
 - `name: "Samebase"`
 - `short_name: "Samebase"`
-- `start_url: "/vault"`
+- `start_url: "/repo"`
 - `scope: "/"`
 - `display: "standalone"`
 - `theme_color`
@@ -163,7 +163,7 @@ Any future prerendered public HTML document must be produced from the canonical 
 must inherit the same manifest and Apple touch icon links from the app HTML shell. Do not
 reintroduce a separate legal-page metadata renderer.
 
-The manifest `start_url` remains `/vault` even when install is triggered from a legal page, so
+The manifest `start_url` remains `/repo` even when install is triggered from a legal page, so
 installed launches enter the main app surface instead of a document page.
 
 No service worker registration script or plugin-generated install metadata may be introduced.

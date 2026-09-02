@@ -36,7 +36,7 @@ The MCP consent UI must render `access_browser_login_handoff` as
 The tool returns a Samebase app URL on `/agents/connect`. The trailing-slash spelling
 `/agents/connect/` is treated identically. The one-time handoff token is carried in the URL fragment
 under `handoff`, not in the query string. The optional `returnTo` fragment value is normalized to a
-Samebase-relative app path and defaults to `/vault/`.
+Samebase-relative app path and defaults to `/repo/`.
 
 The backend stores only a SHA-256 token hash. A handoff expires after five minutes. Redemption is
 single use:

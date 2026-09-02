@@ -16,7 +16,7 @@ describe("buildVaultDashboardRoute", () => {
         owner: "octo",
         repoName: "web",
       }),
-    ).toBe("/vault/octo/web");
+    ).toBe("/repo/octo/web");
   });
 });
 
@@ -27,7 +27,7 @@ describe("buildVaultSettingsRoute", () => {
       repoName: "web",
     };
 
-    expect(buildVaultSettingsRoute(repository)).toBe("/vault/octo/web/settings");
+    expect(buildVaultSettingsRoute(repository)).toBe("/repo/octo/web/settings");
   });
 });
 
@@ -40,7 +40,7 @@ describe("buildVaultFileRoute", () => {
         branch: "feature/login-flow",
         filePath: "src/App.tsx",
       }),
-    ).toBe("/vault/octo/repo/fs/feature%2Flogin-flow/src/App.tsx");
+    ).toBe("/repo/octo/repo/fs/feature%2Flogin-flow/src/App.tsx");
   });
 
   it("encodes file path segments without changing slash separators", () => {
@@ -51,7 +51,7 @@ describe("buildVaultFileRoute", () => {
         branch: "main",
         filePath: "docs/hello world.md",
       }),
-    ).toBe("/vault/octo/repo/fs/main/docs/hello%20world.md");
+    ).toBe("/repo/octo/repo/fs/main/docs/hello%20world.md");
   });
 });
 
@@ -64,7 +64,7 @@ describe("buildVaultDatabaseRoute", () => {
         branch: "feature/login-flow",
         convexProjectId: "convex-project:123",
       }),
-    ).toBe("/vault/octo/repo/db/feature%2Flogin-flow/project/convex-project%3A123");
+    ).toBe("/repo/octo/repo/db/feature%2Flogin-flow/project/convex-project%3A123");
   });
 });
 
@@ -77,13 +77,13 @@ describe("buildVaultSchemaRoute", () => {
         branch: "feature/login-flow",
         convexProjectId: "convex-project:123",
       }),
-    ).toBe("/vault/octo/repo/schema/feature%2Flogin-flow/project/convex-project%3A123");
+    ).toBe("/repo/octo/repo/schema/feature%2Flogin-flow/project/convex-project%3A123");
   });
 });
 
 describe("parseVaultPathContext", () => {
-  it("parses branchless vault routes", () => {
-    expect(parseVaultPathContext("/vault/octo/repo")).toEqual({
+  it("parses branchless repository routes", () => {
+    expect(parseVaultPathContext("/repo/octo/repo")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -91,7 +91,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("parses branch editor routes and preserves file paths named chat", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/fs/main/chat")).toEqual({
+    expect(parseVaultPathContext("/repo/octo/repo/fs/main/chat")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -101,7 +101,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("parses encoded branch names", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/fs/feature%2Flogin-flow/src/App.tsx")).toEqual({
+    expect(parseVaultPathContext("/repo/octo/repo/fs/feature%2Flogin-flow/src/App.tsx")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -111,7 +111,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("marks delimiter file routes invalid", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/-/main/src/index.ts")).toEqual({
+    expect(parseVaultPathContext("/repo/octo/repo/-/main/src/index.ts")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -120,7 +120,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("marks legacy branch editor routes invalid", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/main/src/index.ts")).toEqual({
+    expect(parseVaultPathContext("/repo/octo/repo/main/src/index.ts")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",

@@ -321,7 +321,7 @@ function AppWorkspaceShellFrame({
     : (chrome?.leftToggleVisibility ?? "desktop");
   const rightToggleVisibility =
     chrome?.rightToggleVisibility ??
-    (surface.kind === "allVaults" || surface.kind === "organization" ? "all" : "desktop");
+    (surface.kind === "allRepositories" || surface.kind === "organization" ? "all" : "desktop");
 
   return (
     <SidebarRuntimeProvider controller={sidebarState}>

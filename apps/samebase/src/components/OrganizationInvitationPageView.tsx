@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/lib/organizationRoutes";
 import { Link } from "@tanstack/react-router";
 import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
@@ -26,7 +26,7 @@ function InvitationPageFrame({ children }: { children: ReactNode }) {
 function OpenOrganizationLink({ owner }: { owner: string }) {
   return (
     <Button asChild>
-      <Link params={{ owner }} to={ORGANIZATION_VAULTS_ROUTE}>
+      <Link params={{ owner }} to={ORGANIZATION_REPOSITORIES_ROUTE}>
         Open organization
       </Link>
     </Button>

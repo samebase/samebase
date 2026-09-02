@@ -6,14 +6,14 @@ const { fileViewModuleLoadCount } = vi.hoisted(() => ({
   fileViewModuleLoadCount: { current: 0 },
 }));
 
-describe("vault file route", () => {
+describe("repository file route", () => {
   afterEach(() => {
     fileViewModuleLoadCount.current = 0;
     vi.resetModules();
     vi.doUnmock("@/components/FileView/FileView");
   });
 
-  it("does not load FileView when the vault route component preloads", async () => {
+  it("does not load FileView when the repository route component preloads", async () => {
     vi.doMock("@/components/FileView/FileView", () => {
       fileViewModuleLoadCount.current += 1;
 
@@ -27,7 +27,7 @@ describe("vault file route", () => {
 
     const routeComponent = Route.options.component;
     if (!routeComponent) {
-      throw new Error("vault file route component is missing");
+      throw new Error("repository file route component is missing");
     }
 
     const preload = "preload" in routeComponent ? routeComponent.preload : null;
@@ -41,12 +41,12 @@ describe("vault file route", () => {
   it("matches the shipped FileView path", async () => {
     const router = createAppRouter(
       createMemoryHistory({
-        initialEntries: ["/vault/samebase/samebase/fs/main/README.md"],
+        initialEntries: ["/repo/samebase/samebase/fs/main/README.md"],
       }),
     );
 
     await router.load({ sync: true });
 
-    expect(router.state.matches.map((match) => match.routeId)).toContain("/vault/$");
+    expect(router.state.matches.map((match) => match.routeId)).toContain("/repo/$");
   });
 });

@@ -15,8 +15,8 @@ The mutation accepts deletion only when all these conditions are true:
 
 - The organization has exactly one membership, and that member is the active owner who requests
   deletion.
-- The organization has no Samebase vaults. The owner must delete each vault first and keep all
-  provider resource deletion options off.
+- The organization has no Samebase repositories. The owner must remove each repository first and
+  keep all provider resource deletion options off.
 - Billing is `free` and `inactive`, with no pending or open checkout. A Polar Customer ID retained
   after a Pro subscription ends does not block deletion.
 - No provisioning data remains.
@@ -53,8 +53,8 @@ be deleted.
 ## Account Deletion
 
 Account deletion requires zero organization memberships. A member leaves each shared organization
-first. A sole owner removes every vault and deletes the organization. Account deletion never removes
-a membership.
+first. A sole owner removes every repository from Samebase and deletes the organization. Account
+deletion never removes a membership.
 
 ## Required Validation
 

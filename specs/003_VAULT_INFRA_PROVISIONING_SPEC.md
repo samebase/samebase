@@ -562,7 +562,7 @@ Dashboard external links:
   visible when provider observations are loading, failed, or yield no production links; it is never
   represented as a pull request.
 - The default-branch surface links the exact branch to its GitHub tree and to the branch editor at
-  `/vault/:owner/:repo/fs/:branch` without compare mode.
+  `/repo/:owner/:repository/fs/:branch` without compare mode.
 - Live workers.dev URLs render in the surface's production resource group after the direct Worker
   attachment joins a matching Worker identity observation. The stored root selects the resource
   group. No provider URL is copied into another Samebase model.

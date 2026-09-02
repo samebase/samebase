@@ -18,7 +18,7 @@ function encodeVaultPathTail(path: string): string {
 }
 
 export function buildVaultDashboardRoute(args: { owner: string; repoName: string }): string {
-  return `/vault/${args.owner}/${args.repoName}`;
+  return `/repo/${args.owner}/${args.repoName}`;
 }
 
 export function buildVaultSettingsRoute(args: { owner: string; repoName: string }): string {
@@ -26,7 +26,7 @@ export function buildVaultSettingsRoute(args: { owner: string; repoName: string 
 }
 
 /**
- * Build the shipped `/vault/.../fs/...` file route shape.
+ * Build the shipped `/repo/.../fs/...` file route shape.
  *
  * This stays path-string based for now because TanStack `_splat` currently
  * double-encodes pre-encoded branch segments like `feature%2Flogin`, which
@@ -38,7 +38,7 @@ export function buildVaultFileRoute(args: {
   branch: string;
   filePath?: string;
 }): string {
-  const basePath = `/vault/${args.owner}/${args.repoName}/fs/${encodeVaultBranchSegment(args.branch)}`;
+  const basePath = `/repo/${args.owner}/${args.repoName}/fs/${encodeVaultBranchSegment(args.branch)}`;
 
   if (!args.filePath || args.filePath.length === 0) {
     return basePath;
@@ -53,7 +53,7 @@ export function buildVaultDatabaseRoute(args: {
   branch: string;
   convexProjectId: string;
 }): string {
-  return `/vault/${args.owner}/${args.repoName}/db/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
+  return `/repo/${args.owner}/${args.repoName}/db/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
 export function buildVaultSchemaRoute(args: {
@@ -62,7 +62,7 @@ export function buildVaultSchemaRoute(args: {
   branch: string;
   convexProjectId: string;
 }): string {
-  return `/vault/${args.owner}/${args.repoName}/schema/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
+  return `/repo/${args.owner}/${args.repoName}/schema/${encodeVaultBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
 export interface ParsedVaultPathContext {
@@ -76,7 +76,7 @@ export interface ParsedVaultPathContext {
 
 export function parseVaultPathContext(pathname: string): ParsedVaultPathContext {
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if (segments.length < 3 || segments[0] !== "vault") {
+  if (segments.length < 3 || segments[0] !== "repo") {
     return {};
   }
 

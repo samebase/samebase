@@ -40,7 +40,7 @@ priority over this generic state.
    122 defines that error behavior.
 4. Public Google or GitHub sign-in from `/` must use `/` as the provider return route and keep an
    `auth-return=dashboard` marker. A failed return stays on `/` so the landing page can show its
-   notice. A successful authenticated return consumes the marker and navigates to `/vault`. Direct
+   notice. A successful authenticated return consumes the marker and navigates to `/repo`. Direct
    authenticated visits to `/` must continue rendering the public landing route.
 5. The first version must not put the raw email address into the URL.
 
@@ -54,7 +54,7 @@ priority over this generic state.
       sign-in controls available.
 - [x] Successful Google or GitHub sign-in clears the signup-return marker.
 - [x] Public Google or GitHub OAuth returns to `/`, then successful authentication navigates to
-      `/vault`.
+      `/repo`.
 - [x] Direct authenticated visits to `/` still render the public landing route.
 - [x] Iframe-based OAuth preserves the signup-return marker through the popup bootstrap flow.
 - [x] No raw provider email address is put into a URL query param.

@@ -151,7 +151,7 @@ describe("OrganizationsPage", () => {
       await vi.waitFor(() => {
         expect(connectInstallation).toHaveBeenCalledWith({ installationId: "101" });
         expect(testState.navigate).toHaveBeenCalledWith({
-          href: "/org/History-Owner/vaults",
+          href: "/org/History-Owner/repositories",
           replace: true,
         });
       });
@@ -172,7 +172,7 @@ describe("OrganizationsPage", () => {
         expect(rootElement.textContent).toContain("Authorize GitHub");
       });
     });
-    expect(rootElement.querySelector('a[href="/org/member-org/vaults"]')).not.toBeNull();
+    expect(rootElement.querySelector('a[href="/org/member-org/repositories"]')).not.toBeNull();
   });
 
   it("retries a failed installation load without showing GitHub authorization", async () => {

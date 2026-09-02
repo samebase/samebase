@@ -300,6 +300,6 @@ Combined interaction stories:
 These are not accepted behavior yet. Keep them visible so review findings do not get lost.
 
 - Decide how dynamic routes participate in suggestions. Current work ignores variable paths such as
-  `/vault/$`; if we support them, query-param suggestions need template-aware route matching.
+  `/repo/$`; if we support them, query-param suggestions need template-aware route matching.
 - Replace synthetic touch-scroll tests with more real mobile gestures if touch picker regressions
   keep hiding behind implementation-shaped tests.

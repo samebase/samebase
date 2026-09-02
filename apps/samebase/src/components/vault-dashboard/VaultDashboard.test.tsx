@@ -413,12 +413,12 @@ describe("buildProductionEnvironmentRoots", () => {
             actions: [
               {
                 destination: "samebase",
-                href: `/vault/ada/demo/db/main/project/${convexProjectId}`,
+                href: `/repo/ada/demo/db/main/project/${convexProjectId}`,
                 label: "Data",
               },
               {
                 destination: "samebase",
-                href: `/vault/ada/demo/schema/main/project/${convexProjectId}`,
+                href: `/repo/ada/demo/schema/main/project/${convexProjectId}`,
                 label: "Schema",
               },
             ],
@@ -752,7 +752,7 @@ describe("vault environment roots", () => {
             actions: [
               {
                 destination: "samebase",
-                href: `/vault/ada/demo/db/main/project/${convexProjectId}`,
+                href: `/repo/ada/demo/db/main/project/${convexProjectId}`,
                 label: "Data",
               },
             ],
@@ -992,7 +992,7 @@ describe("vault environment roots", () => {
             },
           },
         }}
-        settingsHref="/vault/ada/demo/settings"
+        settingsHref="/repo/ada/demo/settings"
       />,
     );
 
@@ -1004,7 +1004,7 @@ describe("vault environment roots", () => {
     const markup = renderToStaticMarkup(
       <PullRequestResources
         resource={{ state: "failed" }}
-        settingsHref="/vault/ada/demo/settings"
+        settingsHref="/repo/ada/demo/settings"
       />,
     );
 
@@ -1145,7 +1145,7 @@ describe("PullRequestsSection", () => {
     try {
       await act(async () => {
         root.render(
-          <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+          <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
               filesReadEnabled={false}
               pullRequests={pullRequests}
@@ -1177,7 +1177,7 @@ describe("PullRequestsSection", () => {
       const connectWorker = otherPreviews?.querySelector(
         'a[aria-label="Connect Cloudflare Worker comment-worker in repository settings"]',
       );
-      expect(connectWorker?.getAttribute("href")).toBe("/vault/ada/demo/settings?add-cloudflare");
+      expect(connectWorker?.getAttribute("href")).toBe("/repo/ada/demo/settings?add-cloudflare");
       expect(
         otherPreviews?.querySelector(
           'a[aria-label="Connect comment-pages in repository settings"]',
@@ -1224,7 +1224,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       repositoryFullName: "ada/demo",
     });
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1252,19 +1252,19 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('<nav aria-label="Vaults"');
+    expect(markup).toContain('<nav aria-label="Repositories"');
     expect(markup).toContain('aria-expanded="true"');
-    expect(markup).not.toContain('href="/org/ada/vaults"');
+    expect(markup).not.toContain('href="/org/ada/repositories"');
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
     expect(markup).toContain("3 PRs");
     expect(markup).toContain("1 Cloudflare Worker");
     expect(markup).toContain("1 Convex project");
     expect(markup).not.toContain("Install GitHub App");
-    expect(markup).toContain('href="/vault/ada/demo"');
-    expect(markup).toMatch(/<a[^>]+href="\/vault\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
+    expect(markup).toContain('href="/repo/ada/demo"');
+    expect(markup).toMatch(/<a[^>]+href="\/repo\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
     expect(markup).not.toContain(
-      "Select a vault from the left sidebar or add one from the right sidebar.",
+      "Select a repository from the left sidebar or add one from the right sidebar.",
     );
 
     const emptyVault = makeRepositorySettingsBuilderVault({
@@ -1275,7 +1275,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       repositoryFullName: "ada/empty",
     });
     const emptyMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1317,7 +1317,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       repositoryFullName: "ada/demo",
     });
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/org/ada/vaults"]}>
+      <TestRouterProvider initialEntries={["/org/ada/repositories"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory={false}
@@ -1331,7 +1331,7 @@ describe("VaultOverviewVaultPickerPane", () => {
 
     expect(markup).not.toContain('data-slot="collapsible-trigger"');
     expect(markup).toContain(">ada</span>");
-    expect(markup).toContain('href="/vault/ada/demo"');
+    expect(markup).toContain('href="/repo/ada/demo"');
   });
 
   it("preserves organization order and vault order while grouping in one pass", () => {
@@ -1362,7 +1362,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       repositoryFullName: "ada/second",
     });
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1374,11 +1374,11 @@ describe("VaultOverviewVaultPickerPane", () => {
     );
     const orderedMarkers = [
       ">zed</span>",
-      'href="/vault/zed/first"',
-      'href="/vault/zed/second"',
+      'href="/repo/zed/first"',
+      'href="/repo/zed/second"',
       ">ada</span>",
-      'href="/vault/ada/second"',
-      'href="/vault/ada/first"',
+      'href="/repo/ada/second"',
+      'href="/repo/ada/first"',
     ];
 
     for (const marker of orderedMarkers) {
@@ -1393,7 +1393,7 @@ describe("VaultOverviewVaultPickerPane", () => {
 
   it("prioritizes active vault workflows in the root vault picker", () => {
     const settingUpMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1424,7 +1424,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
     const deletingMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1477,7 +1477,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       },
     });
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+      <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
         <VaultOverviewSidebar
           {...FOLDER_CALLBACKS}
           folderState={{ assignments: [], folders: [] }}
@@ -1497,7 +1497,7 @@ describe("VaultOverviewVaultPickerPane", () => {
   it("renders loading, zero-membership, and empty-organization states", () => {
     const emptyOrganization = organizationForVault(makeRepositorySettingsBuilderVault({}));
     const loadingMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1508,7 +1508,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
     const emptyMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+      <TestRouterProvider initialEntries={["/repo/"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
@@ -1519,7 +1519,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
     const emptyOrganizationMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/org/ada/vaults"]}>
+      <TestRouterProvider initialEntries={["/org/ada/repositories"]}>
         <VaultOverviewVaultPickerPane
           {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory={false}
@@ -1530,14 +1530,14 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
 
-    expect(loadingMarkup).toContain('aria-label="Loading vaults"');
+    expect(loadingMarkup).toContain('aria-label="Loading repositories"');
     expect(emptyMarkup).toContain("No organizations");
     expect(emptyMarkup).toContain("Connect a GitHub account or organization to Samebase.");
     expect(emptyMarkup).toContain("Add organization");
     expect(emptyMarkup).toContain('href="/org"');
     expect(emptyOrganizationMarkup).toContain("ada");
-    expect(emptyOrganizationMarkup).toContain('<nav aria-label="Vaults"');
-    expect(emptyOrganizationMarkup).toContain("No vaults");
+    expect(emptyOrganizationMarkup).toContain('<nav aria-label="Repositories"');
+    expect(emptyOrganizationMarkup).toContain("No repositories");
     expect(emptyOrganizationMarkup).not.toContain("Add organization");
   });
 });
@@ -1559,7 +1559,7 @@ describe("VaultOverviewPage", () => {
       observations: [],
     };
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+      <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
         <VaultOverviewPage
           developerToolsVisible={false}
           isRetryingVaultAction={false}
@@ -1628,7 +1628,7 @@ describe("VaultOverviewPage", () => {
     };
     const renderOverview = (currentVault: typeof vault) =>
       renderToStaticMarkup(
-        <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
           <VaultOverviewPage
             developerToolsVisible={false}
             isRetryingVaultAction={false}
@@ -1692,7 +1692,7 @@ describe("VaultOverviewPage", () => {
     const queryClient = new QueryClient();
     const markup = renderToStaticMarkup(
       <QueryClientProvider client={queryClient}>
-        <TestRouterProvider initialEntries={["/vault/ada/demo/settings"]}>
+        <TestRouterProvider initialEntries={["/repo/ada/demo/settings"]}>
           <RepositorySettings
             developerToolsVisible={false}
             onOpenDeleteDialog={() => {}}
@@ -1793,10 +1793,10 @@ describe("VaultOverviewPage", () => {
                   role,
                 },
               ],
-              surface: { kind: "allVaults" },
+              surface: { kind: "allRepositories" },
             }}
           >
-            <TestRouterProvider initialEntries={["/vault/ada/agent-plugins/settings"]}>
+            <TestRouterProvider initialEntries={["/repo/ada/agent-plugins/settings"]}>
               <RepositorySettings
                 developerToolsVisible={false}
                 onOpenDeleteDialog={() => {}}
@@ -1868,7 +1868,7 @@ describe("VaultDeleteDialogContent", () => {
       />,
     );
 
-    expect(markup).toContain("Also remove Cloudflare Worker");
+    expect(markup).toContain("Also delete the Cloudflare Worker");
     expect(markup).not.toContain("Only available for Workers created from this app.");
   });
 
@@ -1889,7 +1889,7 @@ describe("VaultDeleteDialogContent", () => {
       />,
     );
 
-    expect(markup).toContain("Also remove Convex project/deployment");
+    expect(markup).toContain("Also delete the Convex project and deployment");
     expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
   });
 
@@ -1897,7 +1897,7 @@ describe("VaultDeleteDialogContent", () => {
     const markup = renderToStaticMarkup(
       <VaultDeleteDialogContent
         {...baseProps}
-        blockedReason="Vault setup is still running."
+        blockedReason="Repository setup is still running."
         target={{
           id: fakeVaultId(),
           repositoryFullName: "ada/demo",
@@ -1910,9 +1910,9 @@ describe("VaultDeleteDialogContent", () => {
         }}
       />,
     );
-    const removeButton = markup.match(/<button[^>]*>Remove Vault<\/button>/)?.[0];
+    const removeButton = markup.match(/<button[^>]*>Remove from Samebase<\/button>/)?.[0];
 
-    expect(markup).toContain("Vault setup is still running.");
+    expect(markup).toContain("Repository setup is still running.");
     expect(removeButton).toBeDefined();
     expect(removeButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
@@ -3522,10 +3522,10 @@ describe("buildVaultRepositorySettingsState", () => {
       name: "unresolved-worker",
     });
     expect(readyCloudflareResource.actions?.map((action) => action.label)).toContain(
-      "Remove from vault",
+      "Remove from repository",
     );
     expect(unresolvedCloudflareResource.actions?.map((action) => action.label)).toContain(
-      "Remove from vault",
+      "Remove from repository",
     );
     readyCloudflareResource.actions?.find((action) => action.kind === "remove")?.onClick?.();
     expect(detachCloudflareWorker).toHaveBeenCalledWith(readyWorkerId);
@@ -3538,7 +3538,7 @@ describe("buildVaultRepositorySettingsState", () => {
     });
     expect(convexResource.actions?.map((action) => action.label) ?? []).toEqual([
       "Change code location",
-      "Remove from vault",
+      "Remove from repository",
     ]);
     expect(state.addCloudflareWorker.disabled).toBe(true);
     expect(state.addConvexProject.disabled).toBe(true);

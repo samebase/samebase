@@ -24,19 +24,19 @@ export function resolveVaultDeletionEligibility(
   if (deletion.state !== "not_deleting") {
     return {
       state: "blocked",
-      reason: "Vault deletion is already in progress.",
+      reason: "Removal from Samebase is already in progress.",
     };
   }
   if (vault.state === "not_connected") {
     return {
       state: "blocked",
-      reason: "Vault is not ready to delete yet.",
+      reason: "This repository is not ready for removal yet.",
     };
   }
   if (vault.state === "provisioning") {
     return {
       state: "blocked",
-      reason: "Vault source setup is still running.",
+      reason: "Repository setup is still running.",
     };
   }
 
@@ -45,7 +45,7 @@ export function resolveVaultDeletionEligibility(
       return hasActiveProvisioningRun
         ? {
             state: "blocked",
-            reason: "Vault source setup is still running.",
+            reason: "Repository setup is still running.",
           }
         : { state: "eligible" };
     case "managed_run":
@@ -53,8 +53,8 @@ export function resolveVaultDeletionEligibility(
         state: "blocked",
         reason:
           infrastructure.operation.run?.state === "queued"
-            ? "Vault setup is still queued."
-            : "Vault setup is still running.",
+            ? "Repository setup is still queued."
+            : "Repository setup is still running.",
       };
     case "manual_provider_write":
       return {

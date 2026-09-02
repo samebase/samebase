@@ -1124,7 +1124,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
     ],
   } satisfies VaultSidebarSummariesState;
   return (
-    <TestRouterProvider initialEntries={[`/vault/${vault.repositoryFullName}`]}>
+    <TestRouterProvider initialEntries={[`/repo/${vault.repositoryFullName}`]}>
       <SidebarLayoutFixtureFrame
         left={{
           header: <VaultOverviewVaultListHeader />,
@@ -1207,7 +1207,7 @@ function VaultOverviewProviderSettingsFixture({
           state: "not_deleting",
           deleteAction: {
             state: "disabled",
-            reason: "Vault setup is still running.",
+            reason: "Repository setup is still running.",
           },
         },
       };
@@ -1289,7 +1289,7 @@ function VaultOverviewProviderSettingsFixture({
 
   return (
     <TestRouterProvider
-      initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states/settings"]}
+      initialEntries={["/repo/nicu-chiciuc/tmp-f149-vault-loading-states/settings"]}
     >
       <SidebarLayoutFixtureFrame
         left={{
@@ -1376,7 +1376,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
 
   if (mode === "vault-overview-v2-root") {
     return (
-      <TestRouterProvider initialEntries={["/vault"]}>
+      <TestRouterProvider initialEntries={["/repo"]}>
         <SidebarLayoutFixtureFrame
           main={{
             content: (
@@ -1408,7 +1408,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
 
   if (mode === "vault-overview-v2-loading" || mode === "vault-overview-v2-settings-loading") {
     return (
-      <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
+      <TestRouterProvider initialEntries={["/repo/samebase/samebase"]}>
         <SidebarLayoutFixtureFrame
           left={{
             header: <VaultOverviewVaultListHeader />,

@@ -19,7 +19,7 @@ import {
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
-  ORGANIZATION_VAULTS_ROUTE,
+  ORGANIZATION_REPOSITORIES_ROUTE,
   ORGANIZATIONS_ROUTE,
 } from "./lib/organizationRoutes";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
@@ -29,7 +29,7 @@ import { ORGANIZATION_INVITATION_ROUTE } from "./lib/organizationInvitationRoute
 /**
  * Use virtual file routes so the generated route tree can preserve the current
  * shipped path surface without forcing awkward filenames for paths like
- * `/vault/$`.
+ * `/repo/$`.
  */
 export const routes = rootRoute("root.tsx", [
   index("index.tsx"),
@@ -67,7 +67,7 @@ export const routes = rootRoute("root.tsx", [
   route("/pricing", "pricing.tsx"),
   route(ORGANIZATIONS_ROUTE, "organizations.tsx"),
   route(ORGANIZATION_ROUTE, "org.tsx"),
-  route(ORGANIZATION_VAULTS_ROUTE, "org-vaults.tsx"),
+  route(ORGANIZATION_REPOSITORIES_ROUTE, "org-vaults.tsx"),
   route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
   route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
   route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
@@ -79,14 +79,14 @@ export const routes = rootRoute("root.tsx", [
   route("/admin/users", "admin-users.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),
   route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),
-  route(`${DASHBOARD_ROUTE}/$owner/$repo`, "vault-dashboard.tsx"),
-  route(`${DASHBOARD_ROUTE}/$owner/$repo/settings`, "vault-settings.tsx"),
+  route(`${DASHBOARD_ROUTE}/$owner/$repository`, "vault-dashboard.tsx"),
+  route(`${DASHBOARD_ROUTE}/$owner/$repository/settings`, "vault-settings.tsx"),
   route(
-    `${DASHBOARD_ROUTE}/$owner/$repo/db/$branch/project/$convexProjectId`,
+    `${DASHBOARD_ROUTE}/$owner/$repository/db/$branch/project/$convexProjectId`,
     "vault-database-project.tsx",
   ),
   route(
-    `${DASHBOARD_ROUTE}/$owner/$repo/schema/$branch/project/$convexProjectId`,
+    `${DASHBOARD_ROUTE}/$owner/$repository/schema/$branch/project/$convexProjectId`,
     "vault-schema-project.tsx",
   ),
 ]);

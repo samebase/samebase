@@ -119,7 +119,7 @@ export function useProjectFiles(
     queryKey: ["project-files", vaultId ?? null, branch, treeSHA, scopePrefix],
     queryFn: async () => {
       if (!vaultId) {
-        throw new Error("A vault is required to load project files.");
+        throw new Error("A repository is required to load project files.");
       }
       try {
         return await batchReadFiles({

@@ -262,7 +262,7 @@ export function VaultConvexSchemaGraphVisualFixture({
 
   return (
     <TestRouterProvider
-      initialEntries={["/vault/samebase/samebase/schema/main/project/convex-project-samebase"]}
+      initialEntries={["/repo/samebase/samebase/schema/main/project/convex-project-samebase"]}
     >
       <div data-testid={mode} className="h-dvh">
         <VaultConvexSchemaGraphRouteWorkspaceContent
