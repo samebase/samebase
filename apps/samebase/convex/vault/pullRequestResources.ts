@@ -63,7 +63,11 @@ const vPullRequestConvexResource = union(
   }),
 );
 const vCloudflareBranchPreview = union(
-  object({ state: literal("available"), url: string() }),
+  object({
+    state: literal("available"),
+    url: string(),
+    provenance: union(literal("selected_result"), literal("earlier_check")),
+  }),
   object({ state: literal("absent") }),
 );
 const vCloudflareBuild = union(
@@ -683,13 +687,14 @@ export function buildPullRequestHostingPreviews(args: {
           previews: [
             ...(cloudflareWorkers.state === "available"
               ? cloudflareWorkers.workers.flatMap((worker) =>
-                  worker.previewUrl !== null &&
+                  worker.preview.state === "available" &&
+                  worker.preview.provenance === "selected_result" &&
                   !args.configuredWorkers.some(
                     (configured) =>
                       configured.accountId === worker.accountId &&
                       configured.workerName === worker.name,
                   )
-                    ? [{ kind: "worker" as const, name: worker.name, url: worker.previewUrl }]
+                    ? [{ kind: "worker" as const, name: worker.name, url: worker.preview.url }]
                     : [],
                 )
               : []),
@@ -760,9 +765,13 @@ export function buildPullRequestCloudflareWorkerResources(args: {
               logsUrl: proof.logsUrl,
             },
       cloudflareBranchPreview:
-        proof === undefined || proof.previewUrl === null
+        proof === undefined || proof.preview.state === "absent"
           ? { state: "absent" }
-          : { state: "available", url: proof.previewUrl },
+          : {
+              state: "available",
+              url: proof.preview.url,
+              provenance: proof.preview.provenance,
+            },
     });
   }
   return { state: "available", workers };
@@ -1178,6 +1187,7 @@ async function readGitHubPullRequestResourceHeadReads(args: {
                       id: head.id,
                       baseRefOid: head.baseRefOid,
                       headRefOid: head.headRefOid,
+                      headRefName: head.headRefName,
                       commits: head.commitScan.commits,
                     },
                   ]

@@ -391,6 +391,7 @@ describe("buildProductionEnvironmentRoots", () => {
                 state: "available",
                 href: "https://app.example.com",
                 label: "app.example.com",
+                provenance: "production",
                 title: "Open production app for apps/web",
               },
               actions: [
@@ -479,6 +480,7 @@ describe("buildProductionEnvironmentRoots", () => {
                 state: "available",
                 href: "https://app.example.com",
                 label: "app.example.com",
+                provenance: "production",
                 title: "Open production app",
               },
               actions: [],
@@ -624,6 +626,7 @@ describe("buildProductionEnvironmentRoots", () => {
                 state: "available",
                 href: "https://demo-worker.ada.workers.dev",
                 label: "demo-worker.ada.workers.dev",
+                provenance: "production",
                 title: "Open production app",
               },
               actions: [],
@@ -924,35 +927,39 @@ describe("vault environment roots", () => {
     ]);
   });
 
-  it("shows an unavailable current build and a recovered branch preview independently", () => {
+  it("shows a building current build and an earlier-commit branch preview independently", () => {
     const workerId = fakeCloudflareWorkerId();
     const previewUrl = "https://older-demo-web.example.workers.dev";
-
-    expect(
-      buildPullRequestEnvironmentRoots({
-        resources: {
-          pullRequestId: "pull-request-1",
-          cloudflareBuilds: { state: "available" },
-          workers: [
-            {
-              workerId,
-              workerName: "demo-web",
-              rootDirectory: "apps/web",
-              cloudflareBuild: { state: "unavailable" },
-              cloudflareBranchPreview: {
-                state: "available",
-                url: previewUrl,
-              },
-            },
-          ],
-          convexProjects: [],
-          hostingPreviews: {
-            cloudflare: { state: "available", previews: [] },
-            netlify: { state: "available", previews: [] },
+    const resources = {
+      pullRequestId: "pull-request-1",
+      cloudflareBuilds: { state: "available" as const },
+      workers: [
+        {
+          workerId,
+          workerName: "demo-web",
+          rootDirectory: "apps/web",
+          cloudflareBuild: {
+            state: "available" as const,
+            uuid: "building-1",
+            buildState: "running" as const,
+            logsUrl: "https://dash.cloudflare.com/building-1",
+          },
+          cloudflareBranchPreview: {
+            state: "available" as const,
+            url: previewUrl,
+            provenance: "earlier_check" as const,
           },
         },
-      }),
-    ).toEqual([
+      ],
+      convexProjects: [],
+      hostingPreviews: {
+        cloudflare: { state: "available" as const, previews: [] },
+        netlify: { state: "available" as const, previews: [] },
+      },
+    };
+    const roots = buildPullRequestEnvironmentRoots({ resources });
+
+    expect(roots).toEqual([
       {
         rootDirectory: "apps/web",
         resources: [
@@ -961,11 +968,16 @@ describe("vault environment roots", () => {
             id: workerId,
             worker: {
               workerName: "demo-web",
-              build: { state: "unavailable" },
+              build: {
+                state: "available",
+                buildState: "running",
+                logsUrl: "https://dash.cloudflare.com/building-1",
+              },
               destination: {
                 state: "available",
                 href: previewUrl,
                 label: "Branch preview",
+                provenance: "earlier_check",
                 title: "older-demo-web.example.workers.dev",
               },
               actions: [],
@@ -974,6 +986,10 @@ describe("vault environment roots", () => {
         ],
       },
     ]);
+
+    const markup = renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />);
+    expect(markup).toContain("Building");
+    expect(markup).toContain("May be from an earlier commit");
   });
 
   it("shows one pull request message when Cloudflare comments are unavailable", () => {

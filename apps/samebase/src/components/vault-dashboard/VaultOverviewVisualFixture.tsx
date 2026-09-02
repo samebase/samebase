@@ -812,6 +812,7 @@ function fixturePullRequests(
                       cloudflareBranchPreview: {
                         state: "available" as const,
                         url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
+                        provenance: "earlier_check" as const,
                       },
                     },
                     {

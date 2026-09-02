@@ -17,6 +17,19 @@ export type CloudflareWorkerCommentParseFailure = {
   failureKind: "format_drift" | "invalid_or_conflict";
 };
 
+type CloudflareWorkerTableColumns = {
+  columnCount: number;
+  nameColumn: number;
+  statusColumn: number;
+  commitColumn: number;
+  previewColumn: number | null;
+};
+
+type CloudflareWorkerTableHeader =
+  | { state: "valid"; columns: CloudflareWorkerTableColumns }
+  | { state: "not_worker_table" }
+  | { state: "invalid" };
+
 function markdownTableCells(line: string): string[] | null {
   const trimmed = line.trim();
   if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
@@ -46,100 +59,137 @@ function parseCloudflareWorkerBuildState(statusCell: string): CloudflareBuildSta
   }
 }
 
+function parseCloudflareWorkerTableHeader(
+  headerLine: string,
+  separatorLine: string,
+): CloudflareWorkerTableHeader {
+  const header = markdownTableCells(headerLine);
+  const separator = markdownTableCells(separatorLine);
+  if (header === null || separator === null || header.length !== separator.length) {
+    return { state: "not_worker_table" };
+  }
+
+  const nameColumns = header.flatMap((cell, index) => (cell === "Name" ? [index] : []));
+  const statusColumns = header.flatMap((cell, index) => (cell === "Status" ? [index] : []));
+  const commitColumns = header.flatMap((cell, index) => (cell === "Latest Commit" ? [index] : []));
+  if (
+    nameColumns.length !== 1 ||
+    statusColumns.length !== 1 ||
+    commitColumns.length !== 1 ||
+    !separator.every((cell) => /^:?-+:?$/.test(cell))
+  ) {
+    return { state: "not_worker_table" };
+  }
+
+  const previewColumns = header.flatMap((cell, index) => (cell === "Preview URL" ? [index] : []));
+  if (previewColumns.length > 1) {
+    return { state: "invalid" };
+  }
+
+  return {
+    state: "valid",
+    columns: {
+      columnCount: header.length,
+      nameColumn: nameColumns[0],
+      statusColumn: statusColumns[0],
+      commitColumn: commitColumns[0],
+      previewColumn: previewColumns[0] ?? null,
+    },
+  };
+}
+
+function parseCloudflareWorkerRow(
+  row: string[],
+  columns: CloudflareWorkerTableColumns,
+): CloudflareWorkerProof | null {
+  const workerName = row[columns.nameColumn];
+  const logsCell = row[columns.statusColumn];
+  const commitOidPrefix = row[columns.commitColumn];
+  const buildLogsAnchors = [...logsCell.matchAll(/\[([^\]]+)\]\(([^)\s]+)\)/g)];
+  const buildLogsLabelCount = [...logsCell.matchAll(/View logs/g)].length;
+  if (
+    workerName.length === 0 ||
+    buildLogsAnchors.length !== buildLogsLabelCount ||
+    buildLogsAnchors.length !== 1 ||
+    buildLogsAnchors[0][1] !== "View logs"
+  ) {
+    return null;
+  }
+
+  const logsUrl = buildLogsAnchors[0][2];
+  const logsIdentity = parseCloudflareWorkerBuildLogsUrl(logsUrl);
+  const buildState = parseCloudflareWorkerBuildState(logsCell);
+  if (
+    logsIdentity === null ||
+    buildState === null ||
+    logsIdentity.workerName !== workerName ||
+    !/^[0-9a-f]{7,64}$/.test(commitOidPrefix)
+  ) {
+    return null;
+  }
+
+  let preview: CloudflareWorkerProof["preview"] = { state: "absent" };
+  if (columns.previewColumn !== null) {
+    const previewCell = row[columns.previewColumn];
+    if (previewCell.includes("Branch Preview URL")) {
+      const branchPreviewAnchors = [
+        ...previewCell.matchAll(/<a href=(['"])([^'"]+)\1>Branch Preview URL<\/a>/g),
+      ];
+      const branchPreviewLabelCount = [...previewCell.matchAll(/Branch Preview URL/g)].length;
+      if (
+        branchPreviewAnchors.length !== branchPreviewLabelCount ||
+        branchPreviewAnchors.length === 0
+      ) {
+        return null;
+      }
+      const previewUrls = new Set<string>();
+      for (const anchor of branchPreviewAnchors) {
+        const normalized = normalizeCloudflareWorkerPreviewUrl(anchor[2], workerName);
+        if (normalized === null) {
+          return null;
+        }
+        previewUrls.add(normalized.url);
+      }
+      if (previewUrls.size !== 1) {
+        return null;
+      }
+      const [url] = previewUrls;
+      preview = { state: "available", url, provenance: "selected_result" };
+    }
+  }
+
+  return {
+    accountId: logsIdentity.accountId,
+    buildUuid: logsIdentity.buildUuid,
+    buildState,
+    logsUrl,
+    name: workerName,
+    preview,
+  };
+}
+
 function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
   const workers: CloudflareWorkerProof[] = [];
   const lines = body.split(/\r?\n/);
   for (let headerIndex = 0; headerIndex + 2 < lines.length; headerIndex += 1) {
-    const header = markdownTableCells(lines[headerIndex]);
-    const separator = markdownTableCells(lines[headerIndex + 1]);
-    if (!header || !separator || header.length !== separator.length) {
+    const table = parseCloudflareWorkerTableHeader(lines[headerIndex], lines[headerIndex + 1]);
+    if (table.state === "not_worker_table") {
       continue;
     }
-    const nameColumns = header.flatMap((cell, index) => (cell === "Name" ? [index] : []));
-    const statusColumns = header.flatMap((cell, index) => (cell === "Status" ? [index] : []));
-    const commitColumns = header.flatMap((cell, index) =>
-      cell === "Latest Commit" ? [index] : [],
-    );
-    if (
-      nameColumns.length !== 1 ||
-      statusColumns.length !== 1 ||
-      commitColumns.length !== 1 ||
-      !separator.every((cell) => /^:?-+:?$/.test(cell))
-    ) {
-      continue;
-    }
-    const previewColumns = header.flatMap((cell, index) => (cell === "Preview URL" ? [index] : []));
-    if (previewColumns.length > 1) {
+    if (table.state === "invalid") {
       return { state: "unavailable" };
     }
 
     for (let rowIndex = headerIndex + 2; rowIndex < lines.length; rowIndex += 1) {
       const row = markdownTableCells(lines[rowIndex]);
-      if (!row || row.length !== header.length) {
+      if (row === null || row.length !== table.columns.columnCount) {
         break;
       }
-      const workerName = row[nameColumns[0]];
-      const logsCell = row[statusColumns[0]];
-      const commitOidPrefix = row[commitColumns[0]];
-      const buildLogsAnchors = [...logsCell.matchAll(/\[([^\]]+)\]\(([^)\s]+)\)/g)];
-      const buildLogsLabelCount = [...logsCell.matchAll(/View logs/g)].length;
-      if (
-        workerName.length === 0 ||
-        buildLogsAnchors.length !== buildLogsLabelCount ||
-        buildLogsAnchors.length !== 1 ||
-        buildLogsAnchors[0][1] !== "View logs"
-      ) {
+      const worker = parseCloudflareWorkerRow(row, table.columns);
+      if (worker === null) {
         return { state: "unavailable" };
       }
-
-      const logsIdentity = parseCloudflareWorkerBuildLogsUrl(buildLogsAnchors[0][2]);
-      const buildState = parseCloudflareWorkerBuildState(logsCell);
-      if (
-        logsIdentity === null ||
-        buildState === null ||
-        logsIdentity.workerName !== workerName ||
-        !/^[0-9a-f]{7,64}$/.test(commitOidPrefix)
-      ) {
-        return { state: "unavailable" };
-      }
-      let previewUrl: string | null = null;
-      if (previewColumns.length > 0) {
-        const previewCell = row[previewColumns[0]];
-        if (previewCell.includes("Branch Preview URL")) {
-          const branchPreviewAnchors = [
-            ...previewCell.matchAll(/<a href=(['"])([^'"]+)\1>Branch Preview URL<\/a>/g),
-          ];
-          const branchPreviewLabelCount = [...previewCell.matchAll(/Branch Preview URL/g)].length;
-          if (
-            branchPreviewAnchors.length !== branchPreviewLabelCount ||
-            branchPreviewAnchors.length === 0
-          ) {
-            return { state: "unavailable" };
-          }
-          const previewUrls = new Set<string>();
-          for (const anchor of branchPreviewAnchors) {
-            const normalized = normalizeCloudflareWorkerPreviewUrl(anchor[2], workerName);
-            if (normalized === null) {
-              return { state: "unavailable" };
-            }
-            previewUrls.add(normalized.url);
-          }
-          if (previewUrls.size !== 1) {
-            return { state: "unavailable" };
-          }
-          const [url] = previewUrls;
-          previewUrl = url;
-        }
-      }
-
-      workers.push({
-        accountId: logsIdentity.accountId,
-        buildUuid: logsIdentity.buildUuid,
-        buildState,
-        logsUrl: buildLogsAnchors[0][2],
-        name: workerName,
-        previewUrl,
-      });
+      workers.push(worker);
     }
   }
   return { state: "available", workers };
@@ -148,30 +198,12 @@ function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
 function hasKnownCloudflareWorkerTable(body: string): boolean {
   const lines = body.split(/\r?\n/);
   return lines.some((line, index) => {
-    const header = markdownTableCells(line);
-    const separator = markdownTableCells(lines[index + 1] ?? "");
-    if (header === null || separator?.length !== header.length) {
+    const table = parseCloudflareWorkerTableHeader(line, lines[index + 1] ?? "");
+    if (table.state !== "valid") {
       return false;
     }
-    const nameColumns = header.flatMap((cell, column) => (cell === "Name" ? [column] : []));
-    const statusColumns = header.flatMap((cell, column) => (cell === "Status" ? [column] : []));
-    const commitColumns = header.flatMap((cell, column) =>
-      cell === "Latest Commit" ? [column] : [],
-    );
-    const previewColumns = header.flatMap((cell, column) =>
-      cell === "Preview URL" ? [column] : [],
-    );
-    if (
-      nameColumns.length !== 1 ||
-      statusColumns.length !== 1 ||
-      commitColumns.length !== 1 ||
-      previewColumns.length > 1 ||
-      !separator.every((cell) => /^:?-+:?$/.test(cell))
-    ) {
-      return false;
-    }
-    if (previewColumns.length === 0) {
-      return markdownTableCells(lines[index + 2] ?? "")?.length === header.length;
+    if (table.columns.previewColumn === null) {
+      return markdownTableCells(lines[index + 2] ?? "")?.length === table.columns.columnCount;
     }
     let sawRow = false;
     for (let rowIndex = index + 2; rowIndex < lines.length; rowIndex += 1) {
@@ -179,12 +211,12 @@ function hasKnownCloudflareWorkerTable(body: string): boolean {
       if (row === null) {
         break;
       }
-      if (row.length !== header.length) {
+      if (row.length !== table.columns.columnCount) {
         return false;
       }
       sawRow = true;
-      const previewCell = row[previewColumns[0]];
-      const statusCell = row[statusColumns[0]];
+      const previewCell = row[table.columns.previewColumn];
+      const statusCell = row[table.columns.statusColumn];
       if (
         !previewCell.includes("Branch Preview URL") &&
         previewCell !== "" &&
@@ -219,7 +251,11 @@ export function resolveCloudflareWorkerComments(
         (previous.buildUuid !== worker.buildUuid ||
           previous.buildState !== worker.buildState ||
           previous.logsUrl !== worker.logsUrl ||
-          previous.previewUrl !== worker.previewUrl)
+          previous.preview.state !== worker.preview.state ||
+          (previous.preview.state === "available" &&
+            worker.preview.state === "available" &&
+            (previous.preview.url !== worker.preview.url ||
+              previous.preview.provenance !== worker.preview.provenance)))
       ) {
         return { state: "unavailable" };
       }

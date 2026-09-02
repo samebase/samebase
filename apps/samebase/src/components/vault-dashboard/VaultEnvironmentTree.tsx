@@ -135,7 +135,11 @@ function DestinationResource({
   resource: Extract<VaultEnvironmentResource, { kind: "destination" }>;
 }) {
   return (
-    <div className="grid min-h-10 min-w-0 py-1.5">
+    <div
+      aria-label={`Convex deployment ${resource.label}`}
+      className="grid min-h-10 min-w-0 py-1.5"
+      role="group"
+    >
       <div className="flex min-w-0 items-center gap-1">
         <a
           className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
@@ -454,7 +458,11 @@ function BuildState({ state }: { state: EnvironmentBuildState }) {
 
 function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }) {
   return (
-    <div className="grid min-w-0 gap-1.5 py-2.5">
+    <div
+      aria-label={`Cloudflare Worker ${worker.workerName}`}
+      className="grid min-w-0 gap-1.5 py-2.5"
+      role="group"
+    >
       <div className="flex min-w-0 items-center gap-2.5">
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           <CloudflareProviderLogo />
@@ -504,6 +512,12 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
             <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
           ) : null}
         </div>
+      ) : null}
+      {worker.destination.state === "available" &&
+      worker.destination.provenance === "earlier_check" ? (
+        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
+          May be from an earlier commit
+        </span>
       ) : null}
     </div>
   );

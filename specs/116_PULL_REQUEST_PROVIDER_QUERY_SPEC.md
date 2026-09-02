@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-08-27
+- Last updated: 2026-09-02
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -90,15 +90,34 @@ sources use separate modules and return the same Worker proof shape. Samebase re
 selected source. It does not merge the sources or fall back from one source to the other.
 
 With checks selected, Samebase reads Cloudflare Worker checks from every commit that is still part
-of the current pull request. It accepts only the exact Cloudflare GitHub App. Workers resolve
-independently by exact Cloudflare account and Worker name. The newest matching check for each Worker
-is the visible result. A later commit with no matching check does not revoke an earlier result from
-the current pull request because Cloudflare path filters can skip that Worker. A check from a commit
-removed by a force-push cannot count.
+of the current pull request. It accepts only the exact Cloudflare GitHub App. A check from a commit
+removed by a force-push cannot count. A missing CheckSuite branch does not invalidate build state or
+logs from a check on an exact current pull request commit.
+
+Workers resolve independently by exact Cloudflare account and Worker name. The newest matching check
+for each Worker supplies the visible build state and exact provider logs link. Its valid preview
+alias is the current preview. A later commit with no matching check does not revoke this result
+because Cloudflare path filters can skip that Worker. Such a skipped check does not make the
+selected preview an earlier-commit recovery.
+
+For an attached Worker, if the newest matching check is queued or running and has no valid preview
+alias, Samebase may use the newest valid alias from an earlier successful matching check. That
+earlier check must meet the same app, Worker identity, URL, and current pull request
+commit-membership rules. Its CheckSuite branch prefix must be `refs/heads/`, and its CheckSuite
+branch name must exactly match the current pull request head branch. Missing or different branch
+identity makes that alias ineligible for recovery. The recovered preview carries earlier-commit
+provenance. The UI keeps the build state and logs from the newest matching check and labels only the
+recovered preview `May be from an earlier commit`. Terminal checks do not use an alias from an
+earlier check. They keep their current build state, logs, and optional alias from that same check.
+An unattached Worker in `Other previews` uses only the selected check result and does not recover an
+earlier alias.
+
+Alias recovery is part of the same live GitHub check read. Samebase does not persist or separately
+cache the recovered alias or its provenance, and it does not add a provider request for recovery.
 
 Before Samebase accepts the result, it verifies that the pull request is still open and that its
-repository, base commit, and head commit are unchanged. A failed read or changed identity fails the
-Worker proof closed.
+repository, head branch, base commit, and head commit are unchanged. A failed read or changed
+identity fails the Worker proof closed.
 
 The check name, build link, external build id, Cloudflare account, Worker name, and build UUID must
 agree. Samebase keeps the exact provider logs link. A preview alias is optional. When present, it
@@ -160,6 +179,11 @@ Settings page with a `Connect` action. Cloudflare Pages and Netlify rows have no
 because Samebase does not support attaching those resources. Each row exposes the provider resource
 name and its branch or deploy preview link. The comment text and provider result are not saved in
 the Samebase database.
+
+The attached Worker preview row records whether its alias came from the newest matching check or an
+earlier successful check. It shows `May be from an earlier commit` only for the earlier-check
+provenance. It does not infer provenance from a difference between the selected check commit and the
+pull request head commit.
 
 Comment discovery adds no request when there are no recognized bot comments. If recognized bot
 comments exist, Samebase adds one batched body query for each provider that has selected comments,
@@ -242,9 +266,17 @@ Tests must prove:
 - Worker checks from any current pull request commit can count, but checks from removed commits do
   not count;
 - a later commit without a Worker check keeps the newest matching check from an earlier current
-  commit;
+  commit and does not add earlier-commit preview provenance;
+- the newest matching Worker check always supplies the visible build state and logs;
+- a queued or running newest matching check without an alias can use the newest valid alias for an
+  attached Worker from an earlier successful matching check that is still part of the pull request;
+- an earlier alias is eligible only when its CheckSuite has the exact current pull request head
+  branch, while missing branch identity does not invalidate current build state or logs;
+- a terminal newest matching check does not use an alias from an earlier check;
+- only a recovered attached Worker alias shows `May be from an earlier commit`;
+- an unattached Worker in `Other previews` uses only its selected check result;
 - multiple Workers resolve independently by exact Cloudflare account and Worker name;
-- a changed pull request base or head fails Worker check proof closed;
+- a changed pull request base commit, head commit, or head branch fails Worker check proof closed;
 - the comment source keeps its existing stable alias and does not add commit membership logic;
 - one attached-project Convex branch deployment with a provider-normalized reference remains
   reachable independently of Worker state and is visibly branch-scoped;

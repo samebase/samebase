@@ -47,7 +47,11 @@ describe("resolveCloudflareWorkerComments", () => {
           logsUrl:
             "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
           name: "samebase",
-          previewUrl: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+          preview: {
+            state: "available",
+            url: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+            provenance: "selected_result",
+          },
         },
         {
           accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
@@ -56,7 +60,7 @@ describe("resolveCloudflareWorkerComments", () => {
           logsUrl:
             "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-posthog-proxy/production/builds/4b9d6a6f-d4d4-4f9d-8c73-da8a5b1525c8",
           name: "samebase-posthog-proxy",
-          previewUrl: null,
+          preview: { state: "absent" },
         },
       ],
     });
@@ -79,7 +83,7 @@ describe("resolveCloudflareWorkerComments", () => {
       resolveCloudflareWorkerComments({ state: "available", bodies: [inProgressComment] }),
     ).toMatchObject({
       state: "available",
-      workers: [{ name: "samebase", buildState: "running", previewUrl: null }],
+      workers: [{ name: "samebase", buildState: "running", preview: { state: "absent" } }],
     });
   });
 
@@ -96,7 +100,11 @@ describe("resolveCloudflareWorkerComments", () => {
       workers: [
         {
           name: "samebase",
-          previewUrl: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+          preview: {
+            state: "available",
+            url: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+            provenance: "selected_result",
+          },
         },
       ],
     });
