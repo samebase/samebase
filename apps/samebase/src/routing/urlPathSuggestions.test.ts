@@ -47,6 +47,7 @@ describe("readRouteUrlPathSuggestions", () => {
       expect(suggestions).toContain(path);
     }
     expect(suggestions).toContain("/vault");
+    expect(suggestions).toContain("/org");
     expect(suggestions).toContain("/indexDB");
     expect(suggestions).not.toContain("/logo/hover/carpet");
     expect(suggestions).not.toContain("/logo/hover/menger");
@@ -130,6 +131,7 @@ describe("readRouteUrlPathSuggestions", () => {
     }
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/org/$owner/connect-repo");
+    expect(suggestions).not.toContain("/org");
     expect(suggestions).not.toContain("/vault");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/landing-preview");
@@ -175,6 +177,7 @@ describe("readRouteUrlPathSuggestions", () => {
       expect(suggestions).toContain(path);
     }
     expect(suggestions).toContain("/org/$owner/connect-repo");
+    expect(suggestions).toContain("/org");
     expect(suggestions).toContain("/org/$owner/vaults");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/org/$owner/new-app");

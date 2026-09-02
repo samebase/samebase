@@ -19,6 +19,7 @@ import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError"
 import { readAuthorizationError } from "@/routeSearch/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { toast } from "@/components/ui/use-toast";
+import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
 
 const ALL_AUTHORIZATION_SOURCES = [
   "convex",
@@ -40,7 +41,11 @@ function isAuthorizationErrorHandledByRoute(
       return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-app":
     case "github-user":
-      return pathname === "/connect-organization" || /^\/org\/[^/]+\/providers\/?$/.test(pathname);
+      return (
+        pathname === ORGANIZATIONS_ROUTE ||
+        pathname === `${ORGANIZATIONS_ROUTE}/` ||
+        /^\/org\/[^/]+\/providers\/?$/.test(pathname)
+      );
     case "google-sign-in":
     case "github-sign-in":
       return pathname === "/settings";

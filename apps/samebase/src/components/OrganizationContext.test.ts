@@ -40,6 +40,7 @@ describe("organization context", () => {
   });
 
   it("reads global, account, and vault detail surfaces", () => {
+    expect(readAppOrganizationSurface("/org")).toEqual({ kind: "organizations" });
     expect(readAppOrganizationSurface("/vault")).toEqual({ kind: "allVaults" });
     expect(readAppOrganizationSurface("/vault/Samebase/repo/src/index.ts")).toEqual({
       kind: "organization",

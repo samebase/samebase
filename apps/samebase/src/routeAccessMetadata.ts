@@ -26,10 +26,9 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "hidden",
   },
-  "/connect-organization": {
-    access: "access_app_create",
+  "/org": {
+    access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
-    pathSuggestion: "hidden",
   },
   "/admin/account-deletions": {
     access: "access_admin",

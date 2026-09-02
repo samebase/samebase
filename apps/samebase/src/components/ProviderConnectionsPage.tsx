@@ -48,7 +48,7 @@ import type { AuthorizationError } from "../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
-import { CONNECT_ORGANIZATION_ROUTE } from "@/lib/connectOrganizationRoute";
+import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
@@ -1604,7 +1604,7 @@ export function ProviderConnectionsPage({
           (error.data === "github-authorization-required" ||
             error.data === "github-sign-in-required")
         ) {
-          void navigate({ to: CONNECT_ORGANIZATION_ROUTE });
+          void navigate({ to: ORGANIZATIONS_ROUTE });
           return;
         }
         console.error("Failed to start GitHub App reconnect.", {

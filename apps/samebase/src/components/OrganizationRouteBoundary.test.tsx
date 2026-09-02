@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContextProvider } from "./OrganizationContext";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import { useOrganizationContext, type ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationRouteBoundary } from "./OrganizationRouteBoundary";
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
@@ -53,6 +53,21 @@ function renderBoundary(owner: string) {
   );
 }
 
+function OrganizationCount() {
+  const { organizations } = useOrganizationContext();
+  return <div>{organizations?.length ?? "loading"}</div>;
+}
+
+function renderOrganizationDirectoryContext() {
+  return renderToStaticMarkup(
+    <TestRouterProvider initialEntries={["/org"]}>
+      <OrganizationContextProvider>
+        <OrganizationCount />
+      </OrganizationContextProvider>
+    </TestRouterProvider>,
+  );
+}
+
 describe("OrganizationRouteBoundary", () => {
   beforeEach(() => {
     testState.queryCalls = [];
@@ -85,6 +100,16 @@ describe("OrganizationRouteBoundary", () => {
 
   it("waits for the membership list before it selects a route", () => {
     expect(renderBoundary("samebase")).toBe("");
+  });
+
+  it("loads memberships for the organization directory", () => {
+    testState.queryResults.set(getFunctionName(api.organizations.listForViewer), [organization]);
+
+    expect(renderOrganizationDirectoryContext()).toContain(">1<");
+    expect(testState.queryCalls).toContainEqual({
+      args: {},
+      name: getFunctionName(api.organizations.listForViewer),
+    });
   });
 
   it("shows the unavailable state for zero memberships or lost access", () => {

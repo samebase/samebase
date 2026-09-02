@@ -17,6 +17,7 @@ import { Route as settingsRouteImport } from "./routes/settings";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
+import { Route as organizationsRouteImport } from "./routes/organizations";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
@@ -24,7 +25,6 @@ import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as docsRouteImport } from "./routes/docs";
 import { Route as discordRouteImport } from "./routes/discord";
-import { Route as connectOrganizationRouteImport } from "./routes/connect-organization";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -102,6 +102,11 @@ const pitchRoute = pitchRouteImport.update({
   path: "/pitch",
   getParentRoute: () => rootRouteImport,
 } as any);
+const organizationsRoute = organizationsRouteImport.update({
+  id: "/org",
+  path: "/org",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const logoRoute = logoRouteImport.update({
   id: "/logo",
   path: "/logo",
@@ -135,11 +140,6 @@ const docsRoute = docsRouteImport.update({
 const discordRoute = discordRouteImport.update({
   id: "/discord",
   path: "/discord",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const connectOrganizationRoute = connectOrganizationRouteImport.update({
-  id: "/connect-organization",
-  path: "/connect-organization",
   getParentRoute: () => rootRouteImport,
 } as any);
 const accountDeletionRoute = accountDeletionRouteImport.update({
@@ -328,7 +328,6 @@ const vaultDatabaseProjectRoute = vaultDatabaseProjectRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
-  "/connect-organization": typeof connectOrganizationRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
@@ -336,6 +335,7 @@ export interface FileRoutesByFullPath {
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
+  "/org": typeof organizationsRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -382,7 +382,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
-  "/connect-organization": typeof connectOrganizationRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
@@ -390,6 +389,7 @@ export interface FileRoutesByTo {
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
+  "/org": typeof organizationsRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -437,7 +437,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
-  "/connect-organization": typeof connectOrganizationRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
@@ -445,6 +444,7 @@ export interface FileRoutesById {
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
+  "/org": typeof organizationsRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -493,7 +493,6 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/account-deletion"
-    | "/connect-organization"
     | "/discord"
     | "/docs"
     | "/indexDB"
@@ -501,6 +500,7 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
+    | "/org"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -547,7 +547,6 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/account-deletion"
-    | "/connect-organization"
     | "/discord"
     | "/docs"
     | "/indexDB"
@@ -555,6 +554,7 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
+    | "/org"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -601,7 +601,6 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/account-deletion"
-    | "/connect-organization"
     | "/discord"
     | "/docs"
     | "/indexDB"
@@ -609,6 +608,7 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
+    | "/org"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -656,7 +656,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   accountDeletionRoute: typeof accountDeletionRoute;
-  connectOrganizationRoute: typeof connectOrganizationRoute;
   discordRoute: typeof discordRoute;
   docsRoute: typeof docsRoute;
   indexDBRoute: typeof indexDBRoute;
@@ -664,6 +663,7 @@ export interface RootRouteChildren {
   landingPreviewRoute: typeof landingPreviewRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
+  organizationsRoute: typeof organizationsRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
@@ -766,6 +766,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof pitchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/org": {
+      id: "/org";
+      path: "/org";
+      fullPath: "/org";
+      preLoaderRoute: typeof organizationsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/logo": {
       id: "/logo";
       path: "/logo";
@@ -813,13 +820,6 @@ declare module "@tanstack/react-router" {
       path: "/discord";
       fullPath: "/discord";
       preLoaderRoute: typeof discordRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/connect-organization": {
-      id: "/connect-organization";
-      path: "/connect-organization";
-      fullPath: "/connect-organization";
-      preLoaderRoute: typeof connectOrganizationRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/account-deletion": {
@@ -1080,7 +1080,6 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   accountDeletionRoute: accountDeletionRoute,
-  connectOrganizationRoute: connectOrganizationRoute,
   discordRoute: discordRoute,
   docsRoute: docsRoute,
   indexDBRoute: indexDBRoute,
@@ -1088,6 +1087,7 @@ const rootRouteChildren: RootRouteChildren = {
   landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
+  organizationsRoute: organizationsRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,

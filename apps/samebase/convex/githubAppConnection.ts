@@ -28,15 +28,9 @@ const connectionOptionFields = {
 } as const;
 
 const vConnectionOption = union(
-  object({
-    status: union(literal("connect"), literal("invite_required"), literal("owner_required")),
-    ...connectionOptionFields,
-  }),
-  object({
-    status: literal("open"),
-    ...connectionOptionFields,
-    organizationOwnerLogin: string(),
-  }),
+  object({ status: literal("connect"), ...connectionOptionFields }),
+  object({ status: literal("invite_required"), ...connectionOptionFields }),
+  object({ status: literal("owner_required"), ...connectionOptionFields }),
 );
 
 const vConnectionResult = union(
@@ -92,12 +86,7 @@ export const classifyOptions = internalQuery({
               organizationId: organization._id,
               userId: args.userId,
             });
-      if (membership !== null && organization !== null) {
-        options.push({
-          status: "open",
-          ...option,
-          organizationOwnerLogin: organization.githubOwnerLogin,
-        });
+      if (membership !== null) {
         continue;
       }
       if (!installation.canManage) {

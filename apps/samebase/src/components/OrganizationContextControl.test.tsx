@@ -81,7 +81,6 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
       {children}
     </button>
   ),
-  DropdownMenuSeparator: () => <hr />,
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
@@ -139,20 +138,34 @@ describe("OrganizationContextControl", () => {
     const menuItems = [
       ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
     ];
-    expect(menuItems.map((item) => item.textContent)).toEqual(["samebase", "Connect organization"]);
+    expect(menuItems.map((item) => item.textContent)).toEqual(["samebase"]);
     await act(async () => {
-      menuItems[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      menuItems[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 
-    expect(testState.navigate).toHaveBeenCalledWith({ to: "/connect-organization" });
+    expect(testState.navigate).toHaveBeenCalledWith({ href: "/org/samebase/vaults" });
   });
 
-  it("shows that no organization is selected for zero organizations", async () => {
+  it("does not show a switch when there are no organizations", async () => {
     testState.context.organizations = [];
     const container = await mountControl();
 
-    expect(container.textContent).toContain("No organization selected");
+    expect(container.textContent).toBe("");
+    expect(container.querySelector('[data-testid="organization-context-control"]')).toBeNull();
+  });
+
+  it("keeps a routed organization visible when its membership is unavailable", async () => {
+    testState.context.organizations = [];
+    testState.context.surface = {
+      kind: "organization",
+      owner: "lost-org",
+      section: "vaults",
+      source: "organization",
+    };
+    const container = await mountControl();
+
+    expect(container.textContent).toBe("lost-org");
     expect(container.querySelector('[aria-label^="Switch organization"]')).toBeNull();
   });
 
@@ -184,12 +197,7 @@ describe("OrganizationContextControl", () => {
       ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
     ];
 
-    expect(menuItems.map((item) => item.textContent)).toEqual([
-      "personal",
-      "zeta",
-      "alpha",
-      "Connect organization",
-    ]);
+    expect(menuItems.map((item) => item.textContent)).toEqual(["personal", "zeta", "alpha"]);
   });
 
   it("announces the current context from the sidebar trigger", async () => {

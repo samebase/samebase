@@ -16,7 +16,9 @@ export function OrganizationContextProvider({
   const { isAuthenticated } = useConvexAuth();
   const surface = readAppOrganizationSurface(pathname);
   const organizationContextRequired =
-    surface.kind === "allVaults" || surface.kind === "organization";
+    surface.kind === "organizations" ||
+    surface.kind === "allVaults" ||
+    surface.kind === "organization";
   const viewerAccess = useQuery(api.users.currentViewerAccess, isAuthenticated ? {} : "skip");
   const organizations = useQuery(
     api.organizations.listForViewer,

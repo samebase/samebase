@@ -6,9 +6,18 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const testState = vi.hoisted(() => ({
-  actions: new Map<string, (args: unknown) => Promise<unknown>>(),
+import type { Id } from "../../convex/_generated/dataModel";
+import type { ViewerOrganization } from "@/lib/organizationContext";
+
+const testState = vi.hoisted<{
+  actions: Map<string, (args: unknown) => Promise<unknown>>;
+  navigate: ReturnType<typeof vi.fn>;
+  organizations: ViewerOrganization[];
+  viewerId: string;
+}>(() => ({
+  actions: new Map(),
   navigate: vi.fn(),
+  organizations: [],
   viewerId: "viewer-a",
 }));
 
@@ -32,11 +41,30 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 import { api } from "../../convex/_generated/api";
-import { ConnectOrganizationPage } from "./ConnectOrganizationPage";
+import { OrganizationContext } from "@/lib/organizationContext";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { OrganizationsPage } from "./OrganizationsPage";
 
 const { act } = React;
 
-describe("ConnectOrganizationPage", () => {
+function fakeOrganizationId(value: string): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs
+  // a stable value for the organization entry.
+  return value;
+}
+
+function organization(githubOwnerLogin: string): ViewerOrganization {
+  return {
+    canCreateRepository: true,
+    githubOwnerId: `github-${githubOwnerLogin}`,
+    githubOwnerLogin,
+    githubOwnerType: "organization",
+    organizationId: fakeOrganizationId(`organization-${githubOwnerLogin}`),
+    role: "member",
+  };
+}
+
+describe("OrganizationsPage", () => {
   let queryClient: QueryClient;
   let root: Root;
   let rootElement: HTMLDivElement;
@@ -45,6 +73,7 @@ describe("ConnectOrganizationPage", () => {
     testState.actions.clear();
     testState.navigate.mockReset();
     testState.navigate.mockResolvedValue(undefined);
+    testState.organizations = [];
     testState.viewerId = "viewer-a";
     queryClient = new QueryClient({
       defaultOptions: {
@@ -67,7 +96,13 @@ describe("ConnectOrganizationPage", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <ConnectOrganizationPage />
+          <TestRouterProvider initialEntries={["/org"]}>
+            <OrganizationContext.Provider
+              value={{ organizations: testState.organizations, surface: { kind: "organizations" } }}
+            >
+              <OrganizationsPage />
+            </OrganizationContext.Provider>
+          </TestRouterProvider>
         </QueryClientProvider>,
       );
       await Promise.resolve();
@@ -123,6 +158,23 @@ describe("ConnectOrganizationPage", () => {
     });
   });
 
+  it("keeps memberships visible when GitHub authorization is required", async () => {
+    testState.organizations = [organization("member-org")];
+    testState.actions.set(
+      getFunctionName(api.githubAppConnection.listOptions),
+      vi.fn(async () => ({ status: "authorization_required" })),
+    );
+
+    await renderPage();
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(rootElement.textContent).toContain("member-org");
+        expect(rootElement.textContent).toContain("Authorize GitHub");
+      });
+    });
+    expect(rootElement.querySelector('a[href="/org/member-org/vaults"]')).not.toBeNull();
+  });
+
   it("retries a failed installation load without showing GitHub authorization", async () => {
     const listOptions = vi
       .fn()
@@ -148,7 +200,7 @@ describe("ConnectOrganizationPage", () => {
       retryButton.click();
       await vi.waitFor(() => {
         expect(listOptions).toHaveBeenCalledTimes(2);
-        expect(rootElement.textContent).toContain("No GitHub App installations");
+        expect(rootElement.textContent).toContain("No organizations");
       });
     });
   });
@@ -176,14 +228,7 @@ describe("ConnectOrganizationPage", () => {
     });
 
     testState.viewerId = "viewer-b";
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <ConnectOrganizationPage />
-        </QueryClientProvider>,
-      );
-      await Promise.resolve();
-    });
+    await renderPage();
 
     expect(rootElement.textContent).not.toContain("private-owner");
     expect(rootElement.querySelector('[aria-label="Loading GitHub App installations"]')).not.toBe(

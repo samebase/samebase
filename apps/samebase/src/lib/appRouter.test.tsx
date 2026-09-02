@@ -151,10 +151,8 @@ vi.mock("@/components/ConnectRepository", () => ({
   ),
 }));
 
-vi.mock("@/components/ConnectOrganizationPage", () => ({
-  ConnectOrganizationPage: () => (
-    <div data-testid="connect-organization-page">Connect organization page</div>
-  ),
+vi.mock("@/components/OrganizationsPage", () => ({
+  OrganizationsPage: () => <div data-testid="organizations-page">Organizations page</div>,
 }));
 
 vi.mock("@/components/NewAppPage", () => ({
@@ -944,14 +942,17 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders organization connection through a global route", async () => {
-    await renderRoute("/connect-organization");
+  it.each(["/org", "/org/"])(
+    "renders the organization directory through its parent route for %s",
+    async (path) => {
+      await renderRoute(path);
 
-    expect(
-      rootElement?.querySelector('[data-testid="connect-organization-page"]')?.textContent,
-    ).toBe("Connect organization page");
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
+      expect(rootElement?.querySelector('[data-testid="organizations-page"]')?.textContent).toBe(
+        "Organizations page",
+      );
+      expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+    },
+  );
 
   it("keeps an unavailable organization URL and shows the unavailable state", async () => {
     const router = await renderRoute("/org/stale/providers?prod-ui");
@@ -962,7 +963,7 @@ describe("appRouter", () => {
     ).toBe("Organization unavailable");
   });
 
-  it.each(["/providers", "/new-app", "/connect-repo"])(
+  it.each(["/connect-organization", "/providers", "/new-app", "/connect-repo"])(
     "does not register the retired route %s",
     async (path) => {
       await renderRoute(path);

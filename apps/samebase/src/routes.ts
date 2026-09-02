@@ -20,11 +20,11 @@ import {
   ORGANIZATION_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
   ORGANIZATION_VAULTS_ROUTE,
+  ORGANIZATIONS_ROUTE,
 } from "./lib/organizationRoutes";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
 import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
 import { ORGANIZATION_INVITATION_ROUTE } from "./lib/organizationInvitationRoute";
-import { CONNECT_ORGANIZATION_ROUTE } from "./lib/connectOrganizationRoute";
 
 /**
  * Use virtual file routes so the generated route tree can preserve the current
@@ -65,6 +65,7 @@ export const routes = rootRoute("root.tsx", [
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
+  route(ORGANIZATIONS_ROUTE, "organizations.tsx"),
   route(ORGANIZATION_ROUTE, "org.tsx"),
   route(ORGANIZATION_VAULTS_ROUTE, "org-vaults.tsx"),
   route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
@@ -73,7 +74,6 @@ export const routes = rootRoute("root.tsx", [
   route(ORGANIZATION_MEMBERS_ROUTE, "org-members.tsx"),
   route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
   route(ORGANIZATION_INVITATION_ROUTE, "invite.tsx"),
-  route(CONNECT_ORGANIZATION_ROUTE, "connect-organization.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/users", "admin-users.tsx"),
