@@ -113,6 +113,8 @@ export function LogoMengerWebGpuLabPage({
         </Button>
 
         <div className="grid gap-1 border-t pt-3 font-mono text-xs text-muted-foreground">
+          <div>Depth 1 at rest</div>
+          <div>Pointer reveals through depth {depth}</div>
           <div>1 full-screen triangle</div>
           <div>{conceptualCellCount.toLocaleString()} conceptual cells</div>
           <div>128 maximum ray steps</div>

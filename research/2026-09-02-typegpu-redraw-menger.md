@@ -62,26 +62,48 @@ The `/logo/webgpu/menger` route now has these properties:
 - `depth` and `resolution` query parameters that preserve an exact test view
 - The current Samebase face colors and view direction
 - Pointer drag rotation
+- Depth one at rest, with local Menger channels through the selected depth when the pointer is near
+  the sponge
+- The same reveal radius and opening response time as the current Three.js renderer
 - One full-screen triangle and a maximum of 128 ray steps
 - Rays that start and stop at the outer sponge boundary
+- A pixel-size cutoff that does not evaluate fractal levels smaller than the rendered surface
+  threshold
 - At most one submitted render for each browser animation frame
 - A static Menger fallback when WebGPU does not start
 
-![TypeGPU Menger lab at depth four](2026-09-02-typegpu-menger-lab.png)
+![TypeGPU Menger lab at rest](2026-09-02-typegpu-menger-hover-rest.png)
+
+![TypeGPU Menger lab with the depth-eight pointer reveal](2026-09-02-typegpu-menger-hover-depth-8.png)
 
 Manual checks in desktop Chromium confirmed the ready WebGPU state, depth-eight rendering, direct
-query loading, pointer drag, and the forced no-WebGPU fallback. The default depth is four at 75
-percent render resolution.
+query loading, pointer drag, pointer reveal, close after pointer exit, and the forced no-WebGPU
+fallback. A paired depth-four check put the TypeGPU and Three.js probes within 0.004 unit
+coordinates of each other. Their settled openings had the same visible shape. The default depth is
+four at 75 percent render resolution.
 
-This lab does not implement the current per-channel hover opening. That behavior needs a procedural
-distance-field deformation. It is a separate proof, not a direct port of the instance animation.
+The hover opening is a procedural distance-field deformation. The shader finds each repeated channel
+from the sample point and opens only channels near the projected pointer. This avoids the CPU and
+GPU state of a direct per-channel port. Depths two through eight contain 16,142,517 hover channels
+in total, so an RGBA32F state record for each channel would use approximately 246 MiB before
+geometry and renderer overhead.
+
+The shader derives the same directional anchor and two-axis rectangular growth as the Three.js
+renderer. It uses one shared opening response instead of one saved animation value for each channel.
+The settled open shape and a stationary pointer entry are close. During continuous pointer movement,
+the Three.js renderer can leave a short closing trail because each channel keeps its prior value.
+Keep this difference visible in later comparisons. Do not add the full per-channel state to the
+TypeGPU path.
+
+The reference Three.js renderer now clears its hover pointer after browser blur. Before this change,
+it cleared only the presentation tilt, which could leave the opening active.
 
 ## Main risks
 
 - Ray marching moves cost from geometry to pixels. Large canvases and high device pixel ratios can
   cost more than the current renderer.
-- Fine high-depth features can be smaller than one pixel. The surface threshold and antialiasing
-  need more work before visual comparison.
+- Fine high-depth features can be smaller than one pixel. The lab skips these levels. Edge quality
+  and antialiasing still need comparison at larger display sizes.
 - Continuous pointer motion can cause power and thermal costs on mobile devices.
 - WebGPU support and GPU driver behavior still need tests on the supported browser and device
   matrix. The static fallback keeps the route usable, but it does not preserve interaction.
@@ -90,11 +112,11 @@ distance-field deformation. It is a separate proof, not a direct port of the ins
 
 ## Recommended next experiments
 
-1. Add one procedural hover opening to the distance function. This proves whether the important
-   Menger interaction can move from per-instance state to a compact GPU expression.
-2. Measure depths four, five, and eight during continuous drag on desktop Chrome, Safari, an iPhone,
-   and one low-power Android device. Record frame time, GPU time when timestamp queries are
-   available, resolution, and power behavior.
+1. Compare the procedural opening with the Three.js opening during slow pointer movement and at
+   oblique cube angles. Decide whether the short per-channel closing trail is important.
+2. Measure depths four, five, and eight during continuous pointer movement and drag on desktop
+   Chrome, Safari, an iPhone, and one low-power Android device. Record frame time, GPU time when
+   timestamp queries are available, resolution, and power behavior.
 3. Compare three image-quality settings: current single sample, a small edge-only supersample, and
    temporal accumulation while the view is still.
 4. Add an opt-in Linux WebGPU browser job only if this route becomes a production candidate.

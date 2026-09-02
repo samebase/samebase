@@ -10,6 +10,16 @@ import { MENGER_TYPE_GPU_MAXIMUM_DEPTH } from "@/components/logo/mengerTypeGpuSe
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import {
+  MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+  MENGER_HOVER_FRAME_ELAPSED_MAX_MS,
+  MENGER_HOVER_FRAME_ELAPSED_RESTART_MS,
+  MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION,
+  MENGER_HOVER_OPENNESS_SETTLE_EPSILON,
+  MENGER_HOVER_OPENNESS_SMOOTHING_TAU_MS,
+  projectMengerHoverLineToVisibleFacePlanes,
+  type MengerHoverProbe,
+} from "@samebase/logo-model/menger-hover";
+import {
   crossProduct,
   getCameraLocalVector,
   getWorldScreenVerticalAxis,
@@ -27,6 +37,11 @@ const CAMERA_DISTANCE = 4;
 const CAMERA_FRUSTUM_HALF_SPAN = Math.sqrt(3) * 1.12;
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
 const MAXIMUM_RAY_STEPS = 128;
+const MENGER_TYPE_GPU_HOVER_STATE = d.struct({
+  openness: d.f32,
+  probe: d.vec3f,
+  revealRadius: d.f32,
+});
 const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
   fractalDepth: 1,
   gridSize: LOGO_GRID_SIZE_3,
@@ -34,6 +49,10 @@ const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
 });
 
 type SceneStatus = "initializing" | "ready" | "unavailable";
+type ClientPoint = {
+  x: number;
+  y: number;
+};
 type SceneColors = {
   background: HexColorToken;
   left: HexColorToken;
@@ -80,6 +99,57 @@ function readCameraFrame(view: LogoViewState): {
 
 function toGpuVector([x, y, z]: Vector3): d.v3f {
   return d.vec3f(x, y, z);
+}
+
+function readHoverProbe(
+  canvas: HTMLCanvasElement,
+  clientPoint: ClientPoint,
+  view: LogoViewState,
+): MengerHoverProbe | null {
+  const bounds = canvas.getBoundingClientRect();
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return null;
+  }
+
+  const frame = readCameraFrame(view);
+  const screenX = ((clientPoint.x - bounds.left) / bounds.width) * 2 - 1;
+  const screenY = 1 - ((clientPoint.y - bounds.top) / bounds.height) * 2;
+  const horizontalOffset = screenX * (bounds.width / bounds.height) * CAMERA_FRUSTUM_HALF_SPAN;
+  const verticalOffset = screenY * CAMERA_FRUSTUM_HALF_SPAN;
+  const origin = {
+    x:
+      frame.cameraVector[0] * CAMERA_DISTANCE +
+      frame.right[0] * horizontalOffset +
+      frame.up[0] * verticalOffset,
+    y:
+      frame.cameraVector[1] * CAMERA_DISTANCE +
+      frame.right[1] * horizontalOffset +
+      frame.up[1] * verticalOffset,
+    z:
+      frame.cameraVector[2] * CAMERA_DISTANCE +
+      frame.right[2] * horizontalOffset +
+      frame.up[2] * verticalOffset,
+  };
+  const direction = {
+    x: -frame.cameraVector[0],
+    y: -frame.cameraVector[1],
+    z: -frame.cameraVector[2],
+  };
+  const projection = projectMengerHoverLineToVisibleFacePlanes(origin, direction, 2);
+  if (!projection) {
+    return null;
+  }
+
+  const probe = {
+    x: projection.point.x / 2 + 0.5,
+    y: projection.point.y / 2 + 0.5,
+    z: projection.point.z / 2 + 0.5,
+  };
+  if (!Number.isFinite(probe.x) || !Number.isFinite(probe.y) || !Number.isFinite(probe.z)) {
+    return null;
+  }
+
+  return probe;
 }
 
 export function MengerTypeGpuScene({
@@ -152,9 +222,16 @@ export function MengerTypeGpuScene({
     let cancelRender = () => {};
     let destroyRoot = () => {};
     let disconnectResizeObserver = () => {};
+    let removeHoverListeners = () => {};
     const deactivateRenderer = () => {
       cancelRender();
       disconnectResizeObserver();
+      removeHoverListeners();
+      delete canvas.dataset["hoverCoordinateX"];
+      delete canvas.dataset["hoverCoordinateY"];
+      delete canvas.dataset["hoverCoordinateZ"];
+      delete canvas.dataset["hoverMaximumOpenness"];
+      delete canvas.dataset["hoverSettled"];
       resizeRef.current = () => {};
       writeColorsRef.current = () => {};
       writeDepthRef.current = () => {};
@@ -187,10 +264,15 @@ export function MengerTypeGpuScene({
         const topColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.top));
         const selectedDepth = root.createUniform(d.i32, depthRef.current);
         const surfaceThreshold = root.createUniform(d.f32, 0.001);
+        const hoverState = root.createUniform(MENGER_TYPE_GPU_HOVER_STATE, {
+          openness: 0,
+          probe: d.vec3f(0.5),
+          revealRadius: MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+        });
 
-        const squareDistance = (point: d.v2f): number => {
+        const rectangleDistance = (point: d.v2f, halfSize: d.v2f): number => {
           "use gpu";
-          const delta = std.sub(std.abs(point), d.vec2f(1));
+          const delta = std.sub(std.abs(point), halfSize);
           return std.add(
             std.length(std.max(delta, d.vec2f(0))),
             std.min(std.max(delta.x, delta.y), 0),
@@ -207,9 +289,64 @@ export function MengerTypeGpuScene({
         const crossDistance = (point: d.v3f): number => {
           "use gpu";
           return std.min(
-            squareDistance(d.vec2f(point.x, point.y)),
-            squareDistance(d.vec2f(point.x, point.z)),
-            squareDistance(d.vec2f(point.y, point.z)),
+            rectangleDistance(d.vec2f(point.x, point.y), d.vec2f(1)),
+            rectangleDistance(d.vec2f(point.x, point.z), d.vec2f(1)),
+            rectangleDistance(d.vec2f(point.y, point.z), d.vec2f(1)),
+          );
+        };
+        const openingDistance = (
+          localPoint: d.v2f,
+          channelCenter: d.v2f,
+          probePoint: d.v2f,
+          probeAxisDistance: number,
+          scale: number,
+        ): number => {
+          "use gpu";
+          const channelDelta = std.sub(channelCenter, probePoint);
+          const distanceFromProbe = std.length(
+            d.vec3f(probeAxisDistance, channelDelta.x, channelDelta.y),
+          );
+          const closeness = std.sub(1, std.div(distanceFromProbe, hoverState.$.revealRadius));
+          if (closeness <= 0) {
+            return 1_000;
+          }
+
+          const normalized = std.min(
+            std.div(closeness, 1 - MENGER_HOVER_FULL_OPEN_RADIUS_FRACTION),
+            1,
+          );
+          const targetOpenness = std.mul(
+            std.mul(normalized, normalized),
+            std.sub(3, std.mul(2, normalized)),
+          );
+          const openness = std.mul(targetOpenness, hoverState.$.openness);
+          if (openness <= 0) {
+            return 1_000;
+          }
+
+          const holeSize = std.div(1, std.mul(3, scale));
+          const absoluteDelta = std.abs(channelDelta);
+          const totalDelta = std.add(absoluteDelta.x, absoluteDelta.y);
+          let weightA = d.f32(0.5);
+          if (totalDelta > 0) {
+            const directionalBlend = std.min(std.div(totalDelta, std.mul(holeSize, 0.5)), 1);
+            const directionalWeightA = std.div(absoluteDelta.x, totalDelta);
+            weightA = std.add(0.5, std.mul(std.sub(directionalWeightA, 0.5), directionalBlend));
+          }
+          const anchor = std.clamp(
+            std.sub(d.vec2f(0.5), std.div(channelDelta, holeSize)),
+            d.vec2f(0),
+            d.vec2f(1),
+          );
+          const width = d.vec2f(std.pow(openness, weightA), std.pow(openness, std.sub(1, weightA)));
+          const apertureCenter = std.div(
+            std.mul(std.sub(std.mul(anchor, 2), d.vec2f(1)), std.sub(d.vec2f(1), width)),
+            3,
+          );
+          const apertureHalfSize = std.div(width, 3);
+          return std.div(
+            rectangleDistance(std.sub(localPoint, apertureCenter), apertureHalfSize),
+            scale,
           );
         };
         const mengerDistance = (point: d.v3f): number => {
@@ -221,15 +358,57 @@ export function MengerTypeGpuScene({
             if (iteration >= selectedDepth.$) {
               break;
             }
+            if (iteration > 0 && hoverState.$.openness <= 0) {
+              break;
+            }
+            if (iteration > 0 && std.div(1, std.mul(3, scale)) <= surfaceThreshold.$) {
+              break;
+            }
             const shiftedPoint = std.add(std.mul(point, scale), d.vec3f(1));
             const repeatedPoint = std.sub(
               std.mul(std.fract(std.mul(shiftedPoint, 0.5)), 2),
               d.vec3f(1),
             );
-            const removedCrossDistance = std.div(
-              crossDistance(std.mul(repeatedPoint, 3)),
-              std.mul(3, scale),
-            );
+            let removedCrossDistance = d.f32(1_000);
+            if (iteration === 0) {
+              removedCrossDistance = std.div(
+                crossDistance(std.mul(repeatedPoint, 3)),
+                std.mul(3, scale),
+              );
+            } else {
+              const unitPoint = std.clamp(
+                std.add(std.mul(point, 0.5), d.vec3f(0.5)),
+                d.vec3f(0),
+                d.vec3f(0.999_999),
+              );
+              const channelCenter = std.div(
+                std.add(std.floor(std.mul(unitPoint, scale)), d.vec3f(0.5)),
+                d.vec3f(scale),
+              );
+              const probe = hoverState.$.probe;
+              const openingAlongX = openingDistance(
+                d.vec2f(repeatedPoint.y, repeatedPoint.z),
+                d.vec2f(channelCenter.y, channelCenter.z),
+                d.vec2f(probe.y, probe.z),
+                std.min(probe.x, std.sub(1, probe.x)),
+                scale,
+              );
+              const openingAlongY = openingDistance(
+                d.vec2f(repeatedPoint.x, repeatedPoint.z),
+                d.vec2f(channelCenter.x, channelCenter.z),
+                d.vec2f(probe.x, probe.z),
+                std.min(probe.y, std.sub(1, probe.y)),
+                scale,
+              );
+              const openingAlongZ = openingDistance(
+                d.vec2f(repeatedPoint.x, repeatedPoint.y),
+                d.vec2f(channelCenter.x, channelCenter.y),
+                d.vec2f(probe.x, probe.y),
+                std.min(probe.z, std.sub(1, probe.z)),
+                scale,
+              );
+              removedCrossDistance = std.min(openingAlongX, openingAlongY, openingAlongZ);
+            }
             distance = std.max(distance, std.neg(removedCrossDistance));
             scale = std.mul(scale, 3);
           }
@@ -315,24 +494,132 @@ export function MengerTypeGpuScene({
           return;
         }
 
-        const renderNow = () => {
+        const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        let clientPointer: ClientPoint | null = null;
+        let lastHoverFrameTime: number | null = null;
+        let lastProbe: MengerHoverProbe = { x: 0.5, y: 0.5, z: 0.5 };
+        let renderedOpenness = 0;
+        const writeHoverState = (timestampMs: number): boolean => {
+          const probe =
+            clientPointer === null ? null : readHoverProbe(canvas, clientPointer, viewRef.current);
+          if (probe) {
+            lastProbe = probe;
+            canvas.dataset["hoverCoordinateX"] = probe.x.toFixed(3);
+            canvas.dataset["hoverCoordinateY"] = probe.y.toFixed(3);
+            canvas.dataset["hoverCoordinateZ"] = probe.z.toFixed(3);
+          } else {
+            delete canvas.dataset["hoverCoordinateX"];
+            delete canvas.dataset["hoverCoordinateY"];
+            delete canvas.dataset["hoverCoordinateZ"];
+          }
+
+          const targetOpenness =
+            probe &&
+            Math.hypot(
+              Math.max(-probe.x, probe.x - 1, 0),
+              Math.max(-probe.y, probe.y - 1, 0),
+              Math.max(-probe.z, probe.z - 1, 0),
+            ) < MENGER_HOVER_DEFAULT_REVEAL_RADIUS
+              ? 1
+              : 0;
+          const previousFrameTime = lastHoverFrameTime;
+          lastHoverFrameTime = timestampMs;
+          const elapsedMs =
+            previousFrameTime === null
+              ? MENGER_HOVER_FRAME_ELAPSED_RESTART_MS
+              : Math.min(
+                  Math.max(timestampMs - previousFrameTime, 0),
+                  MENGER_HOVER_FRAME_ELAPSED_MAX_MS,
+                );
+          const smoothing = reducedMotionQuery.matches
+            ? 1
+            : 1 - Math.exp(-elapsedMs / MENGER_HOVER_OPENNESS_SMOOTHING_TAU_MS);
+          const nextOpenness = renderedOpenness + (targetOpenness - renderedOpenness) * smoothing;
+          renderedOpenness =
+            Math.abs(nextOpenness - targetOpenness) < MENGER_HOVER_OPENNESS_SETTLE_EPSILON
+              ? targetOpenness
+              : nextOpenness;
+          const settled = renderedOpenness === targetOpenness;
+          if (settled) {
+            lastHoverFrameTime = null;
+          }
+          hoverState.write({
+            openness: renderedOpenness,
+            probe: d.vec3f(lastProbe.x, lastProbe.y, lastProbe.z),
+            revealRadius: MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+          });
+          canvas.dataset["hoverMaximumOpenness"] = renderedOpenness.toFixed(6);
+          canvas.dataset["hoverSettled"] = settled ? "true" : "false";
+
+          return !settled;
+        };
+        const renderNow = (timestampMs = performance.now()) => {
+          const hoverNeedsFrame = writeHoverState(timestampMs);
           pipeline.withColorAttachment({ view: context.getCurrentTexture().createView() }).draw(3);
+          if (hoverNeedsFrame) {
+            requestRender();
+          }
         };
         let renderFrame = 0;
         const requestRender = () => {
           if (renderFrame !== 0 || lifetime.signal.aborted) {
             return;
           }
-          renderFrame = window.requestAnimationFrame(() => {
+          renderFrame = window.requestAnimationFrame((timestampMs) => {
             renderFrame = 0;
             if (!lifetime.signal.aborted) {
-              renderNow();
+              renderNow(timestampMs);
             }
           });
         };
         cancelRender = () => {
           window.cancelAnimationFrame(renderFrame);
           renderFrame = 0;
+        };
+        const onWindowPointerMove = (event: PointerEvent) => {
+          if (
+            !event.isPrimary ||
+            event.pointerType === "touch" ||
+            document.visibilityState !== "visible" ||
+            event.buttons !== 0
+          ) {
+            return;
+          }
+
+          clientPointer = { x: event.clientX, y: event.clientY };
+          requestRender();
+        };
+        const onWindowPointerUp = (event: PointerEvent) => {
+          if (
+            !event.isPrimary ||
+            event.pointerType === "touch" ||
+            document.visibilityState !== "visible"
+          ) {
+            return;
+          }
+
+          clientPointer = { x: event.clientX, y: event.clientY };
+          requestRender();
+        };
+        const closeHover = () => {
+          clientPointer = null;
+          requestRender();
+        };
+        const onReducedMotionChange = () => {
+          requestRender();
+        };
+        window.addEventListener("blur", closeHover);
+        window.addEventListener("pointermove", onWindowPointerMove);
+        window.addEventListener("pointerup", onWindowPointerUp);
+        reducedMotionQuery.addEventListener("change", onReducedMotionChange);
+        document.documentElement.addEventListener("pointerleave", closeHover);
+        removeHoverListeners = () => {
+          window.removeEventListener("blur", closeHover);
+          window.removeEventListener("pointermove", onWindowPointerMove);
+          window.removeEventListener("pointerup", onWindowPointerUp);
+          reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
+          document.documentElement.removeEventListener("pointerleave", closeHover);
+          removeHoverListeners = () => {};
         };
         const writeView = (view: LogoViewState) => {
           const frame = readCameraFrame(view);
@@ -454,7 +741,7 @@ export function MengerTypeGpuScene({
 
   return (
     <div
-      aria-label="TypeGPU Menger sponge"
+      aria-label="TypeGPU Menger hover reveal"
       className="relative h-full min-h-0 w-full"
       data-renderer="typegpu-ray-march"
       data-renderer-state={status}

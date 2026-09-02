@@ -44,6 +44,10 @@ import {
 import {
   createMengerHoverState,
   createMengerHoverTopology,
+  MENGER_HOVER_FRAME_ELAPSED_MAX_MS,
+  MENGER_HOVER_FRAME_ELAPSED_RESTART_MS,
+  MENGER_HOVER_OPENNESS_SETTLE_EPSILON,
+  MENGER_HOVER_OPENNESS_SMOOTHING_TAU_MS,
   projectMengerHoverLineToVisibleFacePlanes,
   writeMengerHoverState,
   type MengerHoverProbe,
@@ -57,10 +61,6 @@ import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-const HOVER_FRAME_ELAPSED_MAX_MS = 100;
-const HOVER_FRAME_ELAPSED_RESTART_MS = 1000 / 60;
-const HOVER_OPENNESS_SETTLE_EPSILON = 0.001;
-const HOVER_OPENNESS_SMOOTHING_TAU_MS = 58;
 const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
 const MENGER_HOVER_SHELL_SURFACE_LAYER = 1;
 const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
@@ -847,11 +847,11 @@ export function MengerHoverScene({
           lastFrameTime = now;
           const elapsedMs =
             previousFrameTime === null
-              ? HOVER_FRAME_ELAPSED_RESTART_MS
-              : Math.min(Math.max(now - previousFrameTime, 0), HOVER_FRAME_ELAPSED_MAX_MS);
+              ? MENGER_HOVER_FRAME_ELAPSED_RESTART_MS
+              : Math.min(Math.max(now - previousFrameTime, 0), MENGER_HOVER_FRAME_ELAPSED_MAX_MS);
           const smoothing = reducedMotionQuery.matches
             ? 1
-            : 1 - Math.exp(-elapsedMs / HOVER_OPENNESS_SMOOTHING_TAU_MS);
+            : 1 - Math.exp(-elapsedMs / MENGER_HOVER_OPENNESS_SMOOTHING_TAU_MS);
           let settled = true;
           let maximumOpenness = 0;
           for (let stageIndex = 0; stageIndex < hoverTargetState.stages.length; stageIndex += 1) {
@@ -866,7 +866,8 @@ export function MengerHoverScene({
                 renderedChannelState.openness +
                 (targetChannelState.openness - renderedChannelState.openness) * smoothing;
               renderedChannelState.openness =
-                Math.abs(nextOpenness - targetChannelState.openness) < HOVER_OPENNESS_SETTLE_EPSILON
+                Math.abs(nextOpenness - targetChannelState.openness) <
+                MENGER_HOVER_OPENNESS_SETTLE_EPSILON
                   ? targetChannelState.openness
                   : nextOpenness;
               renderedChannelState.anchorA = targetChannelState.anchorA;
@@ -1019,6 +1020,7 @@ export function MengerHoverScene({
       scheduleFrame();
     };
     const onWindowBlur = () => {
+      clientPointerRef.current = null;
       presentationTiltClientPoint = null;
       renderScene();
     };
