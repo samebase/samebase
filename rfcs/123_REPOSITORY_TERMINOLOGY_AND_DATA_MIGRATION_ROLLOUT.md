@@ -6,8 +6,9 @@
 - Owner: Samebase repository domain
 - Started: 2026-09-02
 - Last updated: 2026-09-02
-- Current checkpoint: Phase 2 implementation is in progress.
-- Next action: Finish Phase 2 verification and open its ready pull request.
+- Current checkpoint: Phase 2 implementation is ready for review in
+  [PR #1575](https://github.com/samebase/samebase/pull/1575).
+- Next action: Review, merge, and deploy Phase 2, then confirm that all target indexes are ready.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -36,7 +37,7 @@ The rollout has two separate changes:
 | ----- | --------------------------------------- | ----------- | ---------------------------------------------------------- |
 | 0     | Fix the language and migration contract | Complete    | This RFC                                                   |
 | 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570) |
-| 2     | Add dormant migration support           | In progress | This branch                                                |
+| 2     | Add dormant migration support           | In progress | [PR #1575](https://github.com/samebase/samebase/pull/1575) |
 | 3     | Rehearse the complete cutover           | Not started |                                                            |
 | 4     | Drain, freeze, copy, and switch         | Not started |                                                            |
 | 5     | Stabilize the new system                | Not started |                                                            |
