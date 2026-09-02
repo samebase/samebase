@@ -90,6 +90,7 @@ import {
   type OrganizationMembersPageVisualMode,
 } from "@/components/OrganizationMembersPageVisualFixture";
 import { OrganizationsPageVisualFixture } from "@/components/OrganizationsPageVisualFixture";
+import { RepositoryMaintenancePage } from "@/components/RepositoryMaintenancePage";
 import { TermsAcceptanceVisualFixture } from "@/components/TermsAcceptanceVisualFixture";
 
 type VisualFixtureMode =
@@ -119,6 +120,7 @@ type VisualFixtureMode =
   | NewAppPageVisualMode
   | OrganizationMembersPageVisualMode
   | "organizations-page"
+  | "repository-maintenance"
   | "terms-acceptance";
 
 type VisualFixtureSelection =
@@ -266,6 +268,7 @@ const MISC_VISUAL_MODES = [
   "app-boot-failure-generic",
   "corner-notch",
   "corner-notch-detail",
+  "repository-maintenance",
   "terms-acceptance",
 ] as const satisfies readonly VisualFixtureMode[];
 
@@ -437,6 +440,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
         <PublicLandingAccountLoadingSection />
       </div>
     );
+  }
+
+  if (mode === "repository-maintenance") {
+    return <RepositoryMaintenancePage />;
   }
 
   if (mode === "sidebar-layout-status-bar") {

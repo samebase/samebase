@@ -6,9 +6,8 @@
 - Owner: Samebase repository domain
 - Started: 2026-09-02
 - Last updated: 2026-09-02
-- Current checkpoint: Phase 1 is complete in
-  [PR #1570](https://github.com/samebase/samebase/pull/1570).
-- Next action: Review and merge Phase 1. Start Phase 2 as a separate change after Phase 1 is merged.
+- Current checkpoint: Phase 2 implementation is in progress.
+- Next action: Finish Phase 2 verification and open its ready pull request.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -37,7 +36,7 @@ The rollout has two separate changes:
 | ----- | --------------------------------------- | ----------- | ---------------------------------------------------------- |
 | 0     | Fix the language and migration contract | Complete    | This RFC                                                   |
 | 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570) |
-| 2     | Add dormant migration support           | Not started |                                                            |
+| 2     | Add dormant migration support           | In progress | This branch                                                |
 | 3     | Rehearse the complete cutover           | Not started |                                                            |
 | 4     | Drain, freeze, copy, and switch         | Not started |                                                            |
 | 5     | Stabilize the new system                | Not started |                                                            |
@@ -299,7 +298,7 @@ Evidence:
 
 ## Phase 2: Add Dormant Migration Support
 
-Status: Not started.
+Status: In progress.
 
 Deploy migration support while the old application continues to read and write only the old tables:
 
@@ -328,6 +327,12 @@ The maintenance states have these exact meanings:
 
 The backend must enforce this gate. A maintenance page or disabled browser control is not enough.
 
+A generated Convex upload URL remains valid for one hour. Samebase records a 65-minute repository
+operation lease when it creates one. This lease blocks the change from `draining` to `frozen` until
+the upload finishes or the URL and safety buffer expire. The extra five minutes cover clock and
+transaction timing around URL creation. See the
+[Convex upload URL contract](https://docs.convex.dev/file-storage/upload-files#generating-the-upload-url).
+
 Each copy operation must be idempotent. A repeated source row must use its existing target ID and
 must not insert a duplicate. Each batch must be small enough for Convex transaction limits. A run
 must resume safely after any batch.
@@ -344,6 +349,23 @@ Exit checks:
 - The clear-target job does not delete source rows or `_storage` objects.
 - All target indexes are ready before the maintenance window.
 - Focused Convex tests cover maintenance authorization, ID mapping, retries, and orphan detection.
+
+Operator entry points added in this phase:
+
+- Run `pnpm audit:repository-migration` from the repository root for the deterministic code and
+  contract inventory.
+- Call `repositoryMigration/maintenance:transitionRepositoryMaintenanceMode` to move through
+  `normal`, `draining`, and `frozen`.
+- Call `repositoryMigration/inventory:inventoryBatch` once per table and continue with its returned
+  cursor until `isDone` is true.
+- Call `repositoryMigration/run:runCompleteCopy` only in `frozen` mode. The run includes mapping,
+  copy, and structural verification steps.
+- Call `repositoryMigration/run:runClearTargets` only in `frozen` mode to remove migration-owned
+  targets and ID maps before new-table writes start. Use `{ "reset": true }` when a rehearsal must
+  repeat a completed copy or clear sequence.
+
+These functions are dormant after the Phase 2 deployment. Phase 2 does not call the production copy
+or clear functions.
 
 ## Phase 3: Rehearse The Complete Cutover
 
