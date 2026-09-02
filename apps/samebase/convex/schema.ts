@@ -10,6 +10,17 @@ import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organizationModel";
 import { organizationInvitationTables } from "./organizationInvitationModel";
 import { organizationProviderCredentialTables } from "./organizationProviderCredentialModel";
+import { repositoryBranchTables } from "./repository/branchModel";
+import { repositoryConvexSchemaGraphTables } from "./repository/convexSchemaGraphModel";
+import { repositoryDashboardTables } from "./repository/dashboardModel";
+import { repositoryDeletionTables } from "./repository/deletion/model";
+import { repositoryEditorTables } from "./repository/editorModel";
+import { repositoryFolderTables } from "./repository/folderModel";
+import { repositoryTables } from "./repository/model";
+import { repositoryOrganizationTreeTables } from "./repository/organizationTreeModel";
+import { repositoryProvisioningTables } from "./repository/provisioningModel";
+import { repositoryMigrationTables } from "./repositoryMigration/model";
+import { repositoryMigrationMaintenanceTables } from "./repositoryMigration/maintenanceModel";
 import { userPreferenceTables } from "./userPreferenceModel";
 import { vaultBranchTables } from "./vault/branchModel";
 import { vaultConvexSchemaGraphTables } from "./vault/convexSchemaGraphModel";
@@ -37,5 +48,16 @@ export default defineSchema({
   ...vaultProvisioningTables,
   ...vaultDeletionTables,
   ...vaultEditorTables,
+  ...repositoryDashboardTables,
+  ...repositoryFolderTables,
+  ...repositoryOrganizationTreeTables,
+  ...repositoryTables,
+  ...repositoryBranchTables,
+  ...repositoryConvexSchemaGraphTables,
+  ...repositoryProvisioningTables,
+  ...repositoryDeletionTables,
+  ...repositoryEditorTables,
+  ...repositoryMigrationTables,
+  ...repositoryMigrationMaintenanceTables,
   ...mcpTables,
 });

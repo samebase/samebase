@@ -23,6 +23,35 @@ describe("GitHub-backed organizations", () => {
     );
   });
 
+  it("does not create a direct organization while repository writes drain", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        state: "active",
+        email: "maintenance-owner@example.com",
+        isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
+      });
+    });
+    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+      mode: "draining",
+    });
+
+    await expect(
+      t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+        userId,
+        githubOwnerId: "maintenance-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "maintenance-owner",
+        githubInstallationId: "maintenance-installation",
+      }),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizations").collect()),
+    ).resolves.toEqual([]);
+  });
+
   it("creates one organization graph and reconnects it without duplicates", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

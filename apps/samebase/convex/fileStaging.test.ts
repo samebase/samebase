@@ -44,6 +44,7 @@ function createClearAllStagingTestContext(args: {
     indexName: string;
     constraints: Array<{ field: string; value: string }>;
   }> = [];
+  let cleanupLeaseSequence = 0;
 
   return {
     deletedIds,
@@ -52,6 +53,8 @@ function createClearAllStagingTestContext(args: {
     ctx: {
       db: {
         get: async (id: string) => (id === args.targetVaultId ? args.vault : null),
+        insert: async () => `cleanup-lease-${++cleanupLeaseSequence}`,
+        patch: async () => {},
         query: (table: string) => ({
           withIndex: (
             indexName: string,
@@ -131,6 +134,7 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     args: unknown;
   }> = [];
   const stagingById = new Map(args.stagedFiles.map((file) => [file._id, file] as const));
+  let cleanupLeaseSequence = 0;
 
   return {
     deletedIds,
@@ -138,6 +142,8 @@ function createClearMatchingStagingSnapshotTestContext(args: {
     ctx: {
       db: {
         get: async (id: string) => stagingById.get(id) ?? null,
+        insert: async () => `cleanup-lease-${++cleanupLeaseSequence}`,
+        patch: async () => {},
         delete: async (id: string) => {
           deletedIds.push(id);
         },
@@ -466,6 +472,9 @@ describe("buildClearAllStagingPlan", () => {
           vaultId: targetVaultId,
           branch: targetBranch,
           cutoffTimestamp: expect.any(Number),
+          leaseId: "cleanup-lease-1",
+          operationId: expect.stringContaining("staging-cleanup:cleanup-lease-1:"),
+          operationName: "staging_cleanup",
         },
       },
       {
@@ -564,6 +573,9 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           branch: "main",
           filePath: "src/new-name.ts",
           cutoffTimestamp: 201,
+          leaseId: "cleanup-lease-1",
+          operationId: expect.stringContaining("staging-cleanup:cleanup-lease-1:"),
+          operationName: "staging_cleanup",
         },
       },
       {
@@ -574,6 +586,9 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           branch: "main",
           filePath: "src/old-name.ts",
           cutoffTimestamp: 201,
+          leaseId: "cleanup-lease-2",
+          operationId: expect.stringContaining("staging-cleanup:cleanup-lease-2:"),
+          operationName: "staging_cleanup",
         },
       },
     ]);

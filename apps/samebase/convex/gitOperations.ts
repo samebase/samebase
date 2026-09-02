@@ -1,5 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import {
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 
 // MARK: Public
 
@@ -32,9 +36,31 @@ export const saveFileBlob = internalMutation({
 
     // only used for debugging
     debugFilePath: v.optional(v.string()),
+    leaseId: v.optional(v.id("repositoryOperationLeases")),
+    operationId: v.optional(v.string()),
+    operationName: v.optional(v.string()),
   },
   returns: v.id("observations_vaultFiles_blobs"),
   handler: async (ctx, args) => {
+    if (
+      args.leaseId === undefined &&
+      args.operationId === undefined &&
+      args.operationName === undefined
+    ) {
+      await requireRepositoryOperationStart(ctx);
+    } else if (
+      args.leaseId === undefined ||
+      args.operationId === undefined ||
+      args.operationName === undefined
+    ) {
+      throw new Error("Repository operation lease identity is incomplete.");
+    } else {
+      await requireRepositoryOperationLease(ctx, {
+        leaseId: args.leaseId,
+        operationId: args.operationId,
+        operationName: args.operationName,
+      });
+    }
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
       throw new Error("Vault not found");

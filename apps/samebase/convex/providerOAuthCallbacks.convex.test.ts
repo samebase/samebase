@@ -25,7 +25,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
-import type { OAuthProvider } from "./oauthState";
+import { CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION, type OAuthProvider } from "./oauthState";
 
 const callbackScenarios = [
   {
@@ -46,6 +46,45 @@ const callbackScenarios = [
 ] as const;
 type CallbackScenario = (typeof callbackScenarios)[number];
 type TestBackend = ReturnType<typeof makeConvexTest>;
+
+async function createCloudflareMcpCallbackState(
+  t: TestBackend,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    state: string;
+    clientId: string;
+    codeVerifier: string;
+    returnToPath?: string;
+    createdAt: number;
+    expiresAt: number;
+  },
+): Promise<void> {
+  const lease = await t.mutation(internal.repositoryMigration.maintenance.claimOperationLease, {
+    operationId: args.state,
+    operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
+  });
+  try {
+    await t.mutation(internal.oauthState.createOauthState, {
+      provider: "cloudflare_mcp",
+      userId: args.userId,
+      organizationId: args.organizationId,
+      returnToPath: args.returnToPath,
+      state: args.state,
+      clientId: args.clientId,
+      codeVerifier: args.codeVerifier,
+      leaseId: lease.leaseId,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    });
+  } finally {
+    await t.mutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+      leaseId: lease.leaseId,
+      operationId: args.state,
+      operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
+    });
+  }
+}
 const storageBoundaryScenarios = [
   {
     completionEventType: "convex-oauth-complete",
@@ -187,9 +226,8 @@ async function createCallbackState(
       });
       return;
     case "cloudflare_mcp":
-      await t.mutation(internal.oauthState.createOauthState, {
+      await createCloudflareMcpCallbackState(t, {
         ...commonState,
-        provider: "cloudflare_mcp",
         clientId: "cloudflare-client",
         codeVerifier: "cloudflare-code-verifier",
       });
@@ -343,6 +381,56 @@ describe("provider OAuth callback organization returns", () => {
   );
 
   it.each(callbackScenarios)(
+    "rejects a new $provider callback lease before provider exchange while draining",
+    async (scenario) => {
+      const t = makeConvexTest();
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          state: "active",
+          email: `${scenario.provider}-draining@example.test`,
+          isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
+        });
+      });
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId,
+          githubOwnerId: `${scenario.provider}-draining-owner`,
+          githubOwnerType: "organization",
+          githubOwnerLogin: `${scenario.provider}-draining-owner`,
+          githubInstallationId: `${scenario.provider}-draining-installation`,
+        },
+      );
+      const state = `${scenario.provider}-draining-state`;
+      await createCallbackState(t, { organizationId, scenario, state, userId });
+      await t.mutation(
+        internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode,
+        { mode: "draining" },
+      );
+      vi.stubEnv("SITE_URL", "https://samebase.com");
+      const providerFetch = vi.fn();
+      vi.stubGlobal("fetch", providerFetch);
+
+      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
+
+      expect(response.status).toBe(200);
+      expect(providerFetch).not.toHaveBeenCalled();
+      expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
+      expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
+      const snapshot = await t.run(async (ctx) => ({
+        leases: await ctx.db.query("repositoryOperationLeases").collect(),
+        oauthState: await ctx.db
+          .query("providerOAuthCallbackStates")
+          .withIndex("by_state", (query) => query.eq("state", state))
+          .unique(),
+      }));
+      expect(snapshot).toEqual({ leases: [], oauthState: null });
+    },
+  );
+
+  it.each(callbackScenarios)(
     "returns $provider provider-declined callbacks to the scoped route",
     async (scenario) => {
       const t = makeConvexTest();
@@ -389,9 +477,8 @@ describe("provider OAuth callback organization returns", () => {
           });
           break;
         case "cloudflare_mcp":
-          await t.mutation(internal.oauthState.createOauthState, {
+          await createCloudflareMcpCallbackState(t, {
             ...commonState,
-            provider: "cloudflare_mcp",
             clientId: "cloudflare-client",
             codeVerifier: "cloudflare-code-verifier",
           });
@@ -531,9 +618,8 @@ describe("provider OAuth callback organization returns", () => {
           );
           break;
         case "cloudflare_mcp":
-          await t.mutation(internal.oauthState.createOauthState, {
+          await createCloudflareMcpCallbackState(t, {
             ...commonState,
-            provider: "cloudflare_mcp",
             clientId: "cloudflare-mcp-client",
             codeVerifier: "cloudflare-mcp-code-verifier",
           });
@@ -570,15 +656,14 @@ describe("provider OAuth callback organization returns", () => {
       expect(html).toContain(`{ type: "${scenario.completionEventType}", returnTo }`);
       expect(html).toContain("window.close();");
       expect(html).toContain("window.location.replace(returnTo);");
-      await expect(
-        t.run(
-          async (ctx) =>
-            await ctx.db
-              .query("providerOAuthCallbackStates")
-              .withIndex("by_state", (query) => query.eq("state", state))
-              .unique(),
-        ),
-      ).resolves.toBeNull();
+      const snapshot = await t.run(async (ctx) => ({
+        leases: await ctx.db.query("repositoryOperationLeases").collect(),
+        oauthState: await ctx.db
+          .query("providerOAuthCallbackStates")
+          .withIndex("by_state", (query) => query.eq("state", state))
+          .unique(),
+      }));
+      expect(snapshot).toEqual({ leases: [], oauthState: null });
     },
   );
 
@@ -638,9 +723,8 @@ describe("provider OAuth callback organization returns", () => {
           );
           break;
         case "cloudflare_mcp":
-          await t.mutation(internal.oauthState.createOauthState, {
+          await createCloudflareMcpCallbackState(t, {
             ...commonState,
-            provider: "cloudflare_mcp",
             clientId: "cloudflare-mcp-client",
             codeVerifier: "cloudflare-mcp-code-verifier",
           });
@@ -751,9 +835,8 @@ describe("provider OAuth callback organization returns", () => {
           "https://api.samebase.com/oauth/cloudflare",
         );
       } else {
-        await t.mutation(internal.oauthState.createOauthState, {
+        await createCloudflareMcpCallbackState(t, {
           ...commonState,
-          provider: "cloudflare_mcp",
           clientId: scenario.clientId,
           codeVerifier: scenario.codeVerifier,
         });
@@ -886,8 +969,7 @@ describe("provider OAuth callback organization returns", () => {
           "https://api.samebase.com/oauth/cloudflare",
         );
       } else {
-        await t.mutation(internal.oauthState.createOauthState, {
-          provider: "cloudflare_mcp",
+        await createCloudflareMcpCallbackState(t, {
           userId,
           organizationId,
           state,
@@ -1118,9 +1200,8 @@ describe("provider OAuth callback organization returns", () => {
           "https://api.samebase.com/oauth/cloudflare",
         );
       } else {
-        await t.mutation(internal.oauthState.createOauthState, {
+        await createCloudflareMcpCallbackState(t, {
           ...commonState,
-          provider: "cloudflare_mcp",
           clientId: scenario.clientId,
           codeVerifier: scenario.codeVerifier,
         });

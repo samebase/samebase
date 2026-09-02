@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
+import { requireRepositoryAuthorityContinuation } from "../../repositoryMigration/maintenance";
 import { requireActiveVaultDeletionRun } from "../../vaultWorkflowAuthority";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
 import { readVaultDeletionState } from "./state";
@@ -75,6 +76,7 @@ async function loadVaultForDeletionActor(
   if (deletion.state !== "deleting" || deletion.runId !== run._id) {
     throw new Error("Vault deletion gate does not match run.");
   }
+  await requireRepositoryAuthorityContinuation(ctx);
   return vault;
 }
 

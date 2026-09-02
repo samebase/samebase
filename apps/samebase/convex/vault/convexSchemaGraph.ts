@@ -30,6 +30,10 @@ import {
 } from "./convexSchemaGraphModel";
 import { vVaultConvexProjectDocument } from "./model";
 import { readConvexProductionDeployment } from "./convexProjectResources";
+import {
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "../repositoryMigration/maintenance";
 
 const { array, id, literal, number, object, optional, string, union } = v;
 
@@ -70,6 +74,7 @@ type ConvexSchemaFetchResult = {
 };
 
 const CONVEX_SCHEMA_REFRESH_TIMEOUT_MS = 10_000;
+const CONVEX_SCHEMA_REFRESH_OPERATION = "convex_schema_refresh";
 const CONVEX_SCHEMA_INSPECTION_KEY_TTL_MS = 31 * 60 * 1000;
 const CONVEX_SCHEMA_SNAPSHOT_DOCUMENT_SOFT_LIMIT = 900_000;
 const CONVEX_SCHEMA_RAW_JSON_TOTAL_MAX_LENGTH = 500_000;
@@ -1029,6 +1034,7 @@ export const saveLayout = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireRepositoryOperationStart(ctx);
     const vault = await findVaultForUser(ctx.db, {
       userId: ctx.viewer.userId,
       vaultId: args.vaultId,
@@ -1109,6 +1115,14 @@ export const refresh = action({
     if (!deployment) {
       throw new Error("Convex project has no production deployment.");
     }
+    const operationId = crypto.randomUUID();
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName: CONVEX_SCHEMA_REFRESH_OPERATION,
+      },
+    );
     let deployKey: string | null = null;
     let deployKeyName: string | null = null;
     try {
@@ -1134,6 +1148,9 @@ export const refresh = action({
         declaredSchemaJson: fetched.declaredSchemaJson,
         inferredSchemaJson: fetched.inferredSchemaJson,
         fetchedAt: Date.now(),
+        leaseId: lease.leaseId,
+        operationId,
+        operationName: CONVEX_SCHEMA_REFRESH_OPERATION,
       });
       return { snapshotId };
     } finally {
@@ -1151,6 +1168,11 @@ export const refresh = action({
           });
         }
       }
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId: lease.leaseId,
+        operationId,
+        operationName: CONVEX_SCHEMA_REFRESH_OPERATION,
+      });
     }
   },
 });
@@ -1222,6 +1244,9 @@ export const recordSnapshot = internalMutation({
     declaredSchemaJson: optional(string()),
     inferredSchemaJson: optional(string()),
     fetchedAt: number(),
+    leaseId: id("repositoryOperationLeases"),
+    operationId: string(),
+    operationName: string(),
   },
   returns: id("observations_vaultConvexSchema_snapshots"),
   handler: async (ctx, args): Promise<Id<"observations_vaultConvexSchema_snapshots">> => {
@@ -1237,6 +1262,11 @@ export const recordSnapshot = internalMutation({
     ) {
       throw new Error("Convex project not found.");
     }
+    await requireRepositoryOperationLease(ctx, {
+      leaseId: args.leaseId,
+      operationId: args.operationId,
+      operationName: args.operationName,
+    });
 
     const latestSnapshot = await ctx.db
       .query("observations_vaultConvexSchema_snapshots")

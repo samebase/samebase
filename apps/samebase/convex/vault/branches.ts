@@ -9,9 +9,50 @@ import {
 } from "../../shared/treeRefresh";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { isLiveConnectedVault } from "./state";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "../repositoryMigration/maintenance";
+import {
+  requireVaultProviderWorkflowContinuation,
+  vVaultProviderWorkflowAuthority,
+} from "../vaultWorkflowAuthority";
 
 const nullValidator = v.null();
 const { boolean, id, literal, number, object, optional, string, union } = v;
+
+type RepositoryOperationLeaseArgs = {
+  leaseId?: Id<"repositoryOperationLeases">;
+  operationId?: string;
+  operationName?: string;
+};
+
+async function requireRepositoryOperationAuthority(
+  ctx: Pick<MutationCtx, "db">,
+  args: RepositoryOperationLeaseArgs,
+): Promise<void> {
+  if (
+    args.leaseId === undefined &&
+    args.operationId === undefined &&
+    args.operationName === undefined
+  ) {
+    await requireRepositoryOperationStart(ctx);
+    return;
+  }
+  if (
+    args.leaseId === undefined ||
+    args.operationId === undefined ||
+    args.operationName === undefined
+  ) {
+    throw new Error("Repository operation lease identity is incomplete.");
+  }
+  await requireRepositoryOperationLease(ctx, {
+    leaseId: args.leaseId,
+    operationId: args.operationId,
+    operationName: args.operationName,
+  });
+}
 
 export const getVaultBranchTree = internalQuery({
   args: {
@@ -73,9 +114,15 @@ export const upsertVaultBranchTree = internalMutation({
     branch: string(),
     treeData: vGithubTreeData,
     commitSHA: string(),
+    authority: optional(vVaultProviderWorkflowAuthority),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
+    if (args.authority === undefined) {
+      await requireRepositoryOperationStart(ctx);
+    } else {
+      await requireVaultProviderWorkflowContinuation(ctx, args.authority);
+    }
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault)) {
       return null;
@@ -114,6 +161,7 @@ export const upsertClaimedVaultBranchTree = internalMutation({
       return { written: false };
     }
 
+    await requireRepositoryAuthorityContinuation(ctx);
     await writeVaultBranchTree(ctx, args);
     return { written: true };
   },
@@ -150,9 +198,13 @@ function getLaterCooldownUntil(
 export const claimTreeRefresh = internalMutation({
   args: {
     vaultId: id("vaults"),
+    leaseId: optional(id("repositoryOperationLeases")),
+    operationId: optional(string()),
+    operationName: optional(string()),
   },
   returns: vTreeRefreshClaim,
   handler: async (ctx, args): Promise<TreeRefreshClaim> => {
+    await requireRepositoryOperationAuthority(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault)) {
       return { claimed: false, reason: "unavailable" };
@@ -202,6 +254,7 @@ export const releaseTreeRefresh = internalMutation({
       return { released: false };
     }
 
+    await requireRepositoryAuthorityContinuation(ctx);
     const now = Date.now();
     const cooldownUntil = getLaterCooldownUntil(vault.treeRefreshCooldownUntil, args.cooldownUntil);
     const shouldPreserveCooldownState =
@@ -247,6 +300,9 @@ export const recordTreeRefreshFailure = internalMutation({
     failureKind: optional(vTreeRefreshFailureKind),
     failureMessage: optional(string()),
     cooldownUntil: optional(number()),
+    leaseId: optional(id("repositoryOperationLeases")),
+    operationId: optional(string()),
+    operationName: optional(string()),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
@@ -264,6 +320,11 @@ export const recordTreeRefreshFailure = internalMutation({
       return null;
     }
 
+    if (typeof args.startedAt === "number") {
+      await requireRepositoryAuthorityContinuation(ctx);
+    } else {
+      await requireRepositoryOperationAuthority(ctx, args);
+    }
     await ctx.db.patch(args.vaultId, {
       lastTreeRefreshFailedAt: Date.now(),
       treeRefreshFailureKind: args.failureKind ?? "failed",

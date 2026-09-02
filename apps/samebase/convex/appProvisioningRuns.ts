@@ -12,6 +12,10 @@ import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
 import { requireVaultForUser, requireVaultOrganization } from "./organizationAccess";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 import { readActiveUser } from "./userLifecycle";
 
 const { id, literal, string, union } = v;
@@ -28,6 +32,10 @@ async function recordRepositoryFullNameForRun(
   if (!run) {
     throw new Error("Provisioning run not found.");
   }
+  if (run.state !== "queued" && run.state !== "running") {
+    throw new Error("Provisioning run is not active.");
+  }
+  await requireRepositoryAuthorityContinuation(ctx);
   if (run.repositoryFullName === args.repositoryFullName) {
     return;
   }
@@ -96,6 +104,7 @@ export const createRetryForVault = internalMutation({
     ) {
       throw new Error("Infrastructure retry is available only after provider setup fails.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const now = Date.now();
     const repositoryFullName = `${organization.githubOwnerLogin}/${connectedVault.name}`;
@@ -176,6 +185,7 @@ export const appendRunEvent = internalMutation({
       // trying to report late events. Terminal state owns the final record.
       return null;
     }
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     await ctx.runMutation(internal.appProvisioningEvents.append, {

@@ -121,6 +121,12 @@ type VaultActionAuthority =
       vaultId: Id<"vaults">;
     }
   | {
+      kind: "manual_provider_write";
+      userId: Id<"users">;
+      vaultId: Id<"vaults">;
+      actionId: string;
+    }
+  | {
       kind: "provisioning";
       runId: Id<"workflow_vaultProvisioning_runs">;
       userId: Id<"users">;
@@ -139,6 +145,38 @@ async function resolveCloudflareConnection(
     {
       userId: args.userId,
       organizationId: args.organizationId,
+    },
+  );
+  const token = connection?.auth.credential.trim();
+  if (!connection || !token) {
+    throw new Error("Cloudflare connection is required.");
+  }
+  return {
+    organizationId: args.organizationId,
+    auth: connection.auth,
+    token,
+    transport: resolveCloudflareApiTransport(connection.auth.method),
+    account: connection.account,
+    ...(connection.tokenHealth ? { tokenHealth: connection.tokenHealth } : {}),
+  };
+}
+
+async function resolveCloudflareConnectionForManualProviderWrite(
+  ctx: Pick<ActionCtx, "runAction">,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    organizationId: Id<"organizations">;
+    actionId: string;
+  },
+): Promise<CloudflareActionConnection> {
+  const connection = await ctx.runAction(
+    internal.cloudflareMcpOAuth.resolveConnectionForManualProviderWrite,
+    {
+      userId: args.userId,
+      vaultId: args.vaultId,
+      organizationId: args.organizationId,
+      actionId: args.actionId,
     },
   );
   const token = connection?.auth.credential.trim();
@@ -200,6 +238,13 @@ async function resolveCloudflareConnectionForAuthority(
         userId: authority.userId,
         organizationId,
       });
+    case "manual_provider_write":
+      return await resolveCloudflareConnectionForManualProviderWrite(ctx, {
+        userId: authority.userId,
+        vaultId: authority.vaultId,
+        organizationId,
+        actionId: authority.actionId,
+      });
     case "provisioning":
       return await resolveCloudflareConnectionForProvisioningRun(ctx, {
         ...authority,
@@ -221,6 +266,11 @@ async function resolveGitHubAppAccessForAuthority(
         userId: authority.userId,
         target: { kind: "vault", vaultId: authority.vaultId },
       });
+    case "manual_provider_write":
+      return await resolveGitHubAppAccess(ctx, {
+        userId: authority.userId,
+        target: { kind: "vault", vaultId: authority.vaultId },
+      });
     case "provisioning":
       return await resolveGitHubAppAccessForProvisioningRun(ctx, authority);
     default:
@@ -236,6 +286,12 @@ async function resolveConvexConnectionForAuthority(
 ) {
   switch (authority.kind) {
     case "user":
+      return await resolveConvexProvisioningConnection(ctx, {
+        userId: authority.userId,
+        organizationId: args.organizationId,
+        teamId: args.teamId,
+      });
+    case "manual_provider_write":
       return await resolveConvexProvisioningConnection(ctx, {
         userId: authority.userId,
         organizationId: args.organizationId,
@@ -338,6 +394,7 @@ async function resolveCloudflareRepositoryContext(
     userId: Id<"users">;
     vaultId: Id<"vaults">;
     accountId: string;
+    actionId?: string;
   },
 ): Promise<{
   account: CloudflareAccount;
@@ -359,10 +416,17 @@ async function resolveCloudflareRepositoryContext(
     throw new Error("Cloudflare account does not match the vault destination.");
   }
   const [connection, githubAccess] = await Promise.all([
-    resolveCloudflareConnection(ctx, {
-      userId: args.userId,
-      organizationId: context.organizationId,
-    }),
+    args.actionId === undefined
+      ? resolveCloudflareConnection(ctx, {
+          userId: args.userId,
+          organizationId: context.organizationId,
+        })
+      : resolveCloudflareConnectionForManualProviderWrite(ctx, {
+          userId: args.userId,
+          vaultId: args.vaultId,
+          organizationId: context.organizationId,
+          actionId: args.actionId,
+        }),
     resolveGitHubAppAccess(ctx, {
       userId: args.userId,
       target: { kind: "vault", vaultId: args.vaultId },
@@ -801,6 +865,7 @@ async function prepareConvexDeployKeyRotation(
   let context: WorkerConvexProjectConfigurationContext;
   switch (args.authority.kind) {
     case "user":
+    case "manual_provider_write":
       context = await readWorkerConvexProjectConfigurationContext(ctx, {
         vaultId,
         userId: args.authority.userId,
@@ -1036,7 +1101,12 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
     const prepared = await prepareConvexDeployKeyRotation(
       ctx,
       {
-        authority: { kind: "user", userId: args.userId, vaultId: args.vaultId },
+        authority: {
+          kind: "manual_provider_write",
+          userId: args.userId,
+          vaultId: args.vaultId,
+          actionId,
+        },
         workerId: args.workerId,
         convexProjectId: args.convexProjectId,
       },
@@ -1107,7 +1177,12 @@ export async function configureWorkersBuildsForGitHubForUser(
     const prepared = await prepareWorkersBuildsForGitHub(
       ctx,
       {
-        authority: { kind: "user", userId: args.userId, vaultId: args.vaultId },
+        authority: {
+          kind: "manual_provider_write",
+          userId: args.userId,
+          vaultId: args.vaultId,
+          actionId,
+        },
         rootDirectory: buildConfig.rootDir,
       },
       context,
@@ -1200,7 +1275,11 @@ async function connectWorkerForUser(
   let identity: NonNullable<Awaited<ReturnType<typeof readCloudflareWorkerIdentityByTag>>>;
   let workerId: Id<"vaultCloudflareWorkers">;
   try {
-    resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
+    resolved = await resolveCloudflareRepositoryContext(ctx, {
+      ...args,
+      accountId,
+      actionId,
+    });
     await requireCloudflareBuildTokenUuid({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
@@ -1413,7 +1492,11 @@ export async function createWorkerForUser(
   const providerCreate = { started: false };
   let workerRecorded = false;
   try {
-    const resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
+    const resolved = await resolveCloudflareRepositoryContext(ctx, {
+      ...args,
+      accountId,
+      actionId,
+    });
     await requireCloudflareBuildTokenUuid({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
@@ -1721,6 +1804,9 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
       internal.vault.cloudflareMutations.readManagedWorkerConfigurationContext,
       { vaultId, runId, userId, workerId },
     );
+    await ctx.runMutation(internal.vaultWorkflowAuthority.assertVaultProviderWorkflowContinuation, {
+      authority: { kind: "provisioning", vaultId, runId, userId },
+    });
     const prepared = await prepareWorkersBuildsForGitHub(
       ctx,
       {
@@ -1773,6 +1859,9 @@ export const rotateConvexDeployKeysForWorkersBuildsForWorkflow = internalAction(
     if (build.rootDirectory !== context.rootDirectory) {
       throw new Error("Managed Cloudflare Builds root changed before deploy-key rotation.");
     }
+    await ctx.runMutation(internal.vaultWorkflowAuthority.assertVaultProviderWorkflowContinuation, {
+      authority: { kind: "provisioning", vaultId, runId, userId },
+    });
     const args = {
       authority: { kind: "provisioning" as const, vaultId, runId, userId },
       workerId,

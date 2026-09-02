@@ -36,10 +36,12 @@ import {
   vVaultProviderWorkflowAuthority,
   type VaultProviderWorkflowAuthority,
 } from "./vaultWorkflowAuthority";
+import { requireRepositoryOperationLease } from "./repositoryMigration/maintenance";
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
+const CLOUDFLARE_OAUTH_CALLBACK_OPERATION = "cloudflare_oauth_callback";
 const { boolean, id, number, object, optional, string, union } = v;
 
 type OAuthContext = ActionCtx | MutationCtx;
@@ -302,12 +304,18 @@ const storeCloudflareOauthConnectionArgs = {
   account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
   oauthState: string(),
+  leaseId: id("repositoryOperationLeases"),
 } as const;
 
 export const storeCloudflareOauthConnection = internalMutation({
   args: storeCloudflareOauthConnectionArgs,
   returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
+    await requireRepositoryOperationLease(ctx, {
+      leaseId: args.leaseId,
+      operationId: args.oauthStateId,
+      operationName: CLOUDFLARE_OAUTH_CALLBACK_OPERATION,
+    });
     const checkedAt = Date.now();
     const result = await connectCloudflareCredential(ctx, {
       organizationId: args.organizationId,
@@ -884,7 +892,17 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
   }
 
   let completionReturnUrl = returnUrl;
+  const operationId = oauthState._id;
+  let leaseId: Id<"repositoryOperationLeases"> | null = null;
   try {
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName: CLOUDFLARE_OAUTH_CALLBACK_OPERATION,
+      },
+    );
+    leaseId = lease.leaseId;
     const clientId = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID");
     const clientSecret = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET");
     const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL");
@@ -920,6 +938,7 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
         account,
         oauthStateId: oauthState._id,
         oauthState: state,
+        leaseId,
       },
     );
     completionReturnUrl = buildProviderOAuthStoreReturnUrl({
@@ -955,6 +974,14 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
       provider: "cloudflare",
       code: "failed",
     });
+  } finally {
+    if (leaseId !== null) {
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId,
+        operationId,
+        operationName: CLOUDFLARE_OAUTH_CALLBACK_OPERATION,
+      });
+    }
   }
 
   return buildAuthorizationCompletionResponse({

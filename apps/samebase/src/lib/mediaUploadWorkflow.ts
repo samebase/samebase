@@ -12,18 +12,25 @@ export function readUploadStorageId(value: unknown): string {
   throw new Error("Upload response did not include a storage id.");
 }
 
-export async function uploadMediaWithCleanup(args: {
-  requestUploadUrl: () => Promise<string>;
+export type MediaUploadCapability = {
+  uploadUrl: string;
+  leaseId: string;
+  operationId: string;
+  operationName: string;
+};
+
+export async function uploadMediaWithCleanup<Capability extends MediaUploadCapability>(args: {
+  requestUploadUrl: () => Promise<Capability>;
   uploadFile: (uploadUrl: string) => Promise<string>;
-  stageUploadedMedia: (storageId: string) => Promise<void>;
+  stageUploadedMedia: (args: { storageId: string; capability: Capability }) => Promise<void>;
   deleteUploadedMedia: (storageId: string) => Promise<void>;
   onCleanupError?: (error: unknown, storageId: string) => void;
 }): Promise<void> {
-  const uploadUrl = await args.requestUploadUrl();
-  const storageId = await args.uploadFile(uploadUrl);
+  const capability = await args.requestUploadUrl();
+  const storageId = await args.uploadFile(capability.uploadUrl);
 
   try {
-    await args.stageUploadedMedia(storageId);
+    await args.stageUploadedMedia({ storageId, capability });
   } catch (error) {
     try {
       await args.deleteUploadedMedia(storageId);

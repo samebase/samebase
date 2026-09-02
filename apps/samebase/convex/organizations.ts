@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, type Infer, v } from "convex/values";
 
 import type { Id, TableNames } from "./_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
@@ -8,6 +8,10 @@ import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationMod
 import { vGitHubAppInstallationAccess } from "./githubAppAccess";
 import { isPreviewSeedUser, PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { readActiveUser } from "./userLifecycle";
+import {
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 
 const { boolean, id, object, string } = v;
 const ORGANIZATION_DELETION_ROW_LIMIT = 500;
@@ -142,107 +146,154 @@ export const getExternalReturnOwnerLogin = internalQuery({
   },
 });
 
-/** Create a GitHub-backed organization or reconnect its verified installation. */
-export const createOrReconnectVerifiedOrganization = internalMutation({
+const createOrReconnectVerifiedOrganizationArgs = {
+  userId: id("users"),
+  githubOwnerId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+  githubInstallationId: string(),
+} as const;
+
+async function createOrReconnectVerifiedOrganizationAfterAuthority(
+  ctx: MutationCtx,
   args: {
-    userId: id("users"),
-    githubOwnerId: string(),
-    githubOwnerType: vGitHubOwnerType,
-    githubOwnerLogin: string(),
-    githubInstallationId: string(),
+    userId: Id<"users">;
+    githubOwnerId: string;
+    githubOwnerType: Infer<typeof vGitHubOwnerType>;
+    githubOwnerLogin: string;
+    githubInstallationId: string;
   },
-  returns: vCreateOrReconnectResult,
-  handler: async (ctx, args) => {
-    const githubOwnerId = requireProviderIdentity(args.githubOwnerId, "GitHub owner ID");
-    const githubOwnerLogin = requireProviderIdentity(args.githubOwnerLogin, "GitHub owner login");
-    const githubOwnerLoginNormalized = normalizeGitHubOwnerLogin(githubOwnerLogin);
-    const githubInstallationId = requireProviderIdentity(
-      args.githubInstallationId,
-      "GitHub installation ID",
-    );
+) {
+  const githubOwnerId = requireProviderIdentity(args.githubOwnerId, "GitHub owner ID");
+  const githubOwnerLogin = requireProviderIdentity(args.githubOwnerLogin, "GitHub owner login");
+  const githubOwnerLoginNormalized = normalizeGitHubOwnerLogin(githubOwnerLogin);
+  const githubInstallationId = requireProviderIdentity(
+    args.githubInstallationId,
+    "GitHub installation ID",
+  );
 
-    const user = await ctx.db.get(args.userId);
-    if (user === null || readActiveUser(user) === null) {
-      throw new Error("An active Samebase user is required.");
-    }
+  const user = await ctx.db.get(args.userId);
+  if (user === null || readActiveUser(user) === null) {
+    throw new Error("An active Samebase user is required.");
+  }
 
-    const [existingOrganization, organizationForLogin, organizationForInstallation] =
-      await Promise.all([
-        ctx.db
-          .query("organizations")
-          .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", githubOwnerId))
-          .unique(),
-        ctx.db
-          .query("organizations")
-          .withIndex("by_github_owner_login_normalized", (query) =>
-            query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
-          )
-          .unique(),
-        ctx.db
-          .query("organizations")
-          .withIndex("by_github_installation_id", (query) =>
-            query.eq("githubInstallationId", githubInstallationId),
-          )
-          .unique(),
-      ]);
+  const [existingOrganization, organizationForLogin, organizationForInstallation] =
+    await Promise.all([
+      ctx.db
+        .query("organizations")
+        .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", githubOwnerId))
+        .unique(),
+      ctx.db
+        .query("organizations")
+        .withIndex("by_github_owner_login_normalized", (query) =>
+          query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
+        )
+        .unique(),
+      ctx.db
+        .query("organizations")
+        .withIndex("by_github_installation_id", (query) =>
+          query.eq("githubInstallationId", githubInstallationId),
+        )
+        .unique(),
+    ]);
 
-    if (existingOrganization !== null) {
-      await requireOrganizationOwnerAccessContext(ctx.db, {
-        userId: args.userId,
-        organizationId: existingOrganization._id,
-      });
-      if (organizationForLogin !== null && organizationForLogin._id !== existingOrganization._id) {
-        throw new Error("GitHub owner login is already connected to another organization.");
-      }
-      if (
-        organizationForInstallation !== null &&
-        organizationForInstallation._id !== existingOrganization._id
-      ) {
-        throw new Error("GitHub installation is already connected to another organization.");
-      }
-
-      await ctx.db.patch(existingOrganization._id, {
-        githubOwnerType: args.githubOwnerType,
-        githubOwnerLogin,
-        githubOwnerLoginNormalized,
-        githubInstallationId,
-      });
-
-      return {
-        organizationId: existingOrganization._id,
-        created: false,
-      };
-    }
-
-    if (organizationForLogin !== null) {
+  if (existingOrganization !== null) {
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: existingOrganization._id,
+    });
+    if (organizationForLogin !== null && organizationForLogin._id !== existingOrganization._id) {
       throw new Error("GitHub owner login is already connected to another organization.");
     }
-    if (organizationForInstallation !== null) {
+    if (
+      organizationForInstallation !== null &&
+      organizationForInstallation._id !== existingOrganization._id
+    ) {
       throw new Error("GitHub installation is already connected to another organization.");
     }
 
-    const organizationId = await ctx.db.insert("organizations", {
-      githubOwnerId,
+    await ctx.db.patch(existingOrganization._id, {
       githubOwnerType: args.githubOwnerType,
       githubOwnerLogin,
       githubOwnerLoginNormalized,
       githubInstallationId,
     });
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
-      userId: args.userId,
-      role: "owner",
-    });
-    await ctx.db.insert("organizationBillingAccounts", {
-      organizationId,
-      plan: "free",
-      status: "inactive",
-    });
 
     return {
-      organizationId,
-      created: true,
+      organizationId: existingOrganization._id,
+      created: false,
     };
+  }
+
+  if (organizationForLogin !== null) {
+    throw new Error("GitHub owner login is already connected to another organization.");
+  }
+  if (organizationForInstallation !== null) {
+    throw new Error("GitHub installation is already connected to another organization.");
+  }
+
+  const organizationId = await ctx.db.insert("organizations", {
+    githubOwnerId,
+    githubOwnerType: args.githubOwnerType,
+    githubOwnerLogin,
+    githubOwnerLoginNormalized,
+    githubInstallationId,
+  });
+  await ctx.db.insert("organizationMemberships", {
+    organizationId,
+    userId: args.userId,
+    role: "owner",
+  });
+  await ctx.db.insert("organizationBillingAccounts", {
+    organizationId,
+    plan: "free",
+    status: "inactive",
+  });
+
+  return {
+    organizationId,
+    created: true,
+  };
+}
+
+/** Create a GitHub-backed organization or reconnect its verified installation. */
+export const createOrReconnectVerifiedOrganization = internalMutation({
+  args: createOrReconnectVerifiedOrganizationArgs,
+  returns: vCreateOrReconnectResult,
+  handler: async (ctx, args) => {
+    await requireRepositoryOperationStart(ctx);
+    return await createOrReconnectVerifiedOrganizationAfterAuthority(ctx, args);
+  },
+});
+
+export const createOrReconnectVerifiedOrganizationForGitHubAppCallback = internalMutation({
+  args: {
+    ...createOrReconnectVerifiedOrganizationArgs,
+    setupStateId: id("githubAppSetupStates"),
+    leaseId: id("repositoryOperationLeases"),
+    operationId: string(),
+    operationName: string(),
+  },
+  returns: vCreateOrReconnectResult,
+  handler: async (ctx, args) => {
+    if (
+      args.operationName !== "github_app_callback" ||
+      args.operationId !== `github-app-callback:${args.setupStateId}`
+    ) {
+      throw new Error("GitHub App callback operation authority is required.");
+    }
+    await requireRepositoryOperationLease(ctx, {
+      leaseId: args.leaseId,
+      operationId: args.operationId,
+      operationName: args.operationName,
+    });
+    return await createOrReconnectVerifiedOrganizationAfterAuthority(ctx, {
+      userId: args.userId,
+      githubOwnerId: args.githubOwnerId,
+      githubOwnerType: args.githubOwnerType,
+      githubOwnerLogin: args.githubOwnerLogin,
+      githubInstallationId: args.githubInstallationId,
+    });
   },
 });
 
@@ -267,6 +318,7 @@ export const updateVerifiedGitHubOwnerLogin = internalMutation({
     if (organization.githubOwnerId !== args.githubOwnerId) {
       throw new Error("GitHub owner identity changed before the login update.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const githubOwnerLogin = requireProviderIdentity(args.githubOwnerLogin, "GitHub owner login");
     if (organization.githubOwnerLogin === githubOwnerLogin) {
@@ -473,6 +525,7 @@ export const deleteOrganization = mutation({
     if (cleanupRows.some((rows) => rows.length > ORGANIZATION_DELETION_ROW_LIMIT)) {
       throw new ConvexError("This organization cannot be deleted automatically.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     await deleteRows(ctx, deletionEvents);
     await deleteRows(ctx, deletionRuns);

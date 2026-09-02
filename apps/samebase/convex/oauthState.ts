@@ -10,6 +10,10 @@ import {
 } from "./organizationProviderCredentialModel";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import {
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 import { readActiveUser } from "./userLifecycle";
 
 export {
@@ -18,6 +22,8 @@ export {
   type OAuthProvider,
   type ProviderOAuthStoreResult,
 } from "./organizationProviderCredentialModel";
+
+export const CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION = "cloudflare_mcp_oauth_setup";
 
 const providerOAuthCallbackStateSystemFields = {
   _id: v.id("providerOAuthCallbackStates"),
@@ -38,6 +44,7 @@ export const createOauthState = internalMutation({
     state: v.string(),
     codeVerifier: v.optional(v.string()),
     clientId: v.optional(v.string()),
+    leaseId: v.optional(v.id("repositoryOperationLeases")),
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -54,6 +61,21 @@ export const createOauthState = internalMutation({
       throw new Error("Organization not found.");
     }
     await requireOrganizationOwnerAccessContext(ctx.db, args);
+    if (args.provider === "cloudflare_mcp") {
+      if (args.leaseId === undefined) {
+        throw new Error("Cloudflare MCP OAuth setup lease is required.");
+      }
+      await requireRepositoryOperationLease(ctx, {
+        leaseId: args.leaseId,
+        operationId: args.state,
+        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
+      });
+    } else {
+      if (args.leaseId !== undefined) {
+        throw new Error("This OAuth provider cannot use a Cloudflare MCP setup lease.");
+      }
+      await requireRepositoryOperationStart(ctx);
+    }
     const configuration = await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
     const expectedProviderSnapshotHash =
       args.provider === "convex"

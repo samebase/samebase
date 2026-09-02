@@ -14,13 +14,17 @@ import {
 } from "../_generated/server";
 import { vVaultProviderResourceOrigin } from "./model";
 import {
-  requireManualProviderWriteCheckpoint,
+  requireManualProviderWriteContinuation,
   requireUserVaultInfrastructureIdle,
   recordManagedProviderWrite,
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
-import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
+import {
+  requireActiveVaultProvisioningAuthority,
+  requireActiveVaultProvisioningContinuation,
+} from "../vaultWorkflowAuthority";
 import { normalizeVaultRootDirectory } from "../../shared/vaultRootDirectory";
+import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -288,6 +292,7 @@ export const attachWorkers = internalMutation({
       workerNames.add(nameIdentity);
       workerTags.add(tagIdentity);
     }
+    await requireRepositoryOperationStart(ctx);
 
     const workerAttachmentIds: Array<Id<"vaultCloudflareWorkers">> = [];
     for (const worker of args.workers) {
@@ -327,6 +332,7 @@ export const detachWorker = internalMutation({
     ) {
       throw new Error("Cloudflare Worker attachment changed before removal.");
     }
+    await requireRepositoryOperationStart(ctx);
     await ctx.db.delete(worker._id);
     return null;
   },
@@ -367,6 +373,7 @@ export const updateWorkerName = internalMutation({
     if (occupied && occupied._id !== worker._id) {
       throw new Error("Cloudflare Worker name is already attached.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const plan = await ctx.db
       .query("workflow_vaultProvisioning_plans")
@@ -415,6 +422,7 @@ export const updateWorkerRootDirectory = internalMutation({
     ) {
       throw new Error("Cloudflare Worker attachment changed before the root update.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
     const plan = await ctx.db
@@ -520,6 +528,7 @@ export const beginManagedWorkerCreate = internalMutation({
     if (buildTokenUuid === null) {
       throw new Error("Select a Cloudflare Workers Builds token and retry.");
     }
+    await requireActiveVaultProvisioningContinuation(ctx, args);
     await ctx.db.patch(plan._id, {
       cloudflare: {
         state: "creating",
@@ -551,6 +560,7 @@ export const recordManagedWorkerCreated = internalMutation({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
+    await requireActiveVaultProvisioningContinuation(ctx, args);
     let workerId: Id<"vaultCloudflareWorkers">;
     if (plan.cloudflare.state === "created") {
       if (plan.cloudflare.workerTag !== args.workerTag) {
@@ -620,7 +630,7 @@ export const recordManualConnectedWorker = internalMutation({
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    const vault = await requireManualProviderWriteCheckpoint(ctx, {
+    const vault = await requireManualProviderWriteContinuation(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
       userId: args.userId,
@@ -654,7 +664,7 @@ export const recordManualWorkerCreated = internalMutation({
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    const vault = await requireManualProviderWriteCheckpoint(ctx, {
+    const vault = await requireManualProviderWriteContinuation(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
       userId: args.userId,

@@ -42,8 +42,34 @@ import {
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
 import { readActiveUser } from "./userLifecycle";
+import {
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
+const GITHUB_APP_CALLBACK_OPERATION = "github_app_callback";
+
+const vRepositoryOperationLease = object({
+  leaseId: id("repositoryOperationLeases"),
+  operationId: string(),
+  operationName: string(),
+});
+type RepositoryOperationLease = Infer<typeof vRepositoryOperationLease>;
+
+async function requireGitHubAppCallbackLease(
+  ctx: MutationCtx,
+  setupStateId: Id<"githubAppSetupStates">,
+  operationLease: RepositoryOperationLease,
+): Promise<void> {
+  if (
+    operationLease.operationName !== GITHUB_APP_CALLBACK_OPERATION ||
+    operationLease.operationId !== `github-app-callback:${setupStateId}`
+  ) {
+    throw new Error("GitHub App callback operation authority is required.");
+  }
+  await requireRepositoryOperationLease(ctx, operationLease);
+}
 
 const vGitHubAppSetupStateResult = union(
   object({
@@ -218,6 +244,7 @@ export const createSetupState = internalMutation({
       throw new Error("GitHub App setup state organization does not match its purpose.");
     }
 
+    await requireRepositoryOperationStart(ctx);
     return await ctx.db.insert("githubAppSetupStates", args);
   },
 });
@@ -256,9 +283,11 @@ export const getSetupStateByState = internalQuery({
 export const deleteSetupState = internalMutation({
   args: {
     setupStateId: id("githubAppSetupStates"),
+    operationLease: vRepositoryOperationLease,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireGitHubAppCallbackLease(ctx, args.setupStateId, args.operationLease);
     const setupState = await ctx.db.get(args.setupStateId);
     if (setupState !== null) {
       await ctx.db.delete(setupState._id);
@@ -276,6 +305,7 @@ export const completeVerifiedSetup = internalMutation({
     githubOwnerType: vGitHubOwnerType,
     githubOwnerLogin: string(),
     githubUserId: string(),
+    operationLease: vRepositoryOperationLease,
   },
   returns: vGitHubAppSetupCompletion,
   handler: async (ctx, args): Promise<GitHubAppSetupCompletion> => {
@@ -290,6 +320,7 @@ export const completeVerifiedSetup = internalMutation({
     if (purpose !== "installation" && purpose !== "installation_reconnect") {
       throw new Error("GitHub App setup state purpose changed.");
     }
+    await requireGitHubAppCallbackLease(ctx, args.setupStateId, args.operationLease);
 
     const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
       userId: setupState.userId,
@@ -379,13 +410,17 @@ export const completeVerifiedSetup = internalMutation({
     }
 
     const result = await ctx.runMutation(
-      internal.organizations.createOrReconnectVerifiedOrganization,
+      internal.organizations.createOrReconnectVerifiedOrganizationForGitHubAppCallback,
       {
         userId: setupState.userId,
         githubOwnerId: args.githubOwnerId,
         githubOwnerType: args.githubOwnerType,
         githubOwnerLogin: args.githubOwnerLogin,
         githubInstallationId: args.installationId,
+        setupStateId: args.setupStateId,
+        leaseId: args.operationLease.leaseId,
+        operationId: args.operationLease.operationId,
+        operationName: args.operationLease.operationName,
       },
     );
 
@@ -408,6 +443,7 @@ export const completeUserAuthorization = internalMutation({
     accessTokenExpiresAt: number(),
     refreshToken: string(),
     refreshTokenExpiresAt: number(),
+    operationLease: vRepositoryOperationLease,
   },
   returns: vGitHubUserAuthorizationCompletion,
   handler: async (ctx, args): Promise<GitHubUserAuthorizationCompletion> => {
@@ -421,6 +457,7 @@ export const completeUserAuthorization = internalMutation({
     if (setupState.purpose !== "user_authorization") {
       throw new Error("GitHub App setup state purpose changed.");
     }
+    await requireGitHubAppCallbackLease(ctx, args.setupStateId, args.operationLease);
 
     const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
       userId: setupState.userId,
@@ -567,222 +604,250 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
     returnToPath: setupState.returnToPath,
   });
   const provider = readGitHubAuthorizationProvider(setupState.purpose);
-  if (setupState.expiresAt < Date.now()) {
-    await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
-      setupStateId: setupState.setupStateId,
-    });
-    console.log("github:authorization:callback_completed", {
-      outcome: "expired",
-      purpose: setupState.purpose,
-    });
-    return buildAuthorizationCompletionResponse({
-      eventType: "github-app-setup-complete",
-      returnUrl: buildAuthorizationErrorUrl(returnUrl, { provider, code: "expired" }),
-      title: "GitHub App setup",
-    });
-  }
-
-  if (error !== null) {
-    const errorCode = classifyAuthorizationCallbackError(error);
-    await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
-      setupStateId: setupState.setupStateId,
-    });
-    console.log("github:authorization:callback_completed", {
-      outcome: errorCode,
-      purpose: setupState.purpose,
-    });
-    return buildAuthorizationCompletionResponse({
-      eventType: "github-app-setup-complete",
-      returnUrl: buildAuthorizationErrorUrl(returnUrl, { provider, code: errorCode }),
-      title: "GitHub App setup",
-    });
-  }
-
-  let completionReturnUrl = returnUrl;
+  const operationId = `github-app-callback:${setupState.setupStateId}`;
+  const operationName = GITHUB_APP_CALLBACK_OPERATION;
+  const lease = await ctx.runMutation(
+    internal.repositoryMigration.maintenance.claimOperationLease,
+    {
+      operationId,
+      operationName,
+    },
+  );
+  const operationLease = {
+    leaseId: lease.leaseId,
+    operationId,
+    operationName,
+  };
   try {
-    switch (setupState.purpose) {
-      case "installation":
-      case "installation_reconnect": {
-        const installationId = parseInstallationId(url.searchParams.get("installation_id"));
-        if (installationId === null) {
-          throw new Error("GitHub App installation ID is missing.");
-        }
-        const authorization = await resolveGitHubUserAuthorizationForAppConnection(
-          ctx,
-          setupState.userId,
-        );
-        if (authorization.status !== "ready") {
-          throw new Error("A matching GitHub user authorization is required.");
-        }
-        if (setupState.githubSignInProviderAccountId !== authorization.githubUserId) {
-          throw new Error("The linked GitHub sign-in changed during App setup.");
-        }
-        const installation = await verifyGitHubAppConnectionInstallation({
-          octokit: authorization.octokit,
-          githubUserId: authorization.githubUserId,
-          installationId: String(installationId),
-        });
-        if (!installation.canManage) {
-          throw new Error("GitHub organization administrator verification failed.");
-        }
-        const completion: GitHubAppSetupCompletion = await ctx.runMutation(
-          internal.githubAppInstallation.completeVerifiedSetup,
-          {
-            setupStateId: setupState.setupStateId,
-            state,
-            installationId: installation.installationId,
-            githubOwnerId: installation.githubOwnerId,
-            githubOwnerType: installation.githubOwnerType,
-            githubOwnerLogin: installation.githubOwnerLogin,
+    if (setupState.expiresAt < Date.now()) {
+      await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
+        setupStateId: setupState.setupStateId,
+        operationLease,
+      });
+      console.log("github:authorization:callback_completed", {
+        outcome: "expired",
+        purpose: setupState.purpose,
+      });
+      return buildAuthorizationCompletionResponse({
+        eventType: "github-app-setup-complete",
+        returnUrl: buildAuthorizationErrorUrl(returnUrl, { provider, code: "expired" }),
+        title: "GitHub App setup",
+      });
+    }
+
+    if (error !== null) {
+      const errorCode = classifyAuthorizationCallbackError(error);
+      await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
+        setupStateId: setupState.setupStateId,
+        operationLease,
+      });
+      console.log("github:authorization:callback_completed", {
+        outcome: errorCode,
+        purpose: setupState.purpose,
+      });
+      return buildAuthorizationCompletionResponse({
+        eventType: "github-app-setup-complete",
+        returnUrl: buildAuthorizationErrorUrl(returnUrl, { provider, code: errorCode }),
+        title: "GitHub App setup",
+      });
+    }
+
+    let completionReturnUrl = returnUrl;
+    try {
+      switch (setupState.purpose) {
+        case "installation":
+        case "installation_reconnect": {
+          const installationId = parseInstallationId(url.searchParams.get("installation_id"));
+          if (installationId === null) {
+            throw new Error("GitHub App installation ID is missing.");
+          }
+          const authorization = await resolveGitHubUserAuthorizationForAppConnection(
+            ctx,
+            setupState.userId,
+            operationLease,
+          );
+          if (authorization.status !== "ready") {
+            throw new Error("A matching GitHub user authorization is required.");
+          }
+          if (setupState.githubSignInProviderAccountId !== authorization.githubUserId) {
+            throw new Error("The linked GitHub sign-in changed during App setup.");
+          }
+          const installation = await verifyGitHubAppConnectionInstallation({
+            octokit: authorization.octokit,
             githubUserId: authorization.githubUserId,
-          },
-        );
-        switch (completion.status) {
-          case "stored":
-            if (setupState.purpose === "installation_reconnect") {
-              completionReturnUrl = buildGitHubOrganizationProvidersReturnUrl({
-                githubOwnerLogin: completion.githubOwnerLogin,
-                previousReturnUrl: returnUrl,
-              });
-            }
-            break;
-          case "access_lost":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider,
-              code: "access-changed",
-            });
-            break;
-          case "github_sign_in_required":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider,
-              code: "github-sign-in-required",
-            });
-            break;
-          case "github_sign_in_mismatch":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider,
-              code: "github-sign-in-mismatch",
-            });
-            break;
-          case "authorization_required":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider: "github-user",
-              code: "failed",
-            });
-            break;
-          case "target_mismatch":
-            completionReturnUrl = buildAuthorizationErrorUrl(
-              buildGitHubOrganizationProvidersReturnUrl({
-                githubOwnerLogin: completion.githubOwnerLogin,
-                previousReturnUrl: returnUrl,
-              }),
-              {
-                provider,
-                code: "target-mismatch",
-              },
-            );
-            break;
-          case "organization_owner_required":
-            completionReturnUrl = buildAuthorizationErrorUrl(
-              buildGitHubOrganizationProvidersReturnUrl({
-                githubOwnerLogin: completion.githubOwnerLogin,
-                previousReturnUrl: returnUrl,
-              }),
-              {
-                provider,
-                code: "organization-owner-required",
-              },
-            );
-            break;
-          default:
-            completion satisfies never;
-        }
-        console.log("github:authorization:callback_completed", {
-          outcome: completion.status,
-          purpose: setupState.purpose,
-        });
-        break;
-      }
-      case "user_authorization": {
-        if (code === null) {
-          throw new Error("GitHub OAuth code is missing.");
-        }
-        const authorization = await verifyGitHubUserAuthorization({ code, state });
-        let completion: Infer<typeof vGitHubUserAuthorizationCompletion>;
-        try {
-          completion = await ctx.runMutation(
-            internal.githubAppInstallation.completeUserAuthorization,
+            installationId: String(installationId),
+          });
+          if (!installation.canManage) {
+            throw new Error("GitHub organization administrator verification failed.");
+          }
+          const completion: GitHubAppSetupCompletion = await ctx.runMutation(
+            internal.githubAppInstallation.completeVerifiedSetup,
             {
               setupStateId: setupState.setupStateId,
               state,
-              accessToken: authorization.accessToken,
-              accessTokenExpiresAt: authorization.accessTokenExpiresAt,
-              refreshToken: authorization.refreshToken,
-              refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
+              installationId: installation.installationId,
+              githubOwnerId: installation.githubOwnerId,
+              githubOwnerType: installation.githubOwnerType,
+              githubOwnerLogin: installation.githubOwnerLogin,
               githubUserId: authorization.githubUserId,
-              githubUserLogin: authorization.githubUserLogin,
+              operationLease,
             },
           );
-        } catch (error) {
-          await revokeUncommittedGitHubUserToken(authorization.accessToken);
-          throw error;
+          switch (completion.status) {
+            case "stored":
+              if (setupState.purpose === "installation_reconnect") {
+                completionReturnUrl = buildGitHubOrganizationProvidersReturnUrl({
+                  githubOwnerLogin: completion.githubOwnerLogin,
+                  previousReturnUrl: returnUrl,
+                });
+              }
+              break;
+            case "access_lost":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider,
+                code: "access-changed",
+              });
+              break;
+            case "github_sign_in_required":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider,
+                code: "github-sign-in-required",
+              });
+              break;
+            case "github_sign_in_mismatch":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider,
+                code: "github-sign-in-mismatch",
+              });
+              break;
+            case "authorization_required":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider: "github-user",
+                code: "failed",
+              });
+              break;
+            case "target_mismatch":
+              completionReturnUrl = buildAuthorizationErrorUrl(
+                buildGitHubOrganizationProvidersReturnUrl({
+                  githubOwnerLogin: completion.githubOwnerLogin,
+                  previousReturnUrl: returnUrl,
+                }),
+                {
+                  provider,
+                  code: "target-mismatch",
+                },
+              );
+              break;
+            case "organization_owner_required":
+              completionReturnUrl = buildAuthorizationErrorUrl(
+                buildGitHubOrganizationProvidersReturnUrl({
+                  githubOwnerLogin: completion.githubOwnerLogin,
+                  previousReturnUrl: returnUrl,
+                }),
+                {
+                  provider,
+                  code: "organization-owner-required",
+                },
+              );
+              break;
+            default:
+              completion satisfies never;
+          }
+          console.log("github:authorization:callback_completed", {
+            outcome: completion.status,
+            purpose: setupState.purpose,
+          });
+          break;
         }
-        switch (completion.status) {
-          case "stored":
-            break;
-          case "access_lost":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider,
-              code: "access-changed",
-            });
-            break;
-          case "github_sign_in_required":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider,
-              code: "github-sign-in-required",
-            });
-            break;
-          case "github_sign_in_mismatch":
-            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-              provider,
-              code: "github-sign-in-mismatch",
-            });
-            break;
-          default:
-            completion satisfies never;
+        case "user_authorization": {
+          if (code === null) {
+            throw new Error("GitHub OAuth code is missing.");
+          }
+          const authorization = await verifyGitHubUserAuthorization({ code, state });
+          let completion: Infer<typeof vGitHubUserAuthorizationCompletion>;
+          try {
+            completion = await ctx.runMutation(
+              internal.githubAppInstallation.completeUserAuthorization,
+              {
+                setupStateId: setupState.setupStateId,
+                state,
+                accessToken: authorization.accessToken,
+                accessTokenExpiresAt: authorization.accessTokenExpiresAt,
+                refreshToken: authorization.refreshToken,
+                refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
+                githubUserId: authorization.githubUserId,
+                githubUserLogin: authorization.githubUserLogin,
+                operationLease,
+              },
+            );
+          } catch (error) {
+            await revokeUncommittedGitHubUserToken(authorization.accessToken);
+            throw error;
+          }
+          switch (completion.status) {
+            case "stored":
+              break;
+            case "access_lost":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider,
+                code: "access-changed",
+              });
+              break;
+            case "github_sign_in_required":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider,
+                code: "github-sign-in-required",
+              });
+              break;
+            case "github_sign_in_mismatch":
+              completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+                provider,
+                code: "github-sign-in-mismatch",
+              });
+              break;
+            default:
+              completion satisfies never;
+          }
+          if (completion.status !== "stored") {
+            await revokeUncommittedGitHubUserToken(authorization.accessToken);
+          } else if (completion.displacedAccessToken !== undefined) {
+            await revokeUncommittedGitHubUserToken(completion.displacedAccessToken);
+          }
+          console.log("github:authorization:callback_completed", {
+            outcome: completion.status,
+            purpose: setupState.purpose,
+          });
+          break;
         }
-        if (completion.status !== "stored") {
-          await revokeUncommittedGitHubUserToken(authorization.accessToken);
-        } else if (completion.displacedAccessToken !== undefined) {
-          await revokeUncommittedGitHubUserToken(completion.displacedAccessToken);
-        }
-        console.log("github:authorization:callback_completed", {
-          outcome: completion.status,
-          purpose: setupState.purpose,
-        });
-        break;
+        default:
+          setupState.purpose satisfies never;
       }
-      default:
-        setupState.purpose satisfies never;
+    } catch (error) {
+      await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
+        setupStateId: setupState.setupStateId,
+        operationLease,
+      });
+      console.error("github:authorization:callback_failed", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        outcome: "failed",
+        purpose: setupState.purpose,
+      });
+      completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+        provider,
+        code: "failed",
+      });
     }
-  } catch (error) {
-    await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
-      setupStateId: setupState.setupStateId,
+
+    return buildAuthorizationCompletionResponse({
+      eventType: "github-app-setup-complete",
+      returnUrl: completionReturnUrl,
+      title: "GitHub App setup",
     });
-    console.error("github:authorization:callback_failed", {
-      errorName: error instanceof Error ? error.name : "UnknownError",
-      outcome: "failed",
-      purpose: setupState.purpose,
-    });
-    completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-      provider,
-      code: "failed",
+  } finally {
+    await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
     });
   }
-
-  return buildAuthorizationCompletionResponse({
-    eventType: "github-app-setup-complete",
-    returnUrl: completionReturnUrl,
-    title: "GitHub App setup",
-  });
 });

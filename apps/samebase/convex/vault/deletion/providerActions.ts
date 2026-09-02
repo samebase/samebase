@@ -37,6 +37,15 @@ async function getDeletionRun(
   return run;
 }
 
+async function requireDeletionContinuation(
+  ctx: Pick<ActionCtx, "runMutation">,
+  runId: Id<"workflow_vaultDeletion_runs">,
+): Promise<void> {
+  await ctx.runMutation(internal.vaultWorkflowAuthority.assertVaultProviderWorkflowContinuation, {
+    authority: { kind: "deletion", runId },
+  });
+}
+
 async function appendRunEvent(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -62,6 +71,7 @@ export const deleteCloudflare = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await getDeletionRun(ctx, args.runId);
+    await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -116,6 +126,7 @@ export const deleteConvex = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await getDeletionRun(ctx, args.runId);
+    await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -167,6 +178,7 @@ export const deleteGitHubRepository = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await getDeletionRun(ctx, args.runId);
+    await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
     await appendRunEvent(ctx, {
       runId: args.runId,

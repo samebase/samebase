@@ -36,6 +36,7 @@ import {
   readVaultInfrastructureState,
   type VaultInfrastructureState,
 } from "./infrastructureOperation";
+import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, boolean, id, object, string } = v;
 type SourceSetupVault = Extract<
@@ -525,6 +526,7 @@ export const setVaultResourceLinksOpen = mutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       throw new Error("Vault deletion is in progress.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const existing = await ctx.db
       .query("ui_vaultResourceLinks_settings")
@@ -558,6 +560,7 @@ export const setVaultPullRequestFilters = mutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       throw new Error("Vault deletion is in progress.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const existing = await ctx.db
       .query("ui_vaultPullRequests_filters")

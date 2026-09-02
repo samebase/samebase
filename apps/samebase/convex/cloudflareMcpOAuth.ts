@@ -17,7 +17,11 @@ import {
   vMcpTokenHealth,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
-import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
+import {
+  CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
+  vProviderOAuthStoreResult,
+  type ProviderOAuthStoreResult,
+} from "./oauthState";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
 import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
 import { vOrganizationCloudflareAccount } from "./organizationModel";
@@ -39,12 +43,14 @@ import {
   vVaultProviderWorkflowAuthority,
   type VaultProviderWorkflowAuthority,
 } from "./vaultWorkflowAuthority";
+import { requireRepositoryOperationLease } from "./repositoryMigration/maintenance";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
 const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
+const CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION = "cloudflare_mcp_oauth_callback";
 /**
  * Samebase needs the Cloudflare MCP Code Mode scopes that cover account
  * discovery, Worker management, and Workers Builds setup without the full
@@ -122,6 +128,13 @@ type CloudflareConnectionAuthority =
       kind: "user";
       organizationId: Id<"organizations">;
       userId: Id<"users">;
+    }
+  | {
+      kind: "manual_provider_write";
+      organizationId: Id<"organizations">;
+      vaultId: Id<"vaults">;
+      userId: Id<"users">;
+      actionId: string;
     }
   | {
       kind: "vault_workflow";
@@ -379,35 +392,55 @@ async function buildCloudflareMcpOAuthUrl(
   const state = randomToken();
   const codeVerifier = randomToken(64);
   const codeChallenge = await createCodeChallenge(codeVerifier);
-  const registeredClient = await registerCloudflareMcpClient({ redirectUri });
-  const clientId = registeredClient.client_id;
+  let leaseId: Id<"repositoryOperationLeases"> | null = null;
+  try {
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId: state,
+        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
+      },
+    );
+    leaseId = lease.leaseId;
+    const registeredClient = await registerCloudflareMcpClient({ redirectUri });
+    const clientId = registeredClient.client_id;
 
-  const now = Date.now();
-  await ctx.runMutation(internal.oauthState.createOauthState, {
-    provider: "cloudflare_mcp",
-    userId: args.userId,
-    organizationId: args.organizationId,
-    returnToPath: args.returnToPath,
-    state,
-    codeVerifier,
-    clientId,
-    createdAt: now,
-    expiresAt: now + OAUTH_STATE_TTL_MS,
-  });
+    const now = Date.now();
+    await ctx.runMutation(internal.oauthState.createOauthState, {
+      provider: "cloudflare_mcp",
+      userId: args.userId,
+      organizationId: args.organizationId,
+      returnToPath: args.returnToPath,
+      state,
+      codeVerifier,
+      clientId,
+      leaseId,
+      createdAt: now,
+      expiresAt: now + OAUTH_STATE_TTL_MS,
+    });
 
-  console.log("cloudflare:mcp_oauth:url_built", {
-    organizationId: args.organizationId,
-    redirectUri,
-    clientIdLength: clientId.length,
-    oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
-  });
+    console.log("cloudflare:mcp_oauth:url_built", {
+      organizationId: args.organizationId,
+      redirectUri,
+      clientIdLength: clientId.length,
+      oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
+    });
 
-  return buildCloudflareMcpAuthorizeUrl({
-    clientId,
-    redirectUri,
-    state,
-    codeChallenge,
-  });
+    return buildCloudflareMcpAuthorizeUrl({
+      clientId,
+      redirectUri,
+      state,
+      codeChallenge,
+    });
+  } finally {
+    if (leaseId !== null) {
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId,
+        operationId: state,
+        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
+      });
+    }
+  }
 }
 
 const storeCloudflareMcpOauthConnectionArgs = {
@@ -421,11 +454,17 @@ const storeCloudflareMcpOauthConnectionArgs = {
   account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
   oauthState: string(),
+  leaseId: id("repositoryOperationLeases"),
 } as const;
 export const storeCloudflareMcpOauthConnection = internalMutation({
   args: storeCloudflareMcpOauthConnectionArgs,
   returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
+    await requireRepositoryOperationLease(ctx, {
+      leaseId: args.leaseId,
+      operationId: args.oauthStateId,
+      operationName: CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION,
+    });
     const checkedAt = Date.now();
     const result = await connectCloudflareCredential(ctx, {
       organizationId: args.organizationId,
@@ -483,6 +522,33 @@ async function loadCloudflareProviderConfiguration(
                 },
               ),
       };
+    case "manual_provider_write":
+      return {
+        organizationId: authority.organizationId,
+        configuration:
+          refreshLease === undefined
+            ? await ctx.runQuery(
+                internal.organizationProviderCredentials.loadForManualCloudflareProviderWrite,
+                {
+                  organizationId: authority.organizationId,
+                  vaultId: authority.vaultId,
+                  userId: authority.userId,
+                  actionId: authority.actionId,
+                },
+              )
+            : await ctx.runQuery(
+                internal.organizationProviderCredentials
+                  .loadCloudflareTokenRefreshContinuationForManualProviderWrite,
+                {
+                  organizationId: authority.organizationId,
+                  vaultId: authority.vaultId,
+                  userId: authority.userId,
+                  actionId: authority.actionId,
+                  expectedAuth: refreshLease.auth,
+                  expectedTokenRefreshLease: refreshLease.tokenRefreshLease,
+                },
+              ),
+      };
     case "vault_workflow":
       return await ctx.runQuery(
         internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
@@ -512,6 +578,20 @@ async function replaceCloudflareCredentialForAuthority(
         {
           organizationId,
           userId: authority.userId,
+          expectedAuth: args.expectedAuth,
+          auth: args.auth,
+          tokenHealth: args.tokenHealth,
+          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
+        },
+      );
+    case "manual_provider_write":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.replaceCloudflareCredentialForManualProviderWrite,
+        {
+          organizationId,
+          vaultId: authority.vaultId,
+          userId: authority.userId,
+          actionId: authority.actionId,
           expectedAuth: args.expectedAuth,
           auth: args.auth,
           tokenHealth: args.tokenHealth,
@@ -555,6 +635,18 @@ async function claimCloudflareTokenRefreshForAuthority(
           force: args.force,
         },
       );
+    case "manual_provider_write":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForManualProviderWrite,
+        {
+          organizationId,
+          vaultId: authority.vaultId,
+          userId: authority.userId,
+          actionId: authority.actionId,
+          expectedAuth: args.expectedAuth,
+          force: args.force,
+        },
+      );
     case "vault_workflow":
       return await ctx.runMutation(
         internal.organizationProviderCredentials.claimCloudflareTokenRefreshForVaultWorkflow,
@@ -585,6 +677,19 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
         {
           organizationId,
+          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
+          recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
+        },
+      );
+    case "manual_provider_write":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials
+          .releaseCloudflareTokenRefreshForManualProviderWrite,
+        {
+          organizationId,
+          vaultId: authority.vaultId,
+          userId: authority.userId,
+          actionId: authority.actionId,
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
           recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
@@ -879,6 +984,29 @@ export const resolveConnectionForOrganization = internalAction({
     ),
 });
 
+export const resolveConnectionForManualProviderWrite = internalAction({
+  args: {
+    organizationId: id("organizations"),
+    vaultId: id("vaults"),
+    userId: id("users"),
+    actionId: string(),
+    forceRefresh: optional(boolean()),
+  },
+  returns: resolveConnectionForOrganizationResultValidator,
+  handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
+    await resolveConnectionForAuthority(
+      ctx,
+      {
+        kind: "manual_provider_write",
+        organizationId: args.organizationId,
+        vaultId: args.vaultId,
+        userId: args.userId,
+        actionId: args.actionId,
+      },
+      { forceRefresh: args.forceRefresh },
+    ),
+});
+
 export const resolveConnectionForVaultWorkflow = internalAction({
   args: {
     authority: vVaultProviderWorkflowAuthority,
@@ -1053,7 +1181,17 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
   }
 
   let completionReturnUrl = returnUrl;
+  const operationId = oauthState._id;
+  let leaseId: Id<"repositoryOperationLeases"> | null = null;
   try {
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName: CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION,
+      },
+    );
+    leaseId = lease.leaseId;
     const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
     const token = await exchangeCloudflareMcpOAuthCode({
       code,
@@ -1088,6 +1226,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         account,
         oauthStateId: oauthState._id,
         oauthState: state,
+        leaseId,
       },
     );
     completionReturnUrl = buildProviderOAuthStoreReturnUrl({
@@ -1126,6 +1265,14 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       provider: "cloudflare",
       code: "failed",
     });
+  } finally {
+    if (leaseId !== null) {
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId,
+        operationId,
+        operationName: CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION,
+      });
+    }
   }
 
   return buildAuthorizationCompletionResponse({

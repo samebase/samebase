@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internalMutation } from "../../_generated/server";
 import { query } from "../../functions";
 import { findVaultForUser } from "../../organizationAccess";
+import { requireRepositoryAuthorityContinuation } from "../../repositoryMigration/maintenance";
 import { vVaultDeletionEventLevel, vVaultDeletionStep } from "./model";
 
 const { array, id, number, object, string } = v;
@@ -51,6 +52,10 @@ export const append = internalMutation({
     ) {
       throw new Error("Deletion event does not match its run.");
     }
+    if (run.state !== "queued" && run.state !== "running") {
+      throw new Error("Deletion run is not active.");
+    }
+    await requireRepositoryAuthorityContinuation(ctx);
 
     await ctx.db.insert("workflow_vaultDeletion_events", {
       organizationId: args.organizationId,
