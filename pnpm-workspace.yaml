@@ -22,6 +22,9 @@ minimumReleaseAgeExclude:
   - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
   - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
   - vite-plus@0.3.0
+  # TODO(2026-09-06): Remove after qs 6.16.0 completes the normal
+  # 7-day cooling period.
+  - qs@6.16.0
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
@@ -61,7 +64,7 @@ overrides:
   postcss: 8.5.23
   postcss-selector-parser: 7.1.5
   protobufjs: 7.6.3
-  qs: 6.15.2
+  qs: 6.16.0
   sharp: 0.35.3
   "semver@6": 7.7.4
   shell-quote: 1.9.0
