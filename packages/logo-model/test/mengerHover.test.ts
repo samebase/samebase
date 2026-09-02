@@ -176,17 +176,38 @@ describe("Menger hover", () => {
     expect(slightlyTilted?.point.y).toBeCloseTo(-9e-7, 12);
   });
 
-  it("extends the closest face when a shallow pointer line misses the cube", () => {
-    const projection = projectMengerHoverLineToVisibleFacePlanes(
-      { x: 10, y: 0, z: 1.2 },
-      { x: -1, y: 0, z: -0.001 },
+  it("keeps neighboring pointer lines continuous outside the cube", () => {
+    const direction = { x: -1, y: -0.5, z: -0.25 };
+    const first = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 2.0495, y: 4.401, z: 4 },
+      direction,
+      2,
+    );
+    const second = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 2.05, y: 4.4, z: 4 },
+      direction,
       2,
     );
 
-    expect(projection?.axis).toBe(0);
-    expect(projection?.point.x).toBe(1);
-    expect(projection?.point.z).toBeCloseTo(1.191, 12);
-    expect(projection?.visibleFaceCount).toBe(2);
+    expect(first?.axis).toBe(2);
+    expect(first?.point.x).toBeCloseTo(-9.9505, 12);
+    expect(first?.point.y).toBeCloseTo(-1.599, 12);
+    expect(first?.point.z).toBe(1);
+    expect(second?.axis).toBe(2);
+    expect(second?.point.x).toBeCloseTo(-9.95, 12);
+    expect(second?.point.y).toBeCloseTo(-1.6, 12);
+    expect(second?.point.z).toBe(1);
+    expect(first?.visibleFaceCount).toBe(3);
+    expect(second?.visibleFaceCount).toBe(3);
+    const projectedDistance =
+      first && second
+        ? Math.hypot(
+            second.point.x - first.point.x,
+            second.point.y - first.point.y,
+            second.point.z - first.point.z,
+          )
+        : Number.POSITIVE_INFINITY;
+    expect(projectedDistance).toBeLessThan(0.002);
   });
 
   it("normalizes the pointer reveal radius", () => {
