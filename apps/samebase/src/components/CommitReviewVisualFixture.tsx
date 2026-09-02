@@ -193,7 +193,7 @@ const DELETED_STAGED_FILES_FIXTURE = [
   {
     _id: "fixture-deleted-agents",
     _creationTime: 0,
-    vaultId: "fixture-vault",
+    repositoryId: "fixture-repository",
     fileDeleted: true,
     filePath: "AGENTS.md",
     initialFilePath: "AGENTS.md",
@@ -208,7 +208,7 @@ const DELETED_STAGED_FILES_FIXTURE = [
   {
     _id: "fixture-deleted-components",
     _creationTime: 0,
-    vaultId: "fixture-vault",
+    repositoryId: "fixture-repository",
     fileDeleted: true,
     filePath: "components.json",
     initialFilePath: "components.json",
@@ -425,7 +425,7 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       <EditedFilesCategories
                         categories={DELETED_STAGED_CATEGORIES}
-                        repositoryFullName="samebase/samebase"
+                        githubRepositoryFullName="samebase/samebase"
                         branch="main"
                       />
                     </div>

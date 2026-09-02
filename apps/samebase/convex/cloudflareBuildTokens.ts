@@ -7,7 +7,7 @@ import { action } from "./functions";
 import {
   cloudflareListWorkersBuildTokensContract,
   type CloudflareWorkersBuildTokens,
-} from "./vault/contracts/cloudflareBuildTokens";
+} from "./repository/contracts/cloudflareBuildTokens";
 
 export async function listWorkersBuildTokensForUser(
   ctx: Pick<ActionCtx, "runAction">,

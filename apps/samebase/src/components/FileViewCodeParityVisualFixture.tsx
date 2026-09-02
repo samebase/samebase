@@ -34,7 +34,7 @@ export function describePaneDrag(direction: PaneDirection) {
 
 // Keep this comment green.`;
 
-const FIXTURE_VAULT_KEY = "fixture-file-view-code-parity";
+const FIXTURE_REPOSITORY_KEY = "fixture-file-view-code-parity";
 const PARITY_EDITOR_RESOLUTION_SCALE_DEFAULT = 1;
 const PARITY_EDITOR_RESOLUTION_SCALE_MAX = 4;
 const PARITY_EDITOR_RESOLUTION_SCALE_MIN = 1;
@@ -718,7 +718,7 @@ export function FileViewCodeParityVisualFixture({
                             setMonacoReady(true);
                           }}
                           syncError={null}
-                          vaultKey={FIXTURE_VAULT_KEY}
+                          repositoryKey={FIXTURE_REPOSITORY_KEY}
                         />
                       </div>
                     </div>

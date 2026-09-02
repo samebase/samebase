@@ -44,10 +44,10 @@ describe("useRepositorySimpleViewConfig", () => {
 
   const baseProps: HookProps = {
     branch: "main",
-    repositoryFullName: "samebase/samebase",
+    githubRepositoryFullName: "samebase/samebase",
     stagedConfigFile: null,
     treeSHA: "tree-a",
-    vaultId: "vault-a",
+    repositoryId: "repository-a",
   };
 
   beforeEach(() => {
@@ -110,7 +110,7 @@ describe("useRepositorySimpleViewConfig", () => {
       });
     });
     expect(testState.getRepositoryFileContent).toHaveBeenCalledWith({
-      repositoryFullName: "samebase/samebase",
+      githubRepositoryFullName: "samebase/samebase",
       filePath: SIMPLE_VIEW_CONFIG_PATH,
       branch: "main",
     });

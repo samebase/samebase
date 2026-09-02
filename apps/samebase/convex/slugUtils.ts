@@ -6,12 +6,12 @@ export function sanitizeSlug(input: string, maxLen = 58): string {
     .replace(/^-|-$/g, "");
 
   if (sanitized.length === 0) {
-    return "vault";
+    return "repository";
   }
   return sanitized.slice(0, maxLen);
 }
 
-export function vaultSuffix(vaultId: string): string {
-  const alnumOnly = vaultId.replace(/[^a-zA-Z0-9]/g, "");
-  return alnumOnly.slice(-6).toLowerCase() || "vault";
+export function repositorySuffix(repositoryId: string): string {
+  const alnumOnly = repositoryId.replace(/[^a-zA-Z0-9]/g, "");
+  return alnumOnly.slice(-6).toLowerCase() || "repository";
 }

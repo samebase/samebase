@@ -6,7 +6,7 @@ import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspaceP
 import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
+import { RepositorySyncStatusContent } from "@/components/RepositorySyncStatus";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { linkStyle } from "@/components/styles";
 import type { PaneFrameProps } from "@samebase/sidebars/PaneFrame";
@@ -349,8 +349,8 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <VaultSyncStatusContent
-                    repositoryFullName={FIXTURE_REPOSITORY_FULL_NAME}
+                  <RepositorySyncStatusContent
+                    githubRepositoryFullName={FIXTURE_REPOSITORY_FULL_NAME}
                     branch={FIXTURE_BRANCH}
                     owner={FIXTURE_OWNER}
                     repoName={FIXTURE_REPOSITORY_NAME}

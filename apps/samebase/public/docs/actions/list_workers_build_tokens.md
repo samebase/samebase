@@ -16,18 +16,19 @@ then creates the GitHub repository and Convex project but no Cloudflare Worker. 
 setup as pending and give the user https://samebase.com/docs/cloudflare-setup.
 
 Manual Worker creation and Workers Builds configuration require one exact UUID from a non-empty
-current list. When the list is empty, do not call those writes. Use current vault inventory to
+current list. When the list is empty, do not call those writes. Use current repository inventory to
 select the next action:
 
 - For a managed plan with a null build token, no attached Worker, and the exact planned Convex
   project attached, give the user https://samebase.com/docs/cloudflare-setup. After the user creates
   the first account token and deletes the temporary Worker, list tokens again and call
-  vault_cloudflare_createWorker with a current exact UUID. Reread inventory, then call
-  vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker and attached project.
+  repository_cloudflare_createWorker with a current exact UUID. Reread inventory, then call
+  repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker and attached
+  project.
 - When a Worker is already attached, keep it. After the user completes token setup, list tokens
-  again and call vault_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not create
-  another Worker.
-- For another manual vault, complete token setup, list tokens again, and continue only with the
+  again and call repository_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not
+  create another Worker.
+- For another manual repository, complete token setup, list tokens again, and continue only with the
   action that matches the user's request and current inventory. Worker creation does not install
   Convex deploy keys.
 

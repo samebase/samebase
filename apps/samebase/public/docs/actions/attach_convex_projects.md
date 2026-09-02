@@ -2,7 +2,7 @@
 
 # Attach Convex projects (`attach_convex_projects`)
 
-MCP tool `vault_convex_attachProjects` · scope `access_provider_connections` · write
+MCP tool `repository_convex_attachProjects` · scope `access_provider_connections` · write
 
 Re-reads every selected Convex project and exact repository code location before writing any
 attachment. The final Samebase mutation is atomic: either every selected project and confirmed
@@ -10,7 +10,7 @@ location is attached or none are. Convex projects and GitHub files are not modif
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault receiving the project attachments.
+- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
 - `projects` (array, required): One or more project id and code location selections returned by
   discover_convex_projects.
 

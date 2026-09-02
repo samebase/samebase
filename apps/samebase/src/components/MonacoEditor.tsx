@@ -11,7 +11,7 @@ import {
 import { client } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTree } from "../../convex/vault/model";
+import { type GitHubTree } from "../../convex/repository/model";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { setupEditorATA, parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
@@ -32,13 +32,13 @@ function awaitTimeout(timeout: number): Promise<void> {
 
 async function pushUpdatesToServer({
   version,
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   filePath,
   fullUpdates,
 }: {
   version: number;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   filePath: string;
   fullUpdates: readonly Update[];
@@ -50,7 +50,7 @@ async function pushUpdatesToServer({
   }));
   return client
     .mutation(api.collaborative.pushUpdates, {
-      repositoryFullName,
+      githubRepositoryFullName,
       branch,
       filePath,
       version,
@@ -88,17 +88,17 @@ const addedExtraLibs = new Set<string>();
 interface SyncProjectFilesArgs {
   monaco: Monaco;
   projectFiles: ProjectFile[];
-  vaultId: Id<"vaults">;
+  repositoryId: Id<"repositories">;
   branch: string;
 }
 
 function syncProjectFiles(args: SyncProjectFilesArgs) {
-  const { monaco, projectFiles, vaultId, branch } = args;
+  const { monaco, projectFiles, repositoryId, branch } = args;
   const defaults = monaco.languages.typescript.typescriptDefaults;
 
   for (const file of projectFiles) {
     const uri = buildMonacoFileUri({
-      vaultId,
+      repositoryId,
       branch,
       filePath: file.path,
     });
@@ -132,26 +132,26 @@ type MonacoEditorInstance = Parameters<OnMount>[0];
 
 export function MonacoEditor({
   firstDoc,
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   filePath,
-  vaultId,
+  repositoryId,
   tree,
   treeSHA,
   showMobileLineNumbers = false,
 }: {
   firstDoc: { version: number; content: string };
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   filePath: string;
-  vaultId: Id<"vaults">;
-  tree: GithubTree[];
+  repositoryId: Id<"repositories">;
+  tree: GitHubTree[];
   treeSHA: string;
   showMobileLineNumbers?: boolean;
 }) {
   // ---- Project files for import resolution ----
   const { files: projectFiles, scopePrefix } = useProjectFiles(
-    vaultId,
+    repositoryId,
     branch,
     tree,
     treeSHA,
@@ -211,7 +211,7 @@ export function MonacoEditor({
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
     api.collaborative.pullUpdates,
-    { repositoryFullName, branch, filePath, version },
+    { githubRepositoryFullName, branch, filePath, version },
     { dontCache: true },
   );
 
@@ -229,7 +229,7 @@ export function MonacoEditor({
     try {
       const success = await pushUpdatesToServer({
         version: ver,
-        repositoryFullName,
+        githubRepositoryFullName,
         branch,
         filePath,
         fullUpdates: pending,
@@ -257,7 +257,7 @@ export function MonacoEditor({
     if (sendableUpdates(cmStateRef.current).length) {
       setTimeout(() => void pushToServer(), retryDelayMs);
     }
-  }, [repositoryFullName, branch, filePath]);
+  }, [githubRepositoryFullName, branch, filePath]);
 
   // ---- Apply incoming remote updates ----
   useEffect(() => {
@@ -318,7 +318,7 @@ export function MonacoEditor({
     if (!monacoRef.current || projectFiles.length === 0) return;
 
     const cacheKey = buildMonacoAppliedCacheKey({
-      vaultId,
+      repositoryId,
       branch,
       treeSHA,
       scopePrefix,
@@ -329,15 +329,15 @@ export function MonacoEditor({
     syncProjectFiles({
       monaco: monacoRef.current,
       projectFiles,
-      vaultId,
+      repositoryId,
       branch,
     });
     applyTsConfigFromProject(monacoRef.current, projectFiles);
-  }, [projectFiles, vaultId, branch, treeSHA, scopePrefix]);
+  }, [projectFiles, repositoryId, branch, treeSHA, scopePrefix]);
 
   useEffect(() => {
     setSyncError(null);
-  }, [repositoryFullName, filePath]);
+  }, [githubRepositoryFullName, filePath]);
 
   // ---- Monaco mount handler ----
   const handleMount: OnMount = (editor, monaco) => {
@@ -347,7 +347,7 @@ export function MonacoEditor({
     // If project files are already loaded (cache hit), sync immediately
     if (projectFiles.length > 0) {
       const cacheKey = buildMonacoAppliedCacheKey({
-        vaultId,
+        repositoryId,
         branch,
         treeSHA,
         scopePrefix,
@@ -357,7 +357,7 @@ export function MonacoEditor({
         syncProjectFiles({
           monaco,
           projectFiles,
-          vaultId,
+          repositoryId,
           branch,
         });
         applyTsConfigFromProject(monaco, projectFiles);
@@ -395,7 +395,7 @@ export function MonacoEditor({
       onMount={handleMount}
       showMobileLineNumbers={showMobileLineNumbers}
       syncError={syncError}
-      vaultKey={vaultId}
+      repositoryKey={repositoryId}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 # Create Samebase app (`create_repository`)
 
-MCP tool `vault_actions_createRepository` · scope `access_app_create` · write
+MCP tool `repository_actions_createRepository` · scope `access_app_create` · write
 
 Creates a Samebase app in one action. It always creates a GitHub repository under the selected
 organization's verified GitHub owner, seeds the starter template, and creates a Convex project with
@@ -16,15 +16,16 @@ Pass null only after cloudflare_listWorkersBuildTokens returns an empty current 
 the run creates no Cloudflare Worker and stops after GitHub and Convex are ready. Cloudflare setup
 is still pending. Follow https://samebase.com/docs/cloudflare-setup: use Cloudflare's standard
 repository setup to create the first account token, delete the temporary Worker, then use
-vault_cloudflare_createWorker with a current token UUID to create and configure the real Worker.
+repository_cloudflare_createWorker with a current token UUID to create and configure the real
+Worker.
 
 Preconditions: the caller must be an organization member. Its GitHub App installation and selected
 Convex and Cloudflare provider connections must be available. The GitHub repository and Convex
 project names must be available. The Cloudflare Worker name must be available only when a token UUID
 requests automatic Cloudflare provisioning. A required cloudflareWorkerName is ignored when the
-token is null. A relevant name collision fails the call immediately before any vault or run is
+token is null. A relevant name collision fails the call immediately before any repository or run is
 created, so pick a different name and call again; failures after provisioning starts surface through
-`get_user_vaults` instead.
+`get_user_repositories` instead.
 
 What it writes: one repository (private by default) and one Convex project with one production
 deployment in the resolved region. When `cloudflareBuildTokenUuid` is not null, it also writes one
@@ -32,8 +33,8 @@ Worker and two Workers Builds triggers that carry `CONVEX_DEPLOY_KEY` and
 `PREVIEW_CONVEX_DEPLOY_KEY` variables. All resources live in the organization's provider accounts.
 Deleting the Samebase account does not remove or stop any of them.
 
-Progress and failure are readable through `get_user_vaults`: while running, `providerSetup` carries
-the current step; on failure it carries the failed step and a message. Repair it with
+Progress and failure are readable through `get_user_repositories`: while running, `providerSetup`
+carries the current step; on failure it carries the failed step and a message. Repair it with
 `retry_infrastructure_provisioning`. When the token was null, `providerSetup.status: ready` means
 that the requested GitHub and Convex work finished. It does not mean Cloudflare is complete. This
 expected pending state is not a failure and must not be repaired with the retry action. Cost: the
@@ -42,7 +43,7 @@ created resources run on the providers' free tiers; an idle app costs $0/month.
 ## Arguments
 
 - `githubOwnerLogin` (string, required): GitHub owner login that will own the new repository.
-- `name` (string, required): Name for the new app and GitHub repository.
+- `githubRepositoryName` (string, required): Name for the new GitHub repository and Samebase app.
 - `convexProjectName` (string, required): Convex project name to provision for the app.
 - `convexDeploymentRegion` (value, optional): Optional production region override: aws-us-east-1 or
   aws-eu-west-1. Omit it to use the organization default, which is US East when no default is saved.
@@ -61,14 +62,14 @@ JSON Schema for the tool's `structuredContent`:
 {
   "type": "object",
   "properties": {
-    "vaultId": {
+    "repositoryId": {
       "type": "string"
     },
     "runId": {
       "type": "string"
     }
   },
-  "required": ["vaultId", "runId"],
+  "required": ["repositoryId", "runId"],
   "additionalProperties": false
 }
 ```

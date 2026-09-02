@@ -60,13 +60,13 @@ describe("listTouchedBranchesForRefresh", () => {
 });
 
 describe("runPostCommitTreeRefresh", () => {
-  it("returns updated vault when refresh succeeds", async () => {
+  it("returns updated repository when refresh succeeds", async () => {
     const calls: string[] = [];
     const result = await runPostCommitTreeRefresh({
       refreshBranchTree: async () => {
         calls.push("branch");
       },
-      loadUpdatedVault: async () => {
+      loadUpdatedRepository: async () => {
         calls.push("load");
         return { treeSHA: "abc" };
       },
@@ -85,7 +85,7 @@ describe("runPostCommitTreeRefresh", () => {
       refreshBranchTree: async () => {
         throw new Error("network");
       },
-      loadUpdatedVault: async () => ({ treeSHA: "abc" }),
+      loadUpdatedRepository: async () => ({ treeSHA: "abc" }),
       onWarning: (error) => {
         warnings.push(error);
       },

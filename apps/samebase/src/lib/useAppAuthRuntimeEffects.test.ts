@@ -142,7 +142,7 @@ describe("useAppAuthRuntimeEffects", () => {
       location: {
         pathname: "/repo",
         search: "?delete",
-        hash: "#vaults",
+        hash: "#repositories",
       },
       history: {
         replaceState: replaceStateMock,

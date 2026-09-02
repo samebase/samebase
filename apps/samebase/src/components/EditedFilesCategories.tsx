@@ -11,9 +11,9 @@ import {
   validateFileViewRouteSearch,
 } from "@/routeSearch/fileView";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
-import { tryParseRepositoryFullName } from "../../shared/repoName";
+import { tryParseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
 
 type StagedFile = NonNullable<Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>>;
 type StagedFilesSummary = NonNullable<
@@ -129,12 +129,12 @@ export function EditedFilesCategoriesPopoverTrigger({ counts }: { counts: Staged
 
 export function EditedFilesCategories({
   categories,
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   onFileSelected,
 }: {
   categories: ReturnType<typeof categorizeStagedFiles>;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   onFileSelected?: () => void;
 }) {
@@ -146,11 +146,11 @@ export function EditedFilesCategories({
   );
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
-      const repository = tryParseRepositoryFullName(repositoryFullName);
+      const repository = tryParseGitHubRepositoryFullName(githubRepositoryFullName);
       if (repository === null) {
         return;
       }
-      const nextPath = buildVaultFileRoute({
+      const nextPath = buildRepositoryFileRoute({
         owner: repository.owner,
         repoName: repository.name,
         branch,
@@ -177,7 +177,7 @@ export function EditedFilesCategories({
       location.search,
       navigate,
       onFileSelected,
-      repositoryFullName,
+      githubRepositoryFullName,
       currentFileViewSearch.mobileLineNumbers,
     ],
   );
@@ -310,23 +310,23 @@ export function EditedFilesCategories({
 }
 
 export function EditedFilesCategoriesPopover({
-  vaultId,
-  repositoryFullName,
+  repositoryId,
+  githubRepositoryFullName,
   branch,
   stagedFiles,
   summaryCounts,
 }: {
-  vaultId?: Id<"vaults">;
-  repositoryFullName: string;
+  repositoryId?: Id<"repositories">;
+  githubRepositoryFullName: string;
   branch: string;
   stagedFiles?: StagedFile[];
   summaryCounts?: StagedFilesSummary;
 }) {
   const [open, setOpen] = useState(false);
-  const shouldLoadStagedFiles = open && stagedFiles === undefined && vaultId !== undefined;
+  const shouldLoadStagedFiles = open && stagedFiles === undefined && repositoryId !== undefined;
   const stagedFilesFromQuery = useQuery(
     api.fileStaging.listStagedFiles,
-    shouldLoadStagedFiles ? { vaultId, branch } : "skip",
+    shouldLoadStagedFiles ? { repositoryId, branch } : "skip",
   );
   const resolvedStagedFiles =
     stagedFiles ?? (stagedFilesFromQuery === undefined ? undefined : stagedFilesFromQuery);
@@ -353,7 +353,7 @@ export function EditedFilesCategoriesPopover({
             {categories !== null && (
               <EditedFilesCategories
                 categories={categories}
-                repositoryFullName={repositoryFullName}
+                githubRepositoryFullName={githubRepositoryFullName}
                 branch={branch}
                 onFileSelected={() => setOpen(false)}
               />

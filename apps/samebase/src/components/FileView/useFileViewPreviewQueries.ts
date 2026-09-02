@@ -18,8 +18,8 @@ export function useCommitPreviewQuery(args: {
   onSuccess: () => void;
   onUpstreamConflict: (message: string) => void;
   refreshKey: string;
-  repositoryFullName: string;
-  vaultId: string;
+  githubRepositoryFullName: string;
+  repositoryId: string;
 }) {
   const getCommitPreview = useAction(api.fileStagingActions.getCommitPreview);
   const onSuccessRef = useRef(args.onSuccess);
@@ -29,8 +29,8 @@ export function useCommitPreviewQuery(args: {
   onSuccessRef.current = args.onSuccess;
   onUpstreamConflictRef.current = args.onUpstreamConflict;
   const queryIdentity = JSON.stringify([
-    args.vaultId,
-    args.repositoryFullName,
+    args.repositoryId,
+    args.githubRepositoryFullName,
     args.branch,
     args.enabled,
     args.refreshKey,
@@ -39,15 +39,15 @@ export function useCommitPreviewQuery(args: {
   const query = useQuery({
     queryKey: [
       "commit-preview",
-      args.vaultId,
-      args.repositoryFullName,
+      args.repositoryId,
+      args.githubRepositoryFullName,
       args.branch,
       args.enabled,
       args.refreshKey,
     ] as const,
     queryFn: () =>
       getCommitPreview({
-        repositoryFullName: args.repositoryFullName,
+        githubRepositoryFullName: args.githubRepositoryFullName,
         branch: args.branch,
         includePatch: true,
       }),
@@ -186,10 +186,10 @@ function useBranchCompareRequestStagingKey(args: {
 export function useBranchComparePreviewQuery(args: {
   branch: string;
   enabled: boolean;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   stagingRefreshKey: string;
   targetRefreshKey: string;
-  vaultId: string;
+  repositoryId: string;
 }) {
   const getBranchComparePreview = useAction(api.fileStagingActions.getBranchComparePreview);
   const requestStagingKey = useBranchCompareRequestStagingKey({
@@ -200,8 +200,8 @@ export function useBranchComparePreviewQuery(args: {
   const query = useQuery({
     queryKey: [
       "branch-compare-preview",
-      args.vaultId,
-      args.repositoryFullName,
+      args.repositoryId,
+      args.githubRepositoryFullName,
       args.branch,
       args.enabled,
       args.targetRefreshKey,
@@ -209,7 +209,7 @@ export function useBranchComparePreviewQuery(args: {
     ] as const,
     queryFn: () =>
       getBranchComparePreview({
-        repositoryFullName: args.repositoryFullName,
+        githubRepositoryFullName: args.githubRepositoryFullName,
         branch: args.branch,
         includePatch: true,
       }),
@@ -219,8 +219,8 @@ export function useBranchComparePreviewQuery(args: {
       const previousKey = previousQuery?.queryKey;
       if (
         previousKey?.[0] === "branch-compare-preview" &&
-        previousKey[1] === args.vaultId &&
-        previousKey[2] === args.repositoryFullName &&
+        previousKey[1] === args.repositoryId &&
+        previousKey[2] === args.githubRepositoryFullName &&
         previousKey[3] === args.branch &&
         previousKey[4] === true &&
         previousKey[5] === args.targetRefreshKey

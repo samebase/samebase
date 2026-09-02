@@ -2,9 +2,9 @@ import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice"
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import {
-  VaultDashboardAccountSection,
-  VaultDashboardAccountSectionFrame,
-} from "@/components/vault-dashboard/VaultDashboardChrome";
+  RepositoryDashboardAccountSection,
+  RepositoryDashboardAccountSectionFrame,
+} from "@/components/repository-dashboard/RepositoryDashboardChrome";
 import {
   useAppAuthPresentation,
   type AppAuthPresentationProfile,
@@ -63,10 +63,10 @@ function PublicLandingLoggedOutAccountSection() {
   return (
     <div
       data-testid={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      className="vault-dashboard-sidebar-inset py-3"
+      className="repository-dashboard-sidebar-inset py-3"
     >
       <div
-        data-vault-dashboard-account-section-label
+        data-repository-dashboard-account-section-label
         className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
       >
         Sign in or create an account
@@ -97,14 +97,14 @@ function PublicLandingLoggedOutAccountSection() {
 
 export function PublicLandingAccountLoadingSection() {
   return (
-    <VaultDashboardAccountSectionFrame
+    <RepositoryDashboardAccountSectionFrame
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       label="checking login"
       open={false}
       onOpenChange={() => {}}
     >
       {null}
-    </VaultDashboardAccountSectionFrame>
+    </RepositoryDashboardAccountSectionFrame>
   );
 }
 
@@ -115,7 +115,7 @@ function PublicLandingResolvedSignedInAccountSection({
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   return (
-    <VaultDashboardAccountSection
+    <RepositoryDashboardAccountSection
       accountPresentation={viewer.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       onOpenChange={setAccountOpen}
@@ -131,7 +131,7 @@ function PublicLandingPresentedSignedInAccountSection({
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   return (
-    <VaultDashboardAccountSection
+    <RepositoryDashboardAccountSection
       accountPresentation={profile.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       onOpenChange={setAccountOpen}

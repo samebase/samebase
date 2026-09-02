@@ -40,9 +40,9 @@ import {
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
 import {
-  vVaultProviderWorkflowAuthority,
-  type VaultProviderWorkflowAuthority,
-} from "./vaultWorkflowAuthority";
+  vRepositoryProviderWorkflowAuthority,
+  type RepositoryProviderWorkflowAuthority,
+} from "./repositoryWorkflowAuthority";
 import { requireRepositoryOperationLease } from "./repositoryMigration/maintenance";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
@@ -132,13 +132,13 @@ type CloudflareConnectionAuthority =
   | {
       kind: "manual_provider_write";
       organizationId: Id<"organizations">;
-      vaultId: Id<"vaults">;
+      repositoryId: Id<"repositories">;
       userId: Id<"users">;
       actionId: string;
     }
   | {
-      kind: "vault_workflow";
-      authority: VaultProviderWorkflowAuthority;
+      kind: "repository_workflow";
+      authority: RepositoryProviderWorkflowAuthority;
     };
 
 async function fetchWithTimeout(
@@ -531,7 +531,7 @@ async function loadCloudflareProviderConfiguration(
                 internal.organizationProviderCredentials.loadForManualCloudflareProviderWrite,
                 {
                   organizationId: authority.organizationId,
-                  vaultId: authority.vaultId,
+                  repositoryId: authority.repositoryId,
                   userId: authority.userId,
                   actionId: authority.actionId,
                 },
@@ -541,7 +541,7 @@ async function loadCloudflareProviderConfiguration(
                   .loadCloudflareTokenRefreshContinuationForManualProviderWrite,
                 {
                   organizationId: authority.organizationId,
-                  vaultId: authority.vaultId,
+                  repositoryId: authority.repositoryId,
                   userId: authority.userId,
                   actionId: authority.actionId,
                   expectedAuth: refreshLease.auth,
@@ -549,9 +549,9 @@ async function loadCloudflareProviderConfiguration(
                 },
               ),
       };
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runQuery(
-        internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
+        internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
         { authority: authority.authority },
       );
     default:
@@ -589,7 +589,7 @@ async function replaceCloudflareCredentialForAuthority(
         internal.organizationProviderCredentials.replaceCloudflareCredentialForManualProviderWrite,
         {
           organizationId,
-          vaultId: authority.vaultId,
+          repositoryId: authority.repositoryId,
           userId: authority.userId,
           actionId: authority.actionId,
           expectedAuth: args.expectedAuth,
@@ -598,9 +598,9 @@ async function replaceCloudflareCredentialForAuthority(
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
         },
       );
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runMutation(
-        internal.organizationProviderCredentials.replaceCloudflareCredentialForVaultWorkflow,
+        internal.organizationProviderCredentials.replaceCloudflareCredentialForRepositoryWorkflow,
         {
           authority: authority.authority,
           expectedAuth: args.expectedAuth,
@@ -640,16 +640,16 @@ async function claimCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.claimCloudflareTokenRefreshForManualProviderWrite,
         {
           organizationId,
-          vaultId: authority.vaultId,
+          repositoryId: authority.repositoryId,
           userId: authority.userId,
           actionId: authority.actionId,
           expectedAuth: args.expectedAuth,
           force: args.force,
         },
       );
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runMutation(
-        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForVaultWorkflow,
+        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForRepositoryWorkflow,
         {
           authority: authority.authority,
           expectedAuth: args.expectedAuth,
@@ -687,16 +687,16 @@ async function releaseCloudflareTokenRefreshForAuthority(
           .releaseCloudflareTokenRefreshForManualProviderWrite,
         {
           organizationId,
-          vaultId: authority.vaultId,
+          repositoryId: authority.repositoryId,
           userId: authority.userId,
           actionId: authority.actionId,
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
           recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
       );
-    case "vault_workflow":
+    case "repository_workflow":
       return await ctx.runMutation(
-        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForVaultWorkflow,
+        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForRepositoryWorkflow,
         {
           authority: authority.authority,
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
@@ -987,7 +987,7 @@ export const resolveConnectionForOrganization = internalAction({
 export const resolveConnectionForManualProviderWrite = internalAction({
   args: {
     organizationId: id("organizations"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     userId: id("users"),
     actionId: string(),
     forceRefresh: optional(boolean()),
@@ -999,7 +999,7 @@ export const resolveConnectionForManualProviderWrite = internalAction({
       {
         kind: "manual_provider_write",
         organizationId: args.organizationId,
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         userId: args.userId,
         actionId: args.actionId,
       },
@@ -1007,16 +1007,16 @@ export const resolveConnectionForManualProviderWrite = internalAction({
     ),
 });
 
-export const resolveConnectionForVaultWorkflow = internalAction({
+export const resolveConnectionForRepositoryWorkflow = internalAction({
   args: {
-    authority: vVaultProviderWorkflowAuthority,
+    authority: vRepositoryProviderWorkflowAuthority,
     forceRefresh: optional(boolean()),
   },
   returns: resolveConnectionForOrganizationResultValidator,
   handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
     await resolveConnectionForAuthority(
       ctx,
-      { kind: "vault_workflow", authority: args.authority },
+      { kind: "repository_workflow", authority: args.authority },
       { forceRefresh: args.forceRefresh },
     ),
 });

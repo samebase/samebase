@@ -180,23 +180,23 @@ a:any-link {
 }
 
 @layer utilities {
-  .vault-dashboard-sidebar-content {
-    container: vault-dashboard-sidebar / inline-size;
+  .repository-dashboard-sidebar-content {
+    container: repository-dashboard-sidebar / inline-size;
   }
 
-  .vault-dashboard-sidebar-inset {
+  .repository-dashboard-sidebar-inset {
     padding-inline: 0.75rem;
   }
 
-  @container vault-dashboard-sidebar (max-width: 200px) {
-    .vault-dashboard-sidebar-inset {
+  @container repository-dashboard-sidebar (max-width: 200px) {
+    .repository-dashboard-sidebar-inset {
       padding-inline: 0.5rem;
     }
   }
 
-  @container vault-dashboard-sidebar (max-width: 160px) {
-    .vault-dashboard-sidebar-inset,
-    .vault-dashboard-sidebar-meta {
+  @container repository-dashboard-sidebar (max-width: 160px) {
+    .repository-dashboard-sidebar-inset,
+    .repository-dashboard-sidebar-meta {
       padding-inline: 0.25rem;
     }
   }

@@ -286,7 +286,7 @@ describe("GitHub repository API", () => {
     expect(octokitMocks.getBlob).not.toHaveBeenCalled();
   });
 
-  it("rejects a repository whose immutable id no longer matches the vault", async () => {
+  it("rejects a repository whose immutable id no longer matches the Samebase repository", async () => {
     octokitMocks.getRepository.mockResolvedValue({
       data: { id: 999, default_branch: "main", owner: { id: 456 } },
     });
@@ -298,7 +298,7 @@ describe("GitHub repository API", () => {
         repo: "samebase",
         expectedRepoId: "123",
       }),
-    ).rejects.toThrow("GitHub repository response did not match the vault repo.");
+    ).rejects.toThrow("GitHub repository response did not match the Samebase repository.");
     expect(octokitMocks.getRef).not.toHaveBeenCalled();
   });
 });

@@ -14,13 +14,13 @@ import {
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
   requireOrganizationMembershipRecord,
-  requireVaultForUser,
+  requireRepositoryForUser,
 } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
 import {
-  requireActiveVaultDeletionAuthority,
-  requireActiveVaultProvisioningAuthority,
-} from "./vaultWorkflowAuthority";
+  requireActiveRepositoryDeletionAuthority,
+  requireActiveRepositoryProvisioningAuthority,
+} from "./repositoryWorkflowAuthority";
 
 const { array, id, literal, object, optional, string, union } = v;
 
@@ -34,8 +34,8 @@ export const vGitHubAppAccessTarget = union(
     githubOwnerLogin: string(),
   }),
   object({
-    kind: literal("vault"),
-    vaultId: id("vaults"),
+    kind: literal("repository"),
+    repositoryId: id("repositories"),
   }),
 );
 export type GitHubAppAccessTarget = Infer<typeof vGitHubAppAccessTarget>;
@@ -60,7 +60,7 @@ const vGitHubAppTokenAccess = union(
   object({
     kind: literal("repository"),
     ...githubAppInstallationAccessFields,
-    ghRepoId: string(),
+    githubRepositoryDatabaseId: string(),
   }),
 );
 type GitHubAppTokenAccess = Infer<typeof vGitHubAppTokenAccess>;
@@ -143,14 +143,14 @@ export const loadInstallationAccess = internalQuery({
         organizationId = organization._id;
         break;
       }
-      case "vault": {
-        const vault = await requireVaultForUser(ctx.db, {
+      case "repository": {
+        const repository = await requireRepositoryForUser(ctx.db, {
           userId: args.userId,
-          vaultId: args.target.vaultId,
+          repositoryId: args.target.repositoryId,
         });
-        organizationId = vault.organizationId;
-        if (vault.state === "connected") {
-          repositoryId = vault.ghRepoId;
+        organizationId = repository.organizationId;
+        if (repository.state === "connected") {
+          repositoryId = repository.githubRepositoryDatabaseId;
         }
         break;
       }
@@ -159,7 +159,7 @@ export const loadInstallationAccess = internalQuery({
     const access = await loadInstallationAccessForOrganization(ctx, organizationId);
     return repositoryId === null
       ? { kind: "installation" as const, ...access }
-      : { kind: "repository" as const, ...access, ghRepoId: repositoryId };
+      : { kind: "repository" as const, ...access, githubRepositoryDatabaseId: repositoryId };
   },
 });
 
@@ -177,24 +177,24 @@ export const loadInstallationAccessForProviderStatus = internalQuery({
 
 export const loadInstallationAccessForProvisioningRun = internalQuery({
   args: {
-    runId: id("workflow_vaultProvisioning_runs"),
+    runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
   },
   returns: vGitHubAppInstallationAccess,
   handler: async (ctx, args) => {
-    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
     return await loadInstallationAccessForOrganization(ctx, authority.organizationId);
   },
 });
 
-export const loadInstallationAccessForVaultDeletionRun = internalQuery({
+export const loadInstallationAccessForRepositoryDeletionRun = internalQuery({
   args: {
-    runId: id("workflow_vaultDeletion_runs"),
+    runId: id("workflow_repositoryDeletion_runs"),
   },
   returns: vGitHubAppInstallationAccess,
   handler: async (ctx, args) => {
-    const authority = await requireActiveVaultDeletionAuthority(ctx.db, args);
+    const authority = await requireActiveRepositoryDeletionAuthority(ctx.db, args);
     return await loadInstallationAccessForOrganization(ctx, authority.organizationId);
   },
 });
@@ -217,7 +217,7 @@ export async function resolveGitHubAppAccess(
     access.kind === "repository"
       ? await createGitHubRepositoryInstallationOctokit(
           access.githubInstallationId,
-          access.ghRepoId,
+          access.githubRepositoryDatabaseId,
         )
       : createGitHubInstallationOctokit(access.githubInstallationId);
   return {
@@ -233,9 +233,9 @@ export async function resolveGitHubAppAccess(
 export async function resolveGitHubAppAccessForProvisioningRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
   },
 ): Promise<GitHubAppAccess> {
   const access: GitHubAppInstallationAccess = await ctx.runQuery(
@@ -243,7 +243,7 @@ export async function resolveGitHubAppAccessForProvisioningRun(
     {
       runId: args.runId,
       userId: args.userId,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
     },
   );
   return {
@@ -252,14 +252,14 @@ export async function resolveGitHubAppAccessForProvisioningRun(
   };
 }
 
-export async function resolveGitHubAppAccessForVaultDeletionRun(
+export async function resolveGitHubAppAccessForRepositoryDeletionRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
-    runId: Id<"workflow_vaultDeletion_runs">;
+    runId: Id<"workflow_repositoryDeletion_runs">;
   },
 ): Promise<GitHubAppAccess> {
   const access: GitHubAppInstallationAccess = await ctx.runQuery(
-    internal.githubAppAccess.loadInstallationAccessForVaultDeletionRun,
+    internal.githubAppAccess.loadInstallationAccessForRepositoryDeletionRun,
     {
       runId: args.runId,
     },

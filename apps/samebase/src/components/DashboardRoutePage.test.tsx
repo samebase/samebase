@@ -6,18 +6,18 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { DashboardRoutePage } from "./DashboardRoutePage";
 
-const vaultDashboardMock = vi.hoisted(() => vi.fn(() => null));
+const repositoryDashboardMock = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: ReactNode }) => children,
 }));
 
-vi.mock("@/components/vault-dashboard/VaultDashboard", () => ({
-  VaultDashboard: vaultDashboardMock,
+vi.mock("@/components/repository-dashboard/RepositoryDashboard", () => ({
+  RepositoryDashboard: repositoryDashboardMock,
 }));
 
 describe("DashboardRoutePage", () => {
-  it("passes the organization owner through to the vault dashboard", async () => {
+  it("passes the organization owner through to the repository dashboard", async () => {
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const root = createRoot(rootElement);
@@ -28,7 +28,7 @@ describe("DashboardRoutePage", () => {
         await Promise.resolve();
       });
 
-      expect(vaultDashboardMock).toHaveBeenCalledWith(
+      expect(repositoryDashboardMock).toHaveBeenCalledWith(
         {
           organizationOwner: "samebase",
           page: undefined,

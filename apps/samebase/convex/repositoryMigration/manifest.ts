@@ -359,7 +359,7 @@ export const repositoryMigrationMcpSurfaceRoots = [
   "chatgpt-app-submission.json",
   "apps/samebase/convex/mcp/",
   "apps/samebase/convex/toolRuntime/",
-  "apps/samebase/convex/vault/contracts/",
+  "apps/samebase/convex/repository/contracts/",
   "packages/plugin/",
 ] as const;
 
@@ -382,7 +382,7 @@ export const repositoryMigrationLegacyUseClassifications = [
     disposition: "rename_with_the_repository_api_cutover",
   },
   {
-    pathPrefix: "apps/samebase/convex/vault/contracts/",
+    pathPrefix: "apps/samebase/convex/repository/contracts/",
     category: "mcp_surface",
     disposition: "rename_with_the_repository_api_cutover",
   },

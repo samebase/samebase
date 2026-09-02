@@ -3,7 +3,7 @@ import { useAction } from "convex/react";
 import { useMemo } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { type GithubTree } from "../../convex/vault/model";
+import { type GitHubTree } from "../../convex/repository/model";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution
@@ -25,7 +25,7 @@ const IGNORED_DIRS = new Set([
 const MAX_BATCH_FILE_PATHS = 200;
 const REPO_SCOPE_ROOTS = new Set(["apps", "packages"]);
 
-function shouldInclude(entry: GithubTree): boolean {
+function shouldInclude(entry: GitHubTree): boolean {
   if (entry.type !== "blob") return false;
 
   // Skip files > 100KB
@@ -45,7 +45,7 @@ function shouldInclude(entry: GithubTree): boolean {
 }
 
 // Also always include tsconfig.json (for compiler options)
-function shouldIncludeTsConfig(entry: GithubTree): boolean {
+function shouldIncludeTsConfig(entry: GitHubTree): boolean {
   return (
     entry.type === "blob" &&
     (entry.path === "tsconfig.json" || entry.path.endsWith("/tsconfig.json"))
@@ -99,9 +99,9 @@ export type ProjectFile = (typeof api.fileStagingActions.batchReadFiles)["_retur
 const EMPTY_PROJECT_FILES: ProjectFile[] = [];
 
 export function useProjectFiles(
-  vaultId: Id<"vaults"> | undefined,
+  repositoryId: Id<"repositories"> | undefined,
   branch: string,
-  tree: GithubTree[],
+  tree: GitHubTree[],
   treeSHA: string,
   activeFilePath: string,
 ) {
@@ -114,16 +114,16 @@ export function useProjectFiles(
     const uniquePaths = Array.from(new Set(candidatePaths));
     return prioritizePaths(uniquePaths, activeFilePath).slice(0, MAX_BATCH_FILE_PATHS);
   }, [activeFilePath, tree]);
-  const queryEnabled = vaultId !== undefined && paths.length > 0;
+  const queryEnabled = repositoryId !== undefined && paths.length > 0;
   const filesQuery = useQuery({
-    queryKey: ["project-files", vaultId ?? null, branch, treeSHA, scopePrefix],
+    queryKey: ["project-files", repositoryId ?? null, branch, treeSHA, scopePrefix],
     queryFn: async () => {
-      if (!vaultId) {
+      if (!repositoryId) {
         throw new Error("A repository is required to load project files.");
       }
       try {
         return await batchReadFiles({
-          vaultId,
+          repositoryId,
           branch,
           filePaths: paths,
         });

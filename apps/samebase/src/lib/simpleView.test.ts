@@ -140,8 +140,10 @@ describe("repository file tree fixtures", () => {
 });
 
 describe("getSimpleViewPreferenceStorageKey", () => {
-  it("returns the per-vault key format", () => {
-    expect(getSimpleViewPreferenceStorageKey("vault_123")).toBe("samebase-simple-view:vault_123");
+  it("returns the per-repository key format", () => {
+    expect(getSimpleViewPreferenceStorageKey("repository_123")).toBe(
+      "samebase-simple-view:repository_123",
+    );
   });
 });
 

@@ -51,7 +51,7 @@ test("checkbox controls use interactive cursor affordances", async ({ page }) =>
     wrappedLabel: "pointer",
   });
 
-  await page.goto("/visual-fixture?mode=vault-overview-v2-delete-dialog", {
+  await page.goto("/visual-fixture?mode=repository-overview-v2-delete-dialog", {
     waitUntil: "networkidle",
   });
   const removalDialog = page.getByRole("dialog");

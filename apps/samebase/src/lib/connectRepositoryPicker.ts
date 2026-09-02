@@ -30,11 +30,15 @@ export function resolveDisplayedRepositories<T>(args: {
 
 export function isGitHubRepositoryConnected(args: {
   repository: { id: number; full_name: string };
-  vaults: readonly { ghRepoId?: string; repositoryFullName: string }[];
+  repositories: readonly {
+    githubRepositoryDatabaseId?: string;
+    githubRepositoryFullName: string;
+  }[];
 }): boolean {
-  const repositoryId = String(args.repository.id);
-  return args.vaults.some(
-    (vault) =>
-      vault.ghRepoId === repositoryId || vault.repositoryFullName === args.repository.full_name,
+  const githubRepositoryDatabaseId = String(args.repository.id);
+  return args.repositories.some(
+    (repository) =>
+      repository.githubRepositoryDatabaseId === githubRepositoryDatabaseId ||
+      repository.githubRepositoryFullName === args.repository.full_name,
   );
 }

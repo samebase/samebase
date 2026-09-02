@@ -7,9 +7,9 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useFileViewMediaUpload } from "./useFileViewMediaUpload";
 
 const { act } = React;
-function fakeVaultId(): Id<"vaults"> {
+function fakeRepositoryId(): Id<"repositories"> {
   // @ts-expect-error Convex ids are strings at runtime; this hook test only
-  // needs a stable vault id for generated function arguments.
+  // needs a stable repository id for generated function arguments.
   return "k976ryb9d1m2gyvxhps87dac257mv5ps";
 }
 
@@ -22,19 +22,19 @@ function fakeRepositoryOperationLeaseId(): Id<"repositoryOperationLeases"> {
 function MediaUploadProbe() {
   const mediaUpload = useFileViewMediaUpload({
     branch: "main",
-    buildVaultFileUrl: (path) => `/repo/octo/repo/fs/main/${path}`,
+    buildRepositoryFileUrl: (path) => `/repo/octo/repo/fs/main/${path}`,
     deletePendingUploadBlob: vi.fn(async () => null),
     generateUploadUrl: vi.fn(async () => ({
       uploadUrl: "/upload",
       leaseId: fakeRepositoryOperationLeaseId(),
       operationId: "upload-operation",
-      operationName: `stage_uploaded_media:${fakeVaultId()}`,
+      operationName: `stage_uploaded_media:${fakeRepositoryId()}`,
     })),
     navigateByHref: vi.fn(),
-    repositoryFullName: "octo/repo",
+    githubRepositoryFullName: "octo/repo",
     selectedFile: "README.md",
     stageUploadedMedia: vi.fn(async () => null),
-    vaultId: fakeVaultId(),
+    repositoryId: fakeRepositoryId(),
   });
 
   return (

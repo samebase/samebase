@@ -133,16 +133,16 @@ describe("FileView preview queries", () => {
     branch: "feature",
     enabled: true,
     refreshKey: "staging-a",
-    repositoryFullName: "samebase/samebase",
-    vaultId: "vault-a",
+    githubRepositoryFullName: "samebase/samebase",
+    repositoryId: "repository-a",
   };
   const branchProps: BranchHookProps = {
     branch: "feature",
     enabled: true,
-    repositoryFullName: "samebase/samebase",
+    githubRepositoryFullName: "samebase/samebase",
     stagingRefreshKey: "staging-a",
     targetRefreshKey: "target-a",
-    vaultId: "vault-a",
+    repositoryId: "repository-a",
   };
 
   beforeEach(() => {
@@ -198,7 +198,7 @@ describe("FileView preview queries", () => {
     await vi.waitFor(() => expect(latestCommitResult?.preview?.files[0]?.path).toBe("src/one.ts"));
 
     expect(getCommitPreview).toHaveBeenCalledWith({
-      repositoryFullName: "samebase/samebase",
+      githubRepositoryFullName: "samebase/samebase",
       branch: "feature",
       includePatch: true,
     });

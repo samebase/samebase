@@ -1,13 +1,13 @@
 import { type RegisteredRouter, type RouterState } from "@tanstack/react-router";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
-import { parseRepositoryFullName } from "../../shared/repoName";
+import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
+import { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
 
 type RouteSearch = RouterState<RegisteredRouter["routeTree"]>["location"]["search"];
 
 type ConnectExistingRepository = (args: {
-  ghRepoId: string;
-}) => Promise<{ repositoryFullName: string }>;
+  githubRepositoryDatabaseId: string;
+}) => Promise<{ githubRepositoryFullName: string }>;
 
 type DashboardNavigationOptions = {
   replace?: boolean;
@@ -21,16 +21,20 @@ type NavigateByHref = (href: string, options?: DashboardNavigationOptions) => Pr
  */
 export async function queueExistingRepositoryAndNavigateToDashboard(args: {
   connectRepository: ConnectExistingRepository;
-  ghRepoId: string;
+  githubRepositoryDatabaseId: string;
   navigateByHref: NavigateByHref;
   replace?: boolean;
   search: RouteSearch;
 }) {
-  const connectedRepository = await args.connectRepository({ ghRepoId: args.ghRepoId });
-  const { owner, name } = parseRepositoryFullName(connectedRepository.repositoryFullName);
+  const connectedRepository = await args.connectRepository({
+    githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+  });
+  const { owner, name } = parseGitHubRepositoryFullName(
+    connectedRepository.githubRepositoryFullName,
+  );
   await args.navigateByHref(
     buildPathWithTanStackSearch({
-      pathname: buildVaultDashboardRoute({ owner, repoName: name }),
+      pathname: buildRepositoryDashboardRoute({ owner, repoName: name }),
       search: args.search,
     }),
     args.replace ? { replace: true } : undefined,

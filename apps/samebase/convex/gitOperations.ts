@@ -15,7 +15,7 @@ export const getBlobBySha = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("observations_vaultFiles_blobs")
+      .query("observations_repositoryFiles_blobs")
       .withIndex("by_sha", (q) => q.eq("sha", args.sha))
       .first();
   },
@@ -26,7 +26,7 @@ export const getBlobBySha = internalQuery({
  */
 export const saveFileBlob = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
+    repositoryId: v.id("repositories"),
     sha: v.string(),
     size: v.number(),
     text: v.optional(v.string()),
@@ -40,7 +40,7 @@ export const saveFileBlob = internalMutation({
     operationId: v.optional(v.string()),
     operationName: v.optional(v.string()),
   },
-  returns: v.id("observations_vaultFiles_blobs"),
+  returns: v.id("observations_repositoryFiles_blobs"),
   handler: async (ctx, args) => {
     if (
       args.leaseId === undefined &&
@@ -61,9 +61,9 @@ export const saveFileBlob = internalMutation({
         operationName: args.operationName,
       });
     }
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
-      throw new Error("Vault not found");
+    const repository = await ctx.db.get(args.repositoryId);
+    if (!repository) {
+      throw new Error("Repository not found");
     }
 
     // empty text is also valid
@@ -81,7 +81,7 @@ export const saveFileBlob = internalMutation({
 
     // Check if file blob already exists
     const existingBlob = await ctx.db
-      .query("observations_vaultFiles_blobs")
+      .query("observations_repositoryFiles_blobs")
       .withIndex("by_sha", (q) => q.eq("sha", args.sha))
       .first();
 
@@ -90,8 +90,8 @@ export const saveFileBlob = internalMutation({
       return existingBlob._id;
     }
 
-    return await ctx.db.insert("observations_vaultFiles_blobs", {
-      vaultId: args.vaultId,
+    return await ctx.db.insert("observations_repositoryFiles_blobs", {
+      repositoryId: args.repositoryId,
       sha: args.sha,
       size: args.size,
       text: args.text,

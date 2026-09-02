@@ -1,3 +1,4 @@
+import { guard } from "@samebase/dependent/main";
 import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
@@ -10,6 +11,17 @@ export type OrganizationAccessContext = {
   userId: Id<"users">;
   organizationId: Id<"organizations">;
 };
+
+export type RuntimeRepository = Exclude<
+  Doc<"repositories">,
+  { state: "migration_placeholder" | "migration_tombstone" }
+>;
+
+export const isRuntimeRepository = guard<Doc<"repositories">, RuntimeRepository>((repository) =>
+  repository.state === "migration_placeholder" || repository.state === "migration_tombstone"
+    ? null
+    : repository,
+);
 
 export function requireOrganizationMembershipUser(
   user: Doc<"users"> | null,
@@ -180,7 +192,7 @@ export async function requireOrganizationMembershipChangeAllowed(
   for (const state of ["queued", "running"] as const) {
     const [deletion, provisioning] = await Promise.all([
       db
-        .query("workflow_vaultDeletion_runs")
+        .query("workflow_repositoryDeletion_runs")
         .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
           builder
             .eq("organizationId", args.organizationId)
@@ -189,7 +201,7 @@ export async function requireOrganizationMembershipChangeAllowed(
         )
         .first(),
       db
-        .query("workflow_vaultProvisioning_runs")
+        .query("workflow_repositoryProvisioning_runs")
         .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
           builder
             .eq("organizationId", args.organizationId)
@@ -199,19 +211,19 @@ export async function requireOrganizationMembershipChangeAllowed(
         .first(),
     ]);
     if (deletion !== null || provisioning !== null) {
-      throw new ConvexError("Wait for this member's active vault work to finish.");
+      throw new ConvexError("Wait for this member's active repository work to finish.");
     }
   }
 }
 
-/** Load the organization that owns a vault and its current GitHub owner identity. */
-export async function requireVaultOrganization(
+/** Load the organization that owns a repository and its current GitHub owner identity. */
+export async function requireRepositoryOrganization(
   db: DatabaseReader,
-  vault: Pick<Doc<"vaults">, "organizationId">,
+  repository: Pick<RuntimeRepository, "organizationId">,
 ): Promise<Doc<"organizations">> {
-  const organization = await db.get(vault.organizationId);
+  const organization = await db.get(repository.organizationId);
   if (organization === null) {
-    throw new Error("Vault organization not found.");
+    throw new Error("Repository organization not found.");
   }
   return organization;
 }
@@ -231,40 +243,40 @@ export async function listOrganizationIdsForUser(
   return [...organizationIds].sort((left, right) => left.localeCompare(right));
 }
 
-/** Load a vault, then verify that the user is a current organization member. */
-export async function findVaultForUser(
+/** Load a repository, then verify that the user is a current organization member. */
+export async function findRepositoryForUser(
   db: DatabaseReader,
   args: {
     userId: Id<"users">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
   },
-): Promise<Doc<"vaults"> | null> {
-  const vault = await db.get(args.vaultId);
-  if (vault === null) {
+): Promise<RuntimeRepository | null> {
+  const repository = await db.get(args.repositoryId);
+  if (repository === null || !isRuntimeRepository(repository)) {
     return null;
   }
 
   const access = await findOrganizationAccessContext(db, {
     userId: args.userId,
-    organizationId: vault.organizationId,
+    organizationId: repository.organizationId,
   });
-  return access === null ? null : vault;
+  return access === null ? null : repository;
 }
 
-/** Load a vault and require current membership in its organization. */
-export async function requireVaultForUser(
+/** Load a repository and require current membership in its organization. */
+export async function requireRepositoryForUser(
   db: DatabaseReader,
   args: {
     userId: Id<"users">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
   },
-): Promise<Doc<"vaults">> {
-  const vault = await findVaultForUser(db, args);
-  if (vault === null) {
-    throw new Error("Vault not found");
+): Promise<RuntimeRepository> {
+  const repository = await findRepositoryForUser(db, args);
+  if (repository === null) {
+    throw new Error("Repository not found");
   }
 
-  return vault;
+  return repository;
 }
 
 export const requireOrganizationIdForUser = internalQuery({

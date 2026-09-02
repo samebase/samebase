@@ -2,22 +2,23 @@
 
 # Create Cloudflare Worker (`create_cloudflare_worker`)
 
-MCP tool `vault_cloudflare_createWorker` · scope `access_provider_connections` · write
+MCP tool `repository_cloudflare_createWorker` · scope `access_provider_connections` · write
 
-Creates one new Worker in the vault's stored Cloudflare account for an existing connected repository
-vault. Samebase checks vault ownership, live repository identity, Cloudflare account access, the
-provider-write lock, the current non-empty token list, and the Worker quota before the create
-request. It records the Worker as an attachment, creates production and preview Workers Builds
-triggers for the requested repository root, and requests the first production build only with a
-reread default branch and full commit SHA. This action does not change Convex deploy keys. Use the
-separate deploy-key action after the Worker exists. An existing Worker or Builds connection is not
-overwritten. If Builds setup fails after Worker creation, the Worker can remain attached. Reread
-inventory after every result before another write.
+Creates one new Worker in the Samebase repository's stored Cloudflare account for an existing
+connected repository. Samebase checks repository ownership, live repository identity, Cloudflare
+account access, the provider-write lock, the current non-empty token list, and the Worker quota
+before the create request. It records the Worker as an attachment, creates production and preview
+Workers Builds triggers for the requested repository root, and requests the first production build
+only with a reread default branch and full commit SHA. This action does not change Convex deploy
+keys. Use the separate deploy-key action after the Worker exists. An existing Worker or Builds
+connection is not overwritten. If Builds setup fails after Worker creation, the Worker can remain
+attached. Reread inventory after every result before another write.
 
 ## Arguments
 
-- `vaultId` (string, required): Existing connected Samebase vault returned by get_user_vaults.
-- `accountId` (string, required): The vault's cloudflareAccountId returned by get_user_vaults.
+- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
+  get_user_repositories.
 - `workerName` (string, required): Name for the new Cloudflare Worker. An existing name is rejected.
 - `rootDirectory` (string, required): Repository root for this Worker's GitHub Builds triggers.
 - `buildTokenUuid` (string, required): Workers Builds token UUID returned by

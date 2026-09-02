@@ -2,18 +2,19 @@
 
 # Discover Cloudflare Workers (`discover_cloudflare_workers`)
 
-MCP tool `vault_cloudflare_discoverWorkers` · scope `access_provider_connections` · write
+MCP tool `repository_cloudflare_discoverWorkers` · scope `access_provider_connections` · write
 
-Reads every visible Worker in the vault's stored Cloudflare account and observes each Worker's
+Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
 current GitHub repository, Workers Builds root, trigger pair, and Convex marker. Only a Worker with
-one verified root for the vault's repository is eligible for attachment. A partial inventory never
-proves that an unlisted Worker is absent. It may refresh private Samebase provider-connection
-bookkeeping, but it writes no attachment or provider resource.
+one verified root for the Samebase repository's GitHub repository is eligible for attachment. A
+partial inventory never proves that an unlisted Worker is absent. It may refresh private Samebase
+provider-connection bookkeeping, but it writes no attachment or provider resource.
 
 ## Arguments
 
-- `vaultId` (string, required): Samebase vault whose GitHub repository the Workers must match.
-- `accountId` (string, required): The vault's cloudflareAccountId returned by get_user_vaults.
+- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
+  get_user_repositories.
 
 ## Returns
 

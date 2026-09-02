@@ -67,7 +67,7 @@ export const routes = rootRoute("root.tsx", [
   route("/pricing", "pricing.tsx"),
   route(ORGANIZATIONS_ROUTE, "organizations.tsx"),
   route(ORGANIZATION_ROUTE, "org.tsx"),
-  route(ORGANIZATION_REPOSITORIES_ROUTE, "org-vaults.tsx"),
+  route(ORGANIZATION_REPOSITORIES_ROUTE, "org-repositories.tsx"),
   route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
   route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
   route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
@@ -78,15 +78,18 @@ export const routes = rootRoute("root.tsx", [
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/users", "admin-users.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),
-  route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),
-  route(`${DASHBOARD_ROUTE}/$owner/$repository`, "vault-dashboard.tsx"),
-  route(`${DASHBOARD_ROUTE}/$owner/$repository/settings`, "vault-settings.tsx"),
+  route(DASHBOARD_ROUTE, [
+    index("repository-dashboard-root.tsx"),
+    route("$", "repository-file.tsx"),
+  ]),
+  route(`${DASHBOARD_ROUTE}/$owner/$repository`, "repository-dashboard.tsx"),
+  route(`${DASHBOARD_ROUTE}/$owner/$repository/settings`, "repository-settings.tsx"),
   route(
     `${DASHBOARD_ROUTE}/$owner/$repository/db/$branch/project/$convexProjectId`,
-    "vault-database-project.tsx",
+    "repository-database-project.tsx",
   ),
   route(
     `${DASHBOARD_ROUTE}/$owner/$repository/schema/$branch/project/$convexProjectId`,
-    "vault-schema-project.tsx",
+    "repository-schema-project.tsx",
   ),
 ]);

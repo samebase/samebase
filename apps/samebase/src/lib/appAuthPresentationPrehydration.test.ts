@@ -160,7 +160,7 @@ describe("appAuthPresentationPrehydration", () => {
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(styleText).toContain(
-      `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-vault-dashboard-account-section-label]::after`,
+      `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-repository-dashboard-account-section-label]::after`,
     );
     expect(styleText).toContain('content: "Nicu";');
   });

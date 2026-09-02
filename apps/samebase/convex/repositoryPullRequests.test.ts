@@ -3,14 +3,14 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Id } from "./_generated/dataModel";
 import {
   normalizeGitHubPullRequestPage,
-  normalizeGitHubVaultSidebarSummaries,
-  recoverGitHubVaultSidebarSummariesFromError,
-  vaultSidebarSummaryBatches,
+  normalizeGitHubRepositorySidebarSummaries,
+  recoverGitHubRepositorySidebarSummariesFromError,
+  repositorySidebarSummaryBatches,
 } from "./repositoryPullRequests";
 
-function fakeVaultId(): Id<"vaults"> {
+function fakeRepositoryId(): Id<"repositories"> {
   // @ts-expect-error Convex ids are strings at runtime; this provider boundary
-  // test only needs a stable vault identity.
+  // test only needs a stable repository identity.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
@@ -261,18 +261,18 @@ describe("normalizeGitHubPullRequestPage", () => {
   });
 });
 
-describe("normalizeGitHubVaultSidebarSummaries", () => {
+describe("normalizeGitHubRepositorySidebarSummaries", () => {
   const repository = {
-    vaultId: fakeVaultId(),
-    ghRepoId: "123",
-    owner: "samebase",
-    name: "samebase",
+    repositoryId: fakeRepositoryId(),
+    githubRepositoryDatabaseId: "123",
+    githubOwnerLogin: "samebase",
+    githubRepositoryName: "samebase",
     defaultBranch: "main",
   };
 
   it("keeps main check counts and the open pull request total", () => {
     expect(
-      normalizeGitHubVaultSidebarSummaries(
+      normalizeGitHubRepositorySidebarSummaries(
         {
           repository0: {
             databaseId: 123,
@@ -298,7 +298,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
       ),
     ).toEqual([
       {
-        vaultId: repository.vaultId,
+        repositoryId: repository.repositoryId,
         repository: {
           openPullRequestCount: 7,
           statusCheckRollup: {
@@ -317,7 +317,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
 
   it("marks a repository unavailable when GitHub returns another identity", () => {
     expect(
-      normalizeGitHubVaultSidebarSummaries(
+      normalizeGitHubRepositorySidebarSummaries(
         {
           repository0: {
             databaseId: 456,
@@ -327,24 +327,24 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
         },
         [repository],
       ),
-    ).toEqual([{ vaultId: repository.vaultId, repository: null }]);
+    ).toEqual([{ repositoryId: repository.repositoryId, repository: null }]);
   });
 });
 
-describe("recoverGitHubVaultSidebarSummariesFromError", () => {
+describe("recoverGitHubRepositorySidebarSummariesFromError", () => {
   const repositories = [
     {
-      vaultId: fakeVaultId(),
-      ghRepoId: "123",
-      owner: "samebase",
-      name: "samebase",
+      repositoryId: fakeRepositoryId(),
+      githubRepositoryDatabaseId: "123",
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "samebase",
       defaultBranch: "main",
     },
     {
-      vaultId: fakeVaultId(),
-      ghRepoId: "456",
-      owner: "samebase",
-      name: "deleted-repository",
+      repositoryId: fakeRepositoryId(),
+      githubRepositoryDatabaseId: "456",
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "deleted-repository",
       defaultBranch: "main",
     },
   ];
@@ -359,7 +359,7 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
     };
 
     expect(
-      recoverGitHubVaultSidebarSummariesFromError(
+      recoverGitHubRepositorySidebarSummariesFromError(
         {
           name: "GraphqlResponseError",
           errors: [
@@ -387,7 +387,9 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
       data: {},
     };
 
-    expect(() => recoverGitHubVaultSidebarSummariesFromError(error, repositories)).toThrow(error);
+    expect(() => recoverGitHubRepositorySidebarSummariesFromError(error, repositories)).toThrow(
+      error,
+    );
   });
 
   it("rethrows a missing-repository error for an alias outside the request", () => {
@@ -402,21 +404,23 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
       data: {},
     };
 
-    expect(() => recoverGitHubVaultSidebarSummariesFromError(error, repositories)).toThrow(error);
+    expect(() => recoverGitHubRepositorySidebarSummariesFromError(error, repositories)).toThrow(
+      error,
+    );
   });
 });
 
-describe("vaultSidebarSummaryBatches", () => {
+describe("repositorySidebarSummaryBatches", () => {
   it("separates GitHub owners while bounding each query and preserving order", () => {
     const repositories = Array.from({ length: 41 }, (_, index) => ({
-      vaultId: fakeVaultId(),
-      ghRepoId: String(1_000 + index),
-      owner: index < 21 ? "owner-a" : "owner-b",
-      name: `repository-${index}`,
+      repositoryId: fakeRepositoryId(),
+      githubRepositoryDatabaseId: String(1_000 + index),
+      githubOwnerLogin: index < 21 ? "owner-a" : "owner-b",
+      githubRepositoryName: `repository-${index}`,
       defaultBranch: index % 2 === 0 ? "main" : "trunk",
     }));
 
-    const batches = vaultSidebarSummaryBatches(repositories);
+    const batches = repositorySidebarSummaryBatches(repositories);
 
     expect(batches.map((batch) => batch.length)).toEqual([20, 1, 20]);
     expect(batches.flat()).toEqual(repositories);

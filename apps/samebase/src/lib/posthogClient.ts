@@ -225,7 +225,7 @@ export function sanitizeSamebasePostHogPageviewUrl(href: string, origin: string)
  * - PostHog can connect frontend events, replays, errors, and backend usage to
  *   the same person without a second user-id property.
  *
- * Do not add vault/repo/branch/customer facts as person properties here. Those
+ * Do not add repository/repo/branch/customer facts as person properties here. Those
  * are event or group dimensions, and the attribution PR should define their
  * names once the usage taxonomy exists.
  *

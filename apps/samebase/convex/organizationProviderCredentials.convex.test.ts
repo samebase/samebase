@@ -300,39 +300,41 @@ async function forceFrozenMaintenance(t: TestBackend) {
 
 async function createProvisioningAuthority(seed: Seed) {
   return await seed.t.run(async (ctx) => {
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       organizationId: seed.organizationId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
       organizationId: seed.organizationId,
       userId: seed.connectorId,
-      vaultId,
-      repositoryFullName: "Primary/repository",
+      repositoryId,
+      githubRepositoryFullName: "Primary/repository",
       trigger: "create",
       state: "running",
       currentStep: "validate_connections",
       createdAt: 1,
       updatedAt: 1,
     });
-    return { kind: "provisioning" as const, runId, userId: seed.connectorId, vaultId };
+    return { kind: "provisioning" as const, runId, userId: seed.connectorId, repositoryId };
   });
 }
 
 async function claimManualCloudflareProviderWrite(seed: Seed, actionId: string) {
-  const vaultId = await seed.t.run(async (ctx) => {
-    const vaultId = await ctx.db.insert("vaults", {
+  const repositoryId = await seed.t.run(async (ctx) => {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       organizationId: seed.organizationId,
       cloudflareAccountId: accountId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
       organizationId: seed.organizationId,
       userId: seed.connectorId,
-      vaultId,
-      repositoryFullName: "Primary/manual-refresh",
+      repositoryId,
+      githubRepositoryFullName: "Primary/manual-refresh",
       trigger: "connect_existing_repository",
       state: "succeeded",
       currentStep: "finish",
@@ -340,62 +342,63 @@ async function claimManualCloudflareProviderWrite(seed: Seed, actionId: string) 
       updatedAt: 1,
       completedAt: 1,
     });
-    await ctx.db.replace(vaultId, {
+    await ctx.db.replace(repositoryId, {
+      createdAt: 1,
       organizationId: seed.organizationId,
       cloudflareAccountId: accountId,
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",
       runId,
-      ghRepoId: "manual-refresh-repository",
-      name: "manual-refresh",
+      githubRepositoryDatabaseId: "manual-refresh-repository",
+      githubRepositoryName: "manual-refresh",
       visibility: "private",
       defaultBranch: "main",
       connectedAt: 1,
     });
-    return vaultId;
+    return repositoryId;
   });
-  await seed.t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
-    vaultId,
+  await seed.t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
+    repositoryId,
     userId: seed.connectorId,
     actionId,
     action: "create_cloudflare_worker",
   });
-  return vaultId;
+  return repositoryId;
 }
 
 describe("organization provider credential lifecycle", () => {
   it("binds provider destinations after an existing repository connects without them", async () => {
     const seed = await seedOrganization();
     const source = await seed.t.mutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      internal.repository.records.createInitializingExistingRepositoryForUser,
       {
         organizationId: seed.organizationId,
         userId: seed.connectorId,
-        ghRepoId: "repository-without-providers",
-        ghRepoOwner: "Primary",
-        ghRepoName: "source-only",
+        githubRepositoryDatabaseId: "repository-without-providers",
+        githubOwnerLogin: "Primary",
+        githubRepositoryName: "source-only",
       },
     );
 
     await connectConvex(seed, seed.connectorId, apiKey("convex"));
-    await seed.t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+    await seed.t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
       ...source,
       userId: seed.connectorId,
-      ghRepoId: "repository-without-providers",
-      ghRepoOwner: "Primary",
-      ghRepoName: "source-only",
+      githubRepositoryDatabaseId: "repository-without-providers",
+      githubOwnerLogin: "Primary",
+      githubRepositoryName: "source-only",
       defaultBranch: "main",
       visibility: "private",
     });
 
-    const convexVault = await seed.t.run(async (ctx) => await ctx.db.get(source.vaultId));
-    expect(convexVault).toMatchObject({ convexTeamId: teamId });
-    expect(convexVault).not.toHaveProperty("cloudflareAccountId");
+    const convexRepository = await seed.t.run(async (ctx) => await ctx.db.get(source.repositoryId));
+    expect(convexRepository).toMatchObject({ convexTeamId: teamId });
+    expect(convexRepository).not.toHaveProperty("cloudflareAccountId");
 
     await connectCloudflare(seed, seed.connectorId, apiKey("cloudflare"));
     await expect(
-      seed.t.run(async (ctx) => await ctx.db.get(source.vaultId)),
+      seed.t.run(async (ctx) => await ctx.db.get(source.repositoryId)),
     ).resolves.toMatchObject({
       convexTeamId: teamId,
       cloudflareAccountId: accountId,
@@ -537,7 +540,7 @@ describe("organization provider credential lifecycle", () => {
     await transitionToDraining(seed.t);
 
     const claim = await seed.t.mutation(
-      internal.organizationProviderCredentials.claimCloudflareTokenRefreshForVaultWorkflow,
+      internal.organizationProviderCredentials.claimCloudflareTokenRefreshForRepositoryWorkflow,
       {
         authority,
         expectedAuth: seed.auth,
@@ -548,7 +551,7 @@ describe("organization provider credential lifecycle", () => {
     await forceFrozenMaintenance(seed.t);
     await expect(
       seed.t.mutation(
-        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForVaultWorkflow,
+        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForRepositoryWorkflow,
         {
           authority,
           expectedTokenRefreshLease: claim.tokenRefreshLease,
@@ -560,7 +563,7 @@ describe("organization provider credential lifecycle", () => {
   it("uses the exact active manual provider lock for a refresh while draining", async () => {
     const seed = await seedCloudflareOAuth();
     const actionId = "manual-cloudflare-refresh";
-    const vaultId = await claimManualCloudflareProviderWrite(seed, actionId);
+    const repositoryId = await claimManualCloudflareProviderWrite(seed, actionId);
     await transitionToDraining(seed.t);
 
     await expect(
@@ -568,20 +571,20 @@ describe("organization provider credential lifecycle", () => {
         internal.organizationProviderCredentials.claimCloudflareTokenRefreshForManualProviderWrite,
         {
           organizationId: seed.organizationId,
-          vaultId,
+          repositoryId,
           userId: seed.connectorId,
           actionId: "wrong-action",
           expectedAuth: seed.auth,
           force: true,
         },
       ),
-    ).rejects.toThrow("Manual provider action no longer owns the vault write.");
+    ).rejects.toThrow("Manual provider action no longer owns the repository write.");
 
     const claim = await seed.t.mutation(
       internal.organizationProviderCredentials.claimCloudflareTokenRefreshForManualProviderWrite,
       {
         organizationId: seed.organizationId,
-        vaultId,
+        repositoryId,
         userId: seed.connectorId,
         actionId,
         expectedAuth: seed.auth,
@@ -595,7 +598,7 @@ describe("organization provider credential lifecycle", () => {
           .loadCloudflareTokenRefreshContinuationForManualProviderWrite,
         {
           organizationId: seed.organizationId,
-          vaultId,
+          repositoryId,
           userId: seed.connectorId,
           actionId,
           expectedAuth: seed.auth,
@@ -611,7 +614,7 @@ describe("organization provider credential lifecycle", () => {
           .releaseCloudflareTokenRefreshForManualProviderWrite,
         {
           organizationId: seed.organizationId,
-          vaultId,
+          repositoryId,
           userId: seed.connectorId,
           actionId,
           expectedTokenRefreshLease: claim.tokenRefreshLease,

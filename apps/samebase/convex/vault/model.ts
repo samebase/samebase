@@ -1,8 +1,6 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
-import { normalizeVaultRootDirectory } from "../../shared/vaultRootDirectory";
 import { vVaultDeletionState } from "./deletion/model";
-export { parseRepositoryFullName } from "../../shared/repoName";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -81,43 +79,6 @@ export const vVaultConvexProjectDocument = union(
     _creationTime: number(),
   }),
 );
-
-const vaultCloudflareBuildConfigFields = {
-  rootDirectory: string(),
-  buildCommand: string(),
-  deployCommand: string(),
-  previewDeployCommand: string(),
-  pathIncludes: array(string()),
-  pathExcludes: array(string()),
-} as const;
-export const vVaultCloudflareBuildConfig = object(vaultCloudflareBuildConfigFields);
-export type VaultCloudflareBuildConfig = Infer<typeof vVaultCloudflareBuildConfig>;
-
-export function buildVaultCloudflareBuildConfigForRootDirectory(args: {
-  rootDirectory: string;
-}): VaultCloudflareBuildConfig {
-  const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
-  const pathIncludes =
-    rootDirectory === "/"
-      ? ["*"]
-      : [
-          `${rootDirectory}/*`,
-          "packages/dependent/*",
-          "pnpm-lock.yaml",
-          "pnpm-workspace.yaml",
-          "package.json",
-          ".nvmrc",
-        ];
-
-  return {
-    rootDirectory,
-    buildCommand: "pnpm run build",
-    deployCommand: "pnpm run deploy",
-    previewDeployCommand: "pnpm run deploy:preview",
-    pathIncludes,
-    pathExcludes: [],
-  };
-}
 
 export const vaultTables = {
   /** Durable app containers with explicit repository connection states. */

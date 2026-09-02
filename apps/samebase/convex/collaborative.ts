@@ -5,8 +5,8 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
-import { findVaultForUser } from "./organizationAccess";
-import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
+import { findRepositoryForUser } from "./organizationAccess";
+import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
   buildStaleBaseVersionErrorMessage,
@@ -48,18 +48,18 @@ type PushUpdatesResult = {
   newVersion: number;
 };
 
-async function getLiveCollaborativeVault(
+async function getLiveCollaborativeRepository(
   ctx: CollaborativeAccessCtx,
   args: {
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     userId: Id<"users">;
   },
 ) {
-  const vault = await findVaultForUser(ctx.db, args);
-  if (!isLiveConnectedVault(vault)) {
+  const repository = await findRepositoryForUser(ctx.db, args);
+  if (!isLiveConnectedRepository(repository)) {
     return null;
   }
-  return vault;
+  return repository;
 }
 
 async function requireCollaborativeWriteAuthority(
@@ -87,14 +87,14 @@ async function requireCollaborativeWriteAuthority(
   }
 }
 
-async function assertVaultAllowsCollaborativeWrites(
+async function assertRepositoryAllowsCollaborativeWrites(
   ctx: Pick<MutationCtx, "db">,
-  vaultId: Id<"vaults">,
+  repositoryId: Id<"repositories">,
   authority: RepositoryOperationLeaseArgs,
 ): Promise<void> {
   await requireCollaborativeWriteAuthority(ctx, authority);
-  const vault = await ctx.db.get(vaultId);
-  assertConnectedVault(vault);
+  const repository = await ctx.db.get(repositoryId);
+  assertConnectedRepository(repository);
 }
 
 // MARK: Public
@@ -102,7 +102,7 @@ async function assertVaultAllowsCollaborativeWrites(
 export const getDocument = query({
   access: "access_files_read",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     branch: string(),
     filePath: string(),
   },
@@ -113,11 +113,11 @@ export const getDocument = query({
   }),
   handler: async (ctx, args) => {
     console.log("getDocument:", args.filePath);
-    const vault = await getLiveCollaborativeVault(ctx, {
-      vaultId: args.vaultId,
+    const repository = await getLiveCollaborativeRepository(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    if (!vault) {
+    if (!repository) {
       return {
         version: 0,
         content: "",
@@ -127,9 +127,12 @@ export const getDocument = query({
 
     // Check if there's staged content for this file
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -155,7 +158,7 @@ export const getDocument = query({
 export const pullUpdates = query({
   access: "access_files_read",
   args: {
-    repositoryFullName: string(),
+    githubRepositoryFullName: string(),
     branch: string(),
     filePath: string(),
     version: number(),
@@ -169,20 +172,20 @@ export const pullUpdates = query({
     }),
   ),
   handler: async (ctx, args): Promise<PullUpdateResult[]> => {
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
+    const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
+      githubRepositoryFullName: args.githubRepositoryFullName,
       userId: ctx.viewer.userId,
     });
 
-    if (!vault) {
-      throw new Error("Vault not found");
+    if (!repository) {
+      throw new Error("Repository not found");
     }
 
     const updates = await ctx.db
-      .query("vaultStagedFileUpdates")
-      .withIndex("by_vaultId_and_branch_and_filePath_and_version", (q) =>
+      .query("repositoryStagedFileUpdates")
+      .withIndex("by_repositoryId_and_branch_and_filePath_and_version", (q) =>
         q
-          .eq("vaultId", vault._id)
+          .eq("repositoryId", repository.repositoryId)
           .eq("branch", args.branch)
           .eq("filePath", args.filePath)
           .gt("version", args.version),
@@ -201,7 +204,7 @@ export const pullUpdates = query({
 export const pushUpdates = mutation({
   access: "access_files_write",
   args: {
-    repositoryFullName: string(),
+    githubRepositoryFullName: string(),
     branch: string(),
     filePath: string(),
     version: number(),
@@ -218,20 +221,23 @@ export const pushUpdates = mutation({
   }),
   handler: async (ctx, args): Promise<PushUpdatesResult> => {
     await requireRepositoryOperationStart(ctx);
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
+    const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
+      githubRepositoryFullName: args.githubRepositoryFullName,
       userId: ctx.viewer.userId,
     });
 
-    if (!vault) {
-      throw new Error("Vault not found");
+    if (!repository) {
+      throw new Error("Repository not found");
     }
 
     // Get current staging record
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", vault._id).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", repository.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -260,8 +266,8 @@ export const pushUpdates = mutation({
       currentVersion++;
 
       // Store the update for other clients to pull
-      const inserted = await ctx.db.insert("vaultStagedFileUpdates", {
-        vaultId: vault._id,
+      const inserted = await ctx.db.insert("repositoryStagedFileUpdates", {
+        repositoryId: repository.repositoryId,
         branch: args.branch,
         filePath: args.filePath,
         version: currentVersion,
@@ -293,7 +299,7 @@ export const pushUpdates = mutation({
     // Only run every 50 versions to avoid scheduling too often.
     if (currentVersion % 50 === 0) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
-        vaultId: vault._id,
+        repositoryId: repository.repositoryId,
         branch: args.branch,
         filePath: args.filePath,
         currentVersion,
@@ -315,7 +321,7 @@ export const pushUpdates = mutation({
  */
 export const pushContentUpdate = internalMutation({
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     filePath: string(),
     branch: string(),
     expectedVersion: number(),
@@ -327,12 +333,15 @@ export const pushContentUpdate = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId, args);
+    await assertRepositoryAllowsCollaborativeWrites(ctx, args.repositoryId, args);
 
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -369,8 +378,8 @@ export const pushContentUpdate = internalMutation({
     );
 
     // Insert into the collaborative update stream so open editors pick it up
-    await ctx.db.insert("vaultStagedFileUpdates", {
-      vaultId: args.vaultId,
+    await ctx.db.insert("repositoryStagedFileUpdates", {
+      repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
       version: newVersion,
@@ -390,7 +399,7 @@ export const pushContentUpdate = internalMutation({
 
     if (newVersion % 50 === 0 && args.leaseId === undefined) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         branch: args.branch,
         filePath: args.filePath,
         currentVersion: newVersion,
@@ -407,7 +416,7 @@ export const pushContentUpdate = internalMutation({
  */
 export const pushSerializedChangeSetUpdate = internalMutation({
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     filePath: string(),
     branch: string(),
     expectedVersion: number(),
@@ -419,12 +428,15 @@ export const pushSerializedChangeSetUpdate = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertVaultAllowsCollaborativeWrites(ctx, args.vaultId, args);
+    await assertRepositoryAllowsCollaborativeWrites(ctx, args.repositoryId, args);
 
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -461,8 +473,8 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     const newVersion = currentVersion + 1;
     const timestamp = Date.now();
 
-    await ctx.db.insert("vaultStagedFileUpdates", {
-      vaultId: args.vaultId,
+    await ctx.db.insert("repositoryStagedFileUpdates", {
+      repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
       version: newVersion,
@@ -481,7 +493,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
 
     if (newVersion % 50 === 0 && args.leaseId === undefined) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         branch: args.branch,
         filePath: args.filePath,
         currentVersion: newVersion,
@@ -498,7 +510,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
  */
 export const pruneOldUpdates = internalMutation({
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     branch: string(),
     filePath: string(),
     currentVersion: number(),
@@ -514,10 +526,10 @@ export const pruneOldUpdates = internalMutation({
 
     // Grab a batch of old updates to delete (ascending version order).
     const oldUpdates = await ctx.db
-      .query("vaultStagedFileUpdates")
-      .withIndex("by_vaultId_and_branch_and_filePath_and_version", (q) =>
+      .query("repositoryStagedFileUpdates")
+      .withIndex("by_repositoryId_and_branch_and_filePath_and_version", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("filePath", args.filePath)
           .lte("version", cutoffVersion),
@@ -531,7 +543,7 @@ export const pruneOldUpdates = internalMutation({
     // If we hit the batch limit, schedule another round.
     if (oldUpdates.length === CLEANUP_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         branch: args.branch,
         filePath: args.filePath,
         currentVersion: args.currentVersion,
@@ -548,7 +560,7 @@ export const pruneOldUpdates = internalMutation({
 export const getActiveEditors = query({
   access: "access_files_read",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     branch: string(),
     filePath: string(),
   },
@@ -559,20 +571,23 @@ export const getActiveEditors = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const vault = await getLiveCollaborativeVault(ctx, {
-      vaultId: args.vaultId,
+    const repository = await getLiveCollaborativeRepository(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    if (!vault) {
+    if (!repository) {
       return [];
     }
 
     // Get recent updates (within last 30 seconds) to determine active editors.
     // Use .order("desc") and .take() to avoid scanning the entire update history.
     const recentUpdates = await ctx.db
-      .query("vaultStagedFileUpdates")
-      .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFileUpdates")
+      .withIndex("by_repositoryId_and_branch_and_filePath_and_timestamp", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .order("desc")
       .take(100);

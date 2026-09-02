@@ -74,7 +74,7 @@ describe("convexValidatorToToolOutputSchema", () => {
       convexValidatorToToolOutputSchema(
         v.object({
           app: v.object({
-            id: v.id("vaults"),
+            id: v.id("repositories"),
             state: v.union(v.literal("ready"), v.literal("failed")),
           }),
           nextAction: v.optional(v.string()),

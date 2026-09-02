@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { parseRepositoryFullName } from "../../shared/repoName";
+import { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
 import {
   isGitHubRepositoryConnected,
   resolveDisplayedRepositories,
 } from "./connectRepositoryPicker";
 
 function buildRepository(id: number, fullName: string) {
-  const { owner, name } = parseRepositoryFullName(fullName);
+  const { owner, name } = parseGitHubRepositoryFullName(fullName);
 
   return {
     id,
@@ -113,21 +113,21 @@ describe("isGitHubRepositoryConnected", () => {
     expect(
       isGitHubRepositoryConnected({
         repository: buildRepository(42, "samebase/plugin"),
-        vaults: [
+        repositories: [
           {
-            ghRepoId: "42",
-            repositoryFullName: "samebase/agent-plugins",
+            githubRepositoryDatabaseId: "42",
+            githubRepositoryFullName: "samebase/agent-plugins",
           },
         ],
       }),
     ).toBe(true);
   });
 
-  it("keeps the stored full-name match for vaults without a repository ID", () => {
+  it("keeps the stored full-name match for repositories without a repository ID", () => {
     expect(
       isGitHubRepositoryConnected({
         repository: buildRepository(42, "samebase/plugin"),
-        vaults: [{ repositoryFullName: "samebase/plugin" }],
+        repositories: [{ githubRepositoryFullName: "samebase/plugin" }],
       }),
     ).toBe(true);
   });

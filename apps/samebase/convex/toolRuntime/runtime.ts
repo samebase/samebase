@@ -4,35 +4,35 @@ import { v, type Infer, type ObjectType, type PropertyValidators } from "convex/
 import type { ReturnValueForOptionalValidator } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { createRepositoryContract } from "../vault/contracts/createRepository";
-import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
-import { connectRepositoryContract } from "../vault/contracts/connectRepository";
+import { createRepositoryContract } from "../repository/contracts/createRepository";
+import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
+import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
-} from "../vault/contracts/cloudflareAttachments";
+} from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
   convexDiscoverProjectsContract,
-} from "../vault/contracts/convexAttachments";
-import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+} from "../repository/contracts/convexAttachments";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
+import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import {
   MAX_FEEDBACK_REPORT_LENGTH,
   submitFeedbackContract,
 } from "../mcp/contracts/submitFeedback";
-import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
+import { cloudflareListWorkersBuildTokensContract } from "../repository/contracts/cloudflareBuildTokens";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import type { AccessKey } from "../../shared/accessModel";
 import {
   createAppForUser,
   connectRepositoryForUser,
   retryInfrastructureProvisioningForUser,
-} from "../vault/actions";
-import { attachExistingProjectsForUser, discoverProjectsForUser } from "../vault/convex";
+} from "../repository/actions";
+import { attachExistingProjectsForUser, discoverProjectsForUser } from "../repository/convex";
 import {
   AGENT_BROWSER_HANDOFF_TTL_MS,
   createAgentBrowserHandoffTokenValue,
@@ -44,7 +44,7 @@ import {
   discoverCloudflareWorkersForUser,
   configureWorkersBuildsForGitHubForUser,
   rotateConvexDeployKeysForWorkersBuildsForUser,
-} from "../vault/cloudflare";
+} from "../repository/cloudflare";
 import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
@@ -174,20 +174,27 @@ export const cloudflareListWorkersBuildTokensTool = defineMcpTool({
   },
 });
 
-export const getUserVaultsTool = defineMcpTool({
-  contract: getUserVaultsContract,
-  args: getUserVaultsContract.args,
+export const getUserRepositoriesTool = defineMcpTool({
+  contract: getUserRepositoriesContract,
+  args: getUserRepositoriesContract.args,
   successFields: {
-    structuredContent: getUserVaultsContract.structuredContent,
+    structuredContent: getUserRepositoriesContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const vaults: Infer<typeof getUserVaultsContract.structuredContent>["vaults"] =
-      await ctx.runQuery(internal.vault.dashboard.getUserVaultsForUser, {
+    const repositoriesWithOrganizationIds = await ctx.runQuery(
+      internal.repository.dashboard.getUserRepositoriesForUser,
+      {
         userId: args.userId,
-      });
+      },
+    );
+    const repositories: Infer<
+      typeof getUserRepositoriesContract.structuredContent
+    >["repositories"] = repositoriesWithOrganizationIds.map(
+      ({ organizationId: _organizationId, ...repository }) => repository,
+    );
     return {
-      text: `Found ${vaults.length} ${vaults.length === 1 ? "vault" : "vaults"}.`,
-      structuredContent: { vaults },
+      text: `Found ${repositories.length} ${repositories.length === 1 ? "repository" : "repositories"}.`,
+      structuredContent: { repositories },
     };
   },
 });
@@ -202,7 +209,7 @@ export const connectRepositoryTool = defineMcpTool({
     const structuredContent = await connectRepositoryForUser(ctx, {
       userId: args.userId,
       target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
-      ghRepoId: args.ghRepoId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
     });
     return {
       text: JSON.stringify(structuredContent, null, 2),

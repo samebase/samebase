@@ -111,16 +111,17 @@ describe("repository migration maintenance", () => {
         githubOwnerLoginNormalized: "ada",
         githubOwnerType: "user",
       });
-      const vaultId = await ctx.db.insert("vaults", {
+      const repositoryId = await ctx.db.insert("repositories", {
         organizationId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
+        createdAt: 1,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId,
         userId,
-        vaultId,
-        repositoryFullName: "ada/example",
+        repositoryId,
+        githubRepositoryFullName: "ada/example",
         trigger: "connect_existing_repository",
         state: "queued",
         currentStep: "run_created",

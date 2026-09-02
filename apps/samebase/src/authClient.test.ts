@@ -370,7 +370,7 @@ describe("useAutoSignIn", () => {
     messageHandler(
       new MessageEvent("message", {
         data: {
-          redirectTo: "https://evil.test/vault",
+          redirectTo: "https://evil.test/repository",
           tokens: {
             __convexAuthAccessToken: "token",
           },

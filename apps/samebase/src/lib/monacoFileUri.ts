@@ -6,11 +6,11 @@ function encodeUriPathSegments(path: string): string {
 }
 
 export interface MonacoFileUriArgs {
-  vaultId: string;
+  repositoryId: string;
   branch: string;
   filePath: string;
 }
 
 export function buildMonacoFileUri(args: MonacoFileUriArgs): string {
-  return `file:///${encodeURIComponent(args.vaultId)}/${encodeURIComponent(args.branch)}/${encodeUriPathSegments(args.filePath)}`;
+  return `file:///${encodeURIComponent(args.repositoryId)}/${encodeURIComponent(args.branch)}/${encodeUriPathSegments(args.filePath)}`;
 }

@@ -57,7 +57,8 @@ function LandingPageLogo({
           hash: true,
           replace: true,
           resetScroll: false,
-          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+          search: (currentSearch: ReturnType<typeof useRootRouteSearch>) =>
+            replaceRootLogoRouteSearch(currentSearch, nextSearch),
           state: true,
           to: ".",
         });

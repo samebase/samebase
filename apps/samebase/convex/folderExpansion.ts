@@ -2,21 +2,21 @@ import { v } from "convex/values";
 import { mutation, query } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { findVaultForUser } from "./organizationAccess";
+import { findRepositoryForUser } from "./organizationAccess";
 import { requireRepositoryOperationStart } from "./repositoryMigration/maintenance";
 
 const { boolean, id, object, string } = v;
 
 type FolderExpansionAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
 
-async function canAccessFolderExpansionVault(
+async function canAccessFolderExpansionRepository(
   ctx: FolderExpansionAccessCtx,
   args: {
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     userId: Id<"users">;
   },
 ) {
-  return (await findVaultForUser(ctx.db, args)) !== null;
+  return (await findRepositoryForUser(ctx.db, args)) !== null;
 }
 
 // MARK: Public
@@ -24,7 +24,7 @@ async function canAccessFolderExpansionVault(
 export const getFolderExpansionStates = query({
   access: "access_files_read",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
   },
   returns: v.array(
     object({
@@ -34,8 +34,8 @@ export const getFolderExpansionStates = query({
   ),
   handler: async (ctx, args) => {
     if (
-      !(await canAccessFolderExpansionVault(ctx, {
-        vaultId: args.vaultId,
+      !(await canAccessFolderExpansionRepository(ctx, {
+        repositoryId: args.repositoryId,
         userId: ctx.viewer.userId,
       }))
     ) {
@@ -43,9 +43,9 @@ export const getFolderExpansionStates = query({
     }
 
     const expansionStates = await ctx.db
-      .query("ui_vaultFileTree_folderExpansions")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
+      .query("ui_repositoryFileTree_folderExpansions")
+      .withIndex("by_user_and_repository", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("repositoryId", args.repositoryId),
       )
       .collect();
 
@@ -59,7 +59,7 @@ export const getFolderExpansionStates = query({
 export const setFolderExpansionState = mutation({
   access: "access_files_read",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     folderPath: string(),
     isExpanded: boolean(),
   },
@@ -67,8 +67,8 @@ export const setFolderExpansionState = mutation({
   handler: async (ctx, args) => {
     await requireRepositoryOperationStart(ctx);
     if (
-      !(await canAccessFolderExpansionVault(ctx, {
-        vaultId: args.vaultId,
+      !(await canAccessFolderExpansionRepository(ctx, {
+        repositoryId: args.repositoryId,
         userId: ctx.viewer.userId,
       }))
     ) {
@@ -76,11 +76,11 @@ export const setFolderExpansionState = mutation({
     }
 
     const existingState = await ctx.db
-      .query("ui_vaultFileTree_folderExpansions")
-      .withIndex("by_user_vault_and_path", (q) =>
+      .query("ui_repositoryFileTree_folderExpansions")
+      .withIndex("by_user_repository_and_path", (q) =>
         q
           .eq("userId", ctx.viewer.userId)
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("folderPath", args.folderPath),
       )
       .first();
@@ -90,9 +90,9 @@ export const setFolderExpansionState = mutation({
         isExpanded: args.isExpanded,
       });
     } else {
-      await ctx.db.insert("ui_vaultFileTree_folderExpansions", {
+      await ctx.db.insert("ui_repositoryFileTree_folderExpansions", {
         userId: ctx.viewer.userId,
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         folderPath: args.folderPath,
         isExpanded: args.isExpanded,
       });
@@ -103,14 +103,14 @@ export const setFolderExpansionState = mutation({
 export const clearFolderExpansionStates = mutation({
   access: "access_files_read",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireRepositoryOperationStart(ctx);
     if (
-      !(await canAccessFolderExpansionVault(ctx, {
-        vaultId: args.vaultId,
+      !(await canAccessFolderExpansionRepository(ctx, {
+        repositoryId: args.repositoryId,
         userId: ctx.viewer.userId,
       }))
     ) {
@@ -118,9 +118,9 @@ export const clearFolderExpansionStates = mutation({
     }
 
     const expansionStates = await ctx.db
-      .query("ui_vaultFileTree_folderExpansions")
-      .withIndex("by_user_and_vault", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
+      .query("ui_repositoryFileTree_folderExpansions")
+      .withIndex("by_user_and_repository", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("repositoryId", args.repositoryId),
       )
       .collect();
 

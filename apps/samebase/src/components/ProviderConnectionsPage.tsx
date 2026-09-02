@@ -8,7 +8,7 @@ import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
-} from "@/components/vault-dashboard/VaultDashboardLogos";
+} from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import {
   DropdownMenu,
   DropdownMenuContent,

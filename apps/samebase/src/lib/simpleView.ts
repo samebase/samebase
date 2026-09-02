@@ -50,8 +50,8 @@ function getFrontmatterSource(markdown: string): string | null {
   return match?.[1] ?? null;
 }
 
-export function getSimpleViewPreferenceStorageKey(vaultId: string): string {
-  return `${SIMPLE_VIEW_STORAGE_KEY_PREFIX}:${vaultId}`;
+export function getSimpleViewPreferenceStorageKey(repositoryId: string): string {
+  return `${SIMPLE_VIEW_STORAGE_KEY_PREFIX}:${repositoryId}`;
 }
 
 export const hasStagedSimpleViewConfigFile = guard<

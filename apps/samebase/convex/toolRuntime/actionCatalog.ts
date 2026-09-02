@@ -1,22 +1,22 @@
 import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticationStatus";
 import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
-import { createRepositoryContract } from "../vault/contracts/createRepository";
-import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
-import { connectRepositoryContract } from "../vault/contracts/connectRepository";
+import { createRepositoryContract } from "../repository/contracts/createRepository";
+import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
+import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
-} from "../vault/contracts/cloudflareAttachments";
+} from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
   convexDiscoverProjectsContract,
-} from "../vault/contracts/convexAttachments";
-import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+} from "../repository/contracts/convexAttachments";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
+import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
+import { cloudflareListWorkersBuildTokensContract } from "../repository/contracts/cloudflareBuildTokens";
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
@@ -30,7 +30,7 @@ discovery reads, attach, and repairs. Browser handoff stays near the end, and au
 is last because it is a diagnostic action, not a preflight.
 */
 export const actionContracts = [
-  getUserVaultsContract,
+  getUserRepositoriesContract,
   cloudflareListWorkersBuildTokensContract,
   createRepositoryContract,
   connectRepositoryContract,

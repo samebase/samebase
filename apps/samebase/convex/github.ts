@@ -17,7 +17,7 @@ import {
 } from "../shared/repositoryMedia";
 import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
-import type { GithubTreeData } from "./vault/model";
+import type { GitHubTreeData } from "./repository/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -62,22 +62,22 @@ const githubOwnerIdentityObservation = union(
   }),
 );
 
-const githubVaultIdentityObservation = union(
+const githubRepositoryIdentityObservation = union(
   object({
     status: literal("renamed"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     repositoryName: string(),
     update: union(literal("available"), literal("blocked")),
   }),
   object({
     status: literal("unavailable"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
   }),
 );
 
 const githubIdentityObservation = object({
   owner: githubOwnerIdentityObservation,
-  vaults: array(githubVaultIdentityObservation),
+  repositories: array(githubRepositoryIdentityObservation),
 });
 
 type GitHubIdentityObservation = Infer<typeof githubIdentityObservation>;
@@ -169,7 +169,7 @@ type ExactRepositoryBranchRead =
   | {
       kind: "ready";
       commitSha: string;
-      treeData: GithubTreeData;
+      treeData: GitHubTreeData;
     }
   | {
       kind: "not_found";
@@ -190,7 +190,7 @@ type ExactRepositoryBranchRead =
  */
 export async function readExactRepositoryBranch(args: {
   getBranch: () => Promise<{ commitSha: string; treeSha: string }>;
-  getTree: (treeSha: string) => Promise<GithubTreeData>;
+  getTree: (treeSha: string) => Promise<GitHubTreeData>;
   confirmRepository: () => Promise<void>;
 }): Promise<ExactRepositoryBranchRead> {
   let branch: { commitSha: string; treeSha: string };
@@ -519,7 +519,7 @@ async function fetchGitHubInstallationRepositoryPage(args: {
 }
 
 /**
- * The add-vault screen renders the first page immediately, then follows up
+ * The add-repository screen renders the first page immediately, then follows up
  * with the full discovery scan in the background.
  */
 export async function listGitHubRepositoryPreview(args: {
@@ -634,7 +634,7 @@ export const observeOrganizationGitHubIdentity = action({
     if (installation.status === "unavailable") {
       return {
         owner: { status: "unavailable" },
-        vaults: [],
+        repositories: [],
       };
     }
 
@@ -647,57 +647,70 @@ export const observeOrganizationGitHubIdentity = action({
             status: "renamed",
             githubOwnerLogin: installation.githubOwnerLogin,
           };
-    const repositories = await readGitHubInstallationRepositories(installation.installationId);
-    const target = await ctx.runQuery(internal.vault.records.getGitHubIdentityObservationVaults, {
-      userId: ctx.viewer.userId,
-      organizationId: access.organizationId,
-    });
-    if (repositories === null) {
+    const providerRepositories = await readGitHubInstallationRepositories(
+      installation.installationId,
+    );
+    const target = await ctx.runQuery(
+      internal.repository.records.getGitHubIdentityObservationRepositories,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: access.organizationId,
+      },
+    );
+    if (providerRepositories === null) {
       return {
         owner,
-        vaults: target.connectedVaults.map((vault) => ({
+        repositories: target.connectedRepositories.map((repository) => ({
           status: "unavailable",
-          vaultId: vault.vaultId,
+          repositoryId: repository.repositoryId,
         })),
       };
     }
 
     const repositoriesById = new Map(
-      repositories.map((repository) => [String(repository.id), repository] as const),
+      providerRepositories.map((repository) => [String(repository.id), repository] as const),
     );
-    const vaults = target.connectedVaults.flatMap((vault): GitHubIdentityObservation["vaults"] => {
-      const repository = repositoriesById.get(vault.ghRepoId);
-      if (repository === undefined || String(repository.owner.id) !== access.githubOwnerId) {
+    const repositoryObservations = target.connectedRepositories.flatMap(
+      (connectedRepository): GitHubIdentityObservation["repositories"] => {
+        const providerRepository = repositoriesById.get(
+          connectedRepository.githubRepositoryDatabaseId,
+        );
+        if (
+          providerRepository === undefined ||
+          String(providerRepository.owner.id) !== access.githubOwnerId
+        ) {
+          return [
+            {
+              status: "unavailable",
+              repositoryId: connectedRepository.repositoryId,
+            },
+          ];
+        }
+        if (providerRepository.name === connectedRepository.githubRepositoryName) {
+          return [];
+        }
+
+        const normalizedRepositoryName = providerRepository.name.trim().toLowerCase();
+        const nameCollision = target.occupiedRepositories.some(
+          (occupiedRepository) =>
+            occupiedRepository.repositoryId !== connectedRepository.repositoryId &&
+            occupiedRepository.githubRepositoryName.trim().toLowerCase() ===
+              normalizedRepositoryName,
+        );
         return [
           {
-            status: "unavailable",
-            vaultId: vault.vaultId,
+            status: "renamed",
+            repositoryId: connectedRepository.repositoryId,
+            repositoryName: providerRepository.name,
+            update: nameCollision ? "blocked" : "available",
           },
         ];
-      }
-      if (repository.name === vault.name) {
-        return [];
-      }
-
-      const normalizedRepositoryName = repository.name.trim().toLowerCase();
-      const nameCollision = target.occupiedVaults.some(
-        (occupiedVault) =>
-          occupiedVault.vaultId !== vault.vaultId &&
-          occupiedVault.name.trim().toLowerCase() === normalizedRepositoryName,
-      );
-      return [
-        {
-          status: "renamed",
-          vaultId: vault.vaultId,
-          repositoryName: repository.name,
-          update: nameCollision ? "blocked" : "available",
-        },
-      ];
-    });
+      },
+    );
 
     return {
       owner,
-      vaults,
+      repositories: repositoryObservations,
     };
   },
 });
@@ -752,19 +765,19 @@ const updateGitHubRepositoryNameResult = object({
 
 type UpdateGitHubRepositoryNameResult = Infer<typeof updateGitHubRepositoryNameResult>;
 
-export const updateVaultGitHubRepositoryName = action({
+export const updateRepositoryGitHubRepositoryName = action({
   access: "access_dashboard",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     expectedRepositoryName: string(),
   },
   returns: updateGitHubRepositoryNameResult,
   handler: async (ctx, args): Promise<UpdateGitHubRepositoryNameResult> => {
     const target = await ctx.runQuery(
-      internal.vault.records.getGitHubRepositoryNameUpdateTargetForUser,
+      internal.repository.records.getGitHubRepositoryNameUpdateTargetForUser,
       {
         userId: ctx.viewer.userId,
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
       },
     );
     const installation = await readGitHubInstallationIdentityState(target.organization);
@@ -776,7 +789,7 @@ export const updateVaultGitHubRepositoryName = action({
       throw new Error("The GitHub App installation is unavailable for this organization.");
     }
     const repository = repositories.find(
-      (candidate) => String(candidate.id) === target.vault.ghRepoId,
+      (candidate) => String(candidate.id) === target.repository.githubRepositoryDatabaseId,
     );
     if (repository === undefined) {
       throw new Error("The GitHub repository is not available to this App installation.");
@@ -789,13 +802,13 @@ export const updateVaultGitHubRepositoryName = action({
     }
 
     const updated = await ctx.runMutation(
-      internal.vault.records.updateGitHubRepositoryNameForUser,
+      internal.repository.records.updateGitHubRepositoryNameForUser,
       {
         userId: ctx.viewer.userId,
-        vaultId: target.vault.vaultId,
-        ghRepoId: target.vault.ghRepoId,
+        repositoryId: target.repository.repositoryId,
+        githubRepositoryDatabaseId: target.repository.githubRepositoryDatabaseId,
         githubOwnerId: target.organization.githubOwnerId,
-        expectedStoredName: target.vault.name,
+        expectedStoredName: target.repository.githubRepositoryName,
         repositoryName: repository.name,
       },
     );
@@ -1108,7 +1121,7 @@ function getRepositoryMediaErrorStatus(error: unknown): number | null {
 export const getRepositoryFileContent = action({
   access: "access_files_read",
   args: {
-    repositoryFullName: string(),
+    githubRepositoryFullName: string(),
     filePath: string(),
     branch: optional(string()),
   },
@@ -1117,16 +1130,16 @@ export const getRepositoryFileContent = action({
     const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = ctx.viewer.userId;
 
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
+    const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
+      githubRepositoryFullName: args.githubRepositoryFullName,
       userId,
     });
-    if (!vault) {
-      throw new Error("Vault not found");
+    if (!repository) {
+      throw new Error("Repository not found");
     }
 
     if (!requestedBranch) {
-      const targetFile = vault.treeData?.tree.find(
+      const targetFile = repository.treeData?.tree.find(
         (item: { path: string; type: string; sha?: string }) =>
           item.path === args.filePath && item.type === "blob",
       );
@@ -1149,13 +1162,13 @@ export const getRepositoryFileContent = action({
 
     const { octokit } = await resolveGitHubAppAccess(ctx, {
       userId,
-      target: { kind: "vault", vaultId: vault._id },
+      target: { kind: "repository", repositoryId: repository.repositoryId },
     });
 
     try {
       const file = await octokit.rest.repos.getContent({
-        owner: vault.owner,
-        repo: vault.name,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
         path: args.filePath,
         ref: requestedBranch,
       });
@@ -1188,7 +1201,7 @@ export const getRepositoryFileContent = action({
 export const getRepositoryMediaAsset = action({
   access: "access_files_read",
   args: {
-    repositoryFullName: string(),
+    githubRepositoryFullName: string(),
     filePath: string(),
     branch: optional(string()),
     skipStaging: optional(boolean()),
@@ -1202,13 +1215,13 @@ export const getRepositoryMediaAsset = action({
 
     const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
     const userId = ctx.viewer.userId;
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
+    const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
+      githubRepositoryFullName: args.githubRepositoryFullName,
       userId,
       branch: requestedBranch,
     });
-    if (!vault) {
-      throw new Error("Vault not found");
+    if (!repository) {
+      throw new Error("Repository not found");
     }
 
     const fileName = getRepositoryMediaFileName(args.filePath);
@@ -1216,7 +1229,7 @@ export const getRepositoryMediaAsset = action({
 
     if (requestedBranch && !shouldSkipStaging) {
       const stagedFile = await ctx.runQuery(internal.fileStaging.getByNewPathInternal, {
-        vaultId: vault._id,
+        repositoryId: repository.repositoryId,
         branch: requestedBranch,
         newPath: args.filePath,
       });
@@ -1235,7 +1248,7 @@ export const getRepositoryMediaAsset = action({
           readStagedFileKind(stagedFile.kind) === "binary"
         ) {
           console.warn("Staged binary media preview is missing storage data", {
-            vaultId: vault._id,
+            repositoryId: repository.repositoryId,
             branch: requestedBranch,
             filePath: args.filePath,
             stagingId: stagedFile._id,
@@ -1247,7 +1260,7 @@ export const getRepositoryMediaAsset = action({
 
     let targetFileSha: string | null = null;
     if (!requestedBranch) {
-      const targetFile = vault.treeData?.tree.find(
+      const targetFile = repository.treeData?.tree.find(
         (item: { path: string; type: string; sha?: string }) =>
           item.path === args.filePath && item.type === "blob",
       );
@@ -1278,15 +1291,15 @@ export const getRepositoryMediaAsset = action({
       async (operationLease) => {
         const { octokit } = await resolveGitHubAppAccess(ctx, {
           userId,
-          target: { kind: "vault", vaultId: vault._id },
+          target: { kind: "repository", repositoryId: repository.repositoryId },
         });
 
         try {
           if (requestedBranch) {
             targetFileSha = await getRepositoryBlobShaForBranchPath({
               octokit,
-              owner: vault.owner,
-              repo: vault.name,
+              owner: repository.githubOwnerLogin,
+              repo: repository.githubRepositoryName,
               branch: requestedBranch,
               filePath: args.filePath,
             });
@@ -1313,8 +1326,8 @@ export const getRepositoryMediaAsset = action({
           }
 
           const blob = await octokit.rest.git.getBlob({
-            owner: vault.owner,
-            repo: vault.name,
+            owner: repository.githubOwnerLogin,
+            repo: repository.githubRepositoryName,
             file_sha: targetFileSha,
           });
           if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
@@ -1333,7 +1346,7 @@ export const getRepositoryMediaAsset = action({
           );
 
           await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: vault._id,
+            repositoryId: repository.repositoryId,
             sha: targetFileSha,
             size: buffer.byteLength,
             mime: mimeType,
@@ -1378,7 +1391,7 @@ async function refreshExactRepositoryBranchForUser(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
-    vaultId: Id<"vaults">;
+    repositoryId: Id<"repositories">;
     repo: string;
     branch: string;
     intent: "passive" | "manual";
@@ -1386,8 +1399,8 @@ async function refreshExactRepositoryBranchForUser(
   },
 ): Promise<ExactRepositoryBranchRefreshResult> {
   const branch = normalizeRequiredRepositoryBranch(args.branch);
-  const cachedTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
-    vaultId: args.vaultId,
+  const cachedTree = await ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
+    repositoryId: args.repositoryId,
     branch,
   });
   if (
@@ -1401,8 +1414,8 @@ async function refreshExactRepositoryBranchForUser(
   const claim:
     | { claimed: true; startedAt: number }
     | { claimed: false; reason: "cooldown" | "in_progress" | "unavailable" } =
-    await ctx.runMutation(internal.vault.branches.claimTreeRefresh, {
-      vaultId: args.vaultId,
+    await ctx.runMutation(internal.repository.branches.claimTreeRefresh, {
+      repositoryId: args.repositoryId,
       leaseId: args.operationLease?.leaseId,
       operationId: args.operationLease?.operationId,
       operationName: args.operationLease?.operationName,
@@ -1425,11 +1438,11 @@ async function refreshExactRepositoryBranchForUser(
   try {
     ({ octokit, githubOwnerLogin: owner } = await resolveGitHubAppAccess(ctx, {
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      target: { kind: "repository", repositoryId: args.repositoryId },
     }));
   } catch {
-    await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-      vaultId: args.vaultId,
+    await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
+      repositoryId: args.repositoryId,
       startedAt: claim.startedAt,
       markRefreshed: false,
       failureKind: "failed",
@@ -1468,18 +1481,21 @@ async function refreshExactRepositoryBranchForUser(
   });
 
   if (read.kind === "ready") {
-    const write = await ctx.runMutation(internal.vault.branches.upsertClaimedVaultBranchTree, {
-      vaultId: args.vaultId,
-      branch,
-      startedAt: claim.startedAt,
-      treeData: read.treeData,
-      commitSHA: read.commitSha,
-    });
+    const write = await ctx.runMutation(
+      internal.repository.branches.upsertClaimedRepositoryBranchTree,
+      {
+        repositoryId: args.repositoryId,
+        branch,
+        startedAt: claim.startedAt,
+        treeData: read.treeData,
+        commitSHA: read.commitSha,
+      },
+    );
     if (!write.written) {
       return { kind: "deferred", reason: "in_progress" };
     }
-    const release = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-      vaultId: args.vaultId,
+    const release = await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
+      repositoryId: args.repositoryId,
       startedAt: claim.startedAt,
       markRefreshed: true,
     });
@@ -1490,8 +1506,8 @@ async function refreshExactRepositoryBranchForUser(
   }
 
   if (read.kind === "not_found") {
-    const release = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-      vaultId: args.vaultId,
+    const release = await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
+      repositoryId: args.repositoryId,
       startedAt: claim.startedAt,
       markRefreshed: true,
     });
@@ -1502,8 +1518,8 @@ async function refreshExactRepositoryBranchForUser(
   }
 
   const failure = describeRepositoryTreeRefreshFailure(read.error);
-  const release = await ctx.runMutation(internal.vault.branches.releaseTreeRefresh, {
-    vaultId: args.vaultId,
+  const release = await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
+    repositoryId: args.repositoryId,
     startedAt: claim.startedAt,
     markRefreshed: false,
     failureKind: failure.kind,
@@ -1536,32 +1552,36 @@ async function refreshExactRepositoryBranchForUser(
 /**
  * Public branch refresh used by the file route.
  *
- * The browser identifies the vault, branch, and user-visible intent. The
- * action checks `userId + vaultId`, derives owner/repo from the vault, then
+ * The browser identifies the repository, branch, and user-visible intent. The
+ * action checks `userId + repositoryId`, derives owner/repo from the repository, then
  * applies the current file-view branch refresh policy. URL owner/repo strings
  * and GitHub metadata-depth choices are not trusted from React.
  */
 export const refreshRepositoryTree = action({
   access: "access_app_refresh",
   args: {
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     branch: string(),
     intent: publicRefreshRepositoryIntent,
   },
   returns: exactRepositoryBranchRefreshResult,
   handler: async (ctx, args): Promise<ExactRepositoryBranchRefreshResult> => {
     const userId = ctx.viewer.userId;
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       userId,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
     });
-    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
-      throw new Error("Vault not found.");
+    if (
+      !repository ||
+      repository.state !== "connected" ||
+      repository.deletion.state !== "not_deleting"
+    ) {
+      throw new Error("Repository not found.");
     }
     return await refreshExactRepositoryBranchForUser(ctx, {
       userId,
-      vaultId: args.vaultId,
-      repo: vault.name,
+      repositoryId: args.repositoryId,
+      repo: repository.githubRepositoryName,
       branch: args.branch,
       intent: args.intent,
     });
@@ -1572,7 +1592,7 @@ export const refreshRepositoryTree = action({
 export const updateRepositoryTree = internalAction({
   args: {
     userId: id("users"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
     branch: string(),
     leaseId: optional(id("repositoryOperationLeases")),
     operationId: optional(string()),
@@ -1599,17 +1619,21 @@ export const updateRepositoryTree = internalAction({
     ) {
       throw new Error("Repository operation lease identity is incomplete.");
     }
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      vaultId: args.vaultId,
+    const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
-      throw new Error("Vault not found");
+    if (
+      !repository ||
+      repository.state !== "connected" ||
+      repository.deletion.state !== "not_deleting"
+    ) {
+      throw new Error("Repository not found");
     }
     const refresh = await refreshExactRepositoryBranchForUser(ctx, {
       userId: args.userId,
-      vaultId: vault._id,
-      repo: vault.name,
+      repositoryId: repository._id,
+      repo: repository.githubRepositoryName,
       branch,
       intent: "manual",
       operationLease,

@@ -15,13 +15,13 @@ import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { Id } from "../../convex/_generated/dataModel";
-import { type GithubTree } from "../../convex/vault/model";
+import { type GitHubTree } from "../../convex/repository/model";
 import { MonacoEditor } from "./MonacoEditor";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 // Temporary:
-// const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
+// const tempRepositoryId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"repositories">;
 // const tempFilePath = "README.md";
 
 function awaitTimeout(timeout: number): Promise<void> {
@@ -36,13 +36,13 @@ const delay = 500;
 
 async function pushUpdates({
   version,
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   filePath,
   fullUpdates,
 }: {
   version: number;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   filePath: string;
   fullUpdates: readonly Update[];
@@ -56,7 +56,7 @@ async function pushUpdates({
 
   return client
     .mutation(api.collaborative.pushUpdates, {
-      repositoryFullName,
+      githubRepositoryFullName,
       branch,
       filePath,
       version,
@@ -68,7 +68,7 @@ async function pushUpdates({
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
 function peerExtension({
   startVersion,
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   filePath,
   setVersion,
@@ -76,7 +76,7 @@ function peerExtension({
   setSyncError,
 }: {
   startVersion: number;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   filePath: string;
   setVersion: (version: number) => void;
@@ -138,7 +138,7 @@ function peerExtension({
         try {
           const success = await pushUpdates({
             version,
-            repositoryFullName,
+            githubRepositoryFullName,
             branch,
             filePath,
             fullUpdates: updates,
@@ -189,7 +189,7 @@ function peerExtension({
 
         // let updates = await pullUpdates({
         //   version,
-        //   repositoryFullName,
+        //   githubRepositoryFullName,
         //   filePath,
         // });
         this.view.dispatch(receiveUpdates(this.view.state, updates));
@@ -232,22 +232,22 @@ function shouldUseCodeMirrorEditor(args: { filePath: string; editorOverride: Cod
 }
 
 export function CodeEditorWrapper({
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   filePath,
   stagedFile,
-  vaultId,
+  repositoryId,
   tree,
   treeSHA,
   showMobileLineNumbers = false,
   editorOverride = "default",
 }: {
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   filePath: string;
   stagedFile: NonNullable<GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>>;
-  vaultId: Id<"vaults">;
-  tree: GithubTree[];
+  repositoryId: Id<"repositories">;
+  tree: GitHubTree[];
   treeSHA: string;
   showMobileLineNumbers?: boolean;
   editorOverride?: CodeEditorOverride;
@@ -255,9 +255,9 @@ export function CodeEditorWrapper({
   if (shouldUseCodeMirrorEditor({ filePath, editorOverride })) {
     return (
       <CodeEditor
-        key={`${repositoryFullName}-${branch}-${filePath}`}
+        key={`${githubRepositoryFullName}-${branch}-${filePath}`}
         firstDoc={stagedFile}
-        repositoryFullName={repositoryFullName}
+        githubRepositoryFullName={githubRepositoryFullName}
         branch={branch}
         filePath={filePath}
       />
@@ -266,12 +266,12 @@ export function CodeEditorWrapper({
 
   return (
     <MonacoEditor
-      key={`${repositoryFullName}-${branch}-${filePath}`}
+      key={`${githubRepositoryFullName}-${branch}-${filePath}`}
       firstDoc={stagedFile}
-      repositoryFullName={repositoryFullName}
+      githubRepositoryFullName={githubRepositoryFullName}
       branch={branch}
       filePath={filePath}
-      vaultId={vaultId}
+      repositoryId={repositoryId}
       tree={tree}
       treeSHA={treeSHA}
       showMobileLineNumbers={showMobileLineNumbers}
@@ -281,12 +281,12 @@ export function CodeEditorWrapper({
 
 export function CodeEditor({
   firstDoc,
-  repositoryFullName,
+  githubRepositoryFullName,
   branch,
   filePath,
 }: {
   firstDoc: { version: number; content: string };
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   branch: string;
   filePath: string;
 }) {
@@ -301,7 +301,7 @@ export function CodeEditor({
   const updates = useQuery(
     api.collaborative.pullUpdates,
     {
-      repositoryFullName,
+      githubRepositoryFullName,
       branch,
       filePath,
       version,
@@ -325,13 +325,13 @@ export function CodeEditor({
 
   useEffect(() => {
     setSyncError(null);
-  }, [repositoryFullName, branch, filePath]);
+  }, [githubRepositoryFullName, branch, filePath]);
 
   const collaborationExtensions = useMemo(
     () =>
       peerExtension({
         startVersion: mountedFileVersionRef.current,
-        repositoryFullName,
+        githubRepositoryFullName,
         branch,
         filePath,
         setVersion,
@@ -340,7 +340,7 @@ export function CodeEditor({
           pullRef.current = pull;
         },
       }),
-    [branch, filePath, repositoryFullName],
+    [branch, filePath, githubRepositoryFullName],
   );
 
   return (

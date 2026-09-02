@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { boolean, id, number, string } = v;
+const { boolean, id, number, object, string } = v;
 
 export const repositoryFolderTables = {
   /** Per-user shallow repository folders inside one organization. */
@@ -32,3 +32,20 @@ export const repositoryFolderTables = {
     .index("by_organization", ["organizationId"])
     .index("by_repositoryId", ["repositoryId"]),
 };
+
+const repositoryFolderFields = repositoryFolderTables.ui_repositoryTree_folders.validator.fields;
+const repositoryFolderAssignmentFields =
+  repositoryFolderTables.ui_repositoryTree_folderAssignments.validator.fields;
+
+export const vRepositoryFolder = object({
+  _id: id("ui_repositoryTree_folders"),
+  collapsed: repositoryFolderFields.collapsed,
+  name: repositoryFolderFields.name,
+  organizationId: repositoryFolderFields.organizationId,
+  position: repositoryFolderFields.position,
+});
+
+export const vRepositoryFolderAssignment = object({
+  folderId: repositoryFolderAssignmentFields.folderId,
+  repositoryId: repositoryFolderAssignmentFields.repositoryId,
+});

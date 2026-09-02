@@ -123,18 +123,19 @@ describe("organization membership administration", () => {
 });
 
 describe("organization deletion", () => {
-  it("deletes a vault-free organization and its local organization data", async () => {
+  it("deletes a repository-free organization and its local organization data", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "delete");
     await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
+      const repositoryId = await ctx.db.insert("repositories", {
         state: "not_connected",
         organizationId: seed.organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
+        createdAt: 1,
       });
-      const folderId = await ctx.db.insert("ui_vaultFolders", {
+      const folderId = await ctx.db.insert("ui_repositoryTree_folders", {
         userId: seed.ownerId,
         organizationId: seed.organizationId,
         name: "Old folder",
@@ -142,13 +143,13 @@ describe("organization deletion", () => {
         position: 0,
         collapsed: false,
       });
-      await ctx.db.insert("ui_vaultFolderAssignments", {
+      await ctx.db.insert("ui_repositoryTree_folderAssignments", {
         userId: seed.ownerId,
         organizationId: seed.organizationId,
-        vaultId,
+        repositoryId,
         folderId,
       });
-      await ctx.db.insert("ui_vaultOrganizationTree_settings", {
+      await ctx.db.insert("ui_repositoryTree_organizationSettings", {
         userId: seed.ownerId,
         organizationId: seed.organizationId,
         collapsed: true,
@@ -188,32 +189,33 @@ describe("organization deletion", () => {
         createdAt: 1,
         expiresAt: 2,
       });
-      const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+      const deletionRunId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
         state: "succeeded",
         organizationId: seed.organizationId,
         userId: seed.ownerId,
-        vaultId,
-        repositoryFullName: "organization-delete/old-vault",
+        repositoryId,
+        githubRepositoryFullName: "organization-delete/old-repository",
         createdAt: 1,
         updatedAt: 2,
         attempt: { kind: "initial" },
-        workflow: { state: "started", workflowId: "old-vault-deletion" },
+        workflow: { state: "started", workflowId: "old-repository-deletion" },
         currentStep: "finish",
         snapshot: { state: "scrubbed_after_success" },
         completedAt: 2,
       });
-      await ctx.db.insert("workflow_vaultDeletion_events", {
+      await ctx.db.insert("workflow_repositoryDeletion_events", {
         organizationId: seed.organizationId,
         userId: seed.ownerId,
-        vaultId,
-        repositoryFullName: "organization-delete/old-vault",
+        repositoryId,
+        githubRepositoryFullName: "organization-delete/old-repository",
         runId: deletionRunId,
         step: "finish",
         level: "info",
-        message: "Finished vault deletion.",
+        message: "Finished repository removal.",
         createdAt: 2,
+        sourceOrder: { creationTime: 2, documentId: "deletion-event" },
       });
-      await ctx.db.delete(vaultId);
+      await ctx.db.delete(repositoryId);
     });
 
     await expect(
@@ -225,15 +227,17 @@ describe("organization deletion", () => {
 
     const remaining = await t.run(async (ctx) => ({
       billing: await ctx.db.query("organizationBillingAccounts").collect(),
-      deletionEvents: await ctx.db.query("workflow_vaultDeletion_events").collect(),
-      deletionRuns: await ctx.db.query("workflow_vaultDeletion_runs").collect(),
-      folderAssignments: await ctx.db.query("ui_vaultFolderAssignments").collect(),
-      folders: await ctx.db.query("ui_vaultFolders").collect(),
+      deletionEvents: await ctx.db.query("workflow_repositoryDeletion_events").collect(),
+      deletionRuns: await ctx.db.query("workflow_repositoryDeletion_runs").collect(),
+      folderAssignments: await ctx.db.query("ui_repositoryTree_folderAssignments").collect(),
+      folders: await ctx.db.query("ui_repositoryTree_folders").collect(),
       githubSetupStates: await ctx.db.query("githubAppSetupStates").collect(),
       invitations: await ctx.db.query("organizationInvitations").collect(),
       memberships: await ctx.db.query("organizationMemberships").collect(),
       organization: await ctx.db.get(seed.organizationId),
-      organizationTreeSettings: await ctx.db.query("ui_vaultOrganizationTree_settings").collect(),
+      organizationTreeSettings: await ctx.db
+        .query("ui_repositoryTree_organizationSettings")
+        .collect(),
       owner: await ctx.db.get(seed.ownerId),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
       providerOAuthStates: await ctx.db.query("providerOAuthCallbackStates").collect(),
@@ -328,21 +332,22 @@ describe("organization deletion", () => {
 
   it("rejects an organization that still has a repository", async () => {
     const t = makeConvexTest();
-    const seed = await seedDeletableOrganization(t, "vault");
+    const seed = await seedDeletableOrganization(t, "repository");
     await t.run(async (ctx) => {
-      await ctx.db.insert("vaults", {
+      await ctx.db.insert("repositories", {
         state: "not_connected",
         organizationId: seed.organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
+        createdAt: 1,
       });
     });
 
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        deletionConfirmationText: "organization-vault",
+        deletionConfirmationText: "organization-repository",
       }),
     ).rejects.toThrow("Remove every repository from Samebase before you delete this organization.");
   });
@@ -446,25 +451,26 @@ describe("organization deletion", () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "provisioning");
     await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
+      const repositoryId = await ctx.db.insert("repositories", {
         state: "not_connected",
         organizationId: seed.organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
+        createdAt: 1,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: seed.organizationId,
         userId: seed.ownerId,
-        vaultId,
-        repositoryFullName: "organization-provisioning/new-vault",
+        repositoryId,
+        githubRepositoryFullName: "organization-provisioning/new-repository",
         trigger: "create",
         state: "running",
-        currentStep: "create_github_repo",
+        currentStep: "create_github_repository",
         createdAt: 1,
         updatedAt: 1,
       });
-      await ctx.db.delete(vaultId);
+      await ctx.db.delete(repositoryId);
     });
 
     await expect(
@@ -475,34 +481,35 @@ describe("organization deletion", () => {
     ).rejects.toThrow("Finish organization repository cleanup before deletion.");
   });
 
-  it("rejects excessive completed vault deletion history without asking for more cleanup", async () => {
+  it("rejects excessive completed repository deletion history without asking for more cleanup", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "deletion-history");
     await t.run(async (ctx) => {
-      const vaultId = await ctx.db.insert("vaults", {
+      const repositoryId = await ctx.db.insert("repositories", {
         state: "not_connected",
         organizationId: seed.organizationId,
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
+        createdAt: 1,
       });
       for (let runIndex = 0; runIndex <= 500; runIndex += 1) {
-        await ctx.db.insert("workflow_vaultDeletion_runs", {
+        await ctx.db.insert("workflow_repositoryDeletion_runs", {
           state: "succeeded",
           organizationId: seed.organizationId,
           userId: seed.ownerId,
-          vaultId,
-          repositoryFullName: `organization-deletion-history/old-vault-${runIndex}`,
+          repositoryId,
+          githubRepositoryFullName: `organization-deletion-history/old-repository-${runIndex}`,
           createdAt: runIndex,
           updatedAt: runIndex,
           attempt: { kind: "initial" },
-          workflow: { state: "started", workflowId: `old-vault-deletion-${runIndex}` },
+          workflow: { state: "started", workflowId: `old-repository-deletion-${runIndex}` },
           currentStep: "finish",
           snapshot: { state: "scrubbed_after_success" },
           completedAt: runIndex,
         });
       }
-      await ctx.db.delete(vaultId);
+      await ctx.db.delete(repositoryId);
     });
 
     await expect(

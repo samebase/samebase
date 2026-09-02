@@ -2,23 +2,26 @@
 
 # Connect existing repository (`connect_existing_repository`)
 
-MCP tool `vault_actions_connectRepository` · scope `access_repo_connect` · write
+MCP tool `repository_actions_connectRepository` · scope `access_repo_connect` · write
 
 Brings a repository that the selected organization's GitHub App installation can read into Samebase:
-creates the vault, syncs the tree, and leaves the providers deliberately unconfigured. Importing
-never touches Convex or Cloudflare. This is the adoption entry point for existing projects; discover
-and attach provider resources afterwards with the vault-level Convex and Cloudflare actions, or
-leave the vault GitHub-only (watching and editing a repository is a supported use on its own).
+creates the repository, syncs the tree, and leaves the providers deliberately unconfigured.
+Importing never touches Convex or Cloudflare. This is the adoption entry point for existing
+projects; discover and attach provider resources afterwards with the repository-level Convex and
+Cloudflare actions, or leave the repository GitHub-only (watching and editing a repository is a
+supported use on its own).
 
 Preconditions: organization membership and installation read access to the repository. Nothing is
 created on any provider; the only writes are Samebase's own record and the tree sync. Progress and
-failure are readable through `get_user_vaults` (`sourceSetup` running/failed with step and message).
+failure are readable through `get_user_repositories` (`sourceSetup` running/failed with step and
+message).
 
 ## Arguments
 
 - `githubOwnerLogin` (string, required): GitHub owner login for the Samebase organization that will
-  hold the vault.
-- `ghRepoId` (string, required): Stable GitHub repository ID to connect.
+  hold the repository.
+- `githubRepositoryDatabaseId` (string, required): GitHub repository database ID to connect. This is
+  not a Samebase repository ID.
 
 ## Returns
 
@@ -28,17 +31,17 @@ JSON Schema for the tool's `structuredContent`:
 {
   "type": "object",
   "properties": {
-    "vaultId": {
+    "repositoryId": {
       "type": "string"
     },
     "runId": {
       "type": "string"
     },
-    "repositoryFullName": {
+    "githubRepositoryFullName": {
       "type": "string"
     }
   },
-  "required": ["vaultId", "runId", "repositoryFullName"],
+  "required": ["repositoryId", "runId", "githubRepositoryFullName"],
   "additionalProperties": false
 }
 ```

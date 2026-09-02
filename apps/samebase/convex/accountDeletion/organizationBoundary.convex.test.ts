@@ -111,15 +111,16 @@ async function seedRunningDeletion() {
       runId,
       requestedAt: 1,
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       state: "not_connected",
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
     });
-    const stagedFileId = await ctx.db.insert("vaultStagedFiles", {
-      vaultId,
+    const stagedFileId = await ctx.db.insert("repositoryStagedFiles", {
+      repositoryId,
       fileDeleted: false,
       filePath: "README.md",
       initialFilePath: "README.md",
@@ -186,17 +187,20 @@ async function seedRunningDeletion() {
       userId: deletingUserId,
       providersPanelOpen: true,
     });
-    const organizationTreeSettingId = await ctx.db.insert("ui_vaultOrganizationTree_settings", {
-      collapsed: true,
-      organizationId,
-      userId: deletingUserId,
-    });
+    const organizationTreeSettingId = await ctx.db.insert(
+      "ui_repositoryTree_organizationSettings",
+      {
+        collapsed: true,
+        organizationId,
+        userId: deletingUserId,
+      },
+    );
     await ctx.db.insert("mcpGrants", {
       grantId: "grant-1",
       userId: deletingUserId,
       clientId: "client-1",
       resource: "https://api.example.invalid",
-      scope: "vault:read",
+      scope: "repository:read",
       status: "active",
       createdAt: 1,
       updatedAt: 1,
@@ -207,7 +211,7 @@ async function seedRunningDeletion() {
       clientId: "client-1",
       userId: deletingUserId,
       resource: "https://api.example.invalid",
-      scope: "vault:read",
+      scope: "repository:read",
       createdAt: 1,
       expiresAt: 2_000_000_000_000,
     });
@@ -228,7 +232,7 @@ async function seedRunningDeletion() {
       organizationId,
       organizationBillingId,
       runId,
-      vaultId,
+      repositoryId,
       stagedFileId,
       organizationProviderCredentialsId,
       organizationTreeSettingId,
@@ -461,14 +465,14 @@ describe("account deletion organization boundary", () => {
   it("waits for the deleting user's active work and a fresh GitHub refresh", async () => {
     const { ids, t } = await seedRunningDeletion();
     const provisioningRunId = await t.run(async (ctx) => {
-      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      return await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: ids.organizationId,
         userId: ids.deletingUserId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "example/shared",
+        repositoryId: ids.repositoryId,
+        githubRepositoryFullName: "example/shared",
         trigger: "connect_existing_repository",
         state: "running",
-        currentStep: "fetch_github_repo",
+        currentStep: "fetch_github_repository",
         createdAt: 2,
         updatedAt: 2,
       });
@@ -488,12 +492,12 @@ describe("account deletion organization boundary", () => {
         updatedAt: 3,
         completedAt: 3,
       });
-      return await ctx.db.insert("workflow_vaultDeletion_runs", {
+      return await ctx.db.insert("workflow_repositoryDeletion_runs", {
         state: "queued",
         organizationId: ids.organizationId,
         userId: ids.deletingUserId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "example/shared",
+        repositoryId: ids.repositoryId,
+        githubRepositoryFullName: "example/shared",
         createdAt: 4,
         updatedAt: 4,
         attempt: { kind: "initial" },
@@ -505,9 +509,9 @@ describe("account deletion organization boundary", () => {
             target: {
               kind: "failed_repository_setup",
               githubMode: "connect_existing_repository",
-              owner: "example",
-              name: "shared",
-              repositoryFullName: "example/shared",
+              githubOwnerLogin: "example",
+              githubRepositoryName: "shared",
+              githubRepositoryFullName: "example/shared",
             },
             convex: { action: "skip", reason: "not_requested" },
             cloudflare: { action: "skip", reason: "not_requested" },
@@ -522,7 +526,7 @@ describe("account deletion organization boundary", () => {
         runId: ids.runId,
         workflowId,
       }),
-    ).resolves.toEqual({ state: "waiting", blocker: "active_vault_deletion" });
+    ).resolves.toEqual({ state: "waiting", blocker: "active_repository_deletion" });
 
     const { githubAuthorizationId, manualWriteId } = await t.run(async (ctx) => {
       await ctx.db.patch(deletionRunId, {
@@ -531,19 +535,19 @@ describe("account deletion organization boundary", () => {
         lastError: "Expected test failure.",
         completedAt: 5,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: ids.organizationId,
         userId: ids.teammateUserId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "example/shared",
+        repositoryId: ids.repositoryId,
+        githubRepositoryFullName: "example/shared",
         trigger: "retry",
         state: "running",
         currentStep: "claim_infra",
         createdAt: 6,
         updatedAt: 6,
       });
-      const manualWriteId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: ids.vaultId,
+      const manualWriteId = await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId: ids.repositoryId,
         owner: {
           kind: "manual_provider_write",
           userId: ids.deletingUserId,
@@ -607,7 +611,7 @@ describe("account deletion organization boundary", () => {
   it("removes personal folder assignments before folders and preserves teammate state", async () => {
     const { ids, t } = await seedRunningDeletion();
     const folderStateIds = await t.run(async (ctx) => {
-      const deletingFolderId = await ctx.db.insert("ui_vaultFolders", {
+      const deletingFolderId = await ctx.db.insert("ui_repositoryTree_folders", {
         collapsed: false,
         name: "Deleting user's folder",
         nameKey: "deleting user's folder",
@@ -615,13 +619,13 @@ describe("account deletion organization boundary", () => {
         position: 0,
         userId: ids.deletingUserId,
       });
-      const deletingAssignmentId = await ctx.db.insert("ui_vaultFolderAssignments", {
+      const deletingAssignmentId = await ctx.db.insert("ui_repositoryTree_folderAssignments", {
         folderId: deletingFolderId,
         organizationId: ids.organizationId,
         userId: ids.deletingUserId,
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
       });
-      const teammateFolderId = await ctx.db.insert("ui_vaultFolders", {
+      const teammateFolderId = await ctx.db.insert("ui_repositoryTree_folders", {
         collapsed: true,
         name: "Teammate's folder",
         nameKey: "teammate's folder",
@@ -629,11 +633,11 @@ describe("account deletion organization boundary", () => {
         position: 0,
         userId: ids.teammateUserId,
       });
-      const teammateAssignmentId = await ctx.db.insert("ui_vaultFolderAssignments", {
+      const teammateAssignmentId = await ctx.db.insert("ui_repositoryTree_folderAssignments", {
         folderId: teammateFolderId,
         organizationId: ids.organizationId,
         userId: ids.teammateUserId,
-        vaultId: ids.vaultId,
+        repositoryId: ids.repositoryId,
       });
       return {
         deletingAssignmentId,
@@ -719,7 +723,7 @@ describe("account deletion organization boundary", () => {
       initiatingSession: await ctx.db.get(ids.initiatingSessionId),
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
-      vault: await ctx.db.get(ids.vaultId),
+      repository: await ctx.db.get(ids.repositoryId),
       stagedFile: await ctx.db.get(ids.stagedFileId),
       organizationProviderCredentials: await ctx.db.get(ids.organizationProviderCredentialsId),
       teammateProviderCredentials: await ctx.db.get(ids.teammateProviderCredentialsId),
@@ -772,7 +776,7 @@ describe("account deletion organization boundary", () => {
     ]);
     expect(snapshot.initiatingSession).toBeNull();
     expect(snapshot.organizationBilling).not.toBeNull();
-    expect(snapshot.vault).not.toBeNull();
+    expect(snapshot.repository).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();
     expect(snapshot.organization).toMatchObject({
       convexTeam: { teamId: "convex-team" },
@@ -1153,11 +1157,11 @@ describe("account deletion organization boundary", () => {
   it("lets the remaining member edit the shared staged file", async () => {
     const { ids, t } = await seedRunningDeletion();
     await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId: ids.organizationId,
         userId: ids.teammateUserId,
-        vaultId: ids.vaultId,
-        repositoryFullName: "example/shared",
+        repositoryId: ids.repositoryId,
+        githubRepositoryFullName: "example/shared",
         trigger: "connect_existing_repository",
         state: "succeeded",
         currentStep: "finish",
@@ -1165,7 +1169,8 @@ describe("account deletion organization boundary", () => {
         updatedAt: 2,
         completedAt: 3,
       });
-      await ctx.db.replace(ids.vaultId, {
+      await ctx.db.replace(ids.repositoryId, {
+        createdAt: 1,
         state: "connected",
         githubMode: "connect_existing_repository",
         organizationId: ids.organizationId,
@@ -1173,16 +1178,16 @@ describe("account deletion organization boundary", () => {
         cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         runId,
-        ghRepoId: "701",
+        githubRepositoryDatabaseId: "701",
         defaultBranch: "main",
         connectedAt: 3,
-        name: "shared",
+        githubRepositoryName: "shared",
         visibility: "private",
       });
     });
 
     const stagedFile = await t.mutation(internal.fileStaging.saveToStaging, {
-      vaultId: ids.vaultId,
+      repositoryId: ids.repositoryId,
       initialFilePath: "README.md",
       content: "teammate edit",
       initialContent: "",

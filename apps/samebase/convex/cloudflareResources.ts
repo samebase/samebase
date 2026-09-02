@@ -143,9 +143,9 @@ export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown
 }
 
 export function formatCloudflareGitHubAppRepositoryAuthorizationMessage(
-  repositoryFullName: string,
+  githubRepositoryFullName: string,
 ): string {
-  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. Follow Cloudflare's recovery steps at ${CLOUDFLARE_GITHUB_APP_RECOVERY_URL}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${repositoryFullName}, then retry.`;
+  return `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${CLOUDFLARE_GITHUB_APP_RECOVERY_URL}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${githubRepositoryFullName}, then retry.`;
 }
 
 function requireCloudflareResult<T>(value: T | undefined, message: string): T {
@@ -848,13 +848,13 @@ async function ensureRepositoryConnection(
   args: {
     token: string;
     accountId: string;
-    ghRepoId: string;
+    githubRepositoryDatabaseId: string;
     ghRepoOwnerId: string;
     owner: string;
     repo: string;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
-  const repositoryFullName = `${args.owner}/${args.repo}`;
+  const githubRepositoryFullName = `${args.owner}/${args.repo}`;
   try {
     await args.beforeProviderWrite?.();
     const raw = await requestCloudflareApiOrThrow({
@@ -872,7 +872,7 @@ async function ensureRepositoryConnection(
         provider_type: "github",
         provider_account_id: args.ghRepoOwnerId,
         provider_account_name: args.owner,
-        repo_id: args.ghRepoId,
+        repo_id: args.githubRepositoryDatabaseId,
         repo_name: args.repo,
       },
     });
@@ -883,7 +883,9 @@ async function ensureRepositoryConnection(
     );
   } catch (error) {
     if (isCloudflareGitHubAppRepositoryAuthorizationError(error)) {
-      throw new Error(formatCloudflareGitHubAppRepositoryAuthorizationMessage(repositoryFullName));
+      throw new Error(
+        formatCloudflareGitHubAppRepositoryAuthorizationMessage(githubRepositoryFullName),
+      );
     }
     throw error;
   }
@@ -1012,35 +1014,35 @@ function assertBuildTriggerMatchesRepositoryAndRoot(args: {
   triggerName: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   workerTag: string;
 }): void {
   if (args.trigger.repo_connection?.deleted_on) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${args.triggerName} Workers Builds trigger references a deleted Cloudflare GitHub repository connection. Disconnect Builds in Cloudflare or choose another Worker.`,
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.githubRepositoryFullName}: its existing ${args.triggerName} Workers Builds trigger references a deleted Cloudflare GitHub repository connection. Disconnect Builds in Cloudflare or choose another Worker.`,
     );
   }
   const triggerRepoId = readTriggerRepositoryId(args.trigger);
   if (!triggerRepoId) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: Cloudflare did not return a GitHub repository id for the existing ${args.triggerName} Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.`,
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.githubRepositoryFullName}: Cloudflare did not return a GitHub repository id for the existing ${args.triggerName} Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.`,
     );
   }
   if (triggerRepoId !== args.expectedRepoId) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${args.triggerName} Workers Builds trigger is connected to GitHub repository ${formatExistingTriggerRepository(args.trigger, triggerRepoId)}. Disconnect Builds in Cloudflare or choose another Worker.`,
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.githubRepositoryFullName}: its existing ${args.triggerName} Workers Builds trigger is connected to GitHub repository ${formatExistingTriggerRepository(args.trigger, triggerRepoId)}. Disconnect Builds in Cloudflare or choose another Worker.`,
     );
   }
 
   const triggerRootDirectory = normalizeCloudflareBuildRoot(args.trigger.root_directory);
   if (!triggerRootDirectory) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: Cloudflare did not return a root directory for the existing ${args.triggerName} Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.`,
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.githubRepositoryFullName}: Cloudflare did not return a root directory for the existing ${args.triggerName} Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.`,
     );
   }
   if (triggerRootDirectory !== args.expectedRootDirectory) {
     throw new Error(
-      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${args.triggerName} Workers Builds trigger is connected to root directory ${formatCloudflareBuildRoot(triggerRootDirectory)}. Expected ${formatCloudflareBuildRoot(args.expectedRootDirectory)}. Disconnect Builds in Cloudflare or choose another Worker.`,
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.githubRepositoryFullName}: its existing ${args.triggerName} Workers Builds trigger is connected to root directory ${formatCloudflareBuildRoot(triggerRootDirectory)}. Expected ${formatCloudflareBuildRoot(args.expectedRootDirectory)}. Disconnect Builds in Cloudflare or choose another Worker.`,
     );
   }
 }
@@ -1461,7 +1463,7 @@ type CloudflareAuthMethod = "api_key" | "oauth" | "mcp_oauth";
 type ConfigureCloudflareWorkerBuildsArgs = {
   owner: string;
   repo: string;
-  ghRepoId: string;
+  githubRepositoryDatabaseId: string;
   ghRepoOwnerId: string;
   defaultBranch: string;
   cloudflareToken: string;
@@ -1478,11 +1480,11 @@ type ConfigureCloudflareWorkerBuildsArgs = {
 type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   owner: string;
   repo: string;
-  ghRepoId: string;
+  githubRepositoryDatabaseId: string;
   ghRepoOwnerId: string;
   defaultBranch: string;
   initialBuild: InitialCloudflareWorkersBuild;
-  vaultId: string;
+  repositoryId: string;
   workerName: string;
   workerTag: string;
   existingBuilds: "preserve_repository" | "require_unconnected";
@@ -1500,9 +1502,9 @@ type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
   defaultBranch: string;
   readInitialBuildCommitHash: () => Promise<string>;
   expectedRepoId: string;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   rootDirectory: string;
-  vaultId: string;
+  repositoryId: string;
   workerName: string;
   workerTag: string;
   cloudflareToken: string;
@@ -1525,7 +1527,7 @@ function assertExpectedBuildTriggerStillExists(args: {
   triggerUuid: string;
   expectedRepoId: string;
   expectedRootDirectory: string;
-  repositoryFullName: string;
+  githubRepositoryFullName: string;
   workerTag: string;
 }): void {
   const triggerName = args.kind === "production" ? "production" : "preview";
@@ -1534,7 +1536,7 @@ function assertExpectedBuildTriggerStillExists(args: {
   );
   if (!trigger) {
     throw new Error(
-      `Cannot configure Workers Builds for Cloudflare Worker ${args.workerTag} and ${args.repositoryFullName}: Cloudflare did not return the existing ${triggerName} trigger. Retry the operation or choose another Worker.`,
+      `Cannot configure Workers Builds for Cloudflare Worker ${args.workerTag} and ${args.githubRepositoryFullName}: Cloudflare did not return the existing ${triggerName} trigger. Retry the operation or choose another Worker.`,
     );
   }
   if (
@@ -1545,7 +1547,7 @@ function assertExpectedBuildTriggerStillExists(args: {
     })
   ) {
     throw new Error(
-      `Cannot configure Workers Builds for Cloudflare Worker ${args.workerTag} and ${args.repositoryFullName}: its existing ${triggerName} trigger no longer matches the expected branch filters. Retry the operation or choose another Worker.`,
+      `Cannot configure Workers Builds for Cloudflare Worker ${args.workerTag} and ${args.githubRepositoryFullName}: its existing ${triggerName} trigger no longer matches the expected branch filters. Retry the operation or choose another Worker.`,
     );
   }
 
@@ -1554,7 +1556,7 @@ function assertExpectedBuildTriggerStillExists(args: {
     triggerName,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.expectedRootDirectory,
-    repositoryFullName: args.repositoryFullName,
+    githubRepositoryFullName: args.githubRepositoryFullName,
     workerTag: args.workerTag,
   });
 }
@@ -1795,7 +1797,7 @@ async function configureCloudflareWorkerBuilds(
   const repoConnectionUuid = await ensureRepositoryConnection({
     token: args.cloudflareToken,
     accountId: args.accountId,
-    ghRepoId: args.ghRepoId,
+    githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
     ghRepoOwnerId: args.ghRepoOwnerId,
     owner: args.owner,
     repo: args.repo,
@@ -1822,7 +1824,7 @@ async function configureCloudflareWorkerBuilds(
     triggers: existingTriggers,
     kind: "production",
     defaultBranch: args.defaultBranch,
-    expectedRepoId: args.ghRepoId,
+    expectedRepoId: args.githubRepositoryDatabaseId,
     expectedRepoConnectionUuid: repoConnectionUuid,
     workerTag: args.workerTag,
   });
@@ -1830,7 +1832,7 @@ async function configureCloudflareWorkerBuilds(
     triggers: existingTriggers,
     kind: "preview",
     defaultBranch: args.defaultBranch,
-    expectedRepoId: args.ghRepoId,
+    expectedRepoId: args.githubRepositoryDatabaseId,
     expectedRepoConnectionUuid: repoConnectionUuid,
     workerTag: args.workerTag,
   });
@@ -1840,7 +1842,7 @@ async function configureCloudflareWorkerBuilds(
     accountId: args.accountId,
     workerTag: args.workerTag,
     repoConnectionUuid,
-    expectedRepoId: args.ghRepoId,
+    expectedRepoId: args.githubRepositoryDatabaseId,
     buildTokenUuid,
     buildConfig: args.buildConfig,
     defaultBranch: args.defaultBranch,
@@ -1855,7 +1857,7 @@ async function configureCloudflareWorkerBuilds(
     accountId: args.accountId,
     workerTag: args.workerTag,
     repoConnectionUuid,
-    expectedRepoId: args.ghRepoId,
+    expectedRepoId: args.githubRepositoryDatabaseId,
     buildTokenUuid,
     buildConfig: args.buildConfig,
     defaultBranch: args.defaultBranch,
@@ -1887,7 +1889,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
   args: ConfigureCloudflareWorkerBuildsForGitHubArgs,
 ): Promise<CloudflareConnectedWorkersBuilds> {
   console.log("infra:cloudflare:workers_builds:configure_github:start", {
-    vaultId: args.vaultId,
+    repositoryId: args.repositoryId,
     accountId: args.accountId,
     workerName: args.workerName,
     workerTag: args.workerTag,
@@ -1901,7 +1903,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
     const build = await configureCloudflareWorkerBuilds({
       owner: args.owner,
       repo: args.repo,
-      ghRepoId: args.ghRepoId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
       ghRepoOwnerId: args.ghRepoOwnerId,
       defaultBranch: args.defaultBranch,
       cloudflareToken: args.cloudflareToken,
@@ -1933,7 +1935,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
     }
 
     console.log("infra:cloudflare:workers_builds:configure_github:success", {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -1945,7 +1947,7 @@ export async function configureCloudflareWorkerBuildsForGitHub(
     console.error(
       "infra:cloudflare:workers_builds:configure_github:failed",
       {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
@@ -1962,7 +1964,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
   args: RotateConvexDeployKeysForCloudflareWorkerBuildsArgs,
 ): Promise<void> {
   console.log("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:start", {
-    vaultId: args.vaultId,
+    repositoryId: args.repositoryId,
     accountId: args.accountId,
     workerName: args.workerName,
     workerTag: args.workerTag,
@@ -1990,7 +1992,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       triggerUuid: args.build.production.triggerUuid,
       expectedRepoId: args.expectedRepoId,
       expectedRootDirectory,
-      repositoryFullName: args.repositoryFullName,
+      githubRepositoryFullName: args.githubRepositoryFullName,
       workerTag: args.workerTag,
     });
     assertExpectedBuildTriggerStillExists({
@@ -2000,7 +2002,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       triggerUuid: args.build.preview.triggerUuid,
       expectedRepoId: args.expectedRepoId,
       expectedRootDirectory,
-      repositoryFullName: args.repositoryFullName,
+      githubRepositoryFullName: args.githubRepositoryFullName,
       workerTag: args.workerTag,
     });
 
@@ -2077,7 +2079,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
     });
 
     console.log("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:success", {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -2086,7 +2088,7 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
     console.error(
       "infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:failed",
       {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,

@@ -2,18 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { parseRepositoryFullName } from "../../shared/repoName";
-import {
-  ConnectRepositoryPageContent,
-  type ConnectRepositoryRepository,
-} from "./ConnectRepository";
+import { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
+import { ConnectRepositoryPageContent, type ConnectRepositoryOption } from "./ConnectRepository";
 
 type ConnectRepositoryPageContentProps = Parameters<typeof ConnectRepositoryPageContent>[0];
 
 const noop = () => {};
 
-function buildRepository(id: number, fullName: string): ConnectRepositoryRepository {
-  const { name, owner } = parseRepositoryFullName(fullName);
+function buildRepository(id: number, fullName: string): ConnectRepositoryOption {
+  const { name, owner } = parseGitHubRepositoryFullName(fullName);
 
   return {
     id,
@@ -32,7 +29,7 @@ function buildRepository(id: number, fullName: string): ConnectRepositoryReposit
   };
 }
 
-function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery: string) {
+function buildRepositoryRow(repository: ConnectRepositoryOption, searchQuery: string) {
   const searchMatch = findRepositorySearchMatch(searchQuery, repository);
   if (searchMatch === null) {
     throw new Error(`${repository.full_name} does not match ${searchQuery}`);

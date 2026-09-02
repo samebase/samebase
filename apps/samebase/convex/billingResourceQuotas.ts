@@ -12,8 +12,8 @@ import {
   readOrganizationMemberCapacity,
   readOrganizationMembershipCount,
 } from "./organizationBillingLimits";
-import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
-import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOperation";
+import { requireActiveRepositoryProvisioningAuthority } from "./repositoryWorkflowAuthority";
+import { requireManualProviderWriteCheckpoint } from "./repository/infrastructureOperation";
 
 const { id, literal, number, object, union } = v;
 
@@ -30,16 +30,16 @@ export type BillingResourceAuthority =
       userId: Id<"users">;
     }
   | {
-      kind: "vault_provisioning";
-      runId: Id<"workflow_vaultProvisioning_runs">;
+      kind: "repository_provisioning";
+      runId: Id<"workflow_repositoryProvisioning_runs">;
       userId: Id<"users">;
-      vaultId: Id<"vaults">;
+      repositoryId: Id<"repositories">;
     }
   | {
       kind: "manual_provider_write";
       actionId: string;
       userId: Id<"users">;
-      vaultId: Id<"vaults">;
+      repositoryId: Id<"repositories">;
     };
 
 const vResourceAttachmentCount = union(
@@ -97,17 +97,17 @@ async function readOrganizationConnectionCounts(
 ): Promise<OrganizationConnectionCounts> {
   const [repositories, cloudflareWorkers, convexProjects] = await Promise.all([
     ctx.db
-      .query("vaults")
+      .query("repositories")
       .withIndex("by_organization_and_state_and_deletion_state", (query) =>
         query.eq("organizationId", args.organizationId).eq("state", "connected"),
       )
       .take(args.maximumRows),
     ctx.db
-      .query("vaultCloudflareWorkers")
+      .query("repositoryCloudflareWorkers")
       .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
       .take(args.maximumRows),
     ctx.db
-      .query("vaultConvexProjects")
+      .query("repositoryConvexProjects")
       .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
       .take(args.maximumRows),
   ]);
@@ -206,14 +206,14 @@ export async function requireBillingResourceCapacityForAuthority(
         userId: args.authority.userId,
       });
       return;
-    case "vault_provisioning": {
-      const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args.authority);
+    case "repository_provisioning": {
+      const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args.authority);
       await requireOrganizationConnectionCapacityForId(ctx, authority.organizationId);
       return;
     }
     case "manual_provider_write": {
-      const vault = await requireManualProviderWriteCheckpoint(ctx, args.authority);
-      await requireOrganizationConnectionCapacityForId(ctx, vault.organizationId);
+      const repository = await requireManualProviderWriteCheckpoint(ctx, args.authority);
+      await requireOrganizationConnectionCapacityForId(ctx, repository.organizationId);
       return;
     }
     default:
@@ -222,20 +222,20 @@ export async function requireBillingResourceCapacityForAuthority(
   }
 }
 
-export const requireBillingResourceCapacityForVaultProvisioning = internalQuery({
+export const requireBillingResourceCapacityForRepositoryProvisioning = internalQuery({
   args: {
-    runId: id("workflow_vaultProvisioning_runs"),
+    runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
-    vaultId: id("vaults"),
+    repositoryId: id("repositories"),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await requireBillingResourceCapacityForAuthority(ctx, {
       authority: {
-        kind: "vault_provisioning",
+        kind: "repository_provisioning",
         runId: args.runId,
         userId: args.userId,
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
       },
     });
     return null;

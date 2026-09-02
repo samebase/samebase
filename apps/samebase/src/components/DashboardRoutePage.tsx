@@ -1,9 +1,9 @@
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { lazy } from "react";
 
-const VaultDashboard = lazy(async () => {
-  const module = await import("@/components/vault-dashboard/VaultDashboard");
-  return { default: module.VaultDashboard };
+const RepositoryDashboard = lazy(async () => {
+  const module = await import("@/components/repository-dashboard/RepositoryDashboard");
+  return { default: module.RepositoryDashboard };
 });
 
 export type DashboardRoutePageProps = {
@@ -23,7 +23,7 @@ export function DashboardRoutePage({
 }: DashboardRoutePageProps) {
   return (
     <AuthenticatedAppRoutePage>
-      <VaultDashboard
+      <RepositoryDashboard
         organizationOwner={organizationOwner}
         page={page}
         selectedRepositoryFullName={selectedRepositoryFullName}

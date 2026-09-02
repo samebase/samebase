@@ -83,10 +83,10 @@ function asUser(t: TestBackend, userId: Id<"users">) {
   });
 }
 
-async function insertOrganizationVaultForUser(
+async function insertOrganizationRepositoryForUser(
   t: TestBackend,
   userId: Id<"users">,
-): Promise<{ organizationId: Id<"organizations">; vaultId: Id<"vaults"> }> {
+): Promise<{ organizationId: Id<"organizations">; repositoryId: Id<"repositories"> }> {
   return await t.run(async (ctx) => {
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: `owner-${userId}`,
@@ -101,14 +101,15 @@ async function insertOrganizationVaultForUser(
       userId,
       role: "member",
     });
-    const vaultId = await ctx.db.insert("vaults", {
+    const repositoryId = await ctx.db.insert("repositories", {
+      createdAt: 1,
       state: "not_connected",
       organizationId,
       convexTeamId: "convex-team",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
     });
-    return { organizationId, vaultId };
+    return { organizationId, repositoryId };
   });
 }
 
@@ -206,7 +207,7 @@ describe("user lifecycle authorization", () => {
       isApproved: true,
       termsAccepted: false,
     });
-    const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
+    const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
     await insertProviderConfiguration(t, { organizationId, userId });
     const sessionId = await t.run(async (ctx) => {
       return await ctx.db.insert("authSessions", {
@@ -241,7 +242,7 @@ describe("user lifecycle authorization", () => {
       viewer.query(api.users.getConvexConnectionStatus, { organizationId }),
     ).rejects.toThrow("Access denied");
     await expect(
-      viewer.query(api.vault.organizationTree.getVaultOrganizationTreeSettings, {}),
+      viewer.query(api.repository.organizationTree.getRepositoryOrganizationTreeSettings, {}),
     ).rejects.toThrow("Access denied");
     await expect(
       viewer.query(api.billingResourceQuotas.getViewerBillingResourceUsage, { organizationId }),
@@ -251,9 +252,9 @@ describe("user lifecycle authorization", () => {
         paginationOpts: { cursor: null, numItems: 10 },
       }),
     ).rejects.toThrow("Access denied");
-    await expect(viewer.query(api.appProvisioningEvents.listForVault, { vaultId })).rejects.toThrow(
-      "Access denied",
-    );
+    await expect(
+      viewer.query(api.repositoryProvisioningEvents.listForRepository, { repositoryId }),
+    ).rejects.toThrow("Access denied");
 
     await expect(
       viewer.mutation(api.users.acceptCurrentTerms, {
@@ -271,7 +272,7 @@ describe("user lifecycle authorization", () => {
       viewer.query(api.users.getConvexConnectionStatus, { organizationId }),
     ).resolves.toMatchObject({ state: "connected" });
     await expect(
-      viewer.query(api.vault.organizationTree.getVaultOrganizationTreeSettings, {}),
+      viewer.query(api.repository.organizationTree.getRepositoryOrganizationTreeSettings, {}),
     ).resolves.toEqual([]);
     await expect(
       viewer.query(api.billingResourceQuotas.getViewerBillingResourceUsage, { organizationId }),
@@ -282,7 +283,7 @@ describe("user lifecycle authorization", () => {
       }),
     ).resolves.toMatchObject({ page: [] });
     await expect(
-      viewer.query(api.appProvisioningEvents.listForVault, { vaultId }),
+      viewer.query(api.repositoryProvisioningEvents.listForRepository, { repositoryId }),
     ).resolves.toEqual([]);
   });
 
@@ -452,7 +453,7 @@ describe("user lifecycle authorization", () => {
     ).rejects.toMatchObject({ data: "authenticated-account-reference-invalid" });
   });
 
-  it("requires an active user at delayed vault and provider boundaries", async () => {
+  it("requires an active user at delayed repository and provider boundaries", async () => {
     const states = ["active", "deleting", "deleted"] as const;
     for (const state of states) {
       const { t, userId } = await seedLifecycleUser({
@@ -460,22 +461,22 @@ describe("user lifecycle authorization", () => {
         email: `${state}-delayed-work@example.test`,
         isApproved: true,
       });
-      const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
+      const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
       await insertProviderConfiguration(t, { organizationId, userId });
-      const vaultRead = t.query(internal.vault.records.getByIdForUser, {
+      const repositoryRead = t.query(internal.repository.records.getByIdForUser, {
         userId,
-        vaultId,
+        repositoryId,
       });
       const githubRead = t.query(internal.githubAppAccess.loadInstallationAccess, {
         userId,
-        target: { kind: "vault", vaultId },
+        target: { kind: "repository", repositoryId },
       });
       const providerRead = t.query(internal.organizationProviderCredentials.loadForOrganization, {
         organizationId,
         userId,
       });
       if (state === "active") {
-        await expect(vaultRead).resolves.toMatchObject({ _id: vaultId });
+        await expect(repositoryRead).resolves.toMatchObject({ _id: repositoryId });
         await expect(githubRead).resolves.toMatchObject({
           githubInstallationId: `installation-${userId}`,
         });
@@ -484,7 +485,7 @@ describe("user lifecycle authorization", () => {
           cloudflareAccount: { accountId: "cloudflare-account" },
         });
       } else {
-        await expect(vaultRead).rejects.toThrow("An active Samebase user is required.");
+        await expect(repositoryRead).rejects.toThrow("An active Samebase user is required.");
         await expect(githubRead).rejects.toThrow("An active Samebase user is required.");
         await expect(providerRead).rejects.toThrow(
           "Provider credentials are unavailable during account deletion.",
@@ -497,22 +498,22 @@ describe("user lifecycle authorization", () => {
       email: "missing-delayed-work@example.test",
       isApproved: true,
     });
-    const { organizationId, vaultId } = await insertOrganizationVaultForUser(
+    const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(
       missing.t,
       missing.userId,
     );
     await insertProviderConfiguration(missing.t, { organizationId, userId: missing.userId });
     await missing.t.run(async (ctx) => await ctx.db.delete(missing.userId));
     await expect(
-      missing.t.query(internal.vault.records.getByIdForUser, {
+      missing.t.query(internal.repository.records.getByIdForUser, {
         userId: missing.userId,
-        vaultId,
+        repositoryId,
       }),
     ).rejects.toThrow("Organization actor user reference is invalid.");
     await expect(
       missing.t.query(internal.githubAppAccess.loadInstallationAccess, {
         userId: missing.userId,
-        target: { kind: "vault", vaultId },
+        target: { kind: "repository", repositoryId },
       }),
     ).rejects.toThrow("Organization actor user reference is invalid.");
     await expect(
@@ -529,21 +530,22 @@ describe("user lifecycle authorization", () => {
       email: "provisioning-workflow@example.test",
       isApproved: true,
     });
-    const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
+    const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
     await insertProviderConfiguration(t, { organizationId, userId });
     const runId = await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId,
         userId,
-        vaultId,
-        repositoryFullName: "owner/repository",
+        repositoryId,
+        githubRepositoryFullName: "owner/repository",
         trigger: "create",
         state: "running",
         currentStep: "sync_tree",
         createdAt: 1,
         updatedAt: 1,
       });
-      await ctx.db.replace(vaultId, {
+      await ctx.db.replace(repositoryId, {
+        createdAt: 1,
         state: "connected",
         organizationId,
         convexTeamId: "convex-team",
@@ -551,21 +553,21 @@ describe("user lifecycle authorization", () => {
         deletion: { state: "not_deleting" },
         githubMode: "create_repository",
         runId,
-        ghRepoId: "repository-id",
-        name: "repository",
+        githubRepositoryDatabaseId: "repository-id",
+        githubRepositoryName: "repository",
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 1,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId,
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId,
         owner: { kind: "managed_run", runId },
         state: "active",
         lastWriteAt: {},
         updatedAt: 1,
       });
-      await ctx.db.insert("workflow_vaultProvisioning_plans", {
-        vaultId,
+      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        repositoryId,
         convexConfigPath: "convex.json",
         convex: {
           state: "creating",
@@ -599,9 +601,9 @@ describe("user lifecycle authorization", () => {
       t.query(internal.githubAppAccess.loadInstallationAccessForProvisioningRun, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
       }),
-    ).rejects.toThrow("Provisioning run does not match its vault.");
+    ).rejects.toThrow("Provisioning run does not match its repository.");
     await t.run(async (ctx) => {
       await ctx.db.patch(runId, { organizationId });
       await ctx.db.delete(mismatchedOrganizationId);
@@ -611,12 +613,12 @@ describe("user lifecycle authorization", () => {
       t.query(internal.githubAppAccess.loadInstallationAccessForProvisioningRun, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
       }),
     ).resolves.toMatchObject({ githubInstallationId: `installation-${userId}` });
     await expect(
-      t.query(internal.organizationProviderCredentials.loadForVaultProviderWorkflow, {
-        authority: { kind: "provisioning", runId, userId, vaultId },
+      t.query(internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow, {
+        authority: { kind: "provisioning", runId, userId, repositoryId },
       }),
     ).resolves.toMatchObject({
       organizationId,
@@ -627,10 +629,10 @@ describe("user lifecycle authorization", () => {
     });
 
     await expect(
-      t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+      t.mutation(internal.repository.convexMutations.recordManagedProjectCreated, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
         convexConfigPath: "convex.json",
         projectName: "repository",
         teamId: "convex-team",
@@ -638,10 +640,10 @@ describe("user lifecycle authorization", () => {
       }),
     ).resolves.toBeDefined();
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+      t.mutation(internal.repository.cloudflareMutations.recordManagedWorkerCreated, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
         accountId: "cloudflare-account",
         workerName: "repository",
         workerTag: "cloudflare-worker",
@@ -653,35 +655,35 @@ describe("user lifecycle authorization", () => {
       t.query(internal.githubAppAccess.loadInstallationAccessForProvisioningRun, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
       }),
-    ).rejects.toThrow("Provisioning run does not authorize vault access.");
+    ).rejects.toThrow("Provisioning run does not authorize repository access.");
     await expect(
-      t.query(internal.organizationProviderCredentials.loadForVaultProviderWorkflow, {
-        authority: { kind: "provisioning", runId, userId, vaultId },
+      t.query(internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow, {
+        authority: { kind: "provisioning", runId, userId, repositoryId },
       }),
-    ).rejects.toThrow("Provisioning run does not authorize vault access.");
+    ).rejects.toThrow("Provisioning run does not authorize repository access.");
     await expect(
-      t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
+      t.mutation(internal.repository.convexMutations.recordManagedProjectCreated, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
         convexConfigPath: "convex.json",
         projectName: "repository",
         teamId: "convex-team",
         projectId: "convex-project",
       }),
-    ).rejects.toThrow("Provisioning run does not authorize vault access.");
+    ).rejects.toThrow("Provisioning run does not authorize repository access.");
     await expect(
-      t.mutation(internal.vault.cloudflareMutations.recordManagedWorkerCreated, {
+      t.mutation(internal.repository.cloudflareMutations.recordManagedWorkerCreated, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
         accountId: "cloudflare-account",
         workerName: "repository",
         workerTag: "cloudflare-worker",
       }),
-    ).rejects.toThrow("Provisioning run does not authorize vault access.");
+    ).rejects.toThrow("Provisioning run does not authorize repository access.");
   });
 
   it("keeps personal GitHub access scoped to a live provisioning run", async () => {
@@ -690,7 +692,7 @@ describe("user lifecycle authorization", () => {
       email: "provisioning-github-user@example.test",
       isApproved: true,
     });
-    const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
+    const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
     const runId = await t.run(async (ctx) => {
       await ctx.db.insert("authAccounts", {
         userId,
@@ -710,14 +712,14 @@ describe("user lifecycle authorization", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      return await ctx.db.insert("workflow_repositoryProvisioning_runs", {
         organizationId,
         userId,
-        vaultId,
-        repositoryFullName: "owner/repository",
+        repositoryId,
+        githubRepositoryFullName: "owner/repository",
         trigger: "create",
         state: "running",
-        currentStep: "create_github_repo",
+        currentStep: "create_github_repository",
         createdAt: 1,
         updatedAt: 1,
       });
@@ -733,7 +735,7 @@ describe("user lifecycle authorization", () => {
       t.mutation(internal.githubUserAuthorizations.claimForProvisioningRun, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
         githubUserId: "github-user-id",
       }),
     ).resolves.toMatchObject({
@@ -746,41 +748,41 @@ describe("user lifecycle authorization", () => {
       t.mutation(internal.githubUserAuthorizations.claimForProvisioningRun, {
         runId,
         userId,
-        vaultId,
+        repositoryId,
         githubUserId: "github-user-id",
       }),
-    ).rejects.toThrow("Provisioning run does not authorize vault access.");
+    ).rejects.toThrow("Provisioning run does not authorize repository access.");
   });
 
-  it("uses only a live vault-deletion run as provider authority", async () => {
+  it("uses only a live repository-deletion run as provider authority", async () => {
     const { t, userId } = await seedLifecycleUser({
       state: "deleting",
-      email: "vault-deletion-workflow@example.test",
+      email: "repository-deletion-workflow@example.test",
       isApproved: true,
     });
-    const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
+    const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
     await insertProviderConfiguration(t, { organizationId, userId });
     const runId = await t.run(async (ctx) => {
-      const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+      const runId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
         state: "running",
         organizationId,
         userId,
-        vaultId,
-        repositoryFullName: "owner/repository",
+        repositoryId,
+        githubRepositoryFullName: "owner/repository",
         createdAt: 1,
         updatedAt: 1,
         attempt: { kind: "initial" },
-        workflow: { state: "started", workflowId: "vault-deletion-lifecycle-test" },
+        workflow: { state: "started", workflowId: "repository-deletion-lifecycle-test" },
         currentStep: "delete_cloudflare",
         snapshot: {
           state: "retained_for_retry",
           plan: {
             target: {
               kind: "samebase_managed_repository",
-              ghRepoId: "repository-id",
-              owner: "owner",
-              name: "repository",
-              repositoryFullName: "owner/repository",
+              githubRepositoryDatabaseId: "repository-id",
+              githubOwnerLogin: "owner",
+              githubRepositoryName: "repository",
+              githubRepositoryFullName: "owner/repository",
             },
             convex: { action: "skip", reason: "not_requested" },
             cloudflare: { action: "skip", reason: "not_requested" },
@@ -788,17 +790,17 @@ describe("user lifecycle authorization", () => {
           },
         },
       });
-      await ctx.db.patch(vaultId, {
+      await ctx.db.patch(repositoryId, {
         deletion: { state: "deleting", runId, requestedAt: 1 },
       });
       return runId;
     });
 
     await expect(
-      t.query(internal.githubAppAccess.loadInstallationAccessForVaultDeletionRun, { runId }),
+      t.query(internal.githubAppAccess.loadInstallationAccessForRepositoryDeletionRun, { runId }),
     ).resolves.toMatchObject({ githubInstallationId: `installation-${userId}` });
     await expect(
-      t.query(internal.organizationProviderCredentials.loadForVaultProviderWorkflow, {
+      t.query(internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow, {
         authority: { kind: "deletion", runId },
       }),
     ).resolves.toMatchObject({
@@ -819,13 +821,13 @@ describe("user lifecycle authorization", () => {
       });
     });
     await expect(
-      t.query(internal.githubAppAccess.loadInstallationAccessForVaultDeletionRun, { runId }),
-    ).rejects.toThrow("Vault deletion run does not authorize vault access.");
+      t.query(internal.githubAppAccess.loadInstallationAccessForRepositoryDeletionRun, { runId }),
+    ).rejects.toThrow("Repository deletion run does not authorize repository access.");
     await expect(
-      t.query(internal.organizationProviderCredentials.loadForVaultProviderWorkflow, {
+      t.query(internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow, {
         authority: { kind: "deletion", runId },
       }),
-    ).rejects.toThrow("Vault deletion run does not authorize vault access.");
+    ).rejects.toThrow("Repository deletion run does not authorize repository access.");
   });
 
   it("presents a deleted durable reference and rejects a missing reference", async () => {

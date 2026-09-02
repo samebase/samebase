@@ -422,38 +422,43 @@ export const deleteOrganization = mutation({
       throw new ConvexError("Resolve organization billing before you delete this organization.");
     }
 
-    const vault = await ctx.db
-      .query("vaults")
+    const repository = await ctx.db
+      .query("repositories")
       .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
       .first();
-    if (vault !== null) {
+    if (repository !== null) {
       throw new ConvexError(
         "Remove every repository from Samebase before you delete this organization.",
       );
     }
 
-    const [vaultCloudflareWorker, vaultConvexProject, provisioningRun] = await Promise.all([
-      ctx.db
-        .query("vaultCloudflareWorkers")
-        .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
-        .first(),
-      ctx.db
-        .query("vaultConvexProjects")
-        .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
-        .first(),
-      ctx.db
-        .query("workflow_vaultProvisioning_runs")
-        .withIndex("by_organization_and_user_and_state_and_updated_at", (query) =>
-          query.eq("organizationId", organization._id),
-        )
-        .first(),
-    ]);
-    if (vaultCloudflareWorker !== null || vaultConvexProject !== null || provisioningRun !== null) {
+    const [repositoryCloudflareWorker, repositoryConvexProject, provisioningRun] =
+      await Promise.all([
+        ctx.db
+          .query("repositoryCloudflareWorkers")
+          .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
+          .first(),
+        ctx.db
+          .query("repositoryConvexProjects")
+          .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
+          .first(),
+        ctx.db
+          .query("workflow_repositoryProvisioning_runs")
+          .withIndex("by_organization_and_user_and_state_and_updated_at", (query) =>
+            query.eq("organizationId", organization._id),
+          )
+          .first(),
+      ]);
+    if (
+      repositoryCloudflareWorker !== null ||
+      repositoryConvexProject !== null ||
+      provisioningRun !== null
+    ) {
       throw new ConvexError("Finish organization repository cleanup before deletion.");
     }
 
     const deletionRuns = await ctx.db
-      .query("workflow_vaultDeletion_runs")
+      .query("workflow_repositoryDeletion_runs")
       .withIndex("by_organization_and_updated_at", (query) =>
         query.eq("organizationId", organization._id),
       )
@@ -476,17 +481,17 @@ export const deleteOrganization = mutation({
       providerOAuthStates,
     ] = await Promise.all([
       ctx.db
-        .query("workflow_vaultDeletion_events")
-        .withIndex("by_organization_and_created_at", (query) =>
+        .query("workflow_repositoryDeletion_events")
+        .withIndex("by_organization_and_created_at_and_source_order", (query) =>
           query.eq("organizationId", organization._id),
         )
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
       ctx.db
-        .query("ui_vaultFolderAssignments")
+        .query("ui_repositoryTree_folderAssignments")
         .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
       ctx.db
-        .query("ui_vaultFolders")
+        .query("ui_repositoryTree_folders")
         .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
       ctx.db
@@ -500,7 +505,7 @@ export const deleteOrganization = mutation({
         )
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
       ctx.db
-        .query("ui_vaultOrganizationTree_settings")
+        .query("ui_repositoryTree_organizationSettings")
         .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
       ctx.db

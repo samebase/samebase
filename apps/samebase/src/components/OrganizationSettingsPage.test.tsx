@@ -103,7 +103,7 @@ function renderOrganizationSettings(
         selectedOrganization.organizationId,
         {
           owner: githubIdentity,
-          vaults: [],
+          repositories: [],
         },
       ],
     ]),
@@ -147,7 +147,7 @@ describe("OrganizationSettingsPage", () => {
       new Map([
         [
           selectedOrganization.organizationId,
-          { owner: { status: "current" as const }, vaults: [] },
+          { owner: { status: "current" as const }, repositories: [] },
         ],
       ]),
     );

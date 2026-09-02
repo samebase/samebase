@@ -6,39 +6,41 @@ billing, and infrastructure provisioning.
 ## Start Here
 
 1. `schema.ts` - full data model and indexes
-2. `vault/dashboard.ts` - vault dashboard queries and infrastructure summary
-3. `vault/actions.ts` - repository connect/create/delete + infra retry actions
+2. `repository/dashboard.ts` - repository dashboard queries and infrastructure summary
+3. `repository/actions.ts` - repository connect, create, removal, and infrastructure retry actions
 4. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
 5. `mcp/` - remote MCP protocol, OAuth, grants, and tokens
 6. `toolRuntime/` - shared action catalog, validation, authorization, and execution
 
-## Vault Module Map
+## Repository Module Map
 
-- `vault/actions.ts` - public actions for GitHub repository ownership, connect/create, provisioning
-  retry, and deletion retry.
-- `vault/dashboard.ts` - public dashboard queries for vault cards, pull request display preferences,
-  and infrastructure summaries.
-- `vault/records.ts` - vault row creation, lookup, readiness, and GitHub connection mutations.
-- `vault/branches.ts` - exact branch-tree cache and tree refresh claims.
-- `vault/model.ts` + `vault/state.ts` - validators and runtime guards.
-- `vault/deletion/` - deletion eligibility, runs, events, local cleanup, workflow orchestration, and
-  provider actions.
+- `repository/actions.ts` - public actions for GitHub repository ownership, connect/create,
+  provisioning retry, and deletion retry.
+- `repository/dashboard.ts` - public dashboard queries for repository cards, pull request display
+  preferences, and infrastructure summaries.
+- `repository/records.ts` - repository row creation, lookup, readiness, and GitHub connection
+  mutations.
+- `repository/branches.ts` - exact branch-tree cache and tree refresh claims.
+- `repository/model.ts` + `repository/state.ts` - validators and runtime guards.
+- `repository/deletion/` - removal eligibility, runs, events, local cleanup, workflow orchestration,
+  and provider actions.
 
 ## Key Workflows
 
-### Vault Creation Paths
+### Repository Creation Paths
 
-- `createRepository` (`vault/actions.ts`): creates an app provisioning run and starts the full
-  create-app Workflow.
-- `connectRepository` (`vault/actions.ts`): connects an existing GitHub repo and creates vault
-  without infra auto-provisioning.
+- `createRepository` (`repository/actions.ts`): creates a repository provisioning run and starts the
+  complete create-app Workflow.
+- `connectRepository` (`repository/actions.ts`): connects an existing GitHub repository and creates
+  a Samebase repository without automatic infrastructure provisioning.
 
 ### Infrastructure Provisioning
 
-- Retry admission: `internal.appProvisioningRuns.createRetryForVault`
-- State tracking: `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`,
-  `vaultConvexProjects`, and `vaultCloudflareWorkers`
-- Retry path: `api.vault.actions.retryInfrastructureProvisioning`
+- Retry admission: `internal.repositoryProvisioningRuns.createRetryForRepository`
+- State tracking: `workflow_repositoryProvisioning_plans`,
+  `workflow_repositoryProvisioning_writeLocks`, `repositoryConvexProjects`, and
+  `repositoryCloudflareWorkers`
+- Retry path: `api.repository.actions.retryInfrastructureProvisioning`
 
 ## Useful Local Commands
 

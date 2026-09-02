@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { GithubTree } from "../../convex/vault/model";
+import type { GitHubTree } from "../../convex/repository/model";
 import { useProjectFiles, type ProjectFile } from "./useProjectFiles";
 
 const testState = vi.hoisted(() => ({
@@ -20,12 +20,12 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-function fakeVaultId(value: string): Id<"vaults"> {
+function fakeRepositoryId(value: string): Id<"repositories"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
   return value;
 }
 
-function treeEntry(path: string, options: { size?: number; type?: string } = {}): GithubTree {
+function treeEntry(path: string, options: { size?: number; type?: string } = {}): GitHubTree {
   return {
     mode: "100644",
     path,
@@ -48,9 +48,9 @@ function createDeferred<Value>() {
 type HookProps = {
   activeFilePath: string;
   branch: string;
-  tree: GithubTree[];
+  tree: GitHubTree[];
   treeSHA: string;
-  vaultId: Id<"vaults"> | undefined;
+  repositoryId: Id<"repositories"> | undefined;
 };
 
 type HookResult = ReturnType<typeof useProjectFiles>;
@@ -59,7 +59,7 @@ const latestResults = new Map<string, HookResult>();
 
 function Probe({ id, props }: { id: string; props: HookProps }) {
   const result = useProjectFiles(
-    props.vaultId,
+    props.repositoryId,
     props.branch,
     props.tree,
     props.treeSHA,
@@ -107,7 +107,7 @@ describe("useProjectFiles", () => {
     activeFilePath: "apps/samebase/src/main.ts",
     branch: "main",
     treeSHA: "tree-a",
-    vaultId: fakeVaultId("vault:a"),
+    repositoryId: fakeRepositoryId("repository:a"),
   };
 
   it("loads the eligible files for one scoped project snapshot", async () => {
@@ -132,7 +132,7 @@ describe("useProjectFiles", () => {
       expect(latestResults.get("one")?.files).toEqual(files);
     });
     expect(testState.batchReadFiles).toHaveBeenCalledWith({
-      vaultId: baseProps.vaultId,
+      repositoryId: baseProps.repositoryId,
       branch: "main",
       filePaths: [
         "tsconfig.base.json",
@@ -215,14 +215,14 @@ describe("useProjectFiles", () => {
     expect(testState.batchReadFiles).toHaveBeenCalledTimes(1);
   });
 
-  it("does not request files without a vault or an eligible path", async () => {
+  it("does not request files without a repository or an eligible path", async () => {
     await renderProbes([
       {
-        id: "no-vault",
+        id: "no-repository",
         props: {
           ...baseProps,
           tree: [treeEntry("apps/samebase/src/main.ts")],
-          vaultId: undefined,
+          repositoryId: undefined,
         },
       },
       {
@@ -232,7 +232,7 @@ describe("useProjectFiles", () => {
     ]);
 
     expect(testState.batchReadFiles).not.toHaveBeenCalled();
-    expect(latestResults.get("no-vault")).toMatchObject({ files: [], loading: false });
+    expect(latestResults.get("no-repository")).toMatchObject({ files: [], loading: false });
     expect(latestResults.get("no-path")).toMatchObject({ files: [], loading: false });
   });
 

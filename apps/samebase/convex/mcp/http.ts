@@ -23,24 +23,24 @@ import {
   getAuthenticationStatusContract,
   type McpAuthenticationStatus,
 } from "./contracts/getAuthenticationStatus";
-import { createRepositoryContract } from "../vault/contracts/createRepository";
-import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
-import { connectRepositoryContract } from "../vault/contracts/connectRepository";
+import { createRepositoryContract } from "../repository/contracts/createRepository";
+import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
+import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
-} from "../vault/contracts/cloudflareAttachments";
+} from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
   convexDiscoverProjectsContract,
-} from "../vault/contracts/convexAttachments";
-import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
+} from "../repository/contracts/convexAttachments";
+import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
+import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
+import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
-import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
+import { cloudflareListWorkersBuildTokensContract } from "../repository/contracts/cloudflareBuildTokens";
 import {
   buildMcpAuthorizationSuccessRedirectUrl,
   MCP_CONSENT_APP_PATH,
@@ -83,17 +83,19 @@ const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_SERVER_INFO = {
   name: "Samebase",
-  version: "0.1.0",
+  version: "0.2.0",
 } as const;
 const MCP_SERVER_INSTRUCTIONS = `In Codex, the latest Samebase plugin version available from the direct Samebase marketplace is ${codexPluginManifest.version}. If the loaded Samebase skill path contains a lower numeric major.minor.patch version, tell the user once before the first Samebase tool call that an update is available and ask whether to install it. Do not mention an update when the loaded path has no version or the version cannot be compared. After the user approves, run codex plugin marketplace upgrade samebase, then run codex plugin add samebase@samebase. Tell the user to start a new task after the update.
 
 Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
 
-For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${cloudflareListWorkersBuildTokensContract.mcp.name} with the human GitHub owner login, call ${createRepositoryContract.mcp.name}, then poll ${getUserVaultsContract.mcp.name}. If the user chooses US, pass aws-us-east-1. If the user chooses EU, pass aws-eu-west-1 and first say: "EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments." Link to https://www.convex.dev/pricing. Otherwise, omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved. A one-project choice does not change the organization default. When the current Workers Builds token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null. Otherwise, use an available lastUsedBuildTokenUuid without asking, use the only listed token, or ask the user to choose by the displayed name and UUID when several tokens are listed. Pass the selected exact UUID as cloudflareBuildTokenUuid. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} keeps cloudflareBuildTokenUuid required, does not accept an accountId, and uses the organization's configured provider accounts.
+Keep repository identities separate. repositoryId is the opaque Samebase repository ID returned by ${getUserRepositoriesContract.mcp.name}. githubRepositoryDatabaseId is GitHub's numeric repository database ID stored as a string. Never substitute one for the other. Do not use or invent githubRepositoryId, repoId, or ghRepoId.
 
-After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until source setup is ready or failed. Once source setup is ready, poll until provider setup is ready or failed. When cloudflareBuildTokenUuid was null, the managed run creates the GitHub repository and Convex project but no Cloudflare Worker. In that case, providerSetup status ready means only that the requested managed work finished. It does not mean Cloudflare setup is complete. Confirm that the exact planned Convex project is attached and cloudflareWorkers is empty. Report that Cloudflare setup is pending, and give the user https://samebase.com/docs/cloudflare-setup. The user completes Cloudflare's standard repository setup to create the first account token, then deletes the temporary Worker. After the user completes those steps and asks to finish the app, list tokens again and call ${cloudflareCreateWorkerContract.mcp.name} with a current exact UUID. Reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name} with the new Worker and the attached Convex project. Do not attach the temporary Worker or retry the completed managed run.
+For managed app creation, use only this closed sequence: read ${getUserRepositoriesContract.mcp.name}, call ${cloudflareListWorkersBuildTokensContract.mcp.name} with the human GitHub owner login, call ${createRepositoryContract.mcp.name}, then poll ${getUserRepositoriesContract.mcp.name}. If the user chooses US, pass aws-us-east-1. If the user chooses EU, pass aws-eu-west-1 and first say: "EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments." Link to https://www.convex.dev/pricing. Otherwise, omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved. A one-project choice does not change the organization default. When the current Workers Builds token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null. Otherwise, use an available lastUsedBuildTokenUuid without asking, use the only listed token, or ask the user to choose by the displayed name and UUID when several tokens are listed. Pass the selected exact UUID as cloudflareBuildTokenUuid. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} keeps cloudflareBuildTokenUuid required, does not accept an accountId, and uses the organization's configured provider accounts.
 
-For other writes, read ${getUserVaultsContract.mcp.name} whenever a repository may already be connected, and reuse the returned vault and attachment identifiers. Before a manual Cloudflare Worker create or Builds configuration action, call ${cloudflareListWorkersBuildTokensContract.mcp.name}. If lastUsedBuildTokenUuid is available, use that UUID without asking. If it is unavailable and the list has one result, use that result. If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID. If the token list is empty, do not call the write. A tokenless managed plan with its exact planned Convex project and no attached Worker uses the first-app guide. After token setup, call ${cloudflareCreateWorkerContract.mcp.name}, reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name}. When a Worker is already attached, keep it. After token setup, list tokens again and call vault_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not create another Worker. For another manual vault, complete token setup, list tokens again, and continue only with the action that matches the request and current inventory. ${cloudflareCreateWorkerContract.mcp.name} does not install Convex deploy keys. Pass only the selected exact UUID to the write. Never pass null to a manual Worker create or Builds configuration action. For Cloudflare actions on an existing vault, pass that vault's cloudflareAccountId from ${getUserVaultsContract.mcp.name}. Do not discover or select another Cloudflare account through Samebase MCP. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
+After ${createRepositoryContract.mcp.name}, poll ${getUserRepositoriesContract.mcp.name} until source setup is ready or failed. Once source setup is ready, poll until provider setup is ready or failed. When cloudflareBuildTokenUuid was null, the managed run creates the GitHub repository and Convex project but no Cloudflare Worker. In that case, providerSetup status ready means only that the requested managed work finished. It does not mean Cloudflare setup is complete. Confirm that the exact planned Convex project is attached and cloudflareWorkers is empty. Report that Cloudflare setup is pending, and give the user https://samebase.com/docs/cloudflare-setup. The user completes Cloudflare's standard repository setup to create the first account token, then deletes the temporary Worker. After the user completes those steps and asks to finish the app, list tokens again and call ${cloudflareCreateWorkerContract.mcp.name} with a current exact UUID. Reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name} with the new Worker and the attached Convex project. Do not attach the temporary Worker or retry the completed managed run.
+
+For other writes, read ${getUserRepositoriesContract.mcp.name} whenever a repository may already be connected, and reuse the returned repository and attachment identifiers. Before a manual Cloudflare Worker create or Builds configuration action, call ${cloudflareListWorkersBuildTokensContract.mcp.name}. If lastUsedBuildTokenUuid is available, use that UUID without asking. If it is unavailable and the list has one result, use that result. If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID. If the token list is empty, do not call the write. A tokenless managed plan with its exact planned Convex project and no attached Worker uses the first-app guide. After token setup, call ${cloudflareCreateWorkerContract.mcp.name}, reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name}. When a Worker is already attached, keep it. After token setup, list tokens again and call repository_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not create another Worker. For another manual repository, complete token setup, list tokens again, and continue only with the action that matches the request and current inventory. ${cloudflareCreateWorkerContract.mcp.name} does not install Convex deploy keys. Pass only the selected exact UUID to the write. Never pass null to a manual Worker create or Builds configuration action. For Cloudflare actions on an existing repository, pass that repository's cloudflareAccountId from ${getUserRepositoriesContract.mcp.name}. Do not discover or select another Cloudflare account through Samebase MCP. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
 Inventory reports Samebase-owned workflow state and stable resource IDs. Read current provider existence, configuration, deployment state, and logs from provider-native tools unless an explicit Samebase action exposes that live read. Match the required IDs to an explicit action contract, call that action, then reread inventory.
 
@@ -203,8 +205,8 @@ async function callCreateBrowserHandoffMcpTool(
 }
 
 const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
-  [getUserVaultsContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.getUserVaultsTool,
+  [getUserRepositoriesContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.getUserRepositoriesTool,
   ),
   [cloudflareListWorkersBuildTokensContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.cloudflareListWorkersBuildTokensTool,

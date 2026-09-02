@@ -228,7 +228,7 @@ describe("PublicLandingAccountSection", () => {
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(markup).toContain("data-vault-dashboard-account-section-label");
+    expect(markup).toContain("data-repository-dashboard-account-section-label");
     expect(markup).not.toContain("dashboard-sidebar-account-row");
     expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");

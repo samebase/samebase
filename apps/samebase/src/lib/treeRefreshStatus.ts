@@ -19,7 +19,7 @@ type TreeRefreshUiState =
   | { kind: "idle" };
 
 /**
- * Collapses the connected vault's live tree-refresh coordination fields into
+ * Collapses the connected repository's live tree-refresh coordination fields into
  * the state rendered by FileView's repository sync status.
  *
  * Precedence matters here: a non-stale treeRefreshStartedAt lock wins first,

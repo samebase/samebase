@@ -48,6 +48,30 @@ export const vRepositoryProvisioningRunStep = union(
 );
 export type RepositoryProvisioningRunStep = Infer<typeof vRepositoryProvisioningRunStep>;
 
+export function isRepositoryProvisioningProviderStep(step: RepositoryProvisioningRunStep): boolean {
+  switch (step) {
+    case "run_created":
+    case "initialize_repository":
+    case "validate_connections":
+    case "create_github_repository":
+    case "fetch_github_repository":
+    case "seed_starter":
+    case "connect_github_repository":
+    case "sync_tree":
+      return false;
+    case "claim_infra":
+    case "attach_convex":
+    case "attach_worker":
+    case "configure_workers_builds_for_github":
+    case "rotate_convex_deploy_keys_for_workers_builds":
+    case "finish":
+      return true;
+    default:
+      step satisfies never;
+      throw new Error("Unknown repository provisioning step.");
+  }
+}
+
 export const vRepositoryProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),

@@ -8,15 +8,15 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
-import { findVaultForUser } from "./organizationAccess";
-import type { GithubTree } from "./vault/model";
+import { findRepositoryForUser } from "./organizationAccess";
+import type { GitHubTree } from "./repository/model";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
   readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
-import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
+import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
 import { readActiveUser } from "./userLifecycle";
 import {
   claimRepositoryOperationLease,
@@ -28,8 +28,8 @@ import {
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
-const vaultIdValidator = id("vaults");
-const fileStagingIdValidator = id("vaultStagedFiles");
+const repositoryIdValidator = id("repositories");
+const fileStagingIdValidator = id("repositoryStagedFiles");
 const storageIdValidator = id("_storage");
 const userIdValidator = id("users");
 const branchValidator = string();
@@ -62,7 +62,7 @@ type StagingCleanupLeaseArgs = {
 };
 
 type StagingCleanupTarget = {
-  vaultId: Id<"vaults">;
+  repositoryId: Id<"repositories">;
   branch?: string;
   filePath?: string;
   cutoffTimestamp: number;
@@ -73,7 +73,7 @@ function getStagingCleanupOperationId(
   target: StagingCleanupTarget,
 ): string {
   return `staging-cleanup:${leaseId}:${JSON.stringify([
-    target.vaultId,
+    target.repositoryId,
     target.branch ?? null,
     target.filePath ?? null,
     target.cutoffTimestamp,
@@ -117,7 +117,7 @@ async function requireStagingCleanupLease(
 const stagedFileValidator = object({
   _id: fileStagingIdValidator,
   _creationTime: number(),
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   fileDeleted: boolean(),
   kind: optional(stagedFileKindValidator),
   filePath: filePathValidator,
@@ -137,7 +137,7 @@ const stagedFileValidator = object({
 type StagedFile = Infer<typeof stagedFileValidator>;
 const stagedFileSnapshotValidator = object({
   _id: fileStagingIdValidator,
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   fileDeleted: boolean(),
   kind: optional(stagedFileKindValidator),
   filePath: filePathValidator,
@@ -172,12 +172,12 @@ const stagedFilesBranchSummaryValidator = object({
   counts: stagedFilesCategoryCountsValidator,
 });
 const stagedFilesBranchSummaryListValidator = array(stagedFilesBranchSummaryValidator);
-const stagedFilesBranchSummariesByVaultValidator = object({
-  vaultId: vaultIdValidator,
+const stagedFilesBranchSummariesByRepositoryValidator = object({
+  repositoryId: repositoryIdValidator,
   branchSummaries: stagedFilesBranchSummaryListValidator,
 });
-const stagedFilesBranchSummariesByVaultListValidator = array(
-  stagedFilesBranchSummariesByVaultValidator,
+const stagedFilesBranchSummariesByRepositoryListValidator = array(
+  stagedFilesBranchSummariesByRepositoryValidator,
 );
 const uploadUrlResultValidator = object({
   uploadUrl: string(),
@@ -188,24 +188,24 @@ const uploadUrlResultValidator = object({
 const MEDIA_UPLOAD_LEASE_DURATION_MS = 65 * 60 * 1000;
 
 const getByNewPathArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   branch: branchValidator,
   newPath: filePathValidator,
 };
 
 const listStagedFilesArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   branch: branchValidator,
   includeUnchanged: optional(boolean()),
 };
 
 const listAllStagedFilesArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   branch: optional(branchValidator),
   includeUnchanged: optional(boolean()),
 };
 const duplicateBranchStagingArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   sourceBranch: branchValidator,
   targetBranch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
@@ -215,7 +215,7 @@ const duplicateBranchStagingArgsValidator = {
   operationName: repositoryOperationLeaseArgsValidator.operationName,
 };
 const clearMatchingStagingSnapshotArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   branch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
   leaseId: repositoryOperationLeaseArgsValidator.leaseId,
@@ -224,20 +224,20 @@ const clearMatchingStagingSnapshotArgsValidator = {
 };
 
 const deletionArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   filePath: filePathValidator,
   parentCommitSha: nullableStringValidator,
   branch: branchValidator,
 };
 
 const revertDeletedFileArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   filePath: filePathValidator,
   branch: branchValidator,
 };
 
 const createFileArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   filePath: filePathValidator,
   content: contentValidator,
   branch: branchValidator,
@@ -250,7 +250,7 @@ const updateStagedFileContentArgsValidator = {
 };
 
 const saveToStagingArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   initialFilePath: filePathValidator,
   content: contentValidator,
   initialContent: contentValidator,
@@ -262,7 +262,7 @@ const saveToStagingArgsValidator = {
   operationName: repositoryOperationLeaseArgsValidator.operationName,
 };
 const saveBinaryUploadToStagingArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   filePath: filePathValidator,
   branch: branchValidator,
   storageId: storageIdValidator,
@@ -277,7 +277,7 @@ const saveBinaryUploadToStagingArgsValidator = {
 };
 
 const renameArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   initialFilePath: filePathValidator,
   branch: branchValidator,
   newPath: filePathValidator,
@@ -288,7 +288,7 @@ const renameArgsValidator = {
 };
 
 const getByOriginalPathArgsValidator = {
-  vaultId: vaultIdValidator,
+  repositoryId: repositoryIdValidator,
   originalFilePath: filePathValidator,
   branch: branchValidator,
 };
@@ -298,8 +298,8 @@ type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
 type StagedFileSummaryInput = StagedFileChangeCandidate & Pick<StagedFile, "branch">;
 type StagingAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
 
-export function getMediaUploadOperationName(vaultId: Id<"vaults">): string {
-  return `stage_uploaded_media:${vaultId}`;
+export function getMediaUploadOperationName(repositoryId: Id<"repositories">): string {
+  return `stage_uploaded_media:${repositoryId}`;
 }
 
 async function requireStagingWriteAuthority(
@@ -355,50 +355,50 @@ function classifyStagedFile(file: StagedFileSummaryInput): StagedFilesCategory |
   return "modified";
 }
 
-async function getVaultForStagingAccess(
+async function getRepositoryForStagingAccess(
   ctx: StagingAccessCtx,
   args: {
-    vaultId: Infer<typeof vaultIdValidator>;
+    repositoryId: Infer<typeof repositoryIdValidator>;
     userId: Infer<typeof userIdValidator>;
   },
-): Promise<Doc<"vaults"> | null> {
-  return await findVaultForUser(ctx.db, args);
+): Promise<Doc<"repositories"> | null> {
+  return await findRepositoryForUser(ctx.db, args);
 }
 
-async function assertVaultForStagingAccess(
+async function assertRepositoryForStagingAccess(
   ctx: StagingAccessCtx,
   args: {
-    vaultId: Infer<typeof vaultIdValidator>;
+    repositoryId: Infer<typeof repositoryIdValidator>;
     userId: Infer<typeof userIdValidator>;
   },
 ) {
-  const vault = await getVaultForStagingAccess(ctx, args);
-  if (!vault) {
+  const repository = await getRepositoryForStagingAccess(ctx, args);
+  if (!repository) {
     throw new Error("Unauthorized");
   }
-  return vault;
+  return repository;
 }
 
-async function assertConnectedVaultForStagingWrite(
+async function assertConnectedRepositoryForStagingWrite(
   ctx: MutationCtx,
   args: {
-    vaultId: Infer<typeof vaultIdValidator>;
+    repositoryId: Infer<typeof repositoryIdValidator>;
     userId: Infer<typeof userIdValidator>;
   } & RepositoryOperationLeaseArgs,
 ) {
   await requireStagingWriteAuthority(ctx, args);
-  const vault = await assertVaultForStagingAccess(ctx, args);
+  const repository = await assertRepositoryForStagingAccess(ctx, args);
   const user = await ctx.db.get(args.userId);
   if (!user || readActiveUser(user) === null) {
     throw new Error("Account deletion is in progress.");
   }
-  return assertConnectedVault(vault);
+  return assertConnectedRepository(repository);
 }
 
 export function selectRepositoryTreeForBranch(args: {
   requestedBranch: string;
-  branchTree: GithubTree[] | null;
-}): GithubTree[] {
+  branchTree: GitHubTree[] | null;
+}): GitHubTree[] {
   if (args.branchTree) {
     return args.branchTree;
   }
@@ -407,13 +407,13 @@ export function selectRepositoryTreeForBranch(args: {
   );
 }
 
-async function resolveRepositoryTreeForVault(args: {
+async function resolveRepositoryTreeForRepository(args: {
   ctx: MutationCtx;
-  vaultId: Infer<typeof vaultIdValidator>;
+  repositoryId: Infer<typeof repositoryIdValidator>;
   requestedBranch: string;
-}): Promise<GithubTree[]> {
-  const branchTree = await args.ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
-    vaultId: args.vaultId,
+}): Promise<GitHubTree[]> {
+  const branchTree = await args.ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
+    repositoryId: args.repositoryId,
     branch: args.requestedBranch,
   });
   return selectRepositoryTreeForBranch({
@@ -544,16 +544,16 @@ async function readDeletionSnapshotSeed(
 export const generateUploadUrl = mutation({
   access: "access_files_write",
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
   },
   returns: uploadUrlResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
     const operationId = crypto.randomUUID();
-    const operationName = getMediaUploadOperationName(args.vaultId);
+    const operationName = getMediaUploadOperationName(args.repositoryId);
     const lease = await claimRepositoryOperationLease(ctx, {
       operationId,
       operationName,
@@ -571,26 +571,26 @@ export const generateUploadUrl = mutation({
 export const deletePendingUploadBlob = mutation({
   access: "access_files_write",
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     storageId: storageIdValidator,
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
 
     const stagedFile = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_storageId", (q) =>
+        q.eq("repositoryId", args.repositoryId).eq("storageId", args.storageId),
       )
       .first();
     const cachedBlob = await ctx.db
-      .query("observations_vaultFiles_blobs")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
+      .query("observations_repositoryFiles_blobs")
+      .withIndex("by_repository_and_storageId", (q) =>
+        q.eq("repositoryId", args.repositoryId).eq("storageId", args.storageId),
       )
       .first();
     if (stagedFile || cachedBlob) {
@@ -607,18 +607,21 @@ export const getByNewPath = query({
   args: getByNewPathArgsValidator,
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
-    const vault = await getVaultForStagingAccess(ctx, {
-      vaultId: args.vaultId,
+    const repository = await getRepositoryForStagingAccess(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    if (!vault) {
+    if (!repository) {
       return null;
     }
 
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.newPath),
       )
       .first();
 
@@ -631,31 +634,34 @@ export const getByNewPathInternal = internalQuery({
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.newPath),
       )
       .first();
   },
 });
 
-// List all files currently in staging for a vault
+// List all files currently in staging for a repository
 export const listStagedFiles = query({
   access: "access_files_read",
   args: listStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
-    const vault = await getVaultForStagingAccess(ctx, {
-      vaultId: args.vaultId,
+    const repository = await getRepositoryForStagingAccess(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    if (!vault) {
+    if (!repository) {
       return [];
     }
     const files = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch", (q) =>
+        q.eq("repositoryId", args.repositoryId).eq("branch", args.branch),
       )
       .collect();
 
@@ -666,55 +672,56 @@ export const listStagedFiles = query({
 export const listStagedFilesBranchSummaries = query({
   access: "access_files_read",
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
   },
   returns: stagedFilesBranchSummaryListValidator,
   handler: async (ctx, args) => {
-    const vault = await getVaultForStagingAccess(ctx, {
-      vaultId: args.vaultId,
+    const repository = await getRepositoryForStagingAccess(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    if (!vault) {
+    if (!repository) {
       return [];
     }
     const files = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
       .collect();
     return summarizeStagedFilesByBranch(files);
   },
 });
 
-export const listStagedFilesBranchSummariesByVault = query({
+export const listStagedFilesBranchSummariesByRepository = query({
   access: "access_files_read",
   args: {
-    vaultIds: array(vaultIdValidator),
+    repositoryIds: array(repositoryIdValidator),
   },
-  returns: stagedFilesBranchSummariesByVaultListValidator,
+  returns: stagedFilesBranchSummariesByRepositoryListValidator,
   handler: async (ctx, args) => {
-    const summariesByVault: Infer<typeof stagedFilesBranchSummariesByVaultListValidator> = [];
-    const uniqueVaultIds = new Set(args.vaultIds);
+    const summariesByRepository: Infer<typeof stagedFilesBranchSummariesByRepositoryListValidator> =
+      [];
+    const uniqueRepositoryIds = new Set(args.repositoryIds);
 
-    for (const vaultId of uniqueVaultIds) {
-      const vault = await getVaultForStagingAccess(ctx, {
-        vaultId,
+    for (const repositoryId of uniqueRepositoryIds) {
+      const repository = await getRepositoryForStagingAccess(ctx, {
+        repositoryId,
         userId: ctx.viewer.userId,
       });
-      if (!vault) {
+      if (!repository) {
         continue;
       }
 
       const files = await ctx.db
-        .query("vaultStagedFiles")
-        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .query("repositoryStagedFiles")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
         .collect();
-      summariesByVault.push({
-        vaultId,
+      summariesByRepository.push({
+        repositoryId,
         branchSummaries: summarizeStagedFilesByBranch(files),
       });
     }
 
-    return summariesByVault;
+    return summariesByRepository;
   },
 });
 
@@ -725,15 +732,15 @@ export const listAllStagedFiles = internalQuery({
     const files =
       args.branch === undefined
         ? await ctx.db
-            .query("vaultStagedFiles")
-            .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+            .query("repositoryStagedFiles")
+            .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
             .collect()
         : await (() => {
             const branch = args.branch;
             return ctx.db
-              .query("vaultStagedFiles")
-              .withIndex("by_vault_and_branch", (q) =>
-                q.eq("vaultId", args.vaultId).eq("branch", branch),
+              .query("repositoryStagedFiles")
+              .withIndex("by_repository_and_branch", (q) =>
+                q.eq("repositoryId", args.repositoryId).eq("branch", branch),
               )
               .collect();
           })();
@@ -746,8 +753,8 @@ export const duplicateBranchStaging = internalMutation({
   args: duplicateBranchStagingArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
       leaseId: args.leaseId,
       operationId: args.operationId,
@@ -759,9 +766,9 @@ export const duplicateBranchStaging = internalMutation({
     }
 
     const existingTargetFiles = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.targetBranch),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch", (q) =>
+        q.eq("repositoryId", args.repositoryId).eq("branch", args.targetBranch),
       )
       .collect();
     if (existingTargetFiles.some(hasStagedFileChanges)) {
@@ -769,8 +776,8 @@ export const duplicateBranchStaging = internalMutation({
     }
 
     for (const file of args.stagedFiles) {
-      if (file.vaultId !== args.vaultId) {
-        throw new Error("Staging snapshot belongs to a different vault.");
+      if (file.repositoryId !== args.repositoryId) {
+        throw new Error("Staging snapshot belongs to a different repository.");
       }
       if (file.branch !== args.sourceBranch) {
         throw new Error("Staging snapshot belongs to a different branch.");
@@ -779,8 +786,8 @@ export const duplicateBranchStaging = internalMutation({
         continue;
       }
 
-      await ctx.db.insert("vaultStagedFiles", {
-        vaultId: file.vaultId,
+      await ctx.db.insert("repositoryStagedFiles", {
+        repositoryId: file.repositoryId,
         fileDeleted: file.fileDeleted,
         kind: file.kind,
         filePath: file.filePath,
@@ -809,7 +816,7 @@ function matchesStagedFileSnapshot(args: {
 }): boolean {
   return (
     args.current._id === args.snapshot._id &&
-    args.current.vaultId === args.snapshot.vaultId &&
+    args.current.repositoryId === args.snapshot.repositoryId &&
     args.current.fileDeleted === args.snapshot.fileDeleted &&
     args.current.kind === args.snapshot.kind &&
     args.current.filePath === args.snapshot.filePath &&
@@ -833,7 +840,7 @@ function listSnapshotCleanupPaths(snapshot: StagedFileSnapshot): string[] {
 }
 
 type ClearMatchingStagingSnapshotArgs = {
-  vaultId: Infer<typeof vaultIdValidator>;
+  repositoryId: Infer<typeof repositoryIdValidator>;
   branch: string;
   stagedFiles: StagedFileSnapshot[];
 };
@@ -844,7 +851,7 @@ async function scheduleCollaborativeUpdatesCleanup(
 ): Promise<void> {
   const lease = await createStagingCleanupLease(ctx, target);
   await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesBatch, {
-    vaultId: target.vaultId,
+    repositoryId: target.repositoryId,
     branch: target.branch,
     cutoffTimestamp: target.cutoffTimestamp,
     leaseId: lease.leaseId,
@@ -859,7 +866,7 @@ async function scheduleCollaborativeFileUpdatesCleanup(
 ): Promise<void> {
   const lease = await createStagingCleanupLease(ctx, target);
   await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch, {
-    vaultId: target.vaultId,
+    repositoryId: target.repositoryId,
     branch: target.branch,
     filePath: target.filePath,
     cutoffTimestamp: target.cutoffTimestamp,
@@ -880,8 +887,8 @@ export async function clearMatchingStagingSnapshotImpl(
   const cleanupCutoffByFilePath = new Map<string, number>();
 
   for (const snapshot of args.stagedFiles) {
-    if (snapshot.vaultId !== args.vaultId) {
-      throw new Error("Staging snapshot belongs to a different vault.");
+    if (snapshot.repositoryId !== args.repositoryId) {
+      throw new Error("Staging snapshot belongs to a different repository.");
     }
     if (snapshot.branch !== args.branch) {
       throw new Error("Staging snapshot belongs to a different branch.");
@@ -905,7 +912,7 @@ export async function clearMatchingStagingSnapshotImpl(
 
   for (const [filePath, cutoffTimestamp] of cleanupCutoffByFilePath) {
     await scheduleCollaborativeFileUpdatesCleanup(ctx, {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       branch: args.branch,
       filePath,
       cutoffTimestamp,
@@ -926,98 +933,100 @@ export const clearMatchingStagingSnapshot = internalMutation({
 
 const DELETION_BATCH_SIZE = 500;
 
-type ClearAllStagingPlan<VaultId extends string = string, UserId extends string = string> = {
+type ClearAllStagingPlan<RepositoryId extends string = string, UserId extends string = string> = {
   stagingQuery:
-    | { indexName: "by_vault"; vaultId: VaultId }
+    | { indexName: "by_repository"; repositoryId: RepositoryId }
     | {
-        indexName: "by_vault_and_branch";
-        vaultId: VaultId;
+        indexName: "by_repository_and_branch";
+        repositoryId: RepositoryId;
         branch: string;
       };
   deleteCollaborativeUpdatesArgs: {
-    vaultId: VaultId;
+    repositoryId: RepositoryId;
     branch?: string;
     cutoffTimestamp: number;
   };
   treeRefreshArgs: {
     userId: UserId;
-    vaultId: VaultId;
+    repositoryId: RepositoryId;
     branch: string;
   } | null;
 };
 
-export function buildClearAllStagingPlan<VaultId extends string, UserId extends string>(args: {
-  vaultId: VaultId;
+export function buildClearAllStagingPlan<RepositoryId extends string, UserId extends string>(args: {
+  repositoryId: RepositoryId;
   branch?: string;
   cleanupCutoffTimestamp: number;
-  vault: {
+  repository: {
     userId: UserId;
     defaultBranch: string;
   } | null;
-}): ClearAllStagingPlan<VaultId, UserId> {
+}): ClearAllStagingPlan<RepositoryId, UserId> {
   return {
     stagingQuery:
       args.branch === undefined
         ? {
-            indexName: "by_vault",
-            vaultId: args.vaultId,
+            indexName: "by_repository",
+            repositoryId: args.repositoryId,
           }
         : {
-            indexName: "by_vault_and_branch",
-            vaultId: args.vaultId,
+            indexName: "by_repository_and_branch",
+            repositoryId: args.repositoryId,
             branch: args.branch,
           },
     deleteCollaborativeUpdatesArgs: {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       branch: args.branch,
       cutoffTimestamp: args.cleanupCutoffTimestamp,
     },
-    treeRefreshArgs: args.vault
+    treeRefreshArgs: args.repository
       ? {
-          userId: args.vault.userId,
-          vaultId: args.vaultId,
-          branch: args.branch ?? args.vault.defaultBranch,
+          userId: args.repository.userId,
+          repositoryId: args.repositoryId,
+          branch: args.branch ?? args.repository.defaultBranch,
         }
       : null,
   };
 }
 
 type ClearAllStagingArgs = {
-  vaultId: Infer<typeof vaultIdValidator>;
+  repositoryId: Infer<typeof repositoryIdValidator>;
   userId: Infer<typeof userIdValidator>;
   branch?: string;
   skipTreeUpdate?: boolean;
 };
 
 export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagingArgs) {
-  // Get vault info to schedule tree update
-  const vault = await ctx.db.get(args.vaultId);
+  // Get repository info to schedule tree update
+  const repository = await ctx.db.get(args.repositoryId);
   const cleanupCutoffTimestamp = Date.now() + 1;
   const plan = buildClearAllStagingPlan({
-    vaultId: args.vaultId,
+    repositoryId: args.repositoryId,
     branch: args.branch,
     cleanupCutoffTimestamp,
-    vault:
-      vault && isLiveConnectedVault(vault)
+    repository:
+      repository && isLiveConnectedRepository(repository)
         ? {
             userId: args.userId,
-            defaultBranch: vault.defaultBranch,
+            defaultBranch: repository.defaultBranch,
           }
         : null,
   });
 
   const stagingFiles =
-    plan.stagingQuery.indexName === "by_vault"
+    plan.stagingQuery.indexName === "by_repository"
       ? await ctx.db
-          .query("vaultStagedFiles")
-          .withIndex("by_vault", (q) => q.eq("vaultId", plan.stagingQuery.vaultId))
+          .query("repositoryStagedFiles")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", plan.stagingQuery.repositoryId))
           .collect()
       : await (() => {
           const branchScopedQuery = plan.stagingQuery;
           return ctx.db
-            .query("vaultStagedFiles")
-            .withIndex("by_vault_and_branch", (q) =>
-              q.eq("vaultId", branchScopedQuery.vaultId).eq("branch", branchScopedQuery.branch),
+            .query("repositoryStagedFiles")
+            .withIndex("by_repository_and_branch", (q) =>
+              q
+                .eq("repositoryId", branchScopedQuery.repositoryId)
+                .eq("branch", branchScopedQuery.branch),
             )
             .collect();
         })();
@@ -1029,7 +1038,7 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
   // Delete collaborative updates in batches to avoid hitting read limits.
   // Schedule the first batch. It will chain further batches if needed.
   await scheduleCollaborativeUpdatesCleanup(ctx, {
-    vaultId: plan.deleteCollaborativeUpdatesArgs.vaultId,
+    repositoryId: plan.deleteCollaborativeUpdatesArgs.repositoryId,
     branch: plan.deleteCollaborativeUpdatesArgs.branch,
     cutoffTimestamp: plan.deleteCollaborativeUpdatesArgs.cutoffTimestamp,
   });
@@ -1039,7 +1048,7 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
   if (plan.treeRefreshArgs && !args.skipTreeUpdate) {
     await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, {
       userId: plan.treeRefreshArgs.userId,
-      vaultId: plan.treeRefreshArgs.vaultId,
+      repositoryId: plan.treeRefreshArgs.repositoryId,
       branch: plan.treeRefreshArgs.branch,
     });
   }
@@ -1051,15 +1060,15 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
 export const clearAllStaging = mutation({
   access: "access_files_write",
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     branch: optional(branchValidator),
     skipTreeUpdate: optional(boolean()),
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     await requireRepositoryOperationStart(ctx);
-    await assertVaultForStagingAccess(ctx, {
-      vaultId: args.vaultId,
+    await assertRepositoryForStagingAccess(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
 
@@ -1069,7 +1078,7 @@ export const clearAllStaging = mutation({
 
 export const clearAllStagingForOperation = internalMutation({
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     userId: userIdValidator,
     branch: optional(branchValidator),
     skipTreeUpdate: optional(boolean()),
@@ -1079,15 +1088,15 @@ export const clearAllStagingForOperation = internalMutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
       leaseId: args.leaseId,
       operationId: args.operationId,
       operationName: args.operationName,
     });
     return await clearAllStagingImpl(ctx, {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       userId: args.userId,
       branch: args.branch,
       skipTreeUpdate: args.skipTreeUpdate,
@@ -1098,7 +1107,7 @@ export const clearAllStagingForOperation = internalMutation({
 // Delete collaborative updates in batches to stay under the 4096 read limit.
 export const deleteCollaborativeUpdatesBatch = internalMutation({
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     branch: optional(branchValidator),
     cutoffTimestamp: number(),
     ...stagingCleanupLeaseArgsValidator,
@@ -1106,7 +1115,7 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     await requireStagingCleanupLease(ctx, args, {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       branch: args.branch,
       cutoffTimestamp: args.cutoffTimestamp,
     });
@@ -1114,16 +1123,19 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
     const updatesQuery =
       args.branch === undefined
         ? ctx.db
-            .query("vaultStagedFileUpdates")
-            .withIndex("by_vault_and_timestamp", (q) =>
-              q.eq("vaultId", args.vaultId).lt("timestamp", cutoffTimestamp),
+            .query("repositoryStagedFileUpdates")
+            .withIndex("by_repository_and_timestamp", (q) =>
+              q.eq("repositoryId", args.repositoryId).lt("timestamp", cutoffTimestamp),
             )
         : (() => {
             const branch = args.branch;
             return ctx.db
-              .query("vaultStagedFileUpdates")
-              .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
-                q.eq("vaultId", args.vaultId).eq("branch", branch).lt("timestamp", cutoffTimestamp),
+              .query("repositoryStagedFileUpdates")
+              .withIndex("by_repositoryId_and_branch_and_timestamp", (q) =>
+                q
+                  .eq("repositoryId", args.repositoryId)
+                  .eq("branch", branch)
+                  .lt("timestamp", cutoffTimestamp),
               );
           })();
     const updates = [];
@@ -1141,7 +1153,7 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
     // If we got a full batch, there are likely more; schedule another round.
     if (updates.length === DELETION_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesBatch, {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         branch: args.branch,
         cutoffTimestamp: args.cutoffTimestamp,
         leaseId: args.leaseId,
@@ -1164,7 +1176,7 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
 // edits on the same branch while removing history for a committed snapshot.
 export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     branch: branchValidator,
     filePath: filePathValidator,
     cutoffTimestamp: number(),
@@ -1173,17 +1185,17 @@ export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     await requireStagingCleanupLease(ctx, args, {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
       cutoffTimestamp: args.cutoffTimestamp,
     });
     const updates = [];
     for await (const update of ctx.db
-      .query("vaultStagedFileUpdates")
-      .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
+      .query("repositoryStagedFileUpdates")
+      .withIndex("by_repositoryId_and_branch_and_filePath_and_timestamp", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("filePath", args.filePath)
           .lt("timestamp", args.cutoffTimestamp),
@@ -1203,7 +1215,7 @@ export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
         0,
         internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
         {
-          vaultId: args.vaultId,
+          repositoryId: args.repositoryId,
           branch: args.branch,
           filePath: args.filePath,
           cutoffTimestamp: args.cutoffTimestamp,
@@ -1230,15 +1242,18 @@ export const markFileForDeletion = mutation({
   args: deletionArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
 
     const existingStaging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -1256,8 +1271,8 @@ export const markFileForDeletion = mutation({
       const snapshotSeed = await readDeletionSnapshotSeed(ctx, args.parentCommitSha);
 
       // Create new staging record for deletion
-      await ctx.db.insert("vaultStagedFiles", {
-        vaultId: args.vaultId,
+      await ctx.db.insert("repositoryStagedFiles", {
+        repositoryId: args.repositoryId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
@@ -1283,15 +1298,15 @@ export const markFileForDeletion = mutation({
 async function createFileInStagingImpl(
   ctx: MutationCtx,
   args: {
-    vaultId: Infer<typeof vaultIdValidator>;
+    repositoryId: Infer<typeof repositoryIdValidator>;
     filePath: string;
     content: string;
     branch: string;
     userId: Infer<typeof userIdValidator>;
   } & RepositoryOperationLeaseArgs,
 ) {
-  await assertConnectedVaultForStagingWrite(ctx, {
-    vaultId: args.vaultId,
+  await assertConnectedRepositoryForStagingWrite(ctx, {
+    repositoryId: args.repositoryId,
     userId: args.userId,
     leaseId: args.leaseId,
     operationId: args.operationId,
@@ -1300,9 +1315,12 @@ async function createFileInStagingImpl(
 
   // Check if there's already a staging record for this file
   const existingStaging = await ctx.db
-    .query("vaultStagedFiles")
-    .withIndex("by_vault_and_branch_and_initial_path", (q) =>
-      q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("initialFilePath", args.filePath),
+    .query("repositoryStagedFiles")
+    .withIndex("by_repository_and_branch_and_initial_path", (q) =>
+      q
+        .eq("repositoryId", args.repositoryId)
+        .eq("branch", args.branch)
+        .eq("initialFilePath", args.filePath),
     )
     .first();
 
@@ -1311,22 +1329,25 @@ async function createFileInStagingImpl(
   }
 
   const existingPathInStaging = await ctx.db
-    .query("vaultStagedFiles")
-    .withIndex("by_vault_and_branch_and_path", (q) =>
-      q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+    .query("repositoryStagedFiles")
+    .withIndex("by_repository_and_branch_and_path", (q) =>
+      q
+        .eq("repositoryId", args.repositoryId)
+        .eq("branch", args.branch)
+        .eq("filePath", args.filePath),
     )
     .first();
   if (existingPathInStaging) {
     throw new Error("A staged file already uses this path");
   }
 
-  const repositoryTree = await resolveRepositoryTreeForVault({
+  const repositoryTree = await resolveRepositoryTreeForRepository({
     ctx,
-    vaultId: args.vaultId,
+    repositoryId: args.repositoryId,
     requestedBranch: args.branch,
   });
   const existsInRepository = repositoryTree.some(
-    (entry: GithubTree) => entry.type === "blob" && entry.path === args.filePath,
+    (entry: GitHubTree) => entry.type === "blob" && entry.path === args.filePath,
   );
   if (existsInRepository) {
     throw new Error("File already exists in repository");
@@ -1335,8 +1356,8 @@ async function createFileInStagingImpl(
   const currentTimestamp = Date.now();
 
   // Create new staging record for a new file (parentCommitSha is null)
-  await ctx.db.insert("vaultStagedFiles", {
-    vaultId: args.vaultId,
+  await ctx.db.insert("repositoryStagedFiles", {
+    repositoryId: args.repositoryId,
     filePath: args.filePath,
     initialFilePath: args.filePath,
     fileDeleted: false,
@@ -1360,7 +1381,7 @@ export const createFileInStaging = mutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     return await createFileInStagingImpl(ctx, {
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       filePath: args.filePath,
       content: args.content,
       branch: args.branch,
@@ -1371,7 +1392,7 @@ export const createFileInStaging = mutation({
 
 export const createFileInStagingForOperation = internalMutation({
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     filePath: filePathValidator,
     content: contentValidator,
     branch: branchValidator,
@@ -1391,15 +1412,18 @@ export const revertDeletedFileInStaging = mutation({
   args: revertDeletedFileArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
 
     const existingStaging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -1438,8 +1462,8 @@ export const updateStagedFileContent = mutation({
       throw new Error("Staged file not found");
     }
 
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: existingStaging.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: existingStaging.repositoryId,
       userId: ctx.viewer.userId,
     });
 
@@ -1456,7 +1480,7 @@ export const updateStagedFileContent = mutation({
     }
 
     await ctx.runMutation(internal.collaborative.pushContentUpdate, {
-      vaultId: existingStaging.vaultId,
+      repositoryId: existingStaging.repositoryId,
       filePath: existingStaging.filePath,
       branch: existingStaging.branch,
       expectedVersion: args.expectedVersion,
@@ -1480,8 +1504,8 @@ export const saveToStaging = internalMutation({
   args: saveToStagingArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
       leaseId: args.leaseId,
       operationId: args.operationId,
@@ -1489,10 +1513,10 @@ export const saveToStaging = internalMutation({
     });
 
     const existingStaging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_initial_path", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("initialFilePath", args.initialFilePath),
       )
@@ -1522,8 +1546,8 @@ export const saveToStaging = internalMutation({
       });
     } else {
       // Create new staging record
-      await ctx.db.insert("vaultStagedFiles", {
-        vaultId: args.vaultId,
+      await ctx.db.insert("repositoryStagedFiles", {
+        repositoryId: args.repositoryId,
         filePath: args.initialFilePath,
         initialFilePath: args.initialFilePath,
         fileDeleted: false,
@@ -1539,10 +1563,10 @@ export const saveToStaging = internalMutation({
     }
 
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_initial_path", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("initialFilePath", args.initialFilePath),
       )
@@ -1560,8 +1584,8 @@ export const saveBinaryUploadToStaging = internalMutation({
   args: saveBinaryUploadToStagingArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
       leaseId: args.leaseId,
       operationId: args.operationId,
@@ -1570,17 +1594,20 @@ export const saveBinaryUploadToStaging = internalMutation({
 
     const currentTimestamp = Date.now();
     const existingStagingByPath = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.filePath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
     const existingStagingByInitialPath = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_initial_path", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("initialFilePath", args.filePath),
       )
@@ -1603,13 +1630,13 @@ export const saveBinaryUploadToStaging = internalMutation({
       throw new Error("An existing staged rename already owns this file path");
     }
 
-    const repositoryTree = await resolveRepositoryTreeForVault({
+    const repositoryTree = await resolveRepositoryTreeForRepository({
       ctx,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       requestedBranch: args.branch,
     });
     const existingRepositoryEntry = repositoryTree.find(
-      (entry: GithubTree) => entry.type === "blob" && entry.path === args.filePath,
+      (entry: GitHubTree) => entry.type === "blob" && entry.path === args.filePath,
     );
     const parentCommitSha = existingRepositoryEntry?.sha ?? null;
     const isReplacement = Boolean(existingStaging) || parentCommitSha !== null;
@@ -1622,11 +1649,11 @@ export const saveBinaryUploadToStaging = internalMutation({
       const previousStorageId = existingStaging.storageId;
       let shouldDeletePreviousStorage = false;
       if (typeof previousStorageId === "string" && previousStorageId !== args.storageId) {
-        const stagedFilesByVault = await ctx.db
-          .query("vaultStagedFiles")
-          .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        const stagedFilesByRepository = await ctx.db
+          .query("repositoryStagedFiles")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
           .collect();
-        const storageReferenceCount = stagedFilesByVault.filter(
+        const storageReferenceCount = stagedFilesByRepository.filter(
           (file) => file.storageId === previousStorageId,
         ).length;
         shouldDeletePreviousStorage = shouldDeleteSupersededStagedBinaryUpload({
@@ -1664,7 +1691,7 @@ export const saveBinaryUploadToStaging = internalMutation({
           await ctx.storage.delete(previousStorageId);
         } catch (error) {
           console.warn("Failed to delete superseded staged upload blob", {
-            vaultId: args.vaultId,
+            repositoryId: args.repositoryId,
             branch: args.branch,
             filePath: args.filePath,
             previousStorageId,
@@ -1676,8 +1703,8 @@ export const saveBinaryUploadToStaging = internalMutation({
       return updatedStaging;
     }
 
-    const insertedId = await ctx.db.insert("vaultStagedFiles", {
-      vaultId: args.vaultId,
+    const insertedId = await ctx.db.insert("repositoryStagedFiles", {
+      repositoryId: args.repositoryId,
       fileDeleted: false,
       kind: "binary",
       filePath: args.filePath,
@@ -1706,7 +1733,7 @@ export const saveBinaryUploadToStaging = internalMutation({
 
 export const assertMediaUploadCapability = internalMutation({
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     userId: userIdValidator,
     leaseId: id("repositoryOperationLeases"),
     operationId: string(),
@@ -1714,10 +1741,10 @@ export const assertMediaUploadCapability = internalMutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    if (args.operationName !== getMediaUploadOperationName(args.vaultId)) {
+    if (args.operationName !== getMediaUploadOperationName(args.repositoryId)) {
       throw new Error("Media upload capability does not match its repository.");
     }
-    await assertConnectedVaultForStagingWrite(ctx, args);
+    await assertConnectedRepositoryForStagingWrite(ctx, args);
     return null;
   },
 });
@@ -1726,8 +1753,8 @@ export const rename = internalMutation({
   args: renameArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args): Promise<StagedFile> => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
       leaseId: args.leaseId,
       operationId: args.operationId,
@@ -1735,10 +1762,10 @@ export const rename = internalMutation({
     });
 
     const file = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_initial_path", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("initialFilePath", args.initialFilePath),
       )
@@ -1753,22 +1780,25 @@ export const rename = internalMutation({
     }
 
     const existingAtNewPath = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.newPath),
       )
       .first();
     if (existingAtNewPath && existingAtNewPath._id !== file._id) {
       throw new Error("A staged file already uses this path");
     }
 
-    const repositoryTree = await resolveRepositoryTreeForVault({
+    const repositoryTree = await resolveRepositoryTreeForRepository({
       ctx,
-      vaultId: args.vaultId,
+      repositoryId: args.repositoryId,
       requestedBranch: args.branch,
     });
     const existsInRepository = repositoryTree.some(
-      (entry: GithubTree) =>
+      (entry: GitHubTree) =>
         entry.type === "blob" && entry.path === args.newPath && entry.path !== file.initialFilePath,
     );
     if (existsInRepository) {
@@ -1782,9 +1812,12 @@ export const rename = internalMutation({
     });
 
     const updatedFile = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.newPath),
       )
       .first();
 
@@ -1802,10 +1835,10 @@ export const getByOriginalPath = internalQuery({
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
     const staging = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
+      .query("repositoryStagedFiles")
+      .withIndex("by_repository_and_branch_and_initial_path", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("repositoryId", args.repositoryId)
           .eq("branch", args.branch)
           .eq("initialFilePath", args.originalFilePath),
       )
@@ -1845,7 +1878,7 @@ const reconcileInstructionValidator = union(
 
 export const reconcileStagingWithTree = internalMutation({
   args: {
-    vaultId: vaultIdValidator,
+    repositoryId: repositoryIdValidator,
     instructions: array(reconcileInstructionValidator),
     userId: userIdValidator,
     leaseId: repositoryOperationLeaseArgsValidator.leaseId,
@@ -1854,8 +1887,8 @@ export const reconcileStagingWithTree = internalMutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
       userId: args.userId,
       leaseId: args.leaseId,
       operationId: args.operationId,
@@ -1882,7 +1915,7 @@ export const reconcileStagingWithTree = internalMutation({
     const hasDeletes = args.instructions.some((i) => i.action === "delete");
     if (hasDeletes) {
       await scheduleCollaborativeUpdatesCleanup(ctx, {
-        vaultId: args.vaultId,
+        repositoryId: args.repositoryId,
         cutoffTimestamp: cleanupCutoffTimestamp,
       });
     }

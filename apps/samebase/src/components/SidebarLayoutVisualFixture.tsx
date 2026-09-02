@@ -4,7 +4,7 @@ import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFram
 import mobileSidebarSpecRaw from "../../../../specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md?raw";
 export type SidebarLayoutVisualMode = "sidebar-layout-status-bar";
 
-const FIXTURE_VAULT_KEY = "sidebar-layout-fixture-vault";
+const FIXTURE_REPOSITORY_KEY = "sidebar-layout-fixture-repository";
 
 export function SidebarLayoutVisualFixture() {
   return (
@@ -28,7 +28,7 @@ export function SidebarLayoutVisualFixture() {
             onMount={() => {}}
             showMobileLineNumbers={false}
             syncError={null}
-            vaultKey={FIXTURE_VAULT_KEY}
+            repositoryKey={FIXTURE_REPOSITORY_KEY}
           />
         ),
       }}
@@ -42,7 +42,7 @@ export function SidebarLayoutVisualFixture() {
             onMount={() => {}}
             showMobileLineNumbers={false}
             syncError={null}
-            vaultKey={FIXTURE_VAULT_KEY}
+            repositoryKey={FIXTURE_REPOSITORY_KEY}
           />
         ),
       }}
