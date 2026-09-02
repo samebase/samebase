@@ -296,12 +296,17 @@ export function MengerTypeGpuScene({
         };
         const openingDistance = (
           localPoint: d.v2f,
+          parentRetained: boolean,
           channelCenter: d.v2f,
           probePoint: d.v2f,
           probeAxisDistance: number,
           scale: number,
         ): number => {
           "use gpu";
+          if (!parentRetained) {
+            return 1_000;
+          }
+
           const channelDelta = std.sub(channelCenter, probePoint);
           const distanceFromProbe = std.length(
             d.vec3f(probeAxisDistance, channelDelta.x, channelDelta.y),
@@ -350,18 +355,26 @@ export function MengerTypeGpuScene({
             scale,
           );
         };
-        const mengerDistance = (point: d.v3f): number => {
+        const mengerSample = (point: d.v3f): d.v2f => {
           "use gpu";
-          let distance = boxDistance(point);
+          const outerDistance = boxDistance(point);
+          let removedDistance = d.f32(1_000);
+          let pointRemoved = d.bool(false);
+          // A descendant channel crosses perpendicular covers, but not a same-axis parent cover.
+          let xParentRetained = d.bool(true);
+          let yParentRetained = d.bool(true);
+          let zParentRetained = d.bool(true);
           let scale = d.f32(1);
-          // A finer opening exists only inside a cell retained by every coarser level.
-          let parentCellRetained = d.bool(true);
 
           for (let iteration = 0; iteration < MENGER_TYPE_GPU_MAXIMUM_DEPTH; iteration += 1) {
             if (iteration >= selectedDepth.$) {
               break;
             }
-            if (iteration > 0 && (hoverState.$.openness <= 0 || !parentCellRetained)) {
+            if (
+              iteration > 0 &&
+              (hoverState.$.openness <= 0 ||
+                (!xParentRetained && !yParentRetained && !zParentRetained))
+            ) {
               break;
             }
             if (iteration > 0 && std.div(1, std.mul(3, scale)) <= surfaceThreshold.$) {
@@ -372,12 +385,13 @@ export function MengerTypeGpuScene({
               std.mul(std.fract(std.mul(shiftedPoint, 0.5)), 2),
               d.vec3f(1),
             );
-            let removedCrossDistance = d.f32(1_000);
+            const fullCrossDistance = std.div(
+              crossDistance(std.mul(repeatedPoint, 3)),
+              std.mul(3, scale),
+            );
+            let removedCrossDistance = fullCrossDistance;
             if (iteration === 0) {
-              removedCrossDistance = std.div(
-                crossDistance(std.mul(repeatedPoint, 3)),
-                std.mul(3, scale),
-              );
+              pointRemoved = fullCrossDistance <= 0;
             } else {
               const unitPoint = std.clamp(
                 std.add(std.mul(point, 0.5), d.vec3f(0.5)),
@@ -391,6 +405,7 @@ export function MengerTypeGpuScene({
               const probe = hoverState.$.probe;
               const openingAlongX = openingDistance(
                 d.vec2f(repeatedPoint.y, repeatedPoint.z),
+                xParentRetained,
                 d.vec2f(channelCenter.y, channelCenter.z),
                 d.vec2f(probe.y, probe.z),
                 std.min(probe.x, std.sub(1, probe.x)),
@@ -398,6 +413,7 @@ export function MengerTypeGpuScene({
               );
               const openingAlongY = openingDistance(
                 d.vec2f(repeatedPoint.x, repeatedPoint.z),
+                yParentRetained,
                 d.vec2f(channelCenter.x, channelCenter.z),
                 d.vec2f(probe.x, probe.z),
                 std.min(probe.y, std.sub(1, probe.y)),
@@ -405,29 +421,37 @@ export function MengerTypeGpuScene({
               );
               const openingAlongZ = openingDistance(
                 d.vec2f(repeatedPoint.x, repeatedPoint.y),
+                zParentRetained,
                 d.vec2f(channelCenter.x, channelCenter.y),
                 d.vec2f(probe.x, probe.y),
                 std.min(probe.z, std.sub(1, probe.z)),
                 scale,
               );
               removedCrossDistance = std.min(openingAlongX, openingAlongY, openingAlongZ);
+              if (removedCrossDistance <= 0) {
+                pointRemoved = true;
+              }
             }
-            distance = std.max(distance, std.neg(removedCrossDistance));
+            removedDistance = std.min(removedDistance, removedCrossDistance);
             const repeatedAbsolute = std.abs(repeatedPoint);
             const xInMiddleThird = repeatedAbsolute.x <= 1 / 3;
             const yInMiddleThird = repeatedAbsolute.y <= 1 / 3;
             const zInMiddleThird = repeatedAbsolute.z <= 1 / 3;
-            parentCellRetained =
-              parentCellRetained &&
-              !(
-                (xInMiddleThird && yInMiddleThird) ||
-                (xInMiddleThird && zInMiddleThird) ||
-                (yInMiddleThird && zInMiddleThird)
-              );
+            xParentRetained = xParentRetained && !(yInMiddleThird && zInMiddleThird);
+            yParentRetained = yParentRetained && !(xInMiddleThird && zInMiddleThird);
+            zParentRetained = zParentRetained && !(xInMiddleThird && yInMiddleThird);
             scale = std.mul(scale, 3);
           }
 
-          return distance;
+          let material = d.f32(0);
+          if (outerDistance <= 0 && !pointRemoved) {
+            material = 1;
+          }
+          return d.vec2f(std.max(outerDistance, std.neg(removedDistance)), material);
+        };
+        const mengerDistance = (point: d.v3f): number => {
+          "use gpu";
+          return mengerSample(point).x;
         };
         const surfaceNormal = (point: d.v3f): d.v3f => {
           "use gpu";
@@ -480,25 +504,15 @@ export function MengerTypeGpuScene({
             return d.vec4f(background.$, 1);
           }
 
-          const cameraAxis = std.abs(cameraVector.$);
-          if (std.max(cameraAxis.x, cameraAxis.y, cameraAxis.z) > 0.999_999) {
-            // A snapped face-on view is a 2D carpet with one visible face color.
-            const facePoint = std.add(rayOrigin, std.mul(rayDirection, distanceAlongRay));
-            if (mengerDistance(facePoint) > surfaceThreshold.$) {
-              return d.vec4f(background.$, 1);
-            }
-            return d.vec4f(axisColor(cameraAxis), 1);
-          }
-
           for (let step = 0; step < MAXIMUM_RAY_STEPS; step += 1) {
             const point = std.add(rayOrigin, std.mul(rayDirection, distanceAlongRay));
-            const distance = mengerDistance(point);
-            if (distance < surfaceThreshold.$) {
+            const sample = mengerSample(point);
+            if (sample.x < surfaceThreshold.$ && sample.y > 0.5) {
               return d.vec4f(axisColor(std.abs(surfaceNormal(point))), 1);
             }
             distanceAlongRay = std.add(
               distanceAlongRay,
-              std.max(distance, std.mul(surfaceThreshold.$, 0.5)),
+              std.max(sample.x, std.mul(surfaceThreshold.$, 0.5)),
             );
             if (distanceAlongRay > boxExitDistance) {
               break;

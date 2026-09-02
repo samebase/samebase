@@ -64,9 +64,9 @@ The `/logo/webgpu/menger` route now has these properties:
 - Pointer drag rotation
 - Depth one at rest, with local Menger channels through the selected depth when the pointer is near
   the sponge
-- Finer openings only inside cells retained by every coarser level
-- A direct 2D surface sample at snapped face angles, so a face-only view has no internal ray-march
-  surfaces
+- Finer channels do not cut same-axis parent covers; perpendicular channels stay connected through
+  the covers that they cross
+- One 3D ray-march path for face-only, shallow, and oblique views
 - The same reveal radius and opening response time as the current Three.js renderer
 - One full-screen triangle and a maximum of 128 ray steps
 - Rays that start and stop at the outer sponge boundary
@@ -81,11 +81,14 @@ The `/logo/webgpu/menger` route now has these properties:
 
 ![TypeGPU Menger lab with the depth-eight face-only reveal](2026-09-02-typegpu-menger-hover-face-depth-8.png)
 
+![TypeGPU Menger lab with the depth-eight shallow reveal](2026-09-02-typegpu-menger-hover-shallow-depth-8.png)
+
 Manual checks in desktop Chromium confirmed the ready WebGPU state, depth-eight rendering, direct
-query loading, pointer drag, pointer reveal, clean dark and cyan face-only views, close after
-pointer exit, and the forced no-WebGPU fallback. A paired depth-four check put the TypeGPU and
-Three.js probes within 0.004 unit coordinates of each other. Their settled openings used the same
-reveal envelope. The default depth is four at 75 percent render resolution.
+query loading, pointer drag, pointer reveal, clean dark and cyan face-only views, correct tunnel
+continuity at two-degree and five-degree views, close after pointer exit, and the forced no-WebGPU
+fallback. A paired depth-four check put the TypeGPU and Three.js probes within 0.004 unit
+coordinates of each other. Their settled openings used the same reveal envelope. The default depth
+is four at 75 percent render resolution.
 
 The hover opening is a procedural distance-field deformation. The shader finds each repeated channel
 from the sample point and opens only channels near the projected pointer. This avoids the CPU and
@@ -100,17 +103,18 @@ the Three.js renderer can leave a short closing trail because each channel keeps
 Keep this difference visible in later comparisons. Do not add the full per-channel state to the
 TypeGPU path.
 
-The opening hierarchy follows the 2D carpet rule. A finer opening is evaluated only when every
-coarser cell that contains it is retained. This prevents a partly closed coarse opening from showing
-child openings inside its solid cover. The Three.js renderer permits some perpendicular channels to
-cross a coarse cover. The TypeGPU lab intentionally does not copy that exception. A crossings option
-would restore the unwanted nested pattern and add UI and shader state without helping this
-experiment.
+The opening hierarchy follows the current Three.js blocker-link rule. The shader keeps one retained
+path for each channel axis. A finer channel cannot cut a coarser cover with the same axis, so a
+partly closed face opening does not contain child openings. A finer channel can cut a perpendicular
+cover that it crosses. That crossing keeps the finer tunnel empty through the sponge. One global
+parent-cell rule is too strict: it blocks the perpendicular crossing and creates a false internal
+face.
 
 Each procedural channel stays unbounded along its own axis. A cell-local axial bound creates an
-artificial end surface for every repeated channel. At depth eight, those surfaces appear as hollow
-rectangles and colored specks in a face-only view. The snapped face path samples the outer surface
-once as a 2D carpet. Other views continue to use the 3D ray marcher.
+artificial end surface for every repeated channel. A global parent stop creates the same fault where
+two perpendicular empty channels meet. At depth eight, these false surfaces appear as hollow
+rectangles and colored specks. The shader now returns a conservative travel distance and exact
+axis-aware material occupancy from one loop. Face-only and nearby views use the same 3D ray marcher.
 
 The reference Three.js renderer now clears its hover pointer after browser blur. Before this change,
 it cleared only the presentation tilt, which could leave the opening active.
