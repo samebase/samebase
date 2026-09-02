@@ -594,8 +594,6 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/logo-menger-hover-visual.spec.ts-snapshots/logo-menger-hover-shallow-angle-external-pointer.png",
   "apps/samebase/e2e/logo-menger-hover-visual.spec.ts-snapshots/logo-menger-hover-shallow-angle-resting.png",
   "apps/samebase/e2e/logo-menger-hover-visual.spec.ts-snapshots/logo-menger-hover-three-face-edge.png",
-  "apps/samebase/e2e/logo-menger-webgpu-visual.spec.ts",
-  "apps/samebase/e2e/logo-menger-webgpu-visual.spec.ts-snapshots/logo-menger-webgpu-static-fallback.png",
   "apps/samebase/e2e/logo-recursive-shuffle-visual.spec.ts",
   "apps/samebase/e2e/logo-recursive-shuffle-visual.spec.ts-snapshots/logo-depth-2-recursive-shuffle-midpoint.png",
   "apps/samebase/e2e/logo-recursive-shuffle-visual.spec.ts-snapshots/logo-depth-3-recursive-shuffle-midpoint.png",
