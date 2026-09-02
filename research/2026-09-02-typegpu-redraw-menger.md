@@ -22,9 +22,9 @@ research budget test records these values:
 - 2,813,292 triangles
 
 The TypeGPU lab has one triangle and no voxel instance buffer. At depth four, its distance function
-describes 160,000 conceptual cells. At depth five, it describes 3,200,000 conceptual cells. These
-cell counts do not increase the draw geometry. Shader work increases with pixel count, ray steps,
-and selected fractal depth.
+describes 160,000 conceptual cells. At depth eight, it describes 25,600,000,000 conceptual cells.
+These cell counts do not increase the draw geometry. Shader work increases with pixel count, ray
+steps, and selected fractal depth.
 
 ## Redraw
 
@@ -57,8 +57,9 @@ large cube and triangle counts. The package also makes the route WebGPU-only.
 
 The `/logo/webgpu/menger` route now has these properties:
 
-- Depth controls from one through five
+- Depth controls from one through eight
 - Render resolution controls at 50, 75, and 100 percent
+- `depth` and `resolution` query parameters that preserve an exact test view
 - The current Samebase face colors and view direction
 - Pointer drag rotation
 - One full-screen triangle and a maximum of 128 ray steps
@@ -68,8 +69,9 @@ The `/logo/webgpu/menger` route now has these properties:
 
 ![TypeGPU Menger lab at depth four](2026-09-02-typegpu-menger-lab.png)
 
-Manual checks in desktop Chromium confirmed the ready WebGPU state, depth-five rendering, pointer
-drag, and the forced no-WebGPU fallback. The default depth is four at 75 percent render resolution.
+Manual checks in desktop Chromium confirmed the ready WebGPU state, depth-eight rendering, direct
+query loading, pointer drag, and the forced no-WebGPU fallback. The default depth is four at 75
+percent render resolution.
 
 This lab does not implement the current per-channel hover opening. That behavior needs a procedural
 distance-field deformation. It is a separate proof, not a direct port of the instance animation.
@@ -78,7 +80,7 @@ distance-field deformation. It is a separate proof, not a direct port of the ins
 
 - Ray marching moves cost from geometry to pixels. Large canvases and high device pixel ratios can
   cost more than the current renderer.
-- Fine depth-five features can be smaller than one pixel. The surface threshold and antialiasing
+- Fine high-depth features can be smaller than one pixel. The surface threshold and antialiasing
   need more work before visual comparison.
 - Continuous pointer motion can cause power and thermal costs on mobile devices.
 - WebGPU support and GPU driver behavior still need tests on the supported browser and device
@@ -90,13 +92,12 @@ distance-field deformation. It is a separate proof, not a direct port of the ins
 
 1. Add one procedural hover opening to the distance function. This proves whether the important
    Menger interaction can move from per-instance state to a compact GPU expression.
-2. Measure depth four and depth five during continuous drag on desktop Chrome, Safari, an iPhone,
+2. Measure depths four, five, and eight during continuous drag on desktop Chrome, Safari, an iPhone,
    and one low-power Android device. Record frame time, GPU time when timestamp queries are
    available, resolution, and power behavior.
 3. Compare three image-quality settings: current single sample, a small edge-only supersample, and
    temporal accumulation while the view is still.
-4. Add an opt-in Linux WebGPU browser job before this route owns a GPU screenshot baseline. Keep a
-   separate fallback test for browsers without WebGPU.
+4. Add an opt-in Linux WebGPU browser job only if this route becomes a production candidate.
 
 ## Production gate
 

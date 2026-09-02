@@ -6,6 +6,7 @@ import {
 import { createLogoRouteVoxelGrid } from "@/components/logo/logoRouteRenderState";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import { MENGER_TYPE_GPU_MAXIMUM_DEPTH } from "@/components/logo/mengerTypeGpuSettings";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import {
@@ -216,7 +217,7 @@ export function MengerTypeGpuScene({
           let distance = boxDistance(point);
           let scale = d.f32(1);
 
-          for (let iteration = 0; iteration < 5; iteration += 1) {
+          for (let iteration = 0; iteration < MENGER_TYPE_GPU_MAXIMUM_DEPTH; iteration += 1) {
             if (iteration >= selectedDepth.$) {
               break;
             }

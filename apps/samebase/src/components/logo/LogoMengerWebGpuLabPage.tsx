@@ -2,25 +2,32 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { LogoSquareTouchSurface } from "@/components/logo/LogoSquareTouchSurface";
 import { MengerTypeGpuScene } from "@/components/logo/MengerTypeGpuScene";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import {
+  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+  MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_MINIMUM_DEPTH,
+  MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP,
+  type MengerTypeGpuSettings,
+} from "@/components/logo/mengerTypeGpuSettings";
 import { Button } from "@/components/ui/button";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { DEFAULT_ELEVATION_DEGREES, DEFAULT_ROTATION_DEGREES } from "@samebase/logo-model/voxel";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState, type ChangeEvent } from "react";
 
-const DEFAULT_DEPTH = 4;
-const MINIMUM_DEPTH = 1;
-const MAXIMUM_DEPTH = 5;
-const DEFAULT_RESOLUTION_SCALE = 0.75;
-
 function readRangeValue(event: ChangeEvent<HTMLInputElement>): number {
   return Number(event.target.value);
 }
 
-export function LogoMengerWebGpuLabPage() {
+export function LogoMengerWebGpuLabPage({
+  depth,
+  onSettingsChange,
+  resolutionScale,
+}: MengerTypeGpuSettings & {
+  onSettingsChange: (nextSettings: MengerTypeGpuSettings) => void;
+}) {
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState({});
-  const [depth, setDepth] = useState(DEFAULT_DEPTH);
-  const [resolutionScale, setResolutionScale] = useState(DEFAULT_RESOLUTION_SCALE);
   const [view, setView] = useState<LogoViewState>({
     elevationDegrees: DEFAULT_ELEVATION_DEGREES,
     rotationDegrees: DEFAULT_ROTATION_DEGREES,
@@ -52,10 +59,13 @@ export function LogoMengerWebGpuLabPage() {
             id="menger-webgpu-depth"
             aria-label="Menger depth"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max={MAXIMUM_DEPTH}
-            min={MINIMUM_DEPTH}
+            max={MENGER_TYPE_GPU_MAXIMUM_DEPTH}
+            min={MENGER_TYPE_GPU_MINIMUM_DEPTH}
             onChange={(event) => {
-              setDepth(readRangeValue(event));
+              onSettingsChange({
+                depth: readRangeValue(event),
+                resolutionScale,
+              });
             }}
             step="1"
             type="range"
@@ -74,12 +84,15 @@ export function LogoMengerWebGpuLabPage() {
             id="menger-webgpu-resolution"
             aria-label="Render resolution"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max="1"
-            min="0.5"
+            max={MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE}
+            min={MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE}
             onChange={(event) => {
-              setResolutionScale(readRangeValue(event));
+              onSettingsChange({
+                depth,
+                resolutionScale: readRangeValue(event),
+              });
             }}
-            step="0.25"
+            step={MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP}
             type="range"
             value={resolutionScale}
           />
@@ -106,7 +119,7 @@ export function LogoMengerWebGpuLabPage() {
         </div>
       </div>
     ),
-    [conceptualCellCount, depth, resolutionScale],
+    [conceptualCellCount, depth, onSettingsChange, resolutionScale],
   );
   const leftPane = useMemo(() => ({ content: controls }), [controls]);
 
