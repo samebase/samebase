@@ -472,9 +472,6 @@ describe("buildClearAllStagingPlan", () => {
           repositoryId: targetRepositoryId,
           branch: targetBranch,
           cutoffTimestamp: expect.any(Number),
-          leaseId: "cleanup-lease-1",
-          operationId: expect.stringContaining("staging-cleanup:cleanup-lease-1:"),
-          operationName: "staging_cleanup",
         },
       },
       {
@@ -573,9 +570,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           branch: "main",
           filePath: "src/new-name.ts",
           cutoffTimestamp: 201,
-          leaseId: "cleanup-lease-1",
-          operationId: expect.stringContaining("staging-cleanup:cleanup-lease-1:"),
-          operationName: "staging_cleanup",
         },
       },
       {
@@ -586,9 +580,6 @@ describe("clearMatchingStagingSnapshotImpl", () => {
           branch: "main",
           filePath: "src/old-name.ts",
           cutoffTimestamp: 201,
-          leaseId: "cleanup-lease-2",
-          operationId: expect.stringContaining("staging-cleanup:cleanup-lease-2:"),
-          operationName: "staging_cleanup",
         },
       },
     ]);

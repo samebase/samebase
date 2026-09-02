@@ -12,25 +12,12 @@ import {
 } from "./model";
 import { readRepositoryDeletionEligibility } from "./eligibility";
 import { isConnectedRepository } from "../state";
-import {
-  isRuntimeRepositoryDeletionRun,
-  readRepositoryDeletionState,
-  type RuntimeRepositoryDeletionRun,
-} from "./state";
-import {
-  requireRepositoryForUser,
-  requireRepositoryOrganization,
-  type RuntimeRepository,
-} from "../../organizationAccess";
+import { requireRepositoryForUser, requireRepositoryOrganization } from "../../organizationAccess";
 import {
   requireActiveRepositoryDeletionContinuation,
   requireActiveRepositoryDeletionRun,
 } from "../../repositoryWorkflowAuthority";
 import { readActiveUser } from "../../userLifecycle";
-import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationStart,
-} from "../../repositoryMigration/maintenance";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -180,7 +167,7 @@ async function buildCloudflarePlan(
 async function buildDeletionPlan(
   ctx: MutationCtx,
   args: {
-    repository: Extract<RuntimeRepository, { state: "connected" | "failed" }>;
+    repository: Extract<Doc<"repositories">, { state: "connected" | "failed" }>;
     githubOwnerLogin: string;
     convexProjects: Doc<"repositoryConvexProjects">[];
     options: DeletionRequestOptions;
@@ -268,7 +255,7 @@ async function buildDeletionPlan(
 async function appendDeletionEvent(
   ctx: MutationCtx,
   args: {
-    run: RuntimeRepositoryDeletionRun;
+    run: Doc<"workflow_repositoryDeletion_runs">;
     step: RepositoryDeletionStep;
     level: RepositoryDeletionEventLevel;
     message: string;
@@ -327,7 +314,6 @@ export const createInitialRun = internalMutation({
       convexProjects,
       options: args.options,
     });
-    await requireRepositoryOperationStart(ctx);
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
       organizationId: repository.organizationId,
@@ -347,7 +333,7 @@ export const createInitialRun = internalMutation({
     });
 
     const run = await ctx.db.get(deletionRunId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run)) {
+    if (!run) {
       throw new Error("Deletion run was not created.");
     }
     await appendDeletionEvent(ctx, {
@@ -397,14 +383,12 @@ export const createRetryRun = internalMutation({
     if (repository.organizationId !== failedRun.organizationId) {
       throw new Error("Deletion run does not match repository organization.");
     }
-    const deletion = readRepositoryDeletionState(repository);
+    const deletion = repository.deletion;
     if (deletion.state !== "delete_failed" || deletion.runId !== args.failedRunId) {
       throw new Error("Repository is not waiting for deletion retry.");
     }
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);
-    await requireRepositoryOperationStart(ctx);
-
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
       organizationId: repository.organizationId,
@@ -426,7 +410,7 @@ export const createRetryRun = internalMutation({
       updatedAt: now,
     });
     const run = await ctx.db.get(deletionRunId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run)) {
+    if (!run) {
       throw new Error("Deletion retry run was not created.");
     }
     await appendDeletionEvent(ctx, {
@@ -456,7 +440,7 @@ export const markWorkflowStarted = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run)) {
+    if (!run) {
       throw new Error("Deletion run not found.");
     }
     if (run.state === "succeeded" || run.state === "failed") {
@@ -487,7 +471,7 @@ export const appendRunEvent = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run)) {
+    if (!run) {
       throw new Error("Deletion run not found.");
     }
     if (run.state === "succeeded" || run.state === "failed") {
@@ -496,8 +480,6 @@ export const appendRunEvent = internalMutation({
     if (args.state === "running" && run.workflow.state !== "started") {
       throw new Error("Deletion workflow has not started.");
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     await appendDeletionEvent(ctx, {
       run,
@@ -564,15 +546,13 @@ export const markWorkflowFailed = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run) || run.state === "failed") {
+    if (!run || run.state === "failed") {
       return null;
     }
     if (run.state === "succeeded") {
       return null;
     }
     await requireActiveRepositoryDeletionRun(ctx.db, { runId: args.runId });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     await appendDeletionEvent(ctx, {
       run,
@@ -592,7 +572,7 @@ export const markWorkflowFailed = internalMutation({
     if (!repository) {
       return null;
     }
-    const deletion = readRepositoryDeletionState(repository);
+    const deletion = repository.deletion;
     if (deletion.state === "deleting" && deletion.runId === args.runId) {
       await ctx.db.patch(repository._id, {
         deletion: {
@@ -613,7 +593,7 @@ export const finishWorkflowRun = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run) || run.state === "succeeded") {
+    if (!run || run.state === "succeeded") {
       return null;
     }
     if (run.state === "failed") {
@@ -623,8 +603,6 @@ export const finishWorkflowRun = internalMutation({
       throw new Error("Deletion workflow has not started.");
     }
     await requireActiveRepositoryDeletionRun(ctx.db, { runId: args.runId });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     await appendDeletionEvent(ctx, {
       run,
@@ -650,9 +628,6 @@ export const finishWorkflowRun = internalMutation({
 export function readRetainedSnapshot(
   run: Doc<"workflow_repositoryDeletion_runs">,
 ): RepositoryDeletionRetainedSnapshot {
-  if (!isRuntimeRepositoryDeletionRun(run)) {
-    throw new Error("Migration-only deletion run has no retry snapshot.");
-  }
   if (run.snapshot.state !== "retained_for_retry") {
     throw new Error("Deletion retry snapshot is not available.");
   }

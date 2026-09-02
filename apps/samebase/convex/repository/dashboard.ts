@@ -7,7 +7,6 @@ import {
   findRepositoryForUser,
   listOrganizationIdsForUser,
   requireRepositoryForUser,
-  type RuntimeRepository,
 } from "../organizationAccess";
 import {
   isConnectedRepository,
@@ -18,11 +17,7 @@ import {
   hasActiveRepositoryProvisioningRun,
   resolveRepositoryDeletionEligibility,
 } from "./deletion/eligibility";
-import {
-  isRepositoryDeletingOrDeleteFailed,
-  isRuntimeRepositoryDeletionRun,
-  readRepositoryDeletionState,
-} from "./deletion/state";
+import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vRepositoryResourceLinksState } from "./dashboardModel";
 import { canAccess } from "../../shared/accessModel";
@@ -45,7 +40,6 @@ import {
   readRepositoryInfrastructureState,
   type RepositoryInfrastructureState,
 } from "./infrastructureOperation";
-import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, boolean, id, object, string } = v;
 type SourceSetupRepository = Extract<
@@ -236,10 +230,10 @@ async function readLatestDeletionEvent(
 
 async function resolveRepositoryDeletionSummary(
   ctx: Pick<QueryCtx, "db">,
-  repository: RuntimeRepository,
+  repository: Doc<"repositories">,
   infrastructure: RepositoryInfrastructureState,
 ): Promise<RepositoryDeletionSummary> {
-  const deletion = readRepositoryDeletionState(repository);
+  const deletion = repository.deletion;
   switch (deletion.state) {
     case "not_deleting": {
       const eligibility = resolveRepositoryDeletionEligibility(
@@ -263,26 +257,24 @@ async function resolveRepositoryDeletionSummary(
         ctx.db.get(deletion.runId),
         readLatestDeletionEvent(ctx, deletion.runId),
       ]);
-      const runtimeRun = run && isRuntimeRepositoryDeletionRun(run) ? run : null;
       return {
         state: "deleting",
         runId: deletion.runId,
         requestedAt: deletion.requestedAt,
-        currentStep: runtimeRun?.currentStep ?? "initialize_deletion",
+        currentStep: run?.currentStep ?? "initialize_deletion",
         message: "Removing this repository from Samebase.",
-        updatedAt: runtimeRun?.updatedAt ?? latestEvent?.createdAt ?? deletion.requestedAt,
+        updatedAt: run?.updatedAt ?? latestEvent?.createdAt ?? deletion.requestedAt,
       };
     }
     case "delete_failed": {
       const run = await ctx.db.get(deletion.runId);
-      const runtimeRun = run && isRuntimeRepositoryDeletionRun(run) ? run : null;
       return {
         state: "delete_failed",
         runId: deletion.runId,
         failedAt: deletion.failedAt,
-        currentStep: runtimeRun?.currentStep ?? "initialize_deletion",
+        currentStep: run?.currentStep ?? "initialize_deletion",
         message: "Removal from Samebase failed. Retry it from the Samebase dashboard.",
-        updatedAt: runtimeRun?.updatedAt ?? deletion.failedAt,
+        updatedAt: run?.updatedAt ?? deletion.failedAt,
       };
     }
     default: {
@@ -294,7 +286,7 @@ async function resolveRepositoryDeletionSummary(
 
 async function readManagedProviderPlan(
   ctx: Pick<QueryCtx, "db">,
-  repository: RuntimeRepository,
+  repository: Doc<"repositories">,
 ): Promise<ManagedProviderPlan> {
   const plan = await ctx.db
     .query("workflow_repositoryProvisioning_plans")
@@ -540,8 +532,6 @@ export const setRepositoryResourceLinksOpen = mutation({
     if (isRepositoryDeletingOrDeleteFailed(repository)) {
       throw new Error("Repository deletion is in progress.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const existing = await ctx.db
       .query("ui_repositoryResourceLinks_settings")
       .withIndex("by_user_and_repository", (q) =>
@@ -579,8 +569,6 @@ export const setRepositoryPullRequestFilters = mutation({
     if (isRepositoryDeletingOrDeleteFailed(repository)) {
       throw new Error("Repository deletion is in progress.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const existing = await ctx.db
       .query("ui_repositoryPullRequests_filters")
       .withIndex("by_user_and_repository", (q) =>

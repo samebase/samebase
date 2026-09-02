@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 
 import workflowTest from "@convex-dev/workflow/test";
-import migrationsTest from "@convex-dev/migrations/test";
 import { convexTest } from "convex-test";
 
 import type { Id } from "./_generated/dataModel";
@@ -24,7 +23,6 @@ const modules = import.meta.glob([
 export function makeConvexTest() {
   const t = convexTest(schema, modules);
   workflowTest.register(t);
-  migrationsTest.register(t);
   return t;
 }
 

@@ -32,7 +32,6 @@ import {
   recordManagedProviderWrite,
 } from "./infrastructureOperation";
 import { isLiveConnectedRepository } from "./state";
-import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -439,8 +438,6 @@ export const attachProjects = internalMutation({
       }
       projectIds.add(project.projectId);
     }
-    await requireRepositoryOperationStart(ctx);
-
     const projectAttachmentIds: Array<Id<"repositoryConvexProjects">> = [];
     for (const project of projects) {
       projectAttachmentIds.push(
@@ -484,7 +481,6 @@ export const reconcileProjectCodeLocation = internalMutation({
     ) {
       throw new Error("Convex project attachment changed before code location reconciliation.");
     }
-    await requireRepositoryOperationStart(ctx);
     const commonFields = {
       repositoryId: project.repositoryId,
       organizationId: project.organizationId,
@@ -541,7 +537,6 @@ export const detachProject = internalMutation({
     ) {
       throw new Error("Convex project attachment changed before removal.");
     }
-    await requireRepositoryOperationStart(ctx);
     await ctx.db.delete(project._id);
     return null;
   },

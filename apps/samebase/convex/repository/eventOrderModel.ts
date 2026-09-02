@@ -2,12 +2,7 @@ import { v } from "convex/values";
 
 const { number, object, string } = v;
 
-/**
- * Stable event order across the table migration.
- *
- * Copied rows keep the source document's `_creationTime` and `_id`. New rows
- * create a stable document key before insertion.
- */
+/** Stable event order using the original creation time and document identifier. */
 export const vRepositoryEventSourceOrder = object({
   creationTime: number(),
   documentId: string(),

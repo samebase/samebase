@@ -4,7 +4,6 @@ import {
   readRepositoryInfrastructureState,
   type RepositoryInfrastructureState,
 } from "../infrastructureOperation";
-import { readRepositoryDeletionState } from "./state";
 
 export type RepositoryDeletionEligibility =
   | {
@@ -20,7 +19,7 @@ export function resolveRepositoryDeletionEligibility(
   infrastructure: RepositoryInfrastructureState,
   hasActiveProvisioningRun: boolean,
 ): RepositoryDeletionEligibility {
-  const deletion = readRepositoryDeletionState(repository);
+  const deletion = repository.deletion;
   if (deletion.state !== "not_deleting") {
     return {
       state: "blocked",

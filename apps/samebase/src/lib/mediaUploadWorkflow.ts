@@ -14,15 +14,12 @@ export function readUploadStorageId(value: unknown): string {
 
 export type MediaUploadCapability = {
   uploadUrl: string;
-  leaseId: string;
-  operationId: string;
-  operationName: string;
 };
 
-export async function uploadMediaWithCleanup<Capability extends MediaUploadCapability>(args: {
-  requestUploadUrl: () => Promise<Capability>;
+export async function uploadMediaWithCleanup(args: {
+  requestUploadUrl: () => Promise<MediaUploadCapability>;
   uploadFile: (uploadUrl: string) => Promise<string>;
-  stageUploadedMedia: (args: { storageId: string; capability: Capability }) => Promise<void>;
+  stageUploadedMedia: (storageId: string) => Promise<void>;
   deleteUploadedMedia: (storageId: string) => Promise<void>;
   onCleanupError?: (error: unknown, storageId: string) => void;
 }): Promise<void> {
@@ -30,7 +27,7 @@ export async function uploadMediaWithCleanup<Capability extends MediaUploadCapab
   const storageId = await args.uploadFile(capability.uploadUrl);
 
   try {
-    await args.stageUploadedMedia({ storageId, capability });
+    await args.stageUploadedMedia(storageId);
   } catch (error) {
     try {
       await args.deleteUploadedMedia(storageId);

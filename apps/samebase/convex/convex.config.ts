@@ -1,6 +1,5 @@
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
-import migrations from "@convex-dev/migrations/convex.config";
 import workflow from "@convex-dev/workflow/convex.config";
 
 const app = defineApp({
@@ -32,6 +31,5 @@ const app = defineApp({
 });
 
 app.use(workflow);
-app.use(migrations);
 
 export default app;

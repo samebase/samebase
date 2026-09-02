@@ -20,7 +20,6 @@ import {
   setSamebasePostHogSessionRecording,
 } from "@/lib/posthogClient";
 import { AccountDeletionBrowserBoundary } from "@/components/AccountDeletionBrowserBoundary";
-import { RepositoryMaintenancePage } from "@/components/RepositoryMaintenancePage";
 
 function usePostHogPageviews() {
   const href = useLocation({
@@ -100,10 +99,6 @@ function AppAccountRuntime() {
 function AppRouterRoot() {
   const { background, border, dark, light, primary, secondary } = useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
-  const repositoryMaintenance = useQuery(
-    api.repositoryMigration.maintenance.getRepositoryMaintenanceMode,
-    {},
-  );
   usePostHogPageviews();
 
   useLayoutEffect(() => {
@@ -116,19 +111,11 @@ function AppRouterRoot() {
     });
   }, [background, border, primary, secondary, themeMode]);
 
-  if (repositoryMaintenance === undefined) {
-    return null;
-  }
-
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
-      {repositoryMaintenance.mode === "draining" || repositoryMaintenance.mode === "frozen" ? (
-        <RepositoryMaintenancePage />
-      ) : (
-        <AccountDeletionBrowserBoundary>
-          <AppAccountRuntime />
-        </AccountDeletionBrowserBoundary>
-      )}
+      <AccountDeletionBrowserBoundary>
+        <AppAccountRuntime />
+      </AccountDeletionBrowserBoundary>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>
   );

@@ -6,10 +6,9 @@
 - Owner: Samebase repository domain
 - Started: 2026-09-02
 - Last updated: 2026-09-03
-- Current checkpoint: Production is frozen. All 21 source tables are copied to the repository
-  tables, and all 91 copy and verification jobs passed. The Phase 4 application and MCP switch is
-  ready in PR #1578.
-- Next action: Merge and deploy PR #1578 before maintenance ends.
+- Current checkpoint: Production reads and writes the repository tables. All 21 old tables and the
+  migration ID map are empty. Phase 6 code removal is in progress.
+- Next action: Merge and deploy the Phase 6 removal after its checks pass.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -447,7 +446,7 @@ Exit checks:
 
 ## Phase 4: Drain, Freeze, Copy, And Switch
 
-Status: In progress.
+Status: Complete.
 
 Run this phase in one announced maintenance window.
 
@@ -493,7 +492,11 @@ Production cutover record, times in UTC:
   production copy existed.
 - All 91 ordered copy and verification jobs completed successfully from `2026-09-02T21:22:32.701Z`
   through `2026-09-02T21:23:12.936Z`. Every job is complete with a null cursor. No job failed.
-- Production remains frozen until PR #1578 is deployed and the read-only production checks pass.
+- PR #1578 deployed as commit `678d28dbde2099fc7497386ea467ec981c05767e` with Cloudflare build
+  `9a2ca5bb-f797-4a7b-b8fc-d8bc7c4329fb`.
+- The repository UI, routes, backend reads, and MCP contract passed production checks.
+- Maintenance returned to `normal` at `2026-09-02T21:56:43.912Z`.
+- New repository provisioning succeeded after writes resumed.
 
 ### Switch
 
@@ -534,7 +537,7 @@ Exit checks:
 
 ## Phase 5: Stabilize The New System
 
-Status: Not started.
+Status: Complete.
 
 Keep the old tables as a frozen rollback record. Do not delete them in the cutover deployment.
 
@@ -552,14 +555,45 @@ Exit checks:
 After these checks, deploy the final narrow validators. Keep the old table definitions until Phase 6
 removes the old rows.
 
+Production evidence:
+
+- The old tables remained at the recorded 1,404 rows until Phase 6 started.
+- The earlier exact-field and ID-map verification remained complete. No separate digest baseline was
+  recorded.
+- No migration placeholder or tombstone remained in the repository tables.
+- No active Workflow, operation lease, or scheduled function referenced an old vault function.
+- The old MCP tool name returned `Unknown tool`.
+- The operator accepted the end of the fast rollback window by directing Phase 6 and creating its
+  backup.
+
 ## Phase 6: Remove Old Data And Migration Support
 
-Status: Not started.
+Status: In progress.
 
 Create a new full Convex backup that contains both the frozen old metadata and file storage. Record
 its backup identifier and source deployment in this RFC. Then delete the old metadata rows with a
 migration-only cleanup job. Do not call the old vault deletion workflow because that workflow also
 deletes shared `_storage` objects that the new rows still use.
+
+Phase 6 backup:
+
+- Backup identifier: `nicu-samebase-clear-butterfly-858-1788386495025`
+- Source deployment: `clear-butterfly-858`
+- Recorded: 2026-09-03, before old metadata deletion
+
+Production cleanup:
+
+- Temporary cleanup commit: `e1fe8db7c`
+- The dry run deleted one batch from `workflow_vaultDeletion_events` and rolled it back.
+- The full cleanup ran from `2026-09-02T22:14:57.087Z` through `2026-09-02T22:15:08.969Z`.
+- All 22 cleanup jobs succeeded. They deleted 1,404 rows from the 21 old tables and 1,439 rows from
+  the migration ID map.
+- All 21 old tables and the migration ID map then contained zero rows.
+- The repository tables contained 1,474 rows after cleanup. This includes successful new repository
+  work after the cutover.
+- No target `_storage` reference was missing. The cleanup code did not call storage or provider
+  APIs.
+- The migration component and application scheduler had no active cleanup or old vault function.
 
 Exit checks:
 

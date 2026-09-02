@@ -3,9 +3,6 @@ import { Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type DatabaseReader, type MutationCtx } from "./_generated/server";
 import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
-import { isRuntimeRepository, type RuntimeRepository } from "./organizationAccess";
-import { requireRepositoryAuthorityContinuation } from "./repositoryMigration/maintenance";
-import { readRepositoryDeletionState } from "./repository/deletion/state";
 
 const { id, literal, object, union } = v;
 
@@ -27,7 +24,7 @@ export type RepositoryProviderWorkflowAuthority = Infer<
 
 export type ActiveRepositoryProvisioningAuthority = {
   run: Doc<"workflow_repositoryProvisioning_runs">;
-  repository: RuntimeRepository;
+  repository: Doc<"repositories">;
   organizationId: Id<"organizations">;
 };
 
@@ -48,11 +45,7 @@ export async function requireActiveRepositoryProvisioningRun(
   ) {
     throw new Error("Provisioning run does not authorize repository access.");
   }
-  if (
-    repository === null ||
-    !isRuntimeRepository(repository) ||
-    run.organizationId !== repository.organizationId
-  ) {
+  if (repository === null || run.organizationId !== repository.organizationId) {
     throw new Error("Provisioning run does not match its repository.");
   }
   return { run, repository, organizationId: run.organizationId };
@@ -73,7 +66,7 @@ export async function requireActiveRepositoryProvisioningAuthority(
 
 export type ActiveRepositoryDeletionAuthority = {
   run: Extract<Doc<"workflow_repositoryDeletion_runs">, { state: "queued" | "running" }>;
-  repository: RuntimeRepository;
+  repository: Doc<"repositories">;
   organizationId: Id<"organizations">;
 };
 
@@ -94,14 +87,10 @@ export async function requireActiveRepositoryDeletionAuthority(
 ): Promise<ActiveRepositoryDeletionAuthority> {
   const run = await requireActiveRepositoryDeletionRun(db, args);
   const repository = await db.get(run.repositoryId);
-  if (
-    repository === null ||
-    !isRuntimeRepository(repository) ||
-    repository.organizationId !== run.organizationId
-  ) {
+  if (repository === null || repository.organizationId !== run.organizationId) {
     throw new Error("Repository deletion run does not match its repository.");
   }
-  const deletion = readRepositoryDeletionState(repository);
+  const deletion = repository.deletion;
   if (deletion.state !== "deleting" || deletion.runId !== run._id) {
     throw new Error("Repository deletion gate does not match run.");
   }
@@ -134,7 +123,6 @@ export async function requireActiveRepositoryProvisioningContinuation(
   },
 ): Promise<ActiveRepositoryProvisioningAuthority> {
   const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
-  await requireRepositoryAuthorityContinuation(ctx);
   return authority;
 }
 
@@ -143,7 +131,6 @@ export async function requireActiveRepositoryDeletionContinuation(
   args: { runId: Id<"workflow_repositoryDeletion_runs"> },
 ): Promise<ActiveRepositoryDeletionAuthority> {
   const authority = await requireActiveRepositoryDeletionAuthority(ctx.db, args);
-  await requireRepositoryAuthorityContinuation(ctx);
   return authority;
 }
 
@@ -155,7 +142,6 @@ export async function requireRepositoryProviderWorkflowContinuation(
     authority.kind === "provisioning"
       ? await requireActiveRepositoryProvisioningRun(ctx.db, authority)
       : await requireActiveRepositoryDeletionAuthority(ctx.db, authority);
-  await requireRepositoryAuthorityContinuation(ctx);
   return activeAuthority;
 }
 

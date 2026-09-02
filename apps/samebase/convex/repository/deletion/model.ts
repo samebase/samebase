@@ -196,12 +196,6 @@ export const repositoryDeletionTables = {
   workflow_repositoryDeletion_runs: defineTable(
     union(
       object({
-        state: literal("migration_placeholder"),
-        repositoryId: id("repositories"),
-        githubRepositoryFullName: string(),
-        createdAt: number(),
-      }),
-      object({
         state: literal("queued"),
         ...repositoryDeletionRunBase,
         workflow: object({

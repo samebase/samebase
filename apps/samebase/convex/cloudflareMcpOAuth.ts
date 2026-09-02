@@ -17,11 +17,7 @@ import {
   vMcpTokenHealth,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
-import {
-  CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
-  vProviderOAuthStoreResult,
-  type ProviderOAuthStoreResult,
-} from "./oauthState";
+import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
 import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
 import { vOrganizationCloudflareAccount } from "./organizationModel";
@@ -43,14 +39,12 @@ import {
   vRepositoryProviderWorkflowAuthority,
   type RepositoryProviderWorkflowAuthority,
 } from "./repositoryWorkflowAuthority";
-import { requireRepositoryOperationLease } from "./repositoryMigration/maintenance";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
 const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION = "cloudflare_mcp_oauth_callback";
 /**
  * Samebase needs the Cloudflare MCP Code Mode scopes that cover account
  * discovery, Worker management, and Workers Builds setup without the full
@@ -392,55 +386,35 @@ async function buildCloudflareMcpOAuthUrl(
   const state = randomToken();
   const codeVerifier = randomToken(64);
   const codeChallenge = await createCodeChallenge(codeVerifier);
-  let leaseId: Id<"repositoryOperationLeases"> | null = null;
-  try {
-    const lease = await ctx.runMutation(
-      internal.repositoryMigration.maintenance.claimOperationLease,
-      {
-        operationId: state,
-        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
-      },
-    );
-    leaseId = lease.leaseId;
-    const registeredClient = await registerCloudflareMcpClient({ redirectUri });
-    const clientId = registeredClient.client_id;
+  const registeredClient = await registerCloudflareMcpClient({ redirectUri });
+  const clientId = registeredClient.client_id;
 
-    const now = Date.now();
-    await ctx.runMutation(internal.oauthState.createOauthState, {
-      provider: "cloudflare_mcp",
-      userId: args.userId,
-      organizationId: args.organizationId,
-      returnToPath: args.returnToPath,
-      state,
-      codeVerifier,
-      clientId,
-      leaseId,
-      createdAt: now,
-      expiresAt: now + OAUTH_STATE_TTL_MS,
-    });
+  const now = Date.now();
+  await ctx.runMutation(internal.oauthState.createOauthState, {
+    provider: "cloudflare_mcp",
+    userId: args.userId,
+    organizationId: args.organizationId,
+    returnToPath: args.returnToPath,
+    state,
+    codeVerifier,
+    clientId,
+    createdAt: now,
+    expiresAt: now + OAUTH_STATE_TTL_MS,
+  });
 
-    console.log("cloudflare:mcp_oauth:url_built", {
-      organizationId: args.organizationId,
-      redirectUri,
-      clientIdLength: clientId.length,
-      oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
-    });
+  console.log("cloudflare:mcp_oauth:url_built", {
+    organizationId: args.organizationId,
+    redirectUri,
+    clientIdLength: clientId.length,
+    oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
+  });
 
-    return buildCloudflareMcpAuthorizeUrl({
-      clientId,
-      redirectUri,
-      state,
-      codeChallenge,
-    });
-  } finally {
-    if (leaseId !== null) {
-      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-        leaseId,
-        operationId: state,
-        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
-      });
-    }
-  }
+  return buildCloudflareMcpAuthorizeUrl({
+    clientId,
+    redirectUri,
+    state,
+    codeChallenge,
+  });
 }
 
 const storeCloudflareMcpOauthConnectionArgs = {
@@ -454,17 +428,11 @@ const storeCloudflareMcpOauthConnectionArgs = {
   account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
   oauthState: string(),
-  leaseId: id("repositoryOperationLeases"),
 } as const;
 export const storeCloudflareMcpOauthConnection = internalMutation({
   args: storeCloudflareMcpOauthConnectionArgs,
   returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
-    await requireRepositoryOperationLease(ctx, {
-      leaseId: args.leaseId,
-      operationId: args.oauthStateId,
-      operationName: CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION,
-    });
     const checkedAt = Date.now();
     const result = await connectCloudflareCredential(ctx, {
       organizationId: args.organizationId,
@@ -1181,17 +1149,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
   }
 
   let completionReturnUrl = returnUrl;
-  const operationId = oauthState._id;
-  let leaseId: Id<"repositoryOperationLeases"> | null = null;
   try {
-    const lease = await ctx.runMutation(
-      internal.repositoryMigration.maintenance.claimOperationLease,
-      {
-        operationId,
-        operationName: CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION,
-      },
-    );
-    leaseId = lease.leaseId;
     const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
     const token = await exchangeCloudflareMcpOAuthCode({
       code,
@@ -1226,7 +1184,6 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         account,
         oauthStateId: oauthState._id,
         oauthState: state,
-        leaseId,
       },
     );
     completionReturnUrl = buildProviderOAuthStoreReturnUrl({
@@ -1265,14 +1222,6 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       provider: "cloudflare",
       code: "failed",
     });
-  } finally {
-    if (leaseId !== null) {
-      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-        leaseId,
-        operationId,
-        operationName: CLOUDFLARE_MCP_OAUTH_CALLBACK_OPERATION,
-      });
-    }
   }
 
   return buildAuthorizationCompletionResponse({

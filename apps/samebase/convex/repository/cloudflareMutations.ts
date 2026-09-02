@@ -24,7 +24,6 @@ import {
   requireActiveRepositoryProvisioningContinuation,
 } from "../repositoryWorkflowAuthority";
 import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
-import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -292,8 +291,6 @@ export const attachWorkers = internalMutation({
       workerNames.add(nameIdentity);
       workerTags.add(tagIdentity);
     }
-    await requireRepositoryOperationStart(ctx);
-
     const workerAttachmentIds: Array<Id<"repositoryCloudflareWorkers">> = [];
     for (const worker of args.workers) {
       workerAttachmentIds.push(
@@ -332,7 +329,6 @@ export const detachWorker = internalMutation({
     ) {
       throw new Error("Cloudflare Worker attachment changed before removal.");
     }
-    await requireRepositoryOperationStart(ctx);
     await ctx.db.delete(worker._id);
     return null;
   },
@@ -373,8 +369,6 @@ export const updateWorkerName = internalMutation({
     if (occupied && occupied._id !== worker._id) {
       throw new Error("Cloudflare Worker name is already attached.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const plan = await ctx.db
       .query("workflow_repositoryProvisioning_plans")
       .withIndex("by_repository", (q) => q.eq("repositoryId", worker.repositoryId))
@@ -422,8 +416,6 @@ export const updateWorkerRootDirectory = internalMutation({
     ) {
       throw new Error("Cloudflare Worker attachment changed before the root update.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const rootDirectory = normalizeRepositoryRootDirectory(args.rootDirectory);
     const plan = await ctx.db
       .query("workflow_repositoryProvisioning_plans")

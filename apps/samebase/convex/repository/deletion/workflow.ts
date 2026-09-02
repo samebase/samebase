@@ -4,13 +4,11 @@ import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "../../_generated/api";
 import { internalMutation } from "../../_generated/server";
 import { toErrorMessage } from "../../jsonUtils";
-import { requireRepositoryAuthorityContinuation } from "../../repositoryMigration/maintenance";
 import {
   requireActiveRepositoryDeletionContinuation,
   requireActiveRepositoryDeletionRun,
 } from "../../repositoryWorkflowAuthority";
 import type { RepositoryDeletionCleanupStep } from "./model";
-import { isRuntimeRepositoryDeletionRun } from "./state";
 
 const workflow = new WorkflowManager(components.workflow);
 const { id, object, string } = v;
@@ -218,7 +216,7 @@ export const handleRepositoryDeletionWorkflowComplete = internalMutation({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const run = await ctx.db.get(args.context.runId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run)) {
+    if (!run) {
       throw new Error("Deletion run not found.");
     }
     if (run.workflow.state === "started" && run.workflow.workflowId !== args.workflowId) {
@@ -228,8 +226,6 @@ export const handleRepositoryDeletionWorkflowComplete = internalMutation({
       return null;
     }
     await requireActiveRepositoryDeletionRun(ctx.db, { runId: run._id });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const error = resolveRepositoryDeletionWorkflowError(args.result);
     if (!error) {
       await ctx.runMutation(internal.repository.deletion.runs.finishWorkflowRun, {

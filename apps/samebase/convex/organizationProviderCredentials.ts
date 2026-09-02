@@ -39,10 +39,6 @@ import {
 import { MAX_ORGANIZATION_CONNECTIONS } from "./billingResourceQuotas";
 import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
 import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationStart,
-} from "./repositoryMigration/maintenance";
-import {
   requireManualProviderWriteCheckpoint,
   requireManualProviderWriteContinuation,
 } from "./repository/infrastructureOperation";
@@ -259,7 +255,6 @@ export const loadForManualCloudflareProviderWrite = internalQuery({
   returns: vOrganizationProviderConfiguration,
   handler: async (ctx, args) => {
     await requireManualCloudflareProviderWriteCheckpoint(ctx, args);
-    await requireRepositoryAuthorityContinuation(ctx);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
   },
 });
@@ -311,8 +306,6 @@ export const loadCloudflareTokenRefreshContinuation = internalQuery({
     ) {
       throw new Error("Cloudflare token refresh lease changed before continuation.");
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     return {
       ...(organization.cloudflareAccount
         ? { cloudflareAccount: organization.cloudflareAccount }
@@ -331,7 +324,6 @@ export const loadCloudflareTokenRefreshContinuationForManualProviderWrite = inte
   returns: vCloudflareTokenRefreshConfiguration,
   handler: async (ctx, args) => {
     await requireManualCloudflareProviderWriteCheckpoint(ctx, args);
-    await requireRepositoryAuthorityContinuation(ctx);
     const [organization, credentials] = await Promise.all([
       ctx.db.get(args.organizationId),
       getOrganizationProviderCredentials(ctx.db, args.organizationId),
@@ -370,7 +362,6 @@ export const loadForRepositoryProviderWorkflow = internalQuery({
   }),
   handler: async (ctx, args) => {
     const authority = await requireRepositoryProviderWorkflowAuthority(ctx.db, args.authority);
-    await requireRepositoryAuthorityContinuation(ctx);
     return {
       organizationId: authority.organizationId,
       userId: authority.run.userId,
@@ -619,7 +610,6 @@ export const connectConvex = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireRepositoryOperationStart(ctx);
     await connectConvexCredential(ctx, args);
     return null;
   },
@@ -741,7 +731,6 @@ export const connectCloudflare = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireRepositoryOperationStart(ctx);
     await connectCloudflareCredential(ctx, args);
     return null;
   },
@@ -783,7 +772,6 @@ export const setConvexTeamSlug = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
-    await requireRepositoryOperationStart(ctx);
     await setConvexTeamSlugAfterAuthority(ctx, args.organizationId, args);
     return null;
   },
@@ -835,9 +823,6 @@ async function replaceCloudflareCredentialAfterAuthority(
         args.expectedTokenRefreshLease.expiresAt)
   ) {
     throw new Error("Cloudflare token refresh lease changed before the update completed.");
-  }
-  if (args.expectedTokenRefreshLease !== undefined) {
-    await requireRepositoryAuthorityContinuation(ctx);
   }
   await ctx.db.patch(credentials._id, {
     cloudflare: {
@@ -923,8 +908,6 @@ async function releaseCloudflareTokenRefreshAfterAuthority(
   ) {
     throw new Error("Cloudflare token refresh lease changed before release.");
   }
-  await requireRepositoryAuthorityContinuation(ctx);
-
   const now = Date.now();
   await ctx.db.patch(credentials._id, {
     cloudflare: {
@@ -949,7 +932,6 @@ export const replaceCloudflareCredential = internalMutation({
   handler: async (ctx, args) => {
     if (args.expectedTokenRefreshLease === undefined) {
       await requireActiveOrganizationProviderMember(ctx.db, args);
-      await requireRepositoryOperationStart(ctx);
     }
     await replaceCloudflareCredentialAfterAuthority(ctx, args.organizationId, args);
     return null;
@@ -1000,7 +982,6 @@ export const disconnectConvex = internalMutation({
       organizationId: args.organizationId,
       userId: args.disconnectedByUserId,
     });
-    await requireRepositoryOperationStart(ctx);
     const organization = await ctx.db.get(args.organizationId);
     if (organization === null) {
       throw new Error("Organization not found.");
@@ -1033,7 +1014,6 @@ export const disconnectCloudflare = internalMutation({
       organizationId: args.organizationId,
       userId: args.disconnectedByUserId,
     });
-    await requireRepositoryOperationStart(ctx);
     const organization = await ctx.db.get(args.organizationId);
     if (organization === null) {
       throw new Error("Organization not found.");
@@ -1074,7 +1054,6 @@ export const claimCloudflareTokenRefresh = internalMutation({
   ),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
-    await requireRepositoryOperationStart(ctx);
     return await claimCloudflareTokenRefreshAfterAuthority(ctx, args.organizationId, args);
   },
 });

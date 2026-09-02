@@ -1,4 +1,3 @@
-import { guard } from "@samebase/dependent/main";
 import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
@@ -11,17 +10,6 @@ export type OrganizationAccessContext = {
   userId: Id<"users">;
   organizationId: Id<"organizations">;
 };
-
-export type RuntimeRepository = Exclude<
-  Doc<"repositories">,
-  { state: "migration_placeholder" | "migration_tombstone" }
->;
-
-export const isRuntimeRepository = guard<Doc<"repositories">, RuntimeRepository>((repository) =>
-  repository.state === "migration_placeholder" || repository.state === "migration_tombstone"
-    ? null
-    : repository,
-);
 
 export function requireOrganizationMembershipUser(
   user: Doc<"users"> | null,
@@ -219,7 +207,7 @@ export async function requireOrganizationMembershipChangeAllowed(
 /** Load the organization that owns a repository and its current GitHub owner identity. */
 export async function requireRepositoryOrganization(
   db: DatabaseReader,
-  repository: Pick<RuntimeRepository, "organizationId">,
+  repository: Pick<Doc<"repositories">, "organizationId">,
 ): Promise<Doc<"organizations">> {
   const organization = await db.get(repository.organizationId);
   if (organization === null) {
@@ -250,9 +238,9 @@ export async function findRepositoryForUser(
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
   },
-): Promise<RuntimeRepository | null> {
+): Promise<Doc<"repositories"> | null> {
   const repository = await db.get(args.repositoryId);
-  if (repository === null || !isRuntimeRepository(repository)) {
+  if (repository === null) {
     return null;
   }
 
@@ -270,7 +258,7 @@ export async function requireRepositoryForUser(
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
   },
-): Promise<RuntimeRepository> {
+): Promise<Doc<"repositories">> {
   const repository = await findRepositoryForUser(db, args);
   if (repository === null) {
     throw new Error("Repository not found");

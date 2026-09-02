@@ -1,6 +1,6 @@
 import { guard } from "@samebase/dependent/main";
 import type { Doc } from "../_generated/dataModel";
-import { isRepositoryDeletingOrDeleteFailed, readRepositoryDeletionState } from "./deletion/state";
+import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
 
 export type ConnectedRepository = Extract<Doc<"repositories">, { state: "connected" }>;
 export type SamebaseManagedConnectedRepository = Extract<
@@ -32,7 +32,7 @@ export function assertConnectedRepository(
 ): ConnectedRepository {
   if (!isLiveConnectedRepository(repository)) {
     if (repository && isRepositoryDeletingOrDeleteFailed(repository)) {
-      const deletion = readRepositoryDeletionState(repository);
+      const deletion = repository.deletion;
       throw new Error(
         deletion.state === "delete_failed"
           ? "Repository deletion failed. Retry deletion to continue."

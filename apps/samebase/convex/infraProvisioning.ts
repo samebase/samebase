@@ -23,7 +23,6 @@ import {
   type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
-import { requireRepositoryAuthorityContinuation } from "./repositoryMigration/maintenance";
 import { requireActiveRepositoryProvisioningRun } from "./repositoryWorkflowAuthority";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
@@ -529,8 +528,6 @@ export const markWorkflowStartupFailed = internalMutation({
       userId: run.userId,
       repositoryId: run.repositoryId,
     });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     const safeRunError = "Provisioning workflow failed to start.";
     const eventStep = resolveWorkflowFailureEventStep(run);
@@ -713,8 +710,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
       userId: run.userId,
       repositoryId: run.repositoryId,
     });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     const eventStep = resolveWorkflowFailureEventStep(run);
     const repositoryId = run.repositoryId;

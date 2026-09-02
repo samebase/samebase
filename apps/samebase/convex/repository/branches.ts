@@ -10,49 +10,12 @@ import {
 import { vGitHubTreeData, vRepositoryTreeRefreshFailureKind } from "./model";
 import { isLiveConnectedRepository } from "./state";
 import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationLease,
-  requireRepositoryOperationStart,
-} from "../repositoryMigration/maintenance";
-import {
   requireRepositoryProviderWorkflowContinuation,
   vRepositoryProviderWorkflowAuthority,
 } from "../repositoryWorkflowAuthority";
 
 const nullValidator = v.null();
 const { boolean, id, literal, number, object, optional, string, union } = v;
-
-type RepositoryOperationLeaseArgs = {
-  leaseId?: Id<"repositoryOperationLeases">;
-  operationId?: string;
-  operationName?: string;
-};
-
-async function requireRepositoryOperationAuthority(
-  ctx: Pick<MutationCtx, "db">,
-  args: RepositoryOperationLeaseArgs,
-): Promise<void> {
-  if (
-    args.leaseId === undefined &&
-    args.operationId === undefined &&
-    args.operationName === undefined
-  ) {
-    await requireRepositoryOperationStart(ctx);
-    return;
-  }
-  if (
-    args.leaseId === undefined ||
-    args.operationId === undefined ||
-    args.operationName === undefined
-  ) {
-    throw new Error("Repository operation lease identity is incomplete.");
-  }
-  await requireRepositoryOperationLease(ctx, {
-    leaseId: args.leaseId,
-    operationId: args.operationId,
-    operationName: args.operationName,
-  });
-}
 
 export const getRepositoryBranchTree = internalQuery({
   args: {
@@ -118,9 +81,7 @@ export const upsertRepositoryBranchTree = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    if (args.authority === undefined) {
-      await requireRepositoryOperationStart(ctx);
-    } else {
+    if (args.authority !== undefined) {
       await requireRepositoryProviderWorkflowContinuation(ctx, args.authority);
     }
     const repository = await ctx.db.get(args.repositoryId);
@@ -161,7 +122,6 @@ export const upsertClaimedRepositoryBranchTree = internalMutation({
       return { written: false };
     }
 
-    await requireRepositoryAuthorityContinuation(ctx);
     await writeRepositoryBranchTree(ctx, args);
     return { written: true };
   },
@@ -198,13 +158,9 @@ function getLaterCooldownUntil(
 export const claimTreeRefresh = internalMutation({
   args: {
     repositoryId: id("repositories"),
-    leaseId: optional(id("repositoryOperationLeases")),
-    operationId: optional(string()),
-    operationName: optional(string()),
   },
   returns: vTreeRefreshClaim,
   handler: async (ctx, args): Promise<TreeRefreshClaim> => {
-    await requireRepositoryOperationAuthority(ctx, args);
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) {
       return { claimed: false, reason: "unavailable" };
@@ -254,7 +210,6 @@ export const releaseTreeRefresh = internalMutation({
       return { released: false };
     }
 
-    await requireRepositoryAuthorityContinuation(ctx);
     const now = Date.now();
     const cooldownUntil = getLaterCooldownUntil(
       repository.treeRefreshCooldownUntil,
@@ -303,9 +258,6 @@ export const recordTreeRefreshFailure = internalMutation({
     failureKind: optional(vRepositoryTreeRefreshFailureKind),
     failureMessage: optional(string()),
     cooldownUntil: optional(number()),
-    leaseId: optional(id("repositoryOperationLeases")),
-    operationId: optional(string()),
-    operationName: optional(string()),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
@@ -323,11 +275,6 @@ export const recordTreeRefreshFailure = internalMutation({
       return null;
     }
 
-    if (typeof args.startedAt === "number") {
-      await requireRepositoryAuthorityContinuation(ctx);
-    } else {
-      await requireRepositoryOperationAuthority(ctx, args);
-    }
     await ctx.db.patch(args.repositoryId, {
       lastTreeRefreshFailedAt: Date.now(),
       treeRefreshFailureKind: args.failureKind ?? "failed",

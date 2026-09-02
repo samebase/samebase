@@ -1,8 +1,6 @@
 import { defineSchema } from "convex/server";
 
 import { accountDeletionTables } from "./accountDeletion/model";
-import { vaultProvisioningTables } from "./appProvisioningModel";
-import { vaultEditorTables } from "./editorModel";
 import { githubAppSetupTables } from "./githubAppSetupModel";
 import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
 import { identityTables } from "./identityModel";
@@ -19,16 +17,7 @@ import { repositoryFolderTables } from "./repository/folderModel";
 import { repositoryTables } from "./repository/model";
 import { repositoryOrganizationTreeTables } from "./repository/organizationTreeModel";
 import { repositoryProvisioningTables } from "./repository/provisioningModel";
-import { repositoryMigrationTables } from "./repositoryMigration/model";
-import { repositoryMigrationMaintenanceTables } from "./repositoryMigration/maintenanceModel";
 import { userPreferenceTables } from "./userPreferenceModel";
-import { vaultBranchTables } from "./vault/branchModel";
-import { vaultConvexSchemaGraphTables } from "./vault/convexSchemaGraphModel";
-import { vaultDashboardTables } from "./vault/dashboardModel";
-import { vaultDeletionTables } from "./vault/deletion/model";
-import { vaultFolderTables } from "./vault/folderModel";
-import { vaultTables } from "./vault/model";
-import { vaultOrganizationTreeTables } from "./vault/organizationTreeModel";
 
 export default defineSchema({
   ...identityTables,
@@ -39,15 +28,6 @@ export default defineSchema({
   ...accountDeletionTables,
   ...organizationProviderCredentialTables,
   ...userPreferenceTables,
-  ...vaultDashboardTables,
-  ...vaultFolderTables,
-  ...vaultOrganizationTreeTables,
-  ...vaultTables,
-  ...vaultBranchTables,
-  ...vaultConvexSchemaGraphTables,
-  ...vaultProvisioningTables,
-  ...vaultDeletionTables,
-  ...vaultEditorTables,
   ...repositoryDashboardTables,
   ...repositoryFolderTables,
   ...repositoryOrganizationTreeTables,
@@ -57,7 +37,5 @@ export default defineSchema({
   ...repositoryProvisioningTables,
   ...repositoryDeletionTables,
   ...repositoryEditorTables,
-  ...repositoryMigrationTables,
-  ...repositoryMigrationMaintenanceTables,
   ...mcpTables,
 });

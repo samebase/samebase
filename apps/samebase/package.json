@@ -62,7 +62,6 @@
     "@codemirror/view": "^6.43.0",
     "@convex-dev/auth": "^0.0.94",
     "@convex-dev/eslint-plugin": "2.0.0",
-    "@convex-dev/migrations": "^0.3.6",
     "@convex-dev/react-query": "^0.1.0",
     "@convex-dev/workflow": "^0.4.6",
     "@convex-dev/workpool": "^0.4.7",

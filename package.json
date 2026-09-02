@@ -35,7 +35,6 @@
     "check:agents-budget": "node ./scripts/check-agents-doc-budget.ts",
     "check:git-blob-sizes": "node ./scripts/check-git-blob-sizes.ts",
     "check:public-media": "node ./scripts/check-public-media.ts",
-    "audit:repository-migration": "node ./scripts/audit-repository-migration.ts",
     "audit:signatures": "pnpm audit signatures",
     "audit:vulnerabilities": "pnpm audit",
     "audit:supply-chain": "pnpm install --frozen-lockfile --ignore-scripts && pnpm run audit:signatures && pnpm run audit:vulnerabilities",
