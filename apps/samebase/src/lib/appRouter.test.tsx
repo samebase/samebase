@@ -1014,7 +1014,7 @@ describe("appRouter", () => {
     );
 
     const page = rootElement?.querySelector('[data-testid="logo-menger-hover-page"]');
-    expect(page?.getAttribute("data-depth")).toBe("5");
+    expect(page?.getAttribute("data-depth")).toBe("8");
     expect(page?.getAttribute("data-elevation")).toBe("0");
     expect(page?.getAttribute("data-primary")).toBe("emerald-500");
     expect(page?.getAttribute("data-probe")).toBe("true");

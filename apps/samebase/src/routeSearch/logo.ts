@@ -64,6 +64,16 @@ import {
   type MengerAutomaticProbeSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import {
+  MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+  MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP,
+  normalizeMengerTypeGpuDepth,
+  normalizeMengerTypeGpuResolutionScale,
+  type MengerHoverRenderer,
+} from "@/components/logo/mengerTypeGpuSettings";
+import {
   DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
   normalizeLogoShuffleParallelMoves,
   readLogoShuffleParallelMoves,
@@ -574,6 +584,27 @@ const RouteSearchSchema_logoCarpetHover = defineRouteSearchParams({
 /** Landing-style pointer and automatic-probe options belong only to the Menger hover lab. */
 const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
   ...RouteSearchSchema_logo.shape,
+  resolution: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeMengerTypeGpuResolutionScale),
+    {
+      numericDefaultValue: MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
+      numericRange: {
+        maxValue: MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE,
+        minValue: MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE,
+        rangeType: "closed",
+      },
+      numericStepValue: MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP,
+      access: "access_public",
+      sampleValue: `${MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE}`,
+      ...logoViewRouteSearchSuggestion,
+      valueSuggestions: null,
+      valueType: "numeric",
+    },
+  ),
+  three: routeSearchPresenceParam({
+    access: "access_public",
+    ...logoViewRouteSearchSuggestion,
+  }),
   probe: routeSearchPresenceParam({
     access: "access_public",
     ...logoMotionRouteSearchSuggestion,
@@ -803,6 +834,8 @@ function readLogoCarpetHoverRouteSearchFields(search: LogoCarpetHoverRouteSearch
 function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearchFields) {
   return {
     ...readLogoRouteSearchFields(search),
+    ...(typeof search.resolution === "number" ? { resolution: search.resolution } : {}),
+    ...(search.three ? { three: true as const } : {}),
     ...(search.probe ? { probe: true as const } : {}),
     ...(search.probeDisabled ? { probeDisabled: true as const } : {}),
     ...(typeof search.probeHeight === "number" ? { probeHeight: search.probeHeight } : {}),
@@ -1000,7 +1033,7 @@ export const LOGO_CARPET_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS =
 export const LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readLogoRouteSearchParamSuggestionsWithDepthMax(
     LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_METADATA,
-    MENGER_HOVER_MAX_DEPTH,
+    MENGER_TYPE_GPU_MAXIMUM_DEPTH,
   );
 
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
@@ -1076,13 +1109,14 @@ export function validateLogoMengerHoverRouteSearch(
   const parsedSearch = readLogoMengerHoverRouteSearchFields(
     RouteSearchSchema_logoMengerHover.parse(presenceNormalizedSearch),
   );
-  if (typeof parsedSearch.depth !== "number" || parsedSearch.depth <= MENGER_HOVER_MAX_DEPTH) {
+  const maximumDepth = parsedSearch.three ? MENGER_HOVER_MAX_DEPTH : MENGER_TYPE_GPU_MAXIMUM_DEPTH;
+  if (typeof parsedSearch.depth !== "number" || parsedSearch.depth <= maximumDepth) {
     return parsedSearch;
   }
 
   return {
     ...parsedSearch,
-    depth: MENGER_HOVER_MAX_DEPTH,
+    depth: maximumDepth,
   };
 }
 
@@ -1318,13 +1352,19 @@ export function buildLogoMengerHoverRouteSearch(
   args: LogoRouteSearchBuildState & {
     mengerAutomaticProbe: MengerAutomaticProbeSettings;
     mengerHoverDepth: number;
+    mengerHoverRenderer: MengerHoverRenderer;
+    mengerHoverResolutionScale: number;
     mengerHoverTiltEnabled: boolean;
     mengerHoverTiltRadiusScale: number;
     mengerHoverTiltStrengthScale: number;
     themeModeSearch?: RootThemeModeSearch;
   },
 ): LogoMengerHoverRouteSearch {
-  const depth = clampLogoFractalDepthForRenderer(args.mengerHoverDepth, "three");
+  const depth =
+    args.mengerHoverRenderer === "three"
+      ? clampLogoFractalDepthForRenderer(args.mengerHoverDepth, "three")
+      : normalizeMengerTypeGpuDepth(args.mengerHoverDepth);
+  const resolutionScale = normalizeMengerTypeGpuResolutionScale(args.mengerHoverResolutionScale);
   const tiltRadiusScale = normalizeLogoPresentationTiltRadiusScale(args.mengerHoverTiltRadiusScale);
   const tiltStrengthScale = normalizeLogoPresentationTiltStrengthScale(
     args.mengerHoverTiltStrengthScale,
@@ -1333,6 +1373,9 @@ export function buildLogoMengerHoverRouteSearch(
   return {
     ...buildLogoRouteSearch(args),
     depth: depth !== MENGER_HOVER_DEFAULT_DEPTH ? depth : undefined,
+    resolution:
+      resolutionScale !== MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE ? resolutionScale : undefined,
+    three: args.mengerHoverRenderer === "three" ? true : undefined,
     probe:
       args.mengerAutomaticProbe.enabled !== MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS.enabled &&
       args.mengerAutomaticProbe.enabled

@@ -13,6 +13,8 @@ export type MengerTypeGpuSettings = {
   resolutionScale: number;
 };
 
+export type MengerHoverRenderer = "typegpu" | "three";
+
 export function normalizeMengerTypeGpuDepth(value: number): number {
   return Math.min(normalizeLogoFractalDepth(value), MENGER_TYPE_GPU_MAXIMUM_DEPTH);
 }

@@ -4,8 +4,13 @@ import {
   type HexColorToken,
 } from "@/components/logo/logoTailwindColors";
 import { createLogoRouteVoxelGrid } from "@/components/logo/logoRouteRenderState";
+import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import {
+  readMengerAutomaticProbePoint,
+  type MengerAutomaticProbeMotionSettings,
+} from "@/components/logo/mengerAutomaticProbe";
 import { MENGER_TYPE_GPU_MAXIMUM_DEPTH } from "@/components/logo/mengerTypeGpuSettings";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
@@ -34,8 +39,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { common, d, std, tgpu } from "typegpu";
 
 const CAMERA_DISTANCE = 4;
-const CAMERA_FRUSTUM_HALF_SPAN = Math.sqrt(3) * 1.12;
+const CAMERA_FIT_RADIUS = Math.sqrt(3);
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
+const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
 const MAXIMUM_RAY_STEPS = 128;
 const MENGER_TYPE_GPU_HOVER_STATE = d.struct({
   openness: d.f32,
@@ -59,6 +65,17 @@ type SceneColors = {
   right: HexColorToken;
   top: HexColorToken;
 };
+
+function hasFiniteSquaredLength(...components: number[]): boolean {
+  let squaredLength = 0;
+  for (const component of components) {
+    if (!Number.isFinite(component)) {
+      return false;
+    }
+    squaredLength += component * component;
+  }
+  return Number.isFinite(squaredLength);
+}
 
 function readHexChannel(hex: string, start: number): number {
   return Number.parseInt(hex.slice(start, start + 2), 16) / 255;
@@ -104,6 +121,7 @@ function toGpuVector([x, y, z]: Vector3): d.v3f {
 function readHoverProbe(
   canvas: HTMLCanvasElement,
   clientPoint: ClientPoint,
+  frustumHalfSpan: number,
   view: LogoViewState,
 ): MengerHoverProbe | null {
   const bounds = canvas.getBoundingClientRect();
@@ -114,8 +132,8 @@ function readHoverProbe(
   const frame = readCameraFrame(view);
   const screenX = ((clientPoint.x - bounds.left) / bounds.width) * 2 - 1;
   const screenY = 1 - ((clientPoint.y - bounds.top) / bounds.height) * 2;
-  const horizontalOffset = screenX * (bounds.width / bounds.height) * CAMERA_FRUSTUM_HALF_SPAN;
-  const verticalOffset = screenY * CAMERA_FRUSTUM_HALF_SPAN;
+  const horizontalOffset = screenX * (bounds.width / bounds.height) * frustumHalfSpan;
+  const verticalOffset = screenY * frustumHalfSpan;
   const origin = {
     x:
       frame.cameraVector[0] * CAMERA_DISTANCE +
@@ -153,25 +171,49 @@ function readHoverProbe(
 }
 
 export function MengerTypeGpuScene({
+  automaticProbe,
   backgroundColor,
+  cameraFrustumPadding,
   depth,
   elevationDegrees,
   faceColors,
+  onInteractionEnd,
+  onRenderReady,
+  onRenderUnavailable,
   onViewChange,
   resolutionScale,
+  revealRadius,
   rotationDegrees,
+  viewSnapEnabled,
 }: {
+  automaticProbe: MengerAutomaticProbeMotionSettings;
   backgroundColor: HexColorToken;
+  cameraFrustumPadding: number;
   depth: number;
   elevationDegrees: number;
   faceColors: FaceColors;
+  onInteractionEnd: (finalView: LogoViewState) => void;
+  onRenderReady?: () => void;
+  onRenderUnavailable: () => void;
   onViewChange: (nextView: LogoViewState) => void;
   resolutionScale: number;
+  revealRadius: number;
   rotationDegrees: number;
+  viewSnapEnabled: boolean;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const automaticProbeRef = useRef(automaticProbe);
+  const automaticProbeCycleStartedAtMsRef = useRef(0);
+  const automaticProbeResumeAtMsRef = useRef(0);
+  const automaticProbeResumeTimeoutRef = useRef(0);
   const depthRef = useRef(depth);
+  const frustumHalfSpanRef = useRef(CAMERA_FIT_RADIUS * cameraFrustumPadding);
+  const onRenderReadyRef = useRef(onRenderReady);
+  const onRenderUnavailableRef = useRef(onRenderUnavailable);
+  const renderSceneRef = useRef<() => void>(() => {});
   const resolutionScaleRef = useRef(resolutionScale);
+  const revealRadiusRef = useRef(revealRadius);
   const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
   const colorsRef = useRef<SceneColors>({
     background: backgroundColor,
@@ -190,14 +232,14 @@ export function MengerTypeGpuScene({
   const staticMengerSvgSrc = useMemo(
     () =>
       createStaticLogoSvgDataUrl({
-        cameraFrustumPadding: 1,
+        cameraFrustumPadding,
         depth: 1,
         faceColors,
         filledVoxels: STATIC_MENGER_VOXEL_GRID.filledVoxels,
         gridSize: STATIC_MENGER_VOXEL_GRID.gridSize,
         view: { elevationDegrees, rotationDegrees },
       }),
-    [elevationDegrees, faceColors, rotationDegrees],
+    [cameraFrustumPadding, elevationDegrees, faceColors, rotationDegrees],
   );
   const {
     handleContextMenu,
@@ -207,14 +249,16 @@ export function MengerTypeGpuScene({
     handlePointerUp,
   } = useLogoViewDrag<HTMLCanvasElement>({
     elevationDegrees,
+    onInteractionEnd,
     onViewChange,
     rotationDegrees,
-    viewDragConfig: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+    viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
   });
 
   useEffect(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) {
+    if (!container || !canvas) {
       return;
     }
 
@@ -222,16 +266,27 @@ export function MengerTypeGpuScene({
     let cancelRender = () => {};
     let destroyRoot = () => {};
     let disconnectResizeObserver = () => {};
+    let disconnectSceneVisibilityObserver = () => {};
     let removeHoverListeners = () => {};
     const deactivateRenderer = () => {
       cancelRender();
       disconnectResizeObserver();
+      disconnectSceneVisibilityObserver();
       removeHoverListeners();
-      delete canvas.dataset["hoverCoordinateX"];
-      delete canvas.dataset["hoverCoordinateY"];
-      delete canvas.dataset["hoverCoordinateZ"];
-      delete canvas.dataset["hoverMaximumOpenness"];
-      delete canvas.dataset["hoverSettled"];
+      if (automaticProbeResumeTimeoutRef.current !== 0) {
+        window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+        automaticProbeResumeTimeoutRef.current = 0;
+      }
+      delete container.dataset["automaticProbeClientX"];
+      delete container.dataset["automaticProbeClientY"];
+      delete container.dataset["automaticProbeProgress"];
+      delete container.dataset["automaticProbeState"];
+      delete container.dataset["hoverCoordinateX"];
+      delete container.dataset["hoverCoordinateY"];
+      delete container.dataset["hoverCoordinateZ"];
+      delete container.dataset["hoverMaximumOpenness"];
+      delete container.dataset["hoverSettled"];
+      renderSceneRef.current = () => {};
       resizeRef.current = () => {};
       writeColorsRef.current = () => {};
       writeDepthRef.current = () => {};
@@ -263,6 +318,7 @@ export function MengerTypeGpuScene({
         const rightColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.right));
         const topColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.top));
         const selectedDepth = root.createUniform(d.i32, depthRef.current);
+        const frustumHalfSpan = root.createUniform(d.f32, frustumHalfSpanRef.current);
         const surfaceThreshold = root.createUniform(d.f32, 0.001);
         const hoverState = root.createUniform(MENGER_TYPE_GPU_HOVER_STATE, {
           openness: 0,
@@ -487,8 +543,8 @@ export function MengerTypeGpuScene({
           const rayOrigin = std.add(
             std.mul(cameraVector.$, CAMERA_DISTANCE),
             std.add(
-              std.mul(cameraRight.$, std.mul(screenPoint.x, CAMERA_FRUSTUM_HALF_SPAN)),
-              std.mul(cameraUp.$, std.mul(screenPoint.y, CAMERA_FRUSTUM_HALF_SPAN)),
+              std.mul(cameraRight.$, std.mul(screenPoint.x, frustumHalfSpan.$)),
+              std.mul(cameraUp.$, std.mul(screenPoint.y, frustumHalfSpan.$)),
             ),
           );
           const rayDirection = std.neg(cameraVector.$);
@@ -532,31 +588,175 @@ export function MengerTypeGpuScene({
         }
 
         const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        let automaticProbeClientPoint: ClientPoint | null = null;
         let clientPointer: ClientPoint | null = null;
         let lastHoverFrameTime: number | null = null;
         let lastProbe: MengerHoverProbe = { x: 0.5, y: 0.5, z: 0.5 };
         let renderedOpenness = 0;
-        const writeHoverState = (timestampMs: number): boolean => {
-          const probe =
-            clientPointer === null ? null : readHoverProbe(canvas, clientPointer, viewRef.current);
-          if (probe) {
-            lastProbe = probe;
-            canvas.dataset["hoverCoordinateX"] = probe.x.toFixed(3);
-            canvas.dataset["hoverCoordinateY"] = probe.y.toFixed(3);
-            canvas.dataset["hoverCoordinateZ"] = probe.z.toFixed(3);
-          } else {
-            delete canvas.dataset["hoverCoordinateX"];
-            delete canvas.dataset["hoverCoordinateY"];
-            delete canvas.dataset["hoverCoordinateZ"];
+        let renderFrame = 0;
+        let sceneIsVisible = true;
+        let firstRenderPending = true;
+        const clearAutomaticProbeClientPoint = (
+          state: "invalid" | "off" | "resting" | "suspended",
+        ) => {
+          automaticProbeClientPoint = null;
+          container.dataset["automaticProbeState"] = state;
+          delete container.dataset["automaticProbeClientX"];
+          delete container.dataset["automaticProbeClientY"];
+          delete container.dataset["automaticProbeProgress"];
+        };
+        const invalidateAutomaticProbe = () => {
+          clearAutomaticProbeClientPoint("invalid");
+        };
+        const scheduleAutomaticProbeResume = (resumeAtMs: number) => {
+          const remainingMs = resumeAtMs - performance.now();
+          if (!Number.isFinite(resumeAtMs) || !Number.isFinite(remainingMs)) {
+            invalidateAutomaticProbe();
+            return;
+          }
+          if (automaticProbeResumeTimeoutRef.current !== 0) {
+            window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+          }
+          automaticProbeResumeTimeoutRef.current = window.setTimeout(
+            () => {
+              automaticProbeResumeTimeoutRef.current = 0;
+              requestRender();
+            },
+            Math.min(Math.max(remainingMs, 0), MAXIMUM_HOST_TIMEOUT_DELAY_MS),
+          );
+        };
+        const updateAutomaticProbeClientPoint = (timestampMs: number): boolean => {
+          const settings = automaticProbeRef.current;
+          if (!settings.enabled) {
+            clearAutomaticProbeClientPoint("off");
+            return false;
+          }
+          if (document.visibilityState !== "visible" || !sceneIsVisible) {
+            clearAutomaticProbeClientPoint("suspended");
+            return false;
           }
 
+          const bounds = canvas.getBoundingClientRect();
+          if (bounds.width <= 0 || bounds.height <= 0) {
+            clearAutomaticProbeClientPoint("suspended");
+            return false;
+          }
+
+          let automaticProbeNeedsFrame = true;
+          let progress: number;
+          if (reducedMotionQuery.matches) {
+            progress = 0;
+            automaticProbeNeedsFrame = false;
+            container.dataset["automaticProbeState"] = "reduced-motion";
+          } else if (timestampMs < automaticProbeResumeAtMsRef.current) {
+            progress = 1;
+            automaticProbeNeedsFrame = false;
+            container.dataset["automaticProbeState"] = "resting";
+            scheduleAutomaticProbeResume(automaticProbeResumeAtMsRef.current);
+          } else {
+            if (automaticProbeResumeAtMsRef.current > 0) {
+              automaticProbeCycleStartedAtMsRef.current = timestampMs;
+              automaticProbeResumeAtMsRef.current = 0;
+            } else if (automaticProbeCycleStartedAtMsRef.current === 0) {
+              automaticProbeCycleStartedAtMsRef.current = timestampMs;
+            }
+
+            const loopDurationMs = settings.loopDurationSeconds * 1_000;
+            const restDurationMs = settings.restDurationSeconds * 1_000;
+            const cycleDurationMs = loopDurationMs + restDurationMs;
+            if (
+              !Number.isFinite(loopDurationMs) ||
+              loopDurationMs <= 0 ||
+              !Number.isFinite(restDurationMs) ||
+              restDurationMs < 0 ||
+              !Number.isFinite(cycleDurationMs) ||
+              cycleDurationMs <= 0
+            ) {
+              invalidateAutomaticProbe();
+              return false;
+            }
+            const cycleElapsedMs =
+              (timestampMs - automaticProbeCycleStartedAtMsRef.current) / cycleDurationMs;
+            const cycleProgressMs = (cycleElapsedMs - Math.floor(cycleElapsedMs)) * cycleDurationMs;
+            if (
+              !Number.isFinite(cycleElapsedMs) ||
+              !Number.isFinite(cycleProgressMs) ||
+              cycleProgressMs < 0
+            ) {
+              invalidateAutomaticProbe();
+              return false;
+            }
+            if (cycleProgressMs >= loopDurationMs) {
+              progress = 1;
+              automaticProbeNeedsFrame = false;
+              container.dataset["automaticProbeState"] = "resting";
+              const resumeAtMs = timestampMs + cycleDurationMs - cycleProgressMs;
+              automaticProbeResumeAtMsRef.current = resumeAtMs;
+              scheduleAutomaticProbeResume(resumeAtMs);
+            } else {
+              progress = cycleProgressMs / loopDurationMs;
+              container.dataset["automaticProbeState"] = "playing";
+            }
+          }
+
+          const point = readMengerAutomaticProbePoint(
+            settings.path,
+            progress,
+            settings.width,
+            settings.height,
+            settings.startProgress,
+            settings.verticalOffset,
+          );
+          const clientX = bounds.left + point.x * bounds.width;
+          const clientY = bounds.top + point.y * bounds.height;
+          if (
+            !Number.isFinite(progress) ||
+            !Number.isFinite(point.x) ||
+            !Number.isFinite(point.y) ||
+            !Number.isFinite(clientX) ||
+            !Number.isFinite(clientY) ||
+            !hasFiniteSquaredLength(clientX - bounds.left, clientY - bounds.top)
+          ) {
+            invalidateAutomaticProbe();
+            return false;
+          }
+          automaticProbeClientPoint = { x: clientX, y: clientY };
+          container.dataset["automaticProbeClientX"] = clientX.toFixed(3);
+          container.dataset["automaticProbeClientY"] = clientY.toFixed(3);
+          container.dataset["automaticProbeProgress"] = progress.toFixed(4);
+
+          return automaticProbeNeedsFrame && depthRef.current > 1;
+        };
+        const writeHoverState = (timestampMs: number): boolean => {
+          const activeClientPointer = automaticProbeClientPoint ?? clientPointer;
+          const probe =
+            activeClientPointer === null
+              ? null
+              : readHoverProbe(
+                  canvas,
+                  activeClientPointer,
+                  frustumHalfSpanRef.current,
+                  viewRef.current,
+                );
+          if (probe) {
+            lastProbe = probe;
+            container.dataset["hoverCoordinateX"] = probe.x.toFixed(3);
+            container.dataset["hoverCoordinateY"] = probe.y.toFixed(3);
+            container.dataset["hoverCoordinateZ"] = probe.z.toFixed(3);
+          } else {
+            delete container.dataset["hoverCoordinateX"];
+            delete container.dataset["hoverCoordinateY"];
+            delete container.dataset["hoverCoordinateZ"];
+          }
+
+          const currentRevealRadius = revealRadiusRef.current;
           const targetOpenness =
             probe &&
             Math.hypot(
               Math.max(-probe.x, probe.x - 1, 0),
               Math.max(-probe.y, probe.y - 1, 0),
               Math.max(-probe.z, probe.z - 1, 0),
-            ) < MENGER_HOVER_DEFAULT_REVEAL_RADIUS
+            ) < currentRevealRadius
               ? 1
               : 0;
           const previousFrameTime = lastHoverFrameTime;
@@ -583,23 +783,36 @@ export function MengerTypeGpuScene({
           hoverState.write({
             openness: renderedOpenness,
             probe: d.vec3f(lastProbe.x, lastProbe.y, lastProbe.z),
-            revealRadius: MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+            revealRadius: currentRevealRadius,
           });
-          canvas.dataset["hoverMaximumOpenness"] = renderedOpenness.toFixed(6);
-          canvas.dataset["hoverSettled"] = settled ? "true" : "false";
+          container.dataset["hoverMaximumOpenness"] = renderedOpenness.toFixed(6);
+          container.dataset["hoverSettled"] = settled ? "true" : "false";
 
           return !settled;
         };
         const renderNow = (timestampMs = performance.now()) => {
+          if (document.visibilityState !== "visible" || !sceneIsVisible) {
+            return;
+          }
+          const automaticProbeNeedsFrame = updateAutomaticProbeClientPoint(timestampMs);
           const hoverNeedsFrame = writeHoverState(timestampMs);
           pipeline.withColorAttachment({ view: context.getCurrentTexture().createView() }).draw(3);
-          if (hoverNeedsFrame) {
+          if (firstRenderPending) {
+            firstRenderPending = false;
+            setStatus("ready");
+            onRenderReadyRef.current?.();
+          }
+          if (automaticProbeNeedsFrame || hoverNeedsFrame) {
             requestRender();
           }
         };
-        let renderFrame = 0;
         const requestRender = () => {
-          if (renderFrame !== 0 || lifetime.signal.aborted) {
+          if (
+            renderFrame !== 0 ||
+            lifetime.signal.aborted ||
+            document.visibilityState !== "visible" ||
+            !sceneIsVisible
+          ) {
             return;
           }
           renderFrame = window.requestAnimationFrame((timestampMs) => {
@@ -643,21 +856,63 @@ export function MengerTypeGpuScene({
           requestRender();
         };
         const onReducedMotionChange = () => {
+          automaticProbeCycleStartedAtMsRef.current = 0;
+          automaticProbeResumeAtMsRef.current = 0;
           requestRender();
         };
+        const suspendAutomaticProbeFrames = () => {
+          cancelRender();
+          if (automaticProbeResumeTimeoutRef.current !== 0) {
+            window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+            automaticProbeResumeTimeoutRef.current = 0;
+          }
+        };
+        const restartAutomaticProbeAtStart = () => {
+          automaticProbeCycleStartedAtMsRef.current = 0;
+          automaticProbeResumeAtMsRef.current = 0;
+        };
+        const onDocumentVisibilityChange = () => {
+          if (document.visibilityState === "visible") {
+            restartAutomaticProbeAtStart();
+            requestRender();
+            return;
+          }
+
+          suspendAutomaticProbeFrames();
+          clearAutomaticProbeClientPoint("suspended");
+        };
+        const sceneVisibilityObserver = new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          sceneIsVisible = entry.isIntersecting;
+          if (sceneIsVisible) {
+            restartAutomaticProbeAtStart();
+            requestRender();
+            return;
+          }
+
+          suspendAutomaticProbeFrames();
+          clearAutomaticProbeClientPoint("suspended");
+        });
         window.addEventListener("blur", closeHover);
         window.addEventListener("pointermove", onWindowPointerMove);
         window.addEventListener("pointerup", onWindowPointerUp);
         reducedMotionQuery.addEventListener("change", onReducedMotionChange);
+        document.addEventListener("visibilitychange", onDocumentVisibilityChange);
         document.documentElement.addEventListener("pointerleave", closeHover);
+        sceneVisibilityObserver.observe(container);
+        disconnectSceneVisibilityObserver = () => {
+          sceneVisibilityObserver.disconnect();
+        };
         removeHoverListeners = () => {
           window.removeEventListener("blur", closeHover);
           window.removeEventListener("pointermove", onWindowPointerMove);
           window.removeEventListener("pointerup", onWindowPointerUp);
           reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
+          document.removeEventListener("visibilitychange", onDocumentVisibilityChange);
           document.documentElement.removeEventListener("pointerleave", closeHover);
           removeHoverListeners = () => {};
         };
+        renderSceneRef.current = requestRender;
         const writeView = (view: LogoViewState) => {
           const frame = readCameraFrame(view);
           cameraRight.write(toGpuVector(frame.right));
@@ -672,25 +927,32 @@ export function MengerTypeGpuScene({
           topColor.write(readGpuColor(colors.top));
         };
         const resize = () => {
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          const shortestSide = Math.max(Math.min(width, height), 1);
+          const edgeClearanceScale =
+            shortestSide /
+            Math.max(shortestSide - LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS * 2, 1);
+          const nextFrustumHalfSpan = CAMERA_FIT_RADIUS * cameraFrustumPadding * edgeClearanceScale;
           const devicePixelRatio = Math.min(
             window.devicePixelRatio || 1,
             MAXIMUM_DEVICE_PIXEL_RATIO,
           );
           const nextWidth = Math.max(
             1,
-            Math.floor(canvas.clientWidth * devicePixelRatio * resolutionScaleRef.current),
+            Math.floor(width * devicePixelRatio * resolutionScaleRef.current),
           );
           const nextHeight = Math.max(
             1,
-            Math.floor(canvas.clientHeight * devicePixelRatio * resolutionScaleRef.current),
+            Math.floor(height * devicePixelRatio * resolutionScaleRef.current),
           );
+          frustumHalfSpanRef.current = nextFrustumHalfSpan;
+          frustumHalfSpan.write(nextFrustumHalfSpan);
+          aspectRatio.write(nextWidth / nextHeight);
+          surfaceThreshold.write(Math.max((nextFrustumHalfSpan * 2 * 0.12) / nextHeight, 0.0002));
           if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
             canvas.width = nextWidth;
             canvas.height = nextHeight;
-            aspectRatio.write(nextWidth / nextHeight);
-            surfaceThreshold.write(
-              Math.max((CAMERA_FRUSTUM_HALF_SPAN * 2 * 0.12) / nextHeight, 0.0002),
-            );
             canvas.dataset["renderWidth"] = String(nextWidth);
             canvas.dataset["renderHeight"] = String(nextHeight);
           }
@@ -718,7 +980,6 @@ export function MengerTypeGpuScene({
         resize();
         cancelRender();
         renderNow();
-        setStatus("ready");
 
         void root.device.lost.then(() => {
           if (!lifetime.signal.aborted) {
@@ -726,6 +987,7 @@ export function MengerTypeGpuScene({
             deactivateRenderer();
             destroyRoot();
             setStatus("unavailable");
+            onRenderUnavailableRef.current();
           }
         });
       } catch (error: unknown) {
@@ -735,6 +997,7 @@ export function MengerTypeGpuScene({
           canvas.dataset["rendererError"] =
             error instanceof Error ? error.message : "WebGPU did not start.";
           setStatus("unavailable");
+          onRenderUnavailableRef.current();
         }
       }
     };
@@ -747,7 +1010,36 @@ export function MengerTypeGpuScene({
       delete canvas.dataset["rendererError"];
       destroyRoot();
     };
-  }, []);
+  }, [cameraFrustumPadding]);
+
+  useEffect(() => {
+    automaticProbeRef.current = {
+      enabled: automaticProbe.enabled,
+      height: automaticProbe.height,
+      loopDurationSeconds: automaticProbe.loopDurationSeconds,
+      path: automaticProbe.path,
+      restDurationSeconds: automaticProbe.restDurationSeconds,
+      startProgress: automaticProbe.startProgress,
+      verticalOffset: automaticProbe.verticalOffset,
+      width: automaticProbe.width,
+    };
+    automaticProbeCycleStartedAtMsRef.current = 0;
+    automaticProbeResumeAtMsRef.current = 0;
+    if (automaticProbeResumeTimeoutRef.current !== 0) {
+      window.clearTimeout(automaticProbeResumeTimeoutRef.current);
+      automaticProbeResumeTimeoutRef.current = 0;
+    }
+    renderSceneRef.current();
+  }, [
+    automaticProbe.enabled,
+    automaticProbe.height,
+    automaticProbe.loopDurationSeconds,
+    automaticProbe.path,
+    automaticProbe.restDurationSeconds,
+    automaticProbe.startProgress,
+    automaticProbe.verticalOffset,
+    automaticProbe.width,
+  ]);
 
   useEffect(() => {
     depthRef.current = depth;
@@ -758,6 +1050,11 @@ export function MengerTypeGpuScene({
     resolutionScaleRef.current = resolutionScale;
     resizeRef.current();
   }, [resolutionScale]);
+
+  useEffect(() => {
+    revealRadiusRef.current = revealRadius;
+    renderSceneRef.current();
+  }, [revealRadius]);
 
   useEffect(() => {
     const nextView = { elevationDegrees, rotationDegrees };
@@ -776,13 +1073,28 @@ export function MengerTypeGpuScene({
     writeColorsRef.current(colors);
   }, [backgroundColor, leftFaceColor, rightFaceColor, topFaceColor]);
 
+  useEffect(() => {
+    onRenderReadyRef.current = onRenderReady;
+  }, [onRenderReady]);
+
+  useEffect(() => {
+    onRenderUnavailableRef.current = onRenderUnavailable;
+  }, [onRenderUnavailable]);
+
   return (
     <div
-      aria-label="TypeGPU Menger hover reveal"
+      ref={containerRef}
+      aria-label="Menger sponge hover reveal"
       className="relative h-full min-h-0 w-full"
+      data-menger-automatic-probe={automaticProbe.enabled ? "play" : "off"}
+      data-menger-automatic-probe-path={automaticProbe.path}
+      data-menger-maximum-depth={depth}
+      data-menger-research-mode="hover"
+      data-logo-elevation-degrees={elevationDegrees}
+      data-logo-rotation-degrees={rotationDegrees}
       data-renderer="typegpu-ray-march"
       data-renderer-state={status}
-      data-testid="logo-menger-webgpu-scene"
+      data-testid="logo-menger-hover-scene"
       role="img"
     >
       <canvas
@@ -806,6 +1118,7 @@ export function MengerTypeGpuScene({
             aria-hidden="true"
             className="h-full w-full object-contain"
             src={staticMengerSvgSrc}
+            style={{ padding: LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS }}
           />
           <span className="sr-only" role="status">
             {status === "unavailable"

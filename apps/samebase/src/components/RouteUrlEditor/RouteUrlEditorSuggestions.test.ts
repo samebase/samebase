@@ -158,7 +158,6 @@ describe("readSuggestions", () => {
       "/logo/transition",
       "/logo/transition/menger",
       "/logo/transition/transforms",
-      "/logo/webgpu/menger",
     ]);
   });
 

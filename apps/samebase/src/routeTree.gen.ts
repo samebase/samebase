@@ -53,7 +53,6 @@ import { Route as orgProvidersRouteImport } from "./routes/org-providers";
 import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
 import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
-import { Route as logoMengerWebgpuResearchRouteImport } from "./routes/logo-menger-webgpu-research";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
 import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
@@ -283,12 +282,6 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoMengerWebgpuResearchRoute =
-  logoMengerWebgpuResearchRouteImport.update({
-    id: "/logo/webgpu/menger",
-    path: "/logo/webgpu/menger",
-    getParentRoute: () => rootRouteImport,
-  } as any);
 const logoTransitionTransformsLabRoute =
   logoTransitionTransformsLabRouteImport.update({
     id: "/logo/transition/transforms",
@@ -374,7 +367,6 @@ export interface FileRoutesByFullPath {
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
-  "/logo/webgpu/menger": typeof logoMengerWebgpuResearchRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
@@ -429,7 +421,6 @@ export interface FileRoutesByTo {
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
-  "/logo/webgpu/menger": typeof logoMengerWebgpuResearchRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
@@ -485,7 +476,6 @@ export interface FileRoutesById {
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
-  "/logo/webgpu/menger": typeof logoMengerWebgpuResearchRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
@@ -542,7 +532,6 @@ export interface FileRouteTypes {
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
-    | "/logo/webgpu/menger"
     | "/oauth/mcp/consent"
     | "/org/$owner/connect-repo"
     | "/org/$owner/new-app"
@@ -597,7 +586,6 @@ export interface FileRouteTypes {
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
-    | "/logo/webgpu/menger"
     | "/oauth/mcp/consent"
     | "/org/$owner/connect-repo"
     | "/org/$owner/new-app"
@@ -652,7 +640,6 @@ export interface FileRouteTypes {
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
-    | "/logo/webgpu/menger"
     | "/oauth/mcp/consent"
     | "/org/$owner/connect-repo"
     | "/org/$owner/new-app"
@@ -708,7 +695,6 @@ export interface RootRouteChildren {
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
-  logoMengerWebgpuResearchRoute: typeof logoMengerWebgpuResearchRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
   orgConnectRepoRoute: typeof orgConnectRepoRoute;
   orgNewAppRoute: typeof orgNewAppRoute;
@@ -1033,13 +1019,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof mcpConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/webgpu/menger": {
-      id: "/logo/webgpu/menger";
-      path: "/logo/webgpu/menger";
-      fullPath: "/logo/webgpu/menger";
-      preLoaderRoute: typeof logoMengerWebgpuResearchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/logo/transition/transforms": {
       id: "/logo/transition/transforms";
       path: "/logo/transition/transforms";
@@ -1140,7 +1119,6 @@ const rootRouteChildren: RootRouteChildren = {
   logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
-  logoMengerWebgpuResearchRoute: logoMengerWebgpuResearchRoute,
   mcpConsentRoute: mcpConsentRoute,
   orgConnectRepoRoute: orgConnectRepoRoute,
   orgNewAppRoute: orgNewAppRoute,

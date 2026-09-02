@@ -68,7 +68,7 @@ async function openMengerHoverCase(
   const automaticProbeSearch = automaticProbe ? "" : "&probeDisabled";
   await signInIfNeeded(
     page,
-    `/logo/hover/menger?elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
+    `/logo/hover/menger?three&elev=${elevationDegrees}&rot=${rotationDegrees}&top=red-400${
       maximumDepth === "4" ? "" : `&depth=${maximumDepth}`
     }${pointerTiltEnabled ? "&tilt" : ""}${
       pointerTiltRadiusScale === "1" ? "" : `&tiltRadius=${pointerTiltRadiusScale}`
@@ -633,7 +633,7 @@ test("Menger automatic probe fails closed for overflowed finite route settings",
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(
     page,
-    "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeHeight=1e308&probePath=orbit",
+    "/logo/hover/menger?three&depth=1&elev=0&rot=180&probe&probeHeight=1e308&probePath=orbit",
   );
   const scene = page.getByTestId("logo-menger-hover-scene");
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
@@ -664,13 +664,13 @@ test("Menger automatic probe fails closed for overflowed finite route settings",
 
   await expectInvalidProbeToStop();
   await page.goto(
-    "/logo/hover/menger?elev=0&rot=180&probe&probeHeight=3e305&probeLoop=0.1&probeRest=0&probeWidth=3e305&tilt&tiltRadius=0",
+    "/logo/hover/menger?three&elev=0&rot=180&probe&probeHeight=3e305&probeLoop=0.1&probeRest=0&probeWidth=3e305&tilt&tiltRadius=0",
     { waitUntil: "domcontentloaded" },
   );
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expectInvalidProbeToStop();
   await page.goto(
-    "/logo/hover/menger?depth=1&elev=0&rot=180&probe&probeLoop=1e308&probeRest=1e308",
+    "/logo/hover/menger?three&depth=1&elev=0&rot=180&probe&probeLoop=1e308&probeRest=1e308",
     { waitUntil: "domcontentloaded" },
   );
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
@@ -864,7 +864,7 @@ test("Menger hover persists its adjustable tilt radius and strength", async ({ p
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.5");
 
   await page.goto(
-    "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled&tilt&tiltRadius=3.5&tiltStrength=2.5",
+    "/logo/hover/menger?three&depth=2&elev=0&rot=180&probeDisabled&tilt&tiltRadius=3.5&tiltStrength=2.5",
   );
   await expect(scene.locator("canvas")).toBeVisible();
   await expect(radiusSlider).toHaveAttribute("max", "3.5");
@@ -1301,7 +1301,7 @@ test.describe("Menger automatic probe on a phone", () => {
 
   test("keeps top and bottom pane escape lanes outside the canvas", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
+    await signInIfNeeded(page, "/logo/hover/menger?three&depth=2&elev=0&rot=180&probeDisabled");
     await exposeMobileMainPane(page);
 
     const hoverPage = page.getByTestId("logo-menger-hover-page");
@@ -1319,7 +1319,7 @@ test.describe("Menger automatic probe on a phone", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await signInIfNeeded(
       page,
-      "/logo/hover/menger?depth=2&elev=0&rot=180&probe&probeLanding&probeLoop=10&probeRest=0.75&tilt&tiltRadius=0",
+      "/logo/hover/menger?three&depth=2&elev=0&rot=180&probe&probeLanding&probeLoop=10&probeRest=0.75&tilt&tiltRadius=0",
     );
     await exposeMobileMainPane(page);
     const scene = page.locator('[data-testid="logo-menger-hover-scene"]');
@@ -1426,7 +1426,7 @@ test.describe("Menger hover on a landscape phone", () => {
 
   test("keeps both pane escape lanes outside the short canvas", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
+    await signInIfNeeded(page, "/logo/hover/menger?three&depth=2&elev=0&rot=180&probeDisabled");
     await exposeMobileMainPane(page);
 
     const hoverPage = page.getByTestId("logo-menger-hover-page");
@@ -1446,7 +1446,7 @@ test.describe("Menger hover on a wide landscape touch viewport", () => {
 
   test("keeps a usable canvas and both vertical touch lanes", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/logo/hover/menger?depth=2&elev=0&rot=180&probeDisabled");
+    await signInIfNeeded(page, "/logo/hover/menger?three&depth=2&elev=0&rot=180&probeDisabled");
 
     const hoverPage = page.getByTestId("logo-menger-hover-page");
     const scene = page.getByTestId("logo-menger-hover-scene");

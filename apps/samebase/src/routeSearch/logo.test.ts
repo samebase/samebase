@@ -15,6 +15,10 @@ import {
 } from "@/components/logo/logoPresentationTilt";
 import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
+  MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+} from "@/components/logo/mengerTypeGpuSettings";
+import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE,
 } from "@samebase/logo-model/left-face-style";
@@ -289,19 +293,28 @@ describe("logoRouteSearch", () => {
     expect(validateLogoCarpetHoverRouteSearch({ mechanic: "spin" })).toEqual({});
   });
 
-  it("keeps landing tilt on the Menger hover route schema only", () => {
+  it("keeps renderer and landing controls on the Menger hover route schema only", () => {
     expect(
       validateLogoMengerHoverRouteSearch({
         depth: "99",
+        resolution: "1",
         tilt: "",
         tiltRadius: "3.5",
         tiltStrength: "1.5",
       }),
     ).toEqual({
-      depth: MENGER_HOVER_MAX_DEPTH,
+      depth: MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+      resolution: 1,
       tilt: true,
       tiltRadius: 3.5,
       tiltStrength: 1.5,
+    });
+    expect(validateLogoMengerHoverRouteSearch({ depth: "99", three: "" })).toEqual({
+      depth: MENGER_HOVER_MAX_DEPTH,
+      three: true,
+    });
+    expect(validateLogoMengerHoverRouteSearch({ resolution: "0" })).toEqual({
+      resolution: 0.5,
     });
     expect(validateLogoMengerHoverRouteSearch({ tiltRadius: "-1" })).toEqual({
       tiltRadius: 0,
@@ -435,6 +448,11 @@ describe("logoRouteSearch", () => {
       viewSnapEnabled: true,
       voxelState: DEFAULT_VOXEL_STATE,
     } as const;
+    const mengerRouteBuildDefaults = {
+      ...routeBuildDefaults,
+      mengerHoverRenderer: "typegpu",
+      mengerHoverResolutionScale: MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
+    } as const;
     const search = buildLogoCarpetHoverRouteSearch({
       ...routeBuildDefaults,
       carpetMechanic: SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC,
@@ -484,7 +502,7 @@ describe("logoRouteSearch", () => {
     expect(shuffleSlideSearch.mechanic).toBe("slide");
 
     const mengerDefaults = buildLogoMengerHoverRouteSearch({
-      ...routeBuildDefaults,
+      ...mengerRouteBuildDefaults,
       mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
       mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
       mengerHoverTiltEnabled: false,
@@ -494,6 +512,10 @@ describe("logoRouteSearch", () => {
     expect(mengerDefaults).toEqual({});
     expect("depth" in mengerDefaults).toBe(true);
     expect(mengerDefaults.depth).toBeUndefined();
+    expect("resolution" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.resolution).toBeUndefined();
+    expect("three" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.three).toBeUndefined();
     expect("tilt" in mengerDefaults).toBe(true);
     expect(mengerDefaults.tilt).toBeUndefined();
     expect("tiltRadius" in mengerDefaults).toBe(true);
@@ -520,7 +542,7 @@ describe("logoRouteSearch", () => {
     expect(mengerDefaults.probeOffset).toBeUndefined();
 
     const automaticProbeSearch = buildLogoMengerHoverRouteSearch({
-      ...routeBuildDefaults,
+      ...mengerRouteBuildDefaults,
       mengerAutomaticProbe: {
         enabled: true,
         height: 0.7,
@@ -552,7 +574,7 @@ describe("logoRouteSearch", () => {
     expect(automaticProbeSearch.probePathVisible).toBeUndefined();
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: {
           ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
           enabled: false,
@@ -571,7 +593,7 @@ describe("logoRouteSearch", () => {
     });
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: {
           enabled: true,
           height: 1e308,
@@ -602,7 +624,7 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
         mengerHoverDepth: 1,
         mengerHoverTiltEnabled: false,
@@ -612,17 +634,28 @@ describe("logoRouteSearch", () => {
     ).toBe(1);
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
         mengerHoverDepth: 99,
         mengerHoverTiltEnabled: true,
         mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
         mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
       }).depth,
-    ).toBe(MENGER_HOVER_MAX_DEPTH);
+    ).toBe(MENGER_TYPE_GPU_MAXIMUM_DEPTH);
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
+        mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+        mengerHoverDepth: 99,
+        mengerHoverRenderer: "three",
+        mengerHoverTiltEnabled: false,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      }),
+    ).toMatchObject({ depth: MENGER_HOVER_MAX_DEPTH, three: true });
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
         mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
         mengerHoverTiltEnabled: true,
@@ -632,7 +665,7 @@ describe("logoRouteSearch", () => {
     ).toBe(1);
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
         mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
         mengerHoverTiltEnabled: true,
@@ -642,7 +675,7 @@ describe("logoRouteSearch", () => {
     ).toBe(true);
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
         mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
         mengerHoverTiltEnabled: true,
@@ -652,7 +685,7 @@ describe("logoRouteSearch", () => {
     ).toBe(1.2);
     expect(
       buildLogoMengerHoverRouteSearch({
-        ...routeBuildDefaults,
+        ...mengerRouteBuildDefaults,
         mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
         mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
         mengerHoverTiltEnabled: true,

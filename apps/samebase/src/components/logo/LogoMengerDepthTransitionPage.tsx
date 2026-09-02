@@ -2,6 +2,7 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { MengerDepthTransitionScene } from "@/components/logo/MengerDepthTransitionScene";
 import { MengerHoverScene } from "@/components/logo/MengerHoverScene";
+import { MengerTypeGpuScene } from "@/components/logo/MengerTypeGpuScene";
 import { LogoSquareTouchSurface } from "@/components/logo/LogoSquareTouchSurface";
 import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
@@ -29,6 +30,15 @@ import {
   type MengerAutomaticProbeMotionSettings,
   type MengerAutomaticProbeSettings,
 } from "@/components/logo/mengerAutomaticProbe";
+import {
+  MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+  MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE,
+  MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP,
+  normalizeMengerTypeGpuResolutionScale,
+  type MengerHoverRenderer,
+} from "@/components/logo/mengerTypeGpuSettings";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger } from "@/components/ui/select";
@@ -105,7 +115,11 @@ export function LogoMengerDepthTransitionPage({
     [routeSearch],
   );
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
+  const selectedRenderer: MengerHoverRenderer = routeSearch.three ? "three" : "typegpu";
   const searchHoverMaximumDepth = routeSearch.depth ?? MENGER_HOVER_DEFAULT_DEPTH;
+  const searchResolutionScale = normalizeMengerTypeGpuResolutionScale(
+    routeSearch.resolution ?? MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
+  );
   const pointerTiltEnabled = routeSearch.tilt === true;
   const searchPointerTiltRadiusScale = normalizeLogoPresentationTiltRadiusScale(
     routeSearch.tiltRadius ?? LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
@@ -158,6 +172,8 @@ export function LogoMengerDepthTransitionPage({
   );
   const [hoverRevealRadius, setHoverRevealRadius] = useState(MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
   const [hoverMaximumDepth, setHoverMaximumDepth] = useState(searchHoverMaximumDepth);
+  const [resolutionScale, setResolutionScale] = useState(searchResolutionScale);
+  const [typeGpuUnavailable, setTypeGpuUnavailable] = useState(false);
   const [pointerTiltRadiusScale, setPointerTiltRadiusScale] = useState(
     searchPointerTiltRadiusScale,
   );
@@ -194,6 +210,9 @@ export function LogoMengerDepthTransitionPage({
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
   });
+  const activeRenderer: MengerHoverRenderer =
+    selectedRenderer === "typegpu" && !typeGpuUnavailable ? "typegpu" : "three";
+  const conceptualCellCount = 20 ** hoverMaximumDepth;
   const playbackStartProgressRef = useRef(0);
   const prefersReducedMotionRef = useRef(false);
   const progressInputRef = useRef<HTMLInputElement | null>(null);
@@ -226,6 +245,10 @@ export function LogoMengerDepthTransitionPage({
   }, [searchHoverMaximumDepth]);
 
   useLayoutEffect(() => {
+    setResolutionScale(searchResolutionScale);
+  }, [searchResolutionScale]);
+
+  useLayoutEffect(() => {
     setPointerTiltRadiusScale(searchPointerTiltRadiusScale);
   }, [searchPointerTiltRadiusScale]);
 
@@ -236,6 +259,12 @@ export function LogoMengerDepthTransitionPage({
   useLayoutEffect(() => {
     setAutomaticProbeDraft(automaticProbe);
   }, [automaticProbe]);
+
+  useEffect(() => {
+    if (selectedRenderer === "typegpu") {
+      setTypeGpuUnavailable(false);
+    }
+  }, [selectedRenderer]);
 
   useEffect(() => {
     if (mode === "hover") {
@@ -359,6 +388,9 @@ export function LogoMengerDepthTransitionPage({
   const updateHoverMaximumDepth = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setHoverMaximumDepth(Number(event.target.value));
   }, []);
+  const updateResolutionScale = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setResolutionScale(normalizeMengerTypeGpuResolutionScale(Number(event.target.value)));
+  }, []);
   const updatePointerTiltRadiusScale = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setPointerTiltRadiusScale(
       normalizeLogoPresentationTiltRadiusScale(Math.round(Number(event.target.value) * 100) / 100),
@@ -379,6 +411,8 @@ export function LogoMengerDepthTransitionPage({
           elevationDegrees: view.elevationDegrees,
           mengerAutomaticProbe: automaticProbe,
           mengerHoverDepth: hoverMaximumDepth,
+          mengerHoverRenderer: selectedRenderer,
+          mengerHoverResolutionScale: resolutionScale,
           mengerHoverTiltEnabled: pointerTiltEnabled,
           mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
           mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
@@ -395,10 +429,54 @@ export function LogoMengerDepthTransitionPage({
     pointerTiltRadiusScale,
     pointerTiltStrengthScale,
     replaceRouteSearch,
+    resolutionScale,
     routeSearch,
     routeState,
+    selectedRenderer,
     view,
   ]);
+  const updateRenderer = useCallback(
+    (nextRenderer: MengerHoverRenderer) => {
+      const nextDepth =
+        nextRenderer === "three"
+          ? Math.min(hoverMaximumDepth, MENGER_HOVER_MAX_DEPTH)
+          : hoverMaximumDepth;
+      setHoverMaximumDepth(nextDepth);
+      if (nextRenderer === "typegpu") {
+        setTypeGpuUnavailable(false);
+      }
+      replaceRouteSearch(
+        preserveLogoRouteDevModeSearch(
+          buildLogoMengerHoverRouteSearch({
+            ...routeState,
+            elevationDegrees: view.elevationDegrees,
+            mengerAutomaticProbe: automaticProbe,
+            mengerHoverDepth: nextDepth,
+            mengerHoverRenderer: nextRenderer,
+            mengerHoverResolutionScale: resolutionScale,
+            mengerHoverTiltEnabled: pointerTiltEnabled,
+            mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
+            mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
+            rotationDegrees: view.rotationDegrees,
+            themeModeSearch: routeSearch,
+          }),
+          routeSearch,
+        ),
+      );
+    },
+    [
+      automaticProbe,
+      hoverMaximumDepth,
+      pointerTiltEnabled,
+      pointerTiltRadiusScale,
+      pointerTiltStrengthScale,
+      replaceRouteSearch,
+      resolutionScale,
+      routeSearch,
+      routeState,
+      view,
+    ],
+  );
   const updatePointerTiltEnabled = useCallback(
     (enabled: boolean) => {
       replaceRouteSearch(
@@ -408,6 +486,8 @@ export function LogoMengerDepthTransitionPage({
             elevationDegrees: view.elevationDegrees,
             mengerAutomaticProbe: automaticProbe,
             mengerHoverDepth: hoverMaximumDepth,
+            mengerHoverRenderer: selectedRenderer,
+            mengerHoverResolutionScale: resolutionScale,
             mengerHoverTiltEnabled: enabled,
             mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
             mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
@@ -424,8 +504,10 @@ export function LogoMengerDepthTransitionPage({
       pointerTiltRadiusScale,
       pointerTiltStrengthScale,
       replaceRouteSearch,
+      resolutionScale,
       routeSearch,
       routeState,
+      selectedRenderer,
       view,
     ],
   );
@@ -438,6 +520,8 @@ export function LogoMengerDepthTransitionPage({
               elevationDegrees: finalView.elevationDegrees,
               mengerAutomaticProbe: automaticProbe,
               mengerHoverDepth: hoverMaximumDepth,
+              mengerHoverRenderer: selectedRenderer,
+              mengerHoverResolutionScale: resolutionScale,
               mengerHoverTiltEnabled: pointerTiltEnabled,
               mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
               mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
@@ -460,8 +544,10 @@ export function LogoMengerDepthTransitionPage({
       pointerTiltRadiusScale,
       pointerTiltStrengthScale,
       replaceRouteSearch,
+      resolutionScale,
       routeSearch,
       routeState,
+      selectedRenderer,
     ],
   );
   const updateAutomaticProbe = useCallback(
@@ -474,6 +560,8 @@ export function LogoMengerDepthTransitionPage({
             elevationDegrees: view.elevationDegrees,
             mengerAutomaticProbe: nextAutomaticProbe,
             mengerHoverDepth: hoverMaximumDepth,
+            mengerHoverRenderer: selectedRenderer,
+            mengerHoverResolutionScale: resolutionScale,
             mengerHoverTiltEnabled: pointerTiltEnabled,
             mengerHoverTiltRadiusScale: pointerTiltRadiusScale,
             mengerHoverTiltStrengthScale: pointerTiltStrengthScale,
@@ -490,8 +578,10 @@ export function LogoMengerDepthTransitionPage({
       pointerTiltRadiusScale,
       pointerTiltStrengthScale,
       replaceRouteSearch,
+      resolutionScale,
       routeSearch,
       routeState,
+      selectedRenderer,
       view,
     ],
   );
@@ -555,6 +645,23 @@ export function LogoMengerDepthTransitionPage({
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="menger-hover-three-renderer"
+            checked={selectedRenderer === "three"}
+            onCheckedChange={(checked) => {
+              updateRenderer(checked === true ? "three" : "typegpu");
+            }}
+          />
+          <label className="text-xs" htmlFor="menger-hover-three-renderer">
+            Use Three.js renderer
+          </label>
+        </div>
+
+        {typeGpuUnavailable && selectedRenderer === "typegpu" ? (
+          <div className="text-xs text-muted-foreground">WebGPU unavailable. Using Three.js.</div>
+        ) : null}
+
         <div className="grid gap-2">
           <div className="flex items-center justify-between text-xs">
             <label htmlFor="menger-hover-maximum-depth">Reveal depth</label>
@@ -569,7 +676,11 @@ export function LogoMengerDepthTransitionPage({
             id="menger-hover-maximum-depth"
             aria-label="Reveal depth"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max={MENGER_HOVER_MAX_DEPTH}
+            max={
+              selectedRenderer === "typegpu"
+                ? MENGER_TYPE_GPU_MAXIMUM_DEPTH
+                : MENGER_HOVER_MAX_DEPTH
+            }
             min={MENGER_HOVER_MIN_DEPTH}
             onBlur={commitHoverDraftSettings}
             onChange={updateHoverMaximumDepth}
@@ -580,6 +691,34 @@ export function LogoMengerDepthTransitionPage({
             value={hoverMaximumDepth}
           />
         </div>
+
+        {selectedRenderer === "typegpu" ? (
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <label htmlFor="menger-hover-resolution">Resolution</label>
+              <output
+                className="font-mono text-xs text-muted-foreground"
+                htmlFor="menger-hover-resolution"
+              >
+                {Math.round(resolutionScale * 100)}%
+              </output>
+            </div>
+            <input
+              id="menger-hover-resolution"
+              aria-label="Render resolution"
+              className="h-2 w-full cursor-pointer accent-foreground"
+              max={MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE}
+              min={MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE}
+              onBlur={commitHoverDraftSettings}
+              onChange={updateResolutionScale}
+              onKeyUp={commitHoverDraftSettings}
+              onPointerUp={commitHoverDraftSettings}
+              step={MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP}
+              type="range"
+              value={resolutionScale}
+            />
+          </div>
+        ) : null}
 
         <div className="grid gap-2">
           <div className="flex items-center justify-between text-xs">
@@ -604,76 +743,80 @@ export function LogoMengerDepthTransitionPage({
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="menger-hover-pointer-tilt"
-            checked={pointerTiltEnabled}
-            onCheckedChange={(checked) => {
-              updatePointerTiltEnabled(checked === true);
-            }}
-          />
-          <label className="text-xs" htmlFor="menger-hover-pointer-tilt">
-            Landing tilt
-          </label>
-        </div>
+        {selectedRenderer === "three" ? (
+          <>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="menger-hover-pointer-tilt"
+                checked={pointerTiltEnabled}
+                onCheckedChange={(checked) => {
+                  updatePointerTiltEnabled(checked === true);
+                }}
+              />
+              <label className="text-xs" htmlFor="menger-hover-pointer-tilt">
+                Landing tilt
+              </label>
+            </div>
 
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <label htmlFor="menger-hover-pointer-tilt-radius">Tilt radius</label>
-            <output
-              className="font-mono text-xs text-muted-foreground"
-              htmlFor="menger-hover-pointer-tilt-radius"
-            >
-              {pointerTiltRadiusScale.toFixed(2)}×
-            </output>
-          </div>
-          <input
-            id="menger-hover-pointer-tilt-radius"
-            aria-label="Tilt radius"
-            className="h-2 w-full cursor-pointer accent-foreground"
-            max={Math.max(
-              LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MAX,
-              searchPointerTiltRadiusScale,
-            )}
-            min={LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MIN}
-            onBlur={commitHoverDraftSettings}
-            onChange={updatePointerTiltRadiusScale}
-            onKeyUp={commitHoverDraftSettings}
-            onPointerUp={commitHoverDraftSettings}
-            step="any"
-            type="range"
-            value={pointerTiltRadiusScale}
-          />
-        </div>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-xs">
+                <label htmlFor="menger-hover-pointer-tilt-radius">Tilt radius</label>
+                <output
+                  className="font-mono text-xs text-muted-foreground"
+                  htmlFor="menger-hover-pointer-tilt-radius"
+                >
+                  {pointerTiltRadiusScale.toFixed(2)}×
+                </output>
+              </div>
+              <input
+                id="menger-hover-pointer-tilt-radius"
+                aria-label="Tilt radius"
+                className="h-2 w-full cursor-pointer accent-foreground"
+                max={Math.max(
+                  LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MAX,
+                  searchPointerTiltRadiusScale,
+                )}
+                min={LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MIN}
+                onBlur={commitHoverDraftSettings}
+                onChange={updatePointerTiltRadiusScale}
+                onKeyUp={commitHoverDraftSettings}
+                onPointerUp={commitHoverDraftSettings}
+                step="any"
+                type="range"
+                value={pointerTiltRadiusScale}
+              />
+            </div>
 
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <label htmlFor="menger-hover-pointer-tilt-strength">Tilt strength</label>
-            <output
-              className="font-mono text-xs text-muted-foreground"
-              htmlFor="menger-hover-pointer-tilt-strength"
-            >
-              {pointerTiltStrengthScale.toFixed(2)}×
-            </output>
-          </div>
-          <input
-            id="menger-hover-pointer-tilt-strength"
-            aria-label="Tilt strength"
-            className="h-2 w-full cursor-pointer accent-foreground"
-            max={Math.max(
-              LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MAX,
-              searchPointerTiltStrengthScale,
-            )}
-            min={LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN}
-            onBlur={commitHoverDraftSettings}
-            onChange={updatePointerTiltStrengthScale}
-            onKeyUp={commitHoverDraftSettings}
-            onPointerUp={commitHoverDraftSettings}
-            step="any"
-            type="range"
-            value={pointerTiltStrengthScale}
-          />
-        </div>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between text-xs">
+                <label htmlFor="menger-hover-pointer-tilt-strength">Tilt strength</label>
+                <output
+                  className="font-mono text-xs text-muted-foreground"
+                  htmlFor="menger-hover-pointer-tilt-strength"
+                >
+                  {pointerTiltStrengthScale.toFixed(2)}×
+                </output>
+              </div>
+              <input
+                id="menger-hover-pointer-tilt-strength"
+                aria-label="Tilt strength"
+                className="h-2 w-full cursor-pointer accent-foreground"
+                max={Math.max(
+                  LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MAX,
+                  searchPointerTiltStrengthScale,
+                )}
+                min={LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN}
+                onBlur={commitHoverDraftSettings}
+                onChange={updatePointerTiltStrengthScale}
+                onKeyUp={commitHoverDraftSettings}
+                onPointerUp={commitHoverDraftSettings}
+                step="any"
+                type="range"
+                value={pointerTiltStrengthScale}
+              />
+            </div>
+          </>
+        ) : null}
 
         <div className="grid gap-4 border-t pt-3">
           <div className="text-xs font-medium">Automatic probe</div>
@@ -965,7 +1108,15 @@ export function LogoMengerDepthTransitionPage({
               ? "Pointer reveal disabled"
               : `Pointer reveals through depth ${hoverMaximumDepth}`}
           </div>
-          <div>4 non-overlapping cover slabs per hole</div>
+          {selectedRenderer === "typegpu" ? (
+            <>
+              <div>1 full-screen triangle</div>
+              <div>{conceptualCellCount.toLocaleString()} conceptual cells</div>
+              <div>128 maximum ray steps</div>
+            </>
+          ) : (
+            <div>4 non-overlapping cover slabs per hole</div>
+          )}
         </div>
       </div>
     ),
@@ -973,19 +1124,25 @@ export function LogoMengerDepthTransitionPage({
       automaticProbeDraft,
       commitAutomaticProbeDraft,
       commitHoverDraftSettings,
+      conceptualCellCount,
       hoverMaximumDepth,
       hoverRevealRadius,
       pointerTiltEnabled,
       pointerTiltRadiusScale,
       pointerTiltStrengthScale,
+      resolutionScale,
       searchPointerTiltRadiusScale,
       searchPointerTiltStrengthScale,
+      selectedRenderer,
+      typeGpuUnavailable,
+      updateRenderer,
       updateHoverMaximumDepth,
       updateHoverRevealRadius,
       updateAutomaticProbe,
       updatePointerTiltEnabled,
       updatePointerTiltRadiusScale,
       updatePointerTiltStrengthScale,
+      updateResolutionScale,
     ],
   );
   const transitionControlsContent = useMemo(
@@ -1080,6 +1237,7 @@ export function LogoMengerDepthTransitionPage({
         data-menger-probe-landing-size={automaticProbeDraft.landingSize ? "true" : "false"}
         data-menger-probe-path={automaticProbeDraft.path}
         data-menger-probe-path-visible={automaticProbeDraft.showPath ? "true" : "false"}
+        data-menger-renderer={mode === "hover" ? activeRenderer : undefined}
         data-phase={phase}
         data-testid={
           mode === "hover" ? "logo-menger-hover-page" : "logo-menger-depth-transition-page"
@@ -1091,21 +1249,41 @@ export function LogoMengerDepthTransitionPage({
             dataTestId="logo-menger-hover-scene-frame"
             size={automaticProbeDraft.landingSize ? "landing" : "pane"}
           >
-            <MengerHoverScene
-              automaticProbe={automaticProbeMotion}
-              cameraFrustumPadding={1.12}
-              elevationDegrees={view.elevationDegrees}
-              faceColors={faceColors}
-              maximumDepth={hoverMaximumDepth}
-              onInteractionEnd={commitView}
-              onViewChange={setView}
-              pointerTiltEnabled={pointerTiltEnabled}
-              pointerTiltRadiusScale={pointerTiltRadiusScale}
-              pointerTiltStrengthScale={pointerTiltStrengthScale}
-              revealRadius={hoverRevealRadius}
-              rotationDegrees={view.rotationDegrees}
-              viewSnapEnabled={routeState.viewSnapEnabled}
-            />
+            {activeRenderer === "typegpu" ? (
+              <MengerTypeGpuScene
+                automaticProbe={automaticProbeMotion}
+                backgroundColor={backgroundColor}
+                cameraFrustumPadding={1.12}
+                depth={hoverMaximumDepth}
+                elevationDegrees={view.elevationDegrees}
+                faceColors={faceColors}
+                onInteractionEnd={commitView}
+                onRenderUnavailable={() => {
+                  setTypeGpuUnavailable(true);
+                }}
+                onViewChange={setView}
+                resolutionScale={resolutionScale}
+                revealRadius={hoverRevealRadius}
+                rotationDegrees={view.rotationDegrees}
+                viewSnapEnabled={routeState.viewSnapEnabled}
+              />
+            ) : (
+              <MengerHoverScene
+                automaticProbe={automaticProbeMotion}
+                cameraFrustumPadding={1.12}
+                elevationDegrees={view.elevationDegrees}
+                faceColors={faceColors}
+                maximumDepth={Math.min(hoverMaximumDepth, MENGER_HOVER_MAX_DEPTH)}
+                onInteractionEnd={commitView}
+                onViewChange={setView}
+                pointerTiltEnabled={pointerTiltEnabled}
+                pointerTiltRadiusScale={pointerTiltRadiusScale}
+                pointerTiltStrengthScale={pointerTiltStrengthScale}
+                revealRadius={hoverRevealRadius}
+                rotationDegrees={view.rotationDegrees}
+                viewSnapEnabled={routeState.viewSnapEnabled}
+              />
+            )}
             {automaticProbeDraft.showPath ? (
               <svg
                 aria-hidden="true"
