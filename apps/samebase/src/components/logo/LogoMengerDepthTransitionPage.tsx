@@ -781,7 +781,9 @@ export function LogoMengerDepthTransitionPage({
         </div>
 
         {typeGpuUnavailable && selectedRenderer === "typegpu" ? (
-          <div className="text-xs text-muted-foreground">WebGPU unavailable. Using Three.js.</div>
+          <div className="text-xs text-muted-foreground">
+            TypeGPU could not start. Using Three.js.
+          </div>
         ) : null}
 
         <div className="grid gap-2">

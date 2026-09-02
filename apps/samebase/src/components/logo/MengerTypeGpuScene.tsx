@@ -64,6 +64,14 @@ const MENGER_TYPE_GPU_HOVER_STATE = d.struct({
   probe: d.vec3f,
   revealRadius: d.f32,
 });
+const MENGER_TYPE_GPU_SCENE_STATE = d.struct({
+  antialiasingGridSize: d.i32,
+  aspectRatio: d.f32,
+  frustumHalfSpan: d.f32,
+  selectedDepth: d.i32,
+  subpixelOffset: d.f32,
+  surfaceThreshold: d.f32,
+});
 const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
   fractalDepth: 1,
   gridSize: LOGO_GRID_SIZE_3,
@@ -464,11 +472,6 @@ export function MengerTypeGpuScene({
         };
 
         const context = root.configureContext({ canvas, alphaMode: "opaque" });
-        const antialiasingGridSize = root.createUniform(
-          d.i32,
-          antialiasingRef.current === "2x2" ? 2 : 1,
-        );
-        const aspectRatio = root.createUniform(d.f32, 1);
         const background = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.background));
         const cameraRight = root.createUniform(d.vec3f);
         const cameraUp = root.createUniform(d.vec3f);
@@ -476,14 +479,18 @@ export function MengerTypeGpuScene({
         const leftColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.left));
         const rightColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.right));
         const topColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.top));
-        const selectedDepth = root.createUniform(d.i32, depthRef.current);
-        const frustumHalfSpan = root.createUniform(d.f32, frustumHalfSpanRef.current);
-        const subpixelOffset = root.createUniform(d.f32, 0);
-        const surfaceThreshold = root.createUniform(d.f32, 0.001);
         const hoverState = root.createUniform(MENGER_TYPE_GPU_HOVER_STATE, {
           openness: 0,
           probe: d.vec3f(0.5),
           revealRadius: MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
+        });
+        const sceneState = root.createUniform(MENGER_TYPE_GPU_SCENE_STATE, {
+          antialiasingGridSize: antialiasingRef.current === "2x2" ? 2 : 1,
+          aspectRatio: 1,
+          frustumHalfSpan: frustumHalfSpanRef.current,
+          selectedDepth: depthRef.current,
+          subpixelOffset: 0,
+          surfaceThreshold: 0.001,
         });
 
         const rectangleDistance = (point: d.v2f, halfSize: d.v2f): number => {
@@ -583,7 +590,7 @@ export function MengerTypeGpuScene({
           let scale = d.f32(1);
 
           for (let iteration = 0; iteration < MENGER_TYPE_GPU_MAXIMUM_DEPTH; iteration += 1) {
-            if (iteration >= selectedDepth.$) {
+            if (iteration >= sceneState.$.selectedDepth) {
               break;
             }
             if (
@@ -593,7 +600,7 @@ export function MengerTypeGpuScene({
             ) {
               break;
             }
-            if (iteration > 0 && std.div(1, std.mul(3, scale)) <= surfaceThreshold.$) {
+            if (iteration > 0 && std.div(1, std.mul(3, scale)) <= sceneState.$.surfaceThreshold) {
               break;
             }
             const shiftedPoint = std.add(std.mul(point, scale), d.vec3f(1));
@@ -671,7 +678,7 @@ export function MengerTypeGpuScene({
         };
         const surfaceNormal = (point: d.v3f): d.v3f => {
           "use gpu";
-          const epsilon = std.mul(surfaceThreshold.$, 1.5);
+          const epsilon = std.mul(sceneState.$.surfaceThreshold, 1.5);
           const centerDistance = mengerDistance(point);
           return std.normalize(
             d.vec3f(
@@ -696,8 +703,8 @@ export function MengerTypeGpuScene({
           const rayOrigin = std.add(
             std.mul(cameraVector.$, CAMERA_DISTANCE),
             std.add(
-              std.mul(cameraRight.$, std.mul(screenPoint.x, frustumHalfSpan.$)),
-              std.mul(cameraUp.$, std.mul(screenPoint.y, frustumHalfSpan.$)),
+              std.mul(cameraRight.$, std.mul(screenPoint.x, sceneState.$.frustumHalfSpan)),
+              std.mul(cameraUp.$, std.mul(screenPoint.y, sceneState.$.frustumHalfSpan)),
             ),
           );
           const rayDirection = std.neg(cameraVector.$);
@@ -716,12 +723,12 @@ export function MengerTypeGpuScene({
           for (let step = 0; step < MAXIMUM_RAY_STEPS; step += 1) {
             const point = std.add(rayOrigin, std.mul(rayDirection, distanceAlongRay));
             const sample = mengerSample(point);
-            if (sample.x < surfaceThreshold.$ && sample.y > 0.5) {
+            if (sample.x < sceneState.$.surfaceThreshold && sample.y > 0.5) {
               return d.vec4f(axisColor(std.abs(surfaceNormal(point))), 1);
             }
             distanceAlongRay = std.add(
               distanceAlongRay,
-              std.max(sample.x, std.mul(surfaceThreshold.$, 0.5)),
+              std.max(sample.x, std.mul(sceneState.$.surfaceThreshold, 0.5)),
             );
             if (distanceAlongRay > boxExitDistance) {
               break;
@@ -736,14 +743,14 @@ export function MengerTypeGpuScene({
         })(({ uv }) => {
           "use gpu";
           const screenPoint = d.vec2f(
-            std.mul(std.sub(uv.x, 0.5), std.mul(2, aspectRatio.$)),
+            std.mul(std.sub(uv.x, 0.5), std.mul(2, sceneState.$.aspectRatio)),
             std.mul(std.sub(uv.y, 0.5), -2),
           );
-          if (antialiasingGridSize.$ === 1) {
+          if (sceneState.$.antialiasingGridSize === 1) {
             return traceMenger(screenPoint);
           }
 
-          const offset = subpixelOffset.$;
+          const offset = sceneState.$.subpixelOffset;
           const topLeft = traceMenger(std.add(screenPoint, d.vec2f(std.neg(offset), offset)));
           const topRight = traceMenger(std.add(screenPoint, d.vec2f(offset, offset)));
           const bottomLeft = traceMenger(
@@ -1369,10 +1376,12 @@ export function MengerTypeGpuScene({
             Math.floor(height * devicePixelRatio * resolutionScaleRef.current),
           );
           frustumHalfSpanRef.current = nextFrustumHalfSpan;
-          frustumHalfSpan.write(nextFrustumHalfSpan);
-          aspectRatio.write(nextWidth / nextHeight);
-          subpixelOffset.write(0.5 / nextHeight);
-          surfaceThreshold.write(Math.max((nextFrustumHalfSpan * 2 * 0.12) / nextHeight, 0.0002));
+          sceneState.patch({
+            aspectRatio: nextWidth / nextHeight,
+            frustumHalfSpan: nextFrustumHalfSpan,
+            subpixelOffset: 0.5 / nextHeight,
+            surfaceThreshold: Math.max((nextFrustumHalfSpan * 2 * 0.12) / nextHeight, 0.0002),
+          });
           if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
             canvas.width = nextWidth;
             canvas.height = nextHeight;
@@ -1391,19 +1400,21 @@ export function MengerTypeGpuScene({
           requestRender();
         };
         writeAntialiasingRef.current = (nextAntialiasing) => {
-          antialiasingGridSize.write(nextAntialiasing === "2x2" ? 2 : 1);
+          sceneState.patch({ antialiasingGridSize: nextAntialiasing === "2x2" ? 2 : 1 });
           requestRender();
         };
         writeDepthRef.current = (nextDepth) => {
-          selectedDepth.write(nextDepth);
+          sceneState.patch({ selectedDepth: nextDepth });
           requestRender();
         };
         writeViewRef.current = writeView;
 
         resizeObserver.observe(canvas);
-        antialiasingGridSize.write(antialiasingRef.current === "2x2" ? 2 : 1);
+        sceneState.patch({
+          antialiasingGridSize: antialiasingRef.current === "2x2" ? 2 : 1,
+          selectedDepth: depthRef.current,
+        });
         writeColors(colorsRef.current);
-        selectedDepth.write(depthRef.current);
         writeView();
         resize();
         cancelRender();
