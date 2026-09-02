@@ -6,8 +6,9 @@
 - Owner: Samebase repository domain
 - Started: 2026-09-02
 - Last updated: 2026-09-02
-- Current checkpoint: Phase 1 is in progress.
-- Next action: Change the public web copy and routes, then record the verification evidence.
+- Current checkpoint: Phase 1 is complete in
+  [PR #1570](https://github.com/samebase/samebase/pull/1570).
+- Next action: Review and merge Phase 1. Start Phase 2 as a separate change after Phase 1 is merged.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -32,15 +33,15 @@ The rollout has two separate changes:
 
 ## Progress
 
-| Phase | Scope                                   | Status      | Evidence |
-| ----- | --------------------------------------- | ----------- | -------- |
-| 0     | Fix the language and migration contract | Complete    | This RFC |
-| 1     | Change public web copy and routes       | In progress |          |
-| 2     | Add dormant migration support           | Not started |          |
-| 3     | Rehearse the complete cutover           | Not started |          |
-| 4     | Drain, freeze, copy, and switch         | Not started |          |
-| 5     | Stabilize the new system                | Not started |          |
-| 6     | Remove old data and migration support   | Not started |          |
+| Phase | Scope                                   | Status      | Evidence                                                   |
+| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------- |
+| 0     | Fix the language and migration contract | Complete    | This RFC                                                   |
+| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570) |
+| 2     | Add dormant migration support           | Not started |                                                            |
+| 3     | Rehearse the complete cutover           | Not started |                                                            |
+| 4     | Drain, freeze, copy, and switch         | Not started |                                                            |
+| 5     | Stabilize the new system                | Not started |                                                            |
+| 6     | Remove old data and migration support   | Not started |                                                            |
 
 Only one phase can be `In progress`. A phase is complete only when all of its exit checks pass.
 
@@ -257,7 +258,7 @@ Exit checks:
 
 ## Phase 1: Change Public Web Copy And Routes
 
-Status: In progress.
+Status: Complete in [PR #1570](https://github.com/samebase/samebase/pull/1570).
 
 Change only the public web boundary:
 
@@ -280,6 +281,21 @@ Exit checks:
 - Shipped UI does not show `vault` in user-visible copy.
 - Existing route and screenshot owners pass.
 - MCP and stored IDs are unchanged.
+
+Evidence:
+
+- The 44 affected app test files passed 510 tests.
+- The four affected Convex test files passed 76 tests.
+- Samebase type checking, lint, and the production build passed. Lint reported only the existing
+  warnings.
+- In the affected Linux browser sweep, 52 tests passed. The organization context test found a wait
+  timing issue. After the test wait was fixed, its focused Linux run passed. The repository removal
+  dialog snapshot was regenerated in the canonical Linux environment and passed.
+- Cloudflare redirect verification passed after the new `/home` target was committed.
+- Action documentation regenerated 15 contracts with no diff. MCP tool names, result fields, and
+  generated public documentation are unchanged.
+- `schema.ts`, generated Convex APIs, physical table names, stored IDs, and provider connections did
+  not change.
 
 ## Phase 2: Add Dormant Migration Support
 
