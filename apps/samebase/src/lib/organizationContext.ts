@@ -6,6 +6,7 @@ export type ViewerOrganization = (typeof api.organizations.listForViewer)["_retu
 
 export type AppOrganizationSurface =
   | { kind: "none" }
+  | { kind: "organizations" }
   | { kind: "allVaults" }
   | { kind: "account" }
   | {
@@ -62,6 +63,9 @@ export function readAppOrganizationSurface(pathname: string): AppOrganizationSur
       };
     }
     return { kind: "none" };
+  }
+  if (segments[0] === "org" && segments.length === 1) {
+    return { kind: "organizations" };
   }
   if (segments[0] !== "org" || segments.length < 2) {
     return { kind: "none" };

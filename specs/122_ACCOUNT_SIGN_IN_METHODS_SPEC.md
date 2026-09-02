@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase auth/backend
-- Last updated: 2026-08-12
+- Last updated: 2026-09-02
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -110,9 +110,9 @@ GitHub user. Authorization use repeats the identity check. Email and login value
 
 The direct GitHub authorization callback stores the access and refresh credentials in the
 server-only `githubUserAuthorizations` row. The browser receives no GitHub token or credential
-handle. `/connect-organization` uses this durable authorization to list visible GitHub App
-installations. Samebase refreshes it silently when possible and asks the user to authorize GitHub
-only when it is missing, expired, or revoked.
+handle. `/org` uses this durable authorization to list visible GitHub App installations. Samebase
+refreshes it silently when possible and asks the user to authorize GitHub only when it is missing,
+expired, or revoked.
 
 Only direct `user_authorization` OAuth exchanges an authorization code and issues or rotates these
 credentials. GitHub App installation and reconnect callbacks use the saved authorization. They do
@@ -127,10 +127,10 @@ access checks.
 The user authorization belongs to one Samebase user. It supports installation discovery and user
 actions that require GitHub identity, including repository creation under that personal GitHub
 account. Its management and revoke control appears only on that personal owner's Providers page. The
-connection page shows the authorization recovery action when the credential is not usable. Revoking
-it removes both discovery and personal repository creation access until the user authorizes GitHub
-again. It does not remove the GitHub sign-in method, uninstall the GitHub App, or remove a Samebase
-membership. The beta does not replace it with another GitHub identity.
+Organizations page shows the authorization recovery action when the credential is not usable.
+Revoking it removes both discovery and personal repository creation access until the user authorizes
+GitHub again. It does not remove the GitHub sign-in method, uninstall the GitHub App, or remove a
+Samebase membership. The beta does not replace it with another GitHub identity.
 
 GitHub organization setup requires the Samebase account's linked GitHub identity to be a live
 administrator for the selected organization. Spec 120 owns the administrator and installation

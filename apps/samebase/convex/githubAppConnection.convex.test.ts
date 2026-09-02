@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 describe("GitHub App connection", () => {
-  it("classifies visible installations without granting Samebase membership", async () => {
+  it("omits existing memberships and classifies the remaining visible installations", async () => {
     const t = makeConvexTest();
     const { userId } = await t.run(async (ctx) => {
       const userId = await insertUser(ctx, "viewer@example.test");
@@ -141,13 +141,6 @@ describe("GitHub App connection", () => {
         ],
       }),
     ).resolves.toEqual([
-      {
-        status: "open",
-        installationId: "open-installation",
-        githubOwnerType: "organization",
-        githubOwnerLogin: "open-owner",
-        organizationOwnerLogin: "Open-Owner",
-      },
       {
         status: "owner_required",
         installationId: "hidden-binding-installation",

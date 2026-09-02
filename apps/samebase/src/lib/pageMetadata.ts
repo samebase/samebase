@@ -14,7 +14,7 @@ import {
   AGENT_BROWSER_HANDOFF_ROUTE,
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
-import { CONNECT_ORGANIZATION_ROUTE } from "./connectOrganizationRoute";
+import { ORGANIZATIONS_ROUTE } from "./organizationRoutes";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 export type PageMetadata = {
@@ -188,8 +188,8 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Vaults | Samebase";
   }
 
-  if (pathname === CONNECT_ORGANIZATION_ROUTE) {
-    return "Connect organization | Samebase";
+  if (pathname === ORGANIZATIONS_ROUTE || pathname === `${ORGANIZATIONS_ROUTE}/`) {
+    return "Organizations | Samebase";
   }
 
   if (pathname === "/pricing") {

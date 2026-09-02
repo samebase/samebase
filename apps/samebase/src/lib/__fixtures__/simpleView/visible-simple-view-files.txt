@@ -44,7 +44,6 @@ apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted-s
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
-apps/samebase/e2e/connect-organization-visual.spec.ts-snapshots/connect-organization-page.png
 apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-github-unavailable.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
@@ -147,6 +146,7 @@ apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-con
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-providers-authorization-error.png
 apps/samebase/e2e/organization-members-page-visual.spec.ts-snapshots/organization-members-page-owner-mobile.png
 apps/samebase/e2e/organization-members-page-visual.spec.ts-snapshots/organization-members-page-owner.png
+apps/samebase/e2e/organizations-visual.spec.ts-snapshots/organizations-page.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-interactive.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
@@ -182,9 +182,9 @@ apps/samebase/e2e/terms-acceptance-visual.spec.ts-snapshots/terms-acceptance-des
 apps/samebase/e2e/terms-acceptance-visual.spec.ts-snapshots/terms-acceptance-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-build-status-unavailable-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-builds-repair-mobile.png
-apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-normalized-name-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-loading-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-mobile.png
+apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-normalized-name-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-github-authorization-failed.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-convex-dialog-error.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-convex-dialog-loading.png
@@ -513,6 +513,7 @@ research/2026-08-03-agent-context-removal-audit.md
 research/2026-08-06-provider-connection-authorization-audit.md
 research/2026-08-09-carpet-shuffle-hover-study.md
 research/2026-08-28-sidebars-package-publishing.md
+research/2026-08-30-convex-deployment-region-support.md
 research/agent-context-draft-bundle/noter-manifest.md
 research/agent-context-draft-overlays/noter-app-template.md
 research/agent-context-draft-overlays/noter-convex.md

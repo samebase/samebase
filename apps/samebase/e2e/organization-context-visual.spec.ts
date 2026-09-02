@@ -61,7 +61,7 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
   await expect(
     page.getByText("Connect a GitHub account or organization to Samebase.", { exact: true }),
   ).toBeVisible();
-  await expect(emptyInventory.getByRole("button", { name: "Connect organization" })).toBeVisible();
+  await expect(emptyInventory.getByRole("button", { name: "Add organization" })).toBeVisible();
   await expect(page).toHaveScreenshot("organization-context-zero-membership.png", {
     ...screenshotOptions,
     fullPage: true,
@@ -69,11 +69,14 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
-  const contextControl = rightPane.getByTestId("organization-context-control");
-  await expect(contextControl.getByText("No organization selected", { exact: true })).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
-  await expect(contextControl.getByRole("button", { name: "Connect organization" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
+  await expect(rightPane.getByTestId("organization-context-control")).toHaveCount(0);
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
+
+  await emptyInventory.getByRole("button", { name: "Add organization" }).click();
+  await expect(page).toHaveURL(/\/org$/u);
+  await expect(page.getByRole("heading", { name: "Organizations" })).toBeVisible();
 });
 
 test("groups the global inventory and exposes every organization context", async ({
@@ -122,10 +125,11 @@ test("groups the global inventory and exposes every organization context", async
   const contextMenu = page.getByRole("menu");
   await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
   await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-alpha" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-beta" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-zeta" })).toBeVisible();
-  await expect(contextMenu.getByRole("menuitem", { name: "Connect organization" })).toBeVisible();
+  await expect(contextMenu.getByRole("menuitem", { name: "Organizations" })).toHaveCount(0);
   const renderedMarkup = await page.locator("body").innerHTML();
   for (const organizationId of fixture.organizationIds) {
     expect(renderedMarkup).not.toContain(organizationId);
@@ -136,6 +140,16 @@ test("groups the global inventory and exposes every organization context", async
     mask: [page.locator('iframe[title="Samebase onboarding: Complete setup from scratch"]')],
     maskColor: "#d1d5db",
   });
+
+  await page.keyboard.press("Escape");
+  await rightPane.getByRole("link", { name: "Organizations" }).click();
+  await expect(page).toHaveURL(/\/org$/u);
+  await expect(page.getByRole("heading", { name: "Organizations" })).toBeVisible();
+  for (const ownerLogin of ["org-context-alpha", "org-context-beta", "org-context-zeta"]) {
+    await expect(
+      page.getByRole("button", { name: `Open ${ownerLogin} in Samebase` }),
+    ).toBeVisible();
+  }
 });
 
 test("persists one user's collapsed organization across vault routes", async ({
@@ -369,6 +383,7 @@ test("keeps a lost organization route unavailable before its root redirect", asy
       .getByText("org-context-lost-org", { exact: true }),
   ).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
 
   await openRoute(page, "/org/org-context-lost-org/settings");
@@ -402,6 +417,7 @@ test("shows explicit lost access for a retained vault route", async ({ page }, t
       .getByText("org-context-lost-vault", { exact: true }),
   ).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
   await expect(rightPane.getByText("private-app", { exact: true })).toHaveCount(0);
 });
@@ -548,6 +564,8 @@ test.describe("small screen organization context", () => {
       const contextMenu = page.getByRole("menu");
       await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
       await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+      await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
+      await expect(contextMenu.getByRole("menuitem", { name: "Organizations" })).toHaveCount(0);
       await expect(
         contextMenu.getByRole("menuitem", { name: "org-context-mobile-alpha" }),
       ).toBeVisible();

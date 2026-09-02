@@ -2,11 +2,10 @@ import { describe, expect, it } from "vite-plus/test";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "./routeAccessMetadata";
 
 describe("route access metadata", () => {
-  it("keeps organization connection in the global app surface", () => {
-    expect(ROUTE_ACCESS_METADATA_BY_PATH["/connect-organization"]).toMatchObject({
-      access: "access_app_create",
+  it("keeps the organization directory in the global app surface", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/org"]).toEqual({
+      access: "access_dashboard",
       appWorkspaceRouteChrome: { leftPane: "none" },
-      pathSuggestion: "hidden",
     });
   });
 

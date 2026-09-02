@@ -25,6 +25,7 @@ import {
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
   ORGANIZATION_VAULTS_ROUTE,
+  ORGANIZATIONS_ROUTE,
 } from "@/lib/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
@@ -301,7 +302,11 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   );
 }
 
-function GlobalAppRightSidebarLinks() {
+function GlobalAppRightSidebarLinks({
+  showOrganizations = false,
+}: {
+  showOrganizations?: boolean;
+}) {
   return (
     <nav
       aria-label="Account"
@@ -310,6 +315,11 @@ function GlobalAppRightSidebarLinks() {
       <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
         All vaults
       </Link>
+      {showOrganizations ? (
+        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={ORGANIZATIONS_ROUTE}>
+          Organizations
+        </Link>
+      ) : null}
     </nav>
   );
 }
@@ -413,7 +423,7 @@ function AuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
-      <GlobalAppRightSidebarLinks />
+      <GlobalAppRightSidebarLinks showOrganizations />
       <OrganizationContextControl />
       {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
       {organizationContextPending || routedOrganization === null ? null : (

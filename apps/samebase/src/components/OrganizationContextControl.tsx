@@ -4,10 +4,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CONNECT_ORGANIZATION_ROUTE } from "@/lib/connectOrganizationRoute";
 import { personalOrganizationsFirst } from "@/lib/organizationOrder";
 import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -28,37 +26,21 @@ export function OrganizationContextControl() {
   const navigate = useNavigate();
   const location = useLocation();
   const displayedLabel = readContextLabel(surface);
+  const orderedOrganizations = personalOrganizationsFirst(organizations ?? []);
   if (displayedLabel === null) {
     return null;
   }
-
-  const orderedOrganizations = personalOrganizationsFirst(organizations ?? []);
-  const hasOrganizations = orderedOrganizations.length > 0;
-  const navigateToConnection = () => {
-    void navigate({ to: CONNECT_ORGANIZATION_ROUTE });
-  };
-  if (!hasOrganizations) {
-    return (
+  if (orderedOrganizations.length === 0) {
+    return surface.kind === "organization" ? (
       <div
-        className="vault-dashboard-sidebar-inset flex min-w-0 flex-col items-start gap-3 border-b border-border/50 py-3"
+        className="vault-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
         data-testid="organization-context-control"
       >
         <span className="block w-full min-w-0 truncate text-sm font-medium" title={displayedLabel}>
           {displayedLabel}
         </span>
-        {surface.kind === "allVaults" && organizations !== undefined ? (
-          <Button
-            className="h-auto min-w-0 justify-start whitespace-normal p-0 text-left text-base font-normal underline underline-offset-4 hover:bg-transparent"
-            onClick={navigateToConnection}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Connect organization
-          </Button>
-        ) : null}
       </div>
-    );
+    ) : null;
   }
 
   const navigateToOrganization = (owner: string) => {
@@ -102,8 +84,6 @@ export function OrganizationContextControl() {
               {organization.githubOwnerLogin}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={navigateToConnection}>Connect organization</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

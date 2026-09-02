@@ -644,14 +644,16 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("Nicu");
     expect(hydratedMarkup).toContain('href="/vault"');
     expect(hydratedMarkup).toContain("All vaults");
-    expect(hydratedMarkup).toContain("No organization selected");
+    expect(hydratedMarkup).toContain('href="/org"');
+    expect(hydratedMarkup).toContain("Organizations");
+    expect(hydratedMarkup).not.toContain("No organization selected");
     expect(hydratedMarkup).not.toContain("/settings/mcp");
     expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("/org/");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
-    expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
+    expect(hydratedMarkup).not.toContain('data-testid="organization-context-control"');
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
     expect(hydratedMarkup).not.toContain("youtube-nocookie.com");
@@ -904,14 +906,17 @@ describe("AppRightSidebarContent", () => {
     );
     expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
     expect(hydratedMarkup).toContain("All vaults");
+    expect(hydratedMarkup).toContain("Organizations");
     expect(hydratedMarkup).toContain("Account settings");
     const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
     const allVaultsIndex = hydratedMarkup.indexOf('href="/vault"');
+    const organizationsIndex = hydratedMarkup.indexOf('href="/org"');
     const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
     const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(allVaultsIndex).toBeGreaterThan(accountIndex);
-    expect(contextIndex).toBeGreaterThan(allVaultsIndex);
+    expect(organizationsIndex).toBeGreaterThan(allVaultsIndex);
+    expect(contextIndex).toBeGreaterThan(organizationsIndex);
     expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
   });
 
@@ -946,6 +951,7 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).toContain('href="/org"');
     expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).not.toContain("Organization settings");
   });

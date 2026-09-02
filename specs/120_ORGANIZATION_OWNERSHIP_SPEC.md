@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-30
+- Last updated: 2026-09-02
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -103,10 +103,10 @@ those tokens. The App private key and client secret stay in deployment secrets.
 GitHub authorization setup uses short-lived state bound to the signed-in Samebase user and the
 stable GitHub sign-in identity. The callback reads the GitHub user, repeats the identity check, and
 stores one durable authorization in the server-only `githubUserAuthorizations` table. The browser
-never receives an access token, refresh token, or credential handle. `/connect-organization` uses
-that authorization to list App installations that the linked GitHub user can see. It silently
-refreshes the authorization when possible and asks the user to authorize GitHub only when the
-authorization is missing, expired, or revoked. Visibility is not creation authority.
+never receives an access token, refresh token, or credential handle. `/org` uses that authorization
+to list App installations that the linked GitHub user can see. It silently refreshes the
+authorization when possible and asks the user to authorize GitHub only when the authorization is
+missing, expired, or revoked. Visibility is not creation authority.
 
 Only direct `user_authorization` OAuth issues or rotates the durable GitHub user credentials. GitHub
 App installation and reconnect callbacks use separate one-use state and the saved authorization.
@@ -120,7 +120,8 @@ access, then creates the organization only when the stable owner, owner login, a
 are still unbound. It does not trust a callback or client `installation_id` by itself.
 
 A repeated connection request opens the created organization and does not create another
-organization. The successful page navigation replaces the connection page in browser history.
+organization. The successful page navigation replaces the Organizations directory in browser
+history.
 
 If the owner is already connected, Samebase opens it for a current member. A verified GitHub owner
 or organization administrator without Samebase membership gets an invitation explanation and no
@@ -409,8 +410,8 @@ After deployment:
 
 1. A retained user signs in.
 2. The user connects one GitHub identity as a sign-in method.
-3. The user opens `/connect-organization` and authorizes that same GitHub identity when no usable
-   durable GitHub App user authorization exists.
+3. The user opens `/org` and authorizes that same GitHub identity when no usable durable GitHub App
+   user authorization exists.
 4. The user selects an unbound verified installation. The final live check creates the GitHub-backed
    organization, first membership, and billing row.
 5. The operator adds the second retained user through the internal membership function.
@@ -449,16 +450,16 @@ The rollout is ready only when focused tests and real manual checks prove:
   absent or different at setup start, callback, or authorization use.
 - A GitHub organization installation succeeds only when the linked GitHub identity is a live
   administrator of that organization and can see the exact installation.
-- `/connect-organization` lists only current App installations visible to the authorized GitHub
-  user. It uses the saved authorization without a route session, prompts only when authorization is
-  required, and rechecks live owner authority and current Samebase app-creation access when Connect
-  is selected.
+- `/org` lists current Samebase memberships first. It then lists only current App installations
+  visible to the authorized GitHub user that are not already represented by a membership. It uses
+  the saved authorization without a route session, prompts only when authorization is required, and
+  rechecks live owner authority and current Samebase app-creation access when Connect is selected.
 - Losing Samebase app-creation access before final creation creates no organization.
 - Retrying connection after a lost successful response opens the one created organization without
   duplicate data.
-- A current Samebase member gets an Open action. A verified GitHub owner without Samebase membership
-  gets an invitation explanation. A GitHub user without live owner authority gets no connection
-  disclosure or Connect action.
+- A current Samebase membership gets an Open action independently of GitHub discovery. A verified
+  GitHub owner without Samebase membership gets an invitation explanation. A GitHub user without
+  live owner authority gets no connection disclosure or Connect action.
 - If another user binds an installation between listing and selection, the final mutation creates no
   membership and does not replace the stored installation.
 - Reinstalling the App for that owner updates the existing organization without a duplicate.

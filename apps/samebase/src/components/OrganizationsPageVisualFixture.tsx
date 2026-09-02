@@ -1,7 +1,16 @@
 import {
-  ConnectOrganizationPageView,
-  type ConnectOrganizationOption,
-} from "./ConnectOrganizationPage";
+  OrganizationsPageView,
+  type OrganizationConnectionOption,
+  type OrganizationsPageOrganization,
+} from "./OrganizationsPage";
+
+const organizations = [
+  {
+    githubOwnerId: "visual-open-owner",
+    githubOwnerType: "organization",
+    githubOwnerLogin: "samebase",
+  },
+] satisfies OrganizationsPageOrganization[];
 
 const options = [
   {
@@ -9,13 +18,6 @@ const options = [
     installationId: "visual-connect",
     githubOwnerType: "organization",
     githubOwnerLogin: "new-product-team",
-  },
-  {
-    status: "open",
-    installationId: "visual-open",
-    githubOwnerType: "organization",
-    githubOwnerLogin: "samebase",
-    organizationOwnerLogin: "samebase",
   },
   {
     status: "invite_required",
@@ -29,11 +31,11 @@ const options = [
     githubOwnerType: "organization",
     githubOwnerLogin: "engineering-tools",
   },
-] satisfies ConnectOrganizationOption[];
+] satisfies OrganizationConnectionOption[];
 
-export function ConnectOrganizationPageVisualFixture() {
+export function OrganizationsPageVisualFixture() {
   return (
-    <ConnectOrganizationPageView
+    <OrganizationsPageView
       error={null}
       isAuthorizing={false}
       isInstalling={false}
@@ -42,7 +44,11 @@ export function ConnectOrganizationPageVisualFixture() {
       onInstall={() => {}}
       onRetry={() => {}}
       pendingInstallationId={null}
-      state={{ status: "ready", options }}
+      state={{
+        status: "ready",
+        organizations,
+        discovery: { status: "ready", options },
+      }}
     />
   );
 }

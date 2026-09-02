@@ -3,16 +3,16 @@ import { useCallback } from "react";
 
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
-import { ConnectOrganizationPage } from "@/components/ConnectOrganizationPage";
-import { CONNECT_ORGANIZATION_ROUTE } from "@/lib/connectOrganizationRoute";
+import { OrganizationsPage } from "@/components/OrganizationsPage";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
 import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 
-const CONNECT_ORGANIZATION_AUTHORIZATION_SOURCES = ["github-app", "github-user"] as const;
+const ORGANIZATIONS_AUTHORIZATION_SOURCES = ["github-app", "github-user"] as const;
 
-function ConnectOrganizationRouteComponent() {
+function OrganizationsRouteComponent() {
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
   const consumeAuthorizationError = useCallback(() => {
@@ -25,10 +25,10 @@ function ConnectOrganizationRouteComponent() {
     });
   }, [navigate]);
   const authorizationError = useAuthorizationErrorNotice({
-    allowedProviders: CONNECT_ORGANIZATION_AUTHORIZATION_SOURCES,
+    allowedProviders: ORGANIZATIONS_AUTHORIZATION_SOURCES,
     onConsume: consumeAuthorizationError,
     search,
-    scopeKey: "connect-organization",
+    scopeKey: "organizations",
   });
   const authorizationNotice = authorizationError ? (
     <AuthorizationErrorNotice>
@@ -38,12 +38,12 @@ function ConnectOrganizationRouteComponent() {
 
   return (
     <AuthenticatedAppRoutePage>
-      <ConnectOrganizationPage authorizationNotice={authorizationNotice} />
+      <OrganizationsPage authorizationNotice={authorizationNotice} />
     </AuthenticatedAppRoutePage>
   );
 }
 
-export const Route = createFileRoute("/connect-organization")({
-  component: ConnectOrganizationRouteComponent,
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH[CONNECT_ORGANIZATION_ROUTE],
+export const Route = createFileRoute("/org")({
+  component: OrganizationsRouteComponent,
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH[ORGANIZATIONS_ROUTE],
 });

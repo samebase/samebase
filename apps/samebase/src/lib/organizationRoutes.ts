@@ -1,3 +1,4 @@
+export const ORGANIZATIONS_ROUTE = "/org";
 export const ORGANIZATION_ROUTE = "/org/$owner";
 export const ORGANIZATION_VAULTS_ROUTE = "/org/$owner/vaults";
 export const ORGANIZATION_PROVIDERS_ROUTE = "/org/$owner/providers";
