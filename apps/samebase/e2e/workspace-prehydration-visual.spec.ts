@@ -22,6 +22,11 @@ const STABLE_VIEWPORT_CAPTURE = {
   y: 0,
 } as const;
 const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
+html {
+  /* Compare layout without Linux LCD subpixel color drift under parallel load. */
+  -webkit-font-smoothing: antialiased;
+}
+
 [data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] {
   display: none !important;
 }
