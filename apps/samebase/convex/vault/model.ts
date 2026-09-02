@@ -224,6 +224,7 @@ export const vaultTables = {
       "state",
       "deletion.state",
     ])
+    .index("by_tree_refresh_started_at", ["treeRefreshStartedAt"])
     .index("by_ghRepoId", ["ghRepoId"])
     .index("by_organization_and_name", ["organizationId", "name"]),
 

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type QueryCtx } from "../_generated/server";
+import { requireRepositoryAuthorityContinuation } from "../repositoryMigration/maintenance";
 
 const { id, object, string } = v;
 
@@ -24,6 +25,7 @@ export async function readOwnedActiveRun(
     throw new Error("Account deletion workflow ownership changed.");
   }
 
+  await requireRepositoryAuthorityContinuation(ctx);
   return run;
 }
 

@@ -1,7 +1,7 @@
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v, type Infer } from "convex/values";
-import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
+import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../../shared/githubUserTokenRefresh";
 import { readOwnedActiveRun } from "./stepContext";
 
 type AccountDeletionTablePolicy =
@@ -59,6 +59,30 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   observations_vaultFiles_blobs: "organization_preserved",
   ui_vaultFileTree_folderExpansions: "account_data",
   vaultStagedFileUpdates: "organization_preserved",
+  ui_repositoryPullRequests_filters: "account_data",
+  ui_repositoryResourceLinks_settings: "account_data",
+  ui_repositoryTree_folders: "account_data",
+  ui_repositoryTree_folderAssignments: "account_data",
+  ui_repositoryTree_organizationSettings: "account_data",
+  repositories: "organization_preserved",
+  repositoryCloudflareWorkers: "organization_preserved",
+  repositoryConvexProjects: "organization_preserved",
+  observations_repositoryConvexSchema_snapshots: "organization_preserved",
+  ui_repositoryConvexSchemaGraph_nodeLayouts: "account_data",
+  observations_repository_branchTrees: "organization_preserved",
+  workflow_repositoryProvisioning_plans: "organization_preserved",
+  workflow_repositoryProvisioning_writeLocks: "organization_preserved",
+  workflow_repositoryProvisioning_runs: "organization_preserved",
+  workflow_repositoryProvisioning_events: "organization_preserved",
+  workflow_repositoryDeletion_runs: "organization_preserved",
+  workflow_repositoryDeletion_events: "organization_preserved",
+  repositoryStagedFiles: "organization_preserved",
+  observations_repositoryFiles_blobs: "organization_preserved",
+  ui_repositoryFileTree_folderExpansions: "account_data",
+  repositoryStagedFileUpdates: "organization_preserved",
+  repositoryMigrationIdMaps: "global",
+  repositoryWriteGates: "global",
+  repositoryOperationLeases: "global",
   mcpOauthClients: "global",
   mcpAuthorizationRequests: "account_data",
   mcpAuthorizationCodes: "account_data",
@@ -260,6 +284,57 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     const rows = await ctx.db
       .query("ui_vaultFileTree_folderExpansions")
       .withIndex("by_user_and_vault", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryPullRequests_filters: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryPullRequests_filters")
+      .withIndex("by_user", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryResourceLinks_settings: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryResourceLinks_settings")
+      .withIndex("by_user", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryTree_folderAssignments: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryTree_folderAssignments")
+      .withIndex("by_userId_and_organizationId_and_repositoryId", (query) =>
+        query.eq("userId", userId),
+      )
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryTree_folders: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryTree_folders")
+      .withIndex("by_userId_and_organizationId_and_position", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryTree_organizationSettings: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryTree_organizationSettings")
+      .withIndex("by_userId_and_organizationId", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryConvexSchemaGraph_nodeLayouts: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryConvexSchemaGraph_nodeLayouts")
+      .withIndex("by_user_repository_project", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_repositoryFileTree_folderExpansions: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_repositoryFileTree_folderExpansions")
+      .withIndex("by_user_and_repository", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },

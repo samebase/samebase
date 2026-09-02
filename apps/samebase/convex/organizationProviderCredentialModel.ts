@@ -95,7 +95,8 @@ export const organizationProviderCredentialTables = {
   organizationProviderCredentials: defineTable(vOrganizationProviderCredentials)
     .index("by_organization", ["organizationId"])
     .index("by_convex_connected_by_user", ["convex.connectedByUserId"])
-    .index("by_cloudflare_connected_by_user", ["cloudflare.connectedByUserId"]),
+    .index("by_cloudflare_connected_by_user", ["cloudflare.connectedByUserId"])
+    .index("by_cloudflare_token_refresh_expiry", ["cloudflare.tokenRefreshLease.expiresAt"]),
 
   /** Short-lived requests that bind a provider OAuth callback to an organization. */
   providerOAuthCallbackStates: defineTable(vProviderOAuthCallbackState)

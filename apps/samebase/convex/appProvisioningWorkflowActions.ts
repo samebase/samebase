@@ -81,6 +81,24 @@ async function getProvisioningRun(
   return run;
 }
 
+async function requireProvisioningContinuation(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+  },
+): Promise<void> {
+  await ctx.runMutation(internal.vaultWorkflowAuthority.assertVaultProviderWorkflowContinuation, {
+    authority: {
+      kind: "provisioning",
+      runId: args.runId,
+      userId: args.userId,
+      vaultId: args.vaultId,
+    },
+  });
+}
+
 function requireMatchingGitHubOwnerLogin(args: {
   expectedOwnerLogin: string;
   repositoryOwner: string;
@@ -252,6 +270,7 @@ export const validateCreateAppConnections = internalAction({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await assertCreateRun(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -322,6 +341,7 @@ export const createGitHubRepository = internalAction({
   returns: githubRepositoryResult,
   handler: async (ctx, args): Promise<GitHubRepositoryResult> => {
     await assertCreateRun(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     const repoName = toSafeRepoName(args.repositoryName);
     if (!repoName) {
@@ -430,6 +450,7 @@ export const fetchExistingGitHubRepository = internalAction({
   returns: githubRepositoryResult,
   handler: async (ctx, args): Promise<GitHubRepositoryResult> => {
     await assertConnectExistingRepositoryRun(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -520,6 +541,7 @@ export const seedStarterRepository = internalAction({
   handler: async (ctx, args) => {
     await assertCreateRun(ctx, args);
     await requireConnectedVaultRepositoryIdentity(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -599,6 +621,7 @@ export const createVaultForRepository = internalAction({
   returns: vaultCreatedResult,
   handler: async (ctx, args): Promise<{ vaultId: Id<"vaults"> }> => {
     await assertCreateRun(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -644,6 +667,7 @@ export const connectExistingRepositoryVault = internalAction({
   returns: vaultCreatedResult,
   handler: async (ctx, args): Promise<{ vaultId: Id<"vaults"> }> => {
     await assertConnectExistingRepositoryRun(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -686,6 +710,7 @@ export const syncVaultTreeForRepository = internalAction({
   handler: async (ctx, args): Promise<null> => {
     await assertSourceSetupRun(ctx, args);
     await requireConnectedVaultRepositoryIdentity(ctx, args);
+    await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -770,6 +795,12 @@ export const syncVaultTreeForRepository = internalAction({
       branch: defaultBranch,
       treeData: tree.data,
       commitSHA: branchData.data.commit.sha,
+      authority: {
+        kind: "provisioning",
+        runId: args.runId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
     });
 
     await appendRunEvent(ctx, {

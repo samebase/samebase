@@ -14,8 +14,15 @@ import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { requireVaultForUser, requireVaultOrganization } from "../../organizationAccess";
-import { requireActiveVaultDeletionAuthority } from "../../vaultWorkflowAuthority";
+import {
+  requireActiveVaultDeletionContinuation,
+  requireActiveVaultDeletionRun,
+} from "../../vaultWorkflowAuthority";
 import { readActiveUser } from "../../userLifecycle";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationStart,
+} from "../../repositoryMigration/maintenance";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -311,6 +318,7 @@ export const createInitialRun = internalMutation({
       convexProjects,
       options: args.options,
     });
+    await requireRepositoryOperationStart(ctx);
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
       organizationId: vault.organizationId,
@@ -386,6 +394,7 @@ export const createRetryRun = internalMutation({
     }
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);
+    await requireRepositoryOperationStart(ctx);
 
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
@@ -444,6 +453,7 @@ export const markWorkflowStarted = internalMutation({
     if (run.state === "succeeded" || run.state === "failed") {
       return null;
     }
+    await requireActiveVaultDeletionContinuation(ctx, { runId: args.runId });
 
     await ctx.db.patch(args.runId, {
       state: "running",
@@ -477,6 +487,7 @@ export const appendRunEvent = internalMutation({
     if (args.state === "running" && run.workflow.state !== "started") {
       throw new Error("Deletion workflow has not started.");
     }
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     await appendDeletionEvent(ctx, {
@@ -511,7 +522,7 @@ export const claimWorkflowRun = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const authority = await requireActiveVaultDeletionAuthority(ctx.db, {
+    const authority = await requireActiveVaultDeletionContinuation(ctx, {
       runId: args.runId,
     });
     const { run } = authority;
@@ -550,24 +561,22 @@ export const markWorkflowFailed = internalMutation({
     if (run.state === "succeeded") {
       return null;
     }
+    await requireActiveVaultDeletionRun(ctx.db, { runId: args.runId });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
+    await appendDeletionEvent(ctx, {
+      run,
+      step: run.currentStep,
+      level: "error",
+      message: args.message,
+      createdAt: now,
+    });
     await ctx.db.patch(args.runId, {
       state: "failed",
       lastError: args.message,
       completedAt: now,
       updatedAt: now,
-    });
-    const failedRun = await ctx.db.get(args.runId);
-    if (!failedRun) {
-      throw new Error("Deletion run not found.");
-    }
-    await appendDeletionEvent(ctx, {
-      run: failedRun,
-      step: run.currentStep,
-      level: "error",
-      message: args.message,
-      createdAt: now,
     });
 
     const vault = await ctx.db.get(run.vaultId);
@@ -604,8 +613,17 @@ export const finishWorkflowRun = internalMutation({
     if (run.workflow.state !== "started") {
       throw new Error("Deletion workflow has not started.");
     }
+    await requireActiveVaultDeletionRun(ctx.db, { runId: args.runId });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
+    await appendDeletionEvent(ctx, {
+      run,
+      step: "finish",
+      level: "info",
+      message: "Deleted vault.",
+      createdAt: now,
+    });
     await ctx.db.patch(args.runId, {
       state: "succeeded",
       currentStep: "finish",
@@ -614,17 +632,6 @@ export const finishWorkflowRun = internalMutation({
       },
       completedAt: now,
       updatedAt: now,
-    });
-    const finishedRun = await ctx.db.get(args.runId);
-    if (!finishedRun) {
-      throw new Error("Deletion run not found.");
-    }
-    await appendDeletionEvent(ctx, {
-      run: finishedRun,
-      step: "finish",
-      level: "info",
-      message: "Deleted vault.",
-      createdAt: now,
     });
 
     return null;

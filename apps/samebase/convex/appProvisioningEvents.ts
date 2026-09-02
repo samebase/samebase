@@ -3,6 +3,8 @@ import { internalMutation } from "./_generated/server";
 import { query } from "./functions";
 import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./appProvisioningModel";
 import { findVaultForUser } from "./organizationAccess";
+import { requireRepositoryAuthorityContinuation } from "./repositoryMigration/maintenance";
+import { requireActiveVaultProvisioningRun } from "./vaultWorkflowAuthority";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
@@ -49,6 +51,12 @@ export const append = internalMutation({
     ) {
       throw new Error("Provisioning event does not match its run.");
     }
+    await requireActiveVaultProvisioningRun(ctx.db, {
+      runId: args.runId,
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     await ctx.db.insert("workflow_vaultProvisioning_events", {
       userId: args.userId,

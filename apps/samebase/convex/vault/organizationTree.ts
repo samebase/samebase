@@ -6,6 +6,7 @@ import {
   requireOrganizationAccessContext,
 } from "../organizationAccess";
 import { vVaultOrganizationTreeSetting } from "./organizationTreeModel";
+import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, boolean, id } = v;
 
@@ -44,6 +45,7 @@ export const setVaultOrganizationCollapsed = mutation({
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });
+    await requireRepositoryOperationStart(ctx);
     const existing = await ctx.db
       .query("ui_vaultOrganizationTree_settings")
       .withIndex("by_userId_and_organizationId", (indexQuery) =>

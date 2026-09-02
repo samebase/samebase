@@ -8,6 +8,7 @@ import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { isRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
+const COMMIT_STATUS_OPERATION = "commit_status";
 
 const checkRunValidator = object({
   id: number(),
@@ -209,71 +210,90 @@ export const getCommitStatus = action({
       return cooldownResult;
     }
 
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: ctx.viewer.userId,
-      target: { kind: "vault", vaultId: vault._id },
-    });
-    const octokit = githubAccess.octokit;
-
+    const operationId = crypto.randomUUID();
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName: COMMIT_STATUS_OPERATION,
+      },
+    );
     try {
-      const [checksResponse, combinedStatusResponse] = await Promise.all([
-        octokit.checks.listForRef({
-          owner,
-          repo,
-          ref,
-        }),
-        octokit.repos.getCombinedStatusForRef({
-          owner,
-          repo,
-          ref,
-        }),
-      ]);
-
-      const okResult: CommitStatusOkResult = {
-        kind: "ok",
-        check_runs: checksResponse.data.check_runs.map((run) => ({
-          id: run.id,
-          name: run.name,
-          status: run.status,
-          conclusion: run.conclusion ?? null,
-          html_url: run.html_url ?? "",
-        })),
-        statuses: combinedStatusResponse.data.statuses.map((status) => ({
-          id: status.id,
-          state: status.state,
-          context: status.context,
-          description: status.description ?? null,
-          target_url: status.target_url ?? null,
-        })),
-      };
-      return okResult;
-    } catch (error) {
-      const status = getErrorStatus(error);
-      const message = getErrorMessage(error);
-      const headers = getErrorHeaders(error);
-
-      if (!isRateLimitError(status, headers, message)) {
-        throw error;
-      }
-
-      const failure = describeRepositoryTreeRefreshFailure(error);
-      await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
-        vaultId: vault._id,
-        failureKind: failure.kind,
-        failureMessage: failure.message,
-        cooldownUntil: failure.cooldownUntil,
+      const githubAccess = await resolveGitHubAppAccess(ctx, {
+        userId: ctx.viewer.userId,
+        target: { kind: "vault", vaultId: vault._id },
       });
+      const octokit = githubAccess.octokit;
 
-      const resetAtSeconds = parsePositiveInteger(getHeaderValue(headers, "x-ratelimit-reset"));
-      const retryAfterSeconds = parsePositiveInteger(getHeaderValue(headers, "retry-after"));
+      try {
+        const [checksResponse, combinedStatusResponse] = await Promise.all([
+          octokit.checks.listForRef({
+            owner,
+            repo,
+            ref,
+          }),
+          octokit.repos.getCombinedStatusForRef({
+            owner,
+            repo,
+            ref,
+          }),
+        ]);
 
-      const rateLimitedResult: CommitStatusRateLimitedResult = {
-        kind: "rate_limited",
-        message: failure.message,
-        resetAtMs: resetAtSeconds === null ? null : resetAtSeconds * 1000,
-        retryAfterMs: retryAfterSeconds === null ? null : retryAfterSeconds * 1000,
-      };
-      return rateLimitedResult;
+        const okResult: CommitStatusOkResult = {
+          kind: "ok",
+          check_runs: checksResponse.data.check_runs.map((run) => ({
+            id: run.id,
+            name: run.name,
+            status: run.status,
+            conclusion: run.conclusion ?? null,
+            html_url: run.html_url ?? "",
+          })),
+          statuses: combinedStatusResponse.data.statuses.map((status) => ({
+            id: status.id,
+            state: status.state,
+            context: status.context,
+            description: status.description ?? null,
+            target_url: status.target_url ?? null,
+          })),
+        };
+        return okResult;
+      } catch (error) {
+        const status = getErrorStatus(error);
+        const message = getErrorMessage(error);
+        const headers = getErrorHeaders(error);
+
+        if (!isRateLimitError(status, headers, message)) {
+          throw error;
+        }
+
+        const failure = describeRepositoryTreeRefreshFailure(error);
+        await ctx.runMutation(internal.vault.branches.recordTreeRefreshFailure, {
+          vaultId: vault._id,
+          failureKind: failure.kind,
+          failureMessage: failure.message,
+          cooldownUntil: failure.cooldownUntil,
+          leaseId: lease.leaseId,
+          operationId,
+          operationName: COMMIT_STATUS_OPERATION,
+        });
+
+        const resetAtSeconds = parsePositiveInteger(getHeaderValue(headers, "x-ratelimit-reset"));
+        const retryAfterSeconds = parsePositiveInteger(getHeaderValue(headers, "retry-after"));
+
+        const rateLimitedResult: CommitStatusRateLimitedResult = {
+          kind: "rate_limited",
+          message: failure.message,
+          resetAtMs: resetAtSeconds === null ? null : resetAtSeconds * 1000,
+          retryAfterMs: retryAfterSeconds === null ? null : retryAfterSeconds * 1000,
+        };
+        return rateLimitedResult;
+      }
+    } finally {
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId: lease.leaseId,
+        operationId,
+        operationName: COMMIT_STATUS_OPERATION,
+      });
     }
   },
 });

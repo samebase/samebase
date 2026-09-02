@@ -48,7 +48,7 @@ async function insertGitHubSignInAccount(
   });
 }
 
-async function seedClaimedGitHubRefresh(email: string, githubUserId: string) {
+async function seedGitHubRefreshCandidate(email: string, githubUserId: string) {
   const t = makeConvexTest();
   const { authorizationId, userId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -77,6 +77,12 @@ async function seedClaimedGitHubRefresh(email: string, githubUserId: string) {
     });
     return { authorizationId, userId };
   });
+  return { authorizationId, t, userId };
+}
+
+async function seedClaimedGitHubRefresh(email: string, githubUserId: string) {
+  const candidate = await seedGitHubRefreshCandidate(email, githubUserId);
+  const { authorizationId, t, userId } = candidate;
   const claim = await t.mutation(internal.githubUserAuthorizations.claimForUse, {
     userId,
     githubUserId,
@@ -85,6 +91,71 @@ async function seedClaimedGitHubRefresh(email: string, githubUserId: string) {
     throw new Error("Expected a GitHub refresh claim.");
   }
   return { authorizationId, claim, t, userId };
+}
+
+async function transitionToDraining(t: ReturnType<typeof makeConvexTest>) {
+  await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+    mode: "draining",
+  });
+}
+
+async function forceFrozenMaintenance(t: ReturnType<typeof makeConvexTest>) {
+  await t.run(async (ctx) => {
+    const gate = await ctx.db
+      .query("repositoryWriteGates")
+      .withIndex("by_scope", (query) => query.eq("scope", "global"))
+      .unique();
+    if (gate === null) {
+      await ctx.db.insert("repositoryWriteGates", {
+        scope: "global",
+        mode: "frozen",
+        changedAt: Date.now(),
+      });
+      return;
+    }
+    await ctx.db.patch(gate._id, { mode: "frozen", changedAt: Date.now() });
+  });
+}
+
+async function createProvisioningAuthority(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Id<"users">,
+) {
+  return await t.run(async (ctx) => {
+    const organizationId = await ctx.db.insert("organizations", {
+      githubOwnerId: "maintenance-owner",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "Maintenance",
+      githubOwnerLoginNormalized: "maintenance",
+      githubInstallationId: "maintenance-installation",
+    });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId, {
+      polarBillingUserId: userId,
+      polarSeatQuantity: 1,
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId,
+      role: "owner",
+    });
+    const vaultId = await ctx.db.insert("vaults", {
+      organizationId,
+      deletion: { state: "not_deleting" },
+      state: "not_connected",
+    });
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
+      userId,
+      vaultId,
+      repositoryFullName: "Maintenance/repository",
+      trigger: "create",
+      state: "running",
+      currentStep: "create_github_repo",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    return { runId, userId, vaultId };
+  });
 }
 
 async function startAccountDeletion(
@@ -289,6 +360,10 @@ describe("viewer GitHub user authorization", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
     vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
+    githubAuthMocks.auth.mockImplementationOnce(async () => {
+      await transitionToDraining(t);
+      return {};
+    });
 
     const result = await t
       .withIdentity({
@@ -306,6 +381,34 @@ describe("viewer GitHub user authorization", () => {
     });
     expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "deleteAuthorization" });
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("repositoryOperationLeases").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("does not start viewer revocation while repository writes drain", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-revoke-maintenance@example.test",
+      "203",
+    );
+    vi.stubEnv("GITHUB_APP_ID", "42");
+    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
+    vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
+    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
+    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
+    await transitionToDraining(t);
+
+    await expect(
+      t
+        .withIdentity({
+          subject: `${userId}|github-revoke-maintenance`,
+          tokenIdentifier: `test:${userId}`,
+        })
+        .action(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization, {}),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+    expect(githubAuthMocks.auth).not.toHaveBeenCalled();
+    await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.not.toBeNull();
   });
 });
 
@@ -583,6 +686,147 @@ describe("GitHub user authorization identity boundaries", () => {
         githubUserId: "801",
       }),
     ).rejects.toMatchObject({ data: "github-sign-in-required" });
+  });
+
+  it("requires normal maintenance mode for a new direct refresh claim", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-refresh-draining@example.test",
+      "904",
+    );
+    await transitionToDraining(t);
+
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.claimForUse, {
+        userId,
+        githubUserId: "904",
+      }),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(authorizationId)),
+    ).resolves.not.toHaveProperty("refreshStartedAt");
+  });
+
+  it("uses the callback lease to refresh authorization while writes drain", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-refresh-callback@example.test",
+      "910",
+    );
+    const operationId = "github-app-callback:refresh-test";
+    const operationName = "github_app_callback";
+    const lease = await t.mutation(internal.repositoryMigration.maintenance.claimOperationLease, {
+      operationId,
+      operationName,
+    });
+    await transitionToDraining(t);
+
+    const claim = await t.mutation(
+      internal.githubUserAuthorizations.claimForAppConnectionUseForOperation,
+      {
+        userId,
+        leaseId: lease.leaseId,
+        operationId,
+        operationName,
+      },
+    );
+    if (claim.kind !== "claimed") {
+      throw new Error("Expected a callback refresh claim.");
+    }
+    await t.mutation(internal.githubUserAuthorizations.finishRefreshForOperation, {
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
+      authorizationId,
+      refreshStartedAt: claim.refreshStartedAt,
+      accessToken: "callback-access-token",
+      accessTokenExpiresAt: Date.now() + 60_000,
+      refreshToken: "callback-refresh-token",
+      refreshTokenExpiresAt: Date.now() + 120_000,
+    });
+    await t.mutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toMatchObject({
+      accessToken: "callback-access-token",
+      refreshToken: "callback-refresh-token",
+    });
+  });
+
+  it("finishes an exact GitHub refresh claim while draining", async () => {
+    const { authorizationId, claim, t } = await seedClaimedGitHubRefresh(
+      "github-refresh-finish-draining@example.test",
+      "905",
+    );
+    await transitionToDraining(t);
+
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.finishRefresh, {
+        authorizationId,
+        refreshStartedAt: claim.refreshStartedAt,
+        accessToken: "new-access-token",
+        accessTokenExpiresAt: Date.now() + 60_000,
+        refreshToken: "new-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 120_000,
+      }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toMatchObject({
+      accessToken: "new-access-token",
+      refreshToken: "new-refresh-token",
+    });
+  });
+
+  it("rejects an exact GitHub refresh claim while frozen", async () => {
+    const { authorizationId, claim, t } = await seedClaimedGitHubRefresh(
+      "github-refresh-frozen@example.test",
+      "906",
+    );
+    await forceFrozenMaintenance(t);
+
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.finishRefresh, {
+        authorizationId,
+        refreshStartedAt: claim.refreshStartedAt,
+        accessToken: "new-access-token",
+        accessTokenExpiresAt: Date.now() + 60_000,
+        refreshToken: "new-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 120_000,
+      }),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.releaseRefresh, {
+        authorizationId,
+        refreshStartedAt: claim.refreshStartedAt,
+      }),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+  });
+
+  it("uses an active provisioning authority for refresh while draining", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-refresh-workflow@example.test",
+      "907",
+    );
+    const authority = await createProvisioningAuthority(t, userId);
+    await transitionToDraining(t);
+
+    const claim = await t.mutation(internal.githubUserAuthorizations.claimForProvisioningRun, {
+      runId: authority.runId,
+      userId: authority.userId,
+      vaultId: authority.vaultId,
+      githubUserId: "907",
+    });
+    if (claim.kind !== "claimed") throw new Error("Expected a workflow refresh claim.");
+    await forceFrozenMaintenance(t);
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.releaseRefreshForProvisioningRun, {
+        runId: authority.runId,
+        userId: authority.userId,
+        vaultId: authority.vaultId,
+        authorizationId,
+        refreshStartedAt: claim.refreshStartedAt,
+      }),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
   });
 
   it("finishes a claimed refresh during deletion and revokes the stored token", async () => {

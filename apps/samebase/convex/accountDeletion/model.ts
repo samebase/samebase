@@ -118,6 +118,7 @@ export const accountDeletionTables = {
       }),
     ),
   )
+    .index("by_state", ["state"])
     .index("by_completion_capability", ["completionCapability"])
     .index("by_updated_at", ["updatedAt"]),
 

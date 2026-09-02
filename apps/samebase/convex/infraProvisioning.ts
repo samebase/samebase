@@ -20,6 +20,8 @@ import {
 } from "./cloudflareResources";
 import { isAppProvisioningProviderStep, type AppProvisioningStep } from "./appProvisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
+import { requireRepositoryAuthorityContinuation } from "./repositoryMigration/maintenance";
+import { requireActiveVaultProvisioningRun } from "./vaultWorkflowAuthority";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
   components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
@@ -519,6 +521,12 @@ export const markWorkflowStartupFailed = internalMutation({
     if (run.state === "succeeded" || run.state === "failed" || run.state === "canceled") {
       return null;
     }
+    await requireActiveVaultProvisioningRun(ctx.db, {
+      runId: run._id,
+      userId: run.userId,
+      vaultId: run.vaultId,
+    });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     const safeRunError = "Provisioning workflow failed to start.";
@@ -574,12 +582,6 @@ async function recordWorkflowRunFailure(
     safeRunError: string;
   },
 ): Promise<void> {
-  await ctx.db.patch(args.run._id, {
-    state: "failed",
-    lastError: args.safeRunError,
-    updatedAt: args.now,
-    completedAt: args.now,
-  });
   await ctx.runMutation(internal.appProvisioningEvents.append, {
     userId: args.run.userId,
     vaultId: args.run.vaultId,
@@ -589,6 +591,12 @@ async function recordWorkflowRunFailure(
     level: "error",
     message: args.safeRunError,
     createdAt: args.now,
+  });
+  await ctx.db.patch(args.run._id, {
+    state: "failed",
+    lastError: args.safeRunError,
+    updatedAt: args.now,
+    completedAt: args.now,
   });
 }
 
@@ -691,12 +699,18 @@ export const markWorkflowProvisioningFailed = internalMutation({
     if (!run) {
       throw new Error("Provisioning run not found.");
     }
-    if (run.state === "succeeded" || run.state === "canceled") {
+    if (run.state === "succeeded" || run.state === "failed" || run.state === "canceled") {
       return null;
     }
     if (run.workflowId && run.workflowId !== args.workflowId) {
       throw new Error("Workflow failure id does not match run.");
     }
+    await requireActiveVaultProvisioningRun(ctx.db, {
+      runId: run._id,
+      userId: run.userId,
+      vaultId: run.vaultId,
+    });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     const eventStep = resolveWorkflowFailureEventStep(run);

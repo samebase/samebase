@@ -12,6 +12,7 @@ import {
   type ActionCtx,
   type DatabaseReader,
   type DatabaseWriter,
+  type MutationCtx,
 } from "./_generated/server";
 import { action, query } from "./functions";
 import {
@@ -22,12 +23,32 @@ import {
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
 import { readActiveUser } from "./userLifecycle";
-import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
+import { requireActiveVaultProvisioningContinuation } from "./vaultWorkflowAuthority";
+import { readOwnedActiveRun } from "./accountDeletion/stepContext";
+import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../shared/githubUserTokenRefresh";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationLease,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 
 const { boolean, id, literal, number, object, string, union } = v;
 
 const GITHUB_USER_TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
-export const GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS = 60 * 1000;
+const GITHUB_APP_CALLBACK_OPERATION = "github_app_callback";
+const GITHUB_USER_AUTHORIZATION_REVOCATION_OPERATION = "github_user_authorization_revocation";
+
+const repositoryOperationLeaseFields = {
+  leaseId: id("repositoryOperationLeases"),
+  operationId: string(),
+  operationName: string(),
+} as const;
+
+type RepositoryOperationLease = {
+  leaseId: Id<"repositoryOperationLeases">;
+  operationId: string;
+  operationName: string;
+};
 
 const vViewerPersonalRepositoryAuthorizationStatus = union(
   object({ status: literal("sign_in_required"), authorizationPresent: boolean() }),
@@ -328,9 +349,20 @@ export async function upsertGitHubUserAuthorization(
   return null;
 }
 
+type GitHubRefreshClaimAuthority =
+  | { kind: "direct" }
+  | ({ kind: "operation" } & RepositoryOperationLease)
+  | {
+      kind: "provisioning";
+      runId: Id<"workflow_vaultProvisioning_runs">;
+      userId: Id<"users">;
+      vaultId: Id<"vaults">;
+    };
+
 async function claimAuthorizationForUse(
-  db: DatabaseWriter,
+  ctx: Pick<MutationCtx, "db">,
   authorization: Doc<"githubUserAuthorizations">,
+  authority: GitHubRefreshClaimAuthority,
 ): Promise<Infer<typeof vGitHubUserAuthorizationUse>> {
   const now = Date.now();
   if (authorization.accessTokenExpiresAt > now + GITHUB_USER_TOKEN_REFRESH_BUFFER_MS) {
@@ -349,7 +381,20 @@ async function claimAuthorizationForUse(
     return { kind: "busy" };
   }
 
-  await db.patch(authorization._id, { refreshStartedAt: now });
+  switch (authority.kind) {
+    case "direct":
+      await requireRepositoryOperationStart(ctx);
+      break;
+    case "operation":
+      await requireRepositoryOperationLease(ctx, authority);
+      break;
+    case "provisioning":
+      await requireActiveVaultProvisioningContinuation(ctx, authority);
+      break;
+    default:
+      authority satisfies never;
+  }
+  await ctx.db.patch(authorization._id, { refreshStartedAt: now });
   return {
     kind: "claimed",
     authorization: toAuthorizationForUse(authorization),
@@ -358,15 +403,16 @@ async function claimAuthorizationForUse(
 }
 
 async function claimForUseAfterAuthority(
-  db: DatabaseWriter,
+  ctx: Pick<MutationCtx, "db">,
   args: { userId: Id<"users">; githubUserId: string },
+  authority: GitHubRefreshClaimAuthority,
 ): Promise<Infer<typeof vGitHubUserAuthorizationUse>> {
-  await requireMatchingGitHubSignIn(db, args);
-  const authorization = await getByUser(db, args.userId);
+  await requireMatchingGitHubSignIn(ctx.db, args);
+  const authorization = await getByUser(ctx.db, args.userId);
   if (authorization === null || authorization.githubUserId !== args.githubUserId) {
     throw new Error("GitHub user authorization is not available for this owner.");
   }
-  return await claimAuthorizationForUse(db, authorization);
+  return await claimAuthorizationForUse(ctx, authorization, authority);
 }
 
 export const claimForUse = internalMutation({
@@ -380,9 +426,35 @@ export const claimForUse = internalMutation({
     if (user === null || readActiveUser(user) === null) {
       throw new Error("An active Samebase user is required.");
     }
-    return await claimForUseAfterAuthority(ctx.db, args);
+    return await claimForUseAfterAuthority(ctx, args, { kind: "direct" });
   },
 });
+
+async function claimForAppConnectionUseAfterAuthority(
+  ctx: Pick<MutationCtx, "db">,
+  userId: Id<"users">,
+  authority: GitHubRefreshClaimAuthority,
+): Promise<Infer<typeof vGitHubUserAuthorizationForAppConnectionUse>> {
+  const user = await ctx.db.get(userId);
+  if (user === null || readActiveUser(user) === null) {
+    throw new Error("An active Samebase user is required.");
+  }
+  const githubSignInProviderAccountId = await readGitHubSignInProviderAccountId(ctx.db, userId);
+  if (githubSignInProviderAccountId === null) {
+    return { kind: "github_sign_in_required" };
+  }
+  const authorization = await getByUser(ctx.db, userId);
+  if (authorization === null) {
+    return { kind: "authorization_required" };
+  }
+  if (authorization.githubUserId !== githubSignInProviderAccountId) {
+    return { kind: "github_sign_in_required" };
+  }
+  if (authorization.refreshTokenExpiresAt <= Date.now()) {
+    return { kind: "authorization_required" };
+  }
+  return await claimAuthorizationForUse(ctx, authorization, authority);
+}
 
 export const claimForAppConnectionUse = internalMutation({
   args: { userId: id("users") },
@@ -391,28 +463,30 @@ export const claimForAppConnectionUse = internalMutation({
     ctx,
     args,
   ): Promise<Infer<typeof vGitHubUserAuthorizationForAppConnectionUse>> => {
-    const user = await ctx.db.get(args.userId);
-    if (user === null || readActiveUser(user) === null) {
-      throw new Error("An active Samebase user is required.");
+    return await claimForAppConnectionUseAfterAuthority(ctx, args.userId, { kind: "direct" });
+  },
+});
+
+export const claimForAppConnectionUseForOperation = internalMutation({
+  args: {
+    userId: id("users"),
+    ...repositoryOperationLeaseFields,
+  },
+  returns: vGitHubUserAuthorizationForAppConnectionUse,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof vGitHubUserAuthorizationForAppConnectionUse>> => {
+    if (args.operationName !== GITHUB_APP_CALLBACK_OPERATION) {
+      throw new Error("GitHub App callback operation authority is required.");
     }
-    const githubSignInProviderAccountId = await readGitHubSignInProviderAccountId(
-      ctx.db,
-      args.userId,
-    );
-    if (githubSignInProviderAccountId === null) {
-      return { kind: "github_sign_in_required" };
-    }
-    const authorization = await getByUser(ctx.db, args.userId);
-    if (authorization === null) {
-      return { kind: "authorization_required" };
-    }
-    if (authorization.githubUserId !== githubSignInProviderAccountId) {
-      return { kind: "github_sign_in_required" };
-    }
-    if (authorization.refreshTokenExpiresAt <= Date.now()) {
-      return { kind: "authorization_required" };
-    }
-    return await claimAuthorizationForUse(ctx.db, authorization);
+    await requireRepositoryOperationLease(ctx, args);
+    return await claimForAppConnectionUseAfterAuthority(ctx, args.userId, {
+      kind: "operation",
+      leaseId: args.leaseId,
+      operationId: args.operationId,
+      operationName: args.operationName,
+    });
   },
 });
 
@@ -425,13 +499,18 @@ export const claimForProvisioningRun = internalMutation({
   },
   returns: vGitHubUserAuthorizationUse,
   handler: async (ctx, args) => {
-    await requireActiveVaultProvisioningAuthority(ctx.db, args);
-    return await claimForUseAfterAuthority(ctx.db, args);
+    await requireActiveVaultProvisioningContinuation(ctx, args);
+    return await claimForUseAfterAuthority(ctx, args, {
+      kind: "provisioning",
+      runId: args.runId,
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
   },
 });
 
 async function finishRefreshAfterAuthority(
-  db: DatabaseWriter,
+  ctx: Pick<MutationCtx, "db">,
   expectedUserId: Id<"users">,
   args: {
     authorizationId: Id<"githubUserAuthorizations">;
@@ -442,7 +521,7 @@ async function finishRefreshAfterAuthority(
     refreshTokenExpiresAt: number;
   },
 ): Promise<void> {
-  const authorization = await db.get(args.authorizationId);
+  const authorization = await ctx.db.get(args.authorizationId);
   if (
     authorization === null ||
     authorization.userId !== expectedUserId ||
@@ -450,7 +529,8 @@ async function finishRefreshAfterAuthority(
   ) {
     throw new Error("GitHub user authorization refresh lock changed.");
   }
-  await db.patch(authorization._id, {
+  await requireRepositoryAuthorityContinuation(ctx);
+  await ctx.db.patch(authorization._id, {
     accessToken: args.accessToken,
     accessTokenExpiresAt: args.accessTokenExpiresAt,
     refreshToken: args.refreshToken,
@@ -477,7 +557,7 @@ export const finishRefresh = internalMutation({
     if (authorization === null || authorization.refreshStartedAt !== args.refreshStartedAt) {
       throw new Error("GitHub user authorization refresh lock changed.");
     }
-    await finishRefreshAfterAuthority(ctx.db, authorization.userId, args);
+    await finishRefreshAfterAuthority(ctx, authorization.userId, args);
     return null;
   },
 });
@@ -491,26 +571,47 @@ export const finishRefreshForProvisioningRun = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireActiveVaultProvisioningAuthority(ctx.db, args);
-    await finishRefreshAfterAuthority(ctx.db, args.userId, args);
+    await requireActiveVaultProvisioningContinuation(ctx, args);
+    await finishRefreshAfterAuthority(ctx, args.userId, args);
+    return null;
+  },
+});
+
+export const finishRefreshForOperation = internalMutation({
+  args: {
+    ...repositoryOperationLeaseFields,
+    ...finishRefreshArgs,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (args.operationName !== GITHUB_APP_CALLBACK_OPERATION) {
+      throw new Error("GitHub App callback operation authority is required.");
+    }
+    await requireRepositoryOperationLease(ctx, args);
+    const authorization = await ctx.db.get(args.authorizationId);
+    if (authorization === null || authorization.refreshStartedAt !== args.refreshStartedAt) {
+      throw new Error("GitHub user authorization refresh lock changed.");
+    }
+    await finishRefreshAfterAuthority(ctx, authorization.userId, args);
     return null;
   },
 });
 
 async function releaseRefreshAfterAuthority(
-  db: DatabaseWriter,
+  ctx: Pick<MutationCtx, "db">,
   expectedUserId: Id<"users">,
   args: {
     authorizationId: Id<"githubUserAuthorizations">;
     refreshStartedAt: number;
   },
 ): Promise<void> {
-  const authorization = await db.get(args.authorizationId);
+  const authorization = await ctx.db.get(args.authorizationId);
   if (authorization?.refreshStartedAt === args.refreshStartedAt) {
     if (authorization.userId !== expectedUserId) {
       throw new Error("GitHub user authorization refresh lock changed.");
     }
-    await db.patch(authorization._id, { refreshStartedAt: undefined });
+    await requireRepositoryAuthorityContinuation(ctx);
+    await ctx.db.patch(authorization._id, { refreshStartedAt: undefined });
   }
 }
 
@@ -525,7 +626,7 @@ export const releaseRefresh = internalMutation({
   handler: async (ctx, args) => {
     const authorization = await ctx.db.get(args.authorizationId);
     if (authorization?.refreshStartedAt === args.refreshStartedAt) {
-      await releaseRefreshAfterAuthority(ctx.db, authorization.userId, args);
+      await releaseRefreshAfterAuthority(ctx, authorization.userId, args);
     }
     return null;
   },
@@ -540,8 +641,27 @@ export const releaseRefreshForProvisioningRun = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireActiveVaultProvisioningAuthority(ctx.db, args);
-    await releaseRefreshAfterAuthority(ctx.db, args.userId, args);
+    await requireActiveVaultProvisioningContinuation(ctx, args);
+    await releaseRefreshAfterAuthority(ctx, args.userId, args);
+    return null;
+  },
+});
+
+export const releaseRefreshForOperation = internalMutation({
+  args: {
+    ...repositoryOperationLeaseFields,
+    ...releaseRefreshArgs,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (args.operationName !== GITHUB_APP_CALLBACK_OPERATION) {
+      throw new Error("GitHub App callback operation authority is required.");
+    }
+    await requireRepositoryOperationLease(ctx, args);
+    const authorization = await ctx.db.get(args.authorizationId);
+    if (authorization?.refreshStartedAt === args.refreshStartedAt) {
+      await releaseRefreshAfterAuthority(ctx, authorization.userId, args);
+    }
     return null;
   },
 });
@@ -569,9 +689,17 @@ export const deleteRevoked = internalMutation({
   args: {
     authorizationId: id("githubUserAuthorizations"),
     githubUserId: string(),
+    ...repositoryOperationLeaseFields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (
+      args.operationName !== GITHUB_USER_AUTHORIZATION_REVOCATION_OPERATION ||
+      args.operationId !== `github-user-authorization-revocation:${args.authorizationId}`
+    ) {
+      throw new Error("GitHub user authorization revocation authority is required.");
+    }
+    await requireRepositoryOperationLease(ctx, args);
     const authorization = await ctx.db.get(args.authorizationId);
     if (authorization?.githubUserId === args.githubUserId) {
       await ctx.db.delete(authorization._id);
@@ -580,10 +708,30 @@ export const deleteRevoked = internalMutation({
   },
 });
 
-async function revokeGitHubUserAuthorization(
-  ctx: Pick<ActionCtx, "runMutation">,
+export const deleteRevokedForAccountDeletion = internalMutation({
+  args: {
+    runId: id("workflow_accountDeletion_runs"),
+    workflowId: string(),
+    authorizationId: id("githubUserAuthorizations"),
+    githubUserId: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await readOwnedActiveRun(ctx, args);
+    const authorization = await ctx.db.get(args.authorizationId);
+    if (
+      authorization?.userId === run.identity.userId &&
+      authorization.githubUserId === args.githubUserId
+    ) {
+      await ctx.db.delete(authorization._id);
+    }
+    return null;
+  },
+});
+
+async function revokeGitHubUserAuthorizationAtProvider(
   authorization: GitHubUserAuthorizationForRevocation,
-): Promise<null> {
+): Promise<void> {
   const configuration = getGitHubAppConfiguration();
   const auth = createOAuthUserAuth({
     clientType: "github-app",
@@ -596,12 +744,6 @@ async function revokeGitHubUserAuthorization(
   } catch {
     throw new Error("Failed to revoke GitHub user authorization.");
   }
-
-  await ctx.runMutation(internal.githubUserAuthorizations.deleteRevoked, {
-    authorizationId: authorization.authorizationId,
-    githubUserId: authorization.githubUserId,
-  });
-  return null;
 }
 
 export const revokeForAccountDeletion = internalAction({
@@ -619,7 +761,17 @@ export const revokeForAccountDeletion = internalAction({
       internal.githubUserAuthorizations.getForRevocation,
       { userId: identity.userId },
     );
-    return authorization === null ? null : await revokeGitHubUserAuthorization(ctx, authorization);
+    if (authorization === null) {
+      return null;
+    }
+    await revokeGitHubUserAuthorizationAtProvider(authorization);
+    await ctx.runMutation(internal.githubUserAuthorizations.deleteRevokedForAccountDeletion, {
+      runId: args.runId,
+      workflowId: args.workflowId,
+      authorizationId: authorization.authorizationId,
+      githubUserId: authorization.githubUserId,
+    });
+    return null;
   },
 });
 
@@ -632,12 +784,42 @@ export const revokeViewerGitHubUserAuthorization = action({
       internal.githubUserAuthorizations.getForRevocation,
       { userId: ctx.viewer.userId },
     );
-    return authorization === null ? null : await revokeGitHubUserAuthorization(ctx, authorization);
+    if (authorization === null) {
+      return null;
+    }
+
+    const operationId = `github-user-authorization-revocation:${authorization.authorizationId}`;
+    const operationName = GITHUB_USER_AUTHORIZATION_REVOCATION_OPERATION;
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName,
+      },
+    );
+    try {
+      await revokeGitHubUserAuthorizationAtProvider(authorization);
+      await ctx.runMutation(internal.githubUserAuthorizations.deleteRevoked, {
+        authorizationId: authorization.authorizationId,
+        githubUserId: authorization.githubUserId,
+        leaseId: lease.leaseId,
+        operationId,
+        operationName,
+      });
+      return null;
+    } finally {
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId: lease.leaseId,
+        operationId,
+        operationName,
+      });
+    }
   },
 });
 
 type GitHubUserOctokitAuthority =
   | { kind: "user"; userId: Id<"users"> }
+  | ({ kind: "operation"; userId: Id<"users"> } & RepositoryOperationLease)
   | {
       kind: "provisioning";
       runId: Id<"workflow_vaultProvisioning_runs">;
@@ -656,6 +838,20 @@ async function claimGitHubUserAuthorization(
         userId: authority.userId,
         githubUserId,
       });
+    case "operation":
+      const use = await ctx.runMutation(
+        internal.githubUserAuthorizations.claimForAppConnectionUseForOperation,
+        {
+          userId: authority.userId,
+          leaseId: authority.leaseId,
+          operationId: authority.operationId,
+          operationName: authority.operationName,
+        },
+      );
+      if (use.kind === "authorization_required" || use.kind === "github_sign_in_required") {
+        throw new Error("A matching GitHub user authorization is required.");
+      }
+      return use;
     case "provisioning":
       return await ctx.runMutation(internal.githubUserAuthorizations.claimForProvisioningRun, {
         runId: authority.runId,
@@ -684,6 +880,19 @@ async function finishGitHubUserAuthorizationRefresh(
   switch (authority.kind) {
     case "user":
       await ctx.runMutation(internal.githubUserAuthorizations.finishRefresh, {
+        authorizationId: args.authorizationId,
+        refreshStartedAt: args.refreshStartedAt,
+        accessToken: args.accessToken,
+        accessTokenExpiresAt: args.accessTokenExpiresAt,
+        refreshToken: args.refreshToken,
+        refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+      });
+      return;
+    case "operation":
+      await ctx.runMutation(internal.githubUserAuthorizations.finishRefreshForOperation, {
+        leaseId: authority.leaseId,
+        operationId: authority.operationId,
+        operationName: authority.operationName,
         authorizationId: args.authorizationId,
         refreshStartedAt: args.refreshStartedAt,
         accessToken: args.accessToken,
@@ -722,6 +931,15 @@ async function releaseGitHubUserAuthorizationRefresh(
   switch (authority.kind) {
     case "user":
       await ctx.runMutation(internal.githubUserAuthorizations.releaseRefresh, {
+        authorizationId: args.authorizationId,
+        refreshStartedAt: args.refreshStartedAt,
+      });
+      return;
+    case "operation":
+      await ctx.runMutation(internal.githubUserAuthorizations.releaseRefreshForOperation, {
+        leaseId: authority.leaseId,
+        operationId: authority.operationId,
+        operationName: authority.operationName,
         authorizationId: args.authorizationId,
         refreshStartedAt: args.refreshStartedAt,
       });
@@ -804,10 +1022,32 @@ export type GitHubUserAuthorizationForAppConnectionResult =
 export async function resolveGitHubUserAuthorizationForAppConnection(
   ctx: Pick<ActionCtx, "runMutation">,
   userId: Id<"users">,
+  operationLease?: RepositoryOperationLease,
 ): Promise<GitHubUserAuthorizationForAppConnectionResult> {
-  const use = await ctx.runMutation(internal.githubUserAuthorizations.claimForAppConnectionUse, {
-    userId,
-  });
+  const authority: GitHubUserOctokitAuthority =
+    operationLease === undefined
+      ? { kind: "user", userId }
+      : {
+          kind: "operation",
+          userId,
+          leaseId: operationLease.leaseId,
+          operationId: operationLease.operationId,
+          operationName: operationLease.operationName,
+        };
+  const use =
+    authority.kind === "operation"
+      ? await ctx.runMutation(
+          internal.githubUserAuthorizations.claimForAppConnectionUseForOperation,
+          {
+            userId,
+            leaseId: authority.leaseId,
+            operationId: authority.operationId,
+            operationName: authority.operationName,
+          },
+        )
+      : await ctx.runMutation(internal.githubUserAuthorizations.claimForAppConnectionUse, {
+          userId,
+        });
   if (use.kind === "authorization_required" || use.kind === "github_sign_in_required") {
     return { status: use.kind };
   }
@@ -815,7 +1055,7 @@ export async function resolveGitHubUserAuthorizationForAppConnection(
     throw new Error("GitHub user authorization refresh is in progress.");
   }
   try {
-    const octokit = await resolveGitHubUserOctokitFromUse(ctx, { kind: "user", userId }, use);
+    const octokit = await resolveGitHubUserOctokitFromUse(ctx, authority, use);
     return {
       status: "ready",
       githubUserId: use.authorization.githubUserId,

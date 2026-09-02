@@ -4,6 +4,11 @@ import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "../../_generated/api";
 import { internalMutation } from "../../_generated/server";
 import { toErrorMessage } from "../../jsonUtils";
+import { requireRepositoryAuthorityContinuation } from "../../repositoryMigration/maintenance";
+import {
+  requireActiveVaultDeletionContinuation,
+  requireActiveVaultDeletionRun,
+} from "../../vaultWorkflowAuthority";
 import type { VaultDeletionCleanupStep } from "./model";
 
 const workflow = new WorkflowManager(components.workflow);
@@ -164,6 +169,10 @@ export const startVaultDeletion = internalMutation({
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
+    const authority = await requireActiveVaultDeletionContinuation(ctx, { runId: args.runId });
+    if (authority.run.userId !== args.userId || authority.run.vaultId !== args.vaultId) {
+      throw new Error("Deletion run does not match vault.");
+    }
     try {
       const workflowId: string = await workflow.start(
         ctx,
@@ -216,6 +225,8 @@ export const handleVaultDeletionWorkflowComplete = internalMutation({
     if (run.state === "succeeded" || run.state === "failed") {
       return null;
     }
+    await requireActiveVaultDeletionRun(ctx.db, { runId: run._id });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const error = resolveVaultDeletionWorkflowError(args.result);
     if (!error) {

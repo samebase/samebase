@@ -365,6 +365,12 @@ describe("vault Convex schema graph", () => {
       relationships: [],
       warnings: [],
     };
+    const operationId = "snapshot-test";
+    const operationName = "convex_schema_refresh";
+    const lease = await t.mutation(internal.repositoryMigration.maintenance.claimOperationLease, {
+      operationId,
+      operationName,
+    });
     const firstSnapshotId = await t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, {
       userId: ids.userId,
       vaultId: ids.vaultId,
@@ -373,6 +379,9 @@ describe("vault Convex schema graph", () => {
       schemaHash: "same",
       graph,
       fetchedAt: 1,
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
     });
     const secondSnapshotId = await t.mutation(internal.vault.convexSchemaGraph.recordSnapshot, {
       userId: ids.userId,
@@ -382,6 +391,9 @@ describe("vault Convex schema graph", () => {
       schemaHash: "same",
       graph,
       fetchedAt: 2,
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
     });
 
     expect(secondSnapshotId).toBe(firstSnapshotId);
@@ -395,8 +407,17 @@ describe("vault Convex schema graph", () => {
         schemaHash: `changed-${index}`,
         graph,
         fetchedAt: 10 + index,
+        leaseId: lease.leaseId,
+        operationId,
+        operationName,
       });
     }
+
+    await t.mutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
+    });
 
     const snapshots = await t.run(async (ctx) =>
       ctx.db

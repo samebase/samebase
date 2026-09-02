@@ -165,6 +165,29 @@ describe("GitHub App setup", () => {
     });
   });
 
+  it("does not create setup state while repository writes drain", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "authorization-maintenance@example.test");
+      await insertGitHubSignInAccount(ctx, {
+        userId,
+        githubUserId: "authorization-maintenance-id",
+        githubUserLogin: "authorization-maintenance",
+      });
+      return userId;
+    });
+    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+      mode: "draining",
+    });
+
+    await expect(
+      asUser(t, userId).mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {}),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("githubAppSetupStates").collect()),
+    ).resolves.toEqual([]);
+  });
+
   it("requires the durable authorization before App installation setup", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -204,7 +227,7 @@ describe("GitHub App setup", () => {
     ).rejects.toThrow("github-authorization-required");
   });
 
-  it("installs an organization with the saved authorization and issues no second user token", async () => {
+  it("finishes an installation callback while repository writes drain", async () => {
     const t = makeConvexTest();
     const { authorizationId, setupStateId, userId } = await t.run(async (ctx) => {
       const { authorizationId, userId } = await insertAuthorizedUser(ctx, {
@@ -223,12 +246,18 @@ describe("GitHub App setup", () => {
       });
       return { authorizationId, setupStateId, userId };
     });
-    githubAppMocks.verifyGitHubAppConnectionInstallation.mockResolvedValue({
-      installationId: "5001",
-      githubOwnerId: "organization-owner-id",
-      githubOwnerType: "organization",
-      githubOwnerLogin: "organization-owner",
-      canManage: true,
+    githubAppMocks.verifyGitHubAppConnectionInstallation.mockImplementation(async () => {
+      await t.mutation(
+        internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode,
+        { mode: "draining" },
+      );
+      return {
+        installationId: "5001",
+        githubOwnerId: "organization-owner-id",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "organization-owner",
+        canManage: true,
+      };
     });
 
     const response = await t.fetch(
@@ -242,6 +271,7 @@ describe("GitHub App setup", () => {
         .withIndex("by_user", (query) => query.eq("userId", userId))
         .unique(),
       organization: await ctx.db.query("organizations").first(),
+      operationLeases: await ctx.db.query("repositoryOperationLeases").collect(),
       setupState: await ctx.db.get(setupStateId),
     }));
     expect(snapshot.authorization).toMatchObject({
@@ -253,6 +283,7 @@ describe("GitHub App setup", () => {
       githubInstallationId: "5001",
     });
     expect(snapshot.membership).toMatchObject({ userId, role: "owner" });
+    expect(snapshot.operationLeases).toEqual([]);
     expect(snapshot.setupState).toBeNull();
     expect(githubAppMocks.verifyGitHubAppConnectionInstallation).toHaveBeenCalledWith({
       octokit: expect.any(Object),
@@ -262,6 +293,34 @@ describe("GitHub App setup", () => {
     expect(githubAppMocks.verifyGitHubUserAuthorization).not.toHaveBeenCalled();
     expect(githubAppMocks.revokeGitHubAppUserToken).not.toHaveBeenCalled();
     expect(html).not.toContain("organization-admin-access-token");
+  });
+
+  it("does not call GitHub when an installation callback starts while writes drain", async () => {
+    const t = makeConvexTest();
+    const setupStateId = await t.run(async (ctx) => {
+      const { userId } = await insertAuthorizedUser(ctx, {
+        email: "draining-callback@example.test",
+        githubUserId: "draining-callback-user-id",
+        githubUserLogin: "draining-callback-user",
+      });
+      return await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "draining-callback-state",
+        purpose: "installation",
+        githubSignInProviderAccountId: "draining-callback-user-id",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+    });
+    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+      mode: "draining",
+    });
+
+    await expect(
+      t.fetch("/oauth/github/callback?installation_id=5005&state=draining-callback-state"),
+    ).rejects.toThrow("Repository changes are paused for maintenance.");
+    expect(githubAppMocks.verifyGitHubAppConnectionInstallation).not.toHaveBeenCalled();
+    await expect(t.run(async (ctx) => await ctx.db.get(setupStateId))).resolves.not.toBeNull();
   });
 
   it("does not install after the durable authorization is revoked during verification", async () => {
@@ -284,6 +343,12 @@ describe("GitHub App setup", () => {
       return { authorizationId, setupStateId };
     });
     await t.run(async (ctx) => await ctx.db.delete(authorizationId));
+    const operationId = `github-app-callback:${setupStateId}`;
+    const operationName = "github_app_callback";
+    const lease = await t.mutation(internal.repositoryMigration.maintenance.claimOperationLease, {
+      operationId,
+      operationName,
+    });
 
     await expect(
       t.mutation(internal.githubAppInstallation.completeVerifiedSetup, {
@@ -294,8 +359,18 @@ describe("GitHub App setup", () => {
         githubOwnerType: "organization",
         githubOwnerLogin: "Revoked-Owner",
         githubUserId: "revoked-install-user-id",
+        operationLease: {
+          leaseId: lease.leaseId,
+          operationId,
+          operationName,
+        },
       }),
     ).resolves.toEqual({ status: "authorization_required" });
+    await t.mutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+      leaseId: lease.leaseId,
+      operationId,
+      operationName,
+    });
     await expect(
       t.run(async (ctx) => ({
         organization: await ctx.db.query("organizations").first(),

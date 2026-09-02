@@ -192,6 +192,7 @@ export const vaultProvisioningTables = {
     ),
   )
     .index("by_vault", ["vaultId"])
+    .index("by_state", ["state"])
     .index("by_manual_user_and_state", ["owner.userId", "state"]),
 
   /**
@@ -219,6 +220,7 @@ export const vaultProvisioningTables = {
       "state",
       "updatedAt",
     ])
+    .index("by_state", ["state"])
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])

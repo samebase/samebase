@@ -27,9 +27,11 @@ import {
   buildProviderOAuthStoreReturnUrl,
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
+import { requireRepositoryOperationLease } from "./repositoryMigration/maintenance";
 
 const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
+const CONVEX_OAUTH_CALLBACK_OPERATION = "convex_oauth_callback";
 
 type OAuthContext = ActionCtx | MutationCtx;
 type ConvexOAuthTokenEndpoint = {
@@ -191,9 +193,15 @@ export const storeConvexOauthTokens = internalMutation({
     teamId: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
     oauthState: v.string(),
+    leaseId: v.id("repositoryOperationLeases"),
   },
   returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
+    await requireRepositoryOperationLease(ctx, {
+      leaseId: args.leaseId,
+      operationId: args.oauthStateId,
+      operationName: CONVEX_OAUTH_CALLBACK_OPERATION,
+    });
     return await connectConvexCredential(ctx, {
       organizationId: args.organizationId,
       connectedByUserId: args.connectedByUserId,
@@ -361,7 +369,17 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
   }
 
   let completionReturnUrl = returnUrl;
+  const operationId = oauthState._id;
+  let leaseId: Id<"repositoryOperationLeases"> | null = null;
   try {
+    const lease = await ctx.runMutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName: CONVEX_OAUTH_CALLBACK_OPERATION,
+      },
+    );
+    leaseId = lease.leaseId;
     const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
     const clientSecret = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET");
     const redirectUri = readRequiredEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL");
@@ -385,6 +403,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
         teamId: details.teamId,
         oauthStateId: oauthState._id,
         oauthState: state,
+        leaseId,
       },
     );
     completionReturnUrl = buildProviderOAuthStoreReturnUrl({
@@ -411,6 +430,14 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       provider: "convex",
       code: "failed",
     });
+  } finally {
+    if (leaseId !== null) {
+      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId,
+        operationId,
+        operationName: CONVEX_OAUTH_CALLBACK_OPERATION,
+      });
+    }
   }
 
   return buildAuthorizationCompletionResponse({

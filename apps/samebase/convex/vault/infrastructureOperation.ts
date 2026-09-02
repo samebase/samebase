@@ -16,6 +16,11 @@ import { toErrorMessage } from "../jsonUtils";
 import { requireVaultForUser } from "../organizationAccess";
 import { requireOrganizationNotBillingLimited } from "../organizationBillingLimits";
 import { recordOrganizationLastUsedBuildToken } from "../organizations";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationStart,
+} from "../repositoryMigration/maintenance";
+import { requireActiveVaultProvisioningRun } from "../vaultWorkflowAuthority";
 import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
@@ -150,6 +155,16 @@ export async function recordManagedProviderWrite(
   ) {
     throw new Error("Managed provisioning run no longer holds the write lock.");
   }
+  const run = await ctx.db.get(args.runId);
+  if (run === null) {
+    throw new Error("Managed provisioning run not found.");
+  }
+  await requireActiveVaultProvisioningRun(ctx.db, {
+    runId: args.runId,
+    userId: run.userId,
+    vaultId: args.vaultId,
+  });
+  await requireRepositoryAuthorityContinuation(ctx);
 
   const now = Date.now();
   await ctx.db.patch(write._id, {
@@ -254,6 +269,15 @@ export async function requireManualProviderWriteCheckpoint(
   return vault;
 }
 
+export async function requireManualProviderWriteContinuation(
+  ctx: Pick<MutationCtx, "db">,
+  args: ManualProviderWriteActorArgs,
+): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
+  const vault = await requireManualProviderWriteCheckpoint(ctx, args);
+  await requireRepositoryAuthorityContinuation(ctx);
+  return vault;
+}
+
 const vManualProviderWriteResult = union(literal("succeeded"), literal("failed"));
 
 export const claimManualProviderWrite = internalMutation({
@@ -274,6 +298,7 @@ export const claimManualProviderWrite = internalMutation({
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another vault infrastructure operation is active.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const now = Date.now();
     const deadlineAt = now + MANUAL_PROVIDER_ACTION_LIMIT_MS;
@@ -336,6 +361,7 @@ export const recordManualWorkersBuildsTokenUse = internalMutation({
     if (vault.cloudflareAccountId === undefined) {
       throw new Error("Cloudflare account is not configured for this vault.");
     }
+    await requireRepositoryAuthorityContinuation(ctx);
     await recordOrganizationLastUsedBuildToken(ctx, {
       organizationId: vault.organizationId,
       cloudflareAccountId: vault.cloudflareAccountId,
@@ -357,6 +383,7 @@ export const finishManualProviderWriteResult = internalMutation({
     if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
       throw new Error("Manual provider action state changed before result was recorded.");
     }
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     const lastWriteAt = { ...write.lastWriteAt };
@@ -417,6 +444,7 @@ export const expireManualProviderWrite = internalMutation({
     ) {
       return null;
     }
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const now = Date.now();
     const lastWriteAt = { ...write.lastWriteAt };

@@ -21,14 +21,18 @@ import {
   type BillingResourceAuthority,
 } from "../billingResourceQuotas";
 import { requireVaultForUser } from "../organizationAccess";
-import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
+import {
+  requireActiveVaultProvisioningAuthority,
+  requireActiveVaultProvisioningContinuation,
+} from "../vaultWorkflowAuthority";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
-  requireManualProviderWriteCheckpoint,
+  requireManualProviderWriteContinuation,
   recordManagedProviderWrite,
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
+import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -282,6 +286,7 @@ export const beginManagedProjectCreate = internalMutation({
     if (plan.convex.state !== "planned") {
       throw new Error("Managed Convex project creation already started.");
     }
+    await requireActiveVaultProvisioningContinuation(ctx, args);
     await ctx.db.patch(plan._id, {
       convex: {
         state: "creating",
@@ -314,6 +319,7 @@ export const recordManagedProjectCreated = internalMutation({
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
+    await requireActiveVaultProvisioningContinuation(ctx, args);
     let convexProjectId: Id<"vaultConvexProjects">;
     if (plan.convex.state === "created") {
       if (plan.convex.projectId !== args.projectId) {
@@ -379,7 +385,7 @@ export const recordManualProjectCreated = internalMutation({
   },
   returns: id("vaultConvexProjects"),
   handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
-    const vault = await requireManualProviderWriteCheckpoint(ctx, {
+    const vault = await requireManualProviderWriteContinuation(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
       userId: args.userId,
@@ -431,6 +437,7 @@ export const attachProjects = internalMutation({
       }
       projectIds.add(project.projectId);
     }
+    await requireRepositoryOperationStart(ctx);
 
     const projectAttachmentIds: Array<Id<"vaultConvexProjects">> = [];
     for (const project of projects) {
@@ -475,6 +482,7 @@ export const reconcileProjectCodeLocation = internalMutation({
     ) {
       throw new Error("Convex project attachment changed before code location reconciliation.");
     }
+    await requireRepositoryOperationStart(ctx);
     const commonFields = {
       vaultId: project.vaultId,
       organizationId: project.organizationId,
@@ -531,6 +539,7 @@ export const detachProject = internalMutation({
     ) {
       throw new Error("Convex project attachment changed before removal.");
     }
+    await requireRepositoryOperationStart(ctx);
     await ctx.db.delete(project._id);
     return null;
   },

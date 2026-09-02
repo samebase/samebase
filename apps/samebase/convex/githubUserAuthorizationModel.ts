@@ -20,5 +20,6 @@ export const githubUserAuthorizationTables = {
   /** The one refreshable GitHub App user authorization for a matching Samebase GitHub identity. */
   githubUserAuthorizations: defineTable(vGitHubUserAuthorization)
     .index("by_user", ["userId"])
-    .index("by_github_user", ["githubUserId"]),
+    .index("by_github_user", ["githubUserId"])
+    .index("by_refresh_started_at", ["refreshStartedAt"]),
 };

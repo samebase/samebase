@@ -6,8 +6,16 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationStart,
+} from "./repositoryMigration/maintenance";
 import { isLiveConnectedVault } from "./vault/state";
-import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
+import {
+  requireActiveVaultProvisioningAuthority,
+  requireActiveVaultProvisioningContinuation,
+  requireActiveVaultProvisioningRun,
+} from "./vaultWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, literal, object, string, union } = v;
@@ -74,6 +82,7 @@ export async function startCreateAppProvisioningWorkflow(
     private: boolean;
   },
 ): Promise<string> {
+  await requireRepositoryOperationStart(ctx);
   return await workflow.start(
     ctx,
     internal.appProvisioningWorkflow.provisionApp,
@@ -103,6 +112,7 @@ export async function startVaultInfrastructureProvisioningWorkflow(
     runId: Id<"workflow_vaultProvisioning_runs">;
   },
 ): Promise<string> {
+  await requireRepositoryOperationStart(ctx);
   return await workflow.start(
     ctx,
     internal.appProvisioningWorkflow.provisionVaultInfrastructure,
@@ -266,7 +276,7 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
   },
   returns: object({ claimed: boolean() }),
   handler: async (ctx, args): Promise<{ claimed: boolean }> => {
-    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningContinuation(ctx, args);
     if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
       throw new Error("Composed infrastructure run does not match vault.");
     }
@@ -322,7 +332,7 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningContinuation(ctx, args);
     if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
       throw new Error("Composed infrastructure run does not match vault.");
     }
@@ -840,6 +850,8 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
+    await requireActiveVaultProvisioningRun(ctx.db, args);
+    await requireRepositoryAuthorityContinuation(ctx);
     const workflowId: string = await workflow.start(
       ctx,
       internal.appProvisioningWorkflow.connectExistingRepository,
@@ -891,20 +903,24 @@ export const handleProvisioningWorkflowComplete = internalMutation({
     if (run.workflowId && run.workflowId !== args.workflowId) {
       throw new Error("Workflow completion id does not match run.");
     }
-    if (run.state === "succeeded" || run.state === "failed") {
+    if (run.state === "succeeded" || run.state === "failed" || run.state === "canceled") {
       return null;
     }
+    await requireActiveVaultProvisioningRun(ctx.db, {
+      runId: run._id,
+      userId: run.userId,
+      vaultId: run.vaultId,
+    });
+    await requireRepositoryAuthorityContinuation(ctx);
 
     const error = resolveWorkflowCompletionError(args.result);
     if (!error) {
-      if (run.state !== "canceled") {
-        const now = Date.now();
-        await ctx.db.patch(args.context.runId, {
-          state: "succeeded",
-          updatedAt: now,
-          completedAt: now,
-        });
-      }
+      const now = Date.now();
+      await ctx.db.patch(args.context.runId, {
+        state: "succeeded",
+        updatedAt: now,
+        completedAt: now,
+      });
       return null;
     }
 

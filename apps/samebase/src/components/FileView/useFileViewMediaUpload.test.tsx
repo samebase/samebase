@@ -13,12 +13,23 @@ function fakeVaultId(): Id<"vaults"> {
   return "k976ryb9d1m2gyvxhps87dac257mv5ps";
 }
 
+function fakeRepositoryOperationLeaseId(): Id<"repositoryOperationLeases"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only
+  // needs a stable lease id for generated function arguments.
+  return "mp76ryb9d1m2gyvxhps87dac257mv5ps";
+}
+
 function MediaUploadProbe() {
   const mediaUpload = useFileViewMediaUpload({
     branch: "main",
     buildVaultFileUrl: (path) => `/repo/octo/repo/fs/main/${path}`,
     deletePendingUploadBlob: vi.fn(async () => null),
-    generateUploadUrl: vi.fn(async () => "/upload"),
+    generateUploadUrl: vi.fn(async () => ({
+      uploadUrl: "/upload",
+      leaseId: fakeRepositoryOperationLeaseId(),
+      operationId: "upload-operation",
+      operationName: `stage_uploaded_media:${fakeVaultId()}`,
+    })),
     navigateByHref: vi.fn(),
     repositoryFullName: "octo/repo",
     selectedFile: "README.md",

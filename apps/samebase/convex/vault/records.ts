@@ -26,12 +26,19 @@ import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 import { readActiveUser } from "../userLifecycle";
-import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
+import {
+  requireActiveVaultProvisioningAuthority,
+  requireActiveVaultProvisioningContinuation,
+} from "../vaultWorkflowAuthority";
 import {
   requireBillingResourceCapacity,
   requireBillingResourceCapacityForAuthority,
 } from "../billingResourceQuotas";
 import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
+import {
+  requireRepositoryAuthorityContinuation,
+  requireRepositoryOperationStart,
+} from "../repositoryMigration/maintenance";
 
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
@@ -190,6 +197,7 @@ export const updateGitHubRepositoryNameForUser = internalMutation({
     if (organization === null || organization.githubOwnerId !== args.githubOwnerId) {
       throw new Error("GitHub owner identity changed before the name update.");
     }
+    await requireRepositoryOperationStart(ctx);
 
     const repositoryName = args.repositoryName.trim();
     if (repositoryName.length === 0) {
@@ -435,6 +443,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       organizationId: organization._id,
       userId: args.userId,
     });
+    await requireRepositoryOperationStart(ctx);
 
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
@@ -499,7 +508,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningContinuation(ctx, args);
     if (authority.run.trigger !== "connect_existing_repository") {
       throw new Error("Provisioning run does not match existing repository setup.");
     }
@@ -632,6 +641,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       organizationId: organization._id,
       userId: args.userId,
     });
+    await requireRepositoryOperationStart(ctx);
 
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
@@ -746,7 +756,7 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningContinuation(ctx, args);
     if (authority.run.trigger !== "create") {
       throw new Error("Provisioning run does not match managed repository setup.");
     }
@@ -827,6 +837,10 @@ export const markGithubProvisioningFailed = internalMutation({
     if (vault?.state !== "provisioning" || vault.runId !== args.runId) {
       return null;
     }
+    if (run.state !== "queued" && run.state !== "running") {
+      return null;
+    }
+    await requireRepositoryAuthorityContinuation(ctx);
 
     if (vault.githubMode === "create_repository") {
       await ctx.db.replace(vault._id, {

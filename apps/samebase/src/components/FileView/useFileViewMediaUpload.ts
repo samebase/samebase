@@ -12,14 +12,24 @@ import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 type VaultId = NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>["_id"];
 type StorageId = Id<"_storage">;
+type RepositoryOperationLeaseId = Id<"repositoryOperationLeases">;
 
-type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<string>;
+type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<{
+  uploadUrl: string;
+  leaseId: RepositoryOperationLeaseId;
+  operationId: string;
+  operationName: string;
+}>;
 type StageUploadedMedia = (args: {
   repositoryFullName: string;
+  vaultId: VaultId;
   filePath: string;
   storageId: StorageId;
   branch: string;
   replaceExisting: boolean;
+  leaseId: RepositoryOperationLeaseId;
+  operationId: string;
+  operationName: string;
 }) => Promise<unknown>;
 type DeletePendingUploadBlob = (args: {
   vaultId: VaultId;
@@ -123,9 +133,10 @@ export function useFileViewMediaUpload({
           }
           return readUploadStorageId(await response.json());
         },
-        stageUploadedMedia: async (storageId) => {
+        stageUploadedMedia: async ({ storageId, capability }) => {
           await stageUploadedMedia({
             repositoryFullName,
+            vaultId,
             filePath: targetPath,
             // Convex returns upload ids as opaque strings over HTTP even though
             // the generated client types brand storage ids locally.
@@ -133,6 +144,9 @@ export function useFileViewMediaUpload({
             storageId,
             branch,
             replaceExisting,
+            leaseId: capability.leaseId,
+            operationId: capability.operationId,
+            operationName: capability.operationName,
           });
         },
         deleteUploadedMedia: async (storageId) => {
