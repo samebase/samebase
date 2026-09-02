@@ -6,6 +6,10 @@ import {
 import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import {
+  LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+  LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+} from "@/components/logo/logoPresentationTilt";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import {
@@ -353,6 +357,9 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             onRenderReady={markSceneReady}
             onRenderUnavailable={markSceneUnavailable}
             onViewChange={setView}
+            pointerTiltEnabled={!automaticProbe.enabled}
+            pointerTiltRadiusScale={LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE}
+            pointerTiltStrengthScale={LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE}
             resolutionScale={1}
             revealRadius={MENGER_HOVER_DEFAULT_REVEAL_RADIUS}
             rotationDegrees={view.rotationDegrees}

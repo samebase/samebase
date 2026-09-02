@@ -8,11 +8,20 @@ import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/l
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import {
+  getLogoPresentationTiltTransitionAlpha,
+  getRadialPointerLogoPresentationTiltTarget,
+  LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
+  LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE,
+  NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
+  normalizeLogoPresentationTiltRadiusScale,
+} from "@/components/logo/logoPresentationTilt";
+import {
   readMengerAutomaticProbePoint,
   type MengerAutomaticProbeMotionSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import { MENGER_TYPE_GPU_MAXIMUM_DEPTH } from "@/components/logo/mengerTypeGpuSettings";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import {
   MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
@@ -25,8 +34,10 @@ import {
   type MengerHoverProbe,
 } from "@samebase/logo-model/menger-hover";
 import {
+  addVectors,
   crossProduct,
-  getCameraLocalVector,
+  dotProduct,
+  getWorldCameraVector,
   getWorldScreenVerticalAxis,
   normalizeVector,
   rotateVectorAroundAxis,
@@ -43,6 +54,7 @@ const CAMERA_FIT_RADIUS = Math.sqrt(3);
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
 const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
 const MAXIMUM_RAY_STEPS = 128;
+const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
 const MENGER_TYPE_GPU_HOVER_STATE = d.struct({
   openness: d.f32,
   probe: d.vec3f,
@@ -55,6 +67,11 @@ const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
 });
 
 type SceneStatus = "initializing" | "ready" | "unavailable";
+type CameraFrame = {
+  cameraVector: Vector3;
+  right: Vector3;
+  up: Vector3;
+};
 type ClientPoint = {
   x: number;
   y: number;
@@ -65,6 +82,14 @@ type SceneColors = {
   right: HexColorToken;
   top: HexColorToken;
 };
+type Quaternion = readonly [number, number, number, number];
+type HoverProjection = NonNullable<ReturnType<typeof projectMengerHoverLineToVisibleFacePlanes>>;
+type HoverProbeProjection = {
+  probe: MengerHoverProbe;
+  projection: HoverProjection;
+};
+
+const IDENTITY_QUATERNION: Quaternion = [0, 0, 0, 1];
 
 function hasFiniteSquaredLength(...components: number[]): boolean {
   let squaredLength = 0;
@@ -94,22 +119,100 @@ function readGpuColor(color: HexColorToken): d.v3f {
   return d.vec3f(readHexChannel(hex, 0), readHexChannel(hex, 2), readHexChannel(hex, 4));
 }
 
-function readCameraFrame(view: LogoViewState): {
-  cameraVector: Vector3;
-  right: Vector3;
-  up: Vector3;
-} {
-  const cameraVector = getCameraLocalVector({
-    elevationDegrees: view.elevationDegrees,
-    rotationAxisMode: "cube-y",
-    rotationDegrees: view.rotationDegrees,
-  });
-  const up = rotateVectorAroundAxis(
-    getWorldScreenVerticalAxis(view.elevationDegrees),
-    [0, 1, 0],
-    -toRenderedRotationDegrees(view.rotationDegrees),
+function normalizeQuaternion([x, y, z, w]: Quaternion): Quaternion {
+  const length = Math.hypot(x, y, z, w);
+  return length === 0 ? IDENTITY_QUATERNION : [x / length, y / length, z / length, w / length];
+}
+
+function createAxisAngleQuaternion(axis: Vector3, angleDegrees: number): Quaternion {
+  const halfAngleRadians = (angleDegrees * Math.PI) / 360;
+  const sine = Math.sin(halfAngleRadians);
+  return normalizeQuaternion([
+    axis[0] * sine,
+    axis[1] * sine,
+    axis[2] * sine,
+    Math.cos(halfAngleRadians),
+  ]);
+}
+
+function readQuaternionAngleDegrees(left: Quaternion, right: Quaternion): number {
+  const dot = Math.abs(
+    Math.min(
+      Math.max(
+        left[0] * right[0] + left[1] * right[1] + left[2] * right[2] + left[3] * right[3],
+        -1,
+      ),
+      1,
+    ),
   );
+  return (Math.acos(dot) * 360) / Math.PI;
+}
+
+function slerpQuaternion(from: Quaternion, to: Quaternion, alpha: number): Quaternion {
+  if (alpha <= 0) {
+    return from;
+  }
+  if (alpha >= 1) {
+    return to;
+  }
+
+  let target: Quaternion = to;
+  let dot = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
+  if (dot < 0) {
+    target = [-to[0], -to[1], -to[2], -to[3]];
+    dot = -dot;
+  }
+  if (dot > 0.9995) {
+    return normalizeQuaternion([
+      from[0] + (target[0] - from[0]) * alpha,
+      from[1] + (target[1] - from[1]) * alpha,
+      from[2] + (target[2] - from[2]) * alpha,
+      from[3] + (target[3] - from[3]) * alpha,
+    ]);
+  }
+
+  const angle = Math.acos(Math.min(Math.max(dot, -1), 1));
+  const sine = Math.sin(angle);
+  const fromWeight = Math.sin((1 - alpha) * angle) / sine;
+  const targetWeight = Math.sin(alpha * angle) / sine;
+  return normalizeQuaternion([
+    from[0] * fromWeight + target[0] * targetWeight,
+    from[1] * fromWeight + target[1] * targetWeight,
+    from[2] * fromWeight + target[2] * targetWeight,
+    from[3] * fromWeight + target[3] * targetWeight,
+  ]);
+}
+
+function rotateVectorByInverseQuaternion(vector: Vector3, quaternion: Quaternion): Vector3 {
+  const quaternionVector = scaleVector([quaternion[0], quaternion[1], quaternion[2]], -1);
+  const twiceCross = scaleVector(crossProduct(quaternionVector, vector), 2);
+  return addVectors(
+    addVectors(vector, scaleVector(twiceCross, quaternion[3])),
+    crossProduct(quaternionVector, twiceCross),
+  );
+}
+
+function readWorldCameraFrame(elevationDegrees: number): CameraFrame {
+  const cameraVector = getWorldCameraVector(elevationDegrees);
+  const up = getWorldScreenVerticalAxis(elevationDegrees);
   const right = normalizeVector(crossProduct(scaleVector(cameraVector, -1), up));
+  return { cameraVector, right, up };
+}
+
+function readCameraFrame(view: LogoViewState, presentationTiltQuaternion: Quaternion): CameraFrame {
+  const worldFrame = readWorldCameraFrame(view.elevationDegrees);
+  const inverseRotationDegrees = -toRenderedRotationDegrees(view.rotationDegrees);
+  // The rendered object applies cube-Y rotation, then presentation tilt.
+  // GPU rays and the CPU probe apply their inverses in reverse order.
+  const readLocalVector = (vector: Vector3) =>
+    rotateVectorAroundAxis(
+      rotateVectorByInverseQuaternion(vector, presentationTiltQuaternion),
+      [0, 1, 0],
+      inverseRotationDegrees,
+    );
+  const cameraVector = readLocalVector(worldFrame.cameraVector);
+  const up = readLocalVector(worldFrame.up);
+  const right = normalizeVector(readLocalVector(worldFrame.right));
 
   return { cameraVector, right, up };
 }
@@ -122,14 +225,13 @@ function readHoverProbe(
   canvas: HTMLCanvasElement,
   clientPoint: ClientPoint,
   frustumHalfSpan: number,
-  view: LogoViewState,
-): MengerHoverProbe | null {
+  frame: CameraFrame,
+): HoverProbeProjection | null {
   const bounds = canvas.getBoundingClientRect();
   if (bounds.width <= 0 || bounds.height <= 0) {
     return null;
   }
 
-  const frame = readCameraFrame(view);
   const screenX = ((clientPoint.x - bounds.left) / bounds.width) * 2 - 1;
   const screenY = 1 - ((clientPoint.y - bounds.top) / bounds.height) * 2;
   const horizontalOffset = screenX * (bounds.width / bounds.height) * frustumHalfSpan;
@@ -167,7 +269,7 @@ function readHoverProbe(
     return null;
   }
 
-  return probe;
+  return { probe, projection };
 }
 
 export function MengerTypeGpuScene({
@@ -181,6 +283,9 @@ export function MengerTypeGpuScene({
   onRenderReady,
   onRenderUnavailable,
   onViewChange,
+  pointerTiltEnabled,
+  pointerTiltRadiusScale,
+  pointerTiltStrengthScale,
   resolutionScale,
   revealRadius,
   rotationDegrees,
@@ -196,11 +301,15 @@ export function MengerTypeGpuScene({
   onRenderReady?: () => void;
   onRenderUnavailable: () => void;
   onViewChange: (nextView: LogoViewState) => void;
+  pointerTiltEnabled: boolean;
+  pointerTiltRadiusScale: number;
+  pointerTiltStrengthScale: number;
   resolutionScale: number;
   revealRadius: number;
   rotationDegrees: number;
   viewSnapEnabled: boolean;
 }) {
+  const hasPrimaryFineHoverPointer = usePrimaryFineHoverPointer();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const automaticProbeRef = useRef(automaticProbe);
@@ -211,6 +320,10 @@ export function MengerTypeGpuScene({
   const frustumHalfSpanRef = useRef(CAMERA_FIT_RADIUS * cameraFrustumPadding);
   const onRenderReadyRef = useRef(onRenderReady);
   const onRenderUnavailableRef = useRef(onRenderUnavailable);
+  const pointerTiltEnabledRef = useRef(pointerTiltEnabled);
+  const pointerTiltRadiusScaleRef = useRef(pointerTiltRadiusScale);
+  const pointerTiltStrengthScaleRef = useRef(pointerTiltStrengthScale);
+  const primaryFineHoverPointerRef = useRef(hasPrimaryFineHoverPointer);
   const renderSceneRef = useRef<() => void>(() => {});
   const resolutionScaleRef = useRef(resolutionScale);
   const revealRadiusRef = useRef(revealRadius);
@@ -247,6 +360,7 @@ export function MengerTypeGpuScene({
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    interactionRef,
   } = useLogoViewDrag<HTMLCanvasElement>({
     elevationDegrees,
     onInteractionEnd,
@@ -284,8 +398,19 @@ export function MengerTypeGpuScene({
       delete container.dataset["hoverCoordinateX"];
       delete container.dataset["hoverCoordinateY"];
       delete container.dataset["hoverCoordinateZ"];
+      delete container.dataset["hoverFaceAxis"];
+      delete container.dataset["hoverFaceSign"];
       delete container.dataset["hoverMaximumOpenness"];
       delete container.dataset["hoverSettled"];
+      delete container.dataset["hoverVisibleFaceCount"];
+      delete container.dataset["presentationAppliedAngleDegrees"];
+      delete container.dataset["presentationHorizontalDegrees"];
+      delete container.dataset["presentationTiltBaseRadius"];
+      delete container.dataset["presentationTiltCenterX"];
+      delete container.dataset["presentationTiltCenterY"];
+      delete container.dataset["presentationTiltNeutralRadius"];
+      delete container.dataset["presentationTiltSettled"];
+      delete container.dataset["presentationVerticalDegrees"];
       renderSceneRef.current = () => {};
       resizeRef.current = () => {};
       writeColorsRef.current = () => {};
@@ -591,7 +716,12 @@ export function MengerTypeGpuScene({
         let automaticProbeClientPoint: ClientPoint | null = null;
         let clientPointer: ClientPoint | null = null;
         let lastHoverFrameTime: number | null = null;
+        let lastPresentationTiltFrameTime: number | null = null;
         let lastProbe: MengerHoverProbe = { x: 0.5, y: 0.5, z: 0.5 };
+        let presentationTiltClientPoint: ClientPoint | null = null;
+        let presentationTiltQuaternion = IDENTITY_QUATERNION;
+        let presentationTiltSuspended = false;
+        let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
         let renderedOpenness = 0;
         let renderFrame = 0;
         let sceneIsVisible = true;
@@ -607,6 +737,8 @@ export function MengerTypeGpuScene({
         };
         const invalidateAutomaticProbe = () => {
           clearAutomaticProbeClientPoint("invalid");
+          presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+          lastPresentationTiltFrameTime = null;
         };
         const scheduleAutomaticProbeResume = (resumeAtMs: number) => {
           const remainingMs = resumeAtMs - performance.now();
@@ -725,30 +857,178 @@ export function MengerTypeGpuScene({
           container.dataset["automaticProbeClientY"] = clientY.toFixed(3);
           container.dataset["automaticProbeProgress"] = progress.toFixed(4);
 
-          return automaticProbeNeedsFrame && depthRef.current > 1;
+          return (
+            automaticProbeNeedsFrame && (depthRef.current > 1 || pointerTiltEnabledRef.current)
+          );
         };
-        const writeHoverState = (timestampMs: number): boolean => {
-          const activeClientPointer = automaticProbeClientPoint ?? clientPointer;
-          const probe =
-            activeClientPointer === null
-              ? null
-              : readHoverProbe(
-                  canvas,
-                  activeClientPointer,
-                  frustumHalfSpanRef.current,
-                  viewRef.current,
-                );
-          if (probe) {
-            lastProbe = probe;
-            container.dataset["hoverCoordinateX"] = probe.x.toFixed(3);
-            container.dataset["hoverCoordinateY"] = probe.y.toFixed(3);
-            container.dataset["hoverCoordinateZ"] = probe.z.toFixed(3);
-          } else {
-            delete container.dataset["hoverCoordinateX"];
-            delete container.dataset["hoverCoordinateY"];
-            delete container.dataset["hoverCoordinateZ"];
+        const clearProbe = () => {
+          delete container.dataset["hoverCoordinateX"];
+          delete container.dataset["hoverCoordinateY"];
+          delete container.dataset["hoverCoordinateZ"];
+          delete container.dataset["hoverFaceAxis"];
+          delete container.dataset["hoverFaceSign"];
+          delete container.dataset["hoverVisibleFaceCount"];
+        };
+        const updatePresentationTiltTarget = (baseFrame: CameraFrame) => {
+          const bounds = canvas.getBoundingClientRect();
+          if (bounds.width <= 0 || bounds.height <= 0) {
+            presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+            return;
           }
 
+          const centerX = bounds.left + bounds.width / 2;
+          const centerY = bounds.top + bounds.height / 2;
+          const pixelsPerWorldUnit = bounds.height / (frustumHalfSpanRef.current * 2);
+          let baseRadius = 0;
+          for (const xSign of MENGER_CUBE_CORNER_SIGNS) {
+            for (const ySign of MENGER_CUBE_CORNER_SIGNS) {
+              for (const zSign of MENGER_CUBE_CORNER_SIGNS) {
+                const corner: Vector3 = [xSign, ySign, zSign];
+                baseRadius = Math.max(
+                  baseRadius,
+                  Math.hypot(
+                    dotProduct(corner, baseFrame.right) * pixelsPerWorldUnit,
+                    dotProduct(corner, baseFrame.up) * pixelsPerWorldUnit,
+                  ),
+                );
+              }
+            }
+          }
+
+          const radiusScale = normalizeLogoPresentationTiltRadiusScale(
+            pointerTiltRadiusScaleRef.current,
+          );
+          container.dataset["presentationTiltCenterX"] = centerX.toFixed(3);
+          container.dataset["presentationTiltCenterY"] = centerY.toFixed(3);
+          container.dataset["presentationTiltBaseRadius"] = baseRadius.toFixed(3);
+          container.dataset["presentationTiltNeutralRadius"] = (baseRadius * radiusScale).toFixed(
+            3,
+          );
+          const tiltClientPoint = automaticProbeClientPoint ?? presentationTiltClientPoint;
+          const tiltClientPointEnabled =
+            automaticProbeClientPoint !== null ||
+            (presentationTiltClientPoint !== null && primaryFineHoverPointerRef.current);
+          const nextTarget =
+            tiltClientPoint !== null && tiltClientPointEnabled
+              ? getRadialPointerLogoPresentationTiltTarget({
+                  baseRadius,
+                  centerX,
+                  centerY,
+                  clientX: tiltClientPoint.x,
+                  clientY: tiltClientPoint.y,
+                  radiusScale,
+                  strengthScale: pointerTiltStrengthScaleRef.current,
+                })
+              : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+          if (
+            automaticProbeClientPoint !== null &&
+            !hasFiniteSquaredLength(nextTarget.horizontal, nextTarget.vertical)
+          ) {
+            invalidateAutomaticProbe();
+            return;
+          }
+          presentationTiltTarget = nextTarget;
+        };
+        const applyPresentationTilt = (timestampMs: number): boolean => {
+          const target =
+            pointerTiltEnabledRef.current && !reducedMotionQuery.matches
+              ? presentationTiltTarget
+              : NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
+          container.dataset["presentationHorizontalDegrees"] = target.horizontal.toFixed(3);
+          container.dataset["presentationVerticalDegrees"] = target.vertical.toFixed(3);
+
+          if (reducedMotionQuery.matches) {
+            presentationTiltQuaternion = IDENTITY_QUATERNION;
+            lastPresentationTiltFrameTime = timestampMs;
+            return true;
+          }
+
+          let targetQuaternion: Quaternion;
+          if (presentationTiltSuspended || interactionRef.current.status !== "idle") {
+            targetQuaternion = presentationTiltQuaternion;
+          } else {
+            const magnitude = Math.hypot(target.horizontal, target.vertical);
+            if (magnitude === 0) {
+              targetQuaternion = IDENTITY_QUATERNION;
+            } else {
+              const worldFrame = readWorldCameraFrame(viewRef.current.elevationDegrees);
+              const axis = normalizeVector(
+                addVectors(
+                  scaleVector(worldFrame.right, -target.vertical),
+                  scaleVector(worldFrame.up, target.horizontal),
+                ),
+              );
+              targetQuaternion = createAxisAngleQuaternion(axis, magnitude);
+            }
+          }
+
+          const remainingDegrees = readQuaternionAngleDegrees(
+            presentationTiltQuaternion,
+            targetQuaternion,
+          );
+          if (remainingDegrees <= LOGO_PRESENTATION_TILT_SETTLED_DEGREES) {
+            presentationTiltQuaternion = targetQuaternion;
+            lastPresentationTiltFrameTime = timestampMs;
+            return true;
+          }
+
+          const previousFrameTime = lastPresentationTiltFrameTime;
+          lastPresentationTiltFrameTime = timestampMs;
+          if (previousFrameTime === null) {
+            return false;
+          }
+
+          presentationTiltQuaternion = slerpQuaternion(
+            presentationTiltQuaternion,
+            targetQuaternion,
+            getLogoPresentationTiltTransitionAlpha({
+              deltaSeconds: (timestampMs - previousFrameTime) / 1_000,
+              remainingDegrees,
+            }),
+          );
+          return false;
+        };
+        const writeCameraFrame = (frame: CameraFrame) => {
+          cameraRight.write(toGpuVector(frame.right));
+          cameraUp.write(toGpuVector(frame.up));
+          cameraVector.write(toGpuVector(frame.cameraVector));
+        };
+        const readAndWriteProbe = (frame: CameraFrame): MengerHoverProbe | null => {
+          const activeClientPointer = automaticProbeClientPoint ?? clientPointer;
+          const result =
+            activeClientPointer === null
+              ? null
+              : readHoverProbe(canvas, activeClientPointer, frustumHalfSpanRef.current, frame);
+          if (!result) {
+            clearProbe();
+            return null;
+          }
+
+          lastProbe = result.probe;
+          container.dataset["hoverCoordinateX"] = result.probe.x.toFixed(3);
+          container.dataset["hoverCoordinateY"] = result.probe.y.toFixed(3);
+          container.dataset["hoverCoordinateZ"] = result.probe.z.toFixed(3);
+          container.dataset["hoverFaceAxis"] = String(result.projection.axis);
+          container.dataset["hoverFaceSign"] = String(result.projection.sign);
+          container.dataset["hoverVisibleFaceCount"] = String(result.projection.visibleFaceCount);
+          return result.probe;
+        };
+        const writeHoverState = (timestampMs: number, frame: CameraFrame): boolean => {
+          if (depthRef.current === 1) {
+            clearProbe();
+            lastHoverFrameTime = null;
+            renderedOpenness = 0;
+            hoverState.write({
+              openness: 0,
+              probe: d.vec3f(lastProbe.x, lastProbe.y, lastProbe.z),
+              revealRadius: revealRadiusRef.current,
+            });
+            container.dataset["hoverMaximumOpenness"] = "0.000000";
+            container.dataset["hoverSettled"] = "true";
+            return false;
+          }
+
+          const probe = readAndWriteProbe(frame);
           const currentRevealRadius = revealRadiusRef.current;
           const targetOpenness =
             probe &&
@@ -795,14 +1075,37 @@ export function MengerTypeGpuScene({
             return;
           }
           const automaticProbeNeedsFrame = updateAutomaticProbeClientPoint(timestampMs);
-          const hoverNeedsFrame = writeHoverState(timestampMs);
+          const baseFrame = readCameraFrame(viewRef.current, IDENTITY_QUATERNION);
+          updatePresentationTiltTarget(baseFrame);
+          const presentationTiltSettled =
+            container.dataset["automaticProbeState"] === "invalid" ||
+            applyPresentationTilt(timestampMs);
+          const frame = readCameraFrame(viewRef.current, presentationTiltQuaternion);
+          writeCameraFrame(frame);
+          let hoverNeedsFrame = false;
+          if (depthRef.current === 1) {
+            hoverNeedsFrame = writeHoverState(timestampMs, frame);
+          } else if (container.dataset["automaticProbeState"] === "invalid") {
+            lastHoverFrameTime = null;
+            readAndWriteProbe(frame);
+          } else {
+            hoverNeedsFrame = writeHoverState(timestampMs, frame);
+          }
           pipeline.withColorAttachment({ view: context.getCurrentTexture().createView() }).draw(3);
+          container.dataset["presentationTiltSettled"] = presentationTiltSettled ? "true" : "false";
+          container.dataset["presentationAppliedAngleDegrees"] = readQuaternionAngleDegrees(
+            presentationTiltQuaternion,
+            IDENTITY_QUATERNION,
+          ).toFixed(3);
           if (firstRenderPending) {
             firstRenderPending = false;
             setStatus("ready");
             onRenderReadyRef.current?.();
           }
-          if (automaticProbeNeedsFrame || hoverNeedsFrame) {
+          if (presentationTiltSettled) {
+            lastPresentationTiltFrameTime = null;
+          }
+          if (automaticProbeNeedsFrame || hoverNeedsFrame || !presentationTiltSettled) {
             requestRender();
           }
         };
@@ -831,8 +1134,25 @@ export function MengerTypeGpuScene({
             !event.isPrimary ||
             event.pointerType === "touch" ||
             document.visibilityState !== "visible" ||
-            event.buttons !== 0
+            !sceneIsVisible
           ) {
+            return;
+          }
+
+          presentationTiltSuspended =
+            event.target instanceof Element &&
+            event.target.closest(`[${LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE}]`) !== null;
+          if (presentationTiltSuspended) {
+            requestRender();
+            return;
+          }
+          if (event.pointerType === "mouse") {
+            presentationTiltClientPoint = { x: event.clientX, y: event.clientY };
+          }
+          if (event.buttons !== 0) {
+            if (interactionRef.current.status === "idle") {
+              requestRender();
+            }
             return;
           }
 
@@ -843,21 +1163,31 @@ export function MengerTypeGpuScene({
           if (
             !event.isPrimary ||
             event.pointerType === "touch" ||
-            document.visibilityState !== "visible"
+            document.visibilityState !== "visible" ||
+            !sceneIsVisible
           ) {
             return;
           }
 
           clientPointer = { x: event.clientX, y: event.clientY };
+          if (event.pointerType === "mouse") {
+            presentationTiltClientPoint = clientPointer;
+          }
           requestRender();
         };
-        const closeHover = () => {
+        const onWindowBlur = () => {
           clientPointer = null;
-          requestRender();
+          presentationTiltClientPoint = null;
+          presentationTiltSuspended = false;
+          renderNow();
         };
         const onReducedMotionChange = () => {
-          automaticProbeCycleStartedAtMsRef.current = 0;
-          automaticProbeResumeAtMsRef.current = 0;
+          requestRender();
+        };
+        const onPagePointerLeave = () => {
+          clientPointer = null;
+          presentationTiltClientPoint = null;
+          presentationTiltSuspended = false;
           requestRender();
         };
         const suspendAutomaticProbeFrames = () => {
@@ -893,31 +1223,27 @@ export function MengerTypeGpuScene({
           suspendAutomaticProbeFrames();
           clearAutomaticProbeClientPoint("suspended");
         });
-        window.addEventListener("blur", closeHover);
+        window.addEventListener("blur", onWindowBlur);
         window.addEventListener("pointermove", onWindowPointerMove);
         window.addEventListener("pointerup", onWindowPointerUp);
         reducedMotionQuery.addEventListener("change", onReducedMotionChange);
         document.addEventListener("visibilitychange", onDocumentVisibilityChange);
-        document.documentElement.addEventListener("pointerleave", closeHover);
+        document.documentElement.addEventListener("pointerleave", onPagePointerLeave);
         sceneVisibilityObserver.observe(container);
         disconnectSceneVisibilityObserver = () => {
           sceneVisibilityObserver.disconnect();
         };
         removeHoverListeners = () => {
-          window.removeEventListener("blur", closeHover);
+          window.removeEventListener("blur", onWindowBlur);
           window.removeEventListener("pointermove", onWindowPointerMove);
           window.removeEventListener("pointerup", onWindowPointerUp);
           reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
           document.removeEventListener("visibilitychange", onDocumentVisibilityChange);
-          document.documentElement.removeEventListener("pointerleave", closeHover);
+          document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);
           removeHoverListeners = () => {};
         };
         renderSceneRef.current = requestRender;
-        const writeView = (view: LogoViewState) => {
-          const frame = readCameraFrame(view);
-          cameraRight.write(toGpuVector(frame.right));
-          cameraUp.write(toGpuVector(frame.up));
-          cameraVector.write(toGpuVector(frame.cameraVector));
+        const writeView = () => {
           requestRender();
         };
         const writeColors = (colors: SceneColors) => {
@@ -976,7 +1302,7 @@ export function MengerTypeGpuScene({
         resizeObserver.observe(canvas);
         writeColors(colorsRef.current);
         selectedDepth.write(depthRef.current);
-        writeView(viewRef.current);
+        writeView();
         resize();
         cancelRender();
         renderNow();
@@ -1010,7 +1336,7 @@ export function MengerTypeGpuScene({
       delete canvas.dataset["rendererError"];
       destroyRoot();
     };
-  }, [cameraFrustumPadding]);
+  }, [cameraFrustumPadding, interactionRef]);
 
   useEffect(() => {
     automaticProbeRef.current = {
@@ -1057,6 +1383,26 @@ export function MengerTypeGpuScene({
   }, [revealRadius]);
 
   useEffect(() => {
+    pointerTiltEnabledRef.current = pointerTiltEnabled;
+    renderSceneRef.current();
+  }, [pointerTiltEnabled]);
+
+  useEffect(() => {
+    pointerTiltRadiusScaleRef.current = pointerTiltRadiusScale;
+    renderSceneRef.current();
+  }, [pointerTiltRadiusScale]);
+
+  useEffect(() => {
+    pointerTiltStrengthScaleRef.current = pointerTiltStrengthScale;
+    renderSceneRef.current();
+  }, [pointerTiltStrengthScale]);
+
+  useEffect(() => {
+    primaryFineHoverPointerRef.current = hasPrimaryFineHoverPointer;
+    renderSceneRef.current();
+  }, [hasPrimaryFineHoverPointer]);
+
+  useEffect(() => {
     const nextView = { elevationDegrees, rotationDegrees };
     viewRef.current = nextView;
     writeViewRef.current(nextView);
@@ -1089,6 +1435,9 @@ export function MengerTypeGpuScene({
       data-menger-automatic-probe={automaticProbe.enabled ? "play" : "off"}
       data-menger-automatic-probe-path={automaticProbe.path}
       data-menger-maximum-depth={depth}
+      data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
+      data-menger-pointer-tilt-radius-scale={pointerTiltRadiusScale}
+      data-menger-pointer-tilt-strength-scale={pointerTiltStrengthScale}
       data-menger-research-mode="hover"
       data-logo-elevation-degrees={elevationDegrees}
       data-logo-rotation-degrees={rotationDegrees}

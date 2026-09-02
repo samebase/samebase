@@ -743,80 +743,76 @@ export function LogoMengerDepthTransitionPage({
           />
         </div>
 
-        {selectedRenderer === "three" ? (
-          <>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="menger-hover-pointer-tilt"
-                checked={pointerTiltEnabled}
-                onCheckedChange={(checked) => {
-                  updatePointerTiltEnabled(checked === true);
-                }}
-              />
-              <label className="text-xs" htmlFor="menger-hover-pointer-tilt">
-                Landing tilt
-              </label>
-            </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="menger-hover-pointer-tilt"
+            checked={pointerTiltEnabled}
+            onCheckedChange={(checked) => {
+              updatePointerTiltEnabled(checked === true);
+            }}
+          />
+          <label className="text-xs" htmlFor="menger-hover-pointer-tilt">
+            Landing tilt
+          </label>
+        </div>
 
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-xs">
-                <label htmlFor="menger-hover-pointer-tilt-radius">Tilt radius</label>
-                <output
-                  className="font-mono text-xs text-muted-foreground"
-                  htmlFor="menger-hover-pointer-tilt-radius"
-                >
-                  {pointerTiltRadiusScale.toFixed(2)}×
-                </output>
-              </div>
-              <input
-                id="menger-hover-pointer-tilt-radius"
-                aria-label="Tilt radius"
-                className="h-2 w-full cursor-pointer accent-foreground"
-                max={Math.max(
-                  LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MAX,
-                  searchPointerTiltRadiusScale,
-                )}
-                min={LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MIN}
-                onBlur={commitHoverDraftSettings}
-                onChange={updatePointerTiltRadiusScale}
-                onKeyUp={commitHoverDraftSettings}
-                onPointerUp={commitHoverDraftSettings}
-                step="any"
-                type="range"
-                value={pointerTiltRadiusScale}
-              />
-            </div>
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-hover-pointer-tilt-radius">Tilt radius</label>
+            <output
+              className="font-mono text-xs text-muted-foreground"
+              htmlFor="menger-hover-pointer-tilt-radius"
+            >
+              {pointerTiltRadiusScale.toFixed(2)}×
+            </output>
+          </div>
+          <input
+            id="menger-hover-pointer-tilt-radius"
+            aria-label="Tilt radius"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            max={Math.max(
+              LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MAX,
+              searchPointerTiltRadiusScale,
+            )}
+            min={LOGO_PRESENTATION_TILT_RADIUS_SCALE_SLIDER_MIN}
+            onBlur={commitHoverDraftSettings}
+            onChange={updatePointerTiltRadiusScale}
+            onKeyUp={commitHoverDraftSettings}
+            onPointerUp={commitHoverDraftSettings}
+            step="any"
+            type="range"
+            value={pointerTiltRadiusScale}
+          />
+        </div>
 
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-xs">
-                <label htmlFor="menger-hover-pointer-tilt-strength">Tilt strength</label>
-                <output
-                  className="font-mono text-xs text-muted-foreground"
-                  htmlFor="menger-hover-pointer-tilt-strength"
-                >
-                  {pointerTiltStrengthScale.toFixed(2)}×
-                </output>
-              </div>
-              <input
-                id="menger-hover-pointer-tilt-strength"
-                aria-label="Tilt strength"
-                className="h-2 w-full cursor-pointer accent-foreground"
-                max={Math.max(
-                  LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MAX,
-                  searchPointerTiltStrengthScale,
-                )}
-                min={LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN}
-                onBlur={commitHoverDraftSettings}
-                onChange={updatePointerTiltStrengthScale}
-                onKeyUp={commitHoverDraftSettings}
-                onPointerUp={commitHoverDraftSettings}
-                step="any"
-                type="range"
-                value={pointerTiltStrengthScale}
-              />
-            </div>
-          </>
-        ) : null}
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <label htmlFor="menger-hover-pointer-tilt-strength">Tilt strength</label>
+            <output
+              className="font-mono text-xs text-muted-foreground"
+              htmlFor="menger-hover-pointer-tilt-strength"
+            >
+              {pointerTiltStrengthScale.toFixed(2)}×
+            </output>
+          </div>
+          <input
+            id="menger-hover-pointer-tilt-strength"
+            aria-label="Tilt strength"
+            className="h-2 w-full cursor-pointer accent-foreground"
+            max={Math.max(
+              LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MAX,
+              searchPointerTiltStrengthScale,
+            )}
+            min={LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN}
+            onBlur={commitHoverDraftSettings}
+            onChange={updatePointerTiltStrengthScale}
+            onKeyUp={commitHoverDraftSettings}
+            onPointerUp={commitHoverDraftSettings}
+            step="any"
+            type="range"
+            value={pointerTiltStrengthScale}
+          />
+        </div>
 
         <div className="grid gap-4 border-t pt-3">
           <div className="text-xs font-medium">Automatic probe</div>
@@ -1262,6 +1258,9 @@ export function LogoMengerDepthTransitionPage({
                   setTypeGpuUnavailable(true);
                 }}
                 onViewChange={setView}
+                pointerTiltEnabled={pointerTiltEnabled}
+                pointerTiltRadiusScale={pointerTiltRadiusScale}
+                pointerTiltStrengthScale={pointerTiltStrengthScale}
                 resolutionScale={resolutionScale}
                 revealRadius={hoverRevealRadius}
                 rotationDegrees={view.rotationDegrees}
