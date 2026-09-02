@@ -127,10 +127,11 @@ it cleared only the presentation tilt, which could leave the opening active.
 
 ## Landing adoption
 
-The large landing hero now lazy-loads the same TypeGPU scene at depth five and full render
-resolution. Its existing wrapper still owns the static first paint, view URL, drag snapping,
-coarse-pointer automatic probe, off-screen teardown, and failure state. The static mark stays
-visible until the first successful GPU draw.
+The large landing hero now lazy-loads the same TypeGPU scene at depth four by default and full
+render resolution. The shared `depth` query parameter can select depths one through eight. Its
+existing wrapper still owns the static first paint, view URL, drag snapping, coarse-pointer
+automatic probe, off-screen teardown, and failure state. The static mark stays visible until the
+first successful GPU draw.
 
 The closing-band and not-found logos stay on the generic cube renderer. Those surfaces animate
 rotation and recursive voxel shuffles, which are different from the Menger hover reveal. The Menger

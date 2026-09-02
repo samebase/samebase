@@ -61,7 +61,7 @@ async function readNumberAttribute(locator: Locator, attribute: string): Promise
   return number;
 }
 
-test("public landing uses the depth-five TypeGPU Menger hover scene @logo-research", async ({
+test("public landing uses the depth-four TypeGPU Menger hover scene @logo-research", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -77,7 +77,7 @@ test("public landing uses the depth-five TypeGPU Menger hover scene @logo-resear
   await expect(fallback).toHaveCSS("opacity", "0");
   await expect(scene).toHaveAttribute("data-renderer", "typegpu-ray-march");
   await expect(scene).toHaveAttribute("data-renderer-state", "ready");
-  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "5");
+  await expect(scene).toHaveAttribute("data-menger-maximum-depth", "4");
   await expect(scene).toHaveAttribute("data-menger-automatic-probe", "off");
   await expect(scene).toHaveAttribute("data-automatic-probe-state", "off");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");

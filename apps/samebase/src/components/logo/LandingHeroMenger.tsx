@@ -10,6 +10,10 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
 } from "@/components/logo/logoPresentationTilt";
+import {
+  MENGER_TYPE_GPU_DEFAULT_DEPTH,
+  normalizeMengerTypeGpuDepth,
+} from "@/components/logo/mengerTypeGpuSettings";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import {
@@ -41,7 +45,6 @@ const LANDING_HERO_STATIC_VOXEL_GRID = createLogoRouteVoxelGrid({
   gridSize: LOGO_GRID_SIZE_3,
   voxelState: MENGER_SPONGE_VOXEL_STATE,
 });
-const LANDING_HERO_MENGER_DEPTH = 5;
 const LANDING_HERO_DEFAULT_VIEW: LogoViewState = {
   elevationDegrees: 0,
   rotationDegrees: 0,
@@ -67,6 +70,10 @@ function buildLandingHeroMengerRouteSearch({
         rotationDegrees: view.rotationDegrees,
         themeModeSearch: rootRouteSearch,
       }),
+      depth:
+        typeof rootRouteSearch.depth === "number"
+          ? normalizeMengerTypeGpuDepth(rootRouteSearch.depth)
+          : undefined,
       elev:
         view.elevationDegrees !== LANDING_HERO_DEFAULT_VIEW.elevationDegrees
           ? Number(view.elevationDegrees.toFixed(1))
@@ -98,6 +105,10 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       }),
     [rootRouteSearch],
   );
+  const mengerDepth =
+    typeof rootRouteSearch.depth === "number"
+      ? normalizeMengerTypeGpuDepth(rootRouteSearch.depth)
+      : MENGER_TYPE_GPU_DEFAULT_DEPTH;
   const automaticProbe = useMemo(
     () => ({
       ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
@@ -350,7 +361,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             automaticProbe={automaticProbe}
             backgroundColor={resolvedTheme.backgroundColor}
             cameraFrustumPadding={1}
-            depth={LANDING_HERO_MENGER_DEPTH}
+            depth={mengerDepth}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}
             onInteractionEnd={commitView}
