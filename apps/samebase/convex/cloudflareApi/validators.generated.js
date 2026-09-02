@@ -20315,7 +20315,7 @@ const schema320 = {
         "The [jurisdiction](https://developers.cloudflare.com/r2/reference/data-location/#jurisdictional-restrictions) of the R2 bucket.",
       type: "string",
       example: "eu",
-      enum: ["eu", "fedramp", "fedramp-high"],
+      enum: ["eu", "fedramp", "fedramp-high", "us"],
       "x-auditable": true,
     },
     name: { $ref: "#/components/schemas/workers_binding_name" },
@@ -20421,7 +20421,7 @@ function validate310(
         }
         errors++;
       }
-      if (!(data1 === "eu" || data1 === "fedramp" || data1 === "fedramp-high")) {
+      if (!(data1 === "eu" || data1 === "fedramp" || data1 === "fedramp-high" || data1 === "us")) {
         const err5 = {
           instancePath: instancePath + "/jurisdiction",
           schemaPath: "#/properties/jurisdiction/enum",

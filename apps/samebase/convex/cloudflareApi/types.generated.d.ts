@@ -4079,7 +4079,7 @@ export interface components {
        * @example eu
        * @enum {string}
        */
-      jurisdiction?: "eu" | "fedramp" | "fedramp-high";
+      jurisdiction?: "eu" | "fedramp" | "fedramp-high" | "us";
       name: components["schemas"]["workers_binding_name"];
       /**
        * @description The kind of resource that the binding provides. (enum property replaced by openapi-typescript)
