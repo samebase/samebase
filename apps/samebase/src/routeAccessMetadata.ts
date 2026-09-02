@@ -93,6 +93,10 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "dev",
   },
+  "/logo/webgpu/menger": {
+    access: "access_public",
+    pathSuggestion: "dev",
+  },
   "/org/$owner": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },

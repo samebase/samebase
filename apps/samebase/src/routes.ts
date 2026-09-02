@@ -46,6 +46,7 @@ export const routes = rootRoute("root.tsx", [
   route("/logo/transition", "logo-transition-lab.tsx"),
   route("/logo/transition/menger", "logo-menger-transition-research.tsx"),
   route("/logo/transition/transforms", "logo-transition-transforms-lab.tsx"),
+  route("/logo/webgpu/menger", "logo-menger-webgpu-research.tsx"),
   route("/privacy", "privacy.tsx"),
   route("/terms", "terms.tsx"),
   route("/youtube", "youtube.tsx"),

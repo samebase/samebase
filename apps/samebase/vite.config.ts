@@ -3,6 +3,7 @@ import { defineConfig } from "vite-plus";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import typegpu from "unplugin-typegpu/vite";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -446,6 +447,7 @@ export default defineConfig({
       },
     }),
     react(),
+    typegpu(),
   ],
   resolve: {
     conditions: ["samebase-source", ...defaultClientConditions],

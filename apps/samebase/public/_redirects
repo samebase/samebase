@@ -84,6 +84,10 @@
 /logo/transition/transforms /logo/transition/transforms/index.html 200
 /logo/transition/transforms/ /logo/transition/transforms/index.html 200
 
+/logo/webgpu/menger/index.html /logo/webgpu/menger 301
+/logo/webgpu/menger /logo/webgpu/menger/index.html 200
+/logo/webgpu/menger/ /logo/webgpu/menger/index.html 200
+
 /oauth/mcp/consent/index.html /oauth/mcp/consent 301
 /oauth/mcp/consent /oauth/mcp/consent/index.html 200
 /oauth/mcp/consent/ /oauth/mcp/consent/index.html 200

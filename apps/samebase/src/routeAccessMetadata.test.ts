@@ -70,6 +70,7 @@ describe("route access metadata", () => {
       "/logo/transition",
       "/logo/transition/menger",
       "/logo/transition/transforms",
+      "/logo/webgpu/menger",
     ] as const;
 
     for (const route of developerLogoRoutes) {

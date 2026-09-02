@@ -99,6 +99,11 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "Developer preview for exploring Samebase logo rendering.",
     robots: "noindex,nofollow",
   },
+  "/logo/webgpu/menger": {
+    title: "TypeGPU Menger Lab | Samebase",
+    description: "Developer preview for exploring Samebase logo rendering.",
+    robots: "noindex,nofollow",
+  },
   "/oauth/mcp/consent": {
     title: "Authorize MCP client | Samebase",
     description: "Authorization route for a Samebase MCP client.",
