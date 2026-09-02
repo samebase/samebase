@@ -166,6 +166,7 @@ import type * as repositoryMigration_copyDocument from "../repositoryMigration/c
 import type * as repositoryMigration_copyFoundations from "../repositoryMigration/copyFoundations.js";
 import type * as repositoryMigration_copyRepositoryScoped from "../repositoryMigration/copyRepositoryScoped.js";
 import type * as repositoryMigration_cycles from "../repositoryMigration/cycles.js";
+import type * as repositoryMigration_deleteSources from "../repositoryMigration/deleteSources.js";
 import type * as repositoryMigration_inventory from "../repositoryMigration/inventory.js";
 import type * as repositoryMigration_maintenance from "../repositoryMigration/maintenance.js";
 import type * as repositoryMigration_maintenanceModel from "../repositoryMigration/maintenanceModel.js";
@@ -371,6 +372,7 @@ declare const fullApi: ApiFromModules<{
   "repositoryMigration/copyFoundations": typeof repositoryMigration_copyFoundations;
   "repositoryMigration/copyRepositoryScoped": typeof repositoryMigration_copyRepositoryScoped;
   "repositoryMigration/cycles": typeof repositoryMigration_cycles;
+  "repositoryMigration/deleteSources": typeof repositoryMigration_deleteSources;
   "repositoryMigration/inventory": typeof repositoryMigration_inventory;
   "repositoryMigration/maintenance": typeof repositoryMigration_maintenance;
   "repositoryMigration/maintenanceModel": typeof repositoryMigration_maintenanceModel;

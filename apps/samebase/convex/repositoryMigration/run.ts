@@ -102,5 +102,31 @@ const clearTargetSequence = [
   internal.repositoryMigration.clear.clearRepositoryRootTargets,
 ];
 
+const deleteSourceSequence = [
+  internal.repositoryMigration.deleteSources.deleteVaultDeletionEvents,
+  internal.repositoryMigration.deleteSources.deleteVaultProvisioningEvents,
+  internal.repositoryMigration.deleteSources.deleteVaultProvisioningPlans,
+  internal.repositoryMigration.deleteSources.deleteVaultProvisioningWriteLocks,
+  internal.repositoryMigration.deleteSources.deleteVaultStagedFileUpdates,
+  internal.repositoryMigration.deleteSources.deleteVaultStagedFiles,
+  internal.repositoryMigration.deleteSources.deleteVaultFileBlobs,
+  internal.repositoryMigration.deleteSources.deleteVaultFileTreeFolderExpansions,
+  internal.repositoryMigration.deleteSources.deleteVaultBranchTrees,
+  internal.repositoryMigration.deleteSources.deleteVaultPullRequestFilters,
+  internal.repositoryMigration.deleteSources.deleteVaultResourceLinkSettings,
+  internal.repositoryMigration.deleteSources.deleteVaultFolderAssignments,
+  internal.repositoryMigration.deleteSources.deleteVaultOrganizationTreeSettings,
+  internal.repositoryMigration.deleteSources.deleteVaultConvexSchemaSnapshots,
+  internal.repositoryMigration.deleteSources.deleteVaultConvexSchemaGraphNodeLayouts,
+  internal.repositoryMigration.deleteSources.deleteVaultCloudflareWorkers,
+  internal.repositoryMigration.deleteSources.deleteVaultConvexProjects,
+  internal.repositoryMigration.deleteSources.deleteVaultFolders,
+  internal.repositoryMigration.deleteSources.deleteVaultDeletionRuns,
+  internal.repositoryMigration.deleteSources.deleteVaultProvisioningRuns,
+  internal.repositoryMigration.deleteSources.deleteVaults,
+  internal.repositoryMigration.deleteSources.deleteRepositoryMigrationIdMaps,
+];
+
 export const runCompleteCopy = repositoryMigrations.runner(completeCopySequence);
 export const runClearTargets = repositoryMigrations.runner(clearTargetSequence);
+export const runDeleteSources = repositoryMigrations.runner(deleteSourceSequence);
