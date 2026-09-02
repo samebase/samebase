@@ -15,6 +15,7 @@ import {
 } from "@/components/logo/logoPresentationTilt";
 import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
+  MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
   MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
   MENGER_TYPE_GPU_MAXIMUM_DEPTH,
 } from "@/components/logo/mengerTypeGpuSettings";
@@ -296,14 +297,18 @@ describe("logoRouteSearch", () => {
   it("keeps renderer and landing controls on the Menger hover route schema only", () => {
     expect(
       validateLogoMengerHoverRouteSearch({
+        aa: "2x2",
         depth: "99",
+        perf: "",
         resolution: "1",
         tilt: "",
         tiltRadius: "3.5",
         tiltStrength: "1.5",
       }),
     ).toEqual({
+      aa: "2x2",
       depth: MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+      perf: true,
       resolution: 1,
       tilt: true,
       tiltRadius: 3.5,
@@ -316,6 +321,7 @@ describe("logoRouteSearch", () => {
     expect(validateLogoMengerHoverRouteSearch({ resolution: "0" })).toEqual({
       resolution: 0.5,
     });
+    expect(validateLogoMengerHoverRouteSearch({ aa: "msaa" })).toEqual({});
     expect(validateLogoMengerHoverRouteSearch({ tiltRadius: "-1" })).toEqual({
       tiltRadius: 0,
     });
@@ -450,6 +456,8 @@ describe("logoRouteSearch", () => {
     } as const;
     const mengerRouteBuildDefaults = {
       ...routeBuildDefaults,
+      mengerHoverAntialiasing: MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
+      mengerHoverPerformanceMeasurementEnabled: false,
       mengerHoverRenderer: "typegpu",
       mengerHoverResolutionScale: MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
     } as const;
@@ -510,10 +518,14 @@ describe("logoRouteSearch", () => {
       mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
     });
     expect(mengerDefaults).toEqual({});
+    expect("aa" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.aa).toBeUndefined();
     expect("depth" in mengerDefaults).toBe(true);
     expect(mengerDefaults.depth).toBeUndefined();
     expect("resolution" in mengerDefaults).toBe(true);
     expect(mengerDefaults.resolution).toBeUndefined();
+    expect("perf" in mengerDefaults).toBe(true);
+    expect(mengerDefaults.perf).toBeUndefined();
     expect("three" in mengerDefaults).toBe(true);
     expect(mengerDefaults.three).toBeUndefined();
     expect("tilt" in mengerDefaults).toBe(true);
@@ -693,6 +705,18 @@ describe("logoRouteSearch", () => {
         mengerHoverTiltStrengthScale: 1.5,
       }).tiltStrength,
     ).toBe(1.5);
+    expect(
+      buildLogoMengerHoverRouteSearch({
+        ...mengerRouteBuildDefaults,
+        mengerAutomaticProbe: MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
+        mengerHoverAntialiasing: "2x2",
+        mengerHoverDepth: MENGER_HOVER_DEFAULT_DEPTH,
+        mengerHoverPerformanceMeasurementEnabled: true,
+        mengerHoverTiltEnabled: false,
+        mengerHoverTiltRadiusScale: LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+        mengerHoverTiltStrengthScale: LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+      }),
+    ).toMatchObject({ aa: "2x2", perf: true });
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

@@ -19,7 +19,10 @@ import {
   readMengerAutomaticProbePoint,
   type MengerAutomaticProbeMotionSettings,
 } from "@/components/logo/mengerAutomaticProbe";
-import { MENGER_TYPE_GPU_MAXIMUM_DEPTH } from "@/components/logo/mengerTypeGpuSettings";
+import {
+  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+  type MengerTypeGpuAntialiasing,
+} from "@/components/logo/mengerTypeGpuSettings";
 import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
 import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
@@ -52,6 +55,7 @@ import { common, d, std, tgpu } from "typegpu";
 const CAMERA_DISTANCE = 4;
 const CAMERA_FIT_RADIUS = Math.sqrt(3);
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
+const GPU_TIMING_FRAME_INTERVAL = 6;
 const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
 const MAXIMUM_RAY_STEPS = 128;
 const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
@@ -67,6 +71,14 @@ const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
 });
 
 type SceneStatus = "initializing" | "ready" | "unavailable";
+export type MengerTypeGpuPerformanceReport =
+  | {
+      kind: "sample";
+      gpuPassMilliseconds: number;
+      renderHeight: number;
+      renderWidth: number;
+    }
+  | { kind: "unsupported" };
 type CameraFrame = {
   cameraVector: Vector3;
   right: Vector3;
@@ -273,6 +285,7 @@ function readHoverProbe(
 }
 
 export function MengerTypeGpuScene({
+  antialiasing,
   automaticProbe,
   backgroundColor,
   cameraFrustumPadding,
@@ -280,17 +293,20 @@ export function MengerTypeGpuScene({
   elevationDegrees,
   faceColors,
   onInteractionEnd,
+  onPerformanceReport,
   onRenderReady,
   onRenderUnavailable,
   onViewChange,
   pointerTiltEnabled,
   pointerTiltRadiusScale,
   pointerTiltStrengthScale,
+  performanceMeasurementEnabled,
   resolutionScale,
   revealRadius,
   rotationDegrees,
   viewSnapEnabled,
 }: {
+  antialiasing: MengerTypeGpuAntialiasing;
   automaticProbe: MengerAutomaticProbeMotionSettings;
   backgroundColor: HexColorToken;
   cameraFrustumPadding: number;
@@ -298,18 +314,21 @@ export function MengerTypeGpuScene({
   elevationDegrees: number;
   faceColors: FaceColors;
   onInteractionEnd: (finalView: LogoViewState) => void;
+  onPerformanceReport?: (report: MengerTypeGpuPerformanceReport) => void;
   onRenderReady?: () => void;
   onRenderUnavailable: () => void;
   onViewChange: (nextView: LogoViewState) => void;
   pointerTiltEnabled: boolean;
   pointerTiltRadiusScale: number;
   pointerTiltStrengthScale: number;
+  performanceMeasurementEnabled: boolean;
   resolutionScale: number;
   revealRadius: number;
   rotationDegrees: number;
   viewSnapEnabled: boolean;
 }) {
   const hasPrimaryFineHoverPointer = usePrimaryFineHoverPointer();
+  const antialiasingRef = useRef(antialiasing);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const automaticProbeRef = useRef(automaticProbe);
@@ -320,6 +339,7 @@ export function MengerTypeGpuScene({
   const frustumHalfSpanRef = useRef(CAMERA_FIT_RADIUS * cameraFrustumPadding);
   const onRenderReadyRef = useRef(onRenderReady);
   const onRenderUnavailableRef = useRef(onRenderUnavailable);
+  const onPerformanceReportRef = useRef(onPerformanceReport);
   const pointerTiltEnabledRef = useRef(pointerTiltEnabled);
   const pointerTiltRadiusScaleRef = useRef(pointerTiltRadiusScale);
   const pointerTiltStrengthScaleRef = useRef(pointerTiltStrengthScale);
@@ -336,6 +356,9 @@ export function MengerTypeGpuScene({
   });
   const resizeRef = useRef<() => void>(() => {});
   const writeColorsRef = useRef<(colors: SceneColors) => void>(() => {});
+  const writeAntialiasingRef = useRef<(nextAntialiasing: MengerTypeGpuAntialiasing) => void>(
+    () => {},
+  );
   const writeDepthRef = useRef<(nextDepth: number) => void>(() => {});
   const writeViewRef = useRef<(view: LogoViewState) => void>(() => {});
   const [status, setStatus] = useState<SceneStatus>("initializing");
@@ -403,6 +426,8 @@ export function MengerTypeGpuScene({
       delete container.dataset["hoverMaximumOpenness"];
       delete container.dataset["hoverSettled"];
       delete container.dataset["hoverVisibleFaceCount"];
+      delete container.dataset["gpuPassMilliseconds"];
+      delete container.dataset["gpuTiming"];
       delete container.dataset["presentationAppliedAngleDegrees"];
       delete container.dataset["presentationHorizontalDegrees"];
       delete container.dataset["presentationTiltBaseRadius"];
@@ -414,13 +439,18 @@ export function MengerTypeGpuScene({
       renderSceneRef.current = () => {};
       resizeRef.current = () => {};
       writeColorsRef.current = () => {};
+      writeAntialiasingRef.current = () => {};
       writeDepthRef.current = () => {};
       writeViewRef.current = () => {};
     };
 
     const initialize = async () => {
       try {
-        const root = await tgpu.init();
+        const root = await tgpu.init(
+          performanceMeasurementEnabled
+            ? { device: { optionalFeatures: ["timestamp-query"] } }
+            : undefined,
+        );
         if (lifetime.signal.aborted) {
           root.destroy();
           return;
@@ -434,6 +464,10 @@ export function MengerTypeGpuScene({
         };
 
         const context = root.configureContext({ canvas, alphaMode: "opaque" });
+        const antialiasingGridSize = root.createUniform(
+          d.i32,
+          antialiasingRef.current === "2x2" ? 2 : 1,
+        );
         const aspectRatio = root.createUniform(d.f32, 1);
         const background = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.background));
         const cameraRight = root.createUniform(d.vec3f);
@@ -444,6 +478,7 @@ export function MengerTypeGpuScene({
         const topColor = root.createUniform(d.vec3f, readGpuColor(colorsRef.current.top));
         const selectedDepth = root.createUniform(d.i32, depthRef.current);
         const frustumHalfSpan = root.createUniform(d.f32, frustumHalfSpanRef.current);
+        const subpixelOffset = root.createUniform(d.f32, 0);
         const surfaceThreshold = root.createUniform(d.f32, 0.001);
         const hoverState = root.createUniform(MENGER_TYPE_GPU_HOVER_STATE, {
           openness: 0,
@@ -656,15 +691,8 @@ export function MengerTypeGpuScene({
           }
           return d.vec3f(leftColor.$);
         };
-        const fragment = tgpu.fragmentFn({
-          in: { uv: d.vec2f },
-          out: d.vec4f,
-        })(({ uv }) => {
+        const traceMenger = (screenPoint: d.v2f): d.v4f => {
           "use gpu";
-          const screenPoint = d.vec2f(
-            std.mul(std.sub(uv.x, 0.5), std.mul(2, aspectRatio.$)),
-            std.mul(std.sub(uv.y, 0.5), -2),
-          );
           const rayOrigin = std.add(
             std.mul(cameraVector.$, CAMERA_DISTANCE),
             std.add(
@@ -701,12 +729,65 @@ export function MengerTypeGpuScene({
           }
 
           return d.vec4f(background.$, 1);
+        };
+        const fragment = tgpu.fragmentFn({
+          in: { uv: d.vec2f },
+          out: d.vec4f,
+        })(({ uv }) => {
+          "use gpu";
+          const screenPoint = d.vec2f(
+            std.mul(std.sub(uv.x, 0.5), std.mul(2, aspectRatio.$)),
+            std.mul(std.sub(uv.y, 0.5), -2),
+          );
+          if (antialiasingGridSize.$ === 1) {
+            return traceMenger(screenPoint);
+          }
+
+          const offset = subpixelOffset.$;
+          const topLeft = traceMenger(std.add(screenPoint, d.vec2f(std.neg(offset), offset)));
+          const topRight = traceMenger(std.add(screenPoint, d.vec2f(offset, offset)));
+          const bottomLeft = traceMenger(
+            std.add(screenPoint, d.vec2f(std.neg(offset), std.neg(offset))),
+          );
+          const bottomRight = traceMenger(std.add(screenPoint, d.vec2f(offset, std.neg(offset))));
+          return std.mul(
+            std.add(std.add(topLeft, topRight), std.add(bottomLeft, bottomRight)),
+            0.25,
+          );
         });
         const pipeline = root.createRenderPipeline({
           vertex: common.fullScreenTriangle,
           fragment,
         });
-        await pipeline.initAsync();
+        const gpuTimingSupported = root.enabledFeatures.has("timestamp-query");
+        const timedPipeline =
+          performanceMeasurementEnabled && gpuTimingSupported
+            ? pipeline.withPerformanceCallback((start, end) => {
+                if (lifetime.signal.aborted || end <= start) {
+                  return;
+                }
+                const gpuPassMilliseconds = Number(end - start) / 1_000_000;
+                if (!Number.isFinite(gpuPassMilliseconds)) {
+                  return;
+                }
+
+                container.dataset["gpuTiming"] = "measured";
+                container.dataset["gpuPassMilliseconds"] = gpuPassMilliseconds.toFixed(3);
+                onPerformanceReportRef.current?.({
+                  kind: "sample",
+                  gpuPassMilliseconds,
+                  renderHeight: canvas.height,
+                  renderWidth: canvas.width,
+                });
+              })
+            : pipeline;
+        if (performanceMeasurementEnabled) {
+          container.dataset["gpuTiming"] = gpuTimingSupported ? "sampling" : "unsupported";
+          if (!gpuTimingSupported) {
+            onPerformanceReportRef.current?.({ kind: "unsupported" });
+          }
+        }
+        await timedPipeline.initAsync();
         // eslint-disable-next-line typescript/no-unnecessary-condition -- Cleanup can abort while pipeline initialization awaits.
         if (lifetime.signal.aborted) {
           return;
@@ -723,6 +804,7 @@ export function MengerTypeGpuScene({
         let presentationTiltSuspended = false;
         let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
         let renderedOpenness = 0;
+        let renderedFrameCount = 0;
         let renderFrame = 0;
         let sceneIsVisible = true;
         let firstRenderPending = true;
@@ -1091,7 +1173,16 @@ export function MengerTypeGpuScene({
           } else {
             hoverNeedsFrame = writeHoverState(timestampMs, frame);
           }
-          pipeline.withColorAttachment({ view: context.getCurrentTexture().createView() }).draw(3);
+          const framePipeline =
+            performanceMeasurementEnabled &&
+            gpuTimingSupported &&
+            renderedFrameCount % GPU_TIMING_FRAME_INTERVAL === 0
+              ? timedPipeline
+              : pipeline;
+          framePipeline
+            .withColorAttachment({ view: context.getCurrentTexture().createView() })
+            .draw(3);
+          renderedFrameCount += 1;
           container.dataset["presentationTiltSettled"] = presentationTiltSettled ? "true" : "false";
           container.dataset["presentationAppliedAngleDegrees"] = readQuaternionAngleDegrees(
             presentationTiltQuaternion,
@@ -1105,7 +1196,12 @@ export function MengerTypeGpuScene({
           if (presentationTiltSettled) {
             lastPresentationTiltFrameTime = null;
           }
-          if (automaticProbeNeedsFrame || hoverNeedsFrame || !presentationTiltSettled) {
+          if (
+            automaticProbeNeedsFrame ||
+            hoverNeedsFrame ||
+            !presentationTiltSettled ||
+            (performanceMeasurementEnabled && gpuTimingSupported)
+          ) {
             requestRender();
           }
         };
@@ -1275,6 +1371,7 @@ export function MengerTypeGpuScene({
           frustumHalfSpanRef.current = nextFrustumHalfSpan;
           frustumHalfSpan.write(nextFrustumHalfSpan);
           aspectRatio.write(nextWidth / nextHeight);
+          subpixelOffset.write(0.5 / nextHeight);
           surfaceThreshold.write(Math.max((nextFrustumHalfSpan * 2 * 0.12) / nextHeight, 0.0002));
           if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
             canvas.width = nextWidth;
@@ -1293,6 +1390,10 @@ export function MengerTypeGpuScene({
           writeColors(colors);
           requestRender();
         };
+        writeAntialiasingRef.current = (nextAntialiasing) => {
+          antialiasingGridSize.write(nextAntialiasing === "2x2" ? 2 : 1);
+          requestRender();
+        };
         writeDepthRef.current = (nextDepth) => {
           selectedDepth.write(nextDepth);
           requestRender();
@@ -1300,6 +1401,7 @@ export function MengerTypeGpuScene({
         writeViewRef.current = writeView;
 
         resizeObserver.observe(canvas);
+        antialiasingGridSize.write(antialiasingRef.current === "2x2" ? 2 : 1);
         writeColors(colorsRef.current);
         selectedDepth.write(depthRef.current);
         writeView();
@@ -1336,7 +1438,12 @@ export function MengerTypeGpuScene({
       delete canvas.dataset["rendererError"];
       destroyRoot();
     };
-  }, [cameraFrustumPadding, interactionRef]);
+  }, [cameraFrustumPadding, interactionRef, performanceMeasurementEnabled]);
+
+  useEffect(() => {
+    antialiasingRef.current = antialiasing;
+    writeAntialiasingRef.current(antialiasing);
+  }, [antialiasing]);
 
   useEffect(() => {
     automaticProbeRef.current = {
@@ -1427,17 +1534,23 @@ export function MengerTypeGpuScene({
     onRenderUnavailableRef.current = onRenderUnavailable;
   }, [onRenderUnavailable]);
 
+  useEffect(() => {
+    onPerformanceReportRef.current = onPerformanceReport;
+  }, [onPerformanceReport]);
+
   return (
     <div
       ref={containerRef}
       aria-label="Menger sponge hover reveal"
       className="relative h-full min-h-0 w-full"
+      data-menger-antialiasing={antialiasing}
       data-menger-automatic-probe={automaticProbe.enabled ? "play" : "off"}
       data-menger-automatic-probe-path={automaticProbe.path}
       data-menger-maximum-depth={depth}
       data-menger-pointer-tilt={pointerTiltEnabled ? "landing" : "off"}
       data-menger-pointer-tilt-radius-scale={pointerTiltRadiusScale}
       data-menger-pointer-tilt-strength-scale={pointerTiltStrengthScale}
+      data-menger-performance-measurement={performanceMeasurementEnabled ? "on" : "off"}
       data-menger-research-mode="hover"
       data-logo-elevation-degrees={elevationDegrees}
       data-logo-rotation-degrees={rotationDegrees}

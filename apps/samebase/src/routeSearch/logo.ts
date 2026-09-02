@@ -64,6 +64,8 @@ import {
   type MengerAutomaticProbeSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import {
+  MENGER_TYPE_GPU_ANTIALIASING_MODES,
+  MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
   MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
   MENGER_TYPE_GPU_MAXIMUM_DEPTH,
   MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE,
@@ -71,6 +73,7 @@ import {
   MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP,
   normalizeMengerTypeGpuDepth,
   normalizeMengerTypeGpuResolutionScale,
+  type MengerTypeGpuAntialiasing,
   type MengerHoverRenderer,
 } from "@/components/logo/mengerTypeGpuSettings";
 import {
@@ -584,6 +587,17 @@ const RouteSearchSchema_logoCarpetHover = defineRouteSearchParams({
 /** Landing-style pointer and automatic-probe options belong only to the Menger hover lab. */
 const RouteSearchSchema_logoMengerHover = defineRouteSearchParams({
   ...RouteSearchSchema_logo.shape,
+  aa: routeSearchValueParam(routeSearchStringValue(MENGER_TYPE_GPU_ANTIALIASING_MODES), {
+    access: "access_public",
+    sampleValue: "2x2",
+    ...logoViewRouteSearchSuggestion,
+    valueSuggestions: MENGER_TYPE_GPU_ANTIALIASING_MODES,
+    valueType: "options",
+  }),
+  perf: routeSearchPresenceParam({
+    access: "access_public",
+    ...logoViewRouteSearchSuggestion,
+  }),
   resolution: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeMengerTypeGpuResolutionScale),
     {
@@ -834,6 +848,8 @@ function readLogoCarpetHoverRouteSearchFields(search: LogoCarpetHoverRouteSearch
 function readLogoMengerHoverRouteSearchFields(search: LogoMengerHoverRouteSearchFields) {
   return {
     ...readLogoRouteSearchFields(search),
+    ...(typeof search.aa === "string" ? { aa: search.aa } : {}),
+    ...(search.perf ? { perf: true as const } : {}),
     ...(typeof search.resolution === "number" ? { resolution: search.resolution } : {}),
     ...(search.three ? { three: true as const } : {}),
     ...(search.probe ? { probe: true as const } : {}),
@@ -1351,7 +1367,9 @@ export function buildLogoCarpetHoverRouteSearch(
 export function buildLogoMengerHoverRouteSearch(
   args: LogoRouteSearchBuildState & {
     mengerAutomaticProbe: MengerAutomaticProbeSettings;
+    mengerHoverAntialiasing: MengerTypeGpuAntialiasing;
     mengerHoverDepth: number;
+    mengerHoverPerformanceMeasurementEnabled: boolean;
     mengerHoverRenderer: MengerHoverRenderer;
     mengerHoverResolutionScale: number;
     mengerHoverTiltEnabled: boolean;
@@ -1372,7 +1390,12 @@ export function buildLogoMengerHoverRouteSearch(
 
   return {
     ...buildLogoRouteSearch(args),
+    aa:
+      args.mengerHoverAntialiasing !== MENGER_TYPE_GPU_DEFAULT_ANTIALIASING
+        ? args.mengerHoverAntialiasing
+        : undefined,
     depth: depth !== MENGER_HOVER_DEFAULT_DEPTH ? depth : undefined,
+    perf: args.mengerHoverPerformanceMeasurementEnabled ? true : undefined,
     resolution:
       resolutionScale !== MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE ? resolutionScale : undefined,
     three: args.mengerHoverRenderer === "three" ? true : undefined,

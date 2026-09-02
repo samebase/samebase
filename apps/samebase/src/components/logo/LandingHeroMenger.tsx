@@ -11,6 +11,7 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
 } from "@/components/logo/logoPresentationTilt";
 import {
+  MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
   MENGER_TYPE_GPU_DEFAULT_DEPTH,
   normalizeMengerTypeGpuDepth,
 } from "@/components/logo/mengerTypeGpuSettings";
@@ -358,6 +359,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       {isSceneActive && MengerTypeGpuScene !== null ? (
         <div className="absolute inset-0 z-0">
           <MengerTypeGpuScene
+            antialiasing={MENGER_TYPE_GPU_DEFAULT_ANTIALIASING}
             automaticProbe={automaticProbe}
             backgroundColor={resolvedTheme.backgroundColor}
             cameraFrustumPadding={1}
@@ -371,6 +373,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             pointerTiltEnabled={!automaticProbe.enabled}
             pointerTiltRadiusScale={LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE}
             pointerTiltStrengthScale={LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE}
+            performanceMeasurementEnabled={false}
             resolutionScale={1}
             revealRadius={MENGER_HOVER_DEFAULT_REVEAL_RADIUS}
             rotationDegrees={view.rotationDegrees}
