@@ -282,6 +282,68 @@ describe("repository migration engine", () => {
     ).rejects.toThrow("points to a missing target document");
   });
 
+  it("detects copied business fields that differ from the source", async () => {
+    const { ids, t } = await insertFrozenFixture();
+    const sourceFolderId = await t.run(async (ctx) => {
+      return await ctx.db.insert("ui_vaultFolders", {
+        userId: ids.userId,
+        organizationId: ids.organizationId,
+        name: "Migration folder",
+        nameKey: "migration folder",
+        collapsed: false,
+        position: 1,
+      });
+    });
+    await t.mutation(internal.repositoryMigration.copyFoundations.copyRepositoryFolders, {
+      cursor: null,
+      batchSize: 10,
+      dryRun: false,
+      oneBatchOnly: true,
+    });
+    await t.run(async (ctx) => {
+      const mapping = await ctx.db
+        .query("repositoryMigrationIdMaps")
+        .withIndex("by_source", (query) =>
+          query.eq("sourceKind", "ui_vaultFolders").eq("sourceId", sourceFolderId),
+        )
+        .unique();
+      if (mapping === null || mapping.sourceKind !== "ui_vaultFolders") {
+        throw new Error("Expected folder mapping.");
+      }
+      await ctx.db.patch(mapping.targetId, { name: "Incorrect folder" });
+    });
+
+    await expect(
+      t.mutation(internal.repositoryMigration.copyFoundations.verifyRepositoryFolders, {
+        cursor: null,
+        batchSize: 10,
+        dryRun: false,
+        oneBatchOnly: true,
+      }),
+    ).rejects.toThrow("has incorrect target fields");
+  });
+
+  it("detects target rows that have no copied source mapping", async () => {
+    const { ids, t } = await insertFrozenFixture();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositories", {
+        state: "not_connected",
+        organizationId: ids.organizationId,
+        deletion: { state: "not_deleting" },
+        createdAt: 100,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.repositoryMigration.verifyTargets.verifyRepositoryTargets, {
+        cursor: null,
+        batchSize: 10,
+        dryRun: false,
+        oneBatchOnly: true,
+      }),
+    ).rejects.toThrow("has no copied source mapping");
+  });
+
   it("clears mapped roots but preserves source and unowned target rows", async () => {
     const { ids, t } = await insertFrozenFixture();
     const vaultId = (await insertNotConnectedVaults(1, ids.organizationId, t))[0];

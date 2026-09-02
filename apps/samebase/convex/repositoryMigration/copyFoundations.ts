@@ -5,7 +5,7 @@ import {
 import { requireMappedRepositoryId } from "./references";
 import { toRepositoryProvisioningRunStep } from "./steps";
 
-export const copyRepositoryFolders = defineCopiedDocumentMigration({
+const repositoryFoldersMigration = defineCopiedDocumentMigration({
   source: "ui_vaultFolders",
   transform: async (_ctx, folder) => ({
     userId: folder.userId,
@@ -40,8 +40,10 @@ export const copyRepositoryFolders = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryFolders = repositoryFoldersMigration.copy;
+export const verifyRepositoryFolders = repositoryFoldersMigration.verify;
 
-export const copyRepositoryCloudflareWorkers = defineCopiedDocumentMigration({
+const repositoryCloudflareWorkersMigration = defineCopiedDocumentMigration({
   source: "vaultCloudflareWorkers",
   transform: async (ctx, worker) => ({
     repositoryId: await requireMappedRepositoryId(ctx, worker.vaultId),
@@ -83,8 +85,10 @@ export const copyRepositoryCloudflareWorkers = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryCloudflareWorkers = repositoryCloudflareWorkersMigration.copy;
+export const verifyRepositoryCloudflareWorkers = repositoryCloudflareWorkersMigration.verify;
 
-export const copyRepositoryConvexProjects = defineCopiedDocumentMigration({
+const repositoryConvexProjectsMigration = defineCopiedDocumentMigration({
   source: "vaultConvexProjects",
   transform: async (ctx, project) => {
     const common = {
@@ -129,8 +133,10 @@ export const copyRepositoryConvexProjects = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryConvexProjects = repositoryConvexProjectsMigration.copy;
+export const verifyRepositoryConvexProjects = repositoryConvexProjectsMigration.verify;
 
-export const copyRepositoryProvisioningRuns = defineCopiedDocumentMigration({
+const repositoryProvisioningRunsMigration = defineCopiedDocumentMigration({
   source: "workflow_vaultProvisioning_runs",
   transform: async (ctx, run) => ({
     organizationId: run.organizationId,
@@ -179,3 +185,5 @@ export const copyRepositoryProvisioningRuns = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryProvisioningRuns = repositoryProvisioningRunsMigration.copy;
+export const verifyRepositoryProvisioningRuns = repositoryProvisioningRunsMigration.verify;

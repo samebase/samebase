@@ -4,7 +4,7 @@ import {
 } from "./copyDocument";
 import { requireMappedRepositoryId } from "./references";
 
-export const copyRepositoryBranchTrees = defineCopiedDocumentMigration({
+const repositoryBranchTreesMigration = defineCopiedDocumentMigration({
   source: "observations_vaultRepository_branchTrees",
   transform: async (ctx, tree) => ({
     repositoryId: await requireMappedRepositoryId(ctx, tree.vaultId),
@@ -43,8 +43,10 @@ export const copyRepositoryBranchTrees = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryBranchTrees = repositoryBranchTreesMigration.copy;
+export const verifyRepositoryBranchTrees = repositoryBranchTreesMigration.verify;
 
-export const copyRepositoryPullRequestFilters = defineCopiedDocumentMigration({
+const repositoryPullRequestFiltersMigration = defineCopiedDocumentMigration({
   source: "ui_vaultPullRequests_filters",
   transform: async (ctx, filter) => ({
     userId: filter.userId,
@@ -82,8 +84,10 @@ export const copyRepositoryPullRequestFilters = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryPullRequestFilters = repositoryPullRequestFiltersMigration.copy;
+export const verifyRepositoryPullRequestFilters = repositoryPullRequestFiltersMigration.verify;
 
-export const copyRepositoryResourceLinkSettings = defineCopiedDocumentMigration({
+const repositoryResourceLinkSettingsMigration = defineCopiedDocumentMigration({
   source: "ui_vaultResourceLinks_settings",
   transform: async (ctx, setting) => ({
     userId: setting.userId,
@@ -121,8 +125,10 @@ export const copyRepositoryResourceLinkSettings = defineCopiedDocumentMigration(
     });
   },
 });
+export const copyRepositoryResourceLinkSettings = repositoryResourceLinkSettingsMigration.copy;
+export const verifyRepositoryResourceLinkSettings = repositoryResourceLinkSettingsMigration.verify;
 
-export const copyRepositoryOrganizationTreeSettings = defineCopiedDocumentMigration({
+const repositoryOrganizationTreeSettingsMigration = defineCopiedDocumentMigration({
   source: "ui_vaultOrganizationTree_settings",
   transform: async (_ctx, setting) => ({
     userId: setting.userId,
@@ -159,8 +165,12 @@ export const copyRepositoryOrganizationTreeSettings = defineCopiedDocumentMigrat
     });
   },
 });
+export const copyRepositoryOrganizationTreeSettings =
+  repositoryOrganizationTreeSettingsMigration.copy;
+export const verifyRepositoryOrganizationTreeSettings =
+  repositoryOrganizationTreeSettingsMigration.verify;
 
-export const copyRepositoryStagedFiles = defineCopiedDocumentMigration({
+const repositoryStagedFilesMigration = defineCopiedDocumentMigration({
   source: "vaultStagedFiles",
   transform: async (ctx, file) => ({
     repositoryId: await requireMappedRepositoryId(ctx, file.vaultId),
@@ -204,8 +214,10 @@ export const copyRepositoryStagedFiles = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryStagedFiles = repositoryStagedFilesMigration.copy;
+export const verifyRepositoryStagedFiles = repositoryStagedFilesMigration.verify;
 
-export const copyRepositoryFileBlobs = defineCopiedDocumentMigration({
+const repositoryFileBlobsMigration = defineCopiedDocumentMigration({
   source: "observations_vaultFiles_blobs",
   transform: async (ctx, blob) => ({
     repositoryId: await requireMappedRepositoryId(ctx, blob.vaultId),
@@ -245,8 +257,10 @@ export const copyRepositoryFileBlobs = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryFileBlobs = repositoryFileBlobsMigration.copy;
+export const verifyRepositoryFileBlobs = repositoryFileBlobsMigration.verify;
 
-export const copyRepositoryFileTreeFolderExpansions = defineCopiedDocumentMigration({
+const repositoryFileTreeFolderExpansionsMigration = defineCopiedDocumentMigration({
   source: "ui_vaultFileTree_folderExpansions",
   transform: async (ctx, expansion) => ({
     userId: expansion.userId,
@@ -284,8 +298,12 @@ export const copyRepositoryFileTreeFolderExpansions = defineCopiedDocumentMigrat
     });
   },
 });
+export const copyRepositoryFileTreeFolderExpansions =
+  repositoryFileTreeFolderExpansionsMigration.copy;
+export const verifyRepositoryFileTreeFolderExpansions =
+  repositoryFileTreeFolderExpansionsMigration.verify;
 
-export const copyRepositoryStagedFileUpdates = defineCopiedDocumentMigration({
+const repositoryStagedFileUpdatesMigration = defineCopiedDocumentMigration({
   source: "vaultStagedFileUpdates",
   transform: async (ctx, update) => ({
     repositoryId: await requireMappedRepositoryId(ctx, update.vaultId),
@@ -325,3 +343,5 @@ export const copyRepositoryStagedFileUpdates = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryStagedFileUpdates = repositoryStagedFileUpdatesMigration.copy;
+export const verifyRepositoryStagedFileUpdates = repositoryStagedFileUpdatesMigration.verify;

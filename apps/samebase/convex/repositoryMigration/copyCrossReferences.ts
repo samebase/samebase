@@ -12,7 +12,7 @@ import {
 } from "./references";
 import { toRepositoryDeletionStep, toRepositoryProvisioningStep } from "./steps";
 
-export const copyRepositoryFolderAssignments = defineCopiedDocumentMigration({
+const repositoryFolderAssignmentsMigration = defineCopiedDocumentMigration({
   source: "ui_vaultFolderAssignments",
   transform: async (ctx, assignment) => ({
     userId: assignment.userId,
@@ -49,8 +49,10 @@ export const copyRepositoryFolderAssignments = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryFolderAssignments = repositoryFolderAssignmentsMigration.copy;
+export const verifyRepositoryFolderAssignments = repositoryFolderAssignmentsMigration.verify;
 
-export const copyRepositoryConvexSchemaSnapshots = defineCopiedDocumentMigration({
+const repositoryConvexSchemaSnapshotsMigration = defineCopiedDocumentMigration({
   source: "observations_vaultConvexSchema_snapshots",
   transform: async (ctx, snapshot) => ({
     repositoryId: await requireMappedRepositoryId(ctx, snapshot.vaultId),
@@ -92,8 +94,11 @@ export const copyRepositoryConvexSchemaSnapshots = defineCopiedDocumentMigration
     });
   },
 });
+export const copyRepositoryConvexSchemaSnapshots = repositoryConvexSchemaSnapshotsMigration.copy;
+export const verifyRepositoryConvexSchemaSnapshots =
+  repositoryConvexSchemaSnapshotsMigration.verify;
 
-export const copyRepositoryConvexSchemaGraphNodeLayouts = defineCopiedDocumentMigration({
+const repositoryConvexSchemaGraphNodeLayoutsMigration = defineCopiedDocumentMigration({
   source: "ui_vaultConvexSchemaGraph_nodeLayouts",
   transform: async (ctx, layout) => ({
     userId: layout.userId,
@@ -134,8 +139,12 @@ export const copyRepositoryConvexSchemaGraphNodeLayouts = defineCopiedDocumentMi
     });
   },
 });
+export const copyRepositoryConvexSchemaGraphNodeLayouts =
+  repositoryConvexSchemaGraphNodeLayoutsMigration.copy;
+export const verifyRepositoryConvexSchemaGraphNodeLayouts =
+  repositoryConvexSchemaGraphNodeLayoutsMigration.verify;
 
-export const copyRepositoryProvisioningPlans = defineCopiedDocumentMigration({
+const repositoryProvisioningPlansMigration = defineCopiedDocumentMigration({
   source: "workflow_vaultProvisioning_plans",
   transform: async (ctx, plan) => ({
     repositoryId: await requireMappedRepositoryId(ctx, plan.vaultId),
@@ -175,8 +184,10 @@ export const copyRepositoryProvisioningPlans = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryProvisioningPlans = repositoryProvisioningPlansMigration.copy;
+export const verifyRepositoryProvisioningPlans = repositoryProvisioningPlansMigration.verify;
 
-export const copyRepositoryProvisioningWriteLocks = defineCopiedDocumentMigration({
+const repositoryProvisioningWriteLocksMigration = defineCopiedDocumentMigration({
   source: "workflow_vaultProvisioning_writeLocks",
   transform: async (ctx, lock) => {
     const repositoryId = await requireMappedRepositoryId(ctx, lock.vaultId);
@@ -230,8 +241,11 @@ export const copyRepositoryProvisioningWriteLocks = defineCopiedDocumentMigratio
     });
   },
 });
+export const copyRepositoryProvisioningWriteLocks = repositoryProvisioningWriteLocksMigration.copy;
+export const verifyRepositoryProvisioningWriteLocks =
+  repositoryProvisioningWriteLocksMigration.verify;
 
-export const copyRepositoryProvisioningEvents = defineCopiedDocumentMigration({
+const repositoryProvisioningEventsMigration = defineCopiedDocumentMigration({
   source: "workflow_vaultProvisioning_events",
   transform: async (ctx, event) => ({
     userId: event.userId,
@@ -277,8 +291,10 @@ export const copyRepositoryProvisioningEvents = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryProvisioningEvents = repositoryProvisioningEventsMigration.copy;
+export const verifyRepositoryProvisioningEvents = repositoryProvisioningEventsMigration.verify;
 
-export const copyRepositoryDeletionEvents = defineCopiedDocumentMigration({
+const repositoryDeletionEventsMigration = defineCopiedDocumentMigration({
   source: "workflow_vaultDeletion_events",
   transform: async (ctx, event) => ({
     organizationId: event.organizationId,
@@ -324,3 +340,5 @@ export const copyRepositoryDeletionEvents = defineCopiedDocumentMigration({
     });
   },
 });
+export const copyRepositoryDeletionEvents = repositoryDeletionEventsMigration.copy;
+export const verifyRepositoryDeletionEvents = repositoryDeletionEventsMigration.verify;

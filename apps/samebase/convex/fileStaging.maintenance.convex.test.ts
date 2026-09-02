@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
@@ -64,6 +64,94 @@ async function createConnectedRepositoryFixture() {
 }
 
 describe("repository maintenance editor write authority", () => {
+  it("keeps a cleanup lease until every scheduled update batch finishes", async () => {
+    const { t, ids } = await createConnectedRepositoryFixture();
+    const operationId = "clear-staging-operation";
+    const operationName = "commit_staging";
+    const parentLease = await t.mutation(
+      internal.repositoryMigration.maintenance.claimOperationLease,
+      {
+        operationId,
+        operationName,
+      },
+    );
+    await t.run(async (ctx) => {
+      for (let index = 0; index < 501; index += 1) {
+        await ctx.db.insert("vaultStagedFileUpdates", {
+          vaultId: ids.vaultId,
+          branch: "main",
+          filePath: "README.md",
+          version: index + 1,
+          clientId: `client-${index}`,
+          changes: "[]",
+          userId: ids.userId,
+          timestamp: index + 1,
+        });
+      }
+    });
+    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+      mode: "draining",
+    });
+
+    vi.useFakeTimers();
+    try {
+      await t.mutation(internal.fileStaging.clearAllStagingForOperation, {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        branch: "main",
+        skipTreeUpdate: true,
+        leaseId: parentLease.leaseId,
+        operationId,
+        operationName,
+      });
+      await t.mutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
+        leaseId: parentLease.leaseId,
+        operationId,
+        operationName,
+      });
+
+      const cleanupLease = await t.run(async (ctx) =>
+        (await ctx.db.query("repositoryOperationLeases").collect()).find(
+          (lease) => lease.operationName === "staging_cleanup",
+        ),
+      );
+      expect(cleanupLease).toMatchObject({ operationName: "staging_cleanup" });
+      await expect(
+        t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+          mode: "frozen",
+        }),
+      ).rejects.toThrow("a repository operation lease is active");
+      if (cleanupLease === undefined) {
+        throw new Error("Expected a staging cleanup lease.");
+      }
+      await expect(
+        t.mutation(internal.fileStaging.deleteCollaborativeUpdatesBatch, {
+          vaultId: ids.vaultId,
+          branch: "main",
+          cutoffTimestamp: 0,
+          leaseId: cleanupLease._id,
+          operationId: cleanupLease.operationId,
+          operationName: "another_operation",
+        }),
+      ).rejects.toThrow("Staging cleanup operation authority is required");
+
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+      const result = await t.run(async (ctx) => ({
+        updates: await ctx.db.query("vaultStagedFileUpdates").collect(),
+        leases: await ctx.db.query("repositoryOperationLeases").collect(),
+      }));
+      expect(result).toEqual({ updates: [], leases: [] });
+      await expect(
+        t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
+          mode: "frozen",
+        }),
+      ).resolves.toMatchObject({ mode: "frozen" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the exact media upload capability active through draining", async () => {
     const { t, ids } = await createConnectedRepositoryFixture();
     const asUser = t.withIdentity({

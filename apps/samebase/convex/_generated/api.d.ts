@@ -138,6 +138,7 @@ import type * as repositoryMigration_references from "../repositoryMigration/ref
 import type * as repositoryMigration_run from "../repositoryMigration/run.js";
 import type * as repositoryMigration_steps from "../repositoryMigration/steps.js";
 import type * as repositoryMigration_verify from "../repositoryMigration/verify.js";
+import type * as repositoryMigration_verifyTargets from "../repositoryMigration/verifyTargets.js";
 import type * as repositoryPullRequests from "../repositoryPullRequests.js";
 import type * as slugUtils from "../slugUtils.js";
 import type * as stagingChanges from "../stagingChanges.js";
@@ -342,6 +343,7 @@ declare const fullApi: ApiFromModules<{
   "repositoryMigration/run": typeof repositoryMigration_run;
   "repositoryMigration/steps": typeof repositoryMigration_steps;
   "repositoryMigration/verify": typeof repositoryMigration_verify;
+  "repositoryMigration/verifyTargets": typeof repositoryMigration_verifyTargets;
   repositoryPullRequests: typeof repositoryPullRequests;
   slugUtils: typeof slugUtils;
   stagingChanges: typeof stagingChanges;

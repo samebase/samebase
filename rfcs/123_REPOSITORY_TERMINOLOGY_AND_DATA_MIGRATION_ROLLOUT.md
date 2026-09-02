@@ -334,14 +334,19 @@ transaction timing around URL creation. See the
 [Convex upload URL contract](https://docs.convex.dev/file-storage/upload-files#generating-the-upload-url).
 
 Each copy operation must be idempotent. A repeated source row must use its existing target ID and
-must not insert a duplicate. Each batch must be small enough for Convex transaction limits. A run
-must resume safely after any batch.
+must not insert a duplicate or rewrite an unchanged target. Each batch must be small enough for
+Convex transaction limits. A run must resume safely after any batch.
+
+A repository operation that schedules more write batches must give those batches a separate lease.
+The lease must stay active until the last scheduled batch finishes. This rule prevents a freeze
+while delayed repository writes can still run.
 
 Exit checks:
 
 - The audit covers all 21 tables and every stored ID reference.
 - A second copy of one source row returns the same target ID.
 - Every `copied_document` map row points to one source row and one target row.
+- Every copied target has the exact translated business fields and no copied target is extra.
 - Every `deleted_repository_identity` map row has no source or target repository row and is used
   only by retained succeeded deletion history.
 - The jobs resume after an interrupted batch.
@@ -359,7 +364,8 @@ Operator entry points added in this phase:
 - Call `repositoryMigration/inventory:inventoryBatch` once per table and continue with its returned
   cursor until `isDone` is true.
 - Call `repositoryMigration/run:runCompleteCopy` only in `frozen` mode. The run includes mapping,
-  copy, and structural verification steps.
+  copy, exact translated-field verification, mapping verification, and rejection of extra target
+  rows.
 - Call `repositoryMigration/run:runClearTargets` only in `frozen` mode to remove migration-owned
   targets and ID maps before new-table writes start. Use `{ "reset": true }` when a rehearsal must
   repeat a completed copy or clear sequence.

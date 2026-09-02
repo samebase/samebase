@@ -1,6 +1,7 @@
 import type { GenericMutationCtx, WithoutSystemFields } from "convex/server";
 
 import type { DataModel, Doc } from "../_generated/dataModel";
+import { hasExactBusinessFields } from "./copyDocument";
 import { requireFrozenRepositoryMigrationWrite } from "./maintenance";
 import { repositoryMigrations } from "./migrations";
 import {
@@ -221,10 +222,31 @@ export const finalizeDeletionRuns = repositoryMigrations.define({
   migrateOne: async (ctx, run) => {
     await requireFrozenRepositoryMigrationWrite(ctx);
     const targetRunId = await requireMappedDeletionRunId(ctx, run._id);
-    if ((await ctx.db.get(targetRunId)) === null) {
+    const existingTarget = await ctx.db.get(targetRunId);
+    if (existingTarget === null) {
       throw new Error(`Deletion run ${run._id} maps to a missing target document.`);
     }
-    await ctx.db.replace(targetRunId, await toRepositoryDeletionRun(ctx, run));
+    const targetFields = await toRepositoryDeletionRun(ctx, run);
+    if (hasExactBusinessFields(existingTarget, targetFields)) {
+      return;
+    }
+    await ctx.db.replace(targetRunId, targetFields);
+  },
+});
+
+export const verifyRepositoryDeletionRunFields = repositoryMigrations.define({
+  table: "workflow_vaultDeletion_runs",
+  migrateOne: async (ctx, run) => {
+    await requireFrozenRepositoryMigrationWrite(ctx);
+    const targetRunId = await requireMappedDeletionRunId(ctx, run._id);
+    const targetDocument = await ctx.db.get(targetRunId);
+    if (targetDocument === null) {
+      throw new Error(`Deletion run ${run._id} maps to a missing target document.`);
+    }
+    const expectedFields = await toRepositoryDeletionRun(ctx, run);
+    if (!hasExactBusinessFields(targetDocument, expectedFields)) {
+      throw new Error(`Deletion run ${run._id} has incorrect target fields.`);
+    }
   },
 });
 
@@ -394,10 +416,37 @@ export const finalizeRepositories = repositoryMigrations.define({
     if (mapping === null || mapping.kind !== "copied_document" || mapping.sourceKind !== "vaults") {
       throw new Error(`Vault ${vault._id} has no copied repository ID mapping.`);
     }
-    if ((await ctx.db.get(mapping.targetId)) === null) {
+    const existingTarget = await ctx.db.get(mapping.targetId);
+    if (existingTarget === null) {
       throw new Error(`Vault ${vault._id} maps to a missing repository document.`);
     }
-    await ctx.db.replace(mapping.targetId, await toRepository(ctx, vault));
+    const targetFields = await toRepository(ctx, vault);
+    if (hasExactBusinessFields(existingTarget, targetFields)) {
+      return;
+    }
+    await ctx.db.replace(mapping.targetId, targetFields);
+  },
+});
+
+export const verifyRepositoryFields = repositoryMigrations.define({
+  table: "vaults",
+  migrateOne: async (ctx, vault) => {
+    await requireFrozenRepositoryMigrationWrite(ctx);
+    const mapping = await ctx.db
+      .query("repositoryMigrationIdMaps")
+      .withIndex("by_source", (query) => query.eq("sourceKind", "vaults").eq("sourceId", vault._id))
+      .unique();
+    if (mapping === null || mapping.kind !== "copied_document" || mapping.sourceKind !== "vaults") {
+      throw new Error(`Vault ${vault._id} has no copied repository ID mapping.`);
+    }
+    const targetDocument = await ctx.db.get(mapping.targetId);
+    if (targetDocument === null) {
+      throw new Error(`Vault ${vault._id} maps to a missing repository document.`);
+    }
+    const expectedFields = await toRepository(ctx, vault);
+    if (!hasExactBusinessFields(targetDocument, expectedFields)) {
+      throw new Error(`Vault ${vault._id} has incorrect repository fields.`);
+    }
   },
 });
 

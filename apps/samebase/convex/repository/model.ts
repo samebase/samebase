@@ -186,6 +186,7 @@ export const repositoryTables = {
       "state",
       "deletion.state",
     ])
+    .index("by_tree_refresh_started_at", ["treeRefreshStartedAt"])
     .index("by_github_repository_database_id", ["githubRepositoryDatabaseId"])
     .index("by_organization_and_github_repository_name", [
       "organizationId",

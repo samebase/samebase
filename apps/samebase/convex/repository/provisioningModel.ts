@@ -162,6 +162,7 @@ export const repositoryProvisioningTables = {
     ),
   )
     .index("by_repository", ["repositoryId"])
+    .index("by_state", ["state"])
     .index("by_manual_user_and_state", ["owner.userId", "state"]),
 
   /** One managed attempt to create, connect, or retry a repository. */
@@ -185,6 +186,7 @@ export const repositoryProvisioningTables = {
       "state",
       "updatedAt",
     ])
+    .index("by_state", ["state"])
     .index("by_repository_and_updated_at", ["repositoryId", "updatedAt"])
     .index("by_repository_and_state", ["repositoryId", "state"])
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])
