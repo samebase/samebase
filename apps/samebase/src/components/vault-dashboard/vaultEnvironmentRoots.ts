@@ -22,6 +22,16 @@ export type VaultEnvironmentAction =
   | { destination: "external"; href: string; label: string }
   | { destination: "samebase"; href: string; label: string };
 
+type VaultEnvironmentWorkerDestination =
+  | {
+      state: "available";
+      href: string;
+      label: string;
+      provenance: "production" | "selected_result" | "earlier_check";
+      title: string;
+    }
+  | { state: "absent" };
+
 export type VaultEnvironmentWorker = {
   workerName: string;
   build:
@@ -29,9 +39,7 @@ export type VaultEnvironmentWorker = {
     | { state: "absent" }
     | { state: "loading" }
     | { state: "unavailable" };
-  destination:
-    | { state: "available"; href: string; label: string; title: string }
-    | { state: "absent" };
+  destination: VaultEnvironmentWorkerDestination;
   actions: readonly VaultEnvironmentAction[];
 };
 
@@ -240,6 +248,7 @@ export function buildProductionEnvironmentRoots({
                   state: "available",
                   href: primary.href,
                   label: primary.label,
+                  provenance: "production",
                   title,
                 }
               : { state: "absent" },
@@ -346,6 +355,7 @@ export function buildPullRequestEnvironmentRoots({
             state: "available" as const,
             href: worker.cloudflareBranchPreview.url,
             label: "Branch preview",
+            provenance: worker.cloudflareBranchPreview.provenance,
             title: new URL(worker.cloudflareBranchPreview.url).hostname,
           }
         : { state: "absent" as const };

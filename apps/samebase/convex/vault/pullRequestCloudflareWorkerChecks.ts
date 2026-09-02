@@ -34,6 +34,7 @@ export type CloudflareWorkerCheckPullRequest = {
   id: string;
   baseRefOid: string;
   headRefOid: string;
+  headRefName: string;
   commits: readonly { id: string; oid: string }[];
 };
 
@@ -64,6 +65,7 @@ const checkSuiteSchema = z.object({
     databaseId: z.number().int().positive(),
     slug: z.string().min(1),
   }),
+  branch: z.object({ name: z.string().min(1), prefix: z.string().min(1) }).nullable(),
   checkRuns: checkRunConnectionSchema,
 });
 const commitSchema = z.object({
@@ -84,6 +86,7 @@ const pullRequestGenerationSchema = z.object({
   repository: z.object({ databaseId: z.number().int().positive() }),
   baseRefOid: gitObjectIdSchema,
   headRefOid: gitObjectIdSchema,
+  headRefName: z.string().min(1),
 });
 const pullRequestGenerationsSchema = z.object({ pullRequests: z.array(z.unknown()) });
 
@@ -100,6 +103,7 @@ const CHECKS_QUERY = `
             __typename
             id
             app { databaseId slug }
+            branch { name prefix }
             checkRuns(first: ${GITHUB_NODE_PAGE_SIZE}, filterBy: { checkType: LATEST }) {
               totalCount
               pageInfo { hasNextPage endCursor }
@@ -129,6 +133,7 @@ const CHECK_RUN_PAGE_QUERY = `
       ... on CheckSuite {
         id
         app { databaseId slug }
+        branch { name prefix }
         checkRuns(
           first: ${GITHUB_NODE_PAGE_SIZE}
           after: $after
@@ -163,6 +168,7 @@ const PULL_REQUEST_GENERATIONS_QUERY = `
         repository { databaseId }
         baseRefOid
         headRefOid
+        headRefName
       }
     }
   }
@@ -299,15 +305,22 @@ function parseWorkerCheckRun(
     buildState: checkRunBuildState(checkRun.status, checkRun.conclusion),
     logsUrl: checkRun.detailsUrl,
     name: workerName,
-    previewUrl: normalizedAlias?.url ?? null,
+    preview:
+      normalizedAlias === null
+        ? { state: "absent" }
+        : { state: "available", url: normalizedAlias.url, provenance: "selected_result" },
   };
 }
 
-export function resolveCloudflareWorkerCheckRuns(
-  commits: readonly { checkRuns: readonly CloudflareWorkerCheckRunInput[] }[],
-): CloudflareWorkerProofRead {
+export function resolveCloudflareWorkerCheckRuns(args: {
+  commits: readonly {
+    checkRuns: readonly CloudflareWorkerCheckRunInput[];
+    branch: { name: string; prefix: string } | null;
+  }[];
+  currentHeadBranch: string;
+}): CloudflareWorkerProofRead {
   const selected = new Map<string, CloudflareWorkerProof>();
-  for (const commit of [...commits].reverse()) {
+  for (const commit of [...args.commits].reverse()) {
     const current = new Map<string, CloudflareWorkerProof>();
     for (const checkRun of commit.checkRuns) {
       const worker = parseWorkerCheckRun(checkRun);
@@ -324,8 +337,21 @@ export function resolveCloudflareWorkerCheckRuns(
       current.set(identity, worker);
     }
     for (const [identity, worker] of current) {
-      if (!selected.has(identity)) {
+      const previous = selected.get(identity);
+      if (previous === undefined) {
         selected.set(identity, worker);
+      } else if (
+        previous.preview.state === "absent" &&
+        (previous.buildState === "queued" || previous.buildState === "running") &&
+        worker.buildState === "success" &&
+        worker.preview.state === "available" &&
+        commit.branch?.name === args.currentHeadBranch &&
+        commit.branch.prefix === "refs/heads/"
+      ) {
+        selected.set(identity, {
+          ...previous,
+          preview: { ...worker.preview, provenance: "earlier_check" },
+        });
       }
     }
   }
@@ -347,11 +373,12 @@ type CheckRunScan = {
   checkRuns: CloudflareWorkerCheckRunInput[];
   totalCount: number;
   after: string | null;
+  branch: { name: string; prefix: string } | null;
 };
 
 function extendCheckRunScan(
   value: unknown,
-  identity: Pick<CheckRunScan, "commitId" | "suiteId">,
+  identity: Pick<CheckRunScan, "commitId" | "suiteId" | "branch">,
   previous?: CheckRunScan,
 ): CheckRunScan | null {
   const page = checkRunConnectionSchema.safeParse(value);
@@ -384,6 +411,7 @@ function extendCheckRunScan(
     checkRuns,
     totalCount: page.data.totalCount,
     after: hasNextPage ? endCursor : null,
+    branch: identity.branch,
   };
 }
 
@@ -410,6 +438,8 @@ async function completeCheckRunScan(args: {
       suite === null ||
       !suite.success ||
       suite.data.id !== scan.suiteId ||
+      suite.data.branch?.name !== scan.branch?.name ||
+      suite.data.branch?.prefix !== scan.branch?.prefix ||
       suite.data.app.databaseId !== CLOUDFLARE_GITHUB_APP_DATABASE_ID ||
       suite.data.app.slug !== CLOUDFLARE_GITHUB_APP_SLUG
     ) {
@@ -452,7 +482,8 @@ async function currentPullRequestIds(args: {
         generation.data.id === head.id &&
         String(generation.data.repository.databaseId) === args.ghRepoId &&
         generation.data.baseRefOid === head.baseRefOid &&
-        generation.data.headRefOid === head.headRefOid
+        generation.data.headRefOid === head.headRefOid &&
+        generation.data.headRefName === head.headRefName
         ? [head.id]
         : [];
     }),
@@ -471,7 +502,7 @@ export async function readGitHubCloudflareWorkerChecks(args: {
 
   const commitsById = new Map<string, { id: string; oid: string }>();
   const failedCommitIds = new Set<string>();
-  const checkRunsByCommitId = new Map<string, CloudflareWorkerCheckRunInput[]>();
+  const checkRunsByCommitId = new Map<string, CheckRunScan | null>();
   for (const head of args.heads) {
     for (const commit of head.commits) {
       const existing = commitsById.get(commit.id);
@@ -524,7 +555,7 @@ export async function readGitHubCloudflareWorkerChecks(args: {
 
       const suite = commit.data.checkSuites.nodes.at(0);
       if (suite === undefined) {
-        checkRunsByCommitId.set(request.id, []);
+        checkRunsByCommitId.set(request.id, null);
         return;
       }
       if (
@@ -538,12 +569,13 @@ export async function readGitHubCloudflareWorkerChecks(args: {
       const scan = extendCheckRunScan(suite.checkRuns, {
         commitId: request.id,
         suiteId: suite.id,
+        branch: suite.branch,
       });
       if (scan === null) {
         failedCommitIds.add(request.id);
         return;
       }
-      checkRunsByCommitId.set(request.id, scan.checkRuns);
+      checkRunsByCommitId.set(request.id, scan);
       if (scan.after !== null) {
         continuations.push(scan);
       }
@@ -568,7 +600,7 @@ export async function readGitHubCloudflareWorkerChecks(args: {
     if (scan === null) {
       failedCommitIds.add(continuations[index].commitId);
     } else {
-      checkRunsByCommitId.set(scan.commitId, scan.checkRuns);
+      checkRunsByCommitId.set(scan.commitId, scan);
     }
   });
 
@@ -578,11 +610,16 @@ export async function readGitHubCloudflareWorkerChecks(args: {
       head.id,
       !currentIds.has(head.id) || head.commits.some((commit) => failedCommitIds.has(commit.id))
         ? { state: "unavailable" }
-        : resolveCloudflareWorkerCheckRuns(
-            head.commits.map((commit) => ({
-              checkRuns: checkRunsByCommitId.get(commit.id) ?? [],
-            })),
-          ),
+        : resolveCloudflareWorkerCheckRuns({
+            commits: head.commits.map((commit) => {
+              const scan = checkRunsByCommitId.get(commit.id);
+              return {
+                checkRuns: scan?.checkRuns ?? [],
+                branch: scan?.branch ?? null,
+              };
+            }),
+            currentHeadBranch: head.headRefName,
+          }),
     ]),
   );
 }

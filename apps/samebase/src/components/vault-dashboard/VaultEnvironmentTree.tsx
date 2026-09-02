@@ -505,6 +505,12 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
           ) : null}
         </div>
       ) : null}
+      {worker.destination.state === "available" &&
+      worker.destination.provenance === "earlier_check" ? (
+        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
+          May be from an earlier commit
+        </span>
+      ) : null}
     </div>
   );
 }

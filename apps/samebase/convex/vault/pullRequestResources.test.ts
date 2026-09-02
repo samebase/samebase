@@ -576,7 +576,23 @@ describe("buildPullRequestHostingPreviews", () => {
                 buildUuid: "attached-build",
                 logsUrl: "https://dash.cloudflare.com/attached-build",
                 name: "attached-worker",
-                previewUrl: "https://branch-attached-worker.example.workers.dev",
+                preview: {
+                  state: "available",
+                  url: "https://branch-attached-worker.example.workers.dev",
+                  provenance: "selected_result",
+                },
+              },
+              {
+                accountId: "account-1",
+                buildState: "running",
+                buildUuid: "recovered-build",
+                logsUrl: "https://dash.cloudflare.com/recovered-build",
+                name: "recovered-worker",
+                preview: {
+                  state: "available",
+                  url: "https://branch-recovered-worker.example.workers.dev",
+                  provenance: "earlier_check",
+                },
               },
               {
                 accountId: "account-1",
@@ -584,7 +600,11 @@ describe("buildPullRequestHostingPreviews", () => {
                 buildUuid: "unattached-build",
                 logsUrl: "https://dash.cloudflare.com/unattached-build",
                 name: "unattached-worker",
-                previewUrl: "https://branch-unattached-worker.example.workers.dev",
+                preview: {
+                  state: "available",
+                  url: "https://branch-unattached-worker.example.workers.dev",
+                  provenance: "selected_result",
+                },
               },
             ],
           },
@@ -693,7 +713,11 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
               logsUrl:
                 "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1",
               name: "samebase-worker",
-              previewUrl: "https://feature-samebase-worker.example.workers.dev",
+              preview: {
+                state: "available",
+                url: "https://feature-samebase-worker.example.workers.dev",
+                provenance: "selected_result",
+              },
             },
           ],
         },
@@ -716,6 +740,7 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
           cloudflareBranchPreview: {
             state: "available",
             url: "https://feature-samebase-worker.example.workers.dev",
+            provenance: "selected_result",
           },
         },
       ],

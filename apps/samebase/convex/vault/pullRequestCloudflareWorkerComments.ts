@@ -102,7 +102,7 @@ function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
       ) {
         return { state: "unavailable" };
       }
-      let previewUrl: string | null = null;
+      let preview: CloudflareWorkerProof["preview"] = { state: "absent" };
       if (previewColumns.length > 0) {
         const previewCell = row[previewColumns[0]];
         if (previewCell.includes("Branch Preview URL")) {
@@ -128,7 +128,7 @@ function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
             return { state: "unavailable" };
           }
           const [url] = previewUrls;
-          previewUrl = url;
+          preview = { state: "available", url, provenance: "selected_result" };
         }
       }
 
@@ -138,7 +138,7 @@ function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
         buildState,
         logsUrl: buildLogsAnchors[0][2],
         name: workerName,
-        previewUrl,
+        preview,
       });
     }
   }
@@ -219,7 +219,11 @@ export function resolveCloudflareWorkerComments(
         (previous.buildUuid !== worker.buildUuid ||
           previous.buildState !== worker.buildState ||
           previous.logsUrl !== worker.logsUrl ||
-          previous.previewUrl !== worker.previewUrl)
+          previous.preview.state !== worker.preview.state ||
+          (previous.preview.state === "available" &&
+            worker.preview.state === "available" &&
+            (previous.preview.url !== worker.preview.url ||
+              previous.preview.provenance !== worker.preview.provenance)))
       ) {
         return { state: "unavailable" };
       }

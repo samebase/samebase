@@ -286,12 +286,21 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
     "href",
     "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
   );
+  await expect(
+    firstPullRequestRow
+      .getByRole("link", { name: "Branch preview", exact: true })
+      .locator("xpath=../..")
+      .getByText("May be from an earlier commit", { exact: true }),
+  ).toBeVisible();
   await expect(firstPullRequestRow.getByRole("link", { name: "Built", exact: true })).toBeVisible();
   await expect(
     firstPullRequestRow.getByRole("link", { name: "precise-otter-1260", exact: true }),
   ).toBeVisible();
   await expect(
-    firstPullRequestRow.getByText("May be from an earlier commit", { exact: true }),
+    firstPullRequestRow
+      .getByRole("link", { name: "precise-otter-1260", exact: true })
+      .locator("xpath=../..")
+      .getByText("May be from an earlier commit", { exact: true }),
   ).toBeVisible();
   const otherPreviews = firstPullRequestRow.getByRole("group", { name: "Other previews" });
   await expect(otherPreviews).toBeVisible();
@@ -309,6 +318,7 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Schema" })).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expect(fixture).toHaveScreenshot("vault-overview-v2-mobile.png", {
     animations: "disabled",
     caret: "hide",

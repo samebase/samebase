@@ -56,11 +56,14 @@ it("selects checks as the Worker proof source", () => {
 describe("resolveCloudflareWorkerCheckRuns", () => {
   it("keeps the newest check for each Worker across current commits", () => {
     expect(
-      resolveCloudflareWorkerCheckRuns([
-        { checkRuns: [successfulCheck, proxyCheck] },
-        { checkRuns: [] },
-        { checkRuns: [failedCheck] },
-      ]),
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          { checkRuns: [successfulCheck, proxyCheck], branch: null },
+          { checkRuns: [], branch: null },
+          { checkRuns: [failedCheck], branch: null },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
     ).toEqual({
       state: "available",
       workers: [
@@ -70,7 +73,7 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
           buildUuid: "332ebfc3-db8b-4584-9f73-863c5e6da3ab",
           logsUrl: failedCheck.detailsUrl,
           name: "samebase",
-          previewUrl: null,
+          preview: { state: "absent" },
         },
         {
           accountId,
@@ -78,7 +81,7 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
           buildUuid: "ae87609d-7cf6-4c0b-8c1f-0c6069397047",
           logsUrl: proxyCheck.detailsUrl,
           name: "samebase-posthog-proxy",
-          previewUrl: null,
+          preview: { state: "absent" },
         },
       ],
     });
@@ -86,14 +89,24 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
 
   it("keeps an earlier Worker check when a later commit has no check", () => {
     expect(
-      resolveCloudflareWorkerCheckRuns([{ checkRuns: [successfulCheck] }, { checkRuns: [] }]),
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          { checkRuns: [successfulCheck], branch: null },
+          { checkRuns: [], branch: null },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
     ).toMatchObject({
       state: "available",
       workers: [
         {
           buildState: "success",
           name: "samebase",
-          previewUrl: "https://codex-connect-repo-without-providers-samebase.pfp.workers.dev",
+          preview: {
+            state: "available",
+            url: "https://codex-connect-repo-without-providers-samebase.pfp.workers.dev",
+            provenance: "selected_result",
+          },
         },
       ],
     });
@@ -106,27 +119,181 @@ describe("resolveCloudflareWorkerCheckRuns", () => {
         .replace(/^Version ID:.*\n/m, "")
         .replace(/^Preview URL:.*\n/m, ""),
     };
-    expect(resolveCloudflareWorkerCheckRuns([{ checkRuns: [aliasOnlyCheck] }])).toMatchObject({
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          {
+            checkRuns: [aliasOnlyCheck],
+            branch: { name: head.headRefName, prefix: "refs/heads/" },
+          },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
+    ).toMatchObject({
       state: "available",
       workers: [
         {
           name: "samebase",
-          previewUrl: "https://codex-connect-repo-without-providers-samebase.pfp.workers.dev",
+          preview: {
+            state: "available",
+            url: "https://codex-connect-repo-without-providers-samebase.pfp.workers.dev",
+            provenance: "selected_result",
+          },
         },
       ],
     });
   });
 
+  it("recovers an earlier successful alias for a pending newest check", () => {
+    const pendingCheck = {
+      ...successfulCheck,
+      status: "IN_PROGRESS",
+      conclusion: null,
+      detailsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/samebase/production/builds/8f72f2d5-3da6-4047-8101-17131571dc30`,
+      externalId: "8f72f2d5-3da6-4047-8101-17131571dc30",
+      summary: (successfulCheck.summary ?? "")
+        .replace(
+          new RegExp(successfulCheck.externalId ?? "", "g"),
+          "8f72f2d5-3da6-4047-8101-17131571dc30",
+        )
+        .replace(/^Version ID:.*\n/m, "")
+        .replace(/^Preview URL:.*\n/m, "")
+        .replace(/^Preview Alias URL:.*\n/m, ""),
+    };
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          {
+            checkRuns: [successfulCheck],
+            branch: { name: head.headRefName, prefix: "refs/heads/" },
+          },
+          {
+            checkRuns: [pendingCheck],
+            branch: { name: head.headRefName, prefix: "refs/heads/" },
+          },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
+    ).toMatchObject({
+      state: "available",
+      workers: [
+        {
+          name: "samebase",
+          buildState: "running",
+          buildUuid: "8f72f2d5-3da6-4047-8101-17131571dc30",
+          logsUrl:
+            "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/8f72f2d5-3da6-4047-8101-17131571dc30",
+          preview: {
+            state: "available",
+            url: "https://codex-connect-repo-without-providers-samebase.pfp.workers.dev",
+            provenance: "earlier_check",
+          },
+        },
+      ],
+    });
+  });
+
+  it("recovers an earlier successful alias for a queued newest check", () => {
+    const queued = {
+      ...successfulCheck,
+      status: "QUEUED",
+      conclusion: null,
+      summary: (successfulCheck.summary ?? "")
+        .replace(/^Version ID:.*\n/m, "")
+        .replace(/^Preview URL:.*\n/m, "")
+        .replace(/^Preview Alias URL:.*\n/m, ""),
+    };
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          {
+            checkRuns: [successfulCheck],
+            branch: { name: head.headRefName, prefix: "refs/heads/" },
+          },
+          { checkRuns: [queued], branch: { name: head.headRefName, prefix: "refs/heads/" } },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
+    ).toMatchObject({
+      workers: [
+        {
+          name: "samebase",
+          buildState: "queued",
+          preview: { state: "available", provenance: "earlier_check" },
+        },
+      ],
+    });
+  });
+
+  it("does not recover aliases for terminal or unrelated branches", () => {
+    const terminal = {
+      ...successfulCheck,
+      conclusion: "FAILURE",
+      summary: (successfulCheck.summary ?? "")
+        .replace(/^Version ID:.*\n/m, "")
+        .replace(/^Preview URL:.*\n/m, "")
+        .replace(/^Preview Alias URL:.*\n/m, ""),
+    };
+    const earlier = { name: head.headRefName, prefix: "refs/heads/" };
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          { checkRuns: [successfulCheck], branch: earlier },
+          { checkRuns: [terminal], branch: earlier },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
+    ).toMatchObject({ workers: [{ preview: { state: "absent" } }] });
+
+    const pending = {
+      ...successfulCheck,
+      status: "IN_PROGRESS",
+      conclusion: null,
+      summary: (successfulCheck.summary ?? "")
+        .replace(/^Version ID:.*\n/m, "")
+        .replace(/^Preview URL:.*\n/m, "")
+        .replace(/^Preview Alias URL:.*\n/m, ""),
+    };
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          { checkRuns: [successfulCheck], branch: { name: "other", prefix: "refs/heads/" } },
+          { checkRuns: [pending], branch: earlier },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
+    ).toMatchObject({ workers: [{ preview: { state: "absent" } }] });
+
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          { checkRuns: [successfulCheck], branch: null },
+          { checkRuns: [pending], branch: { name: head.headRefName, prefix: "refs/heads/" } },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
+    ).toMatchObject({ workers: [{ preview: { state: "absent" } }] });
+  });
+
   it("fails closed for conflicting trusted identity", () => {
     expect(
-      resolveCloudflareWorkerCheckRuns([
-        { checkRuns: [{ ...successfulCheck, externalId: "different-build" }] },
-      ]),
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          { checkRuns: [{ ...successfulCheck, externalId: "different-build" }], branch: null },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
     ).toEqual({ state: "unavailable" });
     expect(
-      resolveCloudflareWorkerCheckRuns([
-        { checkRuns: [successfulCheck, { ...successfulCheck, id: "CR_duplicate" }] },
-      ]),
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          {
+            checkRuns: [successfulCheck, { ...successfulCheck, id: "CR_duplicate" }],
+            branch: null,
+          },
+        ],
+        currentHeadBranch: head.headRefName,
+      }),
     ).toEqual({ state: "unavailable" });
   });
 });
@@ -139,10 +306,11 @@ const head = {
   id: "PR_17",
   baseRefOid: "a".repeat(40),
   headRefOid: "b".repeat(40),
+  headRefName: "feature/live-truth",
   commits,
 };
 
-function generation(headRefOid = head.headRefOid) {
+function generation(headRefOid = head.headRefOid, headRefName = head.headRefName) {
   return {
     __typename: "PullRequest",
     id: head.id,
@@ -150,6 +318,7 @@ function generation(headRefOid = head.headRefOid) {
     repository: { databaseId: 42 },
     baseRefOid: head.baseRefOid,
     headRefOid,
+    headRefName,
   };
 }
 
@@ -176,6 +345,7 @@ function suite(checkRuns: {
     __typename: "CheckSuite",
     id: "CS_1",
     app: { databaseId: 85455, slug: "cloudflare-workers-and-pages" },
+    branch: { name: "feature/live-truth", prefix: "refs/heads/" },
     checkRuns,
   };
 }
@@ -237,6 +407,16 @@ describe("Cloudflare Worker check transport", () => {
     const { reads } = await readChecks(async (body) =>
       body.includes("PullRequestCloudflareCheckGenerations")
         ? jsonResponse({ pullRequests: [generation("c".repeat(40))] })
+        : jsonResponse({ commits: commitNodes() }),
+    );
+
+    expect(reads.get(head.id)).toEqual({ state: "unavailable" });
+  });
+
+  it("rejects proof when the pull request branch name changes", async () => {
+    const { reads } = await readChecks(async (body) =>
+      body.includes("PullRequestCloudflareCheckGenerations")
+        ? jsonResponse({ pullRequests: [generation(head.headRefOid, "renamed-branch")] })
         : jsonResponse({ commits: commitNodes() }),
     );
 
