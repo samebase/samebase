@@ -296,6 +296,7 @@ export function MengerTypeGpuScene({
         };
         const openingDistance = (
           localPoint: d.v2f,
+          parentAxisPoint: number,
           channelCenter: d.v2f,
           probePoint: d.v2f,
           probeAxisDistance: number,
@@ -344,8 +345,13 @@ export function MengerTypeGpuScene({
             3,
           );
           const apertureHalfSize = std.div(width, 3);
+          const parentHalfSpan = std.add(1, std.mul(surfaceThreshold.$, scale));
+          const parentCellDistance = std.sub(std.abs(parentAxisPoint), parentHalfSpan);
           return std.div(
-            rectangleDistance(std.sub(localPoint, apertureCenter), apertureHalfSize),
+            std.max(
+              rectangleDistance(std.sub(localPoint, apertureCenter), apertureHalfSize),
+              parentCellDistance,
+            ),
             scale,
           );
         };
@@ -353,12 +359,14 @@ export function MengerTypeGpuScene({
           "use gpu";
           let distance = boxDistance(point);
           let scale = d.f32(1);
+          // A finer opening exists only inside a cell retained by every coarser level.
+          let parentCellRetained = d.bool(true);
 
           for (let iteration = 0; iteration < MENGER_TYPE_GPU_MAXIMUM_DEPTH; iteration += 1) {
             if (iteration >= selectedDepth.$) {
               break;
             }
-            if (iteration > 0 && hoverState.$.openness <= 0) {
+            if (iteration > 0 && (hoverState.$.openness <= 0 || !parentCellRetained)) {
               break;
             }
             if (iteration > 0 && std.div(1, std.mul(3, scale)) <= surfaceThreshold.$) {
@@ -388,6 +396,7 @@ export function MengerTypeGpuScene({
               const probe = hoverState.$.probe;
               const openingAlongX = openingDistance(
                 d.vec2f(repeatedPoint.y, repeatedPoint.z),
+                repeatedPoint.x,
                 d.vec2f(channelCenter.y, channelCenter.z),
                 d.vec2f(probe.y, probe.z),
                 std.min(probe.x, std.sub(1, probe.x)),
@@ -395,6 +404,7 @@ export function MengerTypeGpuScene({
               );
               const openingAlongY = openingDistance(
                 d.vec2f(repeatedPoint.x, repeatedPoint.z),
+                repeatedPoint.y,
                 d.vec2f(channelCenter.x, channelCenter.z),
                 d.vec2f(probe.x, probe.z),
                 std.min(probe.y, std.sub(1, probe.y)),
@@ -402,6 +412,7 @@ export function MengerTypeGpuScene({
               );
               const openingAlongZ = openingDistance(
                 d.vec2f(repeatedPoint.x, repeatedPoint.y),
+                repeatedPoint.z,
                 d.vec2f(channelCenter.x, channelCenter.y),
                 d.vec2f(probe.x, probe.y),
                 std.min(probe.z, std.sub(1, probe.z)),
@@ -410,6 +421,17 @@ export function MengerTypeGpuScene({
               removedCrossDistance = std.min(openingAlongX, openingAlongY, openingAlongZ);
             }
             distance = std.max(distance, std.neg(removedCrossDistance));
+            const repeatedAbsolute = std.abs(repeatedPoint);
+            const xInMiddleThird = repeatedAbsolute.x < 1 / 3;
+            const yInMiddleThird = repeatedAbsolute.y < 1 / 3;
+            const zInMiddleThird = repeatedAbsolute.z < 1 / 3;
+            parentCellRetained =
+              parentCellRetained &&
+              !(
+                (xInMiddleThird && yInMiddleThird) ||
+                (xInMiddleThird && zInMiddleThird) ||
+                (yInMiddleThird && zInMiddleThird)
+              );
             scale = std.mul(scale, 3);
           }
 
