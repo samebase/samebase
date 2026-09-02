@@ -296,7 +296,6 @@ export function MengerTypeGpuScene({
         };
         const openingDistance = (
           localPoint: d.v2f,
-          parentAxisPoint: number,
           channelCenter: d.v2f,
           probePoint: d.v2f,
           probeAxisDistance: number,
@@ -345,13 +344,9 @@ export function MengerTypeGpuScene({
             3,
           );
           const apertureHalfSize = std.div(width, 3);
-          const parentHalfSpan = std.add(1, std.mul(surfaceThreshold.$, scale));
-          const parentCellDistance = std.sub(std.abs(parentAxisPoint), parentHalfSpan);
+          // A Menger channel stays continuous along its axis. An axial bound creates face-on caps.
           return std.div(
-            std.max(
-              rectangleDistance(std.sub(localPoint, apertureCenter), apertureHalfSize),
-              parentCellDistance,
-            ),
+            rectangleDistance(std.sub(localPoint, apertureCenter), apertureHalfSize),
             scale,
           );
         };
@@ -396,7 +391,6 @@ export function MengerTypeGpuScene({
               const probe = hoverState.$.probe;
               const openingAlongX = openingDistance(
                 d.vec2f(repeatedPoint.y, repeatedPoint.z),
-                repeatedPoint.x,
                 d.vec2f(channelCenter.y, channelCenter.z),
                 d.vec2f(probe.y, probe.z),
                 std.min(probe.x, std.sub(1, probe.x)),
@@ -404,7 +398,6 @@ export function MengerTypeGpuScene({
               );
               const openingAlongY = openingDistance(
                 d.vec2f(repeatedPoint.x, repeatedPoint.z),
-                repeatedPoint.y,
                 d.vec2f(channelCenter.x, channelCenter.z),
                 d.vec2f(probe.x, probe.z),
                 std.min(probe.y, std.sub(1, probe.y)),
@@ -412,7 +405,6 @@ export function MengerTypeGpuScene({
               );
               const openingAlongZ = openingDistance(
                 d.vec2f(repeatedPoint.x, repeatedPoint.y),
-                repeatedPoint.z,
                 d.vec2f(channelCenter.x, channelCenter.y),
                 d.vec2f(probe.x, probe.y),
                 std.min(probe.z, std.sub(1, probe.z)),
@@ -422,9 +414,9 @@ export function MengerTypeGpuScene({
             }
             distance = std.max(distance, std.neg(removedCrossDistance));
             const repeatedAbsolute = std.abs(repeatedPoint);
-            const xInMiddleThird = repeatedAbsolute.x < 1 / 3;
-            const yInMiddleThird = repeatedAbsolute.y < 1 / 3;
-            const zInMiddleThird = repeatedAbsolute.z < 1 / 3;
+            const xInMiddleThird = repeatedAbsolute.x <= 1 / 3;
+            const yInMiddleThird = repeatedAbsolute.y <= 1 / 3;
+            const zInMiddleThird = repeatedAbsolute.z <= 1 / 3;
             parentCellRetained =
               parentCellRetained &&
               !(
@@ -449,9 +441,8 @@ export function MengerTypeGpuScene({
             ),
           );
         };
-        const surfaceColor = (normal: d.v3f): d.v3f => {
+        const axisColor = (axis: d.v3f): d.v3f => {
           "use gpu";
-          const axis = std.abs(normal);
           if (axis.x >= axis.y && axis.x >= axis.z) {
             return d.vec3f(rightColor.$);
           }
@@ -489,11 +480,21 @@ export function MengerTypeGpuScene({
             return d.vec4f(background.$, 1);
           }
 
+          const cameraAxis = std.abs(cameraVector.$);
+          if (std.max(cameraAxis.x, cameraAxis.y, cameraAxis.z) > 0.999_999) {
+            // A snapped face-on view is a 2D carpet with one visible face color.
+            const facePoint = std.add(rayOrigin, std.mul(rayDirection, distanceAlongRay));
+            if (mengerDistance(facePoint) > surfaceThreshold.$) {
+              return d.vec4f(background.$, 1);
+            }
+            return d.vec4f(axisColor(cameraAxis), 1);
+          }
+
           for (let step = 0; step < MAXIMUM_RAY_STEPS; step += 1) {
             const point = std.add(rayOrigin, std.mul(rayDirection, distanceAlongRay));
             const distance = mengerDistance(point);
             if (distance < surfaceThreshold.$) {
-              return d.vec4f(surfaceColor(surfaceNormal(point)), 1);
+              return d.vec4f(axisColor(std.abs(surfaceNormal(point))), 1);
             }
             distanceAlongRay = std.add(
               distanceAlongRay,

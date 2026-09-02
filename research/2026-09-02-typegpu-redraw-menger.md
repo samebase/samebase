@@ -65,6 +65,8 @@ The `/logo/webgpu/menger` route now has these properties:
 - Depth one at rest, with local Menger channels through the selected depth when the pointer is near
   the sponge
 - Finer openings only inside cells retained by every coarser level
+- A direct 2D surface sample at snapped face angles, so a face-only view has no internal ray-march
+  surfaces
 - The same reveal radius and opening response time as the current Three.js renderer
 - One full-screen triangle and a maximum of 128 ray steps
 - Rays that start and stop at the outer sponge boundary
@@ -77,11 +79,13 @@ The `/logo/webgpu/menger` route now has these properties:
 
 ![TypeGPU Menger lab with the depth-eight pointer reveal](2026-09-02-typegpu-menger-hover-depth-8.png)
 
+![TypeGPU Menger lab with the depth-eight face-only reveal](2026-09-02-typegpu-menger-hover-face-depth-8.png)
+
 Manual checks in desktop Chromium confirmed the ready WebGPU state, depth-eight rendering, direct
-query loading, pointer drag, pointer reveal, close after pointer exit, and the forced no-WebGPU
-fallback. A paired depth-four check put the TypeGPU and Three.js probes within 0.004 unit
-coordinates of each other. Their settled openings used the same reveal envelope. The default depth
-is four at 75 percent render resolution.
+query loading, pointer drag, pointer reveal, clean dark and cyan face-only views, close after
+pointer exit, and the forced no-WebGPU fallback. A paired depth-four check put the TypeGPU and
+Three.js probes within 0.004 unit coordinates of each other. Their settled openings used the same
+reveal envelope. The default depth is four at 75 percent render resolution.
 
 The hover opening is a procedural distance-field deformation. The shader finds each repeated channel
 from the sample point and opens only channels near the projected pointer. This avoids the CPU and
@@ -102,6 +106,11 @@ child openings inside its solid cover. The Three.js renderer permits some perpen
 cross a coarse cover. The TypeGPU lab intentionally does not copy that exception. A crossings option
 would restore the unwanted nested pattern and add UI and shader state without helping this
 experiment.
+
+Each procedural channel stays unbounded along its own axis. A cell-local axial bound creates an
+artificial end surface for every repeated channel. At depth eight, those surfaces appear as hollow
+rectangles and colored specks in a face-only view. The snapped face path samples the outer surface
+once as a 2D carpet. Other views continue to use the 3D ray marcher.
 
 The reference Three.js renderer now clears its hover pointer after browser blur. Before this change,
 it cleared only the presentation tilt, which could leave the opening active.
