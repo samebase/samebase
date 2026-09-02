@@ -46,9 +46,9 @@ describe("generate-cloudflare-redirects", () => {
     );
   });
 
-  it("temporarily redirects retired home paths to the vault", () => {
+  it("temporarily redirects retired home paths to repositories", () => {
     expect(cloudflareRedirects).toContain(
-      ["/home /vault/ 302", "/home/ /vault/ 302", "/home/index.html /vault/ 302"].join("\n"),
+      ["/home /repo/ 302", "/home/ /repo/ 302", "/home/index.html /repo/ 302"].join("\n"),
     );
   });
 

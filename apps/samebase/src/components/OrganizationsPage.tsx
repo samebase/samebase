@@ -271,7 +271,7 @@ export function OrganizationsPageView({
                             aria-label={`Open ${entry.organization.githubOwnerLogin} in Samebase`}
                             to={buildOrganizationRoutePath({
                               owner: entry.organization.githubOwnerLogin,
-                              section: "vaults",
+                              section: "repositories",
                             })}
                           >
                             Open
@@ -342,7 +342,7 @@ export function OrganizationsPage({ authorizationNotice }: { authorizationNotice
           await navigate({
             href: buildOrganizationRoutePath({
               owner: result.organizationOwnerLogin,
-              section: "vaults",
+              section: "repositories",
             }),
             replace: true,
           });

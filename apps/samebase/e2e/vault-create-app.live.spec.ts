@@ -159,12 +159,12 @@ function useConvexProjectActionName(workerName: string): RegExp {
 }
 
 function removeVaultControl(page: Page): Locator {
-  return page.getByRole("button", { exact: true, name: "Remove vault" });
+  return page.getByRole("button", { exact: true, name: "Remove from Samebase" });
 }
 
 function vaultListLink(page: Page, repositoryFullName: string): Locator {
   return page
-    .getByRole("navigation", { name: "Vaults" })
+    .getByRole("navigation", { name: "Repositories" })
     .getByRole("link", {
       name: new RegExp(`^${escapeRegExp(repositoryFullName)}(?:, .+)?$`),
     })
@@ -244,13 +244,13 @@ async function selectTemporaryVault(
   const link = vaultListLink(page, repositoryFullName);
   await expect(link).toBeVisible({ timeout: operationTimeout(deadline) });
   await link.click({ timeout: operationTimeout(deadline) });
-  await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`), {
+  await expect(page).toHaveURL(new RegExp(`/repo/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`), {
     timeout: operationTimeout(deadline),
   });
 }
 
 async function openVaultSettings(page: Page, deadline?: OperationDeadline): Promise<void> {
-  const settingsUrl = /\/vault\/[^/]+\/[^/]+\/settings(?:[?#]|$)/;
+  const settingsUrl = /\/repo\/[^/]+\/[^/]+\/settings(?:[?#]|$)/;
   if (!settingsUrl.test(page.url())) {
     await page
       .getByRole("navigation", { name: "Repository" })
@@ -264,15 +264,15 @@ async function openOrganizationOnboardingRoute(
   page: Page,
   args: { linkName: "Connect repository" | "New app"; route: "connect-repo" | "new-app" },
 ): Promise<void> {
-  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/vault?dev");
+  await page.goto("/repo?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/repo?dev");
 
   const contextControl = page.getByTestId("organization-context-control");
   await contextControl.getByRole("button", { name: /Switch organization/ }).click();
   const organizationOption = page.getByRole("menuitem").nth(1);
   await expect(organizationOption).toBeVisible();
   await organizationOption.click();
-  await expect(page).toHaveURL(/\/org\/[^/]+\/vaults(?:[?#]|$)/);
+  await expect(page).toHaveURL(/\/org\/[^/]+\/repositories(?:[?#]|$)/);
 
   await page
     .getByRole("navigation", { name: "Organization" })
@@ -294,7 +294,7 @@ async function connectExistingTemporaryRepository(
   const repositoryRow = page.locator("div").filter({ hasText: repositoryFullName }).first();
   await expect(repositoryRow).toBeVisible({ timeout: 60_000 });
   await repositoryRow.getByRole("button", { name: "Connect" }).click();
-  await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`), {
+  await expect(page).toHaveURL(new RegExp(`/repo/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`), {
     timeout: 60_000,
   });
 }
@@ -455,11 +455,11 @@ async function prepareVaultListForOwner(
   owner: string,
   deadline?: OperationDeadline,
 ): Promise<void> {
-  await expect(page.getByLabel("Loading vaults", { exact: true }).first()).not.toBeVisible({
+  await expect(page.getByLabel("Loading repositories", { exact: true }).first()).not.toBeVisible({
     timeout: operationTimeout(deadline),
   });
 
-  const navigation = page.getByRole("navigation", { name: "Vaults" }).first();
+  const navigation = page.getByRole("navigation", { name: "Repositories" }).first();
   await expect(navigation).toBeVisible({ timeout: operationTimeout(deadline) });
   const ownerToggle = navigation.getByRole("button", { exact: true, name: owner });
   await expect(ownerToggle).toBeVisible({ timeout: operationTimeout(deadline) });
@@ -479,12 +479,12 @@ async function readVaultRemovalState(
   repositoryFullName: string,
   deadline?: OperationDeadline,
 ): Promise<"absent" | "deleting" | "failed" | "loading"> {
-  if (await page.getByLabel("Loading vaults", { exact: true }).first().isVisible()) {
+  if (await page.getByLabel("Loading repositories", { exact: true }).first().isVisible()) {
     return "loading";
   }
 
   const owner = parseRepositoryFullName(repositoryFullName).owner;
-  const navigation = page.getByRole("navigation", { name: "Vaults" }).first();
+  const navigation = page.getByRole("navigation", { name: "Repositories" }).first();
   const ownerToggle = navigation.getByRole("button", { exact: true, name: owner });
   if (!(await ownerToggle.isVisible().catch(() => false))) {
     return "loading";
@@ -643,7 +643,7 @@ async function removeTemporaryVault(
   }
 
   await removeDialog
-    .getByRole("button", { name: "Remove Vault" })
+    .getByRole("button", { name: "Remove from Samebase" })
     .click({ timeout: operationTimeout(deadline) });
   await expect(removeDialog).not.toBeVisible({ timeout: operationTimeout(deadline) });
   await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/, {
@@ -660,8 +660,8 @@ async function removeVaultIfPresent(
   repositoryFullName: string,
   targets: VaultCleanupTargets,
 ): Promise<void> {
-  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/vault?dev");
+  await page.goto("/repo?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/repo?dev");
 
   await prepareVaultListForOwner(page, parseRepositoryFullName(repositoryFullName).owner);
   const link = vaultListLink(page, repositoryFullName);
@@ -767,7 +767,7 @@ async function readCreatedAppForCleanup(
   repositoryFullName: string,
   deadline: OperationDeadline,
 ): Promise<VaultContract | null> {
-  await page.goto("/vault?dev", {
+  await page.goto("/repo?dev", {
     timeout: operationTimeout(deadline),
     waitUntil: "domcontentloaded",
   });
@@ -810,7 +810,7 @@ async function readCreatedAppForCleanup(
       () => contract,
     );
     const disabledReason = await page
-      .getByRole("heading", { exact: true, name: "Remove vault" })
+      .getByRole("heading", { name: /^Remove .+ from Samebase\?$/u })
       .locator("..")
       .locator("p")
       .textContent({ timeout: operationTimeout(diagnosticDeadline) })
@@ -1037,7 +1037,7 @@ test.describe("vault create app live flow", () => {
 
     try {
       await expect(page).toHaveURL(
-        new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
+        new RegExp(`/repo/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
         { timeout: operationTimeout(submitDeadline) },
       );
     } catch (error) {
@@ -1054,7 +1054,7 @@ test.describe("vault create app live flow", () => {
       "App provisioning",
       APP_PROVISIONING_PHASE_TIMEOUT_MS,
     );
-    await page.goto(`/vault/${repositoryFullName}?dev`, {
+    await page.goto(`/repo/${repositoryFullName}?dev`, {
       timeout: operationTimeout(provisioningDeadline),
       waitUntil: "domcontentloaded",
     });
@@ -1166,8 +1166,8 @@ test.describe("vault create app live flow", () => {
       await setCloudflareConvexDeployKeys(page, resourceName);
     } finally {
       if (vaultConnected) {
-        await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-        await signInIfNeeded(page, "/vault?dev");
+        await page.goto("/repo?dev", { waitUntil: "domcontentloaded" });
+        await signInIfNeeded(page, "/repo?dev");
         await selectTemporaryVault(page, EXISTING_REPOSITORY_FULL_NAME);
         await removeTemporaryVault(page, EXISTING_REPOSITORY_FULL_NAME, cleanupTargets);
       }

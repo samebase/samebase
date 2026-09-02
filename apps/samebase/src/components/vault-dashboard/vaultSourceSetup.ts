@@ -14,7 +14,7 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
     case "run_created":
       return "Starting setup";
     case "initialize_vault":
-      return "Preparing vault";
+      return "Preparing repository";
     case "validate_connections":
       return "Checking provider connections";
     case "create_github_repo":

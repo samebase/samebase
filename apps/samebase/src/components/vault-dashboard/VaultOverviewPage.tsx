@@ -197,14 +197,14 @@ function VaultStateNotice({
         description={vault.deletion.message}
         isRetrying={isRetryingVaultAction}
         onRetry={onRetryVaultDeletion}
-        title="Vault removal failed"
+        title="Removal from Samebase failed"
       />
     );
   }
   if (vault.deletion.state === "deleting") {
     return (
       <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-        {vault.deletion.message || "Removing this vault."}
+        {vault.deletion.message || "Removing this repository from Samebase."}
       </div>
     );
   }
@@ -397,7 +397,9 @@ export function VaultOverviewLoadingPage({
       />
       <main
         aria-busy="true"
-        aria-label={page === "settings" ? "Loading vault settings" : "Loading vault overview"}
+        aria-label={
+          page === "settings" ? "Loading repository settings" : "Loading repository overview"
+        }
         className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8"
       >
         {page === "settings" ? (

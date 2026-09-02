@@ -592,8 +592,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders /vault through the explicit dashboard route", async () => {
-    await renderRoute("/vault");
+  it("renders /repo through the explicit dashboard route", async () => {
+    await renderRoute("/repo");
 
     await act(async () => {
       await settleRouterRender();
@@ -606,7 +606,7 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("does not redirect old root dashboard query URLs to /vault", async () => {
+  it("does not redirect old root dashboard query URLs to /repo", async () => {
     const router = await renderRoute("/?delete");
 
     expect(router.state.location.pathname).toBe("/");
@@ -799,14 +799,14 @@ describe("appRouter", () => {
 
     await act(async () => {
       await router.navigate({
-        to: "/vault",
+        to: "/repo",
       });
       await settleRouterRender();
     });
 
     const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
-    expect(router.state.location.pathname).toBe("/vault");
+    expect(router.state.location.pathname).toBe("/repo");
     expect(searchParams.get("leftFace")).toBe("striped");
     expect(searchParams.get("secondary")).toBe("amber-500");
   });
@@ -828,29 +828,29 @@ describe("appRouter", () => {
     expect(searchParams.get("isoSide")).toBe("40");
   });
 
-  it("redirects unknown params away from /vault on load", async () => {
-    const router = await renderRoute("/vault?stale=1&prod-ui");
+  it("redirects unknown params away from /repo on load", async () => {
+    const router = await renderRoute("/repo?stale=1&prod-ui");
 
     const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
-    expect(router.state.location.pathname).toBe("/vault");
+    expect(router.state.location.pathname).toBe("/repo");
     expect(searchParams.has("stale")).toBe(false);
     expect(searchParams.has("prod-ui")).toBe(true);
   });
 
-  it("retains prod-ui mode across vault navigation", async () => {
-    const router = await renderRoute("/vault?prod-ui");
+  it("retains prod-ui mode across repository navigation", async () => {
+    const router = await renderRoute("/repo?prod-ui");
 
     await act(async () => {
       await router.navigate({
         search: {},
-        to: "/vault/$owner/$repo/settings",
-        params: { owner: "samebase", repo: "samebase" },
+        to: "/repo/$owner/$repository/settings",
+        params: { owner: "samebase", repository: "samebase" },
       });
       await settleRouterRender();
     });
 
-    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/settings");
+    expect(router.state.location.pathname).toBe("/repo/samebase/samebase/settings");
     expect(new window.URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
   });
 
@@ -917,18 +917,18 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("redirects the organization index to its vault list and keeps search params", async () => {
+  it("redirects the organization index to its repository list and keeps search params", async () => {
     const router = await renderRoute("/org/Samebase?devtools&prod-ui");
     const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
-    expect(router.state.location.pathname).toBe("/org/samebase/vaults");
+    expect(router.state.location.pathname).toBe("/org/samebase/repositories");
     expect(router.history.canGoBack()).toBe(false);
     expect(searchParams.has("devtools")).toBe(true);
     expect(searchParams.has("prod-ui")).toBe(true);
   });
 
   it.each([
-    ["vaults", "/org/Samebase/vaults", "dashboard-route"],
+    ["repositories", "/org/Samebase/repositories", "dashboard-route"],
     ["providers", "/org/Samebase/providers", "providers-page"],
     ["new app", "/org/Samebase/new-app", "new-app-page"],
     ["connect repository", "/org/Samebase/connect-repo", "connect-repository-page"],
@@ -963,14 +963,19 @@ describe("appRouter", () => {
     ).toBe("Organization unavailable");
   });
 
-  it.each(["/connect-organization", "/providers", "/new-app", "/connect-repo"])(
-    "does not register the retired route %s",
-    async (path) => {
-      await renderRoute(path);
+  it.each([
+    "/connect-organization",
+    "/providers",
+    "/new-app",
+    "/connect-repo",
+    "/vault",
+    "/vault/samebase/samebase",
+    "/org/samebase/vaults",
+  ])("does not register the retired route %s", async (path) => {
+    await renderRoute(path);
 
-      expect(rootElement?.querySelector('[data-testid="not-found-route"]')).not.toBeNull();
-    },
-  );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).not.toBeNull();
+  });
 
   it("renders Settings through an explicit TanStack route", async () => {
     await renderRoute("/settings");
@@ -1124,8 +1129,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-workspace-left-pane"]')).not.toBeNull();
   });
 
-  it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/vault/samebase/samebase/fs/main/README.md");
+  it("renders the generic repository route through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/repo/samebase/samebase/fs/main/README.md");
 
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
       "File view page",
@@ -1133,8 +1138,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders the bare vault route through the dashboard route", async () => {
-    await renderRoute("/vault/samebase/samebase");
+  it("renders the bare repository route through the dashboard route", async () => {
+    await renderRoute("/repo/samebase/samebase");
 
     await act(async () => {
       await settleRouterRender();
@@ -1147,8 +1152,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders canonical vault settings through the dashboard route", async () => {
-    await renderRoute("/vault/samebase/samebase/settings");
+  it("renders canonical repository settings through the dashboard route", async () => {
+    await renderRoute("/repo/samebase/samebase/settings");
 
     await act(async () => {
       await settleRouterRender();
@@ -1160,8 +1165,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders the vault database route through the database route", async () => {
-    await renderRoute("/vault/samebase/samebase/db/main/project/convex-attachment");
+  it("renders the repository database route through the database route", async () => {
+    await renderRoute("/repo/samebase/samebase/db/main/project/convex-attachment");
 
     expect(rootElement?.querySelector('[data-testid="vault-database-page"]')?.textContent).toBe(
       "Vault database page",

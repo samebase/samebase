@@ -178,7 +178,7 @@ describe("SignInWithOAuth", () => {
     vi.stubGlobal("window", {
       location: {
         origin: "https://samebase.com",
-        pathname: "/vault/samebase/samebase/fs/main/README.md",
+        pathname: "/repo/samebase/samebase/fs/main/README.md",
         search: "",
         hash: "",
       },
@@ -190,7 +190,7 @@ describe("SignInWithOAuth", () => {
     element.props.onClick();
 
     expect(openAuthPopupMock).toHaveBeenCalledWith("github", {
-      popupPath: "/vault/samebase/samebase/fs/main/README.md?auth=github",
+      popupPath: "/repo/samebase/samebase/fs/main/README.md?auth=github",
     });
     expect(signInWithOAuthMock).not.toHaveBeenCalled();
   });

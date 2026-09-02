@@ -102,16 +102,16 @@ describe("page metadata", () => {
     withFakeDocument((document) => {
       applyPageMetadata({
         ...APP_PAGE_METADATA,
-        canonicalPath: "/vault/acme/demo",
-        title: resolveAppPageTitle("/vault/acme/demo"),
+        canonicalPath: "/repo/acme/demo",
+        title: resolveAppPageTitle("/repo/acme/demo"),
       });
 
       expect(document.title).toBe("Workspace | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://samebase.com/vault/acme/demo",
+        "https://samebase.com/repo/acme/demo",
       );
       expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
-        "https://samebase.com/vault/acme/demo",
+        "https://samebase.com/repo/acme/demo",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
       expect(getHeadAttribute(document, 'meta[property="og:image"]', "content")).toBe(
@@ -236,9 +236,9 @@ describe("page metadata", () => {
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
-    expect(APP_PAGE_METADATA.canonicalPath).toBe("/vault");
-    expect(resolveAppPageTitle("/vault")).toBe("Vaults | Samebase");
-    expect(resolveAppPageTitle("/vault/")).toBe("Vaults | Samebase");
+    expect(APP_PAGE_METADATA.canonicalPath).toBe("/repo");
+    expect(resolveAppPageTitle("/repo")).toBe("Repositories | Samebase");
+    expect(resolveAppPageTitle("/repo/")).toBe("Repositories | Samebase");
     expect(resolveAppPageTitle("/org")).toBe("Organizations | Samebase");
     expect(resolveAppPageTitle("/org/")).toBe("Organizations | Samebase");
     expect(

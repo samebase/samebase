@@ -115,7 +115,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
           <div>
             <div className="font-medium">Access</div>
             <div className="text-muted-foreground">
-              Organizations and vaults that your account can currently access
+              Organizations and repositories that your account can currently access
             </div>
           </div>
           <div>

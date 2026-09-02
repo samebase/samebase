@@ -21,6 +21,7 @@ import {
 } from "./VaultOverviewVaultPickerPane";
 import { VaultSelectedWorkspace } from "./VaultSelectedWorkspace";
 import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
@@ -187,9 +188,9 @@ export function VaultDashboard({
       case "missing":
         return (
           <main className="grid gap-4 p-4">
-            <h1 className="text-base font-semibold">Vault unavailable</h1>
+            <h1 className="text-base font-semibold">Repository unavailable</h1>
             <Button asChild className="w-fit" variant="outline">
-              <Link to="/vault">All vaults</Link>
+              <Link to={DASHBOARD_ROUTE}>All repositories</Link>
             </Button>
           </main>
         );

@@ -138,7 +138,7 @@ describe("VaultDashboard dialog route cleanup", () => {
   it("keeps a dialog deep link while the vault model is loading", async () => {
     setLoadingWorkspace();
 
-    await renderDashboard("/vault?delete&dev");
+    await renderDashboard("/repo?delete&dev");
 
     expect(readLocationHref()).toContain("delete");
     expect(readLocationHref()).toContain("dev");
@@ -147,9 +147,9 @@ describe("VaultDashboard dialog route cleanup", () => {
   it("clears an unavailable dialog from the vault root route", async () => {
     setSettledWorkspace({ state: "root" });
 
-    await renderDashboard("/vault?delete&dev#vaults");
+    await renderDashboard("/repo?delete&dev#vaults");
 
-    expect(readLocationHref()).toContain("/vault?");
+    expect(readLocationHref()).toContain("/repo?");
     expect(readLocationHref()).not.toContain("delete");
     expect(readLocationHref()).toContain("dev");
     expect(readLocationHref()).toContain("#vaults");
@@ -166,7 +166,7 @@ describe("VaultDashboard dialog route cleanup", () => {
       vaults: [],
     });
 
-    await renderDashboard("/vault");
+    await renderDashboard("/repo");
 
     expect(vaultPickerMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -178,21 +178,21 @@ describe("VaultDashboard dialog route cleanup", () => {
     );
   });
 
-  it("clears an unavailable dialog from a missing vault route", async () => {
+  it("clears an unavailable dialog from a missing repository route", async () => {
     setSettledWorkspace({
       state: "missing",
       repositoryFullName: "samebase/missing",
     });
 
-    await renderDashboard("/vault/samebase/missing?add-convex&dev", "samebase/missing");
+    await renderDashboard("/repo/samebase/missing?add-convex&dev", "samebase/missing");
 
-    expect(readLocationHref()).toContain("/vault/samebase/missing?");
+    expect(readLocationHref()).toContain("/repo/samebase/missing?");
     expect(readLocationHref()).not.toContain("add-convex");
     expect(readLocationHref()).toContain("dev");
-    expect(rootElement?.textContent).toContain("Vault unavailable");
-    expect(rootElement?.textContent).toContain("All vaults");
+    expect(rootElement?.textContent).toContain("Repository unavailable");
+    expect(rootElement?.textContent).toContain("All repositories");
     expect(rootElement?.textContent).not.toContain("samebase/missing");
-    expect(rootElement?.querySelector("a")?.getAttribute("href")).toContain("/vault");
+    expect(rootElement?.querySelector("a")?.getAttribute("href")).toContain("/repo");
   });
 
   it("keeps a permitted dialog for the selected vault", async () => {
@@ -210,7 +210,7 @@ describe("VaultDashboard dialog route cleanup", () => {
       },
     });
 
-    await renderDashboard("/vault/samebase/samebase?delete&dev", "samebase/samebase");
+    await renderDashboard("/repo/samebase/samebase?delete&dev", "samebase/samebase");
 
     expect(readLocationHref()).toContain("delete");
     expect(readLocationHref()).toContain("dev");

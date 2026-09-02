@@ -88,10 +88,10 @@ export function VaultDeleteDialogContent({
     <Dialog open onOpenChange={onOpenChange}>
       <AppDialogContent>
         <DialogHeader>
-          <DialogTitle>Remove Vault {target.repositoryFullName}</DialogTitle>
+          <DialogTitle>Remove {target.repositoryFullName} from Samebase?</DialogTitle>
           <DialogDescription>
             {hasStagedChanges
-              ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+              ? `This repository has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
               : "All local changes are already backed up on GitHub."}
           </DialogDescription>
         </DialogHeader>
@@ -107,7 +107,7 @@ export function VaultDeleteDialogContent({
               className="mt-0.5"
             />
             <label htmlFor="remove-github-repo" className="text-sm text-muted-foreground">
-              Also remove GitHub repository
+              Also delete the GitHub repository
               {!target.canRemoveGithubRepo ? (
                 <div className="text-xs text-muted-foreground">
                   Only available for confirmed repositories created in Samebase.
@@ -127,7 +127,7 @@ export function VaultDeleteDialogContent({
                 className="mt-0.5"
               />
               <label htmlFor="remove-convex-provision" className="text-sm text-muted-foreground">
-                Also remove Convex project/deployment
+                Also delete the Convex project and deployment
                 {!target.canRemoveConvexProvision ? (
                   <div className="text-xs text-muted-foreground">
                     Only available for infrastructure provisioned by Samebase.
@@ -148,7 +148,7 @@ export function VaultDeleteDialogContent({
                 className="mt-0.5"
               />
               <label htmlFor={removeCloudflareCheckboxId} className="text-sm text-muted-foreground">
-                Also remove Cloudflare Worker
+                Also delete the Cloudflare Worker
                 {!target.canRemoveCloudflareProvision ? (
                   <div className="text-xs text-muted-foreground">
                     Only available for Workers created from this app.
@@ -205,7 +205,7 @@ export function VaultDeleteDialogContent({
                 Removing...
               </>
             ) : (
-              "Remove Vault"
+              "Remove from Samebase"
             )}
           </Button>
         </DialogFooter>
@@ -239,9 +239,9 @@ export function VaultDeleteDialog({
 
   const confirmBlockedReason =
     vault.deletion.state === "deleting"
-      ? "Vault removal is in progress."
+      ? "Removal from Samebase is in progress."
       : vault.deletion.state === "delete_failed"
-        ? "Retry vault removal before you remove this vault."
+        ? "Retry removal before you remove this repository from Samebase."
         : vault.deletion.deleteAction.state === "disabled"
           ? vault.deletion.deleteAction.reason
           : null;
@@ -312,7 +312,8 @@ export function VaultDeleteDialog({
       setOperation({
         state: "idle",
         commitError: null,
-        deleteError: error instanceof Error ? error.message : "Failed to remove vault",
+        deleteError:
+          error instanceof Error ? error.message : "Failed to remove repository from Samebase.",
         didAttemptCommit: operation.didAttemptCommit,
       });
     }

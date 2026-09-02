@@ -130,9 +130,7 @@ function DialogFixture({
   mode: VaultOverviewDialogsVisualMode;
 }) {
   return (
-    <TestRouterProvider
-      initialEntries={["/vault/samebase/shared-convex-monorepo-fixture/settings"]}
-    >
+    <TestRouterProvider initialEntries={["/repo/samebase/shared-convex-monorepo-fixture/settings"]}>
       <div data-testid={mode} className="min-h-dvh bg-background text-foreground" />
       {children}
     </TestRouterProvider>

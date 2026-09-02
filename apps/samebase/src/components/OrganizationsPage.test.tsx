@@ -68,7 +68,7 @@ describe("OrganizationsPageView", () => {
     expect(markup).toContain("Organizations");
     expect(markup.indexOf("Member-Org")).toBeLessThan(markup.indexOf("available-org"));
     expect(markup).toContain('aria-label="Open Member-Org in Samebase"');
-    expect(markup).toContain('href="/org/Member-Org/vaults"');
+    expect(markup).toContain('href="/org/Member-Org/repositories"');
     expect(markup).toContain('aria-label="Connect available-org"');
     expect(markup).toContain(
       "Someone already connected this GitHub organization to Samebase. Ask a Samebase organization owner to invite you.",
@@ -88,7 +88,7 @@ describe("OrganizationsPageView", () => {
       const markup = renderPage(readyState(discovery));
 
       expect(markup).toContain('aria-label="Open Member-Org in Samebase"');
-      expect(markup).toContain('href="/org/Member-Org/vaults"');
+      expect(markup).toContain('href="/org/Member-Org/repositories"');
     },
   );
 

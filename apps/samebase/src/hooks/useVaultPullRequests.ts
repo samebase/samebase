@@ -189,7 +189,7 @@ export function useVaultPullRequests(args: {
     queryKey: ["vault-pull-requests", vaultId, sourceSetupStatus],
     queryFn: async ({ pageParam }) => {
       if (!vaultId) {
-        throw new Error("Vault is required to load pull requests.");
+        throw new Error("Repository is required to load pull requests.");
       }
       const page = await listOpenPullRequests({
         vaultId,
@@ -237,7 +237,7 @@ export function useVaultPullRequests(args: {
         ],
         queryFn: async () => {
           if (!vaultId) {
-            throw new Error("Vault is required to load pull request resources.");
+            throw new Error("Repository is required to load pull request resources.");
           }
           return await getPullRequestResources({
             vaultId,

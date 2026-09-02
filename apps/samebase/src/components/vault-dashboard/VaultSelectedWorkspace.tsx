@@ -13,6 +13,7 @@ import {
   type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
 import { applySearchPatch } from "@/routing/searchFlags";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { VaultCloudflareDialog } from "./VaultCloudflareDialog";
 import { VaultConvexDialog } from "./VaultConvexDialog";
 import { VaultDeleteDialog } from "./VaultDeleteDialog";
@@ -163,7 +164,7 @@ export function VaultSelectedWorkspace({
       await retryDeleteVault({ runId });
     } catch (error) {
       toast({
-        title: "Could not retry vault deletion",
+        title: "Could not retry removal from Samebase",
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
@@ -379,7 +380,7 @@ export function VaultSelectedWorkspace({
                 ...currentState,
                 vaultDashboardDialog: undefined,
               }),
-              to: "/vault",
+              to: DASHBOARD_ROUTE,
             });
           }}
         />

@@ -140,7 +140,7 @@ describe("GitHub App popup completion", () => {
         assign,
         hash: "",
         origin: "https://samebase.com",
-        pathname: "/vault",
+        pathname: "/repo",
         replace: vi.fn(),
         search: "",
       },

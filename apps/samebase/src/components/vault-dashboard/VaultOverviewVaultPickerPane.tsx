@@ -20,7 +20,9 @@ import type {
 export type { VaultOrganization } from "./vaultWorkspaceModel";
 
 export function VaultOverviewVaultListHeader() {
-  return <div className="min-w-0 truncate px-3 text-sm font-medium @max-[120px]:px-1">Vaults</div>;
+  return (
+    <div className="min-w-0 truncate px-3 text-sm font-medium @max-[120px]:px-1">Repositories</div>
+  );
 }
 
 function OpenOrganizationsButton() {
@@ -77,7 +79,7 @@ export function VaultOverviewVaultPickerPane({
           <OpenOrganizationsButton />
         </div>
       ) : organizations.length === 0 ? (
-        <div className="p-4 text-sm text-muted-foreground">No vaults</div>
+        <div className="p-4 text-sm text-muted-foreground">No repositories</div>
       ) : (
         <VaultOverviewOrganizationSidebar
           folderState={folderState}

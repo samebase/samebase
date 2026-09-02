@@ -427,7 +427,7 @@ describe("useAutoSignIn", () => {
     messageHandler(
       new MessageEvent("message", {
         data: {
-          redirectTo: "/vault?prod-ui",
+          redirectTo: "/repo?prod-ui",
           tokens: {
             __convexAuthRefreshToken: "refresh",
             __convexAuthAccessToken: "token",

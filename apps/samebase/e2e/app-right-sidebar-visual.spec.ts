@@ -347,7 +347,7 @@ test("signed-in app right sidebar prehydration matches the account row", async (
     hydratedLandingActions.getByRole("button", { name: "Continue with GitHub" }),
   ).toHaveCount(0);
   await expect(hydratedAccountSection.getByText("Signed in with", { exact: false })).toHaveCount(0);
-  for (const linkName of ["Account settings", "All vaults", "Organizations"]) {
+  for (const linkName of ["Account settings", "All repositories", "Organizations"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
     await expect(navigationLink).toHaveCSS("font-size", "16px");
     await expect(navigationLink).toHaveCSS("line-height", "24px");

@@ -3,9 +3,9 @@ import { DASHBOARD_ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/roo
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 
-const pathname = "/vault/";
+const pathname = "/repo/";
 
-export const Route = createFileRoute("/vault/")({
+export const Route = createFileRoute("/repo/")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: DASHBOARD_ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS,

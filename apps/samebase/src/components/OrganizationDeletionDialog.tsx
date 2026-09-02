@@ -50,7 +50,7 @@ export function OrganizationDeletionDialog({
         organizationId: organization.organizationId,
         deletionConfirmationText: confirmationInput,
       });
-      await router.navigate({ href: "/vault", replace: true });
+      await router.navigate({ href: "/repo", replace: true });
     } catch (error) {
       setDeletionError(readDeletionError(error));
       setIsDeleting(false);
@@ -75,7 +75,7 @@ export function OrganizationDeletionDialog({
               Samebase data.
             </span>
             <span className="block text-muted-foreground">
-              Remove every Samebase vault and every other member first. GitHub repositories, Convex
+              Remove every Samebase repository and every other member first. GitHub repositories,
               projects, Cloudflare Workers, and domains are not deleted.
             </span>
           </DialogDescription>

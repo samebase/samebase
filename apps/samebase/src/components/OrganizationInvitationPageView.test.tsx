@@ -154,7 +154,7 @@ describe("OrganizationInvitationPageView", () => {
 
     expect(markup).toContain("Invitation accepted");
     expect(markup).toContain("You are a Samebase member of @samebase.");
-    expect(markup).toContain('href="/org/samebase/vaults"');
+    expect(markup).toContain('href="/org/samebase/repositories"');
     expect(markup).toContain("Open organization");
   });
 

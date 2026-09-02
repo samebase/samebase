@@ -92,7 +92,7 @@ function getSignedInMarkers(page: Page): Locator[] {
   return [
     accountSection.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true }),
     accountSection.getByRole("button", { name: "Sign out" }),
-    page.getByText("Your Vaults", { exact: true }).first(),
+    page.getByRole("link", { name: "All repositories", exact: true }).first(),
     page.getByRole("link", { name: "Account settings", exact: true }),
     page.getByRole("heading", {
       name: "Create your first project",

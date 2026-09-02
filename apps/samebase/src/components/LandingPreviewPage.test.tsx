@@ -283,7 +283,7 @@ describe("LandingPage", () => {
 
     const markup = renderToStaticMarkup(<LandingPage />);
 
-    expect(markup.split('href="/vault"').length - 1).toBe(2);
+    expect(markup.split('href="/repo"').length - 1).toBe(2);
     expect(markup.split(">Go to dashboard</a>").length - 1).toBe(2);
     expect(
       markup.split('class="hidden" data-public-landing-primary-action-signed-out="true"').length -

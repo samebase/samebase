@@ -65,7 +65,7 @@ export function buildFileViewRouteSearch(args?: {
 
 /**
  * Preserve unrelated route search while updating only the file-view-owned keys
- * on raw `/vault/$` hrefs that still need manually encoded path segments.
+ * on raw `/repo/$` hrefs that still need manually encoded path segments.
  */
 export function mergeFileViewRouteSearch(
   search: Record<string, unknown>,
@@ -80,7 +80,7 @@ export function mergeFileViewRouteSearch(
 }
 
 /**
- * Preserve the raw encoded `/vault/$` pathname while changing file-view search
+ * Preserve the raw encoded `/repo/$` pathname while changing file-view search
  * flags. Relative TanStack navigation can decode branch slashes in this route.
  */
 export function buildFileViewSearchHref(args: {
@@ -96,7 +96,7 @@ export function buildFileViewSearchHref(args: {
   });
 }
 
-const vaultFileRouteApi = getRouteApi("/vault/$");
+const vaultFileRouteApi = getRouteApi("/repo/$");
 
 export function useFileViewRouteSearch() {
   return vaultFileRouteApi.useSearch();

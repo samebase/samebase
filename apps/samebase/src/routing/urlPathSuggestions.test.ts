@@ -46,7 +46,7 @@ describe("readRouteUrlPathSuggestions", () => {
     for (const path of publicDocsPaths) {
       expect(suggestions).toContain(path);
     }
-    expect(suggestions).toContain("/vault");
+    expect(suggestions).toContain("/repo");
     expect(suggestions).toContain("/org");
     expect(suggestions).toContain("/indexDB");
     expect(suggestions).not.toContain("/logo/hover/carpet");
@@ -54,7 +54,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/logo/transition/menger");
     expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
-    expect(suggestions).toContain("/vault/$");
+    expect(suggestions).toContain("/repo/$");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
     expect(suggestions).not.toContain("/landing-preview");
@@ -132,7 +132,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/org/$owner/connect-repo");
     expect(suggestions).not.toContain("/org");
-    expect(suggestions).not.toContain("/vault");
+    expect(suggestions).not.toContain("/repo");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
@@ -149,7 +149,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/org/$owner/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
-    expect(suggestions).not.toContain("/vault/$");
+    expect(suggestions).not.toContain("/repo/$");
   });
 
   it("keeps account deletion out of pending-access suggestions", () => {
@@ -178,8 +178,8 @@ describe("readRouteUrlPathSuggestions", () => {
     }
     expect(suggestions).toContain("/org/$owner/connect-repo");
     expect(suggestions).toContain("/org");
-    expect(suggestions).toContain("/org/$owner/vaults");
-    expect(suggestions).toContain("/vault");
+    expect(suggestions).toContain("/org/$owner/repositories");
+    expect(suggestions).toContain("/repo");
     expect(suggestions).toContain("/org/$owner/new-app");
     expect(suggestions).toContain("/org/$owner/providers");
     expect(suggestions).toContain("/org/$owner/settings");
@@ -188,8 +188,8 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo/iso");
     expect(suggestions).toContain("/logo/raster");
     expect(suggestions).toContain("/logo/svg");
-    expect(suggestions).toContain("/vault/$owner/$repo");
-    expect(suggestions).not.toContain("/vault/$");
+    expect(suggestions).toContain("/repo/$owner/$repository");
+    expect(suggestions).not.toContain("/repo/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
@@ -269,7 +269,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault/octo/repo/db/main/project/convex-project",
+        draftHref: "/repo/octo/repo/db/main/project/convex-project",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -279,7 +279,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault/octo",
+        draftHref: "/repo/octo",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -289,7 +289,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault/",
+        draftHref: "/repo/",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -371,7 +371,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault",
+        draftHref: "/repo",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -391,7 +391,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/vault",
+        draftHref: "/repo",
         origin: ORIGIN,
         routesByPath,
         viewer: anonymousViewer,
@@ -420,7 +420,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
 
     expect(
       isRouteUrlPathReadyForNavigation({
-        currentHref: "/vault",
+        currentHref: "/repo",
         draftHref: "/logo",
         origin: ORIGIN,
         routesByPath,

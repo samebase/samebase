@@ -326,7 +326,7 @@ describe("organization deletion", () => {
     ).rejects.toThrow("Remove every other member before you delete this organization.");
   });
 
-  it("rejects an organization that still has a vault", async () => {
+  it("rejects an organization that still has a repository", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "vault");
     await t.run(async (ctx) => {
@@ -344,7 +344,7 @@ describe("organization deletion", () => {
         organizationId: seed.organizationId,
         deletionConfirmationText: "organization-vault",
       }),
-    ).rejects.toThrow("Remove every Samebase vault before you delete this organization.");
+    ).rejects.toThrow("Remove every repository from Samebase before you delete this organization.");
   });
 
   it("rejects Pro billing", async () => {
@@ -472,7 +472,7 @@ describe("organization deletion", () => {
         organizationId: seed.organizationId,
         deletionConfirmationText: "organization-provisioning",
       }),
-    ).rejects.toThrow("Finish organization vault cleanup before deletion.");
+    ).rejects.toThrow("Finish organization repository cleanup before deletion.");
   });
 
   it("rejects excessive completed vault deletion history without asking for more cleanup", async () => {

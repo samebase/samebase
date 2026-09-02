@@ -11,7 +11,7 @@ import {
 import { applySearchPatch } from "@/routing/searchFlags";
 
 type OrganizationSwitchTarget =
-  | { kind: "allVaults" }
+  | { kind: "allRepositories" }
   | {
       kind: "organization";
       owner: string;
@@ -26,7 +26,7 @@ export function buildOrganizationSwitchHref(args: {
   return buildPathWithTanStackSearch({
     hash: args.hash,
     pathname:
-      args.target.kind === "allVaults"
+      args.target.kind === "allRepositories"
         ? DASHBOARD_ROUTE
         : buildOrganizationRoutePath({
             owner: args.target.owner,

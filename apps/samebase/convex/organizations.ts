@@ -375,7 +375,9 @@ export const deleteOrganization = mutation({
       .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
       .first();
     if (vault !== null) {
-      throw new ConvexError("Remove every Samebase vault before you delete this organization.");
+      throw new ConvexError(
+        "Remove every repository from Samebase before you delete this organization.",
+      );
     }
 
     const [vaultCloudflareWorker, vaultConvexProject, provisioningRun] = await Promise.all([
@@ -395,7 +397,7 @@ export const deleteOrganization = mutation({
         .first(),
     ]);
     if (vaultCloudflareWorker !== null || vaultConvexProject !== null || provisioningRun !== null) {
-      throw new ConvexError("Finish organization vault cleanup before deletion.");
+      throw new ConvexError("Finish organization repository cleanup before deletion.");
     }
 
     const deletionRuns = await ctx.db
@@ -408,7 +410,7 @@ export const deleteOrganization = mutation({
       throw new ConvexError("This organization cannot be deleted automatically.");
     }
     if (deletionRuns.some((run) => run.state !== "succeeded")) {
-      throw new ConvexError("Finish organization vault cleanup before deletion.");
+      throw new ConvexError("Finish organization repository cleanup before deletion.");
     }
 
     const [

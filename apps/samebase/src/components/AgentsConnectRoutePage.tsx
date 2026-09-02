@@ -1,6 +1,7 @@
 import { signInWithAgentBrowserHandoffAction } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { consumeStoredAgentBrowserHandoff } from "@/lib/agentBrowserHandoffPrehydration";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -66,7 +67,7 @@ export function AgentsConnectRoutePage() {
           <Button
             variant="outline"
             onClick={() => {
-              window.location.replace("/vault/");
+              window.location.replace(DASHBOARD_ROUTE);
             }}
           >
             Open Samebase

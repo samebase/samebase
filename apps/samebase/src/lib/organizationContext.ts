@@ -7,13 +7,13 @@ export type ViewerOrganization = (typeof api.organizations.listForViewer)["_retu
 export type AppOrganizationSurface =
   | { kind: "none" }
   | { kind: "organizations" }
-  | { kind: "allVaults" }
+  | { kind: "allRepositories" }
   | { kind: "account" }
   | {
       kind: "organization";
       owner: string;
       section: OrganizationRouteSection;
-      source: "organization" | "vault";
+      source: "organization" | "repository";
     };
 
 type OrganizationContextValue = {
@@ -24,8 +24,8 @@ type OrganizationContextValue = {
 export const OrganizationContext = createContext<OrganizationContextValue | null>(null);
 
 function readOrganizationSection(segments: string[]): OrganizationRouteSection | null {
-  if (segments.length === 2 || (segments.length === 3 && segments[2] === "vaults")) {
-    return "vaults";
+  if (segments.length === 2 || (segments.length === 3 && segments[2] === "repositories")) {
+    return "repositories";
   }
   if (segments.length === 3 && segments[2] === "providers") {
     return "providers";
@@ -50,16 +50,16 @@ export function readAppOrganizationSurface(pathname: string): AppOrganizationSur
   if (segments[0] === "settings") {
     return { kind: "account" };
   }
-  if (segments[0] === "vault") {
+  if (segments[0] === "repo") {
     if (segments.length === 1) {
-      return { kind: "allVaults" };
+      return { kind: "allRepositories" };
     }
     if (segments.length >= 3) {
       return {
         kind: "organization",
         owner: segments[1],
-        section: "vaults",
-        source: "vault",
+        section: "repositories",
+        source: "repository",
       };
     }
     return { kind: "none" };

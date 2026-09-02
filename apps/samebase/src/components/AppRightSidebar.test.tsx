@@ -39,7 +39,7 @@ const organizationContextState = vi.hoisted<{
   surface: AppOrganizationSurface;
 }>(() => ({
   organizations: undefined,
-  surface: { kind: "allVaults" },
+  surface: { kind: "allRepositories" },
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
@@ -192,8 +192,8 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       </a>
     ),
     useLocation: () => ({
-      href: "/vault",
-      pathname: "/vault",
+      href: "/repo",
+      pathname: "/repo",
       searchStr: "",
     }),
     useMatches: ({
@@ -310,7 +310,7 @@ describe("AppRightSidebarContent", () => {
       configurable: true,
       value: createTestStorage(),
     });
-    window.history.replaceState({}, "", "/vault");
+    window.history.replaceState({}, "", "/repo");
     queryState.index = 0;
     queryState.results = [];
     queryState.resultsByQueryName = new Map();
@@ -318,7 +318,7 @@ describe("AppRightSidebarContent", () => {
     queryState.seenQueryNames = [];
     mutationState.clear();
     organizationContextState.organizations = undefined;
-    organizationContextState.surface = { kind: "allVaults" };
+    organizationContextState.surface = { kind: "allRepositories" };
   });
 
   it("does not treat a profileless JWT as temporary auth", async () => {
@@ -431,7 +431,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).toContain("Account settings");
-    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).toContain('href="/repo"');
     expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
@@ -534,7 +534,7 @@ describe("AppRightSidebarContent", () => {
     );
     expect(hydratedMarkup).toContain('role="status"');
     expect(hydratedMarkup).toContain("Account settings");
-    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).toContain('href="/repo"');
     expect(hydratedMarkup).not.toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
@@ -543,7 +543,7 @@ describe("AppRightSidebarContent", () => {
     expectProviderStatusQueriesNotSeen();
   });
 
-  it("keeps All vaults visible before the viewer accepts the terms", async () => {
+  it("keeps All repositories visible before the viewer accepts the terms", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
         [
@@ -567,7 +567,7 @@ describe("AppRightSidebarContent", () => {
       ]),
     );
 
-    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).toContain('href="/repo"');
     expect(hydratedMarkup).not.toContain("organization-context-control");
   });
 
@@ -599,7 +599,7 @@ describe("AppRightSidebarContent", () => {
     expect(mounted).toContain("deleting@example.com");
     expect(mounted).toContain("Deleting account");
     expect(mounted).toContain('role="status"');
-    expect(mounted).toContain('href="/vault"');
+    expect(mounted).toContain('href="/repo"');
     expect(mounted).not.toContain("/settings");
     expect(mounted).not.toContain("/providers");
     expect(mounted).not.toContain("organization-context-control");
@@ -642,8 +642,8 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
-    expect(hydratedMarkup).toContain('href="/vault"');
-    expect(hydratedMarkup).toContain("All vaults");
+    expect(hydratedMarkup).toContain('href="/repo"');
+    expect(hydratedMarkup).toContain("All repositories");
     expect(hydratedMarkup).toContain('href="/org"');
     expect(hydratedMarkup).toContain("Organizations");
     expect(hydratedMarkup).not.toContain("No organization selected");
@@ -895,7 +895,7 @@ describe("AppRightSidebarContent", () => {
       ]),
     );
 
-    expect(hydratedMarkup).toContain('href="/org/samebase/vaults"');
+    expect(hydratedMarkup).toContain('href="/org/samebase/repositories"');
     expect(hydratedMarkup).toContain('href="/org/samebase/providers"');
     expect(hydratedMarkup).toContain('href="/org/samebase/new-app"');
     expect(hydratedMarkup).toContain('href="/org/samebase/connect-repo"');
@@ -905,22 +905,22 @@ describe("AppRightSidebarContent", () => {
       hydratedMarkup.indexOf("Organization settings"),
     );
     expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
-    expect(hydratedMarkup).toContain("All vaults");
+    expect(hydratedMarkup).toContain("All repositories");
     expect(hydratedMarkup).toContain("Organizations");
     expect(hydratedMarkup).toContain("Account settings");
     const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
-    const allVaultsIndex = hydratedMarkup.indexOf('href="/vault"');
+    const allRepositoriesIndex = hydratedMarkup.indexOf('href="/repo"');
     const organizationsIndex = hydratedMarkup.indexOf('href="/org"');
     const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
     const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
     expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(allVaultsIndex).toBeGreaterThan(accountIndex);
-    expect(organizationsIndex).toBeGreaterThan(allVaultsIndex);
+    expect(allRepositoriesIndex).toBeGreaterThan(accountIndex);
+    expect(organizationsIndex).toBeGreaterThan(allRepositoriesIndex);
     expect(contextIndex).toBeGreaterThan(organizationsIndex);
     expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
   });
 
-  it("keeps All vaults visible while organization memberships load", async () => {
+  it("keeps All repositories visible while organization memberships load", async () => {
     organizationContextState.organizations = undefined;
     organizationContextState.surface = {
       kind: "organization",
@@ -950,7 +950,7 @@ describe("AppRightSidebarContent", () => {
     );
 
     expect(hydratedMarkup).toContain("Account settings");
-    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).toContain('href="/repo"');
     expect(hydratedMarkup).toContain('href="/org"');
     expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).not.toContain("Organization settings");

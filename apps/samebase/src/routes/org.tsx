@@ -1,5 +1,5 @@
 import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
-import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/lib/organizationRoutes";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 
@@ -17,7 +17,7 @@ function OrganizationIndexRoutePage() {
           params={{ owner: organization.githubOwnerLogin }}
           replace
           search
-          to={ORGANIZATION_VAULTS_ROUTE}
+          to={ORGANIZATION_REPOSITORIES_ROUTE}
         />
       )}
     </AuthenticatedOrganizationRoutePage>

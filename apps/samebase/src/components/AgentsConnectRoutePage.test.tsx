@@ -52,7 +52,7 @@ describe("AgentsConnectRoutePage", () => {
 
   it("waits for the existing browser session before consuming the handoff", async () => {
     consumeHandoffMock.mockReturnValue({
-      returnToPath: "/vault/",
+      returnToPath: "/repo/",
       token: `agbh_${"a".repeat(43)}`,
     });
     signInMock.mockImplementation(() => new Promise(() => {}));
@@ -74,7 +74,7 @@ describe("AgentsConnectRoutePage", () => {
   it("shows the failure state when sign-in rejects", async () => {
     authState.isLoading = false;
     consumeHandoffMock.mockReturnValue({
-      returnToPath: "/vault/",
+      returnToPath: "/repo/",
       token: `agbh_${"a".repeat(43)}`,
     });
     signInMock.mockRejectedValue(new Error("invalid handoff"));
@@ -92,7 +92,7 @@ describe("AgentsConnectRoutePage", () => {
   it("keeps the failure state under Strict Mode's effect replay", async () => {
     authState.isLoading = false;
     consumeHandoffMock.mockReturnValue({
-      returnToPath: "/vault/",
+      returnToPath: "/repo/",
       token: `agbh_${"a".repeat(43)}`,
     });
     signInMock.mockRejectedValue(new Error("invalid handoff"));

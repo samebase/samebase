@@ -1,6 +1,6 @@
 export const ORGANIZATIONS_ROUTE = "/org";
 export const ORGANIZATION_ROUTE = "/org/$owner";
-export const ORGANIZATION_VAULTS_ROUTE = "/org/$owner/vaults";
+export const ORGANIZATION_REPOSITORIES_ROUTE = "/org/$owner/repositories";
 export const ORGANIZATION_PROVIDERS_ROUTE = "/org/$owner/providers";
 export const ORGANIZATION_MEMBERS_ROUTE = "/org/$owner/settings/members";
 export const ORGANIZATION_NEW_APP_ROUTE = "/org/$owner/new-app";
@@ -8,7 +8,7 @@ export const ORGANIZATION_CONNECT_REPO_ROUTE = "/org/$owner/connect-repo";
 export const ORGANIZATION_SETTINGS_ROUTE = "/org/$owner/settings";
 
 export type OrganizationRouteSection =
-  | "vaults"
+  | "repositories"
   | "providers"
   | "members"
   | "new-app"
@@ -21,7 +21,7 @@ const ORGANIZATION_ROUTE_SUFFIX_BY_SECTION = {
   members: "/settings/members",
   providers: "/providers",
   settings: "/settings",
-  vaults: "/vaults",
+  repositories: "/repositories",
 } as const satisfies Record<OrganizationRouteSection, string>;
 
 export function buildOrganizationRoutePath(args: {

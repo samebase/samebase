@@ -130,7 +130,7 @@ function isRouteAddressSearchTokenReady(
 ): boolean {
   // A destination route accepts only root-owned keys plus its own schema keys.
   // Keys the destination does not accept never ride along into the route
-  // update: editing `/settings?delete-account` to `/vault` must drop `delete-account`.
+  // update: editing `/settings?delete-account` to `/repo` must drop `delete-account`.
   if (!isRootRouteOwnedSearchKey(token.key) && !acceptedSearchKeys.includes(token.key)) {
     return false;
   }
@@ -203,8 +203,8 @@ function readRouteAddressSearchParamSuggestions(
 Returns the destination path's route-owned search keys for route URL editor
 draft cleanup.
 
-Example: editing `/settings?delete-account` into `/vault?delete-account` should drop
-`delete-account`, because `/vault` does not declare that key in
+Example: editing `/settings?delete-account` into `/repo?delete-account` should drop
+`delete-account`, because `/repo` does not declare that key in
 `staticData.acceptedSearchKeys`. The caller handles root-owned keys separately;
 this helper only answers which keys belong to the destination route itself.
 
@@ -233,8 +233,8 @@ that matches the draft path.
 
 Example: when the draft route address is `/logo?to`, the path is `/logo`, so
 the editor should suggest `/logo` search params such as `top`. When the draft
-route address is `/vault/acme/demo/fs/main/README.md?d`, the path matches the
-`/vault/$` route, so an admin viewer can see file-view suggestions such as
+route address is `/repo/acme/demo/fs/main/README.md?d`, the path matches the
+`/repo/$` route, so an admin viewer can see file-view suggestions such as
 `diff`.
 */
 export function readMatchingRouteSearchParamSuggestions(args: {

@@ -29,7 +29,7 @@ const toastState = vi.hoisted(() => ({
   toast: vi.fn(),
 }));
 const locationState = vi.hoisted(() => ({
-  pathname: "/vault",
+  pathname: "/repo",
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -169,8 +169,8 @@ describe("AuthenticatedAppRoutePage", () => {
       configurable: true,
       value: createTestStorage(),
     });
-    window.history.replaceState({}, "", "/vault");
-    locationState.pathname = "/vault";
+    window.history.replaceState({}, "", "/repo");
+    locationState.pathname = "/repo";
     routeChildState.renders = 0;
     routerState.navigate.mockClear();
     rootSearchState.search = {};

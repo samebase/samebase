@@ -3,12 +3,12 @@ import { DashboardRoutePage } from "@/components/DashboardRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/org/$owner/vaults")({
-  component: OrganizationVaultsRoutePage,
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/vaults"],
+export const Route = createFileRoute("/org/$owner/repositories")({
+  component: OrganizationRepositoriesRoutePage,
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/repositories"],
 });
 
-function OrganizationVaultsRoutePage() {
+function OrganizationRepositoriesRoutePage() {
   const { owner } = Route.useParams();
   return (
     <AuthenticatedOrganizationRoutePage owner={owner}>

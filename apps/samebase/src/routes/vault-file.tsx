@@ -7,7 +7,7 @@ import {
 } from "@/routeSearch/fileView";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
-const pathname = "/vault/$";
+const pathname = "/repo/$";
 
 const FileView = lazy(async () => {
   const module = await import("@/components/FileView/FileView");
@@ -26,7 +26,7 @@ function FileViewRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/vault/$")({
+export const Route = createFileRoute("/repo/$")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,

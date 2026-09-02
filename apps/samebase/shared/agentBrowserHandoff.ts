@@ -3,7 +3,7 @@ import { parseSiteOrigin } from "./siteOrigin";
 export const AGENT_BROWSER_HANDOFF_ROUTE = "/agents/connect";
 export const AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY = "handoff";
 export const AGENT_BROWSER_HANDOFF_RETURN_TO_FRAGMENT_KEY = "returnTo";
-export const AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH = "/vault/";
+export const AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH = "/repo/";
 export const AGENT_BROWSER_HANDOFF_TOKEN_PATTERN_SOURCE = "^agbh_[A-Za-z0-9_-]{43}(?![\\s\\S])";
 const AGENT_BROWSER_HANDOFF_RETURN_TO_BASE_ORIGIN = "https://samebase.local";
 

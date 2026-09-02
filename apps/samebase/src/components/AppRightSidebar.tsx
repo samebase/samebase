@@ -24,7 +24,7 @@ import {
   ORGANIZATION_NEW_APP_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
-  ORGANIZATION_VAULTS_ROUTE,
+  ORGANIZATION_REPOSITORIES_ROUTE,
   ORGANIZATIONS_ROUTE,
 } from "@/lib/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
@@ -313,7 +313,7 @@ function GlobalAppRightSidebarLinks({
       className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
       <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
-        All vaults
+        All repositories
       </Link>
       {showOrganizations ? (
         <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={ORGANIZATIONS_ROUTE}>
@@ -350,9 +350,9 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
       <Link
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
-        to={ORGANIZATION_VAULTS_ROUTE}
+        to={ORGANIZATION_REPOSITORIES_ROUTE}
       >
-        Vaults
+        Repositories
       </Link>
       <Link
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}

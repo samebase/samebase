@@ -389,24 +389,24 @@ describe("rootRouteSearch", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
-        pathname: "/vault",
+        pathname: "/repo",
         searchStr: "?stale=1",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/vault");
+    ).toBe("/repo");
   });
 
   it("preserves the Convex Auth callback code for the auth provider", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
-        pathname: "/vault",
+        pathname: "/repo",
         searchStr: "?code=oauth-code&unknownKey=1",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/vault?code=oauth-code");
+    ).toBe("/repo?code=oauth-code");
   });
 
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {

@@ -1112,7 +1112,7 @@ describe("MCP tools/call access enforcement", () => {
     const payload = await callTool("create_browser_handoff", {
       clientId: "raw_client",
       grantId: "raw_grant",
-      returnToPath: "/vault/",
+      returnToPath: "/repo/",
     });
     expect(payload).toMatchObject({
       result: {

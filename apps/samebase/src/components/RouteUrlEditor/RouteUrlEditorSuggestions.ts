@@ -209,7 +209,7 @@ function readSelectionIndex(args: {
 /**
 Current implementation: path dropdown rows only show concrete URL paths.
 
-Router template paths like `/vault/$` are registry syntax, not something the
+Router template paths like `/repo/$` are registry syntax, not something the
 user should select into the URL editor. Keep this filter at the dropdown-row
 boundary: `readRouteAddressReadiness` still needs template paths to decide
 whether a user-typed concrete path has enough segments to load.

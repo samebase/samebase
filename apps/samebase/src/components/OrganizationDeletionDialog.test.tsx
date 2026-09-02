@@ -129,6 +129,6 @@ describe("OrganizationDeletionDialog", () => {
       organizationId: organization.organizationId,
       deletionConfirmationText: organization.githubOwnerLogin,
     });
-    expect(testState.navigate).toHaveBeenCalledWith({ href: "/vault", replace: true });
+    expect(testState.navigate).toHaveBeenCalledWith({ href: "/repo", replace: true });
   });
 });

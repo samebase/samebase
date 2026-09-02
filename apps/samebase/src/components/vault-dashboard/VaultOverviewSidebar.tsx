@@ -425,7 +425,7 @@ export function VaultOverviewSidebar({
       .catch((error: unknown) => {
         toast({
           description: error instanceof Error ? error.message : "Try again.",
-          title: "Could not update vault folders",
+          title: "Could not update repository folders",
           variant: "destructive",
         });
       })
@@ -480,7 +480,7 @@ export function VaultOverviewSidebar({
                 );
               const disclosureLabel = folder.collapsed
                 ? `Expand ${folder.name}, ${folderVaults.length} ${
-                    folderVaults.length === 1 ? "vault" : "vaults"
+                    folderVaults.length === 1 ? "repository" : "repositories"
                   }${hasHiddenFailure ? ", has hidden failures" : ""}`
                 : `Collapse ${folder.name}`;
 
@@ -489,7 +489,7 @@ export function VaultOverviewSidebar({
                   key={folder._id}
                   aria-label={
                     folder.collapsed && selectedVault
-                      ? `${folder.name}, contains current vault`
+                      ? `${folder.name}, contains current repository`
                       : folder.name
                   }
                 >
@@ -662,7 +662,7 @@ export function VaultOverviewOrganizationSidebar({
   const orderedOrganizations = personalOrganizationsFirst(organizations);
 
   return (
-    <nav aria-label="Vaults" className="@container min-h-full py-2">
+    <nav aria-label="Repositories" className="@container min-h-full py-2">
       {orderedOrganizations.map((organization) => {
         const organizationVaults = vaults.filter(
           (vault) => vault.organizationId === organization.organizationId,
@@ -709,7 +709,7 @@ export function VaultOverviewOrganizationSidebar({
                     }).catch((error: unknown) => {
                       toast({
                         description: error instanceof Error ? error.message : "Try again.",
-                        title: "Could not update vault organizations",
+                        title: "Could not update repository organizations",
                         variant: "destructive",
                       });
                     });
@@ -764,7 +764,7 @@ export function VaultOverviewOrganizationSidebar({
             <CollapsibleContent>
               {organizationVaults.length === 0 && !organizationHasFolders ? (
                 <p className="px-3 py-2 text-sm text-muted-foreground @max-[200px]:px-2 @max-[120px]:px-1">
-                  No vaults
+                  No repositories
                 </p>
               ) : (
                 <VaultOverviewSidebar
@@ -793,7 +793,7 @@ export function VaultOverviewOrganizationSidebar({
 
 export function VaultOverviewSidebarLoading() {
   return (
-    <div aria-label="Loading vaults" className="grid gap-4 px-3 py-4">
+    <div aria-label="Loading repositories" className="grid gap-4 px-3 py-4">
       {[0, 1, 2].map((index) => (
         <div key={index} className="grid gap-2" aria-hidden="true">
           <div className="h-3 w-16 bg-muted motion-safe:animate-pulse" />

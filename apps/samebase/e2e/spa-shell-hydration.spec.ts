@@ -8,7 +8,7 @@ test("built SPA fallback hydrates its requested route without recovery", async (
   const shell = await readFile(new URL("../dist/client/index.html", import.meta.url), "utf8");
   const hydrationErrors: string[] = [];
 
-  await page.route(/\/vault\/samebase\/samebase$/, async (route) => {
+  await page.route(/\/repo\/samebase\/samebase$/, async (route) => {
     if (!route.request().isNavigationRequest()) return route.continue();
     await route.fulfill({ body: shell, contentType: "text/html", status: 200 });
   });
@@ -21,10 +21,8 @@ test("built SPA fallback hydrates its requested route without recovery", async (
     if (hydrationErrorPattern.test(error.message)) hydrationErrors.push(error.message);
   });
 
-  await page.goto("/vault/samebase/samebase", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(
-    "/vault/samebase/samebase",
-  );
+  await page.goto("/repo/samebase/samebase", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue("/repo/samebase/samebase");
   await page.evaluate(
     () =>
       new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),

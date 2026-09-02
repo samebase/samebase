@@ -271,8 +271,8 @@ function RepositoryIdentityNotice({
           </div>
           {!updateAvailable ? (
             <div className="mt-1 text-xs">
-              Remove the existing {githubOwnerLogin}/{githubIdentity.repositoryName} vault before
-              you update this name.
+              Remove the existing {githubOwnerLogin}/{githubIdentity.repositoryName} repository from
+              Samebase before you update this name.
             </div>
           ) : organizationRole !== "owner" ? (
             <div className="mt-1 text-xs">An organization owner must update this name.</div>
@@ -364,7 +364,7 @@ export function RepositorySettings({
   const deleteAction =
     workspace.vault.deletion.state === "not_deleting"
       ? workspace.vault.deletion.deleteAction
-      : { state: "disabled" as const, reason: "Vault removal is already in progress." };
+      : { state: "disabled" as const, reason: "Removal from Samebase is already in progress." };
   const removeVaultDisabled = deleteAction.state === "disabled";
   const repositoryIdentity = (
     <>
@@ -474,7 +474,7 @@ export function RepositorySettings({
           id="vault-settings-remove-heading"
           className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
         >
-          Remove vault
+          Remove from Samebase
         </h2>
         <div className="grid gap-3 border-t border-border py-4 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
           <p className="max-w-xl text-xs leading-5 text-muted-foreground">
@@ -490,7 +490,7 @@ export function RepositorySettings({
             variant="destructive"
             onClick={onOpenDeleteDialog}
           >
-            Remove vault
+            Remove from Samebase
           </Button>
         </div>
       </section>

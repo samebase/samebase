@@ -96,7 +96,7 @@ export function ButtonVisualFixture() {
             </Button>
             <Button>
               <Plus />
-              <VisualText label="New vault" width={64} />
+              <VisualText label="New repository" width={96} />
             </Button>
           </ButtonRow>
           <ButtonRow label="outline" labelWidth={52}>
@@ -125,7 +125,7 @@ export function ButtonVisualFixture() {
           <ButtonRow label="destructive" labelWidth={74}>
             <Button variant="destructive">
               <Trash2 />
-              <VisualText label="Delete vault" width={88} />
+              <VisualText label="Remove from Samebase" width={136} />
             </Button>
           </ButtonRow>
           <ButtonRow label="link" labelWidth={28}>
@@ -189,7 +189,7 @@ export function ButtonVisualFixture() {
               <VisualText label="Cancel" width={48} />
             </Button>
             <Button variant="destructive" disabled>
-              <VisualText label="Delete vault" width={88} />
+              <VisualText label="Remove from Samebase" width={136} />
             </Button>
           </ButtonRow>
           <ButtonRow label="busy label" labelWidth={68}>

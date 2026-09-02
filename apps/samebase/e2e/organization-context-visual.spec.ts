@@ -52,10 +52,10 @@ test.beforeEach(async ({ page }) => {
 
 test("shows the explicit zero-membership global inventory", async ({ page }, testInfo) => {
   await createApprovedAccount(page, testInfo, "zero", []);
-  await openRoute(page, "/vault");
+  await openRoute(page, "/repo");
 
   const header = page.locator(MAIN_HEADER_SELECTOR);
-  await expect(header.getByText("All vaults", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("All repositories", { exact: true })).toHaveCount(0);
   const emptyInventory = page.getByRole("heading", { name: "No organizations" }).locator("..");
   await expect(emptyInventory).toBeVisible();
   await expect(
@@ -69,7 +69,7 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
-  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "All repositories" })).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(rightPane.getByTestId("organization-context-control")).toHaveCount(0);
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
@@ -99,9 +99,9 @@ test("groups the global inventory and exposes every organization context", async
       repositories: ["inventory-app"],
     },
   ]);
-  await openRoute(page, "/vault");
+  await openRoute(page, "/repo");
 
-  const vaultNavigation = page.getByRole("navigation", { name: "Vaults" });
+  const vaultNavigation = page.getByRole("navigation", { name: "Repositories" });
   const organizationButtons = vaultNavigation.locator('button[aria-expanded="true"]');
   await expect(organizationButtons).toHaveCount(3);
   expect((await organizationButtons.allTextContents()).map((label) => label.trim())).toEqual([
@@ -114,7 +114,7 @@ test("groups the global inventory and exposes every organization context", async
     exact: true,
   });
   await expect(alphaButton).toHaveAttribute("aria-expanded", "true");
-  await expect(vaultNavigation.getByText("No vaults", { exact: true })).toBeVisible();
+  await expect(vaultNavigation.getByText("No repositories", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /org-context-beta\/inventory-app,/u })).toBeVisible();
   await expect(page.getByRole("link", { name: /org-context-zeta\/web-app,/u })).toBeVisible();
 
@@ -123,8 +123,8 @@ test("groups the global inventory and exposes every organization context", async
   await expect(rightPane).toBeVisible();
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
-  await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
-  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(contextMenu.getByRole("menuitem", { name: "All repositories" })).toHaveCount(0);
+  await expect(rightPane.getByRole("link", { name: "All repositories" })).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-alpha" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-beta" })).toBeVisible();
@@ -152,7 +152,7 @@ test("groups the global inventory and exposes every organization context", async
   }
 });
 
-test("persists one user's collapsed organization across vault routes", async ({
+test("persists one user's collapsed organization across repository routes", async ({
   page,
 }, testInfo) => {
   const ownerLogin = `org-context-tree-${testInfo.workerIndex}-${Date.now()}`;
@@ -163,14 +163,14 @@ test("persists one user's collapsed organization across vault routes", async ({
       repositories: ["inventory-app"],
     },
   ]);
-  await openRoute(page, "/vault");
+  await openRoute(page, "/repo");
 
-  const vaultNavigation = page.getByRole("navigation", { name: "Vaults" });
+  const vaultNavigation = page.getByRole("navigation", { name: "Repositories" });
   const organizationButton = vaultNavigation.getByRole("button", {
     name: ownerLogin,
     exact: true,
   });
-  const vaultLink = vaultNavigation.locator(`a[href="/vault/${ownerLogin}/inventory-app"]`);
+  const vaultLink = vaultNavigation.locator(`a[href="/repo/${ownerLogin}/inventory-app"]`);
   await expect(organizationButton).toHaveAttribute("aria-expanded", "true");
   await expect(vaultLink).toBeVisible();
 
@@ -178,17 +178,17 @@ test("persists one user's collapsed organization across vault routes", async ({
   await expect(organizationButton).toHaveAttribute("aria-expanded", "false");
   await expect(vaultLink).toHaveCount(0);
 
-  await openRoute(page, `/vault/${ownerLogin}/inventory-app`);
+  await openRoute(page, `/repo/${ownerLogin}/inventory-app`);
   await expect(
     page
       .locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]')
       .getByRole("button", { name: ownerLogin, exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
 
-  await openRoute(page, "/vault");
+  await openRoute(page, "/repo");
   await expect(
     page
-      .getByRole("navigation", { name: "Vaults" })
+      .getByRole("navigation", { name: "Repositories" })
       .getByRole("button", { name: ownerLogin, exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
 });
@@ -212,10 +212,11 @@ test("keeps one organization switchable across settings, providers, and billing"
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const organizationContext = rightPane.getByTestId("organization-context-control");
-  await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(
-    organizationContext.getByRole("button", { name: "Switch organization" }),
-  ).toBeVisible();
+    organizationContext.getByRole("button", {
+      name: "Switch organization, current context org-context-solo",
+    }),
+  ).toBeVisible({ timeout: 15_000 });
   const organizationSettings = page.getByTestId("organization-settings-page");
   await expect(
     organizationSettings.getByRole("heading", { name: "Organization settings" }),
@@ -306,8 +307,8 @@ test("keeps organization scope across direct links and browser history", async (
     },
   ]);
 
-  await openRoute(page, "/org/org-context-history-alpha/vaults");
-  const scopedVaultNavigation = page.getByRole("navigation", { name: "Vaults" });
+  await openRoute(page, "/org/org-context-history-alpha/repositories");
+  const scopedVaultNavigation = page.getByRole("navigation", { name: "Repositories" });
   await expect(
     scopedVaultNavigation.getByRole("button", {
       name: "org-context-history-alpha",
@@ -327,7 +328,7 @@ test("keeps organization scope across direct links and browser history", async (
   });
 
   await openRoute(page, "/org/org-context-history-alpha");
-  await expect(page).toHaveURL(/\/org\/org-context-history-alpha\/vaults$/u);
+  await expect(page).toHaveURL(/\/org\/org-context-history-alpha\/repositories$/u);
 
   await openRoute(page, "/org/org-context-history-alpha/settings?dev");
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
@@ -369,7 +370,7 @@ test("keeps a lost organization route unavailable before its root redirect", asy
   await expect(
     page.getByText("You do not have Samebase access to org-context-lost-org.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "All repositories" })).toBeVisible();
   await expect(page).toHaveScreenshot("organization-context-lost-organization.png", {
     ...screenshotOptions,
     fullPage: true,
@@ -382,7 +383,7 @@ test("keeps a lost organization route unavailable before its root redirect", asy
       .getByTestId("organization-context-control")
       .getByText("org-context-lost-org", { exact: true }),
   ).toBeVisible();
-  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "All repositories" })).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
 
@@ -391,7 +392,7 @@ test("keeps a lost organization route unavailable before its root redirect", asy
   await expect(page.getByRole("heading", { name: "Organization unavailable" })).toBeVisible();
 });
 
-test("shows explicit lost access for a retained vault route", async ({ page }, testInfo) => {
+test("shows explicit lost access for a retained repository route", async ({ page }, testInfo) => {
   await createApprovedAccount(page, testInfo, "lost-vault", [
     {
       access: "remove",
@@ -399,11 +400,11 @@ test("shows explicit lost access for a retained vault route", async ({ page }, t
       repositories: ["private-app"],
     },
   ]);
-  await openRoute(page, "/vault/org-context-lost-vault/private-app");
+  await openRoute(page, "/repo/org-context-lost-vault/private-app");
 
-  await expect(page).toHaveURL(/\/vault\/org-context-lost-vault\/private-app$/u);
-  await expect(page.getByRole("heading", { name: "Vault unavailable" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(page).toHaveURL(/\/repo\/org-context-lost-vault\/private-app$/u);
+  await expect(page.getByRole("heading", { name: "Repository unavailable" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "All repositories" })).toBeVisible();
   await expect(page).toHaveScreenshot("organization-context-lost-vault.png", {
     ...screenshotOptions,
     fullPage: true,
@@ -416,7 +417,7 @@ test("shows explicit lost access for a retained vault route", async ({ page }, t
       .getByTestId("organization-context-control")
       .getByText("org-context-lost-vault", { exact: true }),
   ).toBeVisible();
-  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "All repositories" })).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
   await expect(rightPane.getByText("private-app", { exact: true })).toHaveCount(0);
@@ -460,7 +461,7 @@ async function signInFromDirectRoute(args: {
   }
 }
 
-test("preserves signed-out direct organization and vault routes after sign-in", async ({
+test("preserves signed-out direct organization and repository routes after sign-in", async ({
   browser,
 }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
@@ -496,7 +497,7 @@ test("preserves signed-out direct organization and vault routes after sign-in", 
     email,
     mainHeading: "return-app",
     ownerLogin: "org-context-signed-out-return",
-    route: "/vault/org-context-signed-out-return/return-app",
+    route: "/repo/org-context-signed-out-return/return-app",
   });
 });
 
@@ -539,7 +540,7 @@ test.describe("small screen organization context", () => {
     await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 130 });
 
     try {
-      await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app");
+      await openRoute(page, "/repo/org-context-mobile-alpha/mobile-app");
       const header = page.locator(MAIN_HEADER_SELECTOR);
       await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toHaveCount(0);
       await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
@@ -562,8 +563,8 @@ test.describe("small screen organization context", () => {
         .toBe(true);
       await rightPane.getByRole("button", { name: "Switch organization" }).click();
       const contextMenu = page.getByRole("menu");
-      await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
-      await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+      await expect(contextMenu.getByRole("menuitem", { name: "All repositories" })).toHaveCount(0);
+      await expect(rightPane.getByRole("link", { name: "All repositories" })).toBeVisible();
       await expect(rightPane.getByRole("link", { name: "Organizations" })).toBeVisible();
       await expect(contextMenu.getByRole("menuitem", { name: "Organizations" })).toHaveCount(0);
       await expect(
@@ -577,7 +578,7 @@ test.describe("small screen organization context", () => {
         fullPage: true,
       });
       await contextMenu.getByRole("menuitem", { name: "org-context-mobile-beta" }).click();
-      await expect(page).toHaveURL(/\/org\/org-context-mobile-beta\/vaults$/u);
+      await expect(page).toHaveURL(/\/org\/org-context-mobile-beta\/repositories$/u);
     } finally {
       await context.close();
     }

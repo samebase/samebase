@@ -501,7 +501,7 @@ describe("AppWorkspaceShell", () => {
       "/org/samebase/new-app",
       "/org/samebase/providers",
       "/org/samebase/settings",
-      "/org/samebase/vaults",
+      "/org/samebase/repositories",
       "/oauth/mcp/consent?mcp_consent_request=mcpar_test",
       "/pitch",
       "/pitch/print",
@@ -510,8 +510,8 @@ describe("AppWorkspaceShell", () => {
       "/terms",
       "/privacy",
       "/test",
-      "/vault/",
-      "/vault/ada/demo/db/main/project/convex-attachment",
+      "/repo/",
+      "/repo/ada/demo/db/main/project/convex-attachment",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
@@ -537,8 +537,8 @@ describe("AppWorkspaceShell", () => {
   it("does not inherit no-left metadata into ordinary child routes", () => {
     for (const route of [
       "/logo",
-      "/vault/ada/demo",
-      "/vault/ada/demo/schema/main/project/convex-attachment",
+      "/repo/ada/demo",
+      "/repo/ada/demo/schema/main/project/convex-attachment",
     ]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>

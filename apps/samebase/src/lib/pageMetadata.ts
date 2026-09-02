@@ -185,7 +185,7 @@ export const LOGO_PAGE_METADATA: PageMetadata = {
 
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
-    return "Vaults | Samebase";
+    return "Repositories | Samebase";
   }
 
   if (pathname === ORGANIZATIONS_ROUTE || pathname === `${ORGANIZATIONS_ROUTE}/`) {
@@ -244,7 +244,7 @@ export function resolveAppPageTitle(pathname: string): string {
     return INDEXED_DB_PAGE_METADATA.title;
   }
 
-  if (pathname.startsWith("/vault/")) {
+  if (pathname.startsWith("/repo/")) {
     return "Workspace | Samebase";
   }
 
