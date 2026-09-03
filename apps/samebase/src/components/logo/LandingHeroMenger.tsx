@@ -1,7 +1,3 @@
-import {
-  LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
-  LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
-} from "@/components/logo/logoPresentationTilt";
 import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
 import {
   createLogoRouteVoxelGrid,
@@ -10,6 +6,15 @@ import {
 import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import {
+  LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
+  LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
+} from "@/components/logo/logoPresentationTilt";
+import {
+  MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
+  MENGER_TYPE_GPU_DEFAULT_DEPTH,
+  normalizeMengerTypeGpuDepth,
+} from "@/components/logo/mengerTypeGpuSettings";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import {
@@ -33,22 +38,21 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-type MengerHoverSceneComponent =
-  typeof import("@/components/logo/MengerHoverScene").MengerHoverScene;
+type MengerTypeGpuSceneComponent =
+  typeof import("@/components/logo/MengerTypeGpuScene").MengerTypeGpuScene;
 
 const LANDING_HERO_STATIC_VOXEL_GRID = createLogoRouteVoxelGrid({
   fractalDepth: 1,
   gridSize: LOGO_GRID_SIZE_3,
   voxelState: MENGER_SPONGE_VOXEL_STATE,
 });
-const LANDING_HERO_MENGER_DEPTH = 3;
 const LANDING_HERO_DEFAULT_VIEW: LogoViewState = {
   elevationDegrees: 0,
   rotationDegrees: 0,
 };
 
-let cachedMengerHoverScene: MengerHoverSceneComponent | null = null;
-let didMengerHoverSceneRenderFail = false;
+let cachedMengerTypeGpuScene: MengerTypeGpuSceneComponent | null = null;
+let didMengerTypeGpuSceneRenderFail = false;
 
 function buildLandingHeroMengerRouteSearch({
   rootRouteSearch,
@@ -67,6 +71,10 @@ function buildLandingHeroMengerRouteSearch({
         rotationDegrees: view.rotationDegrees,
         themeModeSearch: rootRouteSearch,
       }),
+      depth:
+        typeof rootRouteSearch.depth === "number"
+          ? normalizeMengerTypeGpuDepth(rootRouteSearch.depth)
+          : undefined,
       elev:
         view.elevationDegrees !== LANDING_HERO_DEFAULT_VIEW.elevationDegrees
           ? Number(view.elevationDegrees.toFixed(1))
@@ -83,7 +91,7 @@ function buildLandingHeroMengerRouteSearch({
 /**
 The hero keeps a static Menger mark until the desktop-only slot has size and
 the interactive scene completes its first render. A hidden pane does not own
-a WebGL renderer or page-wide pointer listeners.
+a GPU renderer or page-wide pointer listeners.
 */
 export function LandingHeroMenger({ placement }: { placement: "preview" | "root" }) {
   const navigate = useNavigate();
@@ -93,12 +101,15 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
     () =>
       readLogoRouteRenderState({
         defaultView: LANDING_HERO_DEFAULT_VIEW,
-        renderMode: "three",
         routeSearch: rootRouteSearch,
         searchDefaultView: LANDING_HERO_DEFAULT_VIEW,
       }),
     [rootRouteSearch],
   );
+  const mengerDepth =
+    typeof rootRouteSearch.depth === "number"
+      ? normalizeMengerTypeGpuDepth(rootRouteSearch.depth)
+      : MENGER_TYPE_GPU_DEFAULT_DEPTH;
   const automaticProbe = useMemo(
     () => ({
       ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
@@ -123,10 +134,10 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
   }));
-  const [MengerHoverScene, setMengerHoverScene] = useState<MengerHoverSceneComponent | null>(
-    () => cachedMengerHoverScene,
+  const [MengerTypeGpuScene, setMengerTypeGpuScene] = useState<MengerTypeGpuSceneComponent | null>(
+    () => cachedMengerTypeGpuScene,
   );
-  const [didSceneFail, setDidSceneFail] = useState(() => didMengerHoverSceneRenderFail);
+  const [didSceneFail, setDidSceneFail] = useState(() => didMengerTypeGpuSceneRenderFail);
   const [hasSlotSize, setHasSlotSize] = useState(false);
   const [isHydratedFallbackVisibilityReady, setIsHydratedFallbackVisibilityReady] = useState(false);
   const [isSlotIntersecting, setIsSlotIntersecting] = useState(false);
@@ -213,8 +224,8 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
         return;
       }
 
-      // Route scroll restoration must move an off-screen hero before depth 3
-      // allocates its WebGL scene from the first top-of-page paint.
+      // Route scroll restoration must move an off-screen hero before depth 5
+      // allocates its GPU scene from the first top-of-page paint.
       firstIntersectionFrame = window.requestAnimationFrame(() => {
         secondIntersectionFrame = window.requestAnimationFrame(() => {
           setIsSlotIntersecting(true);
@@ -233,11 +244,11 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
   }, []);
 
   useEffect(() => {
-    if (!isSceneActive || MengerHoverScene !== null) {
+    if (!isSceneActive || MengerTypeGpuScene !== null) {
       return;
     }
-    if (cachedMengerHoverScene !== null) {
-      setMengerHoverScene(() => cachedMengerHoverScene);
+    if (cachedMengerTypeGpuScene !== null) {
+      setMengerTypeGpuScene(() => cachedMengerTypeGpuScene);
       return;
     }
 
@@ -246,14 +257,14 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
     let frameId = 0;
     let secondFrameId = 0;
     const loadScene = () => {
-      void import("@/components/logo/MengerHoverScene")
+      void import("@/components/logo/MengerTypeGpuScene")
         .then((module) => {
           if (cancelled) {
             return;
           }
 
-          cachedMengerHoverScene = module.MengerHoverScene;
-          setMengerHoverScene(() => module.MengerHoverScene);
+          cachedMengerTypeGpuScene = module.MengerTypeGpuScene;
+          setMengerTypeGpuScene(() => module.MengerTypeGpuScene);
         })
         .catch((error: unknown) => {
           if (cancelled) {
@@ -280,7 +291,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       window.cancelAnimationFrame(frameId);
       window.cancelAnimationFrame(secondFrameId);
     };
-  }, [isSceneActive, MengerHoverScene]);
+  }, [isSceneActive, MengerTypeGpuScene]);
 
   const commitView = useCallback(
     (finalView: LogoViewState) => {
@@ -305,7 +316,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
     setIsSceneReady(true);
   }, []);
   const markSceneUnavailable = useCallback(() => {
-    didMengerHoverSceneRenderFail = true;
+    didMengerTypeGpuSceneRenderFail = true;
     setDidSceneFail(true);
     setIsSceneReady(false);
   }, []);
@@ -345,14 +356,16 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
         style={{ padding: LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS }}
         width="360"
       />
-      {isSceneActive && MengerHoverScene !== null ? (
+      {isSceneActive && MengerTypeGpuScene !== null ? (
         <div className="absolute inset-0 z-0">
-          <MengerHoverScene
+          <MengerTypeGpuScene
+            antialiasing={MENGER_TYPE_GPU_DEFAULT_ANTIALIASING}
             automaticProbe={automaticProbe}
+            backgroundColor={resolvedTheme.backgroundColor}
             cameraFrustumPadding={1}
+            depth={mengerDepth}
             elevationDegrees={view.elevationDegrees}
             faceColors={faceColors}
-            maximumDepth={LANDING_HERO_MENGER_DEPTH}
             onInteractionEnd={commitView}
             onRenderReady={markSceneReady}
             onRenderUnavailable={markSceneUnavailable}
@@ -360,6 +373,8 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             pointerTiltEnabled={!automaticProbe.enabled}
             pointerTiltRadiusScale={LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE}
             pointerTiltStrengthScale={LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE}
+            performanceMeasurementEnabled={false}
+            resolutionScale={1}
             revealRadius={MENGER_HOVER_DEFAULT_REVEAL_RADIUS}
             rotationDegrees={view.rotationDegrees}
             viewSnapEnabled={routeState.viewSnapEnabled}
