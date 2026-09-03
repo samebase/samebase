@@ -249,7 +249,9 @@ describe("NewAppPage", () => {
       checkNames,
     );
     const container = await mountPage();
-    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    const input = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repository name']",
+    );
     if (!input) {
       throw new Error("GitHub repository name input was not rendered.");
     }
@@ -296,7 +298,7 @@ describe("NewAppPage", () => {
     );
     const container = await mountPage();
     const repositoryInput = container.querySelector<HTMLInputElement>(
-      "[aria-label='GitHub repo name']",
+      "[aria-label='GitHub repository name']",
     );
     const workerInput = container.querySelector<HTMLInputElement>(
       "[aria-label='Cloudflare Worker name']",
@@ -389,7 +391,7 @@ describe("NewAppPage", () => {
     );
     const container = await mountPage();
     const repositoryInput = container.querySelector<HTMLInputElement>(
-      "[aria-label='GitHub repo name']",
+      "[aria-label='GitHub repository name']",
     );
     if (!repositoryInput) {
       throw new Error("GitHub repository name input was not rendered.");
@@ -483,7 +485,9 @@ describe("NewAppPage", () => {
       createRepository,
     );
     const container = await mountPage();
-    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    const input = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repository name']",
+    );
     if (!input) {
       throw new Error("GitHub repository name input was not rendered.");
     }
@@ -535,7 +539,9 @@ describe("NewAppPage", () => {
       checkNames,
     );
     const container = await mountPage();
-    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    const input = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repository name']",
+    );
     if (!input) {
       throw new Error("GitHub repository name input was not rendered.");
     }
@@ -566,7 +572,9 @@ describe("NewAppPage", () => {
       checkNames,
     );
     const container = await mountPage();
-    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    const input = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repository name']",
+    );
     if (!input) {
       throw new Error("GitHub repository name input was not rendered.");
     }

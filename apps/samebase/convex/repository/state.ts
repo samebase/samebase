@@ -35,8 +35,8 @@ export function assertConnectedRepository(
       const deletion = repository.deletion;
       throw new Error(
         deletion.state === "delete_failed"
-          ? "Repository deletion failed. Retry deletion to continue."
-          : "Repository deletion is in progress.",
+          ? "Removal from Samebase failed. Retry removal to continue."
+          : "Removal from Samebase is in progress.",
       );
     }
     throw new Error("Repository is not connected to a GitHub repository.");

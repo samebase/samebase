@@ -167,7 +167,7 @@ describe("app provisioning retry admission", () => {
       "manual_write",
       "Another repository infrastructure operation is active.",
     ],
-    ["repository deletion", "deletion", "Repository deletion is in progress."],
+    ["repository removal", "deletion", "Removal from Samebase is in progress."],
   ] as const)("rejects retry while %s is active", async (_label, blocker, message) => {
     const { ids, t } = await createRetryFixture(blocker);
 

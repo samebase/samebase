@@ -35,8 +35,8 @@ framework.
 
 ## Typed end to end
 
-Everything is typed, from the database schema to route params to the repo's own scripts. That was
-always the taste here; agents turned it into leverage. An agent working inside typed code gets
+Everything is typed, from the database schema to route params to the repository's own scripts. That
+was always the taste here; agents turned it into leverage. An agent working inside typed code gets
 caught by the compiler before a mistake ships. The stricter the types, the better your agent
 performs.
 
@@ -48,10 +48,10 @@ it with shadcn/ui. Neither is load-bearing; both are replaceable.
 
 ## One base, more than one shape
 
-The production repo is deliberately less uniform than the starter: one monorepo ships the product, a
-first-party analytics proxy, and domain routing as three separate Cloudflare Workers. Its Convex
-backend also sends transactional email through Cloudflare Email Sending. The starter stays small;
-the platform does not force every root into the same shape.
+The production repository is deliberately less uniform than the starter: one monorepo ships the
+product, a first-party analytics proxy, and domain routing as three separate Cloudflare Workers. Its
+Convex backend also sends transactional email through Cloudflare Email Sending. The starter stays
+small; the platform does not force every root into the same shape.
 
 ## The proof
 

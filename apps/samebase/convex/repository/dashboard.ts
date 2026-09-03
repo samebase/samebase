@@ -530,7 +530,7 @@ export const setRepositoryResourceLinksOpen = mutation({
       repositoryId: args.repositoryId,
     });
     if (isRepositoryDeletingOrDeleteFailed(repository)) {
-      throw new Error("Repository deletion is in progress.");
+      throw new Error("Removal from Samebase is in progress.");
     }
     const existing = await ctx.db
       .query("ui_repositoryResourceLinks_settings")
@@ -567,7 +567,7 @@ export const setRepositoryPullRequestFilters = mutation({
       repositoryId: args.repositoryId,
     });
     if (isRepositoryDeletingOrDeleteFailed(repository)) {
-      throw new Error("Repository deletion is in progress.");
+      throw new Error("Removal from Samebase is in progress.");
     }
     const existing = await ctx.db
       .query("ui_repositoryPullRequests_filters")
