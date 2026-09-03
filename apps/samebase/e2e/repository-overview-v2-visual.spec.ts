@@ -657,7 +657,12 @@ test("shows Cloudflare GitHub App authorization recovery", async ({ page }) => {
     "https://dash.cloudflare.com/",
   );
   await expect(fixture.locator("ol > li")).toHaveCount(3);
-  await expect(fixture.getByText("then select All repositories.", { exact: false })).toBeVisible();
+  await expect(
+    fixture.getByText(
+      "GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase.",
+      { exact: false },
+    ),
+  ).toBeVisible();
   await expect(fixture.getByText("Return to Samebase and select Retry.")).toBeVisible();
   await expect(fixture).toHaveScreenshot(
     "repository-overview-v2-cloudflare-github-authorization-failed.png",
