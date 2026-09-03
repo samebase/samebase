@@ -6,9 +6,9 @@
 - Owner: Noter app creation, vault model, and provider provisioning
 - Created: 2026-05-06
 - Related specs:
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Related research:
   - `research/2026-05-02-workpool-refresh-and-tenant-compute.md`

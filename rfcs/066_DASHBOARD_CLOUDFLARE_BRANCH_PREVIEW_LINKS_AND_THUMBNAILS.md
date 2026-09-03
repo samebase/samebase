@@ -7,9 +7,9 @@
 - Last updated: 2026-05-12
 - Related specs:
   - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `archive/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
 
 The direct-link model in this RFC depended on the deleted `vaultDomains` and branch mirrors. The

@@ -6,8 +6,8 @@
 - Owner: Vault dashboard + GitHub/Cloudflare integration
 - Last updated: 2026-07-04
 - Related specs:
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
 - Related RFCs:
   - `rfcs/066_DASHBOARD_CLOUDFLARE_BRANCH_PREVIEW_LINKS_AND_THUMBNAILS.md`
 

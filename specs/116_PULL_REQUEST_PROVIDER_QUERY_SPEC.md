@@ -6,21 +6,21 @@
 - Owner: Samebase dashboard and provider boundaries
 - Last updated: 2026-09-02
 - Related work:
-  - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
+  - [PR #1243: Simplify repository provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
-  - [Vault route surface spec](./110_VAULT_ROUTE_SURFACE_SPEC.md)
-  - [Vault resource attachment model](./115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md)
+  - [Repository route surface spec](./110_REPOSITORY_ROUTE_SURFACE_SPEC.md)
+  - [Repository resource attachment model](./115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md)
 
 ## Current Contract
 
-The selected-vault dashboard has two independent primary features: a durable default-branch surface
-rooted in `vault.defaultBranch`, and a live open pull request list read from GitHub. The dashboard
-is a thin authenticated client for provider facts, not a normalized repository, branch, pull
-request, check, Worker, or deployment database.
+The selected repository dashboard has two independent primary features: a durable default-branch
+surface rooted in `repository.defaultBranch`, and a live open pull request list read from GitHub.
+The dashboard is a thin authenticated client for provider facts, not a normalized repository,
+branch, pull request, check, Worker, or deployment database.
 
 Samebase persists only state it owns:
 
-- vault and repository identity, including the durable default branch;
+- repository and repository identity, including the durable default branch;
 - stable Worker and Convex project attachments;
 - durable workflow plans, runs, events, and locks for operations Samebase performs.
 
@@ -28,14 +28,16 @@ GitHub owns pull request fields and checks. Cloudflare owns Workers and builds. 
 production and preview deployments. Samebase reads those facts when a screen needs them and does not
 mirror them into Convex tables.
 
-The dormant `ui_vaultPullRequests_filters` row and its APIs remain available for a possible future
-filter design. The current vault overview does not read or apply those saved preferences.
+The dormant `ui_repositoryPullRequests_filters` row and its APIs remain available for a possible
+future filter design. The current repository overview does not read or apply those saved
+preferences.
 
 ## GitHub Page Boundary
 
 `repositoryPullRequests.listOpenPullRequests` performs one GitHub GraphQL request for one provider
-page. Its input is the vault id, GitHub's `first`, and GitHub's nullable `after` cursor. Its result
-keeps GitHub's repository, pull request connection, `totalCount`, `pageInfo`, and node structure.
+page. Its input is the repository id, GitHub's `first`, and GitHub's nullable `after` cursor. Its
+result keeps GitHub's repository, pull request connection, `totalCount`, `pageInfo`, and node
+structure.
 
 The action may validate the provider response and remove fields the product never reads. It must not
 add repository scan budgets, synthetic continuation kinds, freshness taxonomies, observation
@@ -58,25 +60,25 @@ Stale pull requests and deploy resources do not expose separate retry controls. 
 document recreates their provider requests.
 
 The default-branch surface is not part of this pull request resource query. It is a separate,
-always-visible dashboard feature sourced from `vault.defaultBranch`; its production resource group
-joins the stable Worker and Convex attachments to the vault-level live provider observations. No
-default branch, production Worker, or production Convex deployment is fabricated as a pull request
-or copied into pull request state. Its attached Convex projects retain Samebase Data links and
-access-gated Schema links for the production deployment.
+always-visible dashboard feature sourced from `repository.defaultBranch`; its production resource
+group joins the stable Worker and Convex attachments to the repository-level live provider
+observations. No default branch, production Worker, or production Convex deployment is fabricated as
+a pull request or copied into pull request state. Its attached Convex projects retain Samebase Data
+links and access-gated Schema links for the production deployment.
 
 ## Visible Provider Resources
 
 For pull requests in the loaded provider pages, the browser may request attached Worker build and
 Convex preview resources. The browser sends only opaque GitHub pull request node ids. The server
-re-reads those open pull requests from GitHub, verifies their repository identity against the vault,
-and derives fork, head repository, and branch identity from that response. Client data never proves
-resource ownership.
+re-reads those open pull requests from GitHub, verifies their repository identity against the
+repository, and derives fork, head repository, and branch identity from that response. Client data
+never proves resource ownership.
 
 The request joins live GitHub data and Convex responses against the direct Worker and Convex project
 attachments. It does not persist a pull request resource model. The browser caches one resource
-request for each loaded GitHub page under the common vault-provider observation namespace, keyed by
-the exact attachment coordinates and pull request node ids. Loading another page does not re-read
-resource data for earlier pages.
+request for each loaded GitHub page under the common repository-provider observation namespace,
+keyed by the exact attachment coordinates and pull request node ids. Loading another page does not
+re-read resource data for earlier pages.
 
 The stable GitHub repository id proves repository identity. A repository coordinate rename does not
 invalidate that identity. If one requested pull request closes, merges, or disappears between the
@@ -191,14 +193,14 @@ with another query for each additional 100 selected comments. A pull request wit
 total comments adds metadata pagination queries until the scan is complete. Metadata pagination runs
 for at most six pull requests at one time.
 
-A Convex branch deployment belongs to a row only when the pull request head is in the vault
-repository, the project is directly attached to the vault, the current Convex credential can read
-that exact project, and exactly one preview deployment has a `previewIdentifier` equal to the GitHub
-head branch. The provider-owned deployment reference is not reconstructed from the GitHub branch.
-This discovery is independent of Worker build state. The direct attachment proves that the project
-belongs to the vault, while the branch match selects a useful recovery destination. It does not
-prove that the deployment came from the current head or is current. The UI labels this state as
-potentially belonging to an earlier commit.
+A Convex branch deployment belongs to a row only when the pull request head is in the same GitHub
+repository, the project is directly attached to the Samebase repository, the current Convex
+credential can read that exact project, and exactly one preview deployment has a `previewIdentifier`
+equal to the GitHub head branch. The provider-owned deployment reference is not reconstructed from
+the GitHub branch. This discovery is independent of Worker build state. The direct attachment proves
+that the project belongs to the repository, while the branch match selects a useful recovery
+destination. It does not prove that the deployment came from the current head or is current. The UI
+labels this state as potentially belonging to an earlier commit.
 
 The branch deployment exposes the provider dashboard and its Data page. Pull request resources do
 not expose Samebase Schema because the current Schema refresh flow reads the production deployment.
@@ -207,18 +209,18 @@ Production Convex resources retain their access-gated Schema link.
 ## Exact Branch Trees
 
 The editor still needs a repository tree for one exact branch. That cache remains in
-`observations_vaultRepository_branchTrees`, keyed by `(vaultId, branch)`. It is not a branch catalog
+`observations_repository_branchTrees`, keyed by `(repositoryId, branch)`. It is not a branch catalog
 and is never used to generate the pull request list.
 
-The durable `vault.defaultBranch` resolves omitted branch arguments. Opening a pull request or file
-route hydrates only its exact branch and reads the immutable tree SHA named by the observed commit.
-Every stored row requires its commit SHA, stores the tree SHA only as `treeData.sha`, and rejects a
-truncated recursive tree.
+The durable `repository.defaultBranch` resolves omitted branch arguments. Opening a pull request or
+file route hydrates only its exact branch and reads the immutable tree SHA named by the observed
+commit. Every stored row requires its commit SHA, stores the tree SHA only as `treeData.sha`, and
+rejects a truncated recursive tree.
 
-GitHub connection and exact-tree readiness are separate axes. A connected vault may list live pull
-requests while initial tree hydration is still running or failed. Editor and file affordances remain
-gated on connected repository identity and hydrate the exact branch tree they need. Source setup
-status remains visible, but it does not revoke an already established GitHub connection.
+GitHub connection and exact-tree readiness are separate axes. A connected repository may list live
+pull requests while initial tree hydration is still running or failed. Editor and file affordances
+remain gated on connected repository identity and hydrate the exact branch tree they need. Source
+setup status remains visible, but it does not revoke an already established GitHub connection.
 
 ## Deleted Model
 
@@ -229,25 +231,10 @@ The application has no runtime or schema contract for:
 - persisted pull request rows;
 - persisted commit check rows or summaries;
 - repository-wide metadata scans;
-- `vaultDomains` as a provider URL mirror.
+- `repositoryDomains` as a provider URL mirror.
 
 Internal backwards compatibility for those tables or response shapes is an error. Existing rows may
 be deleted when deploying the schema.
-
-### Production Cutover
-
-Immediately before the first production deploy of this schema:
-
-- remove `lastTreeRefreshAt` from existing `vaults` documents;
-- clear `observations_vaultRepository_branchTrees` so exact branch trees rehydrate without the
-  removed top-level `treeSHA` field;
-- clear or delete `ui_vaultBranches_filters`, `observations_vaultRepository_branches`,
-  `vaultDomains`, `derived_githubCommit_checkSummaries`, `observations_githubCommit_checks`, and
-  `vaultRepositoryRefreshRequests`.
-
-This is a destructive one-user cutover, not an application compatibility contract. Old production
-code can recreate the removed shapes, so cleanup happens immediately before the schema deploy. Do
-not retain optional validators, readers, writers, or migration code after the cutover.
 
 ## Validation
 

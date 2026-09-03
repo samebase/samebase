@@ -135,7 +135,7 @@ direction the gesture is traveling".
 ## Non-Goals
 
 1. Full-surface drag parity for Monaco in the same patch.
-2. A generic gesture engine for every CodeMirror surface in the repo.
+2. A generic gesture engine for every CodeMirror surface in the repository.
 3. New shell snap points or a different mobile pane state model.
 4. Broad product changes to right-sidebar content.
 

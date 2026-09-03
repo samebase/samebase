@@ -9,7 +9,7 @@
 - Owner: Noter platform
 - Last updated: 2026-03-19
 - Related specs:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
@@ -385,7 +385,7 @@ Chosen approach:
 
 1. Delete `archive/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`.
 2. Rewrite these active specs to Cloudflare-only reality:
-   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+   - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
    - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
    - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
    - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`

@@ -2,397 +2,178 @@
 
 ## Document Control
 
-- Status: Accepted implementation reference; Phase 1 and Phase 2 runtime behavior shipped in `v1257`
-  / `#733`
-- Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
+- Status: Accepted and implemented
+- Owner: Samebase existing repository onboarding and source setup
 - Created: 2026-05-08
-- Last updated: 2026-08-07
+- Last updated: 2026-09-03
 - Related docs:
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `research/2026-05-08-existing-repository-workflow-onboarding.md`
 
 ## Summary
 
-Connecting an existing GitHub repository remains one user action. The user chooses or opens a
-repository, clicks connect, and then sees one visible setup run on the dashboard until the vault is
-usable or clearly failed.
+Connecting an existing GitHub repository is one user action. The public action verifies the selected
+GitHub repository, creates a Samebase repository and provisioning run, and starts a durable
+Workflow. The dashboard shows source setup until the repository is ready or the run fails.
 
-Internally this is not one implementation step. Existing repository connection must move from a
-synchronous repository-first action to the same vault-first Workflow shape used by Samebase-managed
-app creation:
+Existing repositories do not automatically create Convex projects or Cloudflare Workers. Users can
+connect those resources later from the repository dashboard.
 
-1. create an initializing vault and provisioning run before any GitHub API call
-2. fetch and validate the existing GitHub repository inside Workflow
-3. write connected GitHub identity before initial tree sync
-4. show source setup progress and failure from run/events
-5. create no provider attachments for imported repositories; the standard vault-level discovery
-   flows attach Convex projects and Cloudflare Workers later when the user chooses them
+## Public Action
 
-This spec is only about durable source onboarding for existing repositories. Provider attachment and
-repair use the separate vault-level provider flows.
+`repository.actions.connectRepository` accepts an organization ID and a GitHub repository database
+ID. It performs these steps:
 
-## Current Runtime
+1. Require the current user's membership in the selected GitHub-backed organization.
+2. Create a GitHub installation client restricted to the selected repository ID.
+3. Load the repository from GitHub and verify that its owner matches the organization.
+4. Create the initializing Samebase repository and provisioning run in one mutation.
+5. Start `connectExistingRepository` Workflow.
+6. Return `repositoryId`, `runId`, and `githubRepositoryFullName`.
 
-`vault.actions.connectRepository` is vault-first and organization-scoped:
+The first GitHub read confirms the user's selected repository before Samebase creates local state.
+The Workflow reads and validates the repository again after the run exists. All durable source setup
+events and failures start from that run.
 
-1. require the current user's membership in the selected GitHub-backed organization
-2. validate the requested repository name within that organization owner
-3. insert the initializing vault and provisioning run
-4. start the connect-existing Workflow with the organization's GitHub App installation
-5. write connected repository identity before initial tree sync
-6. expose source setup from the run and events
+If Workflow startup fails, the action marks the run and initializing repository as failed before it
+returns the error.
 
-A GitHub failure therefore leaves a visible vault, run, and event history. Connected
-existing-repository vault rows store the `runId` that established the connection. The direct file
-route and `/org/<owner>/connect-repo` navigate to the dashboard while queued source setup runs.
+## Repository State
 
-## Goals
-
-1. Keep existing repository connect as one user action.
-2. Insert a durable vault and run before external GitHub repository fetches.
-3. Use `githubMode: "connect_existing_repository"` for provisioning, failed, and connected
-   existing-repository states.
-4. Add a dedicated run trigger and step taxonomy for existing repositories.
-5. Require connected existing-repository vaults to store the `runId` that established the GitHub
-   identity.
-6. Preserve connected GitHub identity if initial tree sync fails after the repository is connected.
-7. Show source setup running and failed states for existing repositories on the dashboard.
-8. Keep provider setup `not_applicable` for existing repositories.
-9. Route direct file-view connects to a stable setup surface instead of a blank file route.
-
-## Non-Goals
-
-1. Auto-provision Convex or Cloudflare for imported repositories.
-2. Make empty repositories usable without a default branch and tree.
-3. Change connected GitHub repository identity in place.
-4. Build a generic provider framework.
-5. Preserve old connected existing-repository production rows.
-6. Add a multi-step onboarding wizard.
-
-## Accepted Decisions
-
-### One User Action
-
-The product action is still single-step: click connect once. The app may show a running setup state
-after that click, but it must not ask the user to perform a second confirmation or manually start
-tree sync.
-
-### Workflow Trigger
-
-Add one provisioning run trigger for this flow:
+Existing-repository setup uses `githubMode: "connect_existing_repository"` in provisioning, failed,
+and connected states. The relevant fields are:
 
 ```ts
-type ExistingRepositoryInitialRunTrigger = "connect_existing_repository";
-```
-
-`"connect_existing_repository"` is the trigger for the initial import attempt. Do not record the
-initial connect as a create-app trigger or as any other existing trigger. This spec does not add,
-rename, or depend on provider retry trigger semantics.
-
-### Step Taxonomy
-
-Add a source setup step for repository validation:
-
-```ts
-type AppProvisioningStep =
-  | "initialize_vault"
-  | "validate_connections"
-  | "fetch_github_repo"
-  | "connect_github"
-  | "sync_tree"
-  | "finish";
-// existing create-app and provider steps remain unchanged
-```
-
-The existing-repository workflow should not log `create_github_repo`. It should reuse
-`connect_github` once the existing GitHub identity is accepted, and `sync_tree` for the initial
-default-branch tree cache write.
-
-Recommended user-facing log copy:
-
-1. `initialize_vault`: "Queued existing repository connection."
-2. `validate_connections`: "Checking provider connections."
-3. `fetch_github_repo`: "Checking existing GitHub repository."
-4. `connect_github`: "Connected the Samebase vault to GitHub."
-5. `sync_tree`: "Syncing the default branch tree."
-6. `finish`: "Connected existing repository."
-
-### Direct Target Shape
-
-Connected existing-repository vaults must store `runId` directly:
-
-```ts
-{
-  state: "connected",
-  githubMode: "connect_existing_repository",
-  runId: Id<"workflow_vaultProvisioning_runs">,
-  ghRepoId: string,
-  name: string,
-  visibility: "private" | "public",
-  defaultBranch: string,
-  connectedAt: number,
-}
-```
-
-Do not add optional `runId`, synthetic historical runs, backfills, dual reads, or transitional
-helpers for old connected existing-repository rows. Before the schema narrows, delete incompatible
-production rows and any dependent vault-scoped rows that would fail validation.
-
-### File Route UX
-
-After "Connect this repo" is clicked from a direct file route, successful queue creation navigates
-to the dashboard. The dashboard card is the setup surface for the queued run and provisioning log.
-
-The file route should not try to render a repository workspace until the vault is connected and the
-requested branch tree exists. A future inline file-route setup surface can be designed later if the
-dashboard handoff feels too indirect.
-
-### Empty Or Unreadable Repositories
-
-An existing repository is accepted only after GitHub returns repository identity, visibility, a
-default branch, and default branch metadata. Empty repositories, inaccessible default branches,
-GitHub App installation restrictions, rate limits, and deleted repositories fail source setup before
-connected state.
-
-The failed vault stores the requested repository `name`, `runId`, and failed time. Its
-`organizationId` supplies the current GitHub owner login. The user-safe reason comes from
-provisioning events, not from a duplicated vault field.
-
-### Connected Boundary
-
-The workflow writes connected GitHub state before initial tree sync. From that point forward, tree
-sync failure must not move the vault back to top-level `failed`.
-
-A connected existing-repository vault without a usable default-branch tree is a connected vault with
-failed source setup. Dashboard and route code must keep tree-dependent controls hidden until the
-tree exists.
-
-### Provider Setup Boundary
-
-Existing repositories do not auto-provision Convex or Cloudflare. Connected existing-repository rows
-start with no managed provider plan and no provider resource attachments. The standard vault
-dashboard immediately exposes `?add-cloudflare` and `?add-convex`; repository import does not add a
-separate provider-onboarding stage. Those vault-level dialogs perform verified resource discovery as
-defined in `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`.
-
-## Target Flow
-
-### Action
-
-`vault.actions.connectRepository` is a queueing action:
-
-1. authenticate the user
-2. require membership in the selected organization and validate its GitHub owner login
-3. parse and validate the requested repository name locally
-4. reject another non-deleted vault with the same normalized name in that organization
-5. insert the initializing vault and provisioning run in one mutation
-6. start the connect-existing Workflow
-7. return `{ vaultId, runId }`
-
-Local validation can fail inline before insert. External GitHub API validation must happen after the
-vault and run exist.
-
-### Workflow
-
-The connect-existing Workflow runs:
-
-1. `validate_connections`: load the organization's GitHub App installation and fail the run if it is
-   missing or unusable
-2. `fetch_github_repo`: fetch the repository, default branch, branch commit, visibility, and
-   immutable GitHub repository id
-3. reject the run if the fetched `ghRepoId` belongs to another connected vault
-4. `connect_github`: patch this vault to connected GitHub state with the same `runId`, canonical
-   repository name, visibility, and default branch; do not create provider attachments
-5. `sync_tree`: fetch and write the recursive default-branch tree into
-   `observations_vaultRepository_branchTrees`
-6. `finish`: mark the run succeeded
-
-The repository fetch step should treat repo identity and default branch validation as one accepted
-input shape. If that validation fails, the workflow records a failed source setup without writing
-partial GitHub identity to the vault.
-
-### Failure Handling
-
-Before `connect_github` succeeds, a workflow failure moves the vault to:
-
-```ts
-{
-  state: "failed",
-  githubMode: "connect_existing_repository",
-  runId: Id<"workflow_vaultProvisioning_runs">,
-  name: string,
-  failedAt: number,
-}
-```
-
-After `connect_github` succeeds, a workflow failure keeps the vault connected. The run becomes
-failed and source setup derives the failed step and message from run/events.
-
-Starting the Workflow can also fail. In that case the queueing action must mark the run and
-initializing vault failed before returning an error response. The client only performs the dashboard
-handoff after the queueing action returns successfully.
-
-## Duplicate And Idempotency Rules
-
-1. Before insert, reject another active vault with the same normalized repository name in the
-   organization.
-2. After GitHub fetch, reject if the fetched `ghRepoId` belongs to a different connected vault.
-3. If a workflow retries internally for the same `vaultId` and `runId`, it may continue only when
-   the existing connected vault has the same `ghRepoId`.
-4. Never mutate one connected vault to point at a different `ghRepoId`.
-5. Persist GitHub's canonical repository name after fetch. Keep the owner login only on the
-   organization and use normalized repository names only for duplicate comparison.
-
-## Dashboard Behavior
-
-The dashboard should show the initializing vault immediately after queueing.
-
-Existing-repository source setup applies to:
-
-1. provisioning existing-repository vaults
-2. failed existing-repository vaults
-3. connected existing-repository vaults whose establishing run is still running or failed before the
-   first usable default-branch tree exists
-
-The `sourceSetup` summary should use the same shape already used for create-app source setup:
-
-```ts
-type SourceSetupSummary =
-  | { status: "not_applicable" }
-  | { status: "ready" }
+type ExistingRepositoryGitHubState =
   | {
-      status: "running";
-      runId: Id<"workflow_vaultProvisioning_runs">;
-      step: AppProvisioningRunStep;
-      updatedAt: number;
+      state: "provisioning";
+      githubMode: "connect_existing_repository";
+      runId: Id<"workflow_repositoryProvisioning_runs">;
+      startedAt: number;
+      githubRepositoryDatabaseId?: string;
+      githubRepositoryName: string;
     }
   | {
-      status: "failed";
-      runId: Id<"workflow_vaultProvisioning_runs">;
-      step: AppProvisioningRunStep;
-      message: string;
-      updatedAt: number;
+      state: "failed";
+      githubMode: "connect_existing_repository";
+      runId: Id<"workflow_repositoryProvisioning_runs">;
+      failedAt: number;
+      githubRepositoryDatabaseId?: string;
+      githubRepositoryName: string;
+    }
+  | {
+      state: "connected";
+      githubMode: "connect_existing_repository";
+      runId: Id<"workflow_repositoryProvisioning_runs">;
+      githubRepositoryDatabaseId: string;
+      githubRepositoryName: string;
+      visibility: "private" | "public";
+      defaultBranch: string;
+      connectedAt: number;
     };
 ```
 
-Provider setup stays `not_applicable` for existing repositories even after GitHub connects, because
-imported repositories do not provision infrastructure.
+Each complete repository row also has `organizationId`, `deletion`, and `createdAt`. The
+organization stores the current GitHub owner login. The repository does not duplicate that owner
+login.
 
-Tree-dependent links, branch rows, source workspace entrypoints, staging, editor, and infrastructure
-controls remain hidden until the default-branch tree exists.
+Connected GitHub identity is immutable. Samebase must not change one connected repository to a
+different `githubRepositoryDatabaseId`.
 
-## Entry Points
+## Workflow
 
-### `/org/<owner>/connect-repo`
+The `connectExistingRepository` Workflow uses these steps:
 
-When the user clicks Connect:
+1. `fetch_github_repository`: load the selected repository, verify its database ID and owner,
+   require a default branch, verify that branch is readable, and record the canonical name and
+   visibility.
+2. `connect_github_repository`: write the connected GitHub identity to the Samebase repository.
+3. `sync_tree`: read the default branch and write its recursive tree to
+   `observations_repository_branchTrees`.
+4. `finish`: mark the run as succeeded.
 
-1. disable the clicked button while the queueing action is pending
-2. queue the initializing vault and run
-3. navigate to the dashboard after the run is queued
-4. let the dashboard show setup progress and failure
+Current user-visible event text is:
 
-The repository picker should hide repositories that already have an initializing, failed, or
-connected vault for the same `repositoryFullName`. Failed vaults remain visible on the dashboard
-with the existing delete action. Phase 1 does not add manual retry UX; deleting the failed vault is
-the explicit operator path that unblocks a fresh connect attempt for the same repository.
+1. `fetch_github_repository`: "Checking existing GitHub repository." and "Checked existing GitHub
+   repository <owner>/<repository>."
+2. `connect_github_repository`: "Connecting the Samebase repository to GitHub." and "Connected the
+   Samebase repository to GitHub."
+3. `sync_tree`: "Syncing the default branch tree." and "Synced the default branch tree."
+4. `finish`: "Connected existing repository."
 
-### Direct File Route
+The GitHub fetch and connection steps do not use automatic Workflow retry. Tree synchronization is
+idempotent and uses the standard provider-step retry policy.
 
-When the user opens an unconnected repository URL and clicks Connect this repo:
+## Failure Handling
 
-1. queue the initializing vault and run
-2. navigate to the dashboard after the run is queued
-3. avoid rendering blank file-route content while the branch tree does not exist
+A failure before `connect_github_repository` completes moves the repository to `state: "failed"` and
+keeps the failed run ID. The user-safe reason comes from provisioning events. It is not copied to a
+repository field.
 
-The queueing action no longer needs to return `defaultBranch`, because the file route is not the
-immediate post-click destination.
+A failure after GitHub connection keeps the repository in `state: "connected"`. The failed run and
+events describe the source setup failure. This preserves confirmed GitHub identity while tree-based
+features remain unavailable until the required branch tree exists.
 
-## Production Cleanup
+## Duplicate And Authorization Rules
 
-Before deploying the schema that requires connected existing-repository `runId`, inspect production
-for `githubMode: "connect_existing_repository"` vaults without `runId`.
+1. A user must be a current member of the selected organization.
+2. The selected GitHub repository owner ID must match the organization's GitHub owner ID.
+3. Another active Samebase repository in the organization cannot use the same normalized GitHub
+   repository name.
+4. A GitHub repository database ID cannot belong to two connected Samebase repositories.
+5. A Workflow continuation must match its repository, run, user, and repository deletion gate.
 
-Because the operator is the only production user, the accepted cleanup is:
+## Provider Boundary
 
-1. delete those existing-repository vaults
-2. delete dependent vault-scoped rows for those vaults
-3. deploy the direct required schema and code
-4. reconnect the repositories through the new flow if still needed
+Existing-repository onboarding creates no managed provider plan and no Convex or Cloudflare
+attachment. The repository dashboard exposes the standard `?add-convex` and `?add-cloudflare`
+actions after GitHub connects.
 
-This cleanup is operator action, not product behavior. Do not hide destructive cleanup inside normal
-user flows.
+## User Interface
 
-## Implementation Plan
+`/org/:owner/connect-repo` lists accessible GitHub repositories that are not already connected to
+Samebase. When the user selects Connect, the page disables that action while it is pending. After
+the action returns, it opens the repository dashboard.
 
-Phase 1 and Phase 2 runtime behavior shipped together in `v1257` / `#733`. Keep this checklist as
-the landed behavior contract, not as still-open runtime scope.
+The dashboard shows the repository and its source setup from the provisioning run and events. File,
+staging, editor, and tree-dependent actions require connected GitHub state and the requested branch
+tree. A failed repository stays visible so the user can inspect the failure or use Remove from
+Samebase before another connection attempt.
 
-### Phase 1: Backend Workflow And Direct State
+A direct file route that offers connection also opens the repository dashboard after the action
+returns. It does not render a blank file workspace while source setup is pending.
 
-1. Add `connect_existing_repository` to `AppProvisioningRunTrigger`.
-2. Add `fetch_github_repo` to provisioning step validators and log formatting.
-3. Require `runId` on connected existing-repository vaults.
-4. Add the initializing-vault/run mutation for existing repositories.
-5. Replace synchronous `connectRepository` with the queueing action.
-6. Add the connect-existing Workflow and failure handling.
-7. Create no Convex project or Cloudflare Worker attachments.
-8. Add backend tests for success, pre-connected failure, post-connected tree failure, duplicates,
-   and required `runId`.
+## Validation
 
-### Phase 2: Dashboard And Entrypoints
+Backend coverage must prove:
 
-1. Return source setup summaries for existing-repository setup states.
-2. Render the provisioning log for existing-repository running and failed source setup.
-3. Update `/org/<owner>/connect-repo` to navigate to the dashboard after queueing.
-4. Update the direct file route to navigate to the dashboard after queueing.
-5. Ensure file-route content stays hidden until branch tree data exists.
-6. Add route-level or production-component tests for dashboard source setup and direct-route
-   handoff.
+1. The selected GitHub repository and owner are verified.
+2. The Samebase repository and run are created before Workflow work starts.
+3. The run uses trigger `connect_existing_repository`.
+4. Successful connection stores `runId`, `githubRepositoryDatabaseId`, canonical
+   `githubRepositoryName`, visibility, and default branch.
+5. A failure before connection writes failed state.
+6. A tree-sync failure after connection preserves connected GitHub identity.
+7. Duplicate names and duplicate GitHub repository IDs fail closed.
+8. The flow creates no Convex or Cloudflare resources.
 
-These phases may land in one implementation PR if the diff stays small and the tests cover both
-backend and UI behavior. They should split if the route and dashboard changes obscure the
-state-machine review.
+Frontend coverage must prove:
 
-## Testing Plan
-
-Backend:
-
-1. connecting an existing repository inserts a vault before external GitHub fetches
-2. the run uses trigger `connect_existing_repository`
-3. successful connect writes connected existing-repository state with `runId`, `ghRepoId`, canonical
-   repository name, visibility, and default branch, with no provider attachments
-4. pre-connected GitHub fetch or validation failure moves the vault to failed existing-repository
-   state
-5. tree sync failure after connected state preserves connected GitHub identity
-6. connected existing-repository rows require `runId`
-7. duplicate organization/repository names and duplicate `ghRepoId` cases fail closed
-8. existing repositories never start Convex or Cloudflare provisioning
-
-Frontend:
-
-1. `/org/<owner>/connect-repo` hides a repository once its initializing vault exists
-2. `/org/<owner>/connect-repo` disables only the pending repository connect action and navigates to
-   the dashboard after queueing
-3. dashboard shows running source setup and provisioning logs for existing repositories
-4. dashboard shows failed source setup and the latest event-derived failure message for existing
-   repositories
-5. direct file-route connect navigates to the dashboard instead of returning to a blank file route
-6. tree-dependent controls stay hidden until a usable default-branch tree exists
+1. The connect action is disabled only while its request is pending.
+2. A successful request opens the repository dashboard.
+3. The dashboard shows running and failed source setup with event-derived text.
+4. Tree-dependent controls stay unavailable until the requested tree exists.
+5. A direct file-route connection opens the dashboard instead of a blank file route.
 
 ## Acceptance Criteria
 
-1. Existing repository connect is one user action.
-2. A durable vault and run exist before external GitHub repository fetches.
-3. The initial run is classified as `connect_existing_repository`.
-4. Existing-repository logs distinguish fetching an existing repo from creating a new repo.
-5. Connected existing-repository state stores the run that established GitHub identity.
-6. Old connected existing-repository rows are removed before the direct required schema deploy; no
-   compatibility path is added.
-7. Initial tree sync failure after connection does not erase connected GitHub identity.
-8. Existing-repository source setup is visible from the dashboard.
-9. Existing-repository provider setup remains not applicable.
-10. The direct file route does not go blank during queued source setup.
+1. Existing repository connection is one user action.
+2. The selected GitHub repository and organization owner are verified before local creation.
+3. Durable source setup starts from a Samebase repository and provisioning run.
+4. Connected state stores immutable GitHub repository identity and the establishing run.
+5. A post-connection tree failure does not erase connected GitHub identity.
+6. Existing-repository onboarding does not provision Convex or Cloudflare resources.
+7. Source setup is visible from the repository dashboard.

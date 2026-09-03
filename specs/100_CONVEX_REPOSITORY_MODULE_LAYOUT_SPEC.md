@@ -1,4 +1,4 @@
-# Convex Vault Module Layout Spec
+# Convex Repository Module Layout Spec
 
 ## Document Control
 
@@ -6,16 +6,17 @@
 - Owner: Samebase backend
 - Last updated: 2026-07-21
 - Related docs:
-  - [Vault deletion workflow](./098_VAULT_DELETION_WORKFLOW_SPEC.md)
+  - [Repository removal workflow](./098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md)
   - [Pull request provider query](./116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 
 ## Current Contract
 
-Vault backend modules live under `apps/samebase/convex/vault/`. Callers import the responsible named
-module directly. Root re-export shims and a catch-all `vault/index.ts` are not allowed.
+Repository backend modules live under `apps/samebase/convex/repository/`. Callers import the
+responsible named module directly. Root re-export shims and a catch-all `repository/index.ts` are
+not allowed.
 
 ```text
-apps/samebase/convex/vault/
+apps/samebase/convex/repository/
   actions.ts
   branches.ts
   dashboard.ts
@@ -38,33 +39,33 @@ apps/samebase/convex/vault/
 
 ## Ownership
 
-- `actions.ts` owns public vault lifecycle actions.
+- `actions.ts` owns public repository lifecycle actions.
 - `dashboard.ts` owns dashboard queries and persisted dashboard preferences.
-- `records.ts` owns vault row creation, lookup, repository connection, and state transitions.
+- `records.ts` owns repository row creation, lookup, repository connection, and state transitions.
 - `branches.ts` owns only the exact branch-tree cache and its refresh coordination.
 - `pullRequestResources.ts` verifies loaded pull request ids against GitHub, then joins live
   provider resources. It does not persist pull request state.
-- `providerObservationQueries.ts` reads the durable vault attachment graph needed by live provider
-  actions.
-- `model.ts` owns vault and attached-resource tables and reusable validators.
+- `providerObservationQueries.ts` reads the durable repository attachment graph needed by live
+  provider actions.
+- `model.ts` owns repository and attached-resource tables and reusable validators.
 - `state.ts` owns runtime state guards.
 - `deletion/*` owns deletion eligibility, durable workflow state, cleanup, and provider teardown.
 
 Repository-wide pull request queries live at `convex/repositoryPullRequests.ts` because they are a
-GitHub provider boundary, not a persisted vault submodel.
+GitHub provider boundary, not a persisted repository submodel.
 
 ## Data Boundary
 
 The module layout does not create compatibility aliases for function paths or schema tables.
 Deleting a model updates all call sites and generated references directly.
 
-The exact branch tree remains `observations_vaultRepository_branchTrees`. The vault module has no
+The exact branch tree remains `observations_repository_branchTrees`. The repository module has no
 remote branch catalog, repository refresh queue, commit-check mirror, or copied provider domain
 table.
 
 ## Validation
 
-- Generated API references use named vault modules.
+- Generated API references use named repository modules.
 - No root re-export shim preserves an old function path.
 - `branches.ts` has no repository-wide discovery or pull request list responsibility.
-- Deletion cleanup covers every vault-owned table.
+- Deletion cleanup covers every repository-owned table.

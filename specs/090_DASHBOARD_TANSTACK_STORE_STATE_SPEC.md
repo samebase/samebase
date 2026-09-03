@@ -9,8 +9,8 @@
   - `archive/067_VAULT_PULL_REQUEST_FILTERS_SPEC.md`
   - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
 
-The pull request filter control described below is historical. The current vault overview does not
-mount it or apply saved filter preferences.
+The pull request filter control described below is historical. The current repository overview does
+not mount it or apply saved filter preferences.
 
 ## Summary
 
@@ -39,8 +39,8 @@ Migrate these state buckets now:
 1. Delete dialog intent, destructive option toggles, pending flags, and errors.
 2. Create-app input, pending flag, and error text.
 3. Provider disconnect and manual Cloudflare token-check pending state.
-4. Per-vault developer tools open state.
-5. Infrastructure retry pending vault id.
+4. Per-repository developer tools open state.
+5. Infrastructure retry pending repository id.
 6. Sign-out pending state.
 7. Pull request filter control search text and open state.
 8. Visual fixture counters.
@@ -48,7 +48,7 @@ Migrate these state buckets now:
 
 Keep provider-owned query state out of the UI store:
 
-1. `useVaultPullRequests`
+1. `useRepositoryPullRequests`
 2. provider observation queries
 3. Cloudflare and Convex resource polling state
 
@@ -56,8 +56,8 @@ Keep provider-owned query state out of the UI store:
 
 1. Use `useCreateStore` and `useSelector` from `@tanstack/react-store`, matching the logo preview
    store style.
-2. Prefer feature-owned hooks such as `useVaultDashboardLocalStore` and
-   `useVaultPullRequestFiltersControlStore` over shared generic wrappers.
+2. Prefer feature-owned hooks such as `useRepositoryDashboardLocalStore` and
+   `useRepositoryPullRequestFiltersControlStore` over shared generic wrappers.
 3. Keep async Convex calls in React handlers; store actions should update local UI state only.
 4. Keep existing refs for popup windows, selection, and scroll anchoring because they are imperative
    DOM or browser handles rather than render state.

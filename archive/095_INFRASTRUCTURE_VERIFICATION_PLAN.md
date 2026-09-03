@@ -7,7 +7,7 @@
 - Created: 2026-07-07
 - Last updated: 2026-07-19
 - Archived: 2026-07-29
-- Current contract: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+- Current contract: `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
 - Origin: operator question after the v1651 deploy-key rename (PR #1171,
   https://github.com/samebase/samebase/pull/1171): fresh provisioning wires the conventional
   `CONVEX_DEPLOY_KEY` contract, but a Worker wired before the rename keeps its recorded
@@ -19,7 +19,7 @@
   `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md` on branch `codex-agent-docs-registry-rfc`, already
   referenced from rfcs/093 on main: the long-form `verify_infrastructure` guide lands there once it
   merges)
-- Related specs: `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`,
+- Related specs: `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`,
   `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`,
   `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
 - Related research: `research/2026-05-16-cloudflare-workers-build-preview-env-ui-gap.md`

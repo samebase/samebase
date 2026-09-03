@@ -21,7 +21,7 @@ const { id } = v;
 const providerStepRetryMessage = {
   delete_cloudflare: "Removing Cloudflare resources.",
   delete_convex: "Removing Convex resources.",
-  delete_github_repository: "Removing GitHub repository.",
+  delete_github_repository: "Deleting GitHub repository.",
 } satisfies Record<"delete_cloudflare" | "delete_convex" | "delete_github_repository", string>;
 
 async function getDeletionRun(
@@ -76,15 +76,15 @@ export const deleteCloudflare = internalAction({
     const run = await getDeletionRun(ctx, args.runId);
     await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
+    if (plan.cloudflare.action === "skip") {
+      return null;
+    }
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "delete_cloudflare",
       level: "info",
       message: providerStepRetryMessage.delete_cloudflare,
     });
-    if (plan.cloudflare.action === "skip") {
-      return null;
-    }
 
     const workers = plan.cloudflare.workers;
     const firstWorker = workers.at(0);
@@ -131,15 +131,15 @@ export const deleteConvex = internalAction({
     const run = await getDeletionRun(ctx, args.runId);
     await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
+    if (plan.convex.action === "skip") {
+      return null;
+    }
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "delete_convex",
       level: "info",
       message: providerStepRetryMessage.delete_convex,
     });
-    if (plan.convex.action === "skip") {
-      return null;
-    }
 
     if (plan.convex.projects.length === 0) {
       throw new Error("Convex deletion plan must include at least one project.");
@@ -183,15 +183,15 @@ export const deleteGitHubRepository = internalAction({
     const run = await getDeletionRun(ctx, args.runId);
     await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
+    if (plan.githubRepository.action !== "delete_repository") {
+      return null;
+    }
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "delete_github_repository",
       level: "info",
       message: providerStepRetryMessage.delete_github_repository,
     });
-    if (plan.githubRepository.action !== "delete_repository") {
-      return null;
-    }
 
     const githubAccess = await resolveGitHubAppAccessForRepositoryDeletionRun(ctx, {
       runId: args.runId,

@@ -619,7 +619,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers Builds are required before rotating Convex deploy keys.",
   "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-  "GitHub repository response did not match the repository repo.",
+  "GitHub repository response did not match the Samebase repository.",
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
 ];
 

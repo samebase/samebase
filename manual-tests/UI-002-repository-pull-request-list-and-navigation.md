@@ -1,32 +1,33 @@
-# UI-002: Vault pull request observation and exact branch navigation
+# UI-002: Repository pull request observation and exact branch navigation
 
 ## Purpose
 
-Verify a selected vault shows current pull requests from live provider reads, attributes preview
-resources only from provider evidence, and opens a same-repository pull request at its exact head
-branch.
+Verify a selected repository shows current pull requests from live provider reads, attributes
+preview resources only from provider evidence, and opens a same-repository pull request at its exact
+head branch.
 
 ## Preconditions
 
 - `pnpm dev` can run in the current checkout.
-- A connected vault has an authenticated GitHub connection and at least seven open pull requests.
+- A connected repository has an authenticated GitHub connection and at least seven open pull
+  requests.
 - One same-repository pull request has a Cloudflare Worker build whose trigger, repository, root,
-  commit, and pull request evidence match a stable vault app.
-- For full preview coverage, that Worker build targets a Convex preview from the stable Convex
-  project connected to the same vault app.
+  commit, and pull request evidence match a durable Worker attachment.
+- For full preview coverage, that Worker build targets a Convex preview from the durable Convex
+  project attachment in the same repository.
 - Optional fork coverage: one open pull request originates from a fork.
 
 ## Steps
 
 1. Start the app with `pnpm dev`.
-2. Open the vault dashboard and select the connected vault.
+2. Open the repository dashboard and select the connected repository.
 3. Confirm the primary list contains open pull requests, not the repository branch catalog.
 4. Confirm each row links to the GitHub pull request and shows its number, title, exact head and
    base branches, labels, draft state, checks, and changed-file totals when GitHub provides them.
 5. Confirm Cloudflare rows appear only when a build is attributable to the pull request through the
-   stable vault app and the build's live provider evidence.
+   durable Worker attachment and live provider evidence.
 6. Confirm a Convex preview link appears only when the live Worker build identifies an exact preview
-   deployment from the stable Convex project connected to that same vault app.
+   deployment from the durable Convex project attachment in that same repository.
 7. On a same-repository pull request, select `View changes` and confirm FileView opens with that
    pull request's head branch in the URL.
 8. Reload FileView and confirm it remains on that exact branch after hydrating only that branch's
@@ -44,8 +45,8 @@ branch.
 
 ## Expected Results
 
-1. Convex supplies stable vault and app topology; GitHub, Cloudflare, and Convex supply current pull
-   request and resource state through authenticated live reads.
+1. Convex supplies the repository and direct provider attachments. GitHub, Cloudflare, and Convex
+   supply current pull request and resource state through authenticated live reads.
 2. An empty resource area means the provider observation found no attributable resource. Provider
    failure is shown as unavailable or failed instead of being presented as absence.
 3. Same-repository pull requests open an exact branch generation on demand. Fork pull requests never

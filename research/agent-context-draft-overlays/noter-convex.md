@@ -110,5 +110,5 @@ for Convex's generated guidance.
 
 Derived from `AGENTS.md`, `apps/noter/AGENTS.md`, `apps/noter/convex/_generated/ai/guidelines.md`,
 Convex task skills, `specs/095_CONVEX_BACKEND_CONTRACT_TESTING_SPEC.md`,
-`specs/100_CONVEX_VAULT_MODULE_LAYOUT_SPEC.md`, `specs/103_CONVEX_API_VALIDATION_SPEC.md`, and
+`specs/100_CONVEX_REPOSITORY_MODULE_LAYOUT_SPEC.md`, `specs/103_CONVEX_API_VALIDATION_SPEC.md`, and
 `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`.

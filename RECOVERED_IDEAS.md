@@ -195,10 +195,10 @@ File: README.md
 - npm run lint
 - ## Environment Notes
 - Infra provisioning requires backend environment configuration for provider tokens/team IDs (see
-  `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`).
+  `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`).
 - ## Read-First Docs for New Agent Sessions
 - 1. `AGENTS.md`
-- 2. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+- 2. `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
 - 3. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 - 4. `specs/001_CODESPACE_CONNECTION_SPEC.md`
 - 5. `apps/samebase/convex/schema.ts`

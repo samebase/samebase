@@ -8,7 +8,7 @@
 - Depends on:
   - `apps/samebase/src/components/FileView.tsx`
   - `apps/samebase/src/components/RepositoryMediaViewer.tsx`
-  - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+  - `apps/samebase/src/components/repository-dashboard/RepositoryDashboard.tsx`
   - `apps/samebase/src/components/AddRepository.tsx`
   - `apps/samebase/shared/repositoryMedia.ts`
   - `apps/samebase/convex/fileStaging.ts`
@@ -20,7 +20,7 @@
 ## Why
 
 Samebase should be a better place than Telegram Saved Messages for dropping images and project
-assets that belong with the repo.
+assets that belong with the repository.
 
 Today, if a user wants to quickly save screenshots, logos, reference images, or other media while
 working on a project, Telegram Saved Messages is often the faster capture surface than Samebase.
@@ -32,15 +32,15 @@ Media uploads fix a real product gap:
 - project assets should land next to the code and docs they belong to
 - uploads should be visible in the same file tree and commit flow as the rest of the repository
 - the user should not need a sidecar personal inbox just to get files into the project
-- Samebase should be the canonical working surface for collecting and committing repo assets
+- Samebase should be the canonical working surface for collecting and committing repository assets
 
 This is not decorative polish. It is part of making Samebase credible as the place where the project
 actually lives.
 
 ## Summary
 
-Samebase should support media uploads by adding a bottom-of-sidebar upload surface on vault routes
-first. The shipped CTA should read `Drop file or click` and use rectangular app chrome with a
+Samebase should support media uploads by adding a bottom-of-sidebar upload surface on repository
+routes first. The shipped CTA should read `Drop file or click` and use rectangular app chrome with a
 segmented or dashed border.
 
 That surface must be mobile-friendly, not desktop-only. On touch devices, the primary path is
@@ -61,11 +61,12 @@ users in the existing unresolved storage-backed file path.
 
 - `FileView` already uses the shared sidebar shell and has a natural footer slot after the file
   tree.
-- `VaultDashboard` now uses the same shell, but its sidebar has no vault or branch target.
+- `RepositoryDashboard` now uses the same shell, but its sidebar has no repository or branch target.
 - `/add` does not use the shared sidebar shell and has no upload destination context.
 - `RepositoryMediaViewer` already renders repository images.
-- `observations_vaultFiles_blobs` already supports two storage modes: inline text or Convex storage.
-- `vaultStagedFiles` is text-first. It requires `content` and `initialContent` as strings.
+- `observations_repositoryFiles_blobs` already supports two storage modes: inline text or Convex
+  storage.
+- `repositoryStagedFiles` is text-first. It requires `content` and `initialContent` as strings.
 - The commit pipeline assumes text:
   - staged files are modeled as `content: string`
   - upstream reconciliation computes UTF-8 blob SHAs from text
@@ -110,13 +111,13 @@ users in the existing unresolved storage-backed file path.
 
 ## Product Decisions
 
-### 1. Ship on vault routes first
+### 1. Ship on repository routes first
 
 Ship the upload surface only on `FileView` in phase 1.
 
 Reasons:
 
-- `FileView` already has an active `vaultId`, branch, file tree, and media viewer.
+- `FileView` already has an active `repositoryId`, branch, file tree, and media viewer.
 - The sidebar bottom is already visually stable on this route.
 - `/add` has no repository target and no shared sidebar shell today.
 - The dashboard has shared chrome but still lacks a precise upload destination.
@@ -186,19 +187,19 @@ However, the browser should not send multi-megabyte Base64 strings through the e
 mutations. The safer flow is:
 
 1. Browser uploads the file to Convex storage using an upload URL.
-2. A finalize mutation records staged binary metadata in `vaultStagedFiles`.
+2. A finalize mutation records staged binary metadata in `repositoryStagedFiles`.
 3. The UI renders the staged image directly from Convex storage.
 4. Commit code reads the staged bytes, creates a GitHub blob, inserts that blob into the Git tree,
    and advances the branch.
 5. The staged record is cleared after commit, but the committed blob remains cached in
-   `observations_vaultFiles_blobs`.
+   `observations_repositoryFiles_blobs`.
 
 This still satisfies the product requirement that persisted project assets live directly in GitHub.
 
-### 5. Extend `vaultStagedFiles` instead of creating a second staging table
+### 5. Extend `repositoryStagedFiles` instead of creating a second staging table
 
 The existing file tree, staged-file visibility, rename flow, delete flow, commit flow, and branch
-scoping already revolve around `vaultStagedFiles`.
+scoping already revolve around `repositoryStagedFiles`.
 
 Adding a second binary-only staging table would duplicate too much logic.
 
@@ -266,7 +267,7 @@ repository contents API path.
 
 After this work, committed image preview should prefer:
 
-- cached `observations_vaultFiles_blobs` storage when available
+- cached `observations_repositoryFiles_blobs` storage when available
 - otherwise GitHub `getBlob`, which supports blobs up to 100 MB
 
 That removes the current 1 MB preview ceiling for supported image types.
@@ -296,14 +297,14 @@ Reasons:
 - GitHub explicitly warns that parallel contents writes and deletes conflict
 - it does not solve pre-commit image preview
 - it does not solve the current text-only staging model
-- the repo already has most of the Git database commit machinery in place
+- the repository already has most of the Git database commit machinery in place
 
 The right MVP path is to keep the existing Git database commit flow and add a binary branch to it.
 
 ## Implementation Plan
 
-1. Add binary-aware fields to `vaultStagedFiles` and related validators/types.
-2. Add upload-URL and finalize-upload mutations for vault-scoped image staging.
+1. Add binary-aware fields to `repositoryStagedFiles` and related validators/types.
+2. Add upload-URL and finalize-upload mutations for repository-scoped image staging.
 3. Add a reusable sidebar footer upload component to `FileView` with tap-first mobile behavior.
 4. Add an explicit destination-folder picker seeded from the current selection but overridable
    before finalize.
@@ -312,7 +313,7 @@ The right MVP path is to keep the existing Git database commit flow and add a bi
 6. Extend `RepositoryMediaViewer` so staged images render before commit.
 7. Teach the commit pipeline to partition text and binary rows, create GitHub blobs for binary rows,
    and use SHA-based binary conflict checks.
-8. Warm the `observations_vaultFiles_blobs` cache with committed binary metadata after commit.
+8. Warm the `observations_repositoryFiles_blobs` cache with committed binary metadata after commit.
 9. Switch committed media preview fallback from contents-only behavior to the Git blob path when
    needed.
 
@@ -344,7 +345,7 @@ The right MVP path is to keep the existing Git database commit flow and add a bi
 - binary diff or visual compare UI
 - Git LFS integration in phase 1
 - a global upload entrypoint on `/add`
-- dashboard uploads without an explicit vault and branch target
+- dashboard uploads without an explicit repository and branch target
 
 ## Primary Sources
 

@@ -333,7 +333,7 @@ export function NewAppCreateFormFields({
   return (
     <>
       <CreateProviderNameInput
-        placeholder="GitHub repo name"
+        placeholder="GitHub repository name"
         value={newRepositoryName}
         onChange={onNewRepositoryNameChange}
         icon={<GitHubProviderLogo />}

@@ -283,14 +283,14 @@ Pass 2:
 Before:
 
 ```tsx
-export function VaultDashboard() {
-  return <VaultDashboardContent />;
+export function FeaturePanel() {
+  return <FeaturePanelContent />;
 }
 ```
 
 Pass 1:
 
-- Update imports and callsites to use `VaultDashboardContent` directly.
+- Update imports and call sites to use `FeaturePanelContent` directly.
 - Keep behavior the same.
 - Checkpoint once typecheck is clean.
 

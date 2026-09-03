@@ -703,7 +703,7 @@ function LandingPreviewOverview() {
           <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
             <LandingFootnote fragment="landing-note-zero" heading="$0/month, receipted." marker="‡">
               <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                GitHub Free: unlimited private repos.{" "}
+                GitHub Free: unlimited private repositories.{" "}
                 <LandingReceiptLink href="https://www.convex.dev/pricing">
                   Convex Free
                 </LandingReceiptLink>

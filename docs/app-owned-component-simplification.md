@@ -61,8 +61,8 @@ General rule:
 
 Example:
 
-- If `VaultBranchListRow` only maps `branch` fields into `VaultBranchLinkRow`, consider rendering
-  `VaultBranchLinkRow` directly from the branch list.
+- If `RepositoryBranchListRow` only maps `branch` fields into `RepositoryBranchLinkRow`, consider
+  rendering `RepositoryBranchLinkRow` directly from the branch list.
 
 ## Trust Typed Boundaries
 
@@ -176,8 +176,8 @@ General rule:
 Example:
 
 - Provider-backed pull request pagination and resource enrichment should live in the named
-  `useVaultPullRequests` hook. The dashboard should not inline GitHub action calls, vault loops, or
-  refetch policy inside `VaultDashboard`.
+  `useRepositoryPullRequests` hook. The dashboard should not inline GitHub action calls, repository
+  loops, or refetch policy inside `RepositoryDashboard`.
 
 ## Document Side Effects
 

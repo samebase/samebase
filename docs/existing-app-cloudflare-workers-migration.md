@@ -35,8 +35,8 @@ Do not copy credentials, private data, response bodies, or raw private logs into
 
 ## Use Samebase and Provider State
 
-Read the Samebase vault inventory first. Reuse the connected repository, Convex project, and Worker
-when their stable identities match. Do not create replacement resources from names alone.
+Read the Samebase repository inventory first. Reuse the connected repository, Convex project, and
+Worker when their stable identities match. Do not create replacement resources from names alone.
 
 Samebase inventory proves the connected resource identities and workflow state. It does not prove
 that a provider build or deployment completed. Use live Cloudflare and Convex reads for terminal

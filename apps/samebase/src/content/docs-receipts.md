@@ -106,10 +106,10 @@ matters most when an agent is doing the shipping, because agents deploy far more
   billing cycle. Source:
   [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
   checked 2026-07-02.
-- The scenario that made this real: an agent-driven repo shipping ~50 production deploys a day burns
-  Pro's entire 3,000-credit month in about four days. On Cloudflare Workers the equivalent deploys
-  draw from build minutes (3,000 free, 6,000 on the $5 plan), and serving the deployed static assets
-  costs nothing at any volume.
+- The scenario that made this real: an agent-driven repository shipping ~50 production deploys a day
+  burns Pro's entire 3,000-credit month in about four days. On Cloudflare Workers the equivalent
+  deploys draw from build minutes (3,000 free, 6,000 on the $5 plan), and serving the deployed
+  static assets costs nothing at any volume.
 
 ## The exposure record: client-reachable databases
 

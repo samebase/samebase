@@ -405,7 +405,7 @@ async function openNewAppWithProviderPreflight(page: Page, owner: string): Promi
   assertLocalLiveEnvironment(page.url());
 
   const newAppPage = page.getByTestId("new-app-page");
-  const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repo name");
+  const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repository name");
   await expect(repositoryNameInput).toBeVisible({ timeout: 15_000 });
 
   const providerReadiness = newAppPage.getByTestId("new-app-provider-readiness");
@@ -1009,7 +1009,7 @@ test.describe("repository create app live flow", () => {
     await expect(convexRegion).toBeVisible({ timeout: 30_000 });
     await convexRegion.click();
     await newAppPage.getByRole("option", { exact: true, name: "🇺🇸 US East (N. Virginia)" }).click();
-    const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repo name");
+    const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repository name");
     const createButton = newAppPage.getByRole("button", { exact: true, name: "New App" });
     await expect
       .poll(
@@ -1150,7 +1150,7 @@ test.describe("repository create app live flow", () => {
     );
     test.skip(
       EXISTING_REPOSITORY_FULL_NAME === undefined,
-      "Set PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME to a disposable or safe existing repo.",
+      "Set PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME to a disposable or safe existing repository.",
     );
     if (EXISTING_REPOSITORY_FULL_NAME === undefined) {
       throw new Error("PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME is required for this live test.");

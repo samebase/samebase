@@ -1,4 +1,4 @@
-# Vault Infrastructure Auto-Provisioning Specification
+# Repository Infrastructure Auto-Provisioning Specification
 
 ## Document Control
 
@@ -6,11 +6,11 @@
 - Owner: Samebase backend/frontend
 - Last updated: 2026-08-30
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
-- Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
-- Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
+- Related repository-first cleanup: `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
+- Related deletion contract: `specs/098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
-- Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+- Resource attachment model: `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 - Organization deployment providers: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 > Note: this spec describes the Workers-only provisioning workflow. Spec 115 defines durable Worker
@@ -18,8 +18,8 @@
 
 ## Summary
 
-For samebase-managed vaults, infrastructure is composed from the same narrow blocks used by manual
-resource attachment:
+For samebase-managed repositories, infrastructure is composed from the same narrow blocks used by
+manual resource attachment:
 
 1. create/connect the GitHub source and sync the default-branch tree
 2. attach or create the Convex project at the plan's confirmed `convex.json` path
@@ -30,7 +30,7 @@ resource attachment:
    build
 
 Provisioning is asynchronous. Retries reuse provider identities that were successfully checkpointed.
-Vault creation succeeds even if downstream provisioning partially fails.
+Repository creation succeeds even if downstream provisioning partially fails.
 
 New App also admits a confirmed empty Workers Builds token list. In that case, the managed workflow
 completes source setup and Convex attachment, then succeeds without creating or attaching a Worker.
@@ -40,57 +40,58 @@ installs keys for one selected attached Convex project and starts the production
 
 ## Important Behavior
 
-- `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
-  user/org owner. It resolves the Convex production region from an optional create override or the
-  organization default, with US as the fallback. A Workers Builds token is either one selected UUID
-  or `null` when the current account has no listed token. The New App page or MCP caller lists the
-  tokens before admission and sends `null` only for an empty list. Samebase verifies a selected
-  UUID. It does not repeat the provider read for `null`, which causes no Cloudflare write. One
-  admission transaction inserts the initializing vault, the create run, the active managed provider
-  lock, and the provisioning plan, then starts the Workflow and stores its ID. A Workflow start
-  failure rolls back all admission writes. The Workflow validates the organization's provider
-  credentials against the vault destinations and starts provider provisioning after source setup
-  succeeds. The Workers Builds block verifies a selected UUID again before it writes provider state.
-- `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
+- `api.repository.actions.createRepository` (new Samebase-managed repository) requires a selected
+  GitHub user/org owner. It resolves the Convex production region from an optional create override
+  or the organization default, with US as the fallback. A Workers Builds token is either one
+  selected UUID or `null` when the current account has no listed token. The New App page or MCP
+  caller lists the tokens before admission and sends `null` only for an empty list. Samebase
+  verifies a selected UUID. It does not repeat the provider read for `null`, which causes no
+  Cloudflare write. One admission transaction inserts the initializing repository, the create run,
+  the active managed provider lock, and the provisioning plan, then starts the Workflow and stores
+  its ID. A Workflow start failure rolls back all admission writes. The Workflow validates the
+  organization's provider credentials against the repository destinations and starts provider
+  provisioning after source setup succeeds. The Workers Builds block verifies a selected UUID again
+  before it writes provider state.
+- `api.repository.actions.connectRepository` (existing GitHub repository connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
-- Existing GitHub vaults can attach or create Convex resources later through the manual Convex
+- Existing GitHub repositories can attach or create Convex resources later through the manual Convex
   deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
-- `api.vault.actions.retryInfrastructureProvisioning` uses one admission transaction to create the
-  retry run, replace the failed managed lock with its active owner, start the Workflow, and store
-  its ID. A Workflow start failure rolls back the new run and lock change. The Workflow restarts the
-  composed block sequence for a failed Samebase-managed create flow. Manual provider setup failures
-  still reopen the matching provider resource dialog instead of running the managed infrastructure
-  retry.
+- `api.repository.actions.retryInfrastructureProvisioning` uses one admission transaction to create
+  the retry run, replace the failed managed lock with its active owner, start the Workflow, and
+  store its ID. A Workflow start failure rolls back the new run and lock change. The Workflow
+  restarts the composed block sequence for a failed Samebase-managed create flow. Manual provider
+  setup failures still reopen the matching provider resource dialog instead of running the managed
+  infrastructure retry.
 
 ## Source of Truth Files
 
-- `apps/samebase/convex/vault/actions.ts`
-- `apps/samebase/convex/vault/dashboard.ts`
-- `apps/samebase/convex/vault/records.ts`
+- `apps/samebase/convex/repository/actions.ts`
+- `apps/samebase/convex/repository/dashboard.ts`
+- `apps/samebase/convex/repository/records.ts`
 - `apps/samebase/convex/infraProvisioning.ts`
-- `apps/samebase/convex/vault/convex.ts`
-- `apps/samebase/convex/vault/convexMutations.ts`
-- `apps/samebase/convex/vault/cloudflare.ts`
-- `apps/samebase/convex/vault/cloudflareMutations.ts`
-- `apps/samebase/convex/vault/infrastructureOperation.ts`
+- `apps/samebase/convex/repository/convex.ts`
+- `apps/samebase/convex/repository/convexMutations.ts`
+- `apps/samebase/convex/repository/cloudflare.ts`
+- `apps/samebase/convex/repository/cloudflareMutations.ts`
+- `apps/samebase/convex/repository/infrastructureOperation.ts`
 - `apps/samebase/convex/schema.ts`
-- `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+- `apps/samebase/src/components/repository-dashboard/RepositoryDashboard.tsx`
 
 ## Data Model
 
-### `vaults`
+### `repositories`
 
-Samebase-managed vault creation requires `convexTeamId` and `cloudflareAccountId` and copies both
-values from the organization in the admission transaction. Existing-repository vaults copy each
-destination that is configured, but GitHub source connection requires neither one. A later provider
-connection fills that provider's missing vault destination in the credential transaction. Provider
-work requires its own fixed vault destination and current credential, and each attached resource
-must match that destination.
+Samebase-managed repository creation requires `convexTeamId` and `cloudflareAccountId` and copies
+both values from the organization in the admission transaction. Repositories connected to existing
+GitHub repositories copy each destination that is configured, but GitHub source connection requires
+neither one. A later provider connection fills that provider's missing repository destination in the
+credential transaction. Provider work requires its own fixed repository destination and current
+credential, and each attached resource must match that destination.
 
-### `workflow_vaultProvisioning_plans`
+### `workflow_repositoryProvisioning_plans`
 
-- `vaultId`
+- `repositoryId`
 - `convexConfigPath`
 - `convex`: `{ state: "planned", projectName, deploymentRegion }`,
   `{ state: "creating", projectName, deploymentRegion }`, or
@@ -102,17 +103,17 @@ must match that destination.
 
 The plan row records provider resource names, provider configuration input, and stable resource
 identities returned after side effects. It does not duplicate the Convex team or Cloudflare account.
-The vault stores those destinations, and they do not change during retry. Each attempt resolves the
-current organization-owned Convex or Cloudflare credential slot for the vault destination and
-verifies that the credential can access it. `creating` means the provider create request started but
-Samebase never recorded a confirmed result. Retry checks the exact planned name. If that provider
-resource exists, Samebase requires the user to delete it in the provider dashboard before retrying.
-If it is absent, Samebase repeats the create request without adding another workflow state. A
-same-named resource is never adopted implicitly. `created` is the exact external provider identity
-checkpoint used by retry. Samebase writes that checkpoint and its stable `provisioned` resource
-attachment in one database transaction. Checkbox-controlled cleanup derives ownership only from the
-stable attachment, never from an unattached checkpoint. Current connected resource identities live
-in the durable resource tables used by the dashboard.
+The repository stores those destinations, and they do not change during retry. Each attempt resolves
+the current organization-owned Convex or Cloudflare credential slot for the repository destination
+and verifies that the credential can access it. `creating` means the provider create request started
+but Samebase never recorded a confirmed result. Retry checks the exact planned name. If that
+provider resource exists, Samebase requires the user to delete it in the provider dashboard before
+retrying. If it is absent, Samebase repeats the create request without adding another workflow
+state. A same-named resource is never adopted implicitly. `created` is the exact external provider
+identity checkpoint used by retry. Samebase writes that checkpoint and its stable `provisioned`
+resource attachment in one database transaction. Checkbox-controlled cleanup derives ownership only
+from the stable attachment, never from an unattached checkpoint. Current connected resource
+identities live in the durable resource tables used by the dashboard.
 
 `deploymentRegion` is the Convex production region selected for this managed create. A retry uses
 the region in the plan. The provider create request sends it as `deploymentRegion` with
@@ -121,9 +122,9 @@ the region in the plan. The provider create request sends it as `deploymentRegio
 `buildTokenUuid` is an explicit non-secret Workers Builds token choice. The `planned` state accepts
 a selected token UUID or `null`. The `creating` and `created` states require a selected token UUID.
 The plan keeps a selected UUID because a retry must use the same user choice. Before each trigger
-write, Samebase requires Cloudflare to list that UUID for the vault account. Samebase does not store
-the token name, the underlying user API token ID, or its secret. If Cloudflare no longer lists the
-selected UUID, managed setup tells the user to remove the failed app and create it again with
+write, Samebase requires Cloudflare to list that UUID for the repository account. Samebase does not
+store the token name, the underlying user API token ID, or its secret. If Cloudflare no longer lists
+the selected UUID, managed setup tells the user to remove the failed app and create it again with
 another token. Retry does not choose a replacement token.
 
 `null` records that the account had no listed token when New App started. It is not a general option
@@ -141,12 +142,12 @@ replaces the plan UUID during a retry.
 
 Indexes:
 
-- `by_vault`
+- `by_repository`
 
-### `workflow_vaultProvisioning_writeLocks`
+### `workflow_repositoryProvisioning_writeLocks`
 
-This table stores the current or most recent infrastructure write for one vault. Its owner is one
-of:
+This table stores the current or most recent infrastructure write for one repository. Its owner is
+one of:
 
 - `{ kind: "managed_run", runId }`
 - `{ kind: "manual_provider_write", actionId, action, expiresAt }`
@@ -181,39 +182,40 @@ an old managed setup failure, and the dashboard removes the old managed Retry ac
 rows.
 
 Deployment has two destructive preconditions. The target deployment must contain zero rows in
-`workflow_vaultProvisioning_writeLocks` and zero rows in `workflow_vaultProvisioning_plans`. The
-operator must stop the deployment and clear these rows first. Product code has no compatibility
-reader, data migration, or fallback for an older row shape.
+`workflow_repositoryProvisioning_writeLocks` and zero rows in
+`workflow_repositoryProvisioning_plans`. The operator must stop the deployment and clear these rows
+first. Product code has no compatibility reader, data migration, or fallback for an older row shape.
 
-### `vaultConvexProjects`
+### `repositoryConvexProjects`
 
-- `vaultId`, `organizationId`
+- `repositoryId`, `organizationId`
 - `teamId`, `projectId`, `convexConfigPath`
 - `origin: "provisioned" | "selected_existing"`
 
-This table is the durable attachment between a vault and a Convex project. It stores stable provider
-coordinates, the user-confirmed repository config path, and provenance. Convex `_creationTime`
-records when the attachment was created. Current project slugs, team slugs, production and preview
-deployments, URLs, and deploy keys are provider state and must not be mirrored into this row.
-`projectId` is globally exclusive. Several projects may intentionally share one `convexConfigPath`.
+This table is the durable attachment between a repository and a Convex project. It stores stable
+provider coordinates, the user-confirmed repository config path, and provenance. Convex
+`_creationTime` records when the attachment was created. Current project slugs, team slugs,
+production and preview deployments, URLs, and deploy keys are provider state and must not be
+mirrored into this row. `projectId` is globally exclusive. Several projects may intentionally share
+one `convexConfigPath`.
 
 Indexes:
 
-- `by_vault`
+- `by_repository`
 - `by_organization`
 - `by_project` (global attachment exclusivity)
 
-### `vaultCloudflareWorkers`
+### `repositoryCloudflareWorkers`
 
-- `vaultId`, `organizationId`
+- `repositoryId`, `organizationId`
 - `accountId`, `workerName`, `workerTag`, `rootDirectory`
 - `origin: "provisioned" | "selected_existing"`
 
-This table is the durable attachment between a vault and a Cloudflare Worker. It stores the stable
-`workerTag` identity and the approved `workerName` and `rootDirectory` coordinates that spec 115
-defines. Current workers.dev URLs, domains, Worker existence, Workers Builds triggers, repository
-configuration, build status, token data, and Convex deploy keys remain provider state. Convex
-`_creationTime` records when the attachment was created.
+This table is the durable attachment between a repository and a Cloudflare Worker. It stores the
+stable `workerTag` identity and the approved `workerName` and `rootDirectory` coordinates that spec
+115 defines. Current workers.dev URLs, domains, Worker existence, Workers Builds triggers,
+repository configuration, build status, token data, and Convex deploy keys remain provider state.
+Convex `_creationTime` records when the attachment was created.
 
 ### Worker-to-Convex build relationship
 
@@ -239,12 +241,12 @@ The live observation reports these states without guessing:
 - secret names with no marker: target unknown
 - different valid markers or a valid marker on only one trigger: inconsistent
 - a malformed marker on either trigger: invalid
-- a marker naming a project that is not attached to the vault: externally configured project
+- a marker naming a project that is not attached to the repository: externally configured project
 - a provider read failure: unknown, without inferring that configuration is missing
 
 ### Provider observation boundary
 
-Provider-owned state is observed directly from Convex and Cloudflare for one requested vault.
+Provider-owned state is observed directly from Convex and Cloudflare for one requested repository.
 Cloudflare Worker axes return explicit `available`, `missing`, or `failed` results where those
 states apply. Each Convex attachment returns source placement as `valid`, `missing`,
 `unavailable_partial`, or `unavailable`, and provider continuity as `current`, `moved`,
@@ -254,7 +256,7 @@ them to Convex tables. Stable attachment rows remain unchanged when a provider r
 disappears.
 
 The Convex production deployment observation supplies the displayed region after attachment.
-`vaultConvexProjects` does not copy it.
+`repositoryConvexProjects` does not copy it.
 
 Each provider observation query uses the matching `lastWriteAt` value in its query key. When that
 value changes, the dashboard makes one new read and shows `Checking` until the read returns. An
@@ -273,8 +275,8 @@ The dashboard starts the first two reads concurrently. A confirmed Worker and it
 available without waiting for Builds or trigger variables. The third read starts only after the
 second read proves that both Builds triggers exist. Trigger identifiers are short-lived input for
 that browser request, not durable Samebase data; the server revalidates that every requested Worker
-belongs to the vault and derives its Cloudflare account from the attachment before reading trigger
-variables. Provider secret values never leave the action.
+belongs to the repository and derives its Cloudflare account from the attachment before reading
+trigger variables. Provider secret values never leave the action.
 
 Workers Builds token names come from the current account token list. A listed record is not proof
 that its underlying user token can run a new build. The dashboard reports only the observed binding:
@@ -286,18 +288,18 @@ Provisioning and repair actions re-read the provider state they require before a
 events record that an explicit operation succeeded or failed; they are operation evidence, not a
 claim that the provider still has the same state later.
 
-Convex build-access rotation derives exact Samebase-owned names from the full vault and Worker
+Convex build-access rotation derives exact Samebase-owned names from the full repository and Worker
 attachment ids. The provider-visible v2 contract is
-`samebase-workers-builds-v2-<vaultId>-<workerId>-production` and
-`samebase-workers-builds-v2-<vaultId>-<workerId>-preview`. The names are computed when an operation
-runs and are not stored in a Samebase table. Changing the format requires a new explicit version;
-existing versions must not be edited in place. A rotation deletes those exact names directly in
-Convex before minting replacements. Samebase does not store deploy-key names, ids, or secrets in its
-database.
+`samebase-workers-builds-v2-<repositoryId>-<workerId>-production` and
+`samebase-workers-builds-v2-<repositoryId>-<workerId>-preview`. The names are computed when an
+operation runs and are not stored in a Samebase table. Changing the format requires a new explicit
+version; existing versions must not be edited in place. A rotation deletes those exact names
+directly in Convex before minting replacements. Samebase does not store deploy-key names, ids, or
+secrets in its database.
 
 Indexes:
 
-- `by_vault`
+- `by_repository`
 - `by_organization`
 - `by_account_and_worker` (global attachment exclusivity)
 - `by_account_and_worker_tag` (global attachment exclusivity)
@@ -328,69 +330,69 @@ Legacy Cloudflare MCP OAuth route, kept for existing rows only:
 
 Repository default branch:
 
-- Use the connected vault's GitHub `defaultBranch` for Cloudflare production branch configuration.
-  Do not reintroduce an `INFRA_DEFAULT_BRANCH` override; repositories can use `main`, `master`, or
-  any custom default branch.
+- Use the connected repository's GitHub `defaultBranch` for Cloudflare production branch
+  configuration. Do not reintroduce an `INFRA_DEFAULT_BRANCH` override; repositories can use `main`,
+  `master`, or any custom default branch.
 
 ## API/Function Contracts
 
 ### Public
 
-1. `api.vault.actions.createRepository`
+1. `api.repository.actions.createRepository`
 
 - Args can include `convexDeploymentRegion` as a create-only override.
-- Returns: `{ vaultId: Id<"vaults">, runId: Id<"workflow_vaultProvisioning_runs"> }`
+- Returns: `{ repositoryId: Id<"repositories">, runId: Id<"workflow_repositoryProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
-2. `api.vault.actions.retryInfrastructureProvisioning`
+2. `api.repository.actions.retryInfrastructureProvisioning`
 
-- Args: `{ vaultId: Id<"vaults"> }`
+- Args: `{ repositoryId: Id<"repositories"> }`
 - Returns: `null`
 - Behavior: validates organization membership and Samebase management, then replaces the failed
   managed write with one managed provisioning retry. The write must name a failed managed run for
-  the same vault. The new run records the current member as its actor. The failed create run must
-  have reached provider setup. A source setup failure, successful run, or later manual provider
+  the same repository. The new run records the current member as its actor. The failed create run
+  must have reached provider setup. A source setup failure, successful run, or later manual provider
   action does not permit provider retry.
 
-3. `api.vault.dashboard.getUserVaults`
+3. `api.repository.dashboard.getUserRepositories`
 
-- Returns: stable attachments, the managed `providerPlan`, and the vault `providerWrite` summary for
-  the organizations of the authenticated member
+- Returns: stable attachments, the managed `providerPlan`, and the repository `providerWrite`
+  summary for the organizations of the authenticated member
 - An active `providerWrite` returns `status`, the owner `kind`, and the independent provider write
   times. A manual owner also returns the affected providers. An idle summary returns `status` and
   the provider write times. The public result does not expose run IDs, action IDs, manual action
   names, expiry times, or lock update times. The dashboard projects terminal lock rows as idle
   because they are fencing and refresh evidence, not current provider state.
 
-4. `api.vault.providerObservations.observeCloudflareWorkers`
+4. `api.repository.providerObservations.observeCloudflareWorkers`
 
-- Args: `{ vaultId: Id<"vaults"> }`
+- Args: `{ repositoryId: Id<"repositories"> }`
 - Returns: bounded live Worker identity, existence, and workers.dev observations
 
-5. `api.vault.providerObservations.observeCloudflareWorkerBuilds`
+5. `api.repository.providerObservations.observeCloudflareWorkerBuilds`
 
-- Args: `{ vaultId: Id<"vaults"> }`
+- Args: `{ repositoryId: Id<"repositories"> }`
 - Returns: bounded live repository configuration and production/preview Builds trigger identifiers
 
-6. `api.vault.providerObservations.observeCloudflareWorkerConvexBuildAccess`
+6. `api.repository.providerObservations.observeCloudflareWorkerConvexBuildAccess`
 
 - Args:
-  `{ vaultId: Id<"vaults">, targets: { workerId, productionTriggerUuid, previewTriggerUuid }[] }`
+  `{ repositoryId: Id<"repositories">, targets: { workerId, productionTriggerUuid, previewTriggerUuid }[] }`
 - Returns: bounded live Convex marker and deploy-key classification without provider secret values
 
-7. `api.vault.providerObservations.observeConvexProjects`
+7. `api.repository.providerObservations.observeConvexProjects`
 
-- Args: `{ vaultId: Id<"vaults"> }`
+- Args: `{ repositoryId: Id<"repositories"> }`
 - Returns: live source-placement and provider-continuity observations for every attached project,
   including the actual region when its default production deployment is available
 
-8. `api.vault.cloudflare.discoverWorkers` and `api.vault.cloudflare.attachWorkers`
+8. `api.repository.cloudflare.discoverWorkers` and `api.repository.cloudflare.attachWorkers`
 
-- Discover returns Workers connected to the vault repository with their current verified roots.
+- Discover returns Workers connected to the GitHub repository with their current verified roots.
 - Attach accepts several selected Worker identities and commits each verified name and root in the
   whole atomic selection.
 
-9. `api.vault.cloudflare.createWorker` and `api.vault.cloudflare.detachWorker`
+9. `api.repository.cloudflare.createWorker` and `api.repository.cloudflare.detachWorker`
 
 - Create records a provisioned attachment with its approved root before later provider configuration
   can fail. It configures Builds and requests an initial build. It does not require or change a
@@ -398,37 +400,37 @@ Repository default branch:
 - Detach changes only the organization's attachment intent and never deletes a selected existing
   Worker.
 
-10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
+10. `api.repository.convex.discoverProjects` and `api.repository.convex.attachProjects`
 
 - Discover returns provider projects plus exact discovered `convex.json` or default-layout
   `package.json` and sibling `convex/` candidates.
 - Attach requires one verified code location per selected project and commits the batch atomically.
 
-11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
+11. `api.repository.convex.createProject` and `api.repository.convex.detachProject`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only the organization's attachment intent.
 
-12. `api.vault.convex.changeProjectCodeLocation`
+12. `api.repository.convex.changeProjectCodeLocation`
 
 - This is an explicit provider-verified compare-and-swap repair of the attachment code location.
 
 ### Internal
 
-- `appProvisioningRuns.createRetryForVault({ userId, vaultId })`
-- `vault/records.createInitializingSamebaseManagedVaultForUser(...)`
-- `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId })`
+- `appProvisioningRuns.createRetryForRepository({ userId, repositoryId })`
+- `repository/records.createInitializingSamebaseManagedRepositoryForUser(...)`
+- `appProvisioningWorkflow.provisionRepositoryInfrastructure({ repositoryId, runId })`
 - `appProvisioningWorkflow.provisionApp(...)`
-- `vault/convex.ensureConvexProjectConnection(...)`
-- `vault/cloudflare.ensureCloudflareWorkerConnection(...)`
-- `vault/cloudflare.configureWorkersBuildsForGitHubForUser(...)`
-- `vault/cloudflare.rotateConvexDeployKeysForWorkersBuildsForUser(...)`
+- `repository/convex.ensureConvexProjectConnection(...)`
+- `repository/cloudflare.ensureCloudflareWorkerConnection(...)`
+- `repository/cloudflare.configureWorkersBuildsForGitHubForUser(...)`
+- `repository/cloudflare.rotateConvexDeployKeysForWorkersBuildsForUser(...)`
 
 ## Provisioning Flow
 
 ```mermaid
 sequenceDiagram
-  participant VA as "api.vault.actions.createRepository"
+  participant VA as "api.repository.actions.createRepository"
   participant WF as "appProvisioningWorkflow"
   participant CVXB as "Convex block"
   participant CFB as "Cloudflare blocks"
@@ -436,18 +438,18 @@ sequenceDiagram
   participant CFL as "Cloudflare Workers API"
   participant DB as "Convex DB"
 
-  VA->>DB: add vault, run, lock, and plan with production region
+  VA->>DB: add repository, run, lock, and plan with production region
   VA->>WF: start create-app workflow
-  WF->>DB: create/fetch repo, connect vault, seed starter, sync tree
+  WF->>DB: create/fetch GitHub repository, connect Samebase repository, seed starter, sync tree
   WF->>CVXB: attach_convex child run
   CVXB->>CVX: create/read project in selected region
-  CVXB->>DB: write vaultConvexProjects
+  CVXB->>DB: write repositoryConvexProjects
   alt selected Workers Builds token
     WF->>CFB: attach_worker child run
     CFB->>CFL: create/read Worker
-    CFB->>DB: write vaultCloudflareWorkers
+    CFB->>DB: write repositoryCloudflareWorkers
     WF->>CFB: configure_workers_builds_for_github child run
-    CFB->>CFL: connect GitHub repo + create build triggers
+    CFB->>CFL: connect GitHub repository + create build triggers
     CFB->>DB: record Workers Builds configuration event
     WF->>CFB: rotate_convex_deploy_keys_for_workers_builds child run
     CFB->>CVX: mint production + project preview deploy keys
@@ -462,22 +464,23 @@ sequenceDiagram
 
 ## State Machine
 
-- `vaultConvexProjects` exists when `attach_convex` has attached the plan's exact project and config
-  path.
+- `repositoryConvexProjects` exists when `attach_convex` has attached the plan's exact project and
+  config path.
 - Every Convex plan state keeps the selected production region. Retry uses that value.
-- `vaultCloudflareWorkers` exists when `attach_worker` has attached the plan's exact Worker.
+- `repositoryCloudflareWorkers` exists when `attach_worker` has attached the plan's exact Worker.
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
   current state.
 - A plan with `buildTokenUuid: null` reaches terminal success after `attach_convex`. It does not
   attempt `attach_worker`, `configure_workers_builds_for_github`, or
   `rotate_convex_deploy_keys_for_workers_builds`. Its Cloudflare plan stays `planned`, and no
-  `vaultCloudflareWorkers` row exists.
+  `repositoryCloudflareWorkers` row exists.
 - After first-time token setup, the user uses the normal Create Worker action. That action creates
   the Worker and configures Builds. The existing deploy-key action then installs keys for the
   selected attached Convex project and starts a production build.
 - One shared infrastructure-state reader checks the deletion gate and the write-lock row.
-- Only one operation can change a provider attachment or provider resource in one vault at one time.
+- Only one operation can change a provider attachment or provider resource in one repository at one
+  time.
 - The transaction that creates a create or retry run also creates its active managed lock. The
   source-only `connect_existing_repository` run never gets this lock.
 - A source setup failure makes the matching managed lock failed without changing provider freshness.
@@ -499,24 +502,25 @@ sequenceDiagram
   or create another recovery state. After the fresh provider observations return, the user or agent
   uses the normal create, attach, configure, or repair action for the observed state.
 - A late action result cannot change an expired or replaced owner.
-- `workflow_vaultProvisioning_runs` and `workflow_vaultProvisioning_events` record managed app
-  creation and retry progress. Explicit manual provider attachment does not create a Workflow run.
+- `workflow_repositoryProvisioning_runs` and `workflow_repositoryProvisioning_events` record managed
+  app creation and retry progress. Explicit manual provider attachment does not create a Workflow
+  run.
 
-The dashboard derives control state from `getUserVaults`. Backend mutations use the shared reader to
-reject conflicts. There is no separate command-availability API, generic provider framework,
-resource-level lock, manual-action Workflow run, manual-action history table, manual replay API, or
-manual Retry API.
+The dashboard derives control state from `getUserRepositories`. Backend mutations use the shared
+reader to reject conflicts. There is no separate command-availability API, generic provider
+framework, resource-level lock, manual-action Workflow run, manual-action history table, manual
+replay API, or manual Retry API.
 
 ## UI Surface
 
-In `VaultDashboard`:
+In `RepositoryDashboard`:
 
-- Infra status label per vault
+- Infra status label per repository
 - Production URL when available
 - Infra setup progress/log surface while Samebase-managed infra is preparing, provisioning, failed,
   or partially complete
 - Failed Samebase-managed Convex or Cloudflare setup shows a `Retry` action that calls
-  `api.vault.actions.retryInfrastructureProvisioning`.
+  `api.repository.actions.retryInfrastructureProvisioning`.
 - Missing or inaccessible provider resources remain attached and surface attention. Removal is an
   explicit change to organization attachment intent and never follows automatically from provider
   absence. A Convex 404 under the stored team is ambiguous because the project may have transferred.
@@ -550,8 +554,8 @@ In `NewAppPage`:
 
 Dashboard external links:
 
-- Samebase-managed vaults with infrastructure metadata render a compact service-link row near the
-  repository title.
+- Samebase-managed repositories with infrastructure metadata render a compact service-link row near
+  the repository title.
 - The row includes the GitHub repository link and only renders when at least one managed-infra link
   is available.
 - The Cloudflare link targets the specific Worker by its current observed name:
@@ -579,14 +583,15 @@ Dashboard external links:
 
 - Uses the organization's singleton Convex and Cloudflare credential slots. Any active organization
   member can run authorized provider work through those backend-only credentials.
-- Cloudflare provisioning requires the vault's `cloudflareAccountId` and an organization credential
-  that can access it. It must not inventory accounts and choose one during provisioning.
+- Cloudflare provisioning requires the repository's `cloudflareAccountId` and an organization
+  credential that can access it. It must not inventory accounts and choose one during provisioning.
 - A null-token managed run does not create a Worker. Samebase's normal Create Worker action requires
   a Workers Builds token and configures Builds. The separate deploy-key action installs keys for an
   attached Convex project and starts the production build.
-- Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
-  required owner id read from the GitHub repository response. The response repo id must match the
-  vault before Cloudflare receives the connection request.
+- Workers Builds repository connection uses the connected repository's stored GitHub repository
+  database ID and a required owner ID read from the GitHub repository response. The response GitHub
+  repository database ID must match the repository before Cloudflare receives the connection
+  request.
 - If Workers Builds repository connection returns Cloudflare error code `8000008`, surface this as:
   `Cloudflare Workers and Pages GitHub App is not authorized for <owner>/<repo>. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include <owner>/<repo>, then retry.`
   Provisioning failure recording stores this normalized message on the run `lastError`. The
@@ -599,8 +604,8 @@ Dashboard external links:
   include the failed repository. The third step tells the user to return to Samebase and select
   `Retry`. A separate link opens Cloudflare's current recovery guide.
 - Managed provisioning reuses confirmed provider checkpoints and does not auto-teardown resources on
-  vault deletion unless explicitly requested. After an unconfirmed provider create outcome, retry
-  stops when the same-named resource exists and tells the user to delete it in the provider
+  repository deletion unless explicitly requested. After an unconfirmed provider create outcome,
+  retry stops when the same-named resource exists and tells the user to delete it in the provider
   dashboard. Once the name is absent, retry repeats the create request. Samebase never adopts or
   deletes the resource automatically. A confirmed checkpoint and its stable provider attachment are
   recorded atomically.
@@ -613,7 +618,7 @@ Dashboard external links:
 
 ## Acceptance Checklist
 
-- [x] New samebase-managed vault creation schedules infra provisioning automatically.
+- [x] New samebase-managed repository creation schedules infra provisioning automatically.
 - [x] Every Convex plan state stores the selected region, and the create request uses it.
 - [x] A confirmed empty Workers Builds token list admits New App with explicit `null` input.
 - [x] The public create action accepts explicit `null` without a second Cloudflare provider read.
@@ -621,17 +626,17 @@ Dashboard external links:
       Cloudflare blocks, and succeeds with manual Worker setup pending.
 - [x] After first-time token setup, the normal Create Worker action configures Builds and the normal
       deploy-key action installs Convex keys and starts a production build.
-- [x] Existing-repo connect flow does not auto-provision infra.
+- [x] Existing-repository connect flow does not auto-provision infrastructure.
 - [x] Create and retry own the managed provider lock from run creation.
-- [x] Existing-repo source setup never owns the provider lock.
+- [x] Existing-repository source setup never owns the provider lock.
 - [x] A source setup failure ends its matching managed lock without changing provider freshness.
-- [x] Retry path exists and is guarded to samebase-managed vaults.
+- [x] Retry path exists and is guarded to samebase-managed repositories.
 - [x] Failed Samebase-managed provider setup rows expose the guarded retry path.
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
-- [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
-      when the stored infrastructure metadata is available.
+- [x] Managed repository dashboard cards expose direct Cloudflare project and Convex deployment
+      links when the stored infrastructure metadata is available.
 - [x] A plan without an active managed run does not block a manual provider action.
-- [x] Managed setup, active manual writes, and deletion reject conflicting vault infrastructure
+- [x] Managed setup, active manual writes, and deletion reject conflicting repository infrastructure
       writes in the backend.
 - [x] An old manual action ID cannot complete or clear a newer owner.
 - [x] One fenced expiry ends a silent manual action and requests fresh affected-provider

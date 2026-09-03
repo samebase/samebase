@@ -113,9 +113,9 @@ Use these defaults when working in this repository.
    - `LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD`
 3. Typical smoke flow after sign-in:
    - Open dashboard
-   - Fill `New app name`
-   - Click `New app`
-   - Wait for new vault card and infra status text
+   - Fill `GitHub repository name`
+   - Click `New App`
+   - Wait for the new repository card and infrastructure status text
 4. For UI regressions in shared shells or editors, prefer the shipped route over `/visual-fixture`
    unless the fixture is already an honest production component mount.
 

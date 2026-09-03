@@ -26,18 +26,18 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 When the user says one of these commands, execute it directly:
 
-| Command        | Action                                                                                                           |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage changes and create a concise commit                                                                        |
-| `push`         | Commit if needed, then push                                                                                      |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label               |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label               |
-| `ready`        | Mark the current PR ready                                                                                        |
-| `wait`         | Watch CI and report status                                                                                       |
-| `squash`       | Squash-merge the current PR                                                                                      |
-| `clean vaults` | Remove temporary Samebase-managed vaults for the current worktree                                                |
-| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, then remove the merged or closed-PR worktree/branch |
-| `status`       | Report branch, local changes, and PR state                                                                       |
+| Command              | Action                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `commit`             | Stage changes and create a concise commit                                                                              |
+| `push`               | Commit if needed, then push                                                                                            |
+| `create pr`          | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                     |
+| `create draft`       | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                     |
+| `ready`              | Mark the current PR ready                                                                                              |
+| `wait`               | Watch CI and report status                                                                                             |
+| `squash`             | Squash-merge the current PR                                                                                            |
+| `clean repositories` | Remove temporary Samebase-managed repositories for the current worktree                                                |
+| `clean`              | Run `clean repositories`, clean samebase.com PR preview resources, then remove the merged or closed-PR worktree/branch |
+| `status`             | Report branch, local changes, and PR state                                                                             |
 
 ## Workflow Rules
 
@@ -62,10 +62,10 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
 - `update PR` changes the title first, then the description. It does not change commit subjects.
 - Treat actionable Greptile, CodeRabbit, and Codex review comments as required fixes while shipping.
 - Merge only with green CI and a branch rebased on the latest `origin/main`. Prefer squash merge.
-- Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for Playwright/manual test repos
-  created from a worktree.
-- `clean vaults` must fail closed and only remove matching Samebase-managed vaults through the
-  dashboard delete flow.
+- Use the exact temporary repository prefix `tmp-<worktree-id>-<intent>` for Playwright or manual
+  test repositories created from a worktree.
+- `clean repositories` must fail closed and only remove matching Samebase-managed repositories
+  through the dashboard removal flow.
 - `clean` requires a merged or closed PR. Follow `docs/samebase-pr-preview-cleanup.md` and fail
   closed if provider cleanup cannot finish.
 
@@ -128,8 +128,8 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - Assume responses may be read from a phone: every reference must be a tappable URL reachable off
   this machine: clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
-  alongside any localhost URL, and samebase.com vault file URLs instead of local filesystem paths
-  whenever the branch is pushed.
+  alongside any localhost URL, and samebase.com repository file URLs instead of local filesystem
+  paths whenever the branch is pushed.
 - In Codex Desktop responses, render inline images from absolute local filesystem paths. Remote
   image URLs, including raw GitHub URLs, show as broken thumbnails. When off-machine access is also
   needed, put a separate tappable remote URL beside the locally rendered image.

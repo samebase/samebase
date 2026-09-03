@@ -13,9 +13,9 @@
   - `docs/artifacts/samebase-base/cloudflare-workers-install.md`
   - `docs/artifacts/samebase-base/regeneration-prompt.md`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
-  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
 ## Summary
 
@@ -168,7 +168,7 @@ Requirements:
 5. deploys with Workers Static Assets
 6. includes a minimal `wrangler.jsonc`
 7. does not hard-code the Worker name
-8. supports production deploys and preview-version uploads through repo-owned scripts
+8. supports production deploys and preview-version uploads through repository-owned scripts
 9. documents manual self-deploy without Samebase
 10. preserves its existing teaching history and uses append-only updates
 11. avoids generator leftovers such as `.cta.json` and `.cursorrules`
@@ -200,7 +200,7 @@ Samebase itself should deploy through Workers using the same platform direction 
 Requirements:
 
 1. Cloudflare Workers Static Assets serves the Samebase frontend.
-2. Samebase production build and deploy commands are repo-owned scripts.
+2. Samebase production build and deploy commands are repository-owned scripts.
 3. Preview builds use the same production/preview distinction expected from the generated template.
 4. Runtime environment variables and deploy keys are explicit and documented.
 5. Pages dashboard/build settings are no longer required for Samebase production.
@@ -272,7 +272,7 @@ Required Workers operations:
 9. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
 10. trigger the first production build
 11. read build status, logs, and production URL directly from Cloudflare when needed
-12. rediscover and delete Worker build triggers when deleting a Samebase-managed vault
+12. rediscover and delete Worker build triggers when deleting a Samebase-managed repository
 
 For generated single-repository apps, use these Workers Builds commands:
 
@@ -309,7 +309,7 @@ verification.
 
 ### Phase 5: Move Samebase Production Hosting To Workers
 
-1. Add the minimal Workers config and repo-owned deploy scripts Samebase itself needs.
+1. Add the minimal Workers config and repository-owned deploy scripts Samebase itself needs.
 2. Configure Workers Builds for Samebase production and preview branches.
 3. Validate production deploy, preview deploy, logs, and rollback/version behavior.
 4. Update Samebase operator docs to use Workers terms.
@@ -343,11 +343,11 @@ Before deploying the Workers-only provisioning path, choose one rollout data str
 3. keep a temporary Pages cleanup path for one deploy, then remove it
 
 Do not design the runtime model around indefinite Pages compatibility. Do not keep duplicate
-infrastructure status fields that can disagree with the vault provider states. `vaultInfrastructure`
-must be removed rather than repurposed. Stable Cloudflare Worker identity and the user-approved
-Worker name and root belong in `vaultCloudflareWorkers`. Current Worker name and root are observed
-live only to detect drift. Other Cloudflare state remains live. Spec 115 defines the attachment and
-coordinate update rules.
+infrastructure status fields that can disagree with the repository provider states.
+`repositoryInfrastructure` must be removed rather than repurposed. Stable Cloudflare Worker identity
+and the user-approved Worker name and root belong in `repositoryCloudflareWorkers`. Current Worker
+name and root are observed live only to detect drift. Other Cloudflare state remains live. Spec 115
+defines the attachment and coordinate update rules.
 
 The selected build-token UUID stays in the provisioning plan so an unfinished retry preserves the
 user's exact choice. If Cloudflare removes that record before managed setup finishes, Samebase does
@@ -389,13 +389,13 @@ Samebase production validation:
 Generated app provisioning validation:
 
 1. create a new Samebase-managed app
-2. confirm GitHub repo seeded from Workers template snapshot
+2. confirm that the GitHub repository was seeded from the Workers template snapshot
 3. confirm Convex production deployment exists
 4. confirm Convex preview deployment exists
 5. confirm Cloudflare Worker exists
 6. confirm production URL opens
 7. open a PR and confirm preview URL/status/logs
-8. delete the vault and confirm Samebase-managed resources are removed
+8. delete the repository and confirm Samebase-managed resources are removed
 
 Use Chrome to verify Cloudflare dashboard behavior where API responses are not enough to prove the
 user/operator flow.

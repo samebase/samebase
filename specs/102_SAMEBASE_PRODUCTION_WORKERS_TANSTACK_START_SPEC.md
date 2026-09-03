@@ -58,7 +58,7 @@ component guards.
 2. Convex backend deployed before the frontend build when a deploy key is present
 3. Cloudflare Workers Static Assets serving `dist/client`
 4. Workers SPA fallback serving `/index.html` for client routes
-5. repo-owned deploy scripts for production and preview-version uploads
+5. repository-owned deploy scripts for production and preview-version uploads
 6. Workers Builds connected to the repository after the code path is proven
 
 ## Implementation Notes
@@ -70,16 +70,16 @@ Use exact package pins for the first cutover:
 3. `@tanstack/router-plugin@1.167.35`
 4. `wrangler@4.90.0`
 
-Newer package versions existed on 2026-05-16, but the repo's package freshness policy rejected the
-newest `@tanstack/react-start` and `wrangler` releases. The selected versions were old enough for
-the package manager policy and passed local build/dry-run validation. Because `wrangler@4.90.0`
+Newer package versions existed on 2026-05-16, but the repository's package freshness policy rejected
+the newest `@tanstack/react-start` and `wrangler` releases. The selected versions were old enough
+for the package manager policy and passed local build/dry-run validation. Because `wrangler@4.90.0`
 bundles a local runtime that supports compatibility dates through 2026-05-14, `wrangler.jsonc` uses
 `2026-05-14` until the pinned Wrangler version can be advanced.
 
 Keep the app's current `@/*` import alias for this migration. TanStack Start has no required alias
 convention, and shadcn is configured through `apps/samebase/components.json` with `@/components`,
 `@/lib/utils`, and `@/hooks`. Changing to package imports or another alias can be evaluated as a
-separate repo-wide cleanup, but it is not part of the hosting cutover.
+separate repository-wide cleanup, but it is not part of the hosting cutover.
 
 Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. The app build
 script uses `WORKERS_CI_BRANCH` to choose between `CONVEX_DEPLOY_KEY` on `main` and
@@ -289,7 +289,7 @@ Samebase production itself.
    - attaches the main provider accounts to `samebase` and `nicu-chiciuc`; preview defaults must
      provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
      `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
-   - creates no vaults during seeding
+   - creates no repositories during seeding
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head

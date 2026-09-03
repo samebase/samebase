@@ -48,7 +48,7 @@ authenticated pending-access account state defined here.
    `access_account_settings`. The account settings key admits the restricted settings route and the
    Terms acceptance mutation. The account deletion key admits the deletion dialog and account
    deletion functions. These keys do not grant user preference mutations, organization, provider,
-   vault, billing, MCP, or provisioning access.
+   repository, billing, MCP, or provisioning access.
 6. `users.acceptCurrentTerms` stores `termsAcceptedAt` and the current Terms version. The next
    viewer resolution grants normal member access without another approval step.
 7. Staff users without accepted Terms resolve to `role_terms_pending`. After acceptance, staff email
@@ -78,7 +78,7 @@ authenticated pending-access account state defined here.
 - [x] Staff emails resolve to `role_terms_pending` before Terms acceptance and `role_staff` after
       acceptance.
 - [x] Provider/dashboard/file functions deny pending-access users through access-key checks.
-- [x] Organization, provider, vault, billing, MCP, and provisioning functions deny Terms-pending
-      users through access-key checks.
+- [x] Organization, provider, repository, billing, MCP, and provisioning functions deny
+      Terms-pending users through access-key checks.
 - [x] Pending-access users can persist public workspace sidebar state through
       `access_user_preferences` so they can leave the right sidebar on public routes.

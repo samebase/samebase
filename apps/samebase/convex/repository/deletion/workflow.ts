@@ -135,7 +135,7 @@ export const deleteRepositoryWorkflow = workflow.define({
         runId: args.runId,
         step: "remove_repository",
         level: "info",
-        message: "Removing repository.",
+        message: "Removing from Samebase.",
         state: "running",
       },
       { name: "remove_repository_event" },

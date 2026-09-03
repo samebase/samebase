@@ -131,13 +131,13 @@ leave an organization without an active owner. The check and write occur in one 
 or deleted user does not satisfy the active-owner rule. A deleting member can be removed, but a
 deleting user cannot be promoted.
 
-The last owner cannot leave. After they remove every vault and every other member, they delete the
-organization from Organization settings. That mutation removes the final membership and the
+The last owner cannot leave. After they remove every repository and every other member, they delete
+the organization from Organization settings. That mutation removes the final membership and the
 organization together.
 
-Leave or removal is blocked only while the target user owns a queued or running vault provisioning
-run or vault deletion run in that organization. The membership mutation reads those indexed active
-ranges in its transaction. Role changes are not blocked.
+Leave or removal is blocked only while the target user owns a queued or running repository
+provisioning run or repository deletion run in that organization. The membership mutation reads
+those indexed active ranges in its transaction. Role changes are not blocked.
 
 Leave or removal also deletes a pending invitation that matches the target user's currently linked
 GitHub identity. This makes the access loss durable when a legacy member linked GitHub after the
@@ -157,7 +157,7 @@ identity must become an owner again before it can reconnect the App.
 Removing a membership or leaving deletes only the membership. It preserves:
 
 - The Samebase account and its sign-in methods.
-- The organization, billing, GitHub App installation, vaults, and workflows.
+- The organization, billing, GitHub App installation, repositories, and workflows.
 - Organization provider credentials, including `connectedByUserId` provenance.
 - User-owned GitHub authorization, browser sessions, MCP grants, and MCP tokens.
 - Organization-scoped personal preferences and folder state.

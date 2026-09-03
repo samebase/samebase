@@ -247,7 +247,7 @@ async function buildDeletionPlan(
     }
     default: {
       args.repository satisfies never;
-      throw new Error("Repository is not ready to delete yet.");
+      throw new Error("Repository is not ready to be removed from Samebase yet.");
     }
   }
 }
@@ -301,7 +301,7 @@ export const createInitialRun = internalMutation({
     const repository = await requireRepositoryForUser(ctx.db, args);
     await assertRepositoryIsQuiescentForDeletion(ctx, repository);
     if (repository.state === "not_connected" || repository.state === "provisioning") {
-      throw new Error("Repository is not ready to delete yet.");
+      throw new Error("Repository is not ready to be removed from Samebase yet.");
     }
 
     const [convexProjects, organization] = await Promise.all([
@@ -340,7 +340,7 @@ export const createInitialRun = internalMutation({
       run,
       step: "initialize_deletion",
       level: "info",
-      message: "Queued repository deletion.",
+      message: "Queued removal from Samebase.",
       createdAt: now,
     });
     await ctx.db.patch(args.repositoryId, {
@@ -417,7 +417,7 @@ export const createRetryRun = internalMutation({
       run,
       step: "initialize_deletion",
       level: "info",
-      message: "Queued repository deletion retry.",
+      message: "Queued removal retry.",
       createdAt: now,
     });
     await ctx.db.patch(repository._id, {
@@ -608,7 +608,7 @@ export const finishWorkflowRun = internalMutation({
       run,
       step: "finish",
       level: "info",
-      message: "Deleted repository.",
+      message: "Removed from Samebase.",
       createdAt: now,
     });
     await ctx.db.patch(args.runId, {

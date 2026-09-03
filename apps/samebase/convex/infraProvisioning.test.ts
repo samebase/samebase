@@ -285,7 +285,7 @@ describe("markWorkflowProvisioningFailed", () => {
       runId: ids.runId,
       workflowId: "workflow-github",
       message:
-        "Error: Uncaught Error: GitHub repository response did not match the repository repo.\n    at fetchGitHubRepoIdentity",
+        "Error: Uncaught Error: GitHub repository response did not match the Samebase repository.\n    at fetchGitHubRepoIdentity",
     });
 
     const result = await t.run(async (ctx) => {
@@ -300,7 +300,7 @@ describe("markWorkflowProvisioningFailed", () => {
         .unique();
       return { event, run, writeLock };
     });
-    const expectedMessage = "GitHub repository response did not match the repository repo.";
+    const expectedMessage = "GitHub repository response did not match the Samebase repository.";
 
     expect(result.run).toMatchObject({
       state: "failed",

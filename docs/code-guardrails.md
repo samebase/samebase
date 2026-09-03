@@ -96,31 +96,31 @@ declaring one.
   cannot hide:
 
   ```ts
-  const vault = object({ id: string(), branch: string() });
+  const repository = object({ id: string(), branch: string() });
 
-  // BAD — disconnected: the hand-written predicate target restates what the
+  // BAD: disconnected. The hand-written predicate target restates what the
   // schema already knows. Add `owner: string()` to the schema and this still
   // narrows to the stale two-field shape, with no error anywhere.
-  function isVault(value: unknown): value is { id: string; branch: string } {
-    return vault(value)[0];
+  function isRepository(value: unknown): value is { id: string; branch: string } {
+    return repository(value)[0];
   }
 
-  // GOOD — connected: the schema's own result narrows; one source of truth.
-  const [ok, parsed] = vault(input);
+  // GOOD: connected. The schema's own result narrows from one source of truth.
+  const [ok, parsed] = repository(input);
   if (ok) {
-    // parsed is inferred from the schema — schema changes propagate here
+    // parsed is inferred from the schema, so schema changes propagate here
   }
   ```
 
   A good predicate needs two things at once: complete type safety (the claim is checked, so it
   cannot drift) and visibility (the guarded type is readable at the definition). Derive reusable
   predicates with `guard` in `@samebase/dependent`, written generics-first so both types stay
-  visible without spelling the null failure channel —
+  visible without spelling the null failure channel:
   `guard<Input, Target>((value) => (cond ? value : null))`; the callback returns the received value
-  where control flow narrowed it, or null to reject — see `isConnectedVault` in
-  `apps/samebase/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and the
-  factory identity-checks the result at runtime, so the `value is` claim is earned, never asserted,
-  while the annotated callback keeps the guarded type visible.
+  where control flow narrowed it, or null to reject. See `isConnectedRepository` in
+  `apps/samebase/convex/repository/state.ts`. Returning the un-narrowed input is a compile error and
+  the factory identity-checks the result at runtime, so the `value is` claim is earned, never
+  asserted, while the annotated callback keeps the guarded type visible.
 
   Where a sure schema already proves the shape, do not wrap it in a predicate at all — let the
   validator's own `[ok, value]` result narrow at the call site. (A schema-derived guard factory in

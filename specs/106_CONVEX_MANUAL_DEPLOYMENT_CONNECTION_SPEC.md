@@ -3,28 +3,28 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Samebase provider resources, vault dashboard
+- Owner: Samebase provider resources, repository dashboard
 - Last updated: 2026-08-30
 - Related:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
-  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 
 Convex project connection combines two facts:
 
-1. GitHub observation proves an exact Convex code location in the vault repository.
+1. GitHub observation proves an exact Convex code location in the GitHub repository.
 2. The user intends to attach one identified Convex project at that location.
 
-`vaultConvexProjects` stores that intent, the fixed provider identity, and the code placement:
+`repositoryConvexProjects` stores that intent, the fixed provider identity, and the code placement:
 
 ```ts
 {
   organizationId;
-  vaultId;
+  repositoryId;
   teamId;
   projectId;
   convexConfigPath;
@@ -33,12 +33,12 @@ Convex project connection combines two facts:
 }
 ```
 
-`organizationId` must equal the parent vault's organization. `teamId` must equal the parent vault's
-required `convexTeamId`. `projectId` is the stable global resource identity, and `teamId` is the
-fixed external destination for this attachment. Each row stores exactly one placement variant: an
-explicit `convexConfigPath`, or a default-layout `convexDirectoryPath`. Several projects may
-intentionally select the same code location. Convex `_creationTime` records when the attachment was
-created.
+`organizationId` must equal the parent repository's organization. `teamId` must equal the parent
+repository's required `convexTeamId`. `projectId` is the stable global resource identity, and
+`teamId` is the fixed external destination for this attachment. Each row stores exactly one
+placement variant: an explicit `convexConfigPath`, or a default-layout `convexDirectoryPath`.
+Several projects may intentionally select the same code location. Convex `_creationTime` records
+when the attachment was created.
 
 Project names, slugs, deployments, deployment regions, URLs, deploy keys, current team, and current
 repository file existence remain live provider observations.
@@ -61,10 +61,10 @@ The code location selector is closed over discovered evidence. There is no free-
 
 ### Existing project flow
 
-1. Samebase loads the organization's current Convex credential and lists projects from the vault's
-   exact `convexTeamId`. It also reads one paginated list of the team's default production
-   deployments and joins them to projects by project ID. A missing or mismatched credential fails
-   closed.
+1. Samebase loads the organization's current Convex credential and lists projects from the
+   repository's exact `convexTeamId`. It also reads one paginated list of the team's default
+   production deployments and joins them to projects by project ID. A missing or mismatched
+   credential fails closed.
 2. Projects named by discovered Workers' readable `SAMEBASE_CONVEX_PROJECT` markers sort first and
    show that evidence. Each project also shows its actual default production deployment region or
    `No production deployment`. Observation alone never selects a project.
@@ -86,7 +86,7 @@ When the user selects EU, the dialog states:
 `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
 The disclosure links to Convex pricing.
 
-Samebase re-verifies the source and creates the project in the vault's exact team. The provider
+Samebase re-verifies the source and creates the project in the repository's exact team. The provider
 request sends the region as `deploymentRegion` with `deploymentType: "prod"`. Samebase then reads
 the project back and attaches it at that location.
 
@@ -103,17 +103,17 @@ and does not delete the project automatically.
 
 ### Identity, transfer, and writes
 
-An exact `projectId` can be attached to only one vault, even if its team changes. Idempotent
+An exact `projectId` can be attached to only one repository, even if its team changes. Idempotent
 confirmation preserves attachment identity and only upgrades `origin` when a managed operation
 proves ownership.
 
 Provider writes require the connected credential to verify the stored `projectId` under the stored
-`teamId`. That team must continue to equal the vault's `convexTeamId`. A 404 under that team is
+`teamId`. That team must continue to equal the repository's `convexTeamId`. A 404 under that team is
 ambiguous because the project may have been deleted or transferred, so writes fail closed.
 
 If the connected credential reads the same `projectId` under a different team, Samebase reports team
 transfer or destination mismatch and fails closed. It does not update the attachment `teamId` or the
-vault's fixed destination. The product has no project-team reconciliation action.
+repository's fixed destination. The product has no project-team reconciliation action.
 
 ### Source drift and removal
 
@@ -130,8 +130,8 @@ the attachment automatically.
 
 ### Resource routes
 
-Data and Schema routes identify the `vaultConvexProjects` attachment directly. They do not resolve a
-project by config root and never choose the first project at a shared path.
+Data and Schema routes identify the `repositoryConvexProjects` attachment directly. They do not
+resolve a project by config root and never choose the first project at a shared path.
 
 ### Operation safety
 
@@ -149,7 +149,7 @@ automatically. If the project does not exist, the user can use the normal create
 - Persisting deployment or dashboard metadata.
 - Persisting a Worker-to-project edge.
 - Fuzzy project-to-folder inference.
-- Changing the organization's Convex team in a vault flow.
+- Changing the organization's Convex team in a repository flow.
 - Automatically reconciling a transferred project to a different team.
 - Automatically removing inaccessible projects.
 

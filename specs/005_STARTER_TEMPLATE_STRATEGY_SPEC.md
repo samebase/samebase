@@ -7,7 +7,7 @@
 - Date: 2026-02-13
 - Related specs:
 - Related files:
-  - `apps/samebase/convex/vault/actions.ts`
+  - `apps/samebase/convex/repository/actions.ts`
   - `apps/samebase/convex/starterSeed.ts` (or replacement)
   - `templates/base`
   - `scripts/export-starter-manifest.ts`
@@ -17,13 +17,13 @@
 ## Summary
 
 This spec captures the open questions and tradeoffs discussed while introducing starter seeding for
-new samebase-managed vaults.
+new samebase-managed repositories.
 
 For Iteration 1, the original decision was:
 
 - Keep starter source in a monorepo-local app package
 - Do not use layered seed-step source folders
-- Seed newly created vault/agent repositories as a single commit
+- Seed newly created repository/agent repositories as a single commit
 - Preserve a future path to evaluate a separate dedicated template repository
 
 The 2026-04-29 amendment adopted `samebase/app` as the starter source. The 2026-08-15 amendment
@@ -39,7 +39,7 @@ repositories continue to use app language.
 
 Current product goal:
 
-- New vaults should be instantly deployable and runnable in production after creation.
+- New repositories should be instantly deployable and runnable in production after creation.
 
 Observed issue with the previous approach:
 
@@ -55,10 +55,10 @@ Strategic concern:
 ## Questions Raised (Captured From Discussion)
 
 - Is layered commit snapshotting worth the implementation and maintenance complexity?
-- Would a separate template repo reduce ongoing operational overhead?
+- Would a separate template repository reduce ongoing operational overhead?
 - How should reuse from monorepo into template be handled over time?
 - Should staged commit history be mandatory in generated user repositories?
-- How much runtime dependency on external GitHub sources is acceptable during vault creation?
+- How much runtime dependency on external GitHub sources is acceptable during repository creation?
 
 ## Options Considered
 
@@ -83,20 +83,20 @@ Operational cost:
 
 Pros:
 
-- Lowest complexity inside current repo
+- Lowest complexity inside the current repository
 - Minimal maintenance overhead
 - Reliability-first creation flow remains straightforward
 
 Cons:
 
-- Generated repo no longer teaches incremental setup via commit history
+- Generated repository no longer teaches incremental setup through commit history
 - Less explicit stage semantics in seed pipeline
 
 Operational cost:
 
 - Low
 
-### Option C: Separate template repo (adopted 2026-04-29, superseded 2026-08-15)
+### Option C: Separate template repository (adopted 2026-04-29, superseded 2026-08-15)
 
 Pros:
 
@@ -106,7 +106,7 @@ Pros:
 
 Cons:
 
-- Adds cross-repo release/sync process
+- Adds a cross-repository release and synchronization process
 - Requires clear reliability strategy for consumption in noter
 
 Operational cost:
@@ -121,11 +121,11 @@ Current resolution:
 - `scripts/export-samebase-app-manifest.ts` downloads the selected branch archive and writes
   `apps/samebase/convex/starterSeedManifest.generated.ts`.
 
-### Option D: Separate repo plus staged replay/pinning (deferred)
+### Option D: Separate repository plus staged replay and pinning (deferred)
 
 Pros:
 
-- Keeps pedagogical staged history while decoupling source repo
+- Keeps pedagogical staged history while decoupling the source repository
 
 Cons:
 
@@ -158,7 +158,7 @@ Operational cost:
 
 - Keep starter template in a monorepo-local app package.
 - Remove/avoid `seed-commits/*` layered source model.
-- New vault creation seeds starter content as exactly one commit.
+- New repository creation seeds starter content as exactly one commit.
 - Starter template package manager is pnpm to align with monorepo tooling and reduce package-manager
   variance.
 - The starter app `AGENTS.md` must include:
@@ -196,7 +196,7 @@ git add apps/samebase/convex/starterSeedManifest.generated.ts
 
 ## Public API / Behavior Changes
 
-### `api.vault.actions.createRepository`
+### `api.repository.actions.createRepository`
 
 Behavioral contract for Iteration 1:
 
@@ -206,7 +206,7 @@ Behavioral contract for Iteration 1:
 ### Infra provisioning
 
 - No contract change.
-- Existing behavior remains: provisioning is still auto-scheduled for samebase-managed vaults.
+- Existing behavior remains: provisioning is still auto-scheduled for samebase-managed repositories.
 
 ## Technical Contract for Iteration 1
 
@@ -215,7 +215,7 @@ Behavioral contract for Iteration 1:
 - Seeding outcome in target repository:
   - one commit containing full runnable starter app content.
 - Reliability-first requirement:
-  - no dependency on live external template fetch during repo creation.
+  - no dependency on a live external template fetch during repository creation.
 - Publication requirement:
   - `samebase/base` receives the exact committed `templates/base` Git tree only after required
     checks pass.
@@ -253,7 +253,7 @@ Out of scope for Iteration 1:
 
 ## Test Cases and Scenarios
 
-1. Creating a new samebase-managed vault yields exactly one starter-seeding commit.
+1. Creating a new samebase-managed repository yields exactly one starter-seeding commit.
 2. Seeded repository builds and runs with the current `templates/base` stack.
 3. Infra provisioning still triggers and reaches ready state.
 4. `pnpm run template:export` refreshes the manifest from staged Git blobs under `templates/base`.

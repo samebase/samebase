@@ -1,7 +1,7 @@
 # Samebase PR Preview Cleanup
 
-Use this during `clean` for a branch whose PR is merged or closed, after `clean vaults` and before
-deleting the remote branch. This is a Codex/operator workflow, not a repo script.
+Use this during `clean` for a branch whose PR is merged or closed, after `clean repositories` and
+before deleting the remote branch. This is a Codex/operator workflow, not a repo script.
 
 Any GitHub PR for the branch, including a draft PR, is enough evidence that Samebase preview
 resources exist. Treat both the Cloudflare Worker preview and the Convex preview deployment as
@@ -15,7 +15,7 @@ The scope is only preview resources created for the `samebase.com` app build:
 - the Convex preview deployment for the exact branch
 
 Do not change Cloudflare deploy behavior, add preview tags, add cleanup scripts, or touch temporary
-Samebase-managed vault infrastructure as part of this workflow.
+Samebase-managed repository infrastructure as part of this workflow.
 
 ## Safety Rules
 

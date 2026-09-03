@@ -6,12 +6,12 @@
 - Owner: dashboard reload, GitHub sync, branch cache freshness
 - Created: 2026-05-11
 - Related docs:
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `archive/070_GITHUB_SYNC_PHASED_ROLLOUT_SPEC.md`
   - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
-  - `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
+  - `specs/098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md`
   - `research/2026-05-09-dashboard-reload-sync-workpool-research.md`
 
 ## Contract

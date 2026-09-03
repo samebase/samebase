@@ -3,10 +3,10 @@
 ## Document Control
 
 - Status: Implemented
-- Owner: Vault add flow + GitHub integration
+- Owner: Repository add flow + GitHub integration
 - Last updated: 2026-08-07
 - Related specs:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Summary
@@ -19,8 +19,8 @@ Two concrete requirements define that behavior:
 
 1. `github.listRepositories` must enumerate the full accessible repository set, not just the first
    GitHub results page.
-2. The repository search UI must match repository name, owner slug, and full `owner/repo`
-   identifier, so an ownership transfer does not make the repo appear missing.
+2. The repository search UI must match repository name, owner slug, and full `owner/repository`
+   identifier, so an ownership transfer does not make the repository appear missing.
 
 ## Problem Statement
 
@@ -28,8 +28,8 @@ Before this change:
 
 1. `github.listRepositories` fetched a single `GET /user/repos` page with `per_page=100`, so users
    with more than 100 accessible repositories could never discover repos beyond page 1.
-2. The repository picker only searched `repo.name`, so a repo transfer that changed only the owner
-   slug made the repo unsearchable by its new organization name.
+2. The repository picker only searched `repo.name`, so a repository transfer that changed only the
+   owner slug made the repository unsearchable by its new organization name.
 
 That combination made transferred org-owned repositories look absent even when GitHub would allow
 Samebase to connect them.
@@ -70,8 +70,8 @@ Search must fuzzy-match across:
 2. repository owner slug (derived from `repo.full_name`)
 3. full `repo.full_name`
 
-The UI continues to hide repositories already connected as vaults by exact `repositoryFullName`
-match.
+The UI continues to hide repositories already connected as repositories by exact
+`repositoryFullName` match.
 
 ## Non-Goals
 
@@ -90,7 +90,8 @@ access.
 
 ## Acceptance Checklist
 
-- [x] A repo transferred from `user/repo` to `org/repo` can be found by typing `org`.
+- [x] A repository transferred from `user/repository` to `org/repository` can be found by typing
+      `org`.
 - [x] A user with more than 100 accessible repositories can still discover repos beyond the first
       GitHub page.
-- [x] Existing connected vaults remain filtered out from `/org/<owner>/connect-repo`.
+- [x] Existing connected repositories remain filtered out from `/org/<owner>/connect-repo`.
