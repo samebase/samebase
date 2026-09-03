@@ -45,6 +45,19 @@ async function openRoute(page: Page, route: string) {
   await page.goto(route, { waitUntil: "domcontentloaded" });
 }
 
+async function openDesktopRightPane(page: Page) {
+  await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+    "data-viewport-measured",
+    "",
+  );
+  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
+  if ((await rightPane.getAttribute("data-desktop-open")) === null) {
+    await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  }
+  await expect(rightPane).toHaveAttribute("data-desktop-open", "");
+  return rightPane;
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ height: 900, width: 1200 });
@@ -211,8 +224,7 @@ test("keeps one organization switchable across settings, providers, and billing"
   const header = page.locator(MAIN_HEADER_SELECTOR);
   await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
+  const rightPane = await openDesktopRightPane(page);
   const organizationContext = rightPane.getByTestId("organization-context-control");
   await expect(
     organizationContext.getByRole("button", {
@@ -230,6 +242,15 @@ test("keeps one organization switchable across settings, providers, and billing"
   ).toBeVisible();
   await expect(organizationSettings.getByText("Connect Convex", { exact: true })).toHaveCount(0);
   await expect(organizationSettings.getByTestId("organization-billing-section")).toBeVisible();
+  await expect(rightPane.getByRole("heading", { name: "Product updates" })).toBeVisible();
+  const onboardingPoster = rightPane
+    .getByRole("heading", { name: "First time using Samebase?" })
+    .locator("..")
+    .locator("img");
+  await expect(onboardingPoster).toBeVisible();
+  await expect
+    .poll(() => onboardingPoster.evaluate((image) => image.complete && image.naturalWidth > 0))
+    .toBe(true);
   await expect(page).toHaveScreenshot("organization-context-one-organization-settings.png", {
     ...screenshotOptions,
     fullPage: true,
@@ -333,11 +354,8 @@ test("keeps organization scope across direct links and browser history", async (
   await expect(page).toHaveURL(/\/org\/org-context-history-alpha\/repositories$/u);
 
   await openRoute(page, "/org/org-context-history-alpha/settings?dev");
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  await page
-    .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
-    .getByRole("button", { name: "Switch organization" })
-    .click();
+  const rightPane = await openDesktopRightPane(page);
+  await rightPane.getByRole("button", { name: "Switch organization" }).click();
   await page.getByRole("menuitem", { name: "org-context-history-beta" }).click();
   await expect(page).toHaveURL(/\/org\/org-context-history-beta\/settings\?dev$/u);
   await expect(
