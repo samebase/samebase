@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { internal } from "../convex/_generated/api";
 import { createLocalConvexAdminClient } from "../scripts/localConvexAdminClient.ts";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+} from "../src/lib/publicLanding";
 
 const LOCAL_CONFIG_PATH = fileURLToPath(
   new URL("../.convex/local/default/config.json", import.meta.url),
@@ -12,6 +15,14 @@ const ACCEPTANCE_PASSWORD = "organization-context-pass-1234";
 
 type AcceptanceOrganization =
   (typeof internal.devAuth.applyOrganizationContextAcceptanceFixture)["_args"]["organizations"][number];
+
+async function waitForAuthenticatedAccount(page: Page) {
+  await expect(
+    page
+      .getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID)
+      .getByRole("link", { name: "Account settings" }),
+  ).toBeVisible({ timeout: 30_000 });
+}
 
 export async function createOrganizationContextAcceptanceAccount(page: Page, email: string) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -22,7 +33,7 @@ export async function createOrganizationContextAcceptanceAccount(page: Page, ema
   await emailInput.fill(email);
   await accountSection.getByPlaceholder("Password").fill(ACCEPTANCE_PASSWORD);
   await accountSection.getByRole("button", { exact: true, name: "Create account" }).click();
-  await expect(emailInput).toBeHidden();
+  await waitForAuthenticatedAccount(page);
 }
 
 export async function signInOrganizationContextAcceptanceAccount(page: Page, email: string) {
@@ -32,7 +43,7 @@ export async function signInOrganizationContextAcceptanceAccount(page: Page, ema
   await emailInput.fill(email);
   await accountSection.getByPlaceholder("Password").fill(ACCEPTANCE_PASSWORD);
   await accountSection.getByRole("button", { exact: true, name: "Sign in" }).click();
-  await expect(emailInput).toBeHidden();
+  await waitForAuthenticatedAccount(page);
 }
 
 export async function applyOrganizationContextAcceptanceFixture(args: {
