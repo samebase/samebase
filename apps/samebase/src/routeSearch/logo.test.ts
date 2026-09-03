@@ -297,7 +297,7 @@ describe("logoRouteSearch", () => {
   it("keeps renderer and landing controls on the Menger hover route schema only", () => {
     expect(
       validateLogoMengerHoverRouteSearch({
-        aa: "2x2",
+        aa: "4x4",
         depth: "99",
         perf: "",
         resolution: "1",
@@ -306,7 +306,7 @@ describe("logoRouteSearch", () => {
         tiltStrength: "1.5",
       }),
     ).toEqual({
-      aa: "2x2",
+      aa: "4x4",
       depth: MENGER_TYPE_GPU_MAXIMUM_DEPTH,
       perf: true,
       resolution: 1,

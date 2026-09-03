@@ -35,6 +35,7 @@ import {
 } from "@/components/logo/mengerAutomaticProbe";
 import {
   MENGER_TYPE_GPU_ANTIALIASING_MODES,
+  MENGER_TYPE_GPU_ANTIALIASING_SETTINGS,
   MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
   MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
   MENGER_TYPE_GPU_MAXIMUM_DEPTH,
@@ -131,6 +132,7 @@ export function LogoMengerDepthTransitionPage({
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const selectedRenderer: MengerHoverRenderer = routeSearch.three ? "three" : "typegpu";
   const antialiasing = routeSearch.aa ?? MENGER_TYPE_GPU_DEFAULT_ANTIALIASING;
+  const antialiasingSettings = MENGER_TYPE_GPU_ANTIALIASING_SETTINGS[antialiasing];
   const performanceMeasurementEnabled = routeSearch.perf === true;
   const searchHoverMaximumDepth = routeSearch.depth ?? MENGER_HOVER_DEFAULT_DEPTH;
   const searchResolutionScale = normalizeMengerTypeGpuResolutionScale(
@@ -867,15 +869,14 @@ export function LogoMengerDepthTransitionPage({
                   aria-label="Anti-aliasing"
                   className="h-8 w-full rounded-none border-border bg-background px-2 text-sm shadow-none"
                 >
-                  {antialiasing === "2x2" ? "2x2 shader supersampling" : "Off"}
+                  {antialiasingSettings.label}
                 </SelectTrigger>
                 <AppSelectContent className="rounded-none border-border">
-                  <AppSelectItem className="rounded-none" value="off">
-                    Off
-                  </AppSelectItem>
-                  <AppSelectItem className="rounded-none" value="2x2">
-                    2x2 shader supersampling
-                  </AppSelectItem>
+                  {MENGER_TYPE_GPU_ANTIALIASING_MODES.map((mode) => (
+                    <AppSelectItem className="rounded-none" key={mode} value={mode}>
+                      {MENGER_TYPE_GPU_ANTIALIASING_SETTINGS[mode].label}
+                    </AppSelectItem>
+                  ))}
                 </AppSelectContent>
               </Select>
             </div>
@@ -1285,7 +1286,11 @@ export function LogoMengerDepthTransitionPage({
           {selectedRenderer === "typegpu" ? (
             <>
               <div>1 full-screen triangle</div>
-              <div>{antialiasing === "2x2" ? "4 rays per pixel" : "1 ray per pixel"}</div>
+              <div>
+                {antialiasingSettings.gridSize === 1
+                  ? "1 ray per pixel"
+                  : `${antialiasingSettings.gridSize ** 2} rays per pixel`}
+              </div>
               <div>{conceptualCellCount.toLocaleString()} conceptual cells</div>
               <div>128 maximum ray steps</div>
               {gpuTimingSummary.kind === "measured" ? (
@@ -1315,6 +1320,8 @@ export function LogoMengerDepthTransitionPage({
     ),
     [
       antialiasing,
+      antialiasingSettings.gridSize,
+      antialiasingSettings.label,
       automaticProbeDraft,
       commitAutomaticProbeDraft,
       commitHoverDraftSettings,

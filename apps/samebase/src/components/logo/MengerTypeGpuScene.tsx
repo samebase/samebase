@@ -20,6 +20,7 @@ import {
   type MengerAutomaticProbeMotionSettings,
 } from "@/components/logo/mengerAutomaticProbe";
 import {
+  MENGER_TYPE_GPU_ANTIALIASING_SETTINGS,
   MENGER_TYPE_GPU_MAXIMUM_DEPTH,
   type MengerTypeGpuAntialiasing,
 } from "@/components/logo/mengerTypeGpuSettings";
@@ -57,6 +58,7 @@ const CAMERA_FIT_RADIUS = Math.sqrt(3);
 const MAXIMUM_DEVICE_PIXEL_RATIO = 2;
 const GPU_TIMING_FRAME_INTERVAL = 6;
 const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
+const MAXIMUM_ANTIALIASING_GRID_SIZE = 4;
 const MAXIMUM_RAY_STEPS = 128;
 const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
 const MENGER_TYPE_GPU_HOVER_STATE = d.struct({
@@ -68,8 +70,8 @@ const MENGER_TYPE_GPU_SCENE_STATE = d.struct({
   antialiasingGridSize: d.i32,
   aspectRatio: d.f32,
   frustumHalfSpan: d.f32,
+  pixelSize: d.f32,
   selectedDepth: d.i32,
-  subpixelOffset: d.f32,
   surfaceThreshold: d.f32,
 });
 const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
@@ -485,11 +487,12 @@ export function MengerTypeGpuScene({
           revealRadius: MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
         });
         const sceneState = root.createUniform(MENGER_TYPE_GPU_SCENE_STATE, {
-          antialiasingGridSize: antialiasingRef.current === "2x2" ? 2 : 1,
+          antialiasingGridSize:
+            MENGER_TYPE_GPU_ANTIALIASING_SETTINGS[antialiasingRef.current].gridSize,
           aspectRatio: 1,
           frustumHalfSpan: frustumHalfSpanRef.current,
+          pixelSize: 0,
           selectedDepth: depthRef.current,
-          subpixelOffset: 0,
           surfaceThreshold: 0.001,
         });
 
@@ -750,17 +753,28 @@ export function MengerTypeGpuScene({
             return traceMenger(screenPoint);
           }
 
-          const offset = sceneState.$.subpixelOffset;
-          const topLeft = traceMenger(std.add(screenPoint, d.vec2f(std.neg(offset), offset)));
-          const topRight = traceMenger(std.add(screenPoint, d.vec2f(offset, offset)));
-          const bottomLeft = traceMenger(
-            std.add(screenPoint, d.vec2f(std.neg(offset), std.neg(offset))),
-          );
-          const bottomRight = traceMenger(std.add(screenPoint, d.vec2f(offset, std.neg(offset))));
-          return std.mul(
-            std.add(std.add(topLeft, topRight), std.add(bottomLeft, bottomRight)),
-            0.25,
-          );
+          const gridSize = sceneState.$.antialiasingGridSize;
+          let color = d.vec4f(0);
+          for (let sampleY = 0; sampleY < MAXIMUM_ANTIALIASING_GRID_SIZE; sampleY += 1) {
+            if (sampleY >= gridSize) {
+              break;
+            }
+            for (let sampleX = 0; sampleX < MAXIMUM_ANTIALIASING_GRID_SIZE; sampleX += 1) {
+              if (sampleX >= gridSize) {
+                break;
+              }
+              const samplePosition = std.div(
+                d.vec2f(std.add(d.f32(sampleX), 0.5), std.add(d.f32(sampleY), 0.5)),
+                d.f32(gridSize),
+              );
+              const sampleOffset = std.mul(
+                std.sub(samplePosition, d.vec2f(0.5)),
+                sceneState.$.pixelSize,
+              );
+              color = std.add(color, traceMenger(std.add(screenPoint, sampleOffset)));
+            }
+          }
+          return std.mul(color, std.div(1, d.f32(std.mul(gridSize, gridSize))));
         });
         const pipeline = root.createRenderPipeline({
           vertex: common.fullScreenTriangle,
@@ -1379,7 +1393,7 @@ export function MengerTypeGpuScene({
           sceneState.patch({
             aspectRatio: nextWidth / nextHeight,
             frustumHalfSpan: nextFrustumHalfSpan,
-            subpixelOffset: 0.5 / nextHeight,
+            pixelSize: 2 / nextHeight,
             surfaceThreshold: Math.max((nextFrustumHalfSpan * 2 * 0.12) / nextHeight, 0.0002),
           });
           if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
@@ -1400,7 +1414,9 @@ export function MengerTypeGpuScene({
           requestRender();
         };
         writeAntialiasingRef.current = (nextAntialiasing) => {
-          sceneState.patch({ antialiasingGridSize: nextAntialiasing === "2x2" ? 2 : 1 });
+          sceneState.patch({
+            antialiasingGridSize: MENGER_TYPE_GPU_ANTIALIASING_SETTINGS[nextAntialiasing].gridSize,
+          });
           requestRender();
         };
         writeDepthRef.current = (nextDepth) => {
@@ -1411,7 +1427,8 @@ export function MengerTypeGpuScene({
 
         resizeObserver.observe(canvas);
         sceneState.patch({
-          antialiasingGridSize: antialiasingRef.current === "2x2" ? 2 : 1,
+          antialiasingGridSize:
+            MENGER_TYPE_GPU_ANTIALIASING_SETTINGS[antialiasingRef.current].gridSize,
           selectedDepth: depthRef.current,
         });
         writeColors(colorsRef.current);

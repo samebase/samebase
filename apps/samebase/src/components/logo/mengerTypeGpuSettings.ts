@@ -7,10 +7,16 @@ export const MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE = 0.75;
 export const MENGER_TYPE_GPU_MINIMUM_RESOLUTION_SCALE = 0.5;
 export const MENGER_TYPE_GPU_MAXIMUM_RESOLUTION_SCALE = 1;
 export const MENGER_TYPE_GPU_RESOLUTION_SCALE_STEP = 0.25;
-export const MENGER_TYPE_GPU_ANTIALIASING_MODES = ["off", "2x2"] as const;
+export const MENGER_TYPE_GPU_ANTIALIASING_MODES = ["off", "2x2", "4x4"] as const;
 export const MENGER_TYPE_GPU_DEFAULT_ANTIALIASING = "off";
 
 export type MengerTypeGpuAntialiasing = (typeof MENGER_TYPE_GPU_ANTIALIASING_MODES)[number];
+
+export const MENGER_TYPE_GPU_ANTIALIASING_SETTINGS = {
+  off: { gridSize: 1, label: "Off" },
+  "2x2": { gridSize: 2, label: "2x2 shader supersampling" },
+  "4x4": { gridSize: 4, label: "4x4 shader supersampling" },
+} satisfies Record<MengerTypeGpuAntialiasing, { gridSize: number; label: string }>;
 
 export type MengerTypeGpuSettings = {
   antialiasing: MengerTypeGpuAntialiasing;
