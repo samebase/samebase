@@ -536,8 +536,6 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-platform-mobile.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-platform-narrow-pane.png",
   "apps/samebase/e2e/landing-menger-visual.spec.ts",
-  "apps/samebase/e2e/landing-menger-visual.spec.ts-snapshots/landing-preview-hero-menger-wide-touch.png",
-  "apps/samebase/e2e/landing-menger-visual.spec.ts-snapshots/landing-preview-hero-menger.png",
   "apps/samebase/e2e/liveHelpers.ts",
   "apps/samebase/e2e/local-storage-route-visual.spec.ts",
   "apps/samebase/e2e/local-storage-route-visual.spec.ts-snapshots/local-storage-workspace.png",

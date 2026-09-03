@@ -3,7 +3,7 @@ import playwrightConfig from "./playwright.config";
 
 export default defineConfig({
   ...playwrightConfig,
-  grepInvert: [],
+  grepInvert: /@webgpu/,
   projects: [
     {
       name: "logo specs",

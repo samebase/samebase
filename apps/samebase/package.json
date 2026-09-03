@@ -40,6 +40,7 @@
     "test:logo-research": "playwright test -c playwright.logo-research.config.ts",
     "test:opt-in": "playwright test -c playwright.opt-in.config.ts",
     "test:visual": "playwright test -c playwright.config.ts",
+    "test:webgpu": "playwright test -c playwright.webgpu.config.ts",
     "test:live": "playwright test -c playwright.live.config.ts",
     "preview": "vp preview"
   },

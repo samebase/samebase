@@ -55,6 +55,7 @@
     "test:logo-research": "node ./scripts/playwright-linux-docker.ts -c playwright.logo-research.config.ts",
     "test:opt-in": "node ./scripts/playwright-linux-docker.ts -c playwright.opt-in.config.ts",
     "test:visual:linux": "node ./scripts/playwright-linux-docker.ts",
+    "test:webgpu": "node ./scripts/playwright-linux-docker.ts -c playwright.webgpu.config.ts",
     "test:watch": "vp test watch",
     "dev:samebase": "node ./scripts/run-primary-dev.ts",
     "dev:sidebars-example": "vp run --filter @samebase/sidebars-example dev",
