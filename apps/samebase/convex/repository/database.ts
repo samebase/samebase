@@ -16,8 +16,6 @@ import { requireRepositoryForUser } from "../organizationAccess";
 const { id, literal, object, string, union } = v;
 
 const EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS = 60 * 60 * 1000;
-const EMBEDDED_DASHBOARD_CREATE_OPERATION = "embedded_dashboard_credentials_create";
-const EMBEDDED_DASHBOARD_REVOKE_OPERATION = "embedded_dashboard_credentials_revoke";
 const EMBEDDED_DASHBOARD_ALLOWED_ACTIONS = [
   "deployment:data:view",
   "deployment:data:write",
@@ -205,43 +203,27 @@ export const createEmbeddedDashboardCredentials = action({
       return context;
     }
 
-    const operationId = crypto.randomUUID();
-    const lease = await ctx.runMutation(
-      internal.repositoryMigration.maintenance.claimOperationLease,
-      {
-        operationId,
-        operationName: EMBEDDED_DASHBOARD_CREATE_OPERATION,
-      },
-    );
-    try {
-      const expiresAt = Date.now() + EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS;
-      const deployKeyName = buildEmbeddedDashboardDeployKeyName({
-        deploymentName: context.deployment.name,
-        expiresAt,
-      });
-      const deployKey = await createConvexDeploymentDeployKey({
-        allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
-        authMethod: context.convexCredential.auth.method,
-        deploymentName: context.deployment.name,
-        expiresAt,
-        name: deployKeyName,
-        token: context.convexCredential.auth.credential,
-      });
+    const expiresAt = Date.now() + EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS;
+    const deployKeyName = buildEmbeddedDashboardDeployKeyName({
+      deploymentName: context.deployment.name,
+      expiresAt,
+    });
+    const deployKey = await createConvexDeploymentDeployKey({
+      allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
+      authMethod: context.convexCredential.auth.method,
+      deploymentName: context.deployment.name,
+      expiresAt,
+      name: deployKeyName,
+      token: context.convexCredential.auth.credential,
+    });
 
-      return {
-        kind: "ready",
-        deploymentUrl: context.deployment.deploymentUrl,
-        deploymentName: context.deployment.name,
-        deployKeyName,
-        adminKey: deployKey,
-      };
-    } finally {
-      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-        leaseId: lease.leaseId,
-        operationId,
-        operationName: EMBEDDED_DASHBOARD_CREATE_OPERATION,
-      });
-    }
+    return {
+      kind: "ready",
+      deploymentUrl: context.deployment.deploymentUrl,
+      deploymentName: context.deployment.name,
+      deployKeyName,
+      adminKey: deployKey,
+    };
   },
 });
 
@@ -267,27 +249,11 @@ export const revokeEmbeddedDashboardCredentials = action({
       return null;
     }
 
-    const operationId = crypto.randomUUID();
-    const lease = await ctx.runMutation(
-      internal.repositoryMigration.maintenance.claimOperationLease,
-      {
-        operationId,
-        operationName: EMBEDDED_DASHBOARD_REVOKE_OPERATION,
-      },
-    );
-    try {
-      await deleteConvexDeploymentDeployKey({
-        deploymentName: context.deployment.name,
-        name: args.deployKeyName,
-        token: context.convexCredential.auth.credential,
-      });
-      return null;
-    } finally {
-      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-        leaseId: lease.leaseId,
-        operationId,
-        operationName: EMBEDDED_DASHBOARD_REVOKE_OPERATION,
-      });
-    }
+    await deleteConvexDeploymentDeployKey({
+      deploymentName: context.deployment.name,
+      name: args.deployKeyName,
+      token: context.convexCredential.auth.credential,
+    });
+    return null;
   },
 });

@@ -351,11 +351,7 @@ describe("app provisioning retry admission", () => {
           q.eq("repositoryId", ids.repositoryId).eq("state", "queued"),
         )
         .collect();
-      if (
-        repository === null ||
-        repository.state === "migration_placeholder" ||
-        repository.state === "migration_tombstone"
-      ) {
+      if (repository === null) {
         throw new Error("Repository fixture is missing.");
       }
       return { deletion: repository.deletion, queuedRunCount: queuedRuns.length };

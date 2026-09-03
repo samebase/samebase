@@ -10,10 +10,6 @@ import { mutation, query } from "../functions";
 import { isAdminUser } from "../userAccess";
 import { readUserProfile } from "../userLifecycle";
 import {
-  readRepositoryWriteMode,
-  requireRepositoryOperationStart,
-} from "../repositoryMigration/maintenance";
-import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
   vAccountDeletionStep,
@@ -144,7 +140,6 @@ async function queueAccountDeletion(
     user: Extract<Doc<"users">, { state: "active" }>;
   },
 ) {
-  await requireRepositoryOperationStart(ctx);
   if (args.deletionStartMode !== resolveAccountDeletionStartMode()) {
     throw new Error("Account deletion policy changed. Review the current deletion terms.");
   }
@@ -202,7 +197,6 @@ async function startQueuedAccountDeletion(
   ctx: MutationCtx,
   run: Extract<Doc<"workflow_accountDeletion_runs">, { state: "queued" }>,
 ): Promise<void> {
-  await requireRepositoryOperationStart(ctx);
   const user = await ctx.db.get(run.identity.userId);
   if (user === null || user.state !== "deleting" || user.runId !== run._id) {
     throw new Error("Account deletion marker is inconsistent.");
@@ -301,13 +295,6 @@ export const startScheduled = internalMutation({
       return null;
     }
 
-    const repositoryWriteMode = await readRepositoryWriteMode(ctx);
-    if (repositoryWriteMode.mode !== "normal") {
-      await ctx.scheduler.runAfter(60_000, internal.accountDeletion.index.startScheduled, {
-        runId: args.runId,
-      });
-      return null;
-    }
     await startQueuedAccountDeletion(ctx, run);
     return null;
   },
@@ -411,7 +398,6 @@ export const retry = mutation({
   args: { runId: id("workflow_accountDeletion_runs") },
   returns: vAccountDeletionStatus,
   handler: async (ctx, args) => {
-    await requireRepositoryOperationStart(ctx);
     const run = await ctx.db.get(args.runId);
     if (run === null || run.identity.state !== "active" || run.state !== "needs_attention") {
       throw new Error("Account deletion run is not retryable.");

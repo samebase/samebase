@@ -42,34 +42,8 @@ import {
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
 import { readActiveUser } from "./userLifecycle";
-import {
-  requireRepositoryOperationLease,
-  requireRepositoryOperationStart,
-} from "./repositoryMigration/maintenance";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
-const GITHUB_APP_CALLBACK_OPERATION = "github_app_callback";
-
-const vRepositoryOperationLease = object({
-  leaseId: id("repositoryOperationLeases"),
-  operationId: string(),
-  operationName: string(),
-});
-type RepositoryOperationLease = Infer<typeof vRepositoryOperationLease>;
-
-async function requireGitHubAppCallbackLease(
-  ctx: MutationCtx,
-  setupStateId: Id<"githubAppSetupStates">,
-  operationLease: RepositoryOperationLease,
-): Promise<void> {
-  if (
-    operationLease.operationName !== GITHUB_APP_CALLBACK_OPERATION ||
-    operationLease.operationId !== `github-app-callback:${setupStateId}`
-  ) {
-    throw new Error("GitHub App callback operation authority is required.");
-  }
-  await requireRepositoryOperationLease(ctx, operationLease);
-}
 
 const vGitHubAppSetupStateResult = union(
   object({
@@ -244,7 +218,6 @@ export const createSetupState = internalMutation({
       throw new Error("GitHub App setup state organization does not match its purpose.");
     }
 
-    await requireRepositoryOperationStart(ctx);
     return await ctx.db.insert("githubAppSetupStates", args);
   },
 });
@@ -283,11 +256,9 @@ export const getSetupStateByState = internalQuery({
 export const deleteSetupState = internalMutation({
   args: {
     setupStateId: id("githubAppSetupStates"),
-    operationLease: vRepositoryOperationLease,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireGitHubAppCallbackLease(ctx, args.setupStateId, args.operationLease);
     const setupState = await ctx.db.get(args.setupStateId);
     if (setupState !== null) {
       await ctx.db.delete(setupState._id);
@@ -305,7 +276,6 @@ export const completeVerifiedSetup = internalMutation({
     githubOwnerType: vGitHubOwnerType,
     githubOwnerLogin: string(),
     githubUserId: string(),
-    operationLease: vRepositoryOperationLease,
   },
   returns: vGitHubAppSetupCompletion,
   handler: async (ctx, args): Promise<GitHubAppSetupCompletion> => {
@@ -320,8 +290,6 @@ export const completeVerifiedSetup = internalMutation({
     if (purpose !== "installation" && purpose !== "installation_reconnect") {
       throw new Error("GitHub App setup state purpose changed.");
     }
-    await requireGitHubAppCallbackLease(ctx, args.setupStateId, args.operationLease);
-
     const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
       userId: setupState.userId,
     });
@@ -418,9 +386,6 @@ export const completeVerifiedSetup = internalMutation({
         githubOwnerLogin: args.githubOwnerLogin,
         githubInstallationId: args.installationId,
         setupStateId: args.setupStateId,
-        leaseId: args.operationLease.leaseId,
-        operationId: args.operationLease.operationId,
-        operationName: args.operationLease.operationName,
       },
     );
 
@@ -443,7 +408,6 @@ export const completeUserAuthorization = internalMutation({
     accessTokenExpiresAt: number(),
     refreshToken: string(),
     refreshTokenExpiresAt: number(),
-    operationLease: vRepositoryOperationLease,
   },
   returns: vGitHubUserAuthorizationCompletion,
   handler: async (ctx, args): Promise<GitHubUserAuthorizationCompletion> => {
@@ -457,8 +421,6 @@ export const completeUserAuthorization = internalMutation({
     if (setupState.purpose !== "user_authorization") {
       throw new Error("GitHub App setup state purpose changed.");
     }
-    await requireGitHubAppCallbackLease(ctx, args.setupStateId, args.operationLease);
-
     const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
       userId: setupState.userId,
     });
@@ -604,25 +566,10 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
     returnToPath: setupState.returnToPath,
   });
   const provider = readGitHubAuthorizationProvider(setupState.purpose);
-  const operationId = `github-app-callback:${setupState.setupStateId}`;
-  const operationName = GITHUB_APP_CALLBACK_OPERATION;
-  const lease = await ctx.runMutation(
-    internal.repositoryMigration.maintenance.claimOperationLease,
-    {
-      operationId,
-      operationName,
-    },
-  );
-  const operationLease = {
-    leaseId: lease.leaseId,
-    operationId,
-    operationName,
-  };
-  try {
+  {
     if (setupState.expiresAt < Date.now()) {
       await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
         setupStateId: setupState.setupStateId,
-        operationLease,
       });
       console.log("github:authorization:callback_completed", {
         outcome: "expired",
@@ -639,7 +586,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
       const errorCode = classifyAuthorizationCallbackError(error);
       await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
         setupStateId: setupState.setupStateId,
-        operationLease,
       });
       console.log("github:authorization:callback_completed", {
         outcome: errorCode,
@@ -664,7 +610,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
           const authorization = await resolveGitHubUserAuthorizationForAppConnection(
             ctx,
             setupState.userId,
-            operationLease,
           );
           if (authorization.status !== "ready") {
             throw new Error("A matching GitHub user authorization is required.");
@@ -690,7 +635,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
               githubOwnerType: installation.githubOwnerType,
               githubOwnerLogin: installation.githubOwnerLogin,
               githubUserId: authorization.githubUserId,
-              operationLease,
             },
           );
           switch (completion.status) {
@@ -777,7 +721,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
                 refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
                 githubUserId: authorization.githubUserId,
                 githubUserLogin: authorization.githubUserLogin,
-                operationLease,
               },
             );
           } catch (error) {
@@ -825,7 +768,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
     } catch (error) {
       await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
         setupStateId: setupState.setupStateId,
-        operationLease,
       });
       console.error("github:authorization:callback_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
@@ -842,12 +784,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
       eventType: "github-app-setup-complete",
       returnUrl: completionReturnUrl,
       title: "GitHub App setup",
-    });
-  } finally {
-    await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-      leaseId: lease.leaseId,
-      operationId,
-      operationName,
     });
   }
 });

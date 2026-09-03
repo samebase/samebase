@@ -22,7 +22,6 @@ import { PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
-import { requireRepositoryOperationStart } from "./repositoryMigration/maintenance";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -617,7 +616,6 @@ export const applyOrganizationContextAcceptanceFixture = internalMutation({
     if (resolveDeploymentProfile().kind !== "local_worktree") {
       throw new Error("Organization context acceptance fixtures require a local worktree.");
     }
-    await requireRepositoryOperationStart(ctx);
     if (args.organizations.length > 3) {
       throw new Error(
         "Organization context acceptance fixtures support at most three organizations.",

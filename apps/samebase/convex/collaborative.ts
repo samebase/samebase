@@ -11,28 +11,12 @@ import {
   STALE_BASE_VERSION_ERROR_CODE,
   buildStaleBaseVersionErrorMessage,
 } from "../shared/stagingErrors";
-import {
-  requireRepositoryOperationLease,
-  requireRepositoryOperationStart,
-} from "./repositoryMigration/maintenance";
 
 // Keep this many recent updates per file for clients to catch up.
 // Older updates are pruned since the content is already applied to staging.
 const MAX_UPDATES_TO_KEEP = 200;
 const CLEANUP_BATCH_SIZE = 500;
 const { array, boolean, id, number, object, string } = v;
-
-type RepositoryOperationLeaseArgs = {
-  leaseId?: Id<"repositoryOperationLeases">;
-  operationId?: string;
-  operationName?: string;
-};
-
-const repositoryOperationLeaseArgsValidator = {
-  leaseId: v.optional(id("repositoryOperationLeases")),
-  operationId: v.optional(string()),
-  operationName: v.optional(string()),
-};
 
 type CollaborativeAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
 
@@ -62,37 +46,10 @@ async function getLiveCollaborativeRepository(
   return repository;
 }
 
-async function requireCollaborativeWriteAuthority(
-  ctx: Pick<MutationCtx, "db">,
-  authority: RepositoryOperationLeaseArgs,
-): Promise<void> {
-  if (
-    authority.leaseId === undefined &&
-    authority.operationId === undefined &&
-    authority.operationName === undefined
-  ) {
-    await requireRepositoryOperationStart(ctx);
-  } else if (
-    authority.leaseId === undefined ||
-    authority.operationId === undefined ||
-    authority.operationName === undefined
-  ) {
-    throw new Error("Repository operation lease identity is incomplete.");
-  } else {
-    await requireRepositoryOperationLease(ctx, {
-      leaseId: authority.leaseId,
-      operationId: authority.operationId,
-      operationName: authority.operationName,
-    });
-  }
-}
-
 async function assertRepositoryAllowsCollaborativeWrites(
   ctx: Pick<MutationCtx, "db">,
   repositoryId: Id<"repositories">,
-  authority: RepositoryOperationLeaseArgs,
 ): Promise<void> {
-  await requireCollaborativeWriteAuthority(ctx, authority);
   const repository = await ctx.db.get(repositoryId);
   assertConnectedRepository(repository);
 }
@@ -220,7 +177,6 @@ export const pushUpdates = mutation({
     newVersion: number(),
   }),
   handler: async (ctx, args): Promise<PushUpdatesResult> => {
-    await requireRepositoryOperationStart(ctx);
     const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
       githubRepositoryFullName: args.githubRepositoryFullName,
       userId: ctx.viewer.userId,
@@ -327,13 +283,10 @@ export const pushContentUpdate = internalMutation({
     expectedVersion: number(),
     newContent: string(),
     userId: id("users"),
-    leaseId: repositoryOperationLeaseArgsValidator.leaseId,
-    operationId: repositoryOperationLeaseArgsValidator.operationId,
-    operationName: repositoryOperationLeaseArgsValidator.operationName,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertRepositoryAllowsCollaborativeWrites(ctx, args.repositoryId, args);
+    await assertRepositoryAllowsCollaborativeWrites(ctx, args.repositoryId);
 
     const staging = await ctx.db
       .query("repositoryStagedFiles")
@@ -397,7 +350,7 @@ export const pushContentUpdate = internalMutation({
       lastEditUserId: args.userId,
     });
 
-    if (newVersion % 50 === 0 && args.leaseId === undefined) {
+    if (newVersion % 50 === 0) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
         repositoryId: args.repositoryId,
         branch: args.branch,
@@ -422,13 +375,10 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     expectedVersion: number(),
     serializedChangeSet: string(),
     userId: id("users"),
-    leaseId: repositoryOperationLeaseArgsValidator.leaseId,
-    operationId: repositoryOperationLeaseArgsValidator.operationId,
-    operationName: repositoryOperationLeaseArgsValidator.operationName,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertRepositoryAllowsCollaborativeWrites(ctx, args.repositoryId, args);
+    await assertRepositoryAllowsCollaborativeWrites(ctx, args.repositoryId);
 
     const staging = await ctx.db
       .query("repositoryStagedFiles")
@@ -491,7 +441,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
       lastEditUserId: args.userId,
     });
 
-    if (newVersion % 50 === 0 && args.leaseId === undefined) {
+    if (newVersion % 50 === 0) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
         repositoryId: args.repositoryId,
         branch: args.branch,
@@ -514,13 +464,9 @@ export const pruneOldUpdates = internalMutation({
     branch: string(),
     filePath: string(),
     currentVersion: number(),
-    leaseId: repositoryOperationLeaseArgsValidator.leaseId,
-    operationId: repositoryOperationLeaseArgsValidator.operationId,
-    operationName: repositoryOperationLeaseArgsValidator.operationName,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireCollaborativeWriteAuthority(ctx, args);
     const cutoffVersion = args.currentVersion - MAX_UPDATES_TO_KEEP;
     if (cutoffVersion <= 0) return null;
 
@@ -547,9 +493,6 @@ export const pruneOldUpdates = internalMutation({
         branch: args.branch,
         filePath: args.filePath,
         currentVersion: args.currentVersion,
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
       });
     }
 

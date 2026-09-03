@@ -2,9 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internalMutation } from "../../_generated/server";
 import { query } from "../../functions";
 import { findRepositoryForUser } from "../../organizationAccess";
-import { requireRepositoryAuthorityContinuation } from "../../repositoryMigration/maintenance";
 import { vRepositoryDeletionEventLevel, vRepositoryDeletionStep } from "./model";
-import { isRuntimeRepositoryDeletionRun } from "./state";
 
 const { array, id, number, object, string } = v;
 const MAX_DELETION_EVENTS = 80;
@@ -42,7 +40,7 @@ export const append = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
-    if (!run || !isRuntimeRepositoryDeletionRun(run)) {
+    if (!run) {
       throw new Error("Deletion run not found for event.");
     }
     if (
@@ -56,8 +54,6 @@ export const append = internalMutation({
     if (run.state !== "queued" && run.state !== "running") {
       throw new Error("Deletion run is not active.");
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     await ctx.db.insert("workflow_repositoryDeletion_events", {
       organizationId: args.organizationId,
       userId: args.userId,

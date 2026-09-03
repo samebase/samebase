@@ -11,12 +11,10 @@ import { startCreateRepositoryProvisioningWorkflow } from "../repositoryProvisio
 import {
   findOrganizationAccessContext,
   findRepositoryForUser,
-  isRuntimeRepository,
   listOrganizationIdsForUser,
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
   requireOrganizationOwnerAccessContext,
-  type RuntimeRepository,
 } from "../organizationAccess";
 import { vGitHubAppInstallationAccess } from "../githubAppAccess";
 import {
@@ -41,10 +39,6 @@ import {
   requireBillingResourceCapacityForAuthority,
 } from "../billingResourceQuotas";
 import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
-import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationStart,
-} from "../repositoryMigration/maintenance";
 
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
@@ -111,9 +105,6 @@ export const getGitHubIdentityObservationRepositories = internalQuery({
     for await (const repository of ctx.db
       .query("repositories")
       .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))) {
-      if (!isRuntimeRepository(repository)) {
-        continue;
-      }
       if (repository.state !== "not_connected") {
         occupiedRepositories.push({
           repositoryId: repository._id,
@@ -211,8 +202,6 @@ export const updateGitHubRepositoryNameForUser = internalMutation({
     if (organization === null || organization.githubOwnerId !== args.githubOwnerId) {
       throw new Error("GitHub owner identity changed before the name update.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const repositoryName = args.repositoryName.trim();
     if (repositoryName.length === 0) {
       throw new Error("GitHub repository name is required.");
@@ -231,9 +220,6 @@ export const updateGitHubRepositoryNameForUser = internalMutation({
     for await (const occupiedRepository of ctx.db
       .query("repositories")
       .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))) {
-      if (!isRuntimeRepository(occupiedRepository)) {
-        continue;
-      }
       if (
         occupiedRepository._id !== repository._id &&
         occupiedRepository.state !== "not_connected" &&
@@ -332,9 +318,6 @@ async function assertOrganizationHasNoRepositoryNamed(
   for await (const repository of ctx.db
     .query("repositories")
     .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))) {
-    if (!isRuntimeRepository(repository)) {
-      continue;
-    }
     if (repository.state === "not_connected") {
       continue;
     }
@@ -370,7 +353,7 @@ async function requireOrganizationGitHubOwner(
 async function requireRepositoryGitHubOwner(
   ctx: Pick<MutationCtx, "db">,
   args: {
-    repository: RuntimeRepository;
+    repository: Doc<"repositories">;
     githubOwnerLogin: string;
   },
 ): Promise<Doc<"organizations">> {
@@ -472,8 +455,6 @@ export const createInitializingExistingRepositoryForUser = internalMutation({
       organizationId: organization._id,
       userId: args.userId,
     });
-    await requireRepositoryOperationStart(ctx);
-
     const now = Date.now();
     const repositoryId = await ctx.db.insert("repositories", {
       organizationId: organization._id,
@@ -675,8 +656,6 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
       organizationId: organization._id,
       userId: args.userId,
     });
-    await requireRepositoryOperationStart(ctx);
-
     const now = Date.now();
     const repositoryId = await ctx.db.insert("repositories", {
       organizationId: organization._id,
@@ -883,8 +862,6 @@ export const markGithubProvisioningFailed = internalMutation({
     if (run.state !== "queued" && run.state !== "running") {
       return null;
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     if (repository.githubMode === "create_repository") {
       await ctx.db.replace(repository._id, {
         organizationId: repository.organizationId,

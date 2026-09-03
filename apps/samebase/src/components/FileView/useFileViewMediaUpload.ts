@@ -14,13 +14,9 @@ type RepositoryId = NonNullable<
   (typeof api.repository.records.getRepositoryByRepository)["_returnType"]
 >["repositoryId"];
 type StorageId = Id<"_storage">;
-type RepositoryOperationLeaseId = Id<"repositoryOperationLeases">;
 
 type GenerateUploadUrl = (args: { repositoryId: RepositoryId }) => Promise<{
   uploadUrl: string;
-  leaseId: RepositoryOperationLeaseId;
-  operationId: string;
-  operationName: string;
 }>;
 type StageUploadedMedia = (args: {
   githubRepositoryFullName: string;
@@ -29,9 +25,6 @@ type StageUploadedMedia = (args: {
   storageId: StorageId;
   branch: string;
   replaceExisting: boolean;
-  leaseId: RepositoryOperationLeaseId;
-  operationId: string;
-  operationName: string;
 }) => Promise<unknown>;
 type DeletePendingUploadBlob = (args: {
   repositoryId: RepositoryId;
@@ -135,7 +128,7 @@ export function useFileViewMediaUpload({
           }
           return readUploadStorageId(await response.json());
         },
-        stageUploadedMedia: async ({ storageId, capability }) => {
+        stageUploadedMedia: async (storageId) => {
           await stageUploadedMedia({
             githubRepositoryFullName,
             repositoryId,
@@ -146,9 +139,6 @@ export function useFileViewMediaUpload({
             storageId,
             branch,
             replaceExisting,
-            leaseId: capability.leaseId,
-            operationId: capability.operationId,
-            operationName: capability.operationName,
           });
         },
         deleteUploadedMedia: async (storageId) => {

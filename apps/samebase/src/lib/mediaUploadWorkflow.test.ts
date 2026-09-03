@@ -16,9 +16,6 @@ describe("uploadMediaWithCleanup", () => {
   it("stages the uploaded media when upload succeeds", async () => {
     const capability = {
       uploadUrl: "https://upload.example.test",
-      leaseId: "lease-123",
-      operationId: "operation-123",
-      operationName: "stage_uploaded_media:repository-123",
     };
     const requestUploadUrl = vi.fn(async () => capability);
     const uploadFile = vi.fn(async () => "storage-123");
@@ -34,7 +31,7 @@ describe("uploadMediaWithCleanup", () => {
 
     expect(requestUploadUrl).toHaveBeenCalledOnce();
     expect(uploadFile).toHaveBeenCalledWith("https://upload.example.test");
-    expect(stageUploadedMedia).toHaveBeenCalledWith({ storageId: "storage-123", capability });
+    expect(stageUploadedMedia).toHaveBeenCalledWith("storage-123");
     expect(deleteUploadedMedia).not.toHaveBeenCalled();
   });
 
@@ -46,9 +43,6 @@ describe("uploadMediaWithCleanup", () => {
       uploadMediaWithCleanup({
         requestUploadUrl: async () => ({
           uploadUrl: "https://upload.example.test",
-          leaseId: "lease-123",
-          operationId: "operation-123",
-          operationName: "stage_uploaded_media:repository-123",
         }),
         uploadFile: async () => "storage-123",
         stageUploadedMedia: async () => {
@@ -69,9 +63,6 @@ describe("uploadMediaWithCleanup", () => {
       uploadMediaWithCleanup({
         requestUploadUrl: async () => ({
           uploadUrl: "https://upload.example.test",
-          leaseId: "lease-123",
-          operationId: "operation-123",
-          operationName: "stage_uploaded_media:repository-123",
         }),
         uploadFile: async () => {
           throw uploadError;
@@ -93,9 +84,6 @@ describe("uploadMediaWithCleanup", () => {
       uploadMediaWithCleanup({
         requestUploadUrl: async () => ({
           uploadUrl: "https://upload.example.test",
-          leaseId: "lease-123",
-          operationId: "operation-123",
-          operationName: "stage_uploaded_media:repository-123",
         }),
         uploadFile: async () => "storage-123",
         stageUploadedMedia: async () => {

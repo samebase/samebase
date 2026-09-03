@@ -6,7 +6,6 @@ import {
   vRepositoryProvisioningStep,
 } from "./repository/provisioningModel";
 import { findRepositoryForUser } from "./organizationAccess";
-import { requireRepositoryAuthorityContinuation } from "./repositoryMigration/maintenance";
 import { requireActiveRepositoryProvisioningRun } from "./repositoryWorkflowAuthority";
 
 const { array, id, number, object, string } = v;
@@ -59,8 +58,6 @@ export const append = internalMutation({
       userId: args.userId,
       repositoryId: args.repositoryId,
     });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     await ctx.db.insert("workflow_repositoryProvisioning_events", {
       userId: args.userId,
       repositoryId: args.repositoryId,

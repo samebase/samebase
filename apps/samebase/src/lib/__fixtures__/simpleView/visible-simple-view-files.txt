@@ -164,7 +164,6 @@ apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/mcp-consent-sign-in-no-
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/privacy-shell.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/public-route-right-sidebar-account.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/terms-shell.png
-apps/samebase/e2e/repository-maintenance-visual.spec.ts-snapshots/repository-maintenance.png
 apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
 apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
 apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-vox.png

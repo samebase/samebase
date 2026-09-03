@@ -12,10 +12,6 @@ import { readRepositoryInfrastructureState } from "./repository/infrastructureOp
 import { assertConnectedRepository } from "./repository/state";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
 import { requireRepositoryForUser, requireRepositoryOrganization } from "./organizationAccess";
-import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationStart,
-} from "./repositoryMigration/maintenance";
 import { readActiveUser } from "./userLifecycle";
 
 const { id, literal, string, union } = v;
@@ -35,7 +31,6 @@ async function recordRepositoryFullNameForRun(
   if (run.state !== "queued" && run.state !== "running") {
     throw new Error("Provisioning run is not active.");
   }
-  await requireRepositoryAuthorityContinuation(ctx);
   if (run.githubRepositoryFullName === args.githubRepositoryFullName) {
     return;
   }
@@ -108,8 +103,6 @@ export const createRetryForRepository = internalMutation({
     ) {
       throw new Error("Infrastructure retry is available only after provider setup fails.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const now = Date.now();
     const githubRepositoryFullName = `${organization.githubOwnerLogin}/${connectedRepository.githubRepositoryName}`;
     const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
@@ -193,8 +186,6 @@ export const appendRunEvent = internalMutation({
       // trying to report late events. Terminal state owns the final record.
       return null;
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     await ctx.runMutation(internal.repositoryProvisioningEvents.append, {
       userId: run.userId,

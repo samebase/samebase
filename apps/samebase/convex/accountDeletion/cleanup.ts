@@ -11,7 +11,6 @@ type AccountDeletionTablePolicy =
   | "user_finalization"
   | "receipt"
   | "organization_preserved"
-  | "migration_source"
   | "precondition_absent"
   | "global";
 
@@ -39,27 +38,6 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   providerOAuthCallbackStates: "account_data",
   ui_user_settings: "account_data",
   ui_workspaceSidebar_layouts: "account_data",
-  vaults: "migration_source",
-  vaultCloudflareWorkers: "migration_source",
-  vaultConvexProjects: "migration_source",
-  observations_vaultRepository_branchTrees: "migration_source",
-  ui_vaultPullRequests_filters: "migration_source",
-  ui_vaultResourceLinks_settings: "migration_source",
-  ui_vaultFolders: "migration_source",
-  ui_vaultFolderAssignments: "migration_source",
-  ui_vaultOrganizationTree_settings: "migration_source",
-  observations_vaultConvexSchema_snapshots: "migration_source",
-  ui_vaultConvexSchemaGraph_nodeLayouts: "migration_source",
-  workflow_vaultDeletion_runs: "migration_source",
-  workflow_vaultDeletion_events: "migration_source",
-  workflow_vaultProvisioning_plans: "migration_source",
-  workflow_vaultProvisioning_writeLocks: "migration_source",
-  workflow_vaultProvisioning_runs: "migration_source",
-  workflow_vaultProvisioning_events: "migration_source",
-  vaultStagedFiles: "migration_source",
-  observations_vaultFiles_blobs: "migration_source",
-  ui_vaultFileTree_folderExpansions: "migration_source",
-  vaultStagedFileUpdates: "migration_source",
   ui_repositoryPullRequests_filters: "account_data",
   ui_repositoryResourceLinks_settings: "account_data",
   ui_repositoryTree_folders: "account_data",
@@ -81,9 +59,6 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   observations_repositoryFiles_blobs: "organization_preserved",
   ui_repositoryFileTree_folderExpansions: "account_data",
   repositoryStagedFileUpdates: "organization_preserved",
-  repositoryMigrationIdMaps: "global",
-  repositoryWriteGates: "global",
-  repositoryOperationLeases: "global",
   mcpOauthClients: "global",
   mcpAuthorizationRequests: "account_data",
   mcpAuthorizationCodes: "account_data",

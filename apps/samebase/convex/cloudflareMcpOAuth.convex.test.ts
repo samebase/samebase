@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION } from "./oauthState";
 import { makeConvexTest } from "./test.setup";
 
 async function seedOrganizationOwner() {
@@ -80,112 +79,5 @@ describe("getCloudflareMcpOAuthUrl", () => {
       provider: "cloudflare_mcp",
       userId,
     });
-    await expect(
-      t.run(async (ctx) => await ctx.db.query("repositoryOperationLeases").collect()),
-    ).resolves.toEqual([]);
-  });
-
-  it("blocks setup before Cloudflare registration while draining", async () => {
-    const { organizationId, t, userId } = await seedOrganizationOwner();
-    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
-      mode: "draining",
-    });
-    vi.stubEnv(
-      "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-      "https://samebase.test/api/auth/cloudflare/callback",
-    );
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      t
-        .withIdentity({
-          subject: `${userId}|test-session`,
-          tokenIdentifier: `test:${userId}`,
-        })
-        .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, { organizationId }),
-    ).rejects.toThrow("Repository changes are paused for maintenance.");
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("requires normal mode for ordinary OAuth state creation", async () => {
-    const { organizationId, t, userId } = await seedOrganizationOwner();
-    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
-      mode: "draining",
-    });
-    const now = Date.now();
-
-    await expect(
-      t.mutation(internal.oauthState.createOauthState, {
-        provider: "convex",
-        userId,
-        organizationId,
-        state: "convex-state",
-        codeVerifier: "convex-verifier",
-        createdAt: now,
-        expiresAt: now + 60_000,
-      }),
-    ).rejects.toThrow("Repository changes are paused for maintenance.");
-    await expect(
-      t.mutation(internal.oauthState.createOauthState, {
-        provider: "cloudflare",
-        userId,
-        organizationId,
-        state: "cloudflare-state",
-        createdAt: now,
-        expiresAt: now + 60_000,
-      }),
-    ).rejects.toThrow("Repository changes are paused for maintenance.");
-  });
-
-  it("accepts only the exact setup lease for Cloudflare MCP OAuth state", async () => {
-    const { organizationId, t, userId } = await seedOrganizationOwner();
-    const state = "cloudflare-mcp-state";
-    const correctLease = await t.mutation(
-      internal.repositoryMigration.maintenance.claimOperationLease,
-      {
-        operationId: state,
-        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
-      },
-    );
-    const wrongLease = await t.mutation(
-      internal.repositoryMigration.maintenance.claimOperationLease,
-      {
-        operationId: "another-cloudflare-mcp-state",
-        operationName: CLOUDFLARE_MCP_OAUTH_SETUP_OPERATION,
-      },
-    );
-    await t.mutation(internal.repositoryMigration.maintenance.transitionRepositoryMaintenanceMode, {
-      mode: "draining",
-    });
-    const createdAt = Date.now();
-    const expiresAt = createdAt + 60_000;
-
-    await expect(
-      t.mutation(internal.oauthState.createOauthState, {
-        provider: "cloudflare_mcp",
-        userId,
-        organizationId,
-        state,
-        clientId: "registered-client",
-        codeVerifier: "cloudflare-verifier",
-        leaseId: wrongLease.leaseId,
-        createdAt,
-        expiresAt,
-      }),
-    ).rejects.toThrow("Repository operation lease is not active.");
-    await expect(
-      t.mutation(internal.oauthState.createOauthState, {
-        provider: "cloudflare_mcp",
-        userId,
-        organizationId,
-        state,
-        clientId: "registered-client",
-        codeVerifier: "cloudflare-verifier",
-        leaseId: correctLease.leaseId,
-        createdAt,
-        expiresAt,
-      }),
-    ).resolves.toBeDefined();
   });
 });

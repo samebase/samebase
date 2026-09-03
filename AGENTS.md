@@ -209,10 +209,10 @@ Key domain entities:
 - `organizationMemberships`
 - `organizationBillingAccounts`
 - `organizationProviderCredentials`
-- `vaults`
-- `workflow_vaultProvisioning_plans`
-- `workflow_vaultProvisioning_writeLocks`
-- `vaultStagedFiles`
+- `repositories`
+- `workflow_repositoryProvisioning_plans`
+- `workflow_repositoryProvisioning_writeLocks`
+- `repositoryStagedFiles`
 
 ## Convex CLI
 

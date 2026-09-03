@@ -10,7 +10,6 @@ import {
   requireRepositoryForUser,
 } from "../organizationAccess";
 import { vRepositoryFolder, vRepositoryFolderAssignment } from "./folderModel";
-import { requireRepositoryOperationStart } from "../repositoryMigration/maintenance";
 
 const { array, boolean, id, literal, object, string, union } = v;
 
@@ -195,8 +194,6 @@ export const createRepositoryFolder = mutation({
       )
       .order("desc")
       .first();
-    await requireRepositoryOperationStart(ctx);
-
     return await ctx.db.insert("ui_repositoryTree_folders", {
       collapsed: false,
       name,
@@ -225,8 +222,6 @@ export const renameRepositoryFolder = mutation({
     if (existing && existing._id !== folder._id) {
       throw new ConvexError("Folder name is already in use.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     await ctx.db.patch(folder._id, { name, nameKey });
     return null;
   },
@@ -241,8 +236,6 @@ export const setRepositoryFolderCollapsed = mutation({
       folderId: args.folderId,
       userId: ctx.viewer.userId,
     });
-    await requireRepositoryOperationStart(ctx);
-
     await ctx.db.patch(folder._id, { collapsed: args.collapsed });
     return null;
   },
@@ -270,8 +263,6 @@ export const moveRepositoryToFolder = mutation({
           .eq("repositoryId", args.repositoryId),
       )
       .unique();
-    await requireRepositoryOperationStart(ctx);
-
     if (args.folderId === null) {
       if (assignment) {
         await ctx.db.delete(assignment._id);
@@ -304,7 +295,6 @@ export const moveRepositoryFolder = mutation({
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
     const folder = await assertOwnedFolder(ctx, { folderId: args.folderId, userId });
-    await requireRepositoryOperationStart(ctx);
     const folders = await readFoldersForOrganization(ctx, {
       organizationId: folder.organizationId,
       userId,
@@ -335,7 +325,6 @@ export const deleteRepositoryFolder = mutation({
       folderId: args.folderId,
       userId: ctx.viewer.userId,
     });
-    await requireRepositoryOperationStart(ctx);
     await ctx.db.delete(folder._id);
     return null;
   },

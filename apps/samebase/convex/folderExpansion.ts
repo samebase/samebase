@@ -3,7 +3,6 @@ import { mutation, query } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { findRepositoryForUser } from "./organizationAccess";
-import { requireRepositoryOperationStart } from "./repositoryMigration/maintenance";
 
 const { boolean, id, object, string } = v;
 
@@ -65,7 +64,6 @@ export const setFolderExpansionState = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireRepositoryOperationStart(ctx);
     if (
       !(await canAccessFolderExpansionRepository(ctx, {
         repositoryId: args.repositoryId,
@@ -107,7 +105,6 @@ export const clearFolderExpansionStates = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireRepositoryOperationStart(ctx);
     if (
       !(await canAccessFolderExpansionRepository(ctx, {
         repositoryId: args.repositoryId,

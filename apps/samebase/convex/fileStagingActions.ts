@@ -13,7 +13,7 @@ import type { GitHubTree } from "./repository/model";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
-import { getMediaUploadOperationName, selectRepositoryTreeForBranch } from "./fileStaging";
+import { selectRepositoryTreeForBranch } from "./fileStaging";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
@@ -41,49 +41,6 @@ type EditableFileState = {
   branch: string;
   version: number;
 };
-type RepositoryOperationLease = {
-  leaseId: Id<"repositoryOperationLeases">;
-  operationId: string;
-  operationName: string;
-};
-
-const RENAME_FILE_OPERATION = "rename_file_in_staging";
-const EDIT_FILE_OPERATION = "get_file_for_editing";
-const COMMIT_STAGING_OPERATION = "commit_staging";
-const CREATE_DRAFT_PULL_REQUEST_OPERATION = "create_draft_pull_request";
-const CREATE_DEFAULT_BRANCH_DRAFT_OPERATION = "create_default_branch_draft_pull_request";
-const PULL_FROM_GITHUB_OPERATION = "pull_from_github";
-const BATCH_READ_FILES_OPERATION = "batch_read_files";
-const RESTORE_COMPARED_FILE_OPERATION = "restore_compared_deleted_file";
-
-async function withRepositoryOperationLease<Result>(
-  ctx: ActionCtx,
-  operationName: string,
-  run: (lease: RepositoryOperationLease) => Promise<Result>,
-): Promise<Result> {
-  const operationId = crypto.randomUUID();
-  const lease = await ctx.runMutation(
-    internal.repositoryMigration.maintenance.claimOperationLease,
-    {
-      operationId,
-      operationName,
-    },
-  );
-  try {
-    return await run({
-      leaseId: lease.leaseId,
-      operationId,
-      operationName,
-    });
-  } finally {
-    await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-      leaseId: lease.leaseId,
-      operationId,
-      operationName,
-    });
-  }
-}
-
 const githubRateLimitResetByUser = new Map<string, number>();
 const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 
@@ -275,7 +232,6 @@ async function stageRepositoryBinaryBlobForEditing(args: {
   mime: string | null | undefined;
   size: number;
   missingStorageError: string;
-  operationLease: RepositoryOperationLease;
 }): Promise<EditableFileState> {
   if (getRepositoryMediaKind(args.filePath) === null) {
     throw new Error("File content is stored in storage-backed binary form.");
@@ -294,9 +250,6 @@ async function stageRepositoryBinaryBlobForEditing(args: {
     stagedBlobSha: args.fileSha,
     replaceExisting: true,
     userId: args.userId,
-    leaseId: args.operationLease.leaseId,
-    operationId: args.operationLease.operationId,
-    operationName: args.operationLease.operationName,
   });
 
   return readEditableFileState(stagedFile);
@@ -472,7 +425,6 @@ async function cleanupTemporaryDraftBranch(args: {
   repo: string;
   branch: string;
   userId: Id<"users">;
-  operationLease: RepositoryOperationLease;
 }) {
   try {
     await args.ctx.runMutation(internal.fileStaging.clearAllStagingForOperation, {
@@ -480,9 +432,6 @@ async function cleanupTemporaryDraftBranch(args: {
       userId: args.userId,
       branch: args.branch,
       skipTreeUpdate: true,
-      leaseId: args.operationLease.leaseId,
-      operationId: args.operationLease.operationId,
-      operationName: args.operationLease.operationName,
     });
   } catch (cleanupError) {
     console.warn(
@@ -1914,42 +1863,30 @@ export const renameFileInStaging = action({
     if (!repository) {
       throw new Error("Repository not found");
     }
-    return await withRepositoryOperationLease(
-      ctx,
-      RENAME_FILE_OPERATION,
-      async (operationLease) => {
-        const connectedRepository = assertConnectedRepository(repository);
-        const githubAccess = await resolveGitHubAppAccess(ctx, {
-          userId,
-          target: { kind: "repository", repositoryId: args.repositoryId },
-        });
+    const connectedRepository = assertConnectedRepository(repository);
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId,
+      target: { kind: "repository", repositoryId: args.repositoryId },
+    });
 
-        await ctx.runAction(internal.fileStagingActions.getFileForEditingInternal, {
-          githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${connectedRepository.githubRepositoryName}`,
-          originalFilePath: args.originalPath,
-          branch,
-          userId,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
-        });
+    await ctx.runAction(internal.fileStagingActions.getFileForEditingInternal, {
+      githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${connectedRepository.githubRepositoryName}`,
+      originalFilePath: args.originalPath,
+      branch,
+      userId,
+    });
 
-        const updatedFile = await ctx.runMutation(internal.fileStaging.rename, {
-          repositoryId: args.repositoryId,
-          initialFilePath: args.originalPath,
-          branch,
-          newPath: args.newPath,
-          userId,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
-        });
+    const updatedFile = await ctx.runMutation(internal.fileStaging.rename, {
+      repositoryId: args.repositoryId,
+      initialFilePath: args.originalPath,
+      branch,
+      newPath: args.newPath,
+      userId,
+    });
 
-        return {
-          content: updatedFile.content,
-        };
-      },
-    );
+    return {
+      content: updatedFile.content,
+    };
   },
 });
 
@@ -1965,20 +1902,12 @@ export const getFileForEditing = action({
     branch: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<EditableFileState> => {
-    return await withRepositoryOperationLease(
-      ctx,
-      EDIT_FILE_OPERATION,
-      async (operationLease) =>
-        await ctx.runAction(internal.fileStagingActions.getFileForEditingInternal, {
-          githubRepositoryFullName: args.githubRepositoryFullName,
-          originalFilePath: args.originalFilePath,
-          branch: args.branch,
-          userId: ctx.viewer.userId,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
-        }),
-    );
+    return await ctx.runAction(internal.fileStagingActions.getFileForEditingInternal, {
+      githubRepositoryFullName: args.githubRepositoryFullName,
+      originalFilePath: args.originalFilePath,
+      branch: args.branch,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 
@@ -1988,16 +1917,8 @@ export const getFileForEditingInternal = internalAction({
     originalFilePath: v.string(),
     branch: v.optional(v.string()),
     userId: v.id("users"),
-    leaseId: v.id("repositoryOperationLeases"),
-    operationId: v.string(),
-    operationName: v.string(),
   },
   handler: async (ctx, args): Promise<EditableFileState> => {
-    await ctx.runMutation(internal.fileStaging.requireOperationLease, {
-      leaseId: args.leaseId,
-      operationId: args.operationId,
-      operationName: args.operationName,
-    });
     const userId = args.userId;
     const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
       githubRepositoryFullName: args.githubRepositoryFullName,
@@ -2008,11 +1929,6 @@ export const getFileForEditingInternal = internalAction({
       throw new Error("Repository not found");
     }
 
-    const operationLease: RepositoryOperationLease = {
-      leaseId: args.leaseId,
-      operationId: args.operationId,
-      operationName: args.operationName,
-    };
     const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
     const targetBranch =
       args.branch ??
@@ -2081,7 +1997,6 @@ export const getFileForEditingInternal = internalAction({
             mime: cachedBlob.mime,
             size: file.data.size,
             missingStorageError: "Cached binary blob is missing storage data.",
-            operationLease,
           });
         }
 
@@ -2093,9 +2008,6 @@ export const getFileForEditingInternal = internalAction({
           initialContent: cachedBlob.text,
           parentCommitSha: fileSha,
           userId,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
         });
 
         return readEditableFileState(stagedFile);
@@ -2124,9 +2036,6 @@ export const getFileForEditingInternal = internalAction({
           storageId: undefined,
           ext,
           debugFilePath: filePath,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
         });
       } else {
         const storageId = await withRetry(() =>
@@ -2142,9 +2051,6 @@ export const getFileForEditingInternal = internalAction({
           storageId,
           ext,
           debugFilePath: filePath,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
         });
       }
 
@@ -2171,7 +2077,6 @@ export const getFileForEditingInternal = internalAction({
           mime,
           size: file.data.size,
           missingStorageError: "Saved binary blob is missing storage data.",
-          operationLease,
         });
       }
 
@@ -2183,9 +2088,6 @@ export const getFileForEditingInternal = internalAction({
         initialContent: savedBlob.text,
         parentCommitSha: fileSha,
         userId,
-        leaseId: operationLease.leaseId,
-        operationId: operationLease.operationId,
-        operationName: operationLease.operationName,
       });
 
       return readEditableFileState(stagedFile);
@@ -2211,80 +2113,59 @@ export const stageUploadedMedia = action({
     storageId: v.id("_storage"),
     branch: optional(string()),
     replaceExisting: boolean(),
-    leaseId: v.id("repositoryOperationLeases"),
-    operationId: string(),
-    operationName: string(),
   },
   returns: stagedMediaUploadResult,
   handler: async (ctx, args): Promise<StagedMediaUploadResult> => {
-    if (args.operationName !== getMediaUploadOperationName(args.repositoryId)) {
-      throw new Error("Media upload capability does not match its repository.");
-    }
-
     const userId = ctx.viewer.userId;
-    try {
-      await ctx.runMutation(internal.fileStaging.assertMediaUploadCapability, {
-        repositoryId: args.repositoryId,
-        userId,
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
-      });
-      if (getRepositoryMediaKind(args.filePath) !== "image") {
-        throw new Error("Only image uploads are supported right now.");
-      }
-      const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
-        githubRepositoryFullName: args.githubRepositoryFullName,
-        userId,
-      });
-      if (!repository || repository.repositoryId !== args.repositoryId) {
-        throw new Error("Repository not found");
-      }
-
-      const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
-      const targetBranch =
-        args.branch ??
-        (await getRepositoryDefaultBranch({
-          octokit,
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-        }));
-
-      const uploadedBlob = await ctx.storage.get(args.storageId);
-      if (!uploadedBlob) {
-        throw new Error("Uploaded media is no longer available.");
-      }
-
-      const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
-      const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
-      const stagedFile = await ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
-        repositoryId: repository.repositoryId,
-        filePath: args.filePath,
-        branch: targetBranch,
-        storageId: args.storageId,
-        mime: uploadedBlob.type || guessMime(args.filePath),
-        size: uploadedBlob.size,
-        stagedBlobSha,
-        replaceExisting: args.replaceExisting,
-        userId,
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
-      });
-
-      return {
-        filePath: stagedFile.filePath,
-        branch: stagedFile.branch,
-        parentCommitSha: stagedFile.parentCommitSha ?? undefined,
-        replacedExisting: stagedFile.parentCommitSha !== null,
-      };
-    } finally {
-      await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
-      });
+    await ctx.runMutation(internal.fileStaging.assertMediaUploadAccess, {
+      repositoryId: args.repositoryId,
+      userId,
+    });
+    if (getRepositoryMediaKind(args.filePath) !== "image") {
+      throw new Error("Only image uploads are supported right now.");
     }
+    const repository = await ctx.runQuery(internal.repository.records.getByRepositoryFullName, {
+      githubRepositoryFullName: args.githubRepositoryFullName,
+      userId,
+    });
+    if (!repository || repository.repositoryId !== args.repositoryId) {
+      throw new Error("Repository not found");
+    }
+
+    const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
+    const targetBranch =
+      args.branch ??
+      (await getRepositoryDefaultBranch({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+      }));
+
+    const uploadedBlob = await ctx.storage.get(args.storageId);
+    if (!uploadedBlob) {
+      throw new Error("Uploaded media is no longer available.");
+    }
+
+    const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
+    const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
+    const stagedFile = await ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
+      repositoryId: repository.repositoryId,
+      filePath: args.filePath,
+      branch: targetBranch,
+      storageId: args.storageId,
+      mime: uploadedBlob.type || guessMime(args.filePath),
+      size: uploadedBlob.size,
+      stagedBlobSha,
+      replaceExisting: args.replaceExisting,
+      userId,
+    });
+
+    return {
+      filePath: stagedFile.filePath,
+      branch: stagedFile.branch,
+      parentCommitSha: stagedFile.parentCommitSha ?? undefined,
+      replacedExisting: stagedFile.parentCommitSha !== null,
+    };
   },
 });
 
@@ -2310,15 +2191,10 @@ export const commitStaging = action({
 
     // Commit all staged files to GitHub
     // commitAllStaged handles: commit → update tree → save blobs → clear staging
-    await withRepositoryOperationLease(ctx, COMMIT_STAGING_OPERATION, async (operationLease) => {
-      await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
-        userId,
-        repositoryId: repository.repositoryId,
-        branch: args.branch,
-        leaseId: operationLease.leaseId,
-        operationId: operationLease.operationId,
-        operationName: operationLease.operationName,
-      });
+    await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+      userId,
+      repositoryId: repository.repositoryId,
+      branch: args.branch,
     });
 
     return null;
@@ -2342,109 +2218,102 @@ export const createDraftPullRequest = action({
       throw new Error("Repository not found");
     }
 
-    return await withRepositoryOperationLease(
-      ctx,
-      CREATE_DRAFT_PULL_REQUEST_OPERATION,
-      async (operationLease) => {
-        const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
-        const defaultBranch = await getRepositoryDefaultBranch({
-          octokit,
+    {
+      const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
+      const defaultBranch = await getRepositoryDefaultBranch({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+      });
+      const branch = args.branch?.trim() || defaultBranch;
+
+      if (branch === defaultBranch) {
+        throw new Error("Create the draft PR from a non-default branch.");
+      }
+
+      const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+        internal.fileStaging.listAllStagedFiles,
+        {
+          repositoryId: repository.repositoryId,
+          branch,
+        },
+      );
+      if (stagedFiles.length > 0) {
+        await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+          userId,
+          repositoryId: repository.repositoryId,
+          branch,
+        });
+      }
+
+      const existingPullRequest = await getOpenPullRequestForBranch({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        branch,
+        baseBranch: defaultBranch,
+      });
+      if (existingPullRequest) {
+        return {
+          ...existingPullRequest,
+          existing: true,
+        };
+      }
+
+      const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        basehead: `${defaultBranch}...${branch}`,
+      });
+      if (comparison.data.ahead_by === 0) {
+        throw new Error("This branch has no changes to open as a pull request.");
+      }
+
+      try {
+        const response = await octokit.rest.pulls.create({
           owner: repository.githubOwnerLogin,
           repo: repository.githubRepositoryName,
+          title: buildDraftPullRequestTitle({
+            branch,
+            commitMessage: await getBranchHeadCommitMessage({
+              octokit,
+              owner: repository.githubOwnerLogin,
+              repo: repository.githubRepositoryName,
+              branch,
+            }),
+          }),
+          head: branch,
+          base: defaultBranch,
+          draft: true,
         });
-        const branch = args.branch?.trim() || defaultBranch;
 
-        if (branch === defaultBranch) {
-          throw new Error("Create the draft PR from a non-default branch.");
-        }
-
-        const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
-          internal.fileStaging.listAllStagedFiles,
-          {
-            repositoryId: repository.repositoryId,
-            branch,
-          },
-        );
-        if (stagedFiles.length > 0) {
-          await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
-            userId,
-            repositoryId: repository.repositoryId,
-            branch,
-            leaseId: operationLease.leaseId,
-            operationId: operationLease.operationId,
-            operationName: operationLease.operationName,
-          });
-        }
-
-        const existingPullRequest = await getOpenPullRequestForBranch({
+        return {
+          url: response.data.html_url,
+          number: response.data.number,
+          existing: false,
+        };
+      } catch (error) {
+        const currentPullRequest = await getOpenPullRequestForBranch({
           octokit,
           owner: repository.githubOwnerLogin,
           repo: repository.githubRepositoryName,
           branch,
           baseBranch: defaultBranch,
         });
-        if (existingPullRequest) {
+        if (currentPullRequest) {
           return {
-            ...existingPullRequest,
+            ...currentPullRequest,
             existing: true,
           };
         }
 
-        const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          basehead: `${defaultBranch}...${branch}`,
-        });
-        if (comparison.data.ahead_by === 0) {
-          throw new Error("This branch has no changes to open as a pull request.");
+        const friendlyMessage = getDraftPullRequestCreateErrorMessage(error);
+        if (friendlyMessage) {
+          throw new Error(friendlyMessage);
         }
-
-        try {
-          const response = await octokit.rest.pulls.create({
-            owner: repository.githubOwnerLogin,
-            repo: repository.githubRepositoryName,
-            title: buildDraftPullRequestTitle({
-              branch,
-              commitMessage: await getBranchHeadCommitMessage({
-                octokit,
-                owner: repository.githubOwnerLogin,
-                repo: repository.githubRepositoryName,
-                branch,
-              }),
-            }),
-            head: branch,
-            base: defaultBranch,
-            draft: true,
-          });
-
-          return {
-            url: response.data.html_url,
-            number: response.data.number,
-            existing: false,
-          };
-        } catch (error) {
-          const currentPullRequest = await getOpenPullRequestForBranch({
-            octokit,
-            owner: repository.githubOwnerLogin,
-            repo: repository.githubRepositoryName,
-            branch,
-            baseBranch: defaultBranch,
-          });
-          if (currentPullRequest) {
-            return {
-              ...currentPullRequest,
-              existing: true,
-            };
-          }
-
-          const friendlyMessage = getDraftPullRequestCreateErrorMessage(error);
-          if (friendlyMessage) {
-            throw new Error(friendlyMessage);
-          }
-          throw error;
-        }
-      },
-    );
+        throw error;
+      }
+    }
   },
 });
 
@@ -2465,65 +2334,91 @@ export const createDraftPullRequestFromDefaultBranch = action({
       throw new Error("Repository not found");
     }
 
-    return await withRepositoryOperationLease(
-      ctx,
-      CREATE_DEFAULT_BRANCH_DRAFT_OPERATION,
-      async (operationLease) => {
-        const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
-        const defaultBranch = await getRepositoryDefaultBranch({
+    {
+      const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
+      const defaultBranch = await getRepositoryDefaultBranch({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+      });
+      const sourceBranch = args.branch?.trim() || defaultBranch;
+      if (sourceBranch !== defaultBranch) {
+        throw new Error("Create a new draft branch from the default branch.");
+      }
+
+      const stagedFilesResult: DraftSourceStagingRecord[] = await ctx.runQuery(
+        internal.fileStaging.listAllStagedFiles,
+        {
+          repositoryId: repository.repositoryId,
+          branch: defaultBranch,
+        },
+      );
+      const stagedFiles: DraftSourceStagingSnapshot[] = stagedFilesResult.map(
+        stripCreationTimeFromStagingRecord,
+      );
+      if (stagedFiles.length === 0) {
+        throw new Error("Stage changes on the default branch before drafting.");
+      }
+
+      const targetBranch = buildDraftBranchName({
+        stagedFiles,
+        now: Date.now(),
+      });
+      const defaultRef = await octokit.rest.git.getRef({
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        ref: `heads/${defaultBranch}`,
+      });
+
+      await octokit.rest.git.createRef({
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        ref: `refs/heads/${targetBranch}`,
+        sha: defaultRef.data.object.sha,
+      });
+
+      const initialTargetBranchSha = defaultRef.data.object.sha;
+      try {
+        await ctx.runMutation(internal.fileStaging.duplicateBranchStaging, {
+          repositoryId: repository.repositoryId,
+          sourceBranch: defaultBranch,
+          targetBranch,
+          stagedFiles,
+          userId,
+        });
+      } catch (error) {
+        await cleanupTemporaryDraftBranch({
+          ctx,
+          octokit,
+          repositoryId: repository.repositoryId,
+          owner: repository.githubOwnerLogin,
+          repo: repository.githubRepositoryName,
+          branch: targetBranch,
+          userId,
+        });
+
+        if (error instanceof Error && error.message.length > 0) {
+          throw error;
+        }
+        throw new Error("Failed to create draft pull request");
+      }
+
+      try {
+        await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+          userId,
+          repositoryId: repository.repositoryId,
+          branch: targetBranch,
+        });
+      } catch (error) {
+        // commitAllStaged can fail after GitHub advances the branch ref, so
+        // re-check the head before rolling back the newly created branch.
+        const currentTargetBranchSha = await getBranchHeadShaOrNull({
           octokit,
           owner: repository.githubOwnerLogin,
           repo: repository.githubRepositoryName,
+          branch: targetBranch,
         });
-        const sourceBranch = args.branch?.trim() || defaultBranch;
-        if (sourceBranch !== defaultBranch) {
-          throw new Error("Create a new draft branch from the default branch.");
-        }
-
-        const stagedFilesResult: DraftSourceStagingRecord[] = await ctx.runQuery(
-          internal.fileStaging.listAllStagedFiles,
-          {
-            repositoryId: repository.repositoryId,
-            branch: defaultBranch,
-          },
-        );
-        const stagedFiles: DraftSourceStagingSnapshot[] = stagedFilesResult.map(
-          stripCreationTimeFromStagingRecord,
-        );
-        if (stagedFiles.length === 0) {
-          throw new Error("Stage changes on the default branch before drafting.");
-        }
-
-        const targetBranch = buildDraftBranchName({
-          stagedFiles,
-          now: Date.now(),
-        });
-        const defaultRef = await octokit.rest.git.getRef({
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          ref: `heads/${defaultBranch}`,
-        });
-
-        await octokit.rest.git.createRef({
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          ref: `refs/heads/${targetBranch}`,
-          sha: defaultRef.data.object.sha,
-        });
-
-        const initialTargetBranchSha = defaultRef.data.object.sha;
-        try {
-          await ctx.runMutation(internal.fileStaging.duplicateBranchStaging, {
-            repositoryId: repository.repositoryId,
-            sourceBranch: defaultBranch,
-            targetBranch,
-            stagedFiles,
-            userId,
-            leaseId: operationLease.leaseId,
-            operationId: operationLease.operationId,
-            operationName: operationLease.operationName,
-          });
-        } catch (error) {
+        if (currentTargetBranchSha === initialTargetBranchSha) {
           await cleanupTemporaryDraftBranch({
             ctx,
             octokit,
@@ -2532,34 +2427,48 @@ export const createDraftPullRequestFromDefaultBranch = action({
             repo: repository.githubRepositoryName,
             branch: targetBranch,
             userId,
-            operationLease,
           });
-
-          if (error instanceof Error && error.message.length > 0) {
-            throw error;
-          }
-          throw new Error("Failed to create draft pull request");
         }
 
+        if (error instanceof Error && error.message.length > 0) {
+          throw error;
+        }
+        throw new Error("Failed to create draft pull request");
+      }
+
+      try {
+        let url: string;
+        let number: number;
         try {
-          await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
-            userId,
-            repositoryId: repository.repositoryId,
-            branch: targetBranch,
-            leaseId: operationLease.leaseId,
-            operationId: operationLease.operationId,
-            operationName: operationLease.operationName,
+          const response = await octokit.rest.pulls.create({
+            owner: repository.githubOwnerLogin,
+            repo: repository.githubRepositoryName,
+            title: buildDraftPullRequestTitle({
+              branch: targetBranch,
+              commitMessage: await getBranchHeadCommitMessage({
+                octokit,
+                owner: repository.githubOwnerLogin,
+                repo: repository.githubRepositoryName,
+                branch: targetBranch,
+              }),
+            }),
+            head: targetBranch,
+            base: defaultBranch,
+            draft: true,
           });
+          url = response.data.html_url;
+          number = response.data.number;
         } catch (error) {
-          // commitAllStaged can fail after GitHub advances the branch ref, so
-          // re-check the head before rolling back the newly created branch.
-          const currentTargetBranchSha = await getBranchHeadShaOrNull({
+          const currentPullRequest = await getOpenPullRequestForBranch({
             octokit,
             owner: repository.githubOwnerLogin,
             repo: repository.githubRepositoryName,
             branch: targetBranch,
+            baseBranch: defaultBranch,
           });
-          if (currentTargetBranchSha === initialTargetBranchSha) {
+          if (!currentPullRequest) {
+            // If GitHub never confirmed a PR, keep the default-branch staging
+            // intact so the user can retry from the same source state.
             await cleanupTemporaryDraftBranch({
               ctx,
               octokit,
@@ -2568,94 +2477,38 @@ export const createDraftPullRequestFromDefaultBranch = action({
               repo: repository.githubRepositoryName,
               branch: targetBranch,
               userId,
-              operationLease,
             });
-          }
 
-          if (error instanceof Error && error.message.length > 0) {
-            throw error;
-          }
-          throw new Error("Failed to create draft pull request");
-        }
-
-        try {
-          let url: string;
-          let number: number;
-          try {
-            const response = await octokit.rest.pulls.create({
-              owner: repository.githubOwnerLogin,
-              repo: repository.githubRepositoryName,
-              title: buildDraftPullRequestTitle({
-                branch: targetBranch,
-                commitMessage: await getBranchHeadCommitMessage({
-                  octokit,
-                  owner: repository.githubOwnerLogin,
-                  repo: repository.githubRepositoryName,
-                  branch: targetBranch,
-                }),
-              }),
-              head: targetBranch,
-              base: defaultBranch,
-              draft: true,
-            });
-            url = response.data.html_url;
-            number = response.data.number;
-          } catch (error) {
-            const currentPullRequest = await getOpenPullRequestForBranch({
-              octokit,
-              owner: repository.githubOwnerLogin,
-              repo: repository.githubRepositoryName,
-              branch: targetBranch,
-              baseBranch: defaultBranch,
-            });
-            if (!currentPullRequest) {
-              // If GitHub never confirmed a PR, keep the default-branch staging
-              // intact so the user can retry from the same source state.
-              await cleanupTemporaryDraftBranch({
-                ctx,
-                octokit,
-                repositoryId: repository.repositoryId,
-                owner: repository.githubOwnerLogin,
-                repo: repository.githubRepositoryName,
-                branch: targetBranch,
-                userId,
-                operationLease,
-              });
-
-              if (error instanceof Error && error.message.length > 0) {
-                throw error;
-              }
-              throw new Error("Failed to create draft pull request");
+            if (error instanceof Error && error.message.length > 0) {
+              throw error;
             }
-            url = currentPullRequest.url;
-            number = currentPullRequest.number;
+            throw new Error("Failed to create draft pull request");
           }
-
-          // Once GitHub confirms the draft PR, clear only the unchanged source
-          // snapshot so newer default-branch edits survive while retries do not
-          // re-draft the same work.
-          await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
-            repositoryId: repository.repositoryId,
-            branch: defaultBranch,
-            stagedFiles,
-            leaseId: operationLease.leaseId,
-            operationId: operationLease.operationId,
-            operationName: operationLease.operationName,
-          });
-
-          return {
-            branch: targetBranch,
-            url,
-            number,
-          };
-        } catch (error) {
-          if (error instanceof Error && error.message.length > 0) {
-            throw error;
-          }
-          throw new Error("Failed to create draft pull request");
+          url = currentPullRequest.url;
+          number = currentPullRequest.number;
         }
-      },
-    );
+
+        // Once GitHub confirms the draft PR, clear only the unchanged source
+        // snapshot so newer default-branch edits survive while retries do not
+        // re-draft the same work.
+        await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
+          repositoryId: repository.repositoryId,
+          branch: defaultBranch,
+          stagedFiles,
+        });
+
+        return {
+          branch: targetBranch,
+          url,
+          number,
+        };
+      } catch (error) {
+        if (error instanceof Error && error.message.length > 0) {
+          throw error;
+        }
+        throw new Error("Failed to create draft pull request");
+      }
+    }
   },
 });
 
@@ -2671,14 +2524,9 @@ export const pullFromGitHub = action({
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
 
-    await withRepositoryOperationLease(ctx, PULL_FROM_GITHUB_OPERATION, async (operationLease) => {
-      await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
-        userId,
-        repositoryId: args.repositoryId,
-        leaseId: operationLease.leaseId,
-        operationId: operationLease.operationId,
-        operationName: operationLease.operationName,
-      });
+    await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
+      userId,
+      repositoryId: args.repositoryId,
     });
 
     return null;
@@ -2690,17 +2538,9 @@ export const pullFromGitHubInternal = internalAction({
   args: {
     userId: v.id("users"),
     repositoryId: v.id("repositories"),
-    leaseId: v.id("repositoryOperationLeases"),
-    operationId: v.string(),
-    operationName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(internal.fileStaging.requireOperationLease, {
-      leaseId: args.leaseId,
-      operationId: args.operationId,
-      operationName: args.operationName,
-    });
     const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       repositoryId: args.repositoryId,
       userId: args.userId,
@@ -2843,9 +2683,6 @@ export const pullFromGitHubInternal = internalAction({
                 expectedVersion: item.version,
                 newContent: rebaseResult.content,
                 userId: args.userId,
-                leaseId: args.leaseId,
-                operationId: args.operationId,
-                operationName: args.operationName,
               });
             } catch (error) {
               if (!isStaleBaseVersionError(error)) {
@@ -2875,9 +2712,6 @@ export const pullFromGitHubInternal = internalAction({
                     expectedVersion: latestStaging.version,
                     newContent: retriedRebase.content,
                     userId: args.userId,
-                    leaseId: args.leaseId,
-                    operationId: args.operationId,
-                    operationName: args.operationName,
                   });
                 }
               }
@@ -2914,9 +2748,6 @@ export const pullFromGitHubInternal = internalAction({
         repositoryId: args.repositoryId,
         instructions,
         userId: args.userId,
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
       });
     }
 
@@ -2930,9 +2761,6 @@ export const pullFromGitHubInternal = internalAction({
         userId: args.userId,
         repositoryId: args.repositoryId,
         branch,
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
       });
     }
 
@@ -2959,162 +2787,146 @@ export const batchReadFiles = action({
     if (!repository) {
       throw new Error("Repository not found");
     }
-    return await withRepositoryOperationLease(
-      ctx,
-      BATCH_READ_FILES_OPERATION,
-      async (operationLease) => {
-        const connectedRepository = assertConnectedRepository(repository);
-        const githubAccess = await resolveGitHubAppAccess(ctx, {
-          userId,
-          target: { kind: "repository", repositoryId: args.repositoryId },
-        });
-        const octokit = githubAccess.octokit;
+    {
+      const connectedRepository = assertConnectedRepository(repository);
+      const githubAccess = await resolveGitHubAppAccess(ctx, {
+        userId,
+        target: { kind: "repository", repositoryId: args.repositoryId },
+      });
+      const octokit = githubAccess.octokit;
 
-        const requestedBranch =
-          typeof args.branch === "string" && args.branch.trim().length > 0
-            ? args.branch.trim()
-            : undefined;
-        let branchTreeData: GitHubTree[] | null = null;
-        const defaultBranch = connectedRepository.defaultBranch;
-        const branchToLoad = requestedBranch ?? defaultBranch;
-        if (branchToLoad) {
-          let branchTree = await ctx.runQuery(
-            internal.repository.branches.getRepositoryBranchTree,
+      const requestedBranch =
+        typeof args.branch === "string" && args.branch.trim().length > 0
+          ? args.branch.trim()
+          : undefined;
+      let branchTreeData: GitHubTree[] | null = null;
+      const defaultBranch = connectedRepository.defaultBranch;
+      const branchToLoad = requestedBranch ?? defaultBranch;
+      if (branchToLoad) {
+        let branchTree = await ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
+          repositoryId: args.repositoryId,
+          branch: branchToLoad,
+        });
+
+        if (!branchTree) {
+          await ctx.runAction(internal.github.updateRepositoryTree, {
+            userId,
+            repositoryId: args.repositoryId,
+            branch: branchToLoad,
+          });
+          branchTree = await ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
+            repositoryId: args.repositoryId,
+            branch: branchToLoad,
+          });
+        }
+
+        if (branchTree) {
+          branchTreeData = branchTree.treeData.tree;
+        }
+      }
+      const repositoryTree = selectBatchReadRepositoryTree({
+        requestedBranch,
+        branchTree: branchTreeData,
+      });
+
+      // Build a map of path → tree entry for fast lookups
+      const treeMap = new Map<string, { sha: string; size?: number }>();
+      for (const item of repositoryTree) {
+        if (item.type === "blob" && item.sha) {
+          treeMap.set(item.path, { sha: item.sha, size: item.size });
+        }
+      }
+
+      const uniqueFilePaths = Array.from(new Set(args.filePaths));
+      const MAX_FILE_SIZE = 100_000; // 100KB – skip large generated files
+      const results: Array<{ path: string; content: string }> = [];
+      const misses: Array<{ path: string; sha: string }> = [];
+
+      for (const filePath of uniqueFilePaths) {
+        const entry = treeMap.get(filePath);
+        if (!entry) continue; // file not in tree, skip
+
+        // Skip files that are too large
+        if (entry.size !== undefined && entry.size > MAX_FILE_SIZE) continue;
+
+        // 1. Try blob cache
+        const cached = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: entry.sha,
+        });
+
+        if (cached && typeof cached.text === "string") {
+          results.push({ path: filePath, content: cached.text });
+          continue;
+        }
+
+        misses.push({ path: filePath, sha: entry.sha });
+      }
+
+      const getOctokit = () => octokit;
+
+      for (const miss of misses) {
+        const knownResetAtMs = getKnownRateLimitResetAtMs(userId);
+        if (knownResetAtMs !== null) {
+          console.warn(
+            "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
             {
-              repositoryId: args.repositoryId,
-              branch: branchToLoad,
+              userId,
+              resetAtMs: knownResetAtMs,
             },
           );
-
-          if (!branchTree) {
-            await ctx.runAction(internal.github.updateRepositoryTree, {
-              userId,
-              repositoryId: args.repositoryId,
-              branch: branchToLoad,
-              leaseId: operationLease.leaseId,
-              operationId: operationLease.operationId,
-              operationName: operationLease.operationName,
-            });
-            branchTree = await ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
-              repositoryId: args.repositoryId,
-              branch: branchToLoad,
-            });
-          }
-
-          if (branchTree) {
-            branchTreeData = branchTree.treeData.tree;
-          }
-        }
-        const repositoryTree = selectBatchReadRepositoryTree({
-          requestedBranch,
-          branchTree: branchTreeData,
-        });
-
-        // Build a map of path → tree entry for fast lookups
-        const treeMap = new Map<string, { sha: string; size?: number }>();
-        for (const item of repositoryTree) {
-          if (item.type === "blob" && item.sha) {
-            treeMap.set(item.path, { sha: item.sha, size: item.size });
-          }
+          break;
         }
 
-        const uniqueFilePaths = Array.from(new Set(args.filePaths));
-        const MAX_FILE_SIZE = 100_000; // 100KB – skip large generated files
-        const results: Array<{ path: string; content: string }> = [];
-        const misses: Array<{ path: string; sha: string }> = [];
-
-        for (const filePath of uniqueFilePaths) {
-          const entry = treeMap.get(filePath);
-          if (!entry) continue; // file not in tree, skip
-
-          // Skip files that are too large
-          if (entry.size !== undefined && entry.size > MAX_FILE_SIZE) continue;
-
-          // 1. Try blob cache
-          const cached = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-            sha: entry.sha,
+        // 2. Fetch from GitHub (blob API by SHA – lightweight)
+        try {
+          const blob = await getOctokit().rest.git.getBlob({
+            owner: githubAccess.githubOwnerLogin,
+            repo: connectedRepository.githubRepositoryName,
+            file_sha: miss.sha,
           });
 
-          if (cached && typeof cached.text === "string") {
-            results.push({ path: filePath, content: cached.text });
-            continue;
+          const buffer = Buffer.from(blob.data.content, "base64");
+
+          // Skip binary files
+          if (!isTextBuffer(new Uint8Array(buffer))) continue;
+
+          const text = buffer.toString("utf-8");
+
+          // Cache in blob store for future reads
+          if (buffer.byteLength <= INLINE_TEXT_MAX) {
+            const ext = miss.path.split(".").pop()?.toLowerCase() ?? "";
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              repositoryId: repository._id,
+              sha: miss.sha,
+              size: buffer.byteLength,
+              text,
+              storageId: undefined,
+              ext,
+              mime: "text/plain; charset=utf-8",
+              debugFilePath: miss.path,
+            });
           }
 
-          misses.push({ path: filePath, sha: entry.sha });
-        }
-
-        const getOctokit = () => octokit;
-
-        for (const miss of misses) {
-          const knownResetAtMs = getKnownRateLimitResetAtMs(userId);
-          if (knownResetAtMs !== null) {
-            console.warn(
-              "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
-              {
-                userId,
-                resetAtMs: knownResetAtMs,
-              },
-            );
+          results.push({ path: miss.path, content: text });
+        } catch (error) {
+          if (isGitHubRateLimitError(error)) {
+            const failure = describeRepositoryTreeRefreshFailure(error);
+            const resetAtMs = rememberRateLimitResetAtMs(userId, failure.cooldownUntil);
+            console.warn("batchReadFiles: hit GitHub rate limit, stopping uncached reads for now", {
+              userId,
+              resetAtMs,
+              failedPath: miss.path,
+            });
             break;
           }
 
-          // 2. Fetch from GitHub (blob API by SHA – lightweight)
-          try {
-            const blob = await getOctokit().rest.git.getBlob({
-              owner: githubAccess.githubOwnerLogin,
-              repo: connectedRepository.githubRepositoryName,
-              file_sha: miss.sha,
-            });
-
-            const buffer = Buffer.from(blob.data.content, "base64");
-
-            // Skip binary files
-            if (!isTextBuffer(new Uint8Array(buffer))) continue;
-
-            const text = buffer.toString("utf-8");
-
-            // Cache in blob store for future reads
-            if (buffer.byteLength <= INLINE_TEXT_MAX) {
-              const ext = miss.path.split(".").pop()?.toLowerCase() ?? "";
-              await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-                repositoryId: repository._id,
-                sha: miss.sha,
-                size: buffer.byteLength,
-                text,
-                storageId: undefined,
-                ext,
-                mime: "text/plain; charset=utf-8",
-                debugFilePath: miss.path,
-                leaseId: operationLease.leaseId,
-                operationId: operationLease.operationId,
-                operationName: operationLease.operationName,
-              });
-            }
-
-            results.push({ path: miss.path, content: text });
-          } catch (error) {
-            if (isGitHubRateLimitError(error)) {
-              const failure = describeRepositoryTreeRefreshFailure(error);
-              const resetAtMs = rememberRateLimitResetAtMs(userId, failure.cooldownUntil);
-              console.warn(
-                "batchReadFiles: hit GitHub rate limit, stopping uncached reads for now",
-                {
-                  userId,
-                  resetAtMs,
-                  failedPath: miss.path,
-                },
-              );
-              break;
-            }
-
-            // Skip files that fail to fetch (permissions, deleted, etc.)
-            console.warn(`batchReadFiles: failed to fetch ${miss.path}:`, error);
-          }
+          // Skip files that fail to fetch (permissions, deleted, etc.)
+          console.warn(`batchReadFiles: failed to fetch ${miss.path}:`, error);
         }
+      }
 
-        return results;
-      },
-    );
+      return results;
+    }
   },
 });
 
@@ -3358,82 +3170,74 @@ export const restoreComparedDeletedFileToStaging = action({
       throw new Error("Repository not found");
     }
 
-    return await withRepositoryOperationLease(
-      ctx,
-      RESTORE_COMPARED_FILE_OPERATION,
-      async (operationLease) => {
-        const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
-        const defaultBranch = await getRepositoryDefaultBranch({
-          octokit,
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-        });
-        const branch = args.branch?.trim() || defaultBranch;
-        const currentPullRequest = await getLatestOpenPullRequestForBranch({
-          octokit,
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          branch,
-        });
-        const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
-        const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          basehead: `${baseBranch}...${branch}`,
-        });
-        const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
-        const baseCommitSha = compareResponse.data.base_commit.sha;
-        const mergeBaseSha =
-          mergeBaseCommitSha.length > 0
-            ? mergeBaseCommitSha
-            : baseCommitSha.length > 0
-              ? baseCommitSha
-              : baseBranch;
-        const baseShaByPath = await getTreeMapForRef({
-          octokit,
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          ref: mergeBaseSha,
-        });
-        const basePath =
-          typeof args.previousPath === "string" && baseShaByPath.has(args.previousPath)
-            ? args.previousPath
-            : args.filePath;
-        const baseSha = baseShaByPath.get(basePath);
-        if (typeof baseSha !== "string") {
-          throw new Error("Deleted compare file is not available from the PR base.");
-        }
+    {
+      const octokit = await getGitHubOctokit(ctx, userId, repository.repositoryId);
+      const defaultBranch = await getRepositoryDefaultBranch({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+      });
+      const branch = args.branch?.trim() || defaultBranch;
+      const currentPullRequest = await getLatestOpenPullRequestForBranch({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        branch,
+      });
+      const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
+      const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        basehead: `${baseBranch}...${branch}`,
+      });
+      const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
+      const baseCommitSha = compareResponse.data.base_commit.sha;
+      const mergeBaseSha =
+        mergeBaseCommitSha.length > 0
+          ? mergeBaseCommitSha
+          : baseCommitSha.length > 0
+            ? baseCommitSha
+            : baseBranch;
+      const baseShaByPath = await getTreeMapForRef({
+        octokit,
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        ref: mergeBaseSha,
+      });
+      const basePath =
+        typeof args.previousPath === "string" && baseShaByPath.has(args.previousPath)
+          ? args.previousPath
+          : args.filePath;
+      const baseSha = baseShaByPath.get(basePath);
+      if (typeof baseSha !== "string") {
+        throw new Error("Deleted compare file is not available from the PR base.");
+      }
 
-        const blobResponse = await octokit.rest.git.getBlob({
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          file_sha: baseSha,
-        });
-        const buffer = new Uint8Array(
-          Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64"),
-        );
-        if (!canHydrateInlineDiffText(basePath, buffer)) {
-          throw new Error("Only text compare files can be restored into staging right now.");
-        }
-        const content = Buffer.from(
-          blobResponse.data.content.replace(/\n/g, ""),
-          "base64",
-        ).toString("utf-8");
+      const blobResponse = await octokit.rest.git.getBlob({
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        file_sha: baseSha,
+      });
+      const buffer = new Uint8Array(
+        Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64"),
+      );
+      if (!canHydrateInlineDiffText(basePath, buffer)) {
+        throw new Error("Only text compare files can be restored into staging right now.");
+      }
+      const content = Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64").toString(
+        "utf-8",
+      );
 
-        await ctx.runMutation(internal.fileStaging.createFileInStagingForOperation, {
-          repositoryId: repository.repositoryId,
-          filePath: args.filePath,
-          content,
-          branch,
-          userId,
-          leaseId: operationLease.leaseId,
-          operationId: operationLease.operationId,
-          operationName: operationLease.operationName,
-        });
+      await ctx.runMutation(internal.fileStaging.createFileInStagingForOperation, {
+        repositoryId: repository.repositoryId,
+        filePath: args.filePath,
+        content,
+        branch,
+        userId,
+      });
 
-        return null;
-      },
-    );
+      return null;
+    }
   },
 });
 
@@ -3897,17 +3701,9 @@ export const commitAllStaged = internalAction({
     userId: v.id("users"),
     repositoryId: v.id("repositories"),
     branch: v.optional(v.string()),
-    leaseId: v.id("repositoryOperationLeases"),
-    operationId: v.string(),
-    operationName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(internal.fileStaging.requireOperationLease, {
-      leaseId: args.leaseId,
-      operationId: args.operationId,
-      operationName: args.operationName,
-    });
     const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       repositoryId: args.repositoryId,
       userId: args.userId,
@@ -3982,9 +3778,6 @@ export const commitAllStaged = internalAction({
           userId: args.userId,
           repositoryId: args.repositoryId,
           branch: commitBranch,
-          leaseId: args.leaseId,
-          operationId: args.operationId,
-          operationName: args.operationName,
         });
       },
       loadUpdatedRepository: async () =>
@@ -4028,9 +3821,6 @@ export const commitAllStaged = internalAction({
               ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
               mime: file.mime ?? guessMime(file.filePath),
               debugFilePath: file.filePath,
-              leaseId: args.leaseId,
-              operationId: args.operationId,
-              operationName: args.operationName,
             });
             continue;
           }
@@ -4045,9 +3835,6 @@ export const commitAllStaged = internalAction({
               ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
               mime: "text/plain; charset=utf-8",
               debugFilePath: file.filePath,
-              leaseId: args.leaseId,
-              operationId: args.operationId,
-              operationName: args.operationName,
             });
           }
         }
@@ -4062,9 +3849,6 @@ export const commitAllStaged = internalAction({
       userId: args.userId,
       branch: commitBranch,
       skipTreeUpdate: true,
-      leaseId: args.leaseId,
-      operationId: args.operationId,
-      operationName: args.operationName,
     });
 
     return null;

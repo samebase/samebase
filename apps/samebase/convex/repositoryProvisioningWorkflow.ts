@@ -6,10 +6,6 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { RepositoryProvisioningStep } from "./repository/provisioningModel";
-import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationStart,
-} from "./repositoryMigration/maintenance";
 import { isLiveConnectedRepository } from "./repository/state";
 import {
   requireActiveRepositoryProvisioningAuthority,
@@ -82,7 +78,6 @@ export async function startCreateRepositoryProvisioningWorkflow(
     private: boolean;
   },
 ): Promise<string> {
-  await requireRepositoryOperationStart(ctx);
   return await workflow.start(
     ctx,
     internal.repositoryProvisioningWorkflow.provisionApp,
@@ -112,7 +107,6 @@ export async function startRepositoryInfrastructureProvisioningWorkflow(
     runId: Id<"workflow_repositoryProvisioning_runs">;
   },
 ): Promise<string> {
-  await requireRepositoryOperationStart(ctx);
   return await workflow.start(
     ctx,
     internal.repositoryProvisioningWorkflow.provisionRepositoryInfrastructure,
@@ -851,7 +845,6 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
     await requireActiveRepositoryProvisioningRun(ctx.db, args);
-    await requireRepositoryAuthorityContinuation(ctx);
     const workflowId: string = await workflow.start(
       ctx,
       internal.repositoryProvisioningWorkflow.connectExistingRepository,
@@ -911,8 +904,6 @@ export const handleProvisioningWorkflowComplete = internalMutation({
       userId: run.userId,
       repositoryId: run.repositoryId,
     });
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const error = resolveWorkflowCompletionError(args.result);
     if (!error) {
       const now = Date.now();

@@ -13,13 +13,9 @@ import {
   type RepositoryManualProviderWriteAction,
 } from "./provisioningModel";
 import { toErrorMessage } from "../jsonUtils";
-import { isRuntimeRepository, requireRepositoryForUser } from "../organizationAccess";
+import { requireRepositoryForUser } from "../organizationAccess";
 import { requireOrganizationNotBillingLimited } from "../organizationBillingLimits";
 import { recordOrganizationLastUsedBuildToken } from "../organizations";
-import {
-  requireRepositoryAuthorityContinuation,
-  requireRepositoryOperationStart,
-} from "../repositoryMigration/maintenance";
 import { requireActiveRepositoryProvisioningRun } from "../repositoryWorkflowAuthority";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./state";
 
@@ -166,8 +162,6 @@ export async function recordManagedProviderWrite(
     userId: run.userId,
     repositoryId: args.repositoryId,
   });
-  await requireRepositoryAuthorityContinuation(ctx);
-
   const now = Date.now();
   await ctx.db.patch(write._id, {
     lastWriteAt:
@@ -199,7 +193,7 @@ export const recordManagedProviderWrites = internalMutation({
         throw new Error("A managed Builds token use requires a Cloudflare provider write.");
       }
       const repository = await ctx.db.get(args.repositoryId);
-      if (repository === null || !isRuntimeRepository(repository)) {
+      if (repository === null) {
         throw new Error("Repository not found.");
       }
       if (repository.cloudflareAccountId === undefined) {
@@ -276,7 +270,6 @@ export async function requireManualProviderWriteContinuation(
   args: ManualProviderWriteActorArgs,
 ): Promise<Extract<Doc<"repositories">, { state: "connected" }>> {
   const repository = await requireManualProviderWriteCheckpoint(ctx, args);
-  await requireRepositoryAuthorityContinuation(ctx);
   return repository;
 }
 
@@ -300,8 +293,6 @@ export const claimManualProviderWrite = internalMutation({
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another repository infrastructure operation is active.");
     }
-    await requireRepositoryOperationStart(ctx);
-
     const now = Date.now();
     const deadlineAt = now + MANUAL_PROVIDER_ACTION_LIMIT_MS;
     const expiresAt = now + MANUAL_PROVIDER_WRITE_EXPIRY_MS;
@@ -363,7 +354,6 @@ export const recordManualWorkersBuildsTokenUse = internalMutation({
     if (repository.cloudflareAccountId === undefined) {
       throw new Error("Cloudflare account is not configured for this repository.");
     }
-    await requireRepositoryAuthorityContinuation(ctx);
     await recordOrganizationLastUsedBuildToken(ctx, {
       organizationId: repository.organizationId,
       cloudflareAccountId: repository.cloudflareAccountId,
@@ -385,8 +375,6 @@ export const finishManualProviderWriteResult = internalMutation({
     if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
       throw new Error("Manual provider action state changed before result was recorded.");
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     const lastWriteAt = { ...write.lastWriteAt };
     for (const provider of readManualProviderWriteProviders(write.owner.action)) {
@@ -449,8 +437,6 @@ export const expireManualProviderWrite = internalMutation({
     ) {
       return null;
     }
-    await requireRepositoryAuthorityContinuation(ctx);
-
     const now = Date.now();
     const lastWriteAt = { ...write.lastWriteAt };
     for (const provider of readManualProviderWriteProviders(write.owner.action)) {

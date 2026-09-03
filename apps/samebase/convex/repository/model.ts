@@ -132,14 +132,6 @@ export const repositoryTables = {
   repositories: defineTable(
     union(
       object({
-        state: literal("migration_placeholder"),
-        createdAt: number(),
-      }),
-      object({
-        state: literal("migration_tombstone"),
-        createdAt: number(),
-      }),
-      object({
         state: literal("not_connected"),
         ...repositoryBaseFields,
         convexTeamId: optional(string()),

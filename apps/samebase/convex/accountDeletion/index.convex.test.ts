@@ -157,28 +157,32 @@ describe("account deletion request and status", () => {
   it("queues immediate deletion in production when the override is zero", async () => {
     vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
     vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
+    vi.useFakeTimers();
+    try {
+      const t = makeConvexTest();
+      const { viewer } = await seedActiveViewer(t, "immediate@example.invalid");
 
-    const t = makeConvexTest();
-    const { viewer } = await seedActiveViewer(t, "immediate@example.invalid");
+      const policy = await viewer.query(api.accountDeletion.index.policy, {});
+      expect(policy).toBe("immediate");
 
-    const policy = await viewer.query(api.accountDeletion.index.policy, {});
-    expect(policy).toBe("immediate");
+      const requested = await viewer.mutation(api.accountDeletion.index.request, {
+        completionCapability: "0".repeat(64),
+        deletionStartMode: policy,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+      });
+      if (requested.state !== "accepted") {
+        throw new Error("Account deletion request was not accepted.");
+      }
 
-    const requested = await viewer.mutation(api.accountDeletion.index.request, {
-      completionCapability: "0".repeat(64),
-      deletionStartMode: policy,
-      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
-    });
-    if (requested.state !== "accepted") {
-      throw new Error("Account deletion request was not accepted.");
+      expect(requested.status.deletionStartsAt).toBe(requested.status.requestedAt);
+
+      vi.unstubAllEnvs();
+      await expect(viewer.query(api.accountDeletion.index.status, {})).resolves.toEqual(
+        requested.status,
+      );
+    } finally {
+      vi.useRealTimers();
     }
-
-    expect(requested.status.deletionStartsAt).toBe(requested.status.requestedAt);
-
-    vi.unstubAllEnvs();
-    await expect(viewer.query(api.accountDeletion.index.status, {})).resolves.toEqual(
-      requested.status,
-    );
   });
 
   it("keeps the seven-day start time for a legacy queued run", async () => {

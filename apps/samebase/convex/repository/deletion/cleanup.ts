@@ -1,11 +1,8 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
-import type { Id } from "../../_generated/dataModel";
-import { requireRepositoryAuthorityContinuation } from "../../repositoryMigration/maintenance";
+import type { Doc, Id } from "../../_generated/dataModel";
 import { requireActiveRepositoryDeletionRun } from "../../repositoryWorkflowAuthority";
-import { isRuntimeRepository, type RuntimeRepository } from "../../organizationAccess";
 import { vRepositoryDeletionCleanupStep, type RepositoryDeletionCleanupStep } from "./model";
-import { readRepositoryDeletionState } from "./state";
 
 const { id, literal, number, object, union } = v;
 
@@ -63,23 +60,22 @@ type RepositoryLocalCleanupHandler = (
 async function loadRepositoryForDeletionActor(
   ctx: RepositoryLocalCleanupCtx,
   args: RepositoryLocalCleanupArgs,
-): Promise<RuntimeRepository | null> {
+): Promise<Doc<"repositories"> | null> {
   const run = await requireActiveRepositoryDeletionRun(ctx.db, { runId: args.runId });
   if (run.repositoryId !== args.repositoryId) {
     throw new Error("Repository deletion run does not match its repository.");
   }
   const repository = await ctx.db.get(args.repositoryId);
-  if (!repository || !isRuntimeRepository(repository)) {
+  if (!repository) {
     return null;
   }
   if (repository.organizationId !== run.organizationId) {
     throw new Error("Repository deletion run does not match its repository.");
   }
-  const deletion = readRepositoryDeletionState(repository);
+  const deletion = repository.deletion;
   if (deletion.state !== "deleting" || deletion.runId !== run._id) {
     throw new Error("Repository deletion gate does not match run.");
   }
-  await requireRepositoryAuthorityContinuation(ctx);
   return repository;
 }
 

@@ -116,41 +116,10 @@ const exactRepositoryBranchRefreshResult = union(
   }),
 );
 type ExactRepositoryBranchRefreshResult = Infer<typeof exactRepositoryBranchRefreshResult>;
-type RepositoryOperationLease = {
-  leaseId: Id<"repositoryOperationLeases">;
-  operationId: string;
-  operationName: string;
-};
-
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
-const REPOSITORY_MEDIA_CACHE_OPERATION = "repository_media_cache";
-
-async function withRepositoryOperationLease<Result>(
-  ctx: ActionCtx,
-  operationName: string,
-  run: (lease: RepositoryOperationLease) => Promise<Result>,
-): Promise<Result> {
-  const operationId = crypto.randomUUID();
-  const lease = await ctx.runMutation(
-    internal.repositoryMigration.maintenance.claimOperationLease,
-    {
-      operationId,
-      operationName,
-    },
-  );
-  try {
-    return await run({ leaseId: lease.leaseId, operationId, operationName });
-  } finally {
-    await ctx.runMutation(internal.repositoryMigration.maintenance.releaseOperationLease, {
-      leaseId: lease.leaseId,
-      operationId,
-      operationName,
-    });
-  }
-}
 
 /** An omitted branch means default; a provided branch always remains exact. */
 function normalizeOptionalRepositoryBranch(branch: string | undefined): string | undefined {
@@ -1285,104 +1254,95 @@ export const getRepositoryMediaAsset = action({
       }
     }
 
-    return await withRepositoryOperationLease(
-      ctx,
-      REPOSITORY_MEDIA_CACHE_OPERATION,
-      async (operationLease) => {
-        const { octokit } = await resolveGitHubAppAccess(ctx, {
-          userId,
-          target: { kind: "repository", repositoryId: repository.repositoryId },
+    const { octokit } = await resolveGitHubAppAccess(ctx, {
+      userId,
+      target: { kind: "repository", repositoryId: repository.repositoryId },
+    });
+
+    try {
+      if (requestedBranch) {
+        targetFileSha = await getRepositoryBlobShaForBranchPath({
+          octokit,
+          owner: repository.githubOwnerLogin,
+          repo: repository.githubRepositoryName,
+          branch: requestedBranch,
+          filePath: args.filePath,
         });
-
-        try {
-          if (requestedBranch) {
-            targetFileSha = await getRepositoryBlobShaForBranchPath({
-              octokit,
-              owner: repository.githubOwnerLogin,
-              repo: repository.githubRepositoryName,
-              branch: requestedBranch,
-              filePath: args.filePath,
-            });
-            if (targetFileSha === null) {
-              return { found: false, reason: "missing" };
-            }
-            const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-              sha: targetFileSha,
-            });
-            const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-              ctx,
-              cachedBlob,
-              args.filePath,
-              mediaKind,
-              fileName,
-            );
-            if (resolvedCachedAsset) {
-              return resolvedCachedAsset;
-            }
-          }
-
-          if (targetFileSha === null) {
-            return { found: false, reason: "missing" };
-          }
-
-          const blob = await octokit.rest.git.getBlob({
-            owner: repository.githubOwnerLogin,
-            repo: repository.githubRepositoryName,
-            file_sha: targetFileSha,
-          });
-          if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
-            return {
-              found: false,
-              reason: "unavailable",
-              message: "Preview unavailable for this file.",
-            };
-          }
-
-          const mimeType = guessMime(args.filePath);
-          const content = blob.data.content.replace(/\n/g, "");
-          const buffer = Buffer.from(content, "base64");
-          const storageId = await withRetry(() =>
-            ctx.storage.store(new Blob([buffer], { type: mimeType })),
-          );
-
-          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            repositoryId: repository.repositoryId,
-            sha: targetFileSha,
-            size: buffer.byteLength,
-            mime: mimeType,
-            text: undefined,
-            storageId,
-            ext: getRepositoryMediaExtension(args.filePath),
-            debugFilePath: args.filePath,
-            leaseId: operationLease.leaseId,
-            operationId: operationLease.operationId,
-            operationName: operationLease.operationName,
-          });
-
-          const url = await ctx.storage.getUrl(storageId);
-          if (typeof url !== "string" || url.length === 0) {
-            throw new Error("Failed to create media preview URL");
-          }
-
-          return {
-            found: true,
-            kind: mediaKind,
-            mimeType,
-            url,
-            fileName,
-          };
-        } catch (error: unknown) {
-          if (getRepositoryMediaErrorStatus(error) === 404) {
-            return { found: false, reason: "missing" };
-          }
-
-          if (isRepositoryMediaTooLargeError(error)) {
-            return getRepositoryMediaTooLargeAsset();
-          }
-          throw error;
+        if (targetFileSha === null) {
+          return { found: false, reason: "missing" };
         }
-      },
-    );
+        const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: targetFileSha,
+        });
+        const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+          ctx,
+          cachedBlob,
+          args.filePath,
+          mediaKind,
+          fileName,
+        );
+        if (resolvedCachedAsset) {
+          return resolvedCachedAsset;
+        }
+      }
+
+      if (targetFileSha === null) {
+        return { found: false, reason: "missing" };
+      }
+
+      const blob = await octokit.rest.git.getBlob({
+        owner: repository.githubOwnerLogin,
+        repo: repository.githubRepositoryName,
+        file_sha: targetFileSha,
+      });
+      if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
+        return {
+          found: false,
+          reason: "unavailable",
+          message: "Preview unavailable for this file.",
+        };
+      }
+
+      const mimeType = guessMime(args.filePath);
+      const content = blob.data.content.replace(/\n/g, "");
+      const buffer = Buffer.from(content, "base64");
+      const storageId = await withRetry(() =>
+        ctx.storage.store(new Blob([buffer], { type: mimeType })),
+      );
+
+      await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+        repositoryId: repository.repositoryId,
+        sha: targetFileSha,
+        size: buffer.byteLength,
+        mime: mimeType,
+        text: undefined,
+        storageId,
+        ext: getRepositoryMediaExtension(args.filePath),
+        debugFilePath: args.filePath,
+      });
+
+      const url = await ctx.storage.getUrl(storageId);
+      if (typeof url !== "string" || url.length === 0) {
+        throw new Error("Failed to create media preview URL");
+      }
+
+      return {
+        found: true,
+        kind: mediaKind,
+        mimeType,
+        url,
+        fileName,
+      };
+    } catch (error: unknown) {
+      if (getRepositoryMediaErrorStatus(error) === 404) {
+        return { found: false, reason: "missing" };
+      }
+
+      if (isRepositoryMediaTooLargeError(error)) {
+        return getRepositoryMediaTooLargeAsset();
+      }
+      throw error;
+    }
   },
 });
 
@@ -1395,7 +1355,6 @@ async function refreshExactRepositoryBranchForUser(
     repo: string;
     branch: string;
     intent: "passive" | "manual";
-    operationLease?: RepositoryOperationLease;
   },
 ): Promise<ExactRepositoryBranchRefreshResult> {
   const branch = normalizeRequiredRepositoryBranch(args.branch);
@@ -1416,9 +1375,6 @@ async function refreshExactRepositoryBranchForUser(
     | { claimed: false; reason: "cooldown" | "in_progress" | "unavailable" } =
     await ctx.runMutation(internal.repository.branches.claimTreeRefresh, {
       repositoryId: args.repositoryId,
-      leaseId: args.operationLease?.leaseId,
-      operationId: args.operationLease?.operationId,
-      operationName: args.operationLease?.operationName,
     });
   if (!claim.claimed) {
     switch (claim.reason) {
@@ -1594,31 +1550,10 @@ export const updateRepositoryTree = internalAction({
     userId: id("users"),
     repositoryId: id("repositories"),
     branch: string(),
-    leaseId: optional(id("repositoryOperationLeases")),
-    operationId: optional(string()),
-    operationName: optional(string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const branch = normalizeRequiredRepositoryBranch(args.branch);
-    let operationLease: RepositoryOperationLease | undefined;
-    if (
-      args.leaseId !== undefined &&
-      args.operationId !== undefined &&
-      args.operationName !== undefined
-    ) {
-      operationLease = {
-        leaseId: args.leaseId,
-        operationId: args.operationId,
-        operationName: args.operationName,
-      };
-    } else if (
-      args.leaseId !== undefined ||
-      args.operationId !== undefined ||
-      args.operationName !== undefined
-    ) {
-      throw new Error("Repository operation lease identity is incomplete.");
-    }
     const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       repositoryId: args.repositoryId,
       userId: args.userId,
@@ -1636,7 +1571,6 @@ export const updateRepositoryTree = internalAction({
       repo: repository.githubRepositoryName,
       branch,
       intent: "manual",
-      operationLease,
     });
     if (refresh.kind !== "ready") {
       throw new Error(`Repository branch refresh did not complete: ${refresh.kind}.`);
