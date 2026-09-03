@@ -96,7 +96,7 @@ Relevant findings from the docs:
 
 This is the closest official solution to the UX we want.
 
-### Existing repo constraints
+### Existing repository constraints
 
 - `apps/samebase/package.json` currently includes `diff`, and this change adds `@codemirror/merge`
 - current inline mode is hand-rolled on top of `diffLines`

@@ -12,7 +12,7 @@
 - Updated: 2026-07-11
 - Scope: user settings, private display identity, sidebar privacy, and self-serve account deletion
 - Related:
-  - [Vault deletion workflow spec](../specs/098_VAULT_DELETION_WORKFLOW_SPEC.md)
+  - [Vault deletion workflow spec](../specs/098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md)
   - [Privacy policy](../apps/samebase/src/content/privacy-policy.md)
   - [Access model](../apps/samebase/shared/accessModel.ts)
 
@@ -248,7 +248,7 @@ surface.
 The accepted vault deletion design already established the relevant constraints: create a durable
 run, gate new work, make bounded progress, retain retry identifiers until external work finishes,
 and delete the owning row last. See
-[`098_VAULT_DELETION_WORKFLOW_SPEC.md`](../specs/098_VAULT_DELETION_WORKFLOW_SPEC.md#L17).
+[`098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md`](../specs/098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md#L17).
 
 Account deletion has the same failure shape at a larger scope. A user can own many vaults and large
 amounts of staged content. The schema also contains user-scoped credentials, grants, machines,

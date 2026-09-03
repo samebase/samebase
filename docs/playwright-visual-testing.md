@@ -50,13 +50,13 @@ useful diagnostics for a specific CI or isolation failure. Report the command sh
 Run a focused Linux visual test before trusting a screenshot result:
 
 ```bash
-pnpm test:visual:linux -- vault-overview-v2-visual.spec.ts
+pnpm test:visual:linux -- repository-overview-v2-visual.spec.ts
 ```
 
 Update snapshots from Linux only when the rendered UI is intentionally changing:
 
 ```bash
-pnpm test:visual:linux -- --update-snapshots=all vault-overview-v2-visual.spec.ts
+pnpm test:visual:linux -- --update-snapshots=all repository-overview-v2-visual.spec.ts
 ```
 
 The command copies the repo into a temporary Linux workdir inside the container, installs

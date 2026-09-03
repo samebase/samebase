@@ -3,25 +3,25 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Samebase provider resources, vault dashboard
+- Owner: Samebase provider resources, repository dashboard
 - Last updated: 2026-08-18
 - Related:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
-  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
 ## Current Contract
 
-Cloudflare Worker connection is a vault-level resource attachment. It is separate from provider
+Cloudflare Worker connection is a repository-level resource attachment. It is separate from provider
 credential connection and separate from deployment configuration.
 
-`vaultCloudflareWorkers` stores durable attachment identity, user-approved repository placement, and
-provenance:
+`repositoryCloudflareWorkers` stores durable attachment identity, user-approved repository
+placement, and provenance:
 
 ```ts
 {
   organizationId;
-  vaultId;
+  repositoryId;
   accountId;
   workerName;
   workerTag;
@@ -35,10 +35,10 @@ Convex `_creationTime` records when the attachment was created.
 `workerTag`, `workerName`, and `rootDirectory` use the identity and approved-coordinate rules in
 spec 115. This spec defines how the manual connection flow first establishes those values.
 
-`organizationId` must equal the parent vault's organization. `accountId` must equal the parent
-vault's required `cloudflareAccountId`. Provider reads and writes load the organization's current
-Cloudflare credential and fail closed if it is absent or cannot access that exact account. This flow
-does not select or change the organization's Cloudflare account.
+`organizationId` must equal the parent repository's organization. `accountId` must equal the parent
+repository's required `cloudflareAccountId`. Provider reads and writes load the organization's
+current Cloudflare credential and fail closed if it is absent or cannot access that exact account.
+This flow does not select or change the organization's Cloudflare account.
 
 Worker existence, workers.dev URLs, GitHub repository connection, build triggers, build-token UUIDs,
 build status, domains, and Convex build variables remain current Cloudflare observations. Samebase
@@ -48,12 +48,12 @@ fetches each build-token name from Cloudflare and does not store it.
 
 `/repo/<owner>/<repository>?add-cloudflare` opens one repository-level dialog.
 
-1. Samebase loads the vault's `cloudflareAccountId` and the organization's current credential.
+1. Samebase loads the repository's `cloudflareAccountId` and the organization's current credential.
 2. Samebase reads the complete Worker inventory for that account. If only legacy inventory is
    available, the scan is explicitly partial and cannot support a negative conclusion.
 3. For each Worker, Samebase reads Workers Builds triggers and requires GitHub provider type plus an
-   exact match to the vault's immutable GitHub repository ID for direct selection. A Worker with no
-   active trigger is observed separately from a Worker connected to another repository.
+   exact match to the repository's immutable GitHub repository ID for direct selection. A Worker
+   with no active trigger is observed separately from a Worker connected to another repository.
 4. A selectable Worker has one unambiguous normalized root across its active production and preview
    triggers. The root is displayed read-only and becomes the approved attachment root.
 5. Every selectable Worker starts selected because its exact repository connection has already been
@@ -72,7 +72,7 @@ configuring GitHub Builds, then re-reads Cloudflare and requires the requested r
 unconnected Worker is configured individually because roots are per Worker and Cloudflare writes are
 not batch-atomic.
 
-`Connect and add` also requires one Workers Builds token selected from the exact vault account.
+`Connect and add` also requires one Workers Builds token selected from the exact repository account.
 Samebase re-lists the account records before the write and applies the selected UUID to both
 triggers. After both trigger writes succeed, that UUID becomes the organization account's last-used
 Builds token.
@@ -127,12 +127,13 @@ automatically.
 
 ### Identity and ownership
 
-An exact account and Worker identity can be attached to only one vault. Idempotent confirmation for
-the same vault preserves the attachment ID and only upgrades `origin` from `selected_existing` to
-`provisioned` when a managed operation proves ownership.
+An exact account and Worker identity can be attached to only one repository. Idempotent confirmation
+for the same repository preserves the attachment ID and only upgrades `origin` from
+`selected_existing` to `provisioned` when a managed operation proves ownership.
 
 The attachment's organization and account never change. A Cloudflare account change is an
-organization destination reset, which is unavailable while any vault remains in that organization.
+organization destination reset, which is unavailable while any repository remains in that
+organization.
 
 Managed cleanup may delete only `provisioned` Workers. Removing an attachment selected as existing
 never deletes the Cloudflare Worker.
@@ -159,9 +160,9 @@ explicit operations.
 with a different live root. The member must use `Update root` first when the current provider root
 is the intended coordinate.
 
-Vault settings shows the current token name when both triggers use the same listed UUID. It reports
-when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These are
-observations, not token-health claims. `Change API token` opens the same explicit configuration
+Repository settings shows the current token name when both triggers use the same listed UUID. It
+reports when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These
+are observations, not token-health claims. `Change API token` opens the same explicit configuration
 flow. Confirmation writes the chosen UUID to both triggers and starts a production build.
 
 When build access has no trustworthy attached target, `Use <project> for Workers Builds` names each
@@ -201,15 +202,15 @@ uses the normal action for that state:
 - Persisting trigger, URL, domain, build status, build-token name, marker, or deploy-key state.
 - Inferring a Worker placement from repository folders.
 - Attaching Workers from a different GitHub repository.
-- Selecting or changing a Cloudflare account in a vault flow.
+- Selecting or changing a Cloudflare account in a repository flow.
 - Automatically deleting Workers or attachments after a provider read.
 
 ## Validation
 
 - Provider tests cover pagination beyond 100 Workers, partial fallback, zero-trigger Workers,
-  different-repository Workers, provider type, exact repo identity, exact vault account, missing or
-  mismatched organization credentials, ambiguous roots, production/preview disagreement, and marker
-  disagreement.
+  different-repository Workers, provider type, exact GitHub repository identity, exact repository
+  account, missing or mismatched organization credentials, ambiguous roots, production/preview
+  disagreement, and marker disagreement.
 - Mutation tests cover organization and account destination checks, atomic batches, global identity
   conflicts, idempotency, origin upgrade, stored roots, and stable `workerTag` resolution after a
   provider rename.
@@ -217,7 +218,7 @@ uses the normal action for that state:
   silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
   updates both providers.
-- UI tests cover vault-level routing, default multiple selection, grouping by stored root, the
+- UI tests cover repository-level routing, default multiple selection, grouping by stored root, the
   focused unconnected-Worker root flow, count copy, exact Convex action targets, stored-root Builds
   repair, and `Needs attention`.
 - UI tests cover token loading, empty and failed lists, visible default and changed selections, live

@@ -8,8 +8,8 @@ dashboard links into FileView without colliding with file paths.
 ## Preconditions
 
 - `pnpm dev:worktree` can run in the current checkout.
-- A connected vault has a remote branch containing `/` in the branch name.
-- Dashboard branch sync has completed for that vault.
+- A connected repository has a remote branch containing `/` in the branch name.
+- The exact branch tree can be hydrated for that repository.
 - Optional edge-case coverage: a second slash-containing branch and a branch with multiple slash
   levels (for example `feature/mobile/v2/smoke`).
 

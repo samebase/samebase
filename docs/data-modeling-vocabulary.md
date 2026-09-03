@@ -1,8 +1,8 @@
 # Data Modeling Vocabulary
 
 This is the approved generic vocabulary for persisted table names and other data-model symbols.
-Product and protocol nouns such as `vault`, `branch`, `OAuth`, and `grant` remain open, but they
-must refer to one concrete concept everywhere they appear.
+Product and protocol nouns such as `repository`, `branch`, `OAuth`, and `grant` remain open, but
+they must refer to one concrete concept everywhere they appear.
 
 The generic vocabulary is closed. A change that needs another generic lifecycle noun must define it
 here in the same change, show why an existing term does not fit, and update the affected model names
@@ -19,10 +19,10 @@ and comments consistently.
    the second makes primary product facts look like one interchangeable storage class.
 4. A prefixed name has the grammar `<category>_<subject>_<rowKind>`. Underscores separate those
    semantic levels; camelCase joins multiple words inside one level. For example,
-   `workflow_vaultProvisioning_runs` means category `workflow`, subject `vaultProvisioning`, and row
-   kind `runs`.
+   `workflow_repositoryProvisioning_runs` means category `workflow`, subject
+   `repositoryProvisioning`, and row kind `runs`.
 5. Put the subject before the row kind so one feature's tables remain adjacent:
-   `workflow_vaultDeletion_events`, not `workflow_event_vaultDeletion`.
+   `workflow_repositoryDeletion_events`, not `workflow_event_repositoryDeletion`.
 6. Prefer a concrete product or protocol noun over a generic technical noun.
 7. Use one word for one meaning across schema, code, tests, and current documentation.
 8. Define non-obvious producers and consumers in the table comment. Name the actual command,

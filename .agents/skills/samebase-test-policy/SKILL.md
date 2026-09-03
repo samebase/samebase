@@ -39,7 +39,7 @@ Do not add a test only because a component or file moved. When several routes sh
 test the component behavior once and test only each route's distinct integration boundary. Do not
 keep an inactive product route public only to satisfy a test.
 
-For browser tests that change stored data, create isolated user, organization, and vault data. Clean
+For browser tests that change stored data, create isolated user, organization, and repository data. Clean
 it up when the test can do so safely. Do not mutate a shared Playwright account and depend on test
 order.
 

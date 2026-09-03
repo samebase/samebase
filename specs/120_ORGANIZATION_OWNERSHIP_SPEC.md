@@ -8,7 +8,7 @@
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
-  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
@@ -41,13 +41,13 @@ user authorization. Ongoing organization operations that use installation authen
 require a GitHub sign-in session. Spec 122 defines the linked identity.
 
 Each membership has one required role: `owner` or `member`. Both roles can read and operate the
-organization's vaults and use organization credentials. Both roles can create repositories for a
-GitHub organization. Only owners can manage deployment providers, reconnect the GitHub organization,
-or manage billing. The first verified GitHub App installation creates an owner membership. A
-Samebase owner can invite one exact GitHub user as a member. The recipient must explicitly join.
-Spec 123 defines invitation, role, removal, leave, and live GitHub relationship behavior. The
-internal existing-user function remains an operator recovery tool and is not the product membership
-flow.
+organization's repositories and use organization credentials. Both roles can create repositories for
+a GitHub organization. Only owners can manage deployment providers, reconnect the GitHub
+organization, or manage billing. The first verified GitHub App installation creates an owner
+membership. A Samebase owner can invite one exact GitHub user as a member. The recipient must
+explicitly join. Spec 123 defines invitation, role, removal, leave, and live GitHub relationship
+behavior. The internal existing-user function remains an operator recovery tool and is not the
+product membership flow.
 
 Every organization must always have at least one active owner. Account deletion, membership removal,
 and role changes must reject a transition that would leave an organization without an active owner.
@@ -234,8 +234,8 @@ starts a production build. The completed managed run is not resumed or retried.
 
 When a Worker is already attached, Samebase keeps it. After the user completes token setup, Samebase
 lists tokens again and configures Workers Builds for that existing attachment. It does not create
-another Worker. For another manual vault, Samebase continues only with the action that matches the
-request and current inventory. Generic Worker creation configures Builds and requests the first
+another Worker. For another manual repository, Samebase continues only with the action that matches
+the request and current inventory. Generic Worker creation configures Builds and requests the first
 build. It does not create, change, or delete Convex deploy keys.
 
 Samebase lists token records by name from Z to A without case sensitivity. Provider writes never
@@ -245,11 +245,12 @@ access only. It does not prove or replace a Worker's build-token binding.
 
 Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
 upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`
-or `organizations.cloudflareAccount`, all vaults, and all provider resources. An action that already
-loaded the credential can finish, but queued work and retries must resolve the current credential
-again and fail closed. Reconnect must prove that the new credential can access the retained team or
-account. It does not change that destination. A separate owner action can change a destination only
-after Disconnect and only when the organization has no `vaults` row in any lifecycle condition.
+or `organizations.cloudflareAccount`, all repositories, and all provider resources. An action that
+already loaded the credential can finish, but queued work and retries must resolve the current
+credential again and fail closed. Reconnect must prove that the new credential can access the
+retained team or account. It does not change that destination. A separate owner action can change a
+destination only after Disconnect and only when the organization has no `repositories` row in any
+lifecycle condition.
 
 A new Cloudflare credential refresh claim requires an active organization member. After a successful
 claim, the exact expected authorization and lease authorize only the matching replacement. The exact
@@ -257,18 +258,18 @@ lease alone authorizes the matching release, which clears only that lease. This 
 finish after the actor is deleting or deleted only while the unchanged shared credential slot
 exists. It cannot recreate a slot that cleanup removed.
 
-Samebase-managed vault creation requires `convexTeamId` and `cloudflareAccountId`.
+Samebase-managed repository creation requires `convexTeamId` and `cloudflareAccountId`.
 Existing-repository connection requires only GitHub and copies each organization provider
-destination that is configured. A later provider connection fills that provider's missing vault
+destination that is configured. A later provider connection fills that provider's missing repository
 destination in the same credential transaction. Each stored field binds later work for that
 provider. The fields do not store a credential ID.
 
-Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
-Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId` and stable
-`workerTag`. They also store the approved `workerName` and `rootDirectory` that spec 115 defines.
-Each resource destination must match its vault. Provider work resolves the organization's current
-credential for the vault's team or account. Credential replacement does not rewrite a vault or
-provider resource.
+Long-lived `repositoryConvexProjects` rows identify external resources with `teamId` and
+`projectId`. Long-lived `repositoryCloudflareWorkers` rows identify external resources with
+`accountId` and stable `workerTag`. They also store the approved `workerName` and `rootDirectory`
+that spec 115 defines. Each resource destination must match its repository. Provider work resolves
+the organization's current credential for the repository's team or account. Credential replacement
+does not rewrite a repository or provider resource.
 
 Removing a user from an organization does not clear a credential that the user established. If the
 user deletes the Samebase account, Samebase clears each current credential slot whose
@@ -277,25 +278,27 @@ It retains the credential document when another credential slot remains. It alwa
 organization destinations and resources. Another owner can reconnect the same destinations. Account
 deletion does not wait for replacement or manual upstream revocation.
 
-## Vault Identity And Routing
+## Repository Identity And Routing
 
-Every vault belongs to one organization and one GitHub repository owned by that organization's
-GitHub owner. Vault creation rejects a repository whose stable owner ID differs from the
-organization's `githubOwnerId`. One GitHub repository identity maps to at most one retained vault.
+Every repository belongs to one organization and one GitHub repository owned by that organization's
+GitHub owner. Repository creation rejects a repository whose stable owner ID differs from the
+organization's `githubOwnerId`. One GitHub repository identity maps to at most one retained
+repository.
 
-`vaults.ghRepoId` is the stable GitHub repository identity. `vaults.name` is mutable route and
-display data. Repository discovery and vault creation use the stable repository ID to prevent a
-rename from creating a second vault. Connect-existing provisioning carries the selected repository
-ID through each GitHub read. GitHub supplies the current owner and repository names for that ID, and
-a later route lookup cannot substitute another repository. After connection, repository operations
-use a GitHub installation token restricted to `vaults.ghRepoId`, so reuse of stored mutable route
-data cannot target another repository.
+`repositories.githubRepositoryDatabaseId` is the stable GitHub repository identity.
+`repositories.name` is mutable route and display data. Repository discovery and repository creation
+use the stable repository ID to prevent a rename from creating a second repository. Connect-existing
+provisioning carries the selected repository ID through each GitHub read. GitHub supplies the
+current owner and repository names for that ID, and a later route lookup cannot substitute another
+repository. After connection, repository operations use a GitHub installation token restricted to
+`repositories.githubRepositoryDatabaseId`, so reuse of stored mutable route data cannot target
+another repository.
 
 The route `/repo/<owner>/<repository>` resolves the current GitHub owner login to an organization
-through the viewer's membership, then resolves the vault by `organizationId` and repository name. A
-vault does not store another current copy of `organizations.githubOwnerLogin`. It does not use an
-opaque `?organization=<id>` parameter. Internal Samebase IDs are database and authorization
-identities, not URL selectors.
+through the viewer's membership, then resolves the repository by `organizationId` and repository
+name. A repository does not store another current copy of `organizations.githubOwnerLogin`. It does
+not use an opaque `?organization=<id>` parameter. Internal Samebase IDs are database and
+authorization identities, not URL selectors.
 
 Organization setup pages use the current GitHub owner login in `/org/<owner>/providers`,
 `/org/<owner>/new-app`, and `/org/<owner>/connect-repo`. Organization settings and billing use
@@ -304,19 +307,19 @@ membership. These pages do not store a hidden active organization or expose an i
 ID in the URL or a selector.
 
 A current GitHub login or repository name that differs from stored route data shows a warning. An
-organization owner can approve the exact current value in the existing organization or vault
+organization owner can approve the exact current value in the existing organization or repository
 settings. The update reads GitHub again, verifies the stable owner or repository ID, rejects a name
 collision, and patches only the mutable route and display fields. The client then replaces the
 settings route and refreshes the observation. Other members can see the warning but cannot approve
 the update. A name update does not change membership, billing, provider connections, or ownership.
 
-A repository that is temporarily unavailable to the stored installation keeps its vault and shows an
-access warning. Repository operations fail closed. Restoring installation access clears the warning
-on the next observation. There is no recovery workflow. A repository with a different stable owner
-has no identity update action, and Samebase does not move the vault or other organization-owned
-data. After an owner transfer, or when the user does not restore access, the manual option is to
-remove the vault and connect the repository again. Old mutable-name routes have no redirect or
-alias.
+A repository that is temporarily unavailable to the stored installation keeps its repository and
+shows an access warning. Repository operations fail closed. Restoring installation access clears the
+warning on the next observation. There is no recovery workflow. A repository with a different stable
+owner has no identity update action, and Samebase does not move the repository or other
+organization-owned data. After an owner transfer, or when the user does not restore access, the
+manual option is to remove the repository and connect the repository again. Old mutable-name routes
+have no redirect or alias.
 
 Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription returns use
 `/org/<owner>/settings#billing`. The server validates the owner-scoped return route. Return URLs
@@ -340,27 +343,27 @@ user row cannot grant access by its existence alone.
 
 Durable ownership is:
 
-| Data                                       | Boundary                                          |
-| ------------------------------------------ | ------------------------------------------------- |
-| GitHub App installation                    | Organization's stable GitHub owner                |
-| Vault                                      | Organization and matching GitHub repository owner |
-| Vault child data                           | Parent vault                                      |
-| Convex or Cloudflare destination           | Organization                                      |
-| Convex or Cloudflare credential            | Organization, with connecting-user provenance     |
-| Attached Convex or Cloudflare resource     | Parent vault and stable external provider IDs     |
-| Billing, quota, and usage                  | Organization                                      |
-| MCP grant                                  | User delegation across current memberships        |
-| Auth accounts, sessions, profile, approval | User                                              |
-| GitHub App user authorization              | Exact user                                        |
-| Retained actor provenance                  | Active or deleted user reference                  |
-| Personal UI settings                       | Active user                                       |
+| Data                                       | Boundary                                           |
+| ------------------------------------------ | -------------------------------------------------- |
+| GitHub App installation                    | Organization's stable GitHub owner                 |
+| Repository                                 | Organization and matching GitHub repository owner  |
+| Repository child data                      | Parent repository                                  |
+| Convex or Cloudflare destination           | Organization                                       |
+| Convex or Cloudflare credential            | Organization, with connecting-user provenance      |
+| Attached Convex or Cloudflare resource     | Parent repository and stable external provider IDs |
+| Billing, quota, and usage                  | Organization                                       |
+| MCP grant                                  | User delegation across current memberships         |
+| Auth accounts, sessions, profile, approval | User                                               |
+| GitHub App user authorization              | Exact user                                         |
+| Retained actor provenance                  | Active or deleted user reference                   |
+| Personal UI settings                       | Active user                                        |
 
-Staged files remain one shared draft for a vault, branch, and path. FileView is not a release gate
-for this rollout. A staged row has no user owner. Parent-vault organization membership authorizes
-access, and `lastEditUserId` records the user who made the latest edit. When an approved retained
-reference points to a deleted user, the shared safe presentation is `Deleted Samebase account`. A
-missing referenced user is data damage and is not a deleted account. Multi-writer FileView recovery
-is outside this contract.
+Staged files remain one shared draft for a repository, branch, and path. FileView is not a release
+gate for this rollout. A staged row has no user owner. Parent-repository organization membership
+authorizes access, and `lastEditUserId` records the user who made the latest edit. When an approved
+retained reference points to a deleted user, the shared safe presentation is
+`Deleted Samebase account`. A missing referenced user is data damage and is not a deleted account.
+Multi-writer FileView recovery is outside this contract.
 
 MCP consent delegates a subset of one user's Samebase access. It does not select or store an
 organization. Each tool call uses the current user and the target resource or GitHub owner, then
@@ -387,23 +390,24 @@ state, memberships, MCP grants, user-owned GitHub authorizations, and provider c
 by that user. It leaves the PII-free terminal user row that Spec 113 defines. Organization
 invitations keep their creator and acceptor user references for attribution. An accepted invitation
 whose recipient deletes the account loses its GitHub recipient identity, login, avatar, code, and
-expiry. It does not delete an organization, deployment destination, vault, billing row, or another
-member's data. Deleted and deleting users do not count as members or active owners.
+expiry. It does not delete an organization, deployment destination, repository, billing row, or
+another member's data. Deleted and deleting users do not count as members or active owners.
 
 Organization deletion is a separate future product or operator action. GitHub App uninstall also
 does not delete Samebase data.
 
-Whole-vault deletion remains available to both `owner` and `member` during pre-beta testing. This
-rollout does not add commit-aware deletion rules or stronger deletion UX. A later vault-lifecycle
-task must define those guardrails before deletion is treated as a general customer workflow.
+Whole-repository deletion remains available to both `owner` and `member` during pre-beta testing.
+This rollout does not add commit-aware deletion rules or stronger deletion UX. A later
+repository-lifecycle task must define those guardrails before deletion is treated as a general
+customer workflow.
 
 ## Reset Cutover
 
 This pre-beta rollout uses a reset and the final schema. It has no fallback reads, dual writes,
 compatibility fields, or general migration framework.
 
-The operator can clear disposable organization, membership, billing, deployment provider, vault,
-staging, workflow, and MCP authorization data before the final schema deployment. User,
+The operator can clear disposable organization, membership, billing, deployment provider,
+repository, staging, workflow, and MCP authorization data before the final schema deployment. User,
 authentication, approval, and waitlist rows remain.
 
 After deployment:
@@ -416,7 +420,7 @@ After deployment:
    organization, first membership, and billing row.
 5. The operator adds the second retained user through the internal membership function.
 6. Waitlist users keep zero memberships.
-7. The operator reconnects Convex, Cloudflare, vaults, and MCP clients as needed.
+7. The operator reconnects Convex, Cloudflare, repositories, and MCP clients as needed.
 
 Development and production use separate GitHub App registrations and secrets. Production secrets are
 required before production deployment, not before development implementation and validation.
@@ -430,7 +434,7 @@ required before production deployment, not before development implementation and
 - Treating GitHub as a deployment provider connection
 - Grouping repositories from several GitHub owners in one Samebase organization
 - Automatic email delivery for invitation links
-- Fine-grained vault, branch, file, or provider-resource roles
+- Fine-grained repository, branch, file, or provider-resource roles
 - Persisted active-organization state or opaque organization query parameters
 - WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation
 - Automatic GitHub identity updates or installation lifecycle webhooks
@@ -469,7 +473,7 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Every member can create a repository for a GitHub organization. A repository for a personal GitHub
   owner requires both the exact linked GitHub sign-in identity and the exact personal GitHub App
   user authorization.
-- A vault owner ID must match its organization owner ID.
+- A repository owner ID must match its organization owner ID.
 - `/repo/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
 - `/org/<owner>/providers`, `/org/<owner>/new-app`, and `/org/<owner>/connect-repo` reload with the
@@ -477,7 +481,8 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Provider OAuth returns to `/org/<owner>/providers`. Checkout and billing-portal sessions return to
   `/org/<owner>/settings#billing`. Both keep the scoped route if membership was removed during the
   external flow.
-- Both members see the same organization vaults, provider status, billing state, and observations.
+- Both members see the same organization repositories, provider status, billing state, and
+  observations.
 - A member can create and reload a GitHub organization repository, Convex project, and Cloudflare
   Worker.
 - A user outside the organization cannot read or change its resources.

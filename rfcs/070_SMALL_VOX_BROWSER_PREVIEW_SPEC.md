@@ -7,7 +7,7 @@
 - Last updated: 2026-03-26
 - Related specs:
   - `rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 - Source of truth files:
   - `apps/noter/shared/repositoryMedia.ts`
   - `apps/noter/src/components/FileView.tsx`

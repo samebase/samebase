@@ -9,7 +9,7 @@
   - `apps/samebase/src/lib/appRouter.ts`
   - `apps/samebase/src/components/NotFoundRoutePage.tsx`
   - `apps/samebase/src/test/TestRouterProvider.tsx`
-  - `specs/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
+  - `archive/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
 
 ## Summary
 

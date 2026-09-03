@@ -6,18 +6,18 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 ## Current Product Capabilities (2026-07-26)
 
 - Real-time collaborative editing with CodeMirror + Convex synchronization
-- GitHub repository connection (`connectRepository`) for existing repos
-- New app/repo creation (`createRepository`) for samebase-managed vaults, seeded as a runnable
-  starter in a single commit
-- Automatic infrastructure provisioning for new samebase-managed vaults:
+- GitHub repository connection (`connectRepository`) for existing repositories
+- New Samebase-managed repository creation (`createRepository`), with a runnable starter seeded into
+  the new GitHub repository in one commit
+- Automatic infrastructure provisioning for new Samebase-managed repositories:
   - Convex project/deployment
   - Cloudflare Workers project + environment wiring
-  - Infrastructure status surfaced in Vault Dashboard
-- Manual infra retry for failed/partial provisioning
+  - Infrastructure status shown in the repository dashboard
+- Manual infrastructure retry for failed or partial provisioning
 
 ## Important Behavior
 
-- Auto infra provisioning is triggered only for newly created samebase-managed vaults.
+- Automatic infrastructure provisioning starts only for newly created Samebase-managed repositories.
 - Connecting an existing GitHub repository does not auto-provision infra.
 - Starter source of truth is `templates/base`, an independent pnpm workspace with its own lockfile.
   `pnpm run template:export` stores its runtime seed in
@@ -76,7 +76,7 @@ Open a new PowerShell window. Enable the package-manager shims:
 corepack enable
 ```
 
-Verify the toolchain from the repo root:
+Verify the toolchain from the repository root:
 
 ```powershell
 node -v

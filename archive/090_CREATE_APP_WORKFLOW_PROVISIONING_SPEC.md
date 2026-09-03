@@ -7,12 +7,12 @@
 - Created: 2026-05-02
 - Archived: 2026-07-29
 - Current contracts:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
 - Related docs:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
   - `research/2026-05-02-workpool-refresh-and-tenant-compute.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
@@ -26,9 +26,9 @@ The implementation was phased: first make the current path observable, then move
 infrastructure into Workflow, then move the full create-app path into Workflow, then recompose
 infrastructure from the same Convex and Cloudflare blocks used by manual attachment flows.
 
-Vault-first follow-up work in `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md` supersedes
-the repository-first runtime described below. Keep this spec as the source for the Workflow
-migration history; use `096` for the current create-app state model.
+Vault-first follow-up work in `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
+supersedes the repository-first runtime described below. Keep this spec as the source for the
+Workflow migration history; use `096` for the current create-app state model.
 
 ## Current Runtime State After Vault-First Cleanup
 
@@ -334,8 +334,8 @@ Phase 4: Composed infrastructure blocks.
    internal compatibility shims.
 
 Follow-up Vault-First Provisioning work moved to
-`specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`. Keep this spec focused on the Phase 1-3
-Workflow migration that shipped the historical repository-first runtime.
+`specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`. Keep this spec focused on the Phase
+1-3 Workflow migration that shipped the historical repository-first runtime.
 
 ## UI States
 

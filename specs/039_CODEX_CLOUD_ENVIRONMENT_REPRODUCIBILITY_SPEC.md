@@ -7,8 +7,8 @@
 
 ## Objective
 
-Make Codex local + Codex cloud behavior reproducible from repo state, without storing secrets in
-git.
+Make Codex local + Codex cloud behavior reproducible from repository state, without storing secrets
+in git.
 
 ## What This Spec Delivers
 
@@ -20,7 +20,7 @@ git.
 ## What It Does Not Try To Do
 
 - No attempt to manage Codex cloud environments fully by API.
-- No secrets in repo.
+- No secrets in the repository.
 - No machine-specific paths.
 
 ## Current Repo Facts (as of 2026-03-05)
@@ -52,7 +52,7 @@ Purpose:
 - Reviewable desired state in PRs.
 - Prevent UI drift and tribal knowledge.
 
-### Decision 3: Cloud setup logic lives in repo scripts
+### Decision 3: Cloud setup logic lives in repository scripts
 
 Add:
 
@@ -64,7 +64,7 @@ Rules:
 - Idempotent.
 - Fail-fast.
 - No secret output.
-- Only install/update what this repo requires.
+- Only install or update what this repository requires.
 
 ### Decision 4: UI setup is documented once
 
@@ -143,7 +143,7 @@ Must include:
 ### A. Local
 
 1. Ensure `.codex/environments/environment.toml` is committed and current.
-2. Start from worktree using existing repo flow (`pnpm dev:worktree`).
+2. Start from a worktree with the existing repository flow (`pnpm dev:worktree`).
 
 ### B. Cloud
 

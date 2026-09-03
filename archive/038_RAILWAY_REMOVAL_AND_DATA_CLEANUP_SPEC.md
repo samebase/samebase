@@ -9,7 +9,7 @@
 - Owner: Noter platform
 - Last updated: 2026-03-05
 - Related specs:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
   - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`

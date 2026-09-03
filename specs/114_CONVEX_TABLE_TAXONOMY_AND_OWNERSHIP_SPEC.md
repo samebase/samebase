@@ -24,47 +24,50 @@ Only these storage categories use a prefix:
 Temporary or mutable data does not automatically qualify for a generic category. A provider API
 response is not persisted merely because the UI wants to cache it.
 
-## Current Vault Boundary
+## Current Repository Boundary
 
 Durable Samebase topology uses normal product tables:
 
 ```text
-vaults
-vaultCloudflareWorkers
-vaultConvexProjects
-vaultStagedFiles
-vaultStagedFileUpdates
+repositories
+repositoryCloudflareWorkers
+repositoryConvexProjects
+repositoryStagedFiles
+repositoryStagedFileUpdates
 ```
 
-Vault workflows use:
+Repository workflows use:
 
 ```text
-workflow_vaultProvisioning_plans
-workflow_vaultProvisioning_writeLocks
-workflow_vaultProvisioning_runs
-workflow_vaultProvisioning_events
-workflow_vaultDeletion_runs
-workflow_vaultDeletion_events
+workflow_repositoryProvisioning_plans
+workflow_repositoryProvisioning_writeLocks
+workflow_repositoryProvisioning_runs
+workflow_repositoryProvisioning_events
+workflow_repositoryDeletion_runs
+workflow_repositoryDeletion_events
 ```
 
-The retained vault observations are:
+The retained repository observations are:
 
 ```text
-observations_vaultRepository_branchTrees
-observations_vaultConvexSchema_snapshots
-observations_vaultFiles_blobs
+observations_repository_branchTrees
+observations_repositoryConvexSchema_snapshots
+observations_repositoryFiles_blobs
 ```
 
-The branch-tree table is an exact editor cache keyed by vault and branch. It is not a remote branch
-catalog or a pull request source.
+The branch-tree table is an exact editor cache keyed by repository and branch. It is not a remote
+branch catalog or a pull request source.
 
-Vault UI state uses:
+Repository UI state uses:
 
 ```text
-ui_vaultPullRequests_filters
-ui_vaultResourceLinks_settings
-ui_vaultConvexSchemaGraph_nodeLayouts
-ui_vaultFileTree_folderExpansions
+ui_repositoryPullRequests_filters
+ui_repositoryResourceLinks_settings
+ui_repositoryTree_folders
+ui_repositoryTree_folderAssignments
+ui_repositoryTree_organizationSettings
+ui_repositoryConvexSchemaGraph_nodeLayouts
+ui_repositoryFileTree_folderExpansions
 ```
 
 ## Explicitly Absent Tables
@@ -107,7 +110,7 @@ why current behavior needs it.
 ## Validation
 
 - Generated Convex bindings contain only declared functions and tables.
-- Account and vault cleanup registries cover every current owned table and no deleted table.
+- Account and repository cleanup registries cover every current owned table and no deleted table.
 - Provider list responses stay outside Convex storage unless a separate accepted spec requires
   persistence.
 - UI tables contain presentation preferences, never provider truth.

@@ -31,13 +31,13 @@ git rev-parse --abbrev-ref HEAD
 6. Before starting implementation on an existing work branch or worktree, run `git fetch origin` and
    rebase onto the latest `origin/main`.
 
-## Temporary Vault Naming
+## Temporary Repository Naming
 
-Temporary Samebase-managed repos created for manual or Playwright validation from a worktree must
-use the prefix `tmp-<worktree-id>-<intent>`.
+Temporary Samebase-managed repositories created for manual or Playwright validation from a worktree
+must use the prefix `tmp-<worktree-id>-<intent>`.
 
 - For Codex worktrees under `~/.codex/worktrees/<id>/...`, use that folder id as the worktree id.
-- `clean vaults` must only target vaults with that exact prefix and only if they are
+- `clean repositories` must only target repositories with that exact prefix and only if they are
   Samebase-managed.
 
 ## Git Shorthand Commands
@@ -48,20 +48,20 @@ When a shorthand command is delegated, tested, or handed off for execution, pres
 terse command form exactly, such as `clean`, `wait`, `create pr`, or `ship`, and avoid adding extra
 instructions or checklists.
 
-| Command        | Meaning                                                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage and create a concise commit on the current branch                                                              |
-| `push`         | Commit if needed, then push                                                                                          |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                   |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                   |
-| `ready`        | Mark the current PR ready                                                                                            |
-| `wait`         | Watch CI and report status                                                                                           |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                            |
-| `squash`       | Squash-merge the current PR                                                                                          |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                |
-| `clean vaults` | Delete matching temporary Samebase-managed vaults safely                                                             |
-| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, then remove the merged or closed-PR worktree and branch |
-| `status`       | Report branch, local changes, and PR state                                                                           |
+| Command              | Meaning                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `commit`             | Stage and create a concise commit on the current branch                                                                    |
+| `push`               | Commit if needed, then push                                                                                                |
+| `create pr`          | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                         |
+| `create draft`       | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                         |
+| `ready`              | Mark the current PR ready                                                                                                  |
+| `wait`               | Watch CI and report status                                                                                                 |
+| `ship`               | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                                  |
+| `squash`             | Squash-merge the current PR                                                                                                |
+| `archive`            | Remove the current worktree/local branch after confirming a PR exists                                                      |
+| `clean repositories` | Remove matching temporary repositories from Samebase safely                                                                |
+| `clean`              | Run `clean repositories`, clean samebase.com PR preview resources, then remove the merged or closed-PR worktree and branch |
+| `status`             | Report branch, local changes, and PR state                                                                                 |
 
 `ship` and `archive` are retired from active vocabulary (unused since late April 2026); if the
 operator says them, confirm intent before acting.
@@ -256,7 +256,8 @@ Rules:
   branch and PR intact.
 - `clean` is only for branches whose PR is terminal: merged or closed. Draft PRs count as PRs: once
   any PR exists for a branch, assume both Cloudflare and Convex preview deployments exist and must
-  be cleaned before the branch is removed. Do not clean open PR previews. Run `clean vaults` first.
+  be cleaned before the branch is removed. Do not clean open PR previews. Run `clean repositories`
+  first.
 - Before deleting the remote branch, follow `docs/samebase-pr-preview-cleanup.md` for the current
   branch. This is an operator/Codex workflow, not a repo script. It must not change deploy behavior
   or add tagging. Missing local seed env, missing inherited credentials, or missing first-pass

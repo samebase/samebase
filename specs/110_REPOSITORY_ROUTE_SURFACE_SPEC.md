@@ -6,10 +6,10 @@
 - Owner: Samebase frontend/app shell + repository dashboard
 - Last updated: 2026-07-21
 - Related specs:
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
-  - `specs/083_TANSTACK_ROUTER_FILE_BASED_MIGRATION_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `archive/083_TANSTACK_ROUTER_FILE_BASED_MIGRATION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
-  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
 ## Current Contract
 
@@ -44,7 +44,7 @@ individually while preserving `/` as the path separator. A file or directory nam
 or `fs` is addressed through the filesystem surface, such as
 `/repo/:owner/:repository/fs/:branch/db`.
 
-Database and Schema routes include the `vaultConvexProjects` attachment ID because the selected
+Database and Schema routes include the `repositoryConvexProjects` attachment ID because the selected
 project is part of the resource identity, not an optional view filter. A root path cannot identify a
 project because several projects may intentionally use the same Convex code location. The server
 verifies that the attachment belongs to the repository before reading provider data.
@@ -107,7 +107,8 @@ Route implementation PRs should prove:
    `/repo/:owner/:repository/schema/:branch/project/:convexProjectId`.
 2. Branch names containing `/`, spaces, or other special characters round-trip through one encoded
    branch segment.
-3. Files named `db`, `settings`, or `fs` resolve under `/fs/:branch/...`, not as repo-level pages.
+3. Files named `db`, `settings`, or `fs` resolve under `/fs/:branch/...`, not as repository-level
+   pages.
 4. Convex attachment IDs round-trip through one encoded path segment.
 5. Dashboard branch links use the accepted route builders.
 6. New code does not emit the superseded `/repo/:owner/:repository/-/...` route shape.

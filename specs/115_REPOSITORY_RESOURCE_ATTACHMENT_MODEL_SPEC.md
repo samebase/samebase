@@ -1,4 +1,4 @@
-# Vault Resource Attachment Model
+# Repository Resource Attachment Model
 
 ## Document Control
 
@@ -6,34 +6,34 @@
 - Owner: Samebase
 - Last updated: 2026-08-30
 - Related:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
-  - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
+  - `specs/110_REPOSITORY_ROUTE_SURFACE_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 
 ### Domain entities
 
-A vault belongs to one Samebase organization and connects it to one GitHub repository. A provider
-resource attachment records the organization's intent to include one independently identified
-provider resource in that vault.
+A repository belongs to one Samebase organization and connects it to one GitHub repository. A
+provider resource attachment records the organization's intent to include one independently
+identified provider resource in that repository.
 
-Samebase-managed vault creation requires `convexTeamId` and `cloudflareAccountId`. An
-existing-repository vault can start without either field. It copies each configured organization
-destination during admission, and a later provider connection fills that provider's missing field in
-the credential transaction. A stored value is the fixed destination for all resources from that
-provider that attach to the vault.
+Samebase-managed repository creation requires `convexTeamId` and `cloudflareAccountId`. A repository
+connected to an existing GitHub repository can start without either field. It copies each configured
+organization destination during admission, and a later provider connection fills that provider's
+missing field in the credential transaction. A stored value is the fixed destination for all
+resources from that provider that attach to the repository.
 
-Samebase has no durable app, folder, or root-group entity. In particular, there is no `vaultApps`
-table and provider attachments do not carry an `appId`.
+Samebase has no durable app, folder, or root-group entity. In particular, there is no
+`repositoryApps` table and provider attachments do not carry an `appId`.
 
 The durable Cloudflare attachment is:
 
 ```ts
 {
-  vaultId;
+  repositoryId;
   organizationId;
   accountId;
   workerName;
@@ -47,7 +47,7 @@ The durable Convex attachment is:
 
 ```ts
 {
-  vaultId;
+  repositoryId;
   organizationId;
   teamId;
   projectId;
@@ -63,12 +63,12 @@ domain field.
 `accountId` plus `workerTag` and `teamId` plus `projectId` are provider identities. `workerTag` is
 the stable Cloudflare Worker continuity key. `workerName` and `rootDirectory` are mutable,
 user-approved coordinates for that identity. `projectId` is the stable Convex project continuity
-key. An attachment's `teamId` must equal its vault's `convexTeamId`, and its `accountId` must equal
-its vault's `cloudflareAccountId`.
+key. An attachment's `teamId` must equal its repository's `convexTeamId`, and its `accountId` must
+equal its repository's `cloudflareAccountId`.
 
 Attachments do not store a credential document ID. Convex and Cloudflare operations load the
-organization's singleton provider credential slot and require it to match the vault destination and
-the attachment coordinates.
+organization's singleton provider credential slot and require it to match the repository destination
+and the attachment coordinates.
 
 Convex placement is exactly one of two row variants: `convexConfigPath` names an exact regular
 `convex.json` file, or `convexDirectoryPath` names an exact `convex/` tree whose parent contains a
@@ -131,22 +131,22 @@ The dashboard derives a resource tree at read time:
 The common single-app repository is one `/` group. A monorepo is the same model with more derived
 groups.
 
-### Vault-level attachment flows
+### Repository-level attachment flows
 
-The only provider-add dashboard routes are bare vault-level flags:
+The only provider-add dashboard routes are bare repository-level flags:
 
 - `?add-cloudflare`
 - `?add-convex`
 
 There is no `?add-app-root` route and no `app-root` query parameter.
 
-The Cloudflare dialog scans the vault's Cloudflare account for Workers connected to its immutable
-GitHub repository identity. It groups selectable Workers by their read-only live root and supports
-attaching several Workers in one confirmation. Every verified selectable Worker starts selected, and
-the user may deselect any of them. Confirmation re-reads the selected Worker identities, repository
-triggers, roots, and markers before one atomic attachment mutation. The verified name and root
-become the approved coordinates in that mutation. A request-provided root alone is never attachment
-authority for an already configured Worker.
+The Cloudflare dialog scans the repository's Cloudflare account for Workers connected to its
+immutable GitHub repository identity. It groups selectable Workers by their read-only live root and
+supports attaching several Workers in one confirmation. Every verified selectable Worker starts
+selected, and the user may deselect any of them. Confirmation re-reads the selected Worker
+identities, repository triggers, roots, and markers before one atomic attachment mutation. The
+verified name and root become the approved coordinates in that mutation. A request-provided root
+alone is never attachment authority for an already configured Worker.
 
 The Convex dialog discovers regular `convex.json` files from exact default-branch Git tree and blob
 evidence. It also discovers the default layout when a regular `package.json` blob and sibling
@@ -181,21 +181,21 @@ Changing a Worker's Cloudflare name or Builds root does not change its Samebase 
 group. Settings compares the live values with `workerName` and `rootDirectory` and warns for each
 changed coordinate. Overview and pull request surfaces continue to use the stored coordinates.
 
-`Update name` calls `updateWorkerName({ vaultId, workerId, expectedWorkerName })`. `Update root`
-calls `updateWorkerRootDirectory({ vaultId, workerId, expectedRootDirectory })`. Each action
-requires an active organization member, resolves the exact provider resource through `workerTag`,
-re-reads the current provider coordinate, and compare-and-swaps only the requested stored field. The
-root action also requires one unambiguous normalized root for the vault's exact GitHub repository. A
-failed or conflicting re-read leaves the attachment unchanged. Samebase never updates either
-coordinate from an observation alone.
+`Update name` calls `updateWorkerName({ repositoryId, workerId, expectedWorkerName })`.
+`Update root` calls `updateWorkerRootDirectory({ repositoryId, workerId, expectedRootDirectory })`.
+Each action requires an active organization member, resolves the exact provider resource through
+`workerTag`, re-reads the current provider coordinate, and compare-and-swaps only the requested
+stored field. The root action also requires one unambiguous normalized root for the repository's
+exact GitHub repository. A failed or conflicting re-read leaves the attachment unchanged. Samebase
+never updates either coordinate from an observation alone.
 
 A missing Worker remains attached under `Needs attention` until the user explicitly removes it from
-the vault. A Convex 404 under the stored team is ambiguous because the project may have been deleted
-or transferred. It never authorizes automatic removal.
+the repository. A Convex 404 under the stored team is ambiguous because the project may have been
+deleted or transferred. It never authorizes automatic removal.
 
 When the organization Convex credential observes the same `projectId` under a different team,
 Samebase reports the move but does not update the attachment `teamId`. Provider writes fail closed
-because the resource no longer matches the vault's fixed Convex destination. The product has no
+because the resource no longer matches the repository's fixed Convex destination. The product has no
 project-team reconciliation action.
 
 Removing either provider attachment is an explicit change to organization attachment intent.
@@ -205,8 +205,8 @@ root can authorize deletion.
 
 ### Resource-specific routes
 
-Data and Schema routes identify a `vaultConvexProjects` attachment directly. They never select a
-project through a root path or choose the first project in a group. This remains unambiguous when
+Data and Schema routes identify a `repositoryConvexProjects` attachment directly. They never select
+a project through a root path or choose the first project in a group. This remains unambiguous when
 several projects share one code location.
 
 ### Managed provisioning
@@ -227,13 +227,13 @@ provider observation, or active operation.
 - Treating current provider observations as organization attachment intent.
 - Automatically accepting a changed Worker name or root.
 - Persisting Worker domains, URLs, triggers, build status, token data, or Convex build markers.
-- Persisting a Convex production deployment region on `vaultConvexProjects`.
+- Persisting a Convex production deployment region on `repositoryConvexProjects`.
 - Reconstructing or preserving rows from the removed app-root model.
 - Rejecting unusual repository layouts because they do not contain an expected sibling file.
 
 ## Validation
 
-- Schema and mutation tests prove there is no `vaultApps` table or `appId` field, provider
+- Schema and mutation tests prove there is no `repositoryApps` table or `appId` field, provider
   identities are globally exclusive, Worker roots are stored, batch attachment is atomic, and
   several projects may share a code location.
 - GitHub tests cover root and nested configs, default-layout metadata, malformed or non-regular
@@ -256,6 +256,6 @@ provider observation, or active operation.
 ## Rollout
 
 Production data passed the adoption gate before this requirement was deployed. Every existing
-`vaultCloudflareWorkers` row had one non-empty normalized root. `rootDirectory` is now required.
-Product reads, Settings, and Builds repair use only the saved root. The system has no rootless
-placement, adoption, or repair path.
+`repositoryCloudflareWorkers` row had one non-empty normalized root. `rootDirectory` is now
+required. Product reads, Settings, and Builds repair use only the saved root. The system has no
+rootless placement, adoption, or repair path.

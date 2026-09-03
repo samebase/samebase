@@ -1,9 +1,9 @@
-# 068 Add Vault Fast Repository Picker Spec
+# 068 Add Repository Fast Repository Picker Spec
 
 ## Document Control
 
 - Status: Accepted
-- Owner: Vault add flow + GitHub integration
+- Owner: Repository add flow + GitHub integration
 - Last updated: 2026-08-15
 - Related specs:
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
@@ -14,7 +14,7 @@
 The `/org/<owner>/connect-repo` route should feel immediate for GitHub App installations with many
 repositories without regressing the full-discovery guarantee from Spec 065.
 
-The add-vault repository picker therefore adopts a two-phase load:
+The repository picker therefore adopts a two-phase load:
 
 1. fetch a small preview page and order it by GitHub `updated_at`
 2. render that preview immediately
@@ -123,8 +123,8 @@ Rules:
 
 1. A repository shown in the preview list may be connected immediately.
 2. Background loading must not block repository selection.
-3. Existing connected vaults remain filtered out by exact `repositoryFullName` match during both
-   preview and final states.
+3. Existing connected repositories remain filtered out by exact `repositoryFullName` match during
+   both preview and final states.
 
 ### Failure handling
 
@@ -151,4 +151,4 @@ Rules:
 - [ ] The final completed list is globally ordered by `updated_at` descending and still satisfies
       Spec 065 full-discovery behavior.
 - [ ] Search UI clearly indicates when background loading means results are still partial.
-- [ ] Existing connected vaults remain filtered out in both preview and final states.
+- [ ] Existing connected repositories remain filtered out in both preview and final states.

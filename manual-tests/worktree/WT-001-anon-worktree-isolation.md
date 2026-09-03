@@ -116,7 +116,7 @@ console.log(rows.map((row) => ({
 
 8. Sign in with the local worktree password shortcut. Confirm these pages load:
 
-- Vaults shows an empty vault list.
+- Repositories shows an empty repository list.
 - Providers shows connected Convex and Cloudflare credentials.
 - New App shows the repository name input.
 - Connect repository lists repositories from the seeded GitHub App installation.

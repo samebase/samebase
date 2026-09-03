@@ -38,7 +38,7 @@ devices.
 
 **Frontend**
 
-- File: `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+- File: `apps/samebase/src/components/repository-dashboard/RepositoryDashboard.tsx`
   - Rename panel heading to "Providers".
   - Wrap the providers list in a `Collapsible`:
     - `CollapsibleTrigger` styled like the Developer tools trigger

@@ -10,8 +10,8 @@
   - `apps/samebase/vite.config.ts`
   - `apps/samebase/src/lib/appRouter.ts`
   - `apps/samebase/src/routes.ts`
-  - `specs/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
-  - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
+  - `archive/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
+  - `archive/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
 
 ## Summary
 

@@ -6,7 +6,7 @@
 - Owner: Noter hosting, app provisioning, and recommended stack
 - Created: 2026-05-05
 - Related specs and references:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`

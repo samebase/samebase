@@ -6,7 +6,7 @@
 - Owner: Noter dev tooling / local workflow
 - Last updated: 2026-02-17
 - Related specs:
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
   - `rfcs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
 

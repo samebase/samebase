@@ -8,7 +8,7 @@
 - Owner: Noter frontend/editor + Convex vault/github
 - Last updated: 2026-03-08
 - Depends on:
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 
 This rollout describes the deleted repository-wide branch mirror. The current contract is
 `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`: the dashboard reads live GitHub pull request pages,

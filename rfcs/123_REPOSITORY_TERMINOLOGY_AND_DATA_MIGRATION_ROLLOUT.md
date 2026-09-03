@@ -6,9 +6,11 @@
 - Owner: Samebase repository domain
 - Started: 2026-09-02
 - Last updated: 2026-09-03
-- Current checkpoint: Production reads and writes the repository tables. All 21 old tables and the
-  migration ID map are empty. Phase 6 code removal is in progress.
-- Next action: Merge and deploy the Phase 6 removal after its checks pass.
+- Current checkpoint: Production reads and writes the repository tables. Phase 6 removed the old
+  rows, migration code, maintenance code, and old schema definitions. Convex still lists 24
+  undeclared physical tables until the operator deletes them from the production dashboard.
+- Next action: Complete current specification and copy cleanup. Then delete the 24 retired
+  production tables and finish the deferred GitHub repository identifier naming cleanup.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -33,15 +35,15 @@ The rollout has two separate changes:
 
 ## Progress
 
-| Phase | Scope                                   | Status      | Evidence                                                                                                                     |
-| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Fix the language and migration contract | Complete    | This RFC                                                                                                                     |
-| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570)                                                                   |
-| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575)                                                                   |
-| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                                                                                              |
-| 4     | Drain, freeze, copy, and switch         | In progress | [PR #1577](https://github.com/samebase/samebase/pull/1577), [draft PR #1578](https://github.com/samebase/samebase/pull/1578) |
-| 5     | Stabilize the new system                | Not started |                                                                                                                              |
-| 6     | Remove old data and migration support   | Not started |                                                                                                                              |
+| Phase | Scope                                   | Status      | Evidence                                                                                                               |
+| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0     | Fix the language and migration contract | Complete    | This RFC                                                                                                               |
+| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570)                                                             |
+| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575)                                                             |
+| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                                                                                        |
+| 4     | Drain, freeze, copy, and switch         | Complete    | [PR #1577](https://github.com/samebase/samebase/pull/1577), [PR #1578](https://github.com/samebase/samebase/pull/1578) |
+| 5     | Stabilize the new system                | Complete    | Production create, edit, MCP, route, and removal checks; operator acceptance on 2026-09-03                             |
+| 6     | Remove old data and migration support   | In progress | [PR #1580](https://github.com/samebase/samebase/pull/1580), [PR #1579](https://github.com/samebase/samebase/pull/1579) |
 
 Only one phase can be `In progress`. A phase is complete only when all of its exit checks pass.
 
@@ -58,8 +60,12 @@ The final language has these rules:
 - Bare `repository` means the Samebase object.
 - `GitHub repository` means the provider object on GitHub.
 - Use `repository` and `repositories` in UI copy. Do not use `repo` in UI copy.
-- Reserve `repo` for the literal `/repo` URL segment and unchanged fields in raw provider payloads.
-- Use full `repository` names in code, tables, types, MCP, errors, tests, and current documentation.
+- Use `repo` only where it is an established technical name, such as the literal `/repo` URL
+  segment, `/connect-repo`, or an unchanged field in a provider payload.
+- Use `repository` in Samebase product names, UI copy, MCP, errors, tests, and current product
+  documentation. Generic developer text can use `repo` only when it clearly means a Git checkout.
+- The remaining GitHub identifier cleanup is separate follow-up work. This phase does not rename
+  fields that can require another data migration.
 - Use `Remove from Samebase` for local record removal.
 - Use `Also delete the GitHub repository` for the separate remote deletion choice.
 - Do not call local record removal `Delete repository`.
@@ -559,7 +565,9 @@ Production evidence:
 
 - The old tables remained at the recorded 1,404 rows until Phase 6 started.
 - The earlier exact-field and ID-map verification remained complete. No separate digest baseline was
-  recorded.
+  recorded. The operator accepted that missing digest evidence when they directed Phase 6 after the
+  production create and edit checks passed. This is an explicit waiver of that one exit check, not a
+  claim that the digest check passed.
 - No migration placeholder or tombstone remained in the repository tables.
 - No active Workflow, operation lease, or scheduled function referenced an old vault function.
 - The old MCP tool name returned `Unknown tool`.
@@ -594,6 +602,15 @@ Production cleanup:
 - No target `_storage` reference was missing. The cleanup code did not call storage or provider
   APIs.
 - The migration component and application scheduler had no active cleanup or old vault function.
+- PR #1580 removed the old table definitions, migration component, migration jobs, maintenance
+  functions, operation leases, and old generated API paths. It was merged and deployed.
+- PR #1579 restored the renamed Playwright GUI checks, and current main CI passed.
+- A production repository was created, its README was edited, and it was removed from Samebase after
+  the Phase 6 deployment.
+- Convex still lists the 21 old tables plus `repositoryMigrationIdMaps`,
+  `repositoryOperationLeases`, and `repositoryWriteGates` as undeclared physical tables.
+  Twenty-three are empty. `repositoryWriteGates` contains one unused `global` and `frozen` row. No
+  deployed code reads it, so it does not put the application in maintenance mode.
 
 Exit checks:
 
@@ -613,6 +630,10 @@ Then remove:
 
 Reduce the accepted final behavior into the relevant specs. Archive this RFC after all completion
 checks and evidence links are present.
+
+Physical deletion of the 24 undeclared production tables is the remaining production data cleanup.
+It does not require another draining or frozen period because the deployed application has no read,
+write, Workflow, or scheduled-function reference to those tables.
 
 ## Decisions
 

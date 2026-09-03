@@ -44,7 +44,7 @@ get Convex contract coverage.
 ## Test Runtime
 
 `vp test` remains the test command. Vite+ reads Vitest settings from the root `vite.config.ts`, so
-this repo should not add a separate `vitest.config.ts` for Convex.
+this repository should not add a separate `vitest.config.ts` for Convex.
 
 The root test config should define separate projects:
 
@@ -74,7 +74,7 @@ Start with the user-owned public surface. Each user-owned area should include at
 isolation case that proves user B cannot read or mutate user A's rows through public functions:
 
 - users: viewer, approval, provider connection status, disconnect mutations
-- vaults: ownership, listing, branch filter state, branch/tree visibility
+- repositories: ownership, listing, branch filter state, branch/tree visibility
 - file staging: ownership denial, create/update/delete rows, branch summaries
 - MCP/OAuth HTTP: metadata, registration, authorize, token, MCP request status
 - billing/webhooks: method/status validation and signed-event state changes

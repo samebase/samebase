@@ -20,7 +20,7 @@
   - `apps/samebase/src/main.tsx`
   - `apps/samebase/vite.config.ts`
   - `archive/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
-  - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
+  - `archive/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
 
 ## Summary
 
@@ -81,7 +81,7 @@ problems, attempted fixes, and outcomes.
 - The meaningful app-owned search surfaces (landing, MCP consent, pricing, and logo) now validate
   through route-owned TanStack search contracts, so the remaining work is cleanup and simplification
   rather than finishing search ownership.
-- Post-migration cleanup now lives in `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md` so this document
+- Post-migration cleanup now lives in `archive/082_TANSTACK_ROUTER_CLEANUP_SPEC.md` so this document
   can stay focused on the migration itself.
 - The shared workspace wrapper migration from archived Spec 080 is a separate track. Router and
   bootstrap cleanup should not be coupled to `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout`

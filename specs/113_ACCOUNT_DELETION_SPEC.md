@@ -14,12 +14,13 @@ The confirmation must distinguish the user's Samebase identity from organization
 deletion removes the user's login, profile, personal preferences, MCP access, pending provider
 authorization states, GitHub App user authorization, and every provider credential slot whose
 current `connectedByUserId` identifies that user. It does not delete an organization, organization
-invitation, organization billing, deployment destination, vault, staged file, attached resource,
-observation, or organization workflow record. It deletes the organization provider credential
-document only when it clears the last credential slot.
+invitation, organization billing, deployment destination, repository, staged file, attached
+resource, observation, or organization workflow record. It deletes the organization provider
+credential document only when it clears the last credential slot.
 
 Account deletion is rejected while any organization membership exists. A member must leave each
-shared organization first. A sole owner must remove every vault and delete the organization first.
+shared organization first. A sole owner must remove every repository and delete the organization
+first.
 
 Acceptance creates one durable queued deletion run, marks the user as deleting, and routes the
 initiating session to `/account-deletion`. Other signed-in sessions on protected app routes redirect
@@ -130,9 +131,9 @@ or retry a run that needs attention, from `/admin/account-deletions`. Staff cann
 steps or force success.
 
 Row existence never grants authority. Active users get their normal account, staff, approval,
-organization, provider, vault, billing, browser handoff, and MCP access. Deleting users get only
-account-deletion access through an existing session and cannot create another session. Deleted users
-get no authenticated access. Stale sessions, JWTs, MCP credentials, OAuth callbacks, browser
+organization, provider, repository, billing, browser handoff, and MCP access. Deleting users get
+only account-deletion access through an existing session and cannot create another session. Deleted
+users get no authenticated access. Stale sessions, JWTs, MCP credentials, OAuth callbacks, browser
 handoffs, provider callbacks, and provider refreshes must reject deleted users. Deleted and deleting
 users do not count as staff, approved users, organization members, or active owners. A durable
 workflow that already owns a run or lock can finish from that run or lock. It must not use the user
@@ -158,8 +159,8 @@ The following organization-owned data always remains:
 - Organizations and organization billing.
 - Organization invitations, including creator and acceptor attribution. Accepted invitations for the
   deleting recipient keep no code or GitHub recipient fields.
-- Vaults, staged files, file update history, observations, and provider resource attachments.
-- Vault provisioning and deletion plans, locks, runs, and events.
+- Repositories, staged files, file update history, observations, and provider resource attachments.
+- Repository provisioning and deletion plans, locks, runs, and events.
 - External GitHub repositories, Convex projects and deployments, Cloudflare Workers, and domains.
 
 `organizationProviderCredentials` is one organization-owned document with optional Convex and
@@ -216,8 +217,8 @@ hard-deleted IDs cannot be restored.
   data are removed. Organization invitations keep their creator and acceptor user IDs. The original
   user ID resolves through the exact deleted variant. An accepted invitation does not keep GitHub
   recipient PII for that deleted acceptor.
-- Organizations, billing, vaults, staged files, attached resources, observations, and organization
-  workflows survive unchanged.
+- Organizations, billing, repositories, staged files, attached resources, observations, and
+  organization workflows survive unchanged.
 - Completion-email failure remains visible without retaining the account indefinitely.
 - Successful runs retain only the scrubbed application receipt plus identity-free workflow state.
 - The final transaction rechecks readiness and writes the deleted user variant and scrubbed receipt

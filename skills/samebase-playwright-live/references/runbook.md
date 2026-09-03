@@ -48,9 +48,9 @@ done
 4. Click `New app`.
 5. Verify:
 
-- vault card appears
-- repo name visible
-- infra status line present
+- repository card appears
+- repository name visible
+- infrastructure status line present
 
 ## Evidence Pattern
 

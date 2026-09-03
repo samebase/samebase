@@ -6,7 +6,7 @@
 - Owner: Noter platform
 - Date: 2026-02-13
 - Related specs:
-- `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+- `/Users/nicu/dev/my/noter/specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
 
 ## Summary
 

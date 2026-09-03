@@ -13,7 +13,8 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Pricing track
 
-- [ ] Cost-model research: PostHog compute attribution; FileView mirroring/collab cost per vault
+- [ ] Cost-model research: PostHog compute attribution; FileView mirroring and collaboration cost
+      per repository
 - [ ] Infra-cost ledger: one-time archaeology of past payments (personal cards, email receipts),
       then an ongoing recording system; once it exists, publish the real infra bill as a dated
       receipt on `/pricing`

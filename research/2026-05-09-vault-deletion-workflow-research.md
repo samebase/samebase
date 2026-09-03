@@ -6,10 +6,10 @@
 - Owner: Noter vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
 - Related specs:
-  - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/096_INITIALIZING_REPOSITORY_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
-  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
+  - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 - Related research:
   - `research/2026-05-06-vault-first-provisioning-model.md`
   - `research/2026-05-08-existing-repository-workflow-onboarding.md`

@@ -73,7 +73,7 @@ References:
 - Restore mobile installability without reintroducing stale deploy behavior.
 - Ensure Add to Home Screen uses explicit Samebase brand assets instead of browser heuristics.
 - Keep the browser-first refresh model simple and reliable.
-- Make install metadata auditable in repo files rather than hidden in plugin transforms.
+- Make install metadata auditable in repository files rather than hidden in plugin transforms.
 
 ## Non-Goals
 
@@ -241,7 +241,7 @@ problems are not. The accepted app-side deploy recovery contract now lives in
 - Mobile install uses explicit brand icon assets rather than fallback heuristics.
 - The thin install path works without a service worker.
 - Removing site data is not needed to see new deployments in a normal browser session.
-- `index.html`, the manifest, and install icons are all plain repo files that can be reviewed
+- `index.html`, the manifest, and install icons are all plain repository files that can be reviewed
   directly.
 
 ## Historical Context
