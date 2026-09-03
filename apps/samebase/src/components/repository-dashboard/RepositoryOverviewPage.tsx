@@ -259,11 +259,9 @@ function RepositoryStateNotice({
                   <span className="font-mono font-medium text-foreground">
                     {repository.githubOwnerLogin}
                   </span>
-                  , then include{" "}
-                  <span className="font-mono font-medium text-foreground">
-                    {repository.githubRepositoryFullName}
-                  </span>
-                  .
+                  . GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to
+                  Samebase. Select All repositories so Cloudflare can connect repositories that
+                  Samebase creates later to Workers Builds.
                 </li>
                 <li className="pl-1">Return to Samebase and select Retry.</li>
               </ol>

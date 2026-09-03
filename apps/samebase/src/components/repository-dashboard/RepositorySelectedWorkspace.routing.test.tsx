@@ -241,7 +241,7 @@ describe("RepositorySelectedWorkspace route", () => {
         provider: "cloudflare",
         runId: fakeRunId(),
         step: "attach_worker",
-        message: `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${storedRecoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${githubRepositoryFullName}, then retry.`,
+        message: `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${storedRecoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds, then retry.`,
         updatedAt: 20,
       },
       providerWrite: { status: "idle", lastWriteAt: {} },
@@ -273,7 +273,7 @@ describe("RepositorySelectedWorkspace route", () => {
     );
     expect(Array.from(element.querySelectorAll("ol li"), (step) => step.textContent)).toEqual([
       `Open the Cloudflare Workers and Pages GitHub App and uninstall it for ${owner}.`,
-      `Open Workers & Pages. Select Create application, Pages, and Connect to Git. Add ${owner}, then include ${githubRepositoryFullName}.`,
+      `Open Workers & Pages. Select Create application, Pages, and Connect to Git. Add ${owner}. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds.`,
       "Return to Samebase and select Retry.",
     ]);
   });

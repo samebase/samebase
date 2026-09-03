@@ -593,16 +593,19 @@ Dashboard external links:
   repository database ID must match the repository before Cloudflare receives the connection
   request.
 - If Workers Builds repository connection returns Cloudflare error code `8000008`, surface this as:
-  `Cloudflare Workers and Pages GitHub App is not authorized for <owner>/<repo>. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include <owner>/<repo>, then retry.`
+  `Cloudflare Workers and Pages GitHub App is not authorized for <owner>/<repo>. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds, then retry.`
   Provisioning failure recording stores this normalized message on the run `lastError`. The
   dashboard may summarize that stored provider failure into shorter recovery copy. The recovery copy
   must link to Cloudflare's reinstall recovery steps, tell the user to uninstall the Cloudflare
-  Workers and Pages GitHub App first, then reconnect GitHub from Workers & Pages before retrying.
-  The dashboard shows this sequence as three numbered steps. The first step links to the Cloudflare
-  Workers and Pages GitHub App and tells the user to uninstall it for the repository owner. The
-  second step links to Workers & Pages and tells the user to start the GitHub connection there and
-  include the failed repository. The third step tells the user to return to Samebase and select
-  `Retry`. A separate link opens Cloudflare's current recovery guide.
+  Workers and Pages GitHub App first, then reconnect GitHub from Workers & Pages before retrying. It
+  must explain that GitHub gives the repository access to Cloudflare, not to Samebase. It must also
+  explain that Samebase creates later apps in new repositories and that Cloudflare needs
+  `All repositories` access to connect those repositories to Workers Builds. The dashboard shows
+  this sequence as three numbered steps. The first step links to the Cloudflare Workers and Pages
+  GitHub App and tells the user to uninstall it for the repository owner. The second step links to
+  Workers & Pages and gives the access explanation before it tells the user to select
+  `All repositories`. The third step tells the user to return to Samebase and select `Retry`. A
+  separate link opens Cloudflare's current recovery guide.
 - Managed provisioning reuses confirmed provider checkpoints and does not auto-teardown resources on
   repository deletion unless explicitly requested. After an unconfirmed provider create outcome,
   retry stops when the same-named resource exists and tells the user to delete it in the provider
