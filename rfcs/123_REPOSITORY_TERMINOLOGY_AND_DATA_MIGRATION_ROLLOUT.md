@@ -7,10 +7,11 @@
 - Started: 2026-09-02
 - Last updated: 2026-09-03
 - Current checkpoint: Production reads and writes the repository tables. Phase 6 removed the old
-  rows, migration code, maintenance code, and old schema definitions. Convex still lists 24
-  undeclared physical tables until the operator deletes them from the production dashboard.
-- Next action: Complete current specification and copy cleanup. Then delete the 24 retired
-  production tables and finish the deferred GitHub repository identifier naming cleanup.
+  rows, migration code, maintenance code, and old schema definitions. PR #1581 aligns the current
+  specifications and remaining public copy. Convex still lists 24 undeclared physical tables until
+  the operator deletes them from the production dashboard.
+- Next action: Merge PR #1581. Then delete the 24 retired production tables and finish the deferred
+  GitHub repository identifier naming cleanup.
 - Completion rule: Update this file after each phase. Add the pull request and verification evidence
   before a phase changes to `Complete`.
 
@@ -35,15 +36,15 @@ The rollout has two separate changes:
 
 ## Progress
 
-| Phase | Scope                                   | Status      | Evidence                                                                                                               |
-| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 0     | Fix the language and migration contract | Complete    | This RFC                                                                                                               |
-| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570)                                                             |
-| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575)                                                             |
-| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                                                                                        |
-| 4     | Drain, freeze, copy, and switch         | Complete    | [PR #1577](https://github.com/samebase/samebase/pull/1577), [PR #1578](https://github.com/samebase/samebase/pull/1578) |
-| 5     | Stabilize the new system                | Complete    | Production create, edit, MCP, route, and removal checks; operator acceptance on 2026-09-03                             |
-| 6     | Remove old data and migration support   | In progress | [PR #1580](https://github.com/samebase/samebase/pull/1580), [PR #1579](https://github.com/samebase/samebase/pull/1579) |
+| Phase | Scope                                   | Status      | Evidence                                                                                                                                                                           |
+| ----- | --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Fix the language and migration contract | Complete    | This RFC                                                                                                                                                                           |
+| 1     | Change public web copy and routes       | Complete    | [PR #1570](https://github.com/samebase/samebase/pull/1570)                                                                                                                         |
+| 2     | Add dormant migration support           | Complete    | [PR #1575](https://github.com/samebase/samebase/pull/1575)                                                                                                                         |
+| 3     | Rehearse the complete cutover           | Skipped     | Operator decision on 2026-09-02                                                                                                                                                    |
+| 4     | Drain, freeze, copy, and switch         | Complete    | [PR #1577](https://github.com/samebase/samebase/pull/1577), [PR #1578](https://github.com/samebase/samebase/pull/1578)                                                             |
+| 5     | Stabilize the new system                | Complete    | Production create, edit, MCP, route, and removal checks; operator acceptance on 2026-09-03                                                                                         |
+| 6     | Remove old data and migration support   | In progress | [PR #1580](https://github.com/samebase/samebase/pull/1580), [PR #1579](https://github.com/samebase/samebase/pull/1579), [PR #1581](https://github.com/samebase/samebase/pull/1581) |
 
 Only one phase can be `In progress`. A phase is complete only when all of its exit checks pass.
 
