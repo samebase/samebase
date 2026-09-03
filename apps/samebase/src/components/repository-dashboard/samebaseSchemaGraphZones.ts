@@ -2,6 +2,7 @@ export type SamebaseSchemaGraphZoneId =
   | "identity"
   | "providers"
   | "workspace"
+  | "repositoryCore"
   | "repository"
   | "files"
   | "infrastructure"
@@ -16,7 +17,7 @@ export type SamebaseSchemaGraphZone = {
   order: number;
 };
 
-export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v5";
+export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v6";
 
 export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
   {
@@ -41,7 +42,7 @@ export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
     order: 2,
   },
   {
-    id: "repository",
+    id: "repositoryCore",
     label: "Repository core",
     description: "Repository connections, provider attachments, and domains.",
     column: 1,
@@ -97,7 +98,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   ui_repositoryResourceLinks_settings: "workspace",
   ui_repositoryFileTree_folderExpansions: "workspace",
 
-  repositories: "repository",
+  repositories: "repositoryCore",
   observations_repository_branchTrees: "repository",
 
   repositoryCloudflareWorkers: "infrastructure",
