@@ -1015,7 +1015,7 @@ function RepositoryOverviewProvisioningFixture({
           provider: "cloudflare",
           runId: PROVISIONING_RUN_ID,
           step: "attach_worker",
-          message: `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${recoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${githubRepositoryFullName}, then retry.`,
+          message: `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${recoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and select All repositories, then retry.`,
           updatedAt: FIXTURE_NOW,
         },
       };

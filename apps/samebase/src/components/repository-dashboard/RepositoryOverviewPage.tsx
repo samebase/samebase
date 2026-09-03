@@ -259,11 +259,8 @@ function RepositoryStateNotice({
                   <span className="font-mono font-medium text-foreground">
                     {repository.githubOwnerLogin}
                   </span>
-                  , then include{" "}
-                  <span className="font-mono font-medium text-foreground">
-                    {repository.githubRepositoryFullName}
-                  </span>
-                  .
+                  , then select All repositories. Cloudflare must have access to repositories that
+                  Samebase creates later.
                 </li>
                 <li className="pl-1">Return to Samebase and select Retry.</li>
               </ol>

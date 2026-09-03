@@ -19,7 +19,9 @@ Use the Cloudflare account that you connected to Samebase.
 1. Open [Workers & Pages](https://dash.cloudflare.com/).
 2. Select **Create application**.
 3. Select the option to import a Git repository.
-4. Connect or authorize GitHub if Cloudflare asks you to do this.
+4. Connect or authorize GitHub if Cloudflare asks you to do this. On GitHub, select **All
+   repositories** for the account or organization. Do not select **Only select repositories**.
+   Cloudflare must have access to repositories that Samebase creates after this setup.
 5. Select the repository that Samebase created.
 6. Keep the default build and deploy settings. These settings do not matter for this temporary
    Worker.
