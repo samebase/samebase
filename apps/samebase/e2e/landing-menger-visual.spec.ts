@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("landing Menger logo renders and reacts to the pointer @webgpu", async ({ page }) => {
-  test.setTimeout(90_000);
+test("landing Menger logo starts and reacts to the pointer @webgpu", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -11,6 +10,7 @@ test("landing Menger logo renders and reacts to the pointer @webgpu", async ({ p
   await expect(hero).toBeVisible({ timeout: 30_000 });
   await expect(scene).toHaveAttribute("data-renderer", "typegpu-ray-march");
   await expect(scene).toHaveAttribute("data-renderer-state", "ready", { timeout: 60_000 });
+  await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(scene.locator("canvas")).toBeVisible();
 
   const sceneBox = await scene.boundingBox();

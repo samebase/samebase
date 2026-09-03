@@ -731,6 +731,7 @@ export const trackedFilePaths = [
   "apps/samebase/playwright.live.config.ts",
   "apps/samebase/playwright.logo-research.config.ts",
   "apps/samebase/playwright.opt-in.config.ts",
+  "apps/samebase/playwright.webgpu.config.ts",
   "apps/samebase/prerender.config.test.ts",
   "apps/samebase/prerender.config.ts",
   "apps/samebase/public/_headers",
