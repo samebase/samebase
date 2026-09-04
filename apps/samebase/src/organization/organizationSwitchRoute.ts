@@ -1,7 +1,7 @@
 import {
   buildOrganizationRoutePath,
   type OrganizationRouteSection,
-} from "@/lib/organizationRoutes";
+} from "@/organization/organizationRoutes";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {

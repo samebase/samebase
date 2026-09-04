@@ -4,7 +4,7 @@ import {
   findViewerOrganization,
   readAppOrganizationSurface,
   type ViewerOrganization,
-} from "@/lib/organizationContext";
+} from "@/organization/context";
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs

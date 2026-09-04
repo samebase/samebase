@@ -14,7 +14,7 @@ import type {
   RepositoryPullRequestsState,
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { OrganizationContext } from "@/lib/organizationContext";
+import { OrganizationContext } from "@/organization/context";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   type RepositoryOrganization,
@@ -51,8 +51,9 @@ const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn(() => new Map
 const useActionMock = vi.hoisted(() => vi.fn());
 const useQueryMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
+vi.mock("@/organization/useOrganizationGitHubIdentity", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/organization/useOrganizationGitHubIdentity")>();
   return {
     ...actual,
     useOrganizationGitHubIdentities: useOrganizationGitHubIdentitiesMock,

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/organization/organizationRoutes";
 import { Link } from "@tanstack/react-router";
 import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";

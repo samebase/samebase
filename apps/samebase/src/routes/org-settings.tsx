@@ -1,5 +1,5 @@
-import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
-import { OrganizationSettingsPage } from "@/components/OrganizationSettingsPage";
+import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
+import { OrganizationSettingsPage } from "@/organization/OrganizationSettingsPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
   ORGANIZATION_BILLING_SEARCH_STATIC_DATA,

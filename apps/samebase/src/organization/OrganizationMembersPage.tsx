@@ -1,6 +1,6 @@
-import { OrganizationMembersPageView } from "@/components/OrganizationMembersPageView";
+import { OrganizationMembersPageView } from "@/organization/OrganizationMembersPageView";
 import { useNow } from "@/hooks/useNow";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { useAction, useMutation } from "convex/react";

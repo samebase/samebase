@@ -8,9 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { OrganizationGitHubIdentityObservation } from "@/hooks/useOrganizationGitHubIdentity";
+import type { OrganizationGitHubIdentityObservation } from "@/organization/useOrganizationGitHubIdentity";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import { CONVEX_EU_WEST_REGION, CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 
@@ -28,8 +28,9 @@ const regionTestState = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
+vi.mock("@/organization/useOrganizationGitHubIdentity", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/organization/useOrganizationGitHubIdentity")>();
   return {
     ...actual,
     useOrganizationGitHubIdentities: useOrganizationGitHubIdentitiesMock,

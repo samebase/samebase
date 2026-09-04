@@ -6,15 +6,15 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   handleProviderOAuthPopupCompletionMessage,
   ProviderConnectionsPage,
 } from "./ProviderConnectionsPage";
 import { ProviderConnectionsPageVisualFixture } from "./ProviderConnectionsPageVisualFixture";
-import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
+import type { GitHubAuthorizationSetup } from "@/organization/providers/githubAppSetupFlow";
 
 const { act } = React;
 
@@ -74,14 +74,14 @@ vi.mock("@/authClient", () => ({
   isInIframe: () => false,
 }));
 
-vi.mock("@/lib/githubAppSetupFlow", () => ({
+vi.mock("@/organization/providers/githubAppSetupFlow", () => ({
   openGitHubAppSetupPopup: (
     _provider: "github-app" | "github-user",
     getSetup: () => Promise<GitHubAuthorizationSetup>,
   ) => testState.setupPopup(getSetup),
 }));
 
-vi.mock("@/components/ApiKeyConnectDialog", () => ({
+vi.mock("@/organization/providers/ApiKeyConnectDialog", () => ({
   useApiKeyConnectDialog: ({ provider }: { provider: "cloudflare" | "convex" }) => ({
     apiKeyDialog: null,
     openApiKeyDialog: () => testState.apiCredentialDialogOpens.push(provider),

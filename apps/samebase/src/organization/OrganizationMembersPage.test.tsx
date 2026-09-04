@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, Component, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -13,7 +13,7 @@ const testState = vi.hoisted(() => ({
   githubRelationships: vi.fn(async () => []),
 }));
 
-vi.mock("@/components/OrganizationMembersPageView", async () => {
+vi.mock("@/organization/OrganizationMembersPageView", async () => {
   const { useState } = await import("react");
 
   return {

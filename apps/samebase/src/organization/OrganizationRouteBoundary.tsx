@@ -4,7 +4,7 @@ import {
   findViewerOrganization,
   useOrganizationContext,
   type ViewerOrganization,
-} from "@/lib/organizationContext";
+} from "@/organization/context";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { Link } from "@tanstack/react-router";

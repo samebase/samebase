@@ -3,9 +3,9 @@ import { useCallback } from "react";
 
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
-import { OrganizationsPage } from "@/components/OrganizationsPage";
+import { OrganizationsPage } from "@/organization/OrganizationsPage";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
-import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";
 import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";

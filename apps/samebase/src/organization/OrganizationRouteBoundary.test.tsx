@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContextProvider } from "./OrganizationContext";
-import { useOrganizationContext, type ViewerOrganization } from "@/lib/organizationContext";
+import { useOrganizationContext, type ViewerOrganization } from "@/organization/context";
 import { OrganizationRouteBoundary } from "./OrganizationRouteBoundary";
 
 function fakeOrganizationId(value: string): Id<"organizations"> {

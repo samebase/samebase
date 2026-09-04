@@ -13,9 +13,9 @@ import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice"
 import { Button } from "@/components/ui/button";
 import { GitHubProviderLogo } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
-import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { useOrganizationContext, type ViewerOrganization } from "@/lib/organizationContext";
-import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
+import { openGitHubAppSetupPopup } from "@/organization/providers/githubAppSetupFlow";
+import { useOrganizationContext, type ViewerOrganization } from "@/organization/context";
+import { buildOrganizationRoutePath } from "@/organization/organizationRoutes";
 import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 
 type ListResult = (typeof api.githubAppConnection.listOptions)["_returnType"];

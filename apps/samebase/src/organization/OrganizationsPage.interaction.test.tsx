@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../convex/_generated/dataModel";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 
 const testState = vi.hoisted<{
   actions: Map<string, (args: unknown) => Promise<unknown>>;
@@ -41,7 +41,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 import { api } from "../../convex/_generated/api";
-import { OrganizationContext } from "@/lib/organizationContext";
+import { OrganizationContext } from "@/organization/context";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationsPage } from "./OrganizationsPage";
 

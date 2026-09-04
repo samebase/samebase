@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
-import type { ViewerOrganization } from "@/lib/organizationContext";
-import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
+import type { ViewerOrganization } from "@/organization/context";
+import { ORGANIZATION_SETTINGS_ROUTE } from "@/organization/organizationRoutes";
 import {
   CHECKOUT_QUERY_PARAM,
   POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,

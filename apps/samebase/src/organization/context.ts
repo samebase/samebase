@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import { api } from "../../convex/_generated/api";
-import type { OrganizationRouteSection } from "@/lib/organizationRoutes";
+import type { OrganizationRouteSection } from "@/organization/organizationRoutes";
 
 export type ViewerOrganization = (typeof api.organizations.listForViewer)["_returnType"][number];
 

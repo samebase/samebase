@@ -1,10 +1,10 @@
-import { GITHUB_APP_SETUP_POPUP_NAME } from "../../shared/githubApp";
+import { GITHUB_APP_SETUP_POPUP_NAME } from "../../../shared/githubApp";
 import {
   buildAuthorizationErrorUrl,
   type AuthorizationProvider,
-} from "../../shared/authorizationError";
-import { getCurrentRootRelativeUrl } from "./currentRootRelativeUrl";
-import { readAuthorizationCompletionReturnTo } from "./authorizationCompletionMessage";
+} from "../../../shared/authorizationError";
+import { getCurrentRootRelativeUrl } from "../../lib/currentRootRelativeUrl";
+import { readAuthorizationCompletionReturnTo } from "../../lib/authorizationCompletionMessage";
 
 const GITHUB_APP_SETUP_COMPLETION_TIMEOUT_MS = 10 * 60 * 1000;
 const GITHUB_APP_SETUP_POPUP_POLL_MS = 250;

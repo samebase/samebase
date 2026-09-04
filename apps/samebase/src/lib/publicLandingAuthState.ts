@@ -3,7 +3,7 @@ import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorage
 import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
-import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
 import { readAuthorizationError } from "@/routeSearch/authorizationError";
 
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "sign_in";

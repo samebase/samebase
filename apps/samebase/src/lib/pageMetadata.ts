@@ -14,7 +14,7 @@ import {
   AGENT_BROWSER_HANDOFF_ROUTE,
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
-import { ORGANIZATIONS_ROUTE } from "./organizationRoutes";
+import { ORGANIZATIONS_ROUTE } from "../organization/organizationRoutes";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 export type PageMetadata = {

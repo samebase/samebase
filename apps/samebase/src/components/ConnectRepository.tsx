@@ -1,5 +1,5 @@
 import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from "@tanstack/react-router";

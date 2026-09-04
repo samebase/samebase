@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { AppOrganizationSurface, ViewerOrganization } from "@/lib/organizationContext";
+import type { AppOrganizationSurface, ViewerOrganization } from "@/organization/context";
 import type { Id } from "../../convex/_generated/dataModel";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -50,8 +50,8 @@ function organization(
   };
 }
 
-vi.mock("@/lib/organizationContext", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/organizationContext")>();
+vi.mock("@/organization/context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/organization/context")>();
   return {
     ...actual,
     useOrganizationContext: () => testState.context,

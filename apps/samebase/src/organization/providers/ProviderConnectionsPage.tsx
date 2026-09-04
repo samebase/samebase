@@ -1,7 +1,7 @@
 import { isInIframe } from "@/authClient";
-import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
+import { useApiKeyConnectDialog } from "@/organization/providers/ApiKeyConnectDialog";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { readAuthorizationCompletionReturnTo } from "@/lib/authorizationCompletionMessage";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
-import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { openGitHubAppSetupPopup } from "@/organization/providers/githubAppSetupFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
@@ -41,14 +41,14 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudflareTokenRefresh";
-import type { AuthorizationError } from "../../shared/authorizationError";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../../shared/cloudflareTokenRefresh";
+import type { AuthorizationError } from "../../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
 import { SETTINGS_ROUTE } from "@/account/settingsRoute";
-import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;

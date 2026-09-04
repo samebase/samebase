@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
+import { buildOrganizationSwitchHref } from "@/organization/organizationSwitchRoute";
 
 describe("buildOrganizationSwitchHref", () => {
   it("clears billing state when switching organizations", () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
-import { type ViewerOrganization } from "@/lib/organizationContext";
+import { type ViewerOrganization } from "@/organization/context";
 import { type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { ConvexError } from "convex/values";
@@ -151,7 +151,7 @@ vi.mock("@/components/ConnectRepository", () => ({
   ),
 }));
 
-vi.mock("@/components/OrganizationsPage", () => ({
+vi.mock("@/organization/OrganizationsPage", () => ({
   OrganizationsPage: () => <div data-testid="organizations-page">Organizations page</div>,
 }));
 
@@ -163,7 +163,7 @@ vi.mock("@/components/NewAppPage", () => ({
   ),
 }));
 
-vi.mock("@/components/ProviderConnectionsPage", () => ({
+vi.mock("@/organization/providers/ProviderConnectionsPage", () => ({
   ProviderConnectionsPage: ({ organization }: { organization: ViewerOrganization }) => {
     if (routeErrorState.providerError) {
       throw routeErrorState.providerError;
@@ -177,7 +177,7 @@ vi.mock("@/components/ProviderConnectionsPage", () => ({
   },
 }));
 
-vi.mock("@/components/OrganizationRouteBoundary", () => ({
+vi.mock("@/organization/OrganizationRouteBoundary", () => ({
   AuthenticatedOrganizationRoutePage: ({
     children,
     owner,
@@ -207,7 +207,7 @@ vi.mock("@/account/UserSettingsPage", () => ({
   UserSettingsPage: () => <div data-testid="settings-page">Settings page</div>,
 }));
 
-vi.mock("@/components/OrganizationSettingsPage", () => ({
+vi.mock("@/organization/OrganizationSettingsPage", () => ({
   OrganizationSettingsPage: ({ organization }: { organization: ViewerOrganization }) => (
     <div data-testid="organization-settings-page" data-owner={organization.githubOwnerLogin}>
       Organization settings page

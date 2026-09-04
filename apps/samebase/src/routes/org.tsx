@@ -1,5 +1,5 @@
-import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
-import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/lib/organizationRoutes";
+import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
+import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/organization/organizationRoutes";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 

@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { OrganizationContext, readAppOrganizationSurface } from "@/lib/organizationContext";
+import { OrganizationContext, readAppOrganizationSurface } from "@/organization/context";
 
 export function OrganizationContextProvider({
   children,

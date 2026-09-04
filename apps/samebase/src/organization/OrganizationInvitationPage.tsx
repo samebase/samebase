@@ -1,6 +1,6 @@
 import { useAppAuthActions } from "@/authClient";
-import { OrganizationInvitationPageView } from "@/components/OrganizationInvitationPageView";
-import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/lib/organizationRoutes";
+import { OrganizationInvitationPageView } from "@/organization/OrganizationInvitationPageView";
+import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/organization/organizationRoutes";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction, useConvexAuth, useMutation } from "convex/react";

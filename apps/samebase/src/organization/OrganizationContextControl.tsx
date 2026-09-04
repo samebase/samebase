@@ -1,4 +1,4 @@
-import { useOrganizationContext, type AppOrganizationSurface } from "@/lib/organizationContext";
+import { useOrganizationContext, type AppOrganizationSurface } from "@/organization/context";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,8 +6,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { personalOrganizationsFirst } from "@/lib/organizationOrder";
-import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
+import { personalOrganizationsFirst } from "@/organization/organizationOrder";
+import { buildOrganizationSwitchHref } from "@/organization/organizationSwitchRoute";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 

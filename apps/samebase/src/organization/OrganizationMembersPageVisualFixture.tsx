@@ -2,7 +2,7 @@ import {
   OrganizationMembersPageView,
   type OrganizationInvitationId,
   type OrganizationMembersPageData,
-} from "@/components/OrganizationMembersPageView";
+} from "@/organization/OrganizationMembersPageView";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export type OrganizationMembersPageVisualMode = "organization-members-page-owner";

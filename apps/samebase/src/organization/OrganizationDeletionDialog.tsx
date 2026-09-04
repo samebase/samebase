@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 
 import { api } from "../../convex/_generated/api";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import {

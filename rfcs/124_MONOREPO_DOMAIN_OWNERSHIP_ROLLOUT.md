@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Active roadmap; Phases 1 and 2 merged; Phase 3 in this pull request
+- Status: Active roadmap; Phases 1 to 3 merged; Phase 4 in this pull request
 - Owner: Samebase monorepo
 - Updated: 2026-09-05
 - Related: [Documentation standard](../docs/repo-documentation-standard.md),
@@ -40,7 +40,7 @@ chrome, and route-search code kept their existing owners. The PR records the fil
 
 ## Phase 3: Workspace Checks
 
-Implemented in this pull request; pending review and merge.
+Merged in [PR 1590](https://github.com/samebase/samebase/pull/1590).
 
 - Run the existing domain-router and PostHog proxy dry-run checks and the Solid layout app type
   check from both root workspace check commands. Include the existing PostHog and Solid type checks
@@ -48,13 +48,28 @@ Implemented in this pull request; pending review and merge.
 - Remove stale starter-template lint paths. `templates/base` keeps its separate workspace checks.
 - Correct the README app and package tree, starter path, and Vite+ hook reference.
 
+## Phase 4: Account and Organization
+
+Implemented in this pull request; pending review and merge.
+
+- Group account settings, MCP client settings, and the account deletion UI and browser state under
+  `apps/samebase/src/account/`.
+- Group organization pages, context, route helpers, and GitHub identity reads under
+  `apps/samebase/src/organization/`. Put organization provider connections and their setup dialog
+  and popup helper under `organization/providers/`.
+- Move the existing owner tests and feature fixtures with their code. Update direct imports, route
+  consumers, fixture dispatch, and active document references.
+
+Route declarations, route-search modules, generic auth code, shared app chrome, and provisioning
+controls keep their existing owners. This phase changes file paths only.
+
 ## Next Work
 
 Confirm each later change from the repository state at that time. These are useful next areas:
 
 | Area                    | Next useful change                                                                                 |
 | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Other frontend features | Move one proven group at a time, such as account, organization, provider, or public-site code.     |
+| Other frontend features | Move one proven group at a time, such as provisioning controls or public-site code.                |
 | Dead files              | Delete confirmed unused files and re-export shims after checking runtime and generated references. |
 | Documents               | Reclassify small batches using the documentation standard and update links in the same change.     |
 | Convex                  | Move plain helpers where ownership is clear. Assess registered function path changes separately.   |
@@ -82,9 +97,8 @@ dependency must be demonstrated before it becomes a prerequisite.
 
 ## Verification and Completion
 
-For Phase 3, run the newly connected app checks, root `check:ci`, and formatting checks on the
-changed files. The root check command is the repeatable validation path for this configuration
-change.
+For Phase 4, run the existing account and organization owner tests, root `check:ci`, app `build:ci`,
+and a focused organization route check. Verify that the moved code differs only in path references.
 
 Each later PR selects its existing owner tests under the
 [Samebase test policy](../.agents/skills/samebase-test-policy/SKILL.md). CI owns the configured full

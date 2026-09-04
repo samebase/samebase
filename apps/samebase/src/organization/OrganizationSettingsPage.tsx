@@ -3,17 +3,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 
-import type { ViewerOrganization } from "@/lib/organizationContext";
-import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
-import { OrganizationDeletionDialog } from "@/components/OrganizationDeletionDialog";
+import type { ViewerOrganization } from "@/organization/context";
+import { OrganizationBillingSection } from "@/organization/OrganizationBillingSection";
+import { OrganizationDeletionDialog } from "@/organization/OrganizationDeletionDialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
   organizationGitHubIdentityQueryKey,
   type OrganizationGitHubIdentityObservation,
   useOrganizationGitHubIdentities,
-} from "@/hooks/useOrganizationGitHubIdentity";
-import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
+} from "@/organization/useOrganizationGitHubIdentity";
+import { buildOrganizationRoutePath } from "@/organization/organizationRoutes";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { api } from "../../convex/_generated/api";
 import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";

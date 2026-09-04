@@ -37,7 +37,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   };
 });
 
-vi.mock("@/components/OrganizationInvitationPageView", () => ({
+vi.mock("@/organization/OrganizationInvitationPageView", () => ({
   OrganizationInvitationPageView: ({
     invitation,
   }: {
