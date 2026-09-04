@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Active roadmap; Phases 1 to 3 merged; Phase 4 in this pull request
+- Status: Phases 1 to 4 merged; Phase 5 in this pull request; then stop
 - Owner: Samebase monorepo
 - Updated: 2026-09-05
 - Related: [Documentation standard](../docs/repo-documentation-standard.md),
@@ -21,6 +21,8 @@ beside the code they exercise.
 
 The purpose is to make features easier to find and change. Empty root folders, a fixed maximum file
 count, and a complete new folder tree are not goals.
+
+Phase numbers identify delivered batches. They do not define a fixed sequence from an earlier draft.
 
 ## Phase 1: Repository Dashboard
 
@@ -50,26 +52,33 @@ Merged in [PR 1590](https://github.com/samebase/samebase/pull/1590).
 
 ## Phase 4: Account and Organization
 
-Implemented in this pull request; pending review and merge.
+Merged in [PR 1591](https://github.com/samebase/samebase/pull/1591).
 
-- Group account settings, MCP client settings, and the account deletion UI and browser state under
-  `apps/samebase/src/account/`.
-- Group organization pages, context, route helpers, and GitHub identity reads under
-  `apps/samebase/src/organization/`. Put organization provider connections and their setup dialog
-  and popup helper under `organization/providers/`.
-- Move the existing owner tests and feature fixtures with their code. Update direct imports, route
-  consumers, fixture dispatch, and active document references.
+Account settings, MCP client settings, and account deletion code now live under
+`apps/samebase/src/account/`. Organization code lives under `apps/samebase/src/organization/`, with
+provider connection code under `organization/providers/`. Owner tests and feature fixtures moved
+with their code. The PR records the file map and checks.
 
-Route declarations, route-search modules, generic auth code, shared app chrome, and provisioning
-controls keep their existing owners. This phase changes file paths only.
+## Phase 5: Repository Setup
 
-## Next Work
+This PR contains the complete approved group and its checks. Group app creation, repository
+connection, repository picker search, and shared deployment setup controls under
+`apps/samebase/src/repository/setup/`. Move their existing tests and fixtures with them. Update all
+direct callers, mock paths, fixture dispatch, tracked metadata, and active document references.
 
-Confirm each later change from the repository state at that time. These are useful next areas:
+The shared controls serve app creation, dashboard setup dialogs, and organization settings. Keep
+their exports and behavior unchanged. Database attachment helpers, route declarations, shared
+contracts, and provider logos keep their current owners.
+
+Stop after this ready PR. Any further folder work needs a new user decision.
+
+## Backlog
+
+These areas are backlog, not automatic tasks. Select any later work through a new user decision.
 
 | Area                    | Next useful change                                                                                 |
 | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Other frontend features | Move one proven group at a time, such as provisioning controls or public-site code.                |
+| Other frontend features | Move a proven group, such as public-site code.                                                     |
 | Dead files              | Delete confirmed unused files and re-export shims after checking runtime and generated references. |
 | Documents               | Reclassify small batches using the documentation standard and update links in the same change.     |
 | Convex                  | Move plain helpers where ownership is clear. Assess registered function path changes separately.   |
@@ -79,8 +88,8 @@ dependency must be demonstrated before it becomes a prerequisite.
 
 ## Working Rules
 
-- This Codex task owns the roadmap and cross-change decisions. Later implementation PRs can use
-  separate Codex tasks and worktrees so their detailed code work stays out of the planning context.
+- Keep detailed implementation work in a separate worktree and agent. This task owns scope, review,
+  and the stop decision.
 - Give each PR one clear purpose. Include its relevant RFC update in that PR.
 - Sequence changes that share files or depend on earlier moves. Independent work can proceed when
   its file scope and dependencies are clear.
@@ -97,8 +106,9 @@ dependency must be demonstrated before it becomes a prerequisite.
 
 ## Verification and Completion
 
-For Phase 4, run the existing account and organization owner tests, root `check:ci`, app `build:ci`,
-and a focused organization route check. Verify that the moved code differs only in path references.
+For Phase 5, run the existing setup and affected caller tests, root `check:ci`, and app `build:ci`.
+Verify that the moved code differs only in path references. Use existing narrow browser coverage
+when it adds useful evidence. Do not add tests or screenshot baselines for path moves alone.
 
 Each later PR selects its existing owner tests under the
 [Samebase test policy](../.agents/skills/samebase-test-policy/SKILL.md). CI owns the configured full

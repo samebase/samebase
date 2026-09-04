@@ -4,20 +4,20 @@ import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { CheckIcon, Loader2 } from "lucide-react";
 import { useCallback, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clsx } from "clsx";
 import { linkStyle } from "@/components/styles";
-import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
+import { CloudflareBuildTokenField } from "@/repository/setup/CloudflareBuildTokenField";
 import {
   AppResourceNameFeedback,
   AppResourceNameNotice,
-} from "@/components/AppResourceNameFeedback";
+} from "@/repository/setup/AppResourceNameFeedback";
 import {
   useCloudflareBuildTokenSelection,
   useCloudflareBuildTokens,
-} from "@/components/useCloudflareBuildTokens";
+} from "@/repository/setup/useCloudflareBuildTokens";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/organization/organizationRoutes";
@@ -27,17 +27,17 @@ import {
   formatAppResourceNameConflictMessage,
   validateAppResourceName,
   type AppResourceNameProvider,
-} from "../../shared/appResourceNames";
-import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
+} from "../../../shared/appResourceNames";
+import { toSafeGitHubRepositoryName } from "../../../shared/githubRepositoryName";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import type { ViewerOrganization } from "@/organization/context";
-import type { Id } from "../../convex/_generated/dataModel";
-import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
-import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";
+import { useConvexDeploymentRegion } from "@/repository/setup/useConvexDeploymentRegions";
 
 type CreateResourceNameMode = "auto" | "manual";
 type CreateProviderNameConflict = { provider: AppResourceNameProvider; name: string };

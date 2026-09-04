@@ -1,7 +1,7 @@
-import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
-import { NewAppCreateFormFields, NewAppProviderReadiness } from "@/components/NewAppPage";
+import { CloudflareBuildTokenField } from "@/repository/setup/CloudflareBuildTokenField";
+import { NewAppCreateFormFields, NewAppProviderReadiness } from "@/repository/setup/NewAppPage";
 import { Button } from "@/components/ui/button";
-import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
+import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";
 
 export type NewAppPageVisualMode = "new-app-build-token" | "new-app-provider-blocked";
 

@@ -8,7 +8,7 @@ import {
   formatConvexDeploymentRegionLabel,
   parseConvexDeploymentRegion,
   type ConvexDeploymentRegion,
-} from "../../shared/convexDeploymentRegions";
+} from "../../../shared/convexDeploymentRegions";
 
 export function ConvexDeploymentRegionField({
   disabled,

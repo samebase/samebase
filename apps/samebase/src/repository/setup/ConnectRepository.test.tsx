@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { findRepositorySearchMatch } from "@/lib/repositorySearch";
+import { findRepositorySearchMatch } from "@/repository/setup/repositorySearch";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
+import { parseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
 import { ConnectRepositoryPageContent, type ConnectRepositoryOption } from "./ConnectRepository";
 
 type ConnectRepositoryPageContentProps = Parameters<typeof ConnectRepositoryPageContent>[0];

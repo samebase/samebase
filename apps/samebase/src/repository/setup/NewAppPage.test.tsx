@@ -7,10 +7,13 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { CONVEX_EU_WEST_REGION, CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
+import {
+  CONVEX_EU_WEST_REGION,
+  CONVEX_US_EAST_REGION,
+} from "../../../shared/convexDeploymentRegions";
 import { NewAppPage } from "./NewAppPage";
 
 const cloudflareBuildTokenTestState = vi.hoisted(() => ({
@@ -18,7 +21,7 @@ const cloudflareBuildTokenTestState = vi.hoisted(() => ({
   state: "loaded",
 }));
 
-vi.mock("@/components/useCloudflareBuildTokens", () => ({
+vi.mock("@/repository/setup/useCloudflareBuildTokens", () => ({
   useCloudflareBuildTokenSelection: () => ({
     canWrite: cloudflareBuildTokenTestState.state === "loaded",
     selectedUuid: cloudflareBuildTokenTestState.state === "loaded" ? "build-token-1" : "",

@@ -22,7 +22,7 @@ import { AppDialogContent } from "@/components/AppDialogContent";
 import {
   AppResourceNameFeedback,
   AppResourceNameNotice,
-} from "@/components/AppResourceNameFeedback";
+} from "@/repository/setup/AppResourceNameFeedback";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,8 +36,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RepositoryProviderDiscoveryLoadingState } from "./RepositoryProviderDiscoveryLoadingState";
-import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
-import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
+import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";
+import { useConvexDeploymentRegion } from "@/repository/setup/useConvexDeploymentRegions";
 import {
   formatConvexDeploymentRegionLabel,
   type ConvexDeploymentRegion,

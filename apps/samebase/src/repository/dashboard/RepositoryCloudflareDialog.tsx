@@ -17,13 +17,13 @@ import { AppDialogContent } from "@/components/AppDialogContent";
 import {
   AppResourceNameFeedback,
   AppResourceNameNotice,
-} from "@/components/AppResourceNameFeedback";
-import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
+} from "@/repository/setup/AppResourceNameFeedback";
+import { CloudflareBuildTokenField } from "@/repository/setup/CloudflareBuildTokenField";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import {
   useCloudflareBuildTokenSelection,
   useCloudflareBuildTokens,
-} from "@/components/useCloudflareBuildTokens";
+} from "@/repository/setup/useCloudflareBuildTokens";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {

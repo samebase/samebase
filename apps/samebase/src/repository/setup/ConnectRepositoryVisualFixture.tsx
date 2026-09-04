@@ -1,8 +1,8 @@
 import {
   ConnectRepositoryPageContent,
   type ConnectRepositoryOption,
-} from "@/components/ConnectRepository";
-import { findRepositorySearchMatch } from "@/lib/repositorySearch";
+} from "@/repository/setup/ConnectRepository";
+import { findRepositorySearchMatch } from "@/repository/setup/repositorySearch";
 
 export type ConnectRepositoryVisualMode = "connect-repository-github-unavailable";
 
