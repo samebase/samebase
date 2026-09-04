@@ -1,4 +1,4 @@
-import { tryParseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
+import { tryParseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
 
 type SearchableRepository = {
   name: string;

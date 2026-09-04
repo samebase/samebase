@@ -143,7 +143,7 @@ vi.mock("@/components/AgentsConnectRoutePage", () => ({
   AgentsConnectRoutePage: () => <div data-testid="agents-connect-page">Agents connect page</div>,
 }));
 
-vi.mock("@/components/ConnectRepository", () => ({
+vi.mock("@/repository/setup/ConnectRepository", () => ({
   ConnectRepository: ({ organization }: { organization: ViewerOrganization }) => (
     <div data-testid="connect-repository-page" data-owner={organization.githubOwnerLogin}>
       Connect repository page
@@ -155,7 +155,7 @@ vi.mock("@/organization/OrganizationsPage", () => ({
   OrganizationsPage: () => <div data-testid="organizations-page">Organizations page</div>,
 }));
 
-vi.mock("@/components/NewAppPage", () => ({
+vi.mock("@/repository/setup/NewAppPage", () => ({
   NewAppPage: ({ organization }: { organization: ViewerOrganization }) => (
     <div data-testid="new-app-page" data-owner={organization.githubOwnerLogin}>
       New app page

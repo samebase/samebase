@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
+import { parseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
 import {
   isGitHubRepositoryConnected,
   resolveDisplayedRepositories,

@@ -37,8 +37,8 @@ Samebase to connect them.
 ## Source Of Truth Files
 
 - `apps/samebase/convex/github.ts`
-- `apps/samebase/src/components/ConnectRepository.tsx`
-- `apps/samebase/src/lib/repositorySearch.ts`
+- `apps/samebase/src/repository/setup/ConnectRepository.tsx`
+- `apps/samebase/src/repository/setup/repositorySearch.ts`
 
 ## Runtime Contract
 

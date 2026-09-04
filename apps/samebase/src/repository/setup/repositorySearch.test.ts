@@ -5,7 +5,7 @@ import {
   getFuzzyMatchIndices,
   repositoryMatchesSearch,
   splitRepositoryFullNameMatch,
-} from "@/lib/repositorySearch";
+} from "@/repository/setup/repositorySearch";
 
 describe("getFuzzyMatchIndices", () => {
   it("returns indices for a fuzzy match", () => {

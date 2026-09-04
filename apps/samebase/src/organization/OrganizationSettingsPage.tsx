@@ -16,7 +16,7 @@ import {
 import { buildOrganizationRoutePath } from "@/organization/organizationRoutes";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { api } from "../../convex/_generated/api";
-import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
+import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";
 import {
   formatConvexDeploymentRegionLabel,
   resolveDefaultConvexDeploymentRegion,

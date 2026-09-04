@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
-import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
+import { CloudflareBuildTokenField } from "@/repository/setup/CloudflareBuildTokenField";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RepositoryCloudflareDialogContent } from "./RepositoryCloudflareDialog";
 import { RepositoryConvexDialogContent } from "./RepositoryConvexDialog";

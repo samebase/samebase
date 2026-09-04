@@ -5,21 +5,21 @@ import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
-import { linkStyle } from "./styles";
+import { linkStyle } from "@/components/styles";
 import type { FunctionReturnType } from "convex/server";
 import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
   type RepositorySearchMatch,
-} from "@/lib/repositorySearch";
+} from "@/repository/setup/repositorySearch";
 import {
   isGitHubRepositoryConnected,
   resolveDisplayedRepositories,
-} from "@/lib/connectRepositoryPicker";
-import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
+} from "@/repository/setup/connectRepositoryPicker";
+import { queueExistingRepositoryAndNavigateToDashboard } from "@/repository/setup/existingRepositoryConnectHandoff";
 import { Loader2 } from "lucide-react";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];

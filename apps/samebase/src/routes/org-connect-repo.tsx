@@ -1,5 +1,5 @@
 import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
-import { ConnectRepository } from "@/components/ConnectRepository";
+import { ConnectRepository } from "@/repository/setup/ConnectRepository";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 

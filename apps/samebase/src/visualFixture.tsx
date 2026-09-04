@@ -80,11 +80,11 @@ import { includes } from "@samebase/dependent";
 import {
   ConnectRepositoryVisualFixture,
   type ConnectRepositoryVisualMode,
-} from "@/components/ConnectRepositoryVisualFixture";
+} from "@/repository/setup/ConnectRepositoryVisualFixture";
 import {
   NewAppPageVisualFixture,
   type NewAppPageVisualMode,
-} from "@/components/NewAppPageVisualFixture";
+} from "@/repository/setup/NewAppPageVisualFixture";
 import {
   OrganizationMembersPageVisualFixture,
   type OrganizationMembersPageVisualMode,

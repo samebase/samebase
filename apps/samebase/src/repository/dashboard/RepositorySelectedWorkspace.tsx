@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "@/components/ui/use-toast";
-import { useCloudflareBuildTokens } from "@/components/useCloudflareBuildTokens";
+import { useCloudflareBuildTokens } from "@/repository/setup/useCloudflareBuildTokens";
 import {
   applyRepositoryDashboardProviderAddSearch,
   clearRepositoryDashboardQueryDialogSearch,
