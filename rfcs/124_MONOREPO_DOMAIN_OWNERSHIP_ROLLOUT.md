@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Active roadmap; Phase 1 merged; Phase 2 in this pull request
+- Status: Active roadmap; Phases 1 and 2 merged; Phase 3 in this pull request
 - Owner: Samebase monorepo
 - Updated: 2026-09-05
 - Related: [Documentation standard](../docs/repo-documentation-standard.md),
@@ -32,19 +32,21 @@ schema-graph code kept their existing owners. The PR records the file map and ch
 
 ## Phase 2: Repository Editor
 
+Merged in [PR 1589](https://github.com/samebase/samebase/pull/1589).
+
+Repository editor components, hooks, helpers, tests, and feature fixtures now live under
+`apps/samebase/src/repository/editor/`. Generic Monaco, CodeMirror, and ProseMark code, shared app
+chrome, and route-search code kept their existing owners. The PR records the file map and checks.
+
+## Phase 3: Workspace Checks
+
 Implemented in this pull request; pending review and merge.
 
-- Group FileView, its file tree, dialogs, media views, review and sync UI, hooks, helpers, tests,
-  and feature fixtures under `apps/samebase/src/repository/editor/`.
-- Move repository-specific Monaco file-loading and cache helpers with their tests. Keep generic
-  Monaco, CodeMirror, and ProseMark code, shared app chrome, and route-search code at their current
-  paths.
-- Update direct and dynamic imports, test mocks, fixture dispatch, tracked-file metadata, and
-  current documentation references. Keep the Simple View fixture beside its test.
-- Preserve function names, UI, routes, query parameters, keyboard, focus, selection, touch behavior,
-  and Convex API addresses. Move files without splitting functions or adding re-export shims.
-
-The PR records the exact file map and verification results.
+- Run the existing domain-router and PostHog proxy dry-run checks and the Solid layout app type
+  check from both root workspace check commands. Include the existing PostHog and Solid type checks
+  in the root `typecheck` command.
+- Remove stale starter-template lint paths. `templates/base` keeps its separate workspace checks.
+- Correct the README app and package tree, starter path, and Vite+ hook reference.
 
 ## Next Work
 
@@ -52,7 +54,6 @@ Confirm each later change from the repository state at that time. These are usef
 
 | Area                    | Next useful change                                                                                 |
 | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Workspace checks        | Correct missing check coverage, stale Vite paths, and the README workspace tree.                   |
 | Other frontend features | Move one proven group at a time, such as account, organization, provider, or public-site code.     |
 | Dead files              | Delete confirmed unused files and re-export shims after checking runtime and generated references. |
 | Documents               | Reclassify small batches using the documentation standard and update links in the same change.     |
@@ -81,10 +82,9 @@ dependency must be demonstrated before it becomes a prerequisite.
 
 ## Verification and Completion
 
-For Phase 2, run the existing affected editor and route tests, root checks, the app production
-build, and one narrow existing editor browser check. Check production imports, dynamic imports, test
-mocks, fixture dispatch, and tracked-file references. Do not add tests or change screenshots only
-because file paths changed.
+For Phase 3, run the newly connected app checks, root `check:ci`, and formatting checks on the
+changed files. The root check command is the repeatable validation path for this configuration
+change.
 
 Each later PR selects its existing owner tests under the
 [Samebase test policy](../.agents/skills/samebase-test-policy/SKILL.md). CI owns the configured full

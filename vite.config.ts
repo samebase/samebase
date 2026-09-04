@@ -143,7 +143,6 @@ export default defineConfig({
           "packages/onboarding-video-tools/**/*.ts",
           "apps/samebase/public/**/*.ts",
           "apps/samebase/convex/**/*.{ts,tsx}",
-          "apps/samebase-starter-template/convex/**/*.{ts,tsx}",
           "apps/samebase/scripts/**/*.ts",
         ],
         env: {
@@ -151,11 +150,7 @@ export default defineConfig({
         },
       },
       {
-        files: [
-          "apps/samebase/e2e/**/*.ts",
-          "apps/samebase/playwright.config.ts",
-          "apps/samebase-starter-template/convex/**/*.ts",
-        ],
+        files: ["apps/samebase/e2e/**/*.ts", "apps/samebase/playwright.config.ts"],
         rules: {
           "@typescript-eslint/no-unnecessary-condition": "off",
         },
@@ -179,7 +174,7 @@ export default defineConfig({
         },
       },
       {
-        files: ["apps/samebase/convex/**/*.ts", "apps/samebase-starter-template/convex/**/*.ts"],
+        files: ["apps/samebase/convex/**/*.ts"],
         rules: {
           "@convex-dev/import-wrong-runtime": "off",
           "@convex-dev/no-old-registered-function-syntax": "error",
