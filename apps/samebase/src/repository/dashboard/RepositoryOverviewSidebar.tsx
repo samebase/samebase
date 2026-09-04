@@ -25,14 +25,14 @@ import type {
   RepositorySidebarSummariesState,
   RepositorySidebarSummary,
 } from "@/repository/dashboard/useRepositorySidebarSummaries";
-import type { OrganizationGitHubIdentityObservation } from "@/hooks/useOrganizationGitHubIdentity";
-import { useOrganizationGitHubIdentities } from "@/hooks/useOrganizationGitHubIdentity";
-import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
+import type { OrganizationGitHubIdentityObservation } from "@/organization/useOrganizationGitHubIdentity";
+import { useOrganizationGitHubIdentities } from "@/organization/useOrganizationGitHubIdentity";
+import { ORGANIZATION_SETTINGS_ROUTE } from "@/organization/organizationRoutes";
 import {
   formatRepositoryCheckSummary,
   type RepositoryCheckSummary,
 } from "@/repository/dashboard/repositoryChecks";
-import { personalOrganizationsFirst } from "@/lib/organizationOrder";
+import { personalOrganizationsFirst } from "@/organization/organizationOrder";
 import {
   buildRepositoryDashboardRoute,
   buildRepositorySettingsRoute,

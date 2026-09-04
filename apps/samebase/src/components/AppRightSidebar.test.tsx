@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AppRightSidebarContent } from "./AppRightSidebar";
-import type { AppOrganizationSurface, ViewerOrganization } from "@/lib/organizationContext";
+import type { AppOrganizationSurface, ViewerOrganization } from "@/organization/context";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 
 const authState = vi.hoisted(() => ({
@@ -150,15 +150,15 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
-vi.mock("@/components/ApiKeyConnectDialog", () => ({
+vi.mock("@/organization/providers/ApiKeyConnectDialog", () => ({
   useApiKeyConnectDialog: () => ({
     apiKeyDialog: null,
     openApiKeyDialog: vi.fn(),
   }),
 }));
 
-vi.mock("@/lib/organizationContext", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/organizationContext")>();
+vi.mock("@/organization/context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/organization/context")>();
   return {
     ...actual,
     useOrganizationContext: () => organizationContextState,

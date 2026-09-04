@@ -24,7 +24,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
-import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
 
 /**
  * SSG cannot read per-browser auth preferences. Password auth controls that

@@ -19,7 +19,7 @@ import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError"
 import { readAuthorizationError } from "@/routeSearch/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { toast } from "@/components/ui/use-toast";
-import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";
 
 const ALL_AUTHORIZATION_SOURCES = [
   "convex",

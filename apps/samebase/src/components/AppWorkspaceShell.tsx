@@ -14,8 +14,8 @@ import {
 import { useConvexAuth } from "convex/react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
-import { OrganizationContextProvider } from "@/components/OrganizationContext";
-import { useOrganizationContext } from "@/lib/organizationContext";
+import { OrganizationContextProvider } from "@/organization/OrganizationContext";
+import { useOrganizationContext } from "@/organization/context";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { AppSidebarLayout } from "@/components/AppSidebarLayout";
 import {

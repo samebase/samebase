@@ -22,8 +22,8 @@ import {
   organizationGitHubIdentityQueryKey,
   type OrganizationGitHubIdentityObservation,
   useOrganizationGitHubIdentities,
-} from "@/hooks/useOrganizationGitHubIdentity";
-import { OrganizationContext } from "@/lib/organizationContext";
+} from "@/organization/useOrganizationGitHubIdentity";
+import { OrganizationContext } from "@/organization/context";
 import { buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";

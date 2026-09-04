@@ -21,10 +21,10 @@ import {
   ORGANIZATION_SETTINGS_ROUTE,
   ORGANIZATION_REPOSITORIES_ROUTE,
   ORGANIZATIONS_ROUTE,
-} from "./lib/organizationRoutes";
-import { SETTINGS_ROUTE } from "./lib/settingsRoute";
-import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
-import { ORGANIZATION_INVITATION_ROUTE } from "./lib/organizationInvitationRoute";
+} from "./organization/organizationRoutes";
+import { SETTINGS_ROUTE } from "./account/settingsRoute";
+import { ACCOUNT_DELETION_ROUTE } from "./account/accountDeletionRoute";
+import { ORGANIZATION_INVITATION_ROUTE } from "./organization/organizationInvitationRoute";
 
 /**
  * Use virtual file routes so the generated route tree can preserve the current

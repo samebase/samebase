@@ -18,8 +18,9 @@ import {
   RepositoryOverviewSidebar,
 } from "./RepositoryOverviewSidebar";
 
-vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
+vi.mock("@/organization/useOrganizationGitHubIdentity", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/organization/useOrganizationGitHubIdentity")>();
   return {
     ...actual,
     useOrganizationGitHubIdentities: () => new Map(),

@@ -1,8 +1,8 @@
 import { ApprovalGateViewerAccessProvider } from "@/components/ApprovalGate";
 import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceGate";
-import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
-import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { ACCOUNT_DELETION_ROUTE } from "@/account/accountDeletionRoute";
+import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 import { canAccessRouteMatchesAccess, type RouteAccessViewer } from "@/routing/permissions";
 import {
   readRouteSearchAccessCanonicalRouteAddress,

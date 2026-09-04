@@ -1,5 +1,5 @@
-import { OrganizationMembersPage } from "@/components/OrganizationMembersPage";
-import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
+import { OrganizationMembersPage } from "@/organization/OrganizationMembersPage";
+import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 

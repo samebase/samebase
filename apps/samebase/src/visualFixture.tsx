@@ -69,12 +69,12 @@ import {
 import {
   ProviderConnectionsPageVisualFixture,
   type ProviderConnectionsPageVisualMode,
-} from "@/components/ProviderConnectionsPageVisualFixture";
+} from "@/organization/providers/ProviderConnectionsPageVisualFixture";
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import {
   AccountDeletionStatusVisualFixture,
   type AccountDeletionStatusVisualMode,
-} from "@/components/AccountDeletionStatusVisualFixture";
+} from "@/account/AccountDeletionStatusVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
 import {
@@ -88,8 +88,8 @@ import {
 import {
   OrganizationMembersPageVisualFixture,
   type OrganizationMembersPageVisualMode,
-} from "@/components/OrganizationMembersPageVisualFixture";
-import { OrganizationsPageVisualFixture } from "@/components/OrganizationsPageVisualFixture";
+} from "@/organization/OrganizationMembersPageVisualFixture";
+import { OrganizationsPageVisualFixture } from "@/organization/OrganizationsPageVisualFixture";
 import { TermsAcceptanceVisualFixture } from "@/components/TermsAcceptanceVisualFixture";
 
 type VisualFixtureMode =

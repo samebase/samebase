@@ -1,5 +1,5 @@
-import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
-import { ProviderConnectionsPage } from "@/components/ProviderConnectionsPage";
+import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
+import { ProviderConnectionsPage } from "@/organization/providers/ProviderConnectionsPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";

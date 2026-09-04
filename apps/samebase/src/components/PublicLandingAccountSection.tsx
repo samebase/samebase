@@ -22,7 +22,7 @@ import { useCallback, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AUTHORIZATION_PROVIDERS } from "../../shared/authorizationError";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
-import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
 
 type PublicLandingSignedInViewer = NonNullable<
   GetFunctionReferenceReturnType<typeof api.users.viewer>

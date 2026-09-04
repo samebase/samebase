@@ -1,11 +1,11 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
-import { OrganizationContextControl } from "@/components/OrganizationContextControl";
+import { OrganizationContextControl } from "@/organization/OrganizationContextControl";
 import {
   findViewerOrganization,
   useOrganizationContext,
   type ViewerOrganization,
-} from "@/lib/organizationContext";
+} from "@/organization/context";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import {
   RepositoryDashboardSidebarContent,
@@ -26,7 +26,7 @@ import {
   ORGANIZATION_SETTINGS_ROUTE,
   ORGANIZATION_REPOSITORIES_ROUTE,
   ORGANIZATIONS_ROUTE,
-} from "@/lib/organizationRoutes";
+} from "@/organization/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery as useConvexQuery } from "convex/react";

@@ -2,7 +2,7 @@ import {
   hasAgentBrowserHandoffFragment,
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
-import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
 import { isRecord } from "@samebase/dependent";
 import type { BeforeSendFn as SamebasePostHogBeforeSend } from "posthog-js";
 

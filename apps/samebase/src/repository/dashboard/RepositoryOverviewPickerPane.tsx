@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
-import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import {
   type RepositoryFolderCallbacks,

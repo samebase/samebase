@@ -20,7 +20,7 @@ import {
 } from "@/components/useCloudflareBuildTokens";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
-import { ORGANIZATION_PROVIDERS_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATION_PROVIDERS_ROUTE } from "@/organization/organizationRoutes";
 import {
   buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,
@@ -34,7 +34,7 @@ import {
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
-import type { ViewerOrganization } from "@/lib/organizationContext";
+import type { ViewerOrganization } from "@/organization/context";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
 import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
