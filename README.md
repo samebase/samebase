@@ -40,15 +40,25 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 .
 ├── AGENTS.md
 ├── apps/
+│   ├── domain-router/
+│   ├── posthog-proxy/
+│   ├── remotion-studio/
 │   ├── samebase/
 │   │   ├── src/
 │   │   └── convex/
-│   ├── domain-router/
+│   ├── sidebars-example/
 │   └── workspace-layout-v2-solid/
+├── packages/
+│   ├── dependent/
+│   ├── logo-model/
+│   ├── onboarding-video-tools/
+│   ├── plugin/
+│   ├── sidebars/
+│   └── sure/
 ├── scripts/
 ├── specs/
 ├── templates/
-│   └── app/
+│   └── base/
 ├── package.json
 ├── vite.config.ts
 └── pnpm-workspace.yaml
@@ -182,7 +192,7 @@ This project uses:
 
 - Vite+ for build, test, and workspace task orchestration
 - Oxlint and oxfmt for linting and formatting
-- Husky for pre-commit hooks
+- Vite+ for pre-commit hooks in `.vite-hooks/`
 - TypeScript for type safety
 - Vitest for testing
 
