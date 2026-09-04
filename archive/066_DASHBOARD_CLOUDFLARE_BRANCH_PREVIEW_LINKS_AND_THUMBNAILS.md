@@ -3,6 +3,8 @@
 ## Document Control
 
 - Status: Superseded
+- Superseded by:
+  [Pull request provider query spec](../specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 - Owner: Noter dashboard/frontend + Convex infra
 - Last updated: 2026-05-12
 - Related specs:

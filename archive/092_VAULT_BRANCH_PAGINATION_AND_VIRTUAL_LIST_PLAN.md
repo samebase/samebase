@@ -3,6 +3,8 @@
 ## Document Control
 
 - Status: Superseded
+- Superseded by:
+  [Pull request provider query spec](../specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 - Owner: Samebase dashboard and Convex vault
 - Last updated: 2026-07-04
 - Related specs:
@@ -11,8 +13,8 @@
   - `specs/100_CONVEX_REPOSITORY_MODULE_LAYOUT_SPEC.md`
   - `specs/110_REPOSITORY_ROUTE_SURFACE_SPEC.md`
 - Related RFCs:
-  - `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
-  - `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
+  - `archive/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
+  - `archive/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
 - Related files:
   - `apps/samebase/convex/schema.ts`
   - `apps/samebase/convex/vault/branches.ts`
