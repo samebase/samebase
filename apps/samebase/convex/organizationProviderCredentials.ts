@@ -12,13 +12,13 @@ import {
   requireOrganizationMembershipRecord,
 } from "./organizationAccess";
 import { isLiveConnectedRepository, type ConnectedRepository } from "./repository/state";
-import { vOrganizationCloudflareAccount, vOrganizationConvexTeam } from "./organizationModel";
+import { vOrganizationCloudflareAccount, vOrganizationConvexTeam } from "./organization/model";
 import {
   vCloudflareProviderCredential,
   vCloudflareTokenRefreshLease,
   vConvexProviderCredential,
   type ProviderOAuthStoreResult,
-} from "./organizationProviderCredentialModel";
+} from "./organization/providerCredentialModel";
 import {
   providerAuthMatches,
   vCloudflareProviderAuth,
@@ -30,7 +30,7 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
 } from "../shared/cloudflareTokenRefresh";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 import {
   requireRepositoryProviderWorkflowAuthority,
   requireRepositoryProviderWorkflowContinuation,

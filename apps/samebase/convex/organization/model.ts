@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
+import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 

@@ -21,7 +21,7 @@ import {
   PRO_INCLUDED_ORGANIZATION_MEMBERS,
   readOrganizationMemberCapacity,
   readOrganizationMembershipCount,
-} from "./organizationBillingLimits";
+} from "./organization/billingLimits";
 import { randomToken } from "./oauthUtils";
 import { reconcilePolarCustomerBilling, type PolarBillingState } from "./polarBillingState";
 import {
@@ -39,10 +39,10 @@ import {
   resolvePolarServer,
   type PolarServer,
 } from "./polarClient";
-import { readActiveUser, vActiveUserDoc } from "./userLifecycle";
+import { readActiveUser, vActiveUserDoc } from "./identity/lifecycle";
 import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/accountPresentation";
 import schema from "./schema";
-import { vOrganizationMembershipRole } from "./organizationModel";
+import { vOrganizationMembershipRole } from "./organization/model";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 

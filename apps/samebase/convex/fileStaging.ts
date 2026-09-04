@@ -17,7 +17,7 @@ import {
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const { array, boolean, id, literal, number, object, optional, string, union } = v;

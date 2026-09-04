@@ -16,7 +16,7 @@ import {
 } from "./githubUserAuthorizations";
 import { action } from "./functions";
 import { findOrganizationMembership } from "./organizationAccess";
-import { vGitHubOwnerType } from "./organizationModel";
+import { vGitHubOwnerType } from "./organization/model";
 import { isPreviewSeedUser, resolvePreviewSeedGitHubInstallations } from "./previewSeedAccount";
 
 const { array, boolean, id, literal, object, string, union } = v;

@@ -3,14 +3,17 @@ import type { ActionCtx, DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, Infer, v } from "convex/values";
-import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
+import { vViewerAccess, vViewerRoleResult } from "./identity/accessValidators";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
-import { AUTH_ACCOUNT_LINK_INTENT_DURATION_MS, vAuthAccountProvider } from "./authAccountModel";
+import {
+  AUTH_ACCOUNT_LINK_INTENT_DURATION_MS,
+  vAuthAccountProvider,
+} from "./identity/accountModel";
 import {
   getOrganizationProviderConfiguration,
   type OrganizationProviderConfiguration,

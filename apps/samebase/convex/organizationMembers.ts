@@ -18,9 +18,9 @@ import {
   requireOrganizationMembershipRecord,
   requireOrganizationSettingsOwnerAccessContext,
 } from "./organizationAccess";
-import { requireAdditionalOrganizationMemberCapacity } from "./organizationBillingLimits";
+import { requireAdditionalOrganizationMemberCapacity } from "./organization/billingLimits";
 import { readGitHubSignInProviderAccountId } from "./githubUserAuthorizations";
-import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organization/model";
 import {
   readGitHubOrganizationRelationship,
   readGitHubUserByAccountId,
@@ -29,12 +29,12 @@ import {
   vGitHubRelationship,
   type GitHubInvitationTarget,
   type GitHubRelationship,
-} from "./organizationMemberGitHub";
+} from "./organization/memberGitHub";
 import {
   readActiveUser,
   resolveUserReferencePresentation,
   type NonDeletedUserLifecycleDoc,
-} from "./userLifecycle";
+} from "./identity/lifecycle";
 import { vUserReferencePresentation } from "../shared/userReferencePresentation";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;

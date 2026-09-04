@@ -14,7 +14,7 @@ import {
 } from "./provisioningModel";
 import { toErrorMessage } from "../jsonUtils";
 import { requireRepositoryForUser } from "../organizationAccess";
-import { requireOrganizationNotBillingLimited } from "../organizationBillingLimits";
+import { requireOrganizationNotBillingLimited } from "../organization/billingLimits";
 import { recordOrganizationLastUsedBuildToken } from "../organizations";
 import { requireActiveRepositoryProvisioningRun } from "../repositoryWorkflowAuthority";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./state";

@@ -29,7 +29,7 @@ import {
   isSamebaseManagedRepository,
 } from "./state";
 import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
-import { readActiveUser } from "../userLifecycle";
+import { readActiveUser } from "../identity/lifecycle";
 import {
   requireActiveRepositoryProvisioningAuthority,
   requireActiveRepositoryProvisioningContinuation,

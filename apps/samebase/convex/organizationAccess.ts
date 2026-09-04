@@ -2,9 +2,9 @@ import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
-import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
-import { vOrganizationMembershipRole } from "./organizationModel";
-import { readActiveUser, type NonDeletedUserLifecycleDoc } from "./userLifecycle";
+import { requireOrganizationNotBillingLimited } from "./organization/billingLimits";
+import { vOrganizationMembershipRole } from "./organization/model";
+import { readActiveUser, type NonDeletedUserLifecycleDoc } from "./identity/lifecycle";
 
 export type OrganizationAccessContext = {
   userId: Id<"users">;

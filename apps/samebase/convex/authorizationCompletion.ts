@@ -3,7 +3,7 @@ import {
   type AuthorizationErrorCode,
   type AuthorizationProvider,
 } from "../shared/authorizationError";
-import type { ProviderOAuthStoreResult } from "./organizationProviderCredentialModel";
+import type { ProviderOAuthStoreResult } from "./organization/providerCredentialModel";
 
 export type AuthorizationCompletionEventType =
   | "convex-oauth-complete"

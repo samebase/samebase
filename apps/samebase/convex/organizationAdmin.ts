@@ -6,9 +6,9 @@ import {
   requireAnotherActiveOrganizationOwner,
   requireOrganizationMembershipChangeAllowed,
 } from "./organizationAccess";
-import { requireAdditionalOrganizationMemberCapacity } from "./organizationBillingLimits";
-import { vOrganizationMembershipRole } from "./organizationModel";
-import { readActiveUser } from "./userLifecycle";
+import { requireAdditionalOrganizationMemberCapacity } from "./organization/billingLimits";
+import { vOrganizationMembershipRole } from "./organization/model";
+import { readActiveUser } from "./identity/lifecycle";
 
 const vAddExistingUserResult = v.union(
   v.object({

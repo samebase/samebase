@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { requireAuthSessionUserCanSignIn } from "./authAccountLinking";
+import { requireAuthSessionUserCanSignIn } from "./accountLinking";
 
 describe("auth session user lifecycle", () => {
   it("allows session creation only for active users", () => {

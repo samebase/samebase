@@ -3,12 +3,12 @@ import Google from "@auth/core/providers/google";
 import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
-import { createOrUpdateSamebaseUser, type CreateOrUpdateAuthUserArgs } from "./authAccountLinking";
-import type { AuthAccountProvider } from "./authAccountModel";
-import { makeConvexTest } from "./test.setup";
+import { api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { createOrUpdateSamebaseUser, type CreateOrUpdateAuthUserArgs } from "./accountLinking";
+import type { AuthAccountProvider } from "./accountModel";
+import { makeConvexTest } from "../test.setup";
 
 beforeEach(() => {
   vi.stubEnv("AUTO_APPROVE_NEW_USERS", "true");

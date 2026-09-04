@@ -32,7 +32,7 @@ import {
 } from "./githubUserAuthorizations";
 import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
-import { vGitHubOwnerType } from "./organizationModel";
+import { vGitHubOwnerType } from "./organization/model";
 import {
   findOrganizationMembership,
   requireOrganizationOwnerAccessContext,
@@ -41,7 +41,7 @@ import {
   buildAuthorizationCompletionResponse,
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 

@@ -7,17 +7,17 @@ import {
   vCloudflareProviderOAuthCallbackState,
   vConvexProviderOAuthCallbackState,
   vOAuthProvider,
-} from "./organizationProviderCredentialModel";
+} from "./organization/providerCredentialModel";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 
 export {
   vOAuthProvider,
   vProviderOAuthStoreResult,
   type OAuthProvider,
   type ProviderOAuthStoreResult,
-} from "./organizationProviderCredentialModel";
+} from "./organization/providerCredentialModel";
 
 const providerOAuthCallbackStateSystemFields = {
   _id: v.id("providerOAuthCallbackStates"),

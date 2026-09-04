@@ -4,16 +4,16 @@
 
 - Status: Accepted and implemented
 - Owner: Samebase backend
-- Last updated: 2026-07-21
+- Last updated: 2026-09-05
 - Related docs:
   - [Repository removal workflow](./098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md)
   - [Pull request provider query](./116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 
 ## Current Contract
 
-Repository backend modules live under `apps/samebase/convex/repository/`. Callers import the
-responsible named module directly. Root re-export shims and a catch-all `repository/index.ts` are
-not allowed.
+Repository backend modules use `apps/samebase/convex/repository/`, with the registered function
+exceptions below. Callers import the responsible named module directly. Root re-export shims and a
+catch-all `repository/index.ts` are not allowed.
 
 ```text
 apps/samebase/convex/repository/
@@ -54,6 +54,33 @@ apps/samebase/convex/repository/
 Repository-wide pull request queries live at `convex/repositoryPullRequests.ts` because they are a
 GitHub provider boundary, not a persisted repository submodel.
 
+## Registered Function Path Exceptions
+
+These modules keep their root paths because the paths identify registered functions:
+
+- `infraProvisioning.ts`
+- `repositoryProvisioningEvents.ts`
+- `repositoryProvisioningRuns.ts`
+- `repositoryProvisioningWorkflow.ts`
+- `repositoryProvisioningWorkflowActions.ts`
+- `repositoryWorkflowAuthority.ts`
+
+The installed
+[Workflow 0.4.6 manager stores function and completion callback handles when it starts a run](https://github.com/get-convex/workflow/blob/v0.4.6/src/client/index.ts#L621).
+Samebase's
+[create and retry admission passes the root Workflow and completion references](../apps/samebase/convex/repositoryProvisioningWorkflow.ts#L81).
+A folder move would change those function paths while existing runs can still hold the old handles.
+
+Provider actions can also continue after a deployment. The
+[provisioning continuation check](../apps/samebase/convex/repositoryProvisioningWorkflowActions.ts#L92)
+and the
+[deletion continuation check](../apps/samebase/convex/repository/deletion/providerActions.ts#L44)
+call the same registered root authority mutation. Keeping these runtime-owned paths preserves both
+callers.
+
+Backend organization therefore moves plain modules through direct imports and keeps these registered
+paths stable. It does not require a production drain, a maintenance gate, or forwarding modules.
+
 ## Data Boundary
 
 The module layout does not create compatibility aliases for function paths or schema tables.
@@ -67,5 +94,6 @@ table.
 
 - Generated API references use named repository modules.
 - No root re-export shim preserves an old function path.
+- Plain module moves preserve registered function paths, argument validators, and return validators.
 - `branches.ts` has no repository-wide discovery or pull request list responsibility.
 - Deletion cleanup covers every repository-owned table.

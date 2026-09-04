@@ -19,14 +19,14 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { vAccessKey, vViewerRole } from "./accessModelValidators";
+import { vAccessKey, vViewerRole } from "./identity/accessValidators";
 import { logAppFunctionUsageContext } from "./usageAttribution";
 import {
   readNonDeletedUser,
   vNonDeletedUserLifecycleDoc,
   type NonDeletedUserLifecycleDoc,
-} from "./userLifecycle";
-import { readViewerRoleForUser } from "./viewerRole";
+} from "./identity/lifecycle";
+import { readViewerRoleForUser } from "./identity/viewerRole";
 import {
   canAccess,
   readAccessKeysForRole,
