@@ -1,16 +1,14 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { SAMEBASE_PUBLIC_LINKS } from "../src/lib/publicLinks";
 
-test("each short Samebase path redirects to its official destination", async ({ page }) => {
+test("each short Samebase path redirects to its official destination", async ({ request }) => {
   for (const link of [
     ...Object.values(SAMEBASE_PUBLIC_LINKS),
     { ...SAMEBASE_PUBLIC_LINKS.youtube, path: "/YouTube" },
   ]) {
-    await page.route(link.destination, (route) =>
-      route.fulfill({ contentType: "text/html", body: "" }),
-    );
-    await page.goto(link.path, { waitUntil: "commit" });
+    const response = await request.get(link.path, { maxRedirects: 0 });
 
-    await page.waitForURL(link.destination, { waitUntil: "domcontentloaded" });
+    expect(response.status()).toBe(307);
+    expect(response.headers()["location"]).toBe(link.destination);
   }
 });
