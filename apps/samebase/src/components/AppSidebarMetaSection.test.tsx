@@ -142,8 +142,8 @@ describe("AppSidebarMetaSection", () => {
     prerenderedElement.innerHTML = markup;
 
     expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
-      "/youtube",
-      "/discord",
+      "/x.com",
+      "/YouTube",
       "/terms",
       "/privacy",
       "/pricing",
@@ -153,29 +153,30 @@ describe("AppSidebarMetaSection", () => {
     const browserElement = await renderSidebarMetaSection();
 
     expect(readSidebarLinkLabels(browserElement)).toEqual([
-      "/youtube",
-      "/discord",
+      "/x.com",
+      "/YouTube",
       "/terms",
       "/privacy",
       "/pricing",
       "/landing",
     ]);
     const links = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")];
-    const youtubeLink = links.find((link) => link.textContent === "/youtube");
-    expect(youtubeLink?.getAttribute("href")).toBe("/youtube");
+    const xLink = links.find((link) => link.textContent === "/x.com");
+    expect(xLink?.getAttribute("href")).toBe("https://x.com/samebasecom");
+    expect(xLink?.getAttribute("class")).toBe("text-foreground");
+    expect(xLink?.getAttribute("rel")).toBe("noreferrer");
+    expect(xLink?.getAttribute("target")).toBe("_blank");
+
+    const youtubeLink = links.find((link) => link.textContent === "/YouTube");
+    expect(youtubeLink?.getAttribute("href")).toBe("https://www.youtube.com/@samebasecom");
     expect(youtubeLink?.getAttribute("class")).toBe("text-[#FF0000]");
     expect(youtubeLink?.getAttribute("rel")).toBe("noreferrer");
     expect(youtubeLink?.getAttribute("target")).toBe("_blank");
 
-    const discordLink = links.find((link) => link.textContent === "/discord");
-    expect(youtubeLink?.parentElement).toBe(discordLink?.parentElement);
+    expect(xLink?.parentElement).toBe(youtubeLink?.parentElement);
     expect(youtubeLink?.parentElement?.getAttribute("class")).toBe(
       "flex max-w-full flex-wrap items-center justify-start gap-3",
     );
-    expect(discordLink?.getAttribute("href")).toBe("/discord");
-    expect(discordLink?.getAttribute("class")).toBe("text-[#5865F2]");
-    expect(discordLink?.getAttribute("rel")).toBe("noreferrer");
-    expect(discordLink?.getAttribute("target")).toBe("_blank");
     unmountSidebarMetaSection();
 
     for (const clientEntry of ["/?dev", "/?prod-ui"]) {
@@ -191,8 +192,8 @@ describe("AppSidebarMetaSection", () => {
 
       expect(readSidebarLinkLabels(rootElement)).toEqual([
         "?reset",
-        "/youtube",
-        "/discord",
+        "/x.com",
+        "/YouTube",
         "/terms",
         "/privacy",
         "/pricing",
@@ -213,8 +214,8 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readSidebarLinkLabels(rootElement)).toEqual([
       "?reset",
-      "/youtube",
-      "/discord",
+      "/x.com",
+      "/YouTube",
       "/terms",
       "/privacy",
       "/pricing",

@@ -1503,6 +1503,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/routes/terms.tsx",
   "apps/samebase/src/routes/test.tsx",
   "apps/samebase/src/routes/visual-fixture.tsx",
+  "apps/samebase/src/routes/x.tsx",
   "apps/samebase/src/routes/youtube.tsx",
   "apps/samebase/src/routing/address.test.ts",
   "apps/samebase/src/routing/address.ts",

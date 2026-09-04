@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from "./routes/root";
 import { Route as youtubeRouteImport } from "./routes/youtube";
+import { Route as xRouteImport } from "./routes/x";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
@@ -65,6 +66,11 @@ import { Route as repositoryDatabaseProjectRouteImport } from "./routes/reposito
 const youtubeRoute = youtubeRouteImport.update({
   id: "/youtube",
   path: "/youtube",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const xRoute = xRouteImport.update({
+  id: "/x.com",
+  path: "/x.com",
   getParentRoute: () => rootRouteImport,
 } as any);
 const visualFixtureRoute = visualFixtureRouteImport.update({
@@ -344,6 +350,7 @@ export interface FileRoutesByFullPath {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/x.com": typeof xRoute;
   "/youtube": typeof youtubeRoute;
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
@@ -398,6 +405,7 @@ export interface FileRoutesByTo {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/x.com": typeof xRoute;
   "/youtube": typeof youtubeRoute;
   "/repo": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
@@ -453,6 +461,7 @@ export interface FileRoutesById {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/x.com": typeof xRoute;
   "/youtube": typeof youtubeRoute;
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
@@ -509,6 +518,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/x.com"
     | "/youtube"
     | "/repo/"
     | "/admin/account-deletions"
@@ -563,6 +573,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/x.com"
     | "/youtube"
     | "/repo"
     | "/admin/account-deletions"
@@ -617,6 +628,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/x.com"
     | "/youtube"
     | "/repo/"
     | "/admin/account-deletions"
@@ -672,6 +684,7 @@ export interface RootRouteChildren {
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
+  xRoute: typeof xRoute;
   youtubeRoute: typeof youtubeRoute;
   repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
@@ -716,6 +729,13 @@ declare module "@tanstack/react-router" {
       path: "/youtube";
       fullPath: "/youtube";
       preLoaderRoute: typeof youtubeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/x.com": {
+      id: "/x.com";
+      path: "/x.com";
+      fullPath: "/x.com";
+      preLoaderRoute: typeof xRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/visual-fixture": {
@@ -1096,6 +1116,7 @@ const rootRouteChildren: RootRouteChildren = {
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
+  xRoute: xRoute,
   youtubeRoute: youtubeRoute,
   repositoryDashboardRootRoute: repositoryDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
