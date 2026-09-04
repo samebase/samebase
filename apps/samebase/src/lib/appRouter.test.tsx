@@ -228,7 +228,7 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   DocsTheStackPage: () => <div data-testid="docs-the-stack-page">Docs the stack page</div>,
 }));
 
-vi.mock("@/components/FileView/FileView", () => ({
+vi.mock("@/repository/editor/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 

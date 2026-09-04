@@ -2,15 +2,15 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import {
   CommitReviewVisualFixture,
   type CommitReviewVisualMode,
-} from "@/components/CommitReviewVisualFixture";
+} from "@/repository/editor/CommitReviewVisualFixture";
 import {
   RepositoryMediaVisualFixture,
   type RepositoryMediaVisualMode,
-} from "@/components/RepositoryMediaVisualFixture";
+} from "@/repository/editor/RepositoryMediaVisualFixture";
 import {
   FileViewLayoutVisualFixture,
   type FileViewLayoutVisualMode,
-} from "@/components/FileViewLayoutVisualFixture";
+} from "@/repository/editor/FileViewLayoutVisualFixture";
 import {
   RepositoryOverviewVisualFixture,
   type RepositoryOverviewVisualMode,
@@ -28,23 +28,23 @@ import {
 import {
   FileViewCompareVisualFixture,
   type FileViewCompareVisualMode,
-} from "@/components/FileViewCompareVisualFixture";
+} from "@/repository/editor/FileViewCompareVisualFixture";
 import {
   FileViewCodeParityVisualFixture,
   type FileViewCodeParityVisualMode,
-} from "@/components/FileViewCodeParityVisualFixture";
+} from "@/repository/editor/FileViewCodeParityVisualFixture";
 import {
   FileViewDeveloperToolsVisualFixture,
   type FileViewDeveloperToolsVisualMode,
-} from "@/components/FileViewDeveloperToolsVisualFixture";
+} from "@/repository/editor/FileViewDeveloperToolsVisualFixture";
 import {
   FileViewMonacoDragVisualFixture,
   type FileViewMonacoDragVisualMode,
-} from "@/components/FileViewMonacoDragVisualFixture";
+} from "@/repository/editor/FileViewMonacoDragVisualFixture";
 import {
   FileViewProsemarkHeightVisualFixture,
   type FileViewProsemarkHeightVisualMode,
-} from "@/components/FileViewProsemarkHeightVisualFixture";
+} from "@/repository/editor/FileViewProsemarkHeightVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
@@ -57,11 +57,11 @@ import {
 import {
   RepositorySyncStatusVisualFixture,
   type RepositorySyncStatusVisualMode,
-} from "@/components/RepositorySyncStatusVisualFixture";
+} from "@/repository/editor/RepositorySyncStatusVisualFixture";
 import {
   SidebarMediaUploadVisualFixture,
   type SidebarMediaUploadVisualMode,
-} from "@/components/SidebarMediaUploadVisualFixture";
+} from "@/repository/editor/SidebarMediaUploadVisualFixture";
 import {
   RouteUrlEditorVisualFixture,
   type RouteUrlEditorVisualMode,

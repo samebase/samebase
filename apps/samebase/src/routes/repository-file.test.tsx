@@ -10,11 +10,11 @@ describe("repository file route", () => {
   afterEach(() => {
     fileViewModuleLoadCount.current = 0;
     vi.resetModules();
-    vi.doUnmock("@/components/FileView/FileView");
+    vi.doUnmock("@/repository/editor/FileView");
   });
 
   it("does not load FileView when the repository route component preloads", async () => {
-    vi.doMock("@/components/FileView/FileView", () => {
+    vi.doMock("@/repository/editor/FileView", () => {
       fileViewModuleLoadCount.current += 1;
 
       return {

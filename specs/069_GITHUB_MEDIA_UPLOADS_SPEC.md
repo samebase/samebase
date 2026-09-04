@@ -6,8 +6,8 @@
 - Owner: Samebase frontend/editor + GitHub integration
 - Last updated: 2026-03-25
 - Depends on:
-  - `apps/samebase/src/components/FileView.tsx`
-  - `apps/samebase/src/components/RepositoryMediaViewer.tsx`
+  - `apps/samebase/src/repository/editor/FileView.tsx`
+  - `apps/samebase/src/repository/editor/RepositoryMediaViewer.tsx`
   - `apps/samebase/src/repository/dashboard/RepositoryDashboard.tsx`
   - `apps/samebase/src/components/AddRepository.tsx`
   - `apps/samebase/shared/repositoryMedia.ts`

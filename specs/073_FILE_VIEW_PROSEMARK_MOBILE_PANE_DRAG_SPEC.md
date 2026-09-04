@@ -8,7 +8,7 @@
 - Depends on:
   - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`
   - `apps/samebase/src/components/RepositoryWorkspaceFrame.tsx`
-  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/repository/editor/FileView.tsx`
   - `apps/samebase/src/components/ProsemarkMergeEditor.tsx`
   - `apps/samebase/src/components/ProsemarkReadOnly.tsx`
   - `apps/samebase/src/components/sidebar.tsx`

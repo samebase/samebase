@@ -10,7 +10,7 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 const pathname = "/repo/$";
 
 const FileView = lazy(async () => {
-  const module = await import("@/components/FileView/FileView");
+  const module = await import("@/repository/editor/FileView");
   return { default: module.FileView };
 });
 

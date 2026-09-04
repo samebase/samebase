@@ -13,7 +13,7 @@ Replace the current fragile custom inline markdown diff editor with a safer impl
 
 The current `Inline` mode is a custom layer on top of
 [`ProsemarkReadOnly`](../apps/samebase/src/components/ProsemarkReadOnly.tsx) and
-[`FileView`](../apps/samebase/src/components/FileView.tsx).
+[`FileView`](../apps/samebase/src/repository/editor/FileView.tsx).
 
 It currently:
 
