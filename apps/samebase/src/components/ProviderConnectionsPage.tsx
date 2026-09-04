@@ -47,7 +47,7 @@ import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudfl
 import type { AuthorizationError } from "../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
-import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
 import { Link, useNavigate } from "@tanstack/react-router";
 

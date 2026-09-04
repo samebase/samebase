@@ -18,7 +18,7 @@
   - `apps/samebase/convex/email.ts`
   - `apps/samebase/convex/schema.ts`
   - `apps/samebase/convex/vault/deletion/`
-  - `apps/samebase/src/components/UserSettingsPage.tsx`
+  - `apps/samebase/src/account/UserSettingsPage.tsx`
 
 ## Summary
 

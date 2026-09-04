@@ -14,8 +14,8 @@ import {
   clearAccountDeletionBrowserMarker,
   readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
-} from "@/lib/accountDeletionBrowserState";
-import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
+} from "@/account/accountDeletionBrowserState";
+import { ACCOUNT_DELETION_ROUTE } from "@/account/accountDeletionRoute";
 import { resetLocalAppData } from "@/lib/appBootRecovery";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 import { Button } from "@/components/ui/button";

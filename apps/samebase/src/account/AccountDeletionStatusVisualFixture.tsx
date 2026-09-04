@@ -1,4 +1,4 @@
-import { AccountDeletionStatusView } from "@/components/AccountDeletionPage";
+import { AccountDeletionStatusView } from "@/account/AccountDeletionPage";
 
 export type AccountDeletionStatusVisualMode =
   | "account-deletion-queued"

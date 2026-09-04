@@ -74,7 +74,7 @@ import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAc
 import {
   AccountDeletionStatusVisualFixture,
   type AccountDeletionStatusVisualMode,
-} from "@/components/AccountDeletionStatusVisualFixture";
+} from "@/account/AccountDeletionStatusVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
 import {

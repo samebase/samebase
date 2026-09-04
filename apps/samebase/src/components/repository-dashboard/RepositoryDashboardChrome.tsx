@@ -12,7 +12,7 @@ import { clsx } from "clsx";
 import { Github } from "lucide-react";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
-import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME } from "@/SignInWithOAuth";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";

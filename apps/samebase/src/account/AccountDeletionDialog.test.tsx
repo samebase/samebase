@@ -52,7 +52,7 @@ vi.mock("@/components/ui/label", () => ({
   Label: (props: ComponentProps<"label">) => <label {...props} />,
 }));
 
-vi.mock("@/lib/accountDeletionBrowserState", () => ({
+vi.mock("@/account/accountDeletionBrowserState", () => ({
   createAccountDeletionCompletionCapability: () => testState.completionCapability,
   readAccountDeletionBrowserMarker: () => null,
   writeAccountDeletionBrowserMarker: testState.writeBrowserMarker,

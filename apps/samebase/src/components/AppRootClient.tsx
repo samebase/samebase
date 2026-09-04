@@ -19,7 +19,7 @@ import {
   identifySamebasePostHogUser,
   setSamebasePostHogSessionRecording,
 } from "@/lib/posthogClient";
-import { AccountDeletionBrowserBoundary } from "@/components/AccountDeletionBrowserBoundary";
+import { AccountDeletionBrowserBoundary } from "@/account/AccountDeletionBrowserBoundary";
 
 function usePostHogPageviews() {
   const href = useLocation({

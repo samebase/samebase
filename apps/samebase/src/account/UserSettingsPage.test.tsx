@@ -37,13 +37,13 @@ vi.mock("@/authClient", () => ({
   useAppSignInActions: () => ({ signInWithOAuth: testState.signInWithOAuth }),
 }));
 
-vi.mock("@/components/AccountDeletionDialog", () => ({
+vi.mock("@/account/AccountDeletionDialog", () => ({
   AccountDeletionDialog: ({ onClose }: { onClose: () => void }) => (
     <button onClick={onClose}>Close deletion dialog</button>
   ),
 }));
 
-vi.mock("@/components/McpClientsSettingsSection", () => ({
+vi.mock("@/account/McpClientsSettingsSection", () => ({
   McpClientsSettingsSection: () => (
     <section data-testid="mcp-clients-settings-section">MCP clients</section>
   ),

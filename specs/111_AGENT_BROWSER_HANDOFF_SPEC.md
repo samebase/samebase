@@ -120,6 +120,6 @@ refresh-token replacement chain.
   credentials.
 - `apps/samebase/convex/mcp/oauth.convex.test.ts` covers refresh-token replay containment and
   write-free repeated or unknown replay.
-- `apps/samebase/src/components/McpClientsSettingsSection.test.tsx` covers MCP grant presentation,
+- `apps/samebase/src/account/McpClientsSettingsSection.test.tsx` covers MCP grant presentation,
   pending revocation, and failure handling.
 - `apps/samebase/shared/siteOrigin.test.ts` covers the shared `SITE_URL` boundary.

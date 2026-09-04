@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedUserRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
-import { UserSettingsPage } from "@/components/UserSettingsPage";
+import { UserSettingsPage } from "@/account/UserSettingsPage";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
-import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,

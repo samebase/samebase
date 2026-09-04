@@ -203,7 +203,7 @@ vi.mock("@/components/OrganizationRouteBoundary", () => ({
   },
 }));
 
-vi.mock("@/components/UserSettingsPage", () => ({
+vi.mock("@/account/UserSettingsPage", () => ({
   UserSettingsPage: () => <div data-testid="settings-page">Settings page</div>,
 }));
 

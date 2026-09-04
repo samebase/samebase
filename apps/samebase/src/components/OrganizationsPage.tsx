@@ -16,7 +16,7 @@ import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
 import { useOrganizationContext, type ViewerOrganization } from "@/lib/organizationContext";
 import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
-import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 
 type ListResult = (typeof api.githubAppConnection.listOptions)["_returnType"];
 export type OrganizationConnectionOption = Extract<

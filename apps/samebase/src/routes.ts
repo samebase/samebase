@@ -22,8 +22,8 @@ import {
   ORGANIZATION_REPOSITORIES_ROUTE,
   ORGANIZATIONS_ROUTE,
 } from "./lib/organizationRoutes";
-import { SETTINGS_ROUTE } from "./lib/settingsRoute";
-import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
+import { SETTINGS_ROUTE } from "./account/settingsRoute";
+import { ACCOUNT_DELETION_ROUTE } from "./account/accountDeletionRoute";
 import { ORGANIZATION_INVITATION_ROUTE } from "./lib/organizationInvitationRoute";
 
 /**

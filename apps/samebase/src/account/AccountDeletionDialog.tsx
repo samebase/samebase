@@ -17,12 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
+import { ACCOUNT_DELETION_ROUTE } from "@/account/accountDeletionRoute";
 import {
   createAccountDeletionCompletionCapability,
   readAccountDeletionBrowserMarker,
   writeAccountDeletionBrowserMarker,
-} from "@/lib/accountDeletionBrowserState";
+} from "@/account/accountDeletionBrowserState";
 
 type AccountDeletionStartMode = FunctionReturnType<typeof api.accountDeletion.index.policy>;
 

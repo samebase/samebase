@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { ConvexError } from "convex/values";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AccountDeletionBrowserBoundary } from "./AccountDeletionBrowserBoundary";
-import { writeAccountDeletionBrowserMarker } from "@/lib/accountDeletionBrowserState";
+import { writeAccountDeletionBrowserMarker } from "@/account/accountDeletionBrowserState";
 import {
   AUTHENTICATED_ACCOUNT_DELETED,
   AUTHENTICATED_ACCOUNT_REFERENCE_INVALID,
