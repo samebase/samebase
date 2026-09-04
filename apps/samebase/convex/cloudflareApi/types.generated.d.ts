@@ -2211,6 +2211,18 @@ export interface components {
       /** @description Whether build minutes limit has been reached (only for non-paid plans) */
       has_reached_build_minutes_limit?: boolean | null;
     };
+    builds_ErrorResponse: {
+      errors: {
+        /** @example 12000 */
+        code?: number;
+        /** @example Not found */
+        message: string;
+      }[];
+      messages: string[];
+      result: Record<string, unknown> | null;
+      /** @example false */
+      success: boolean;
+    };
     /**
      * @description Comma-separated list of version UUIDs (max 20).
      * @example 123e4567-e89b-12d3-a456-426614174000,223e4567-e89b-12d3-a456-426614174001
@@ -2222,7 +2234,7 @@ export interface components {
       };
     };
     builds_BuildResponse: {
-      build_outcome?: components["schemas"]["builds_BuildOutcome"];
+      build_outcome?: (string & components["schemas"]["builds_BuildOutcome"]) | null;
       build_trigger_metadata?: components["schemas"]["builds_BuildTriggerMetadataResponse"];
       build_uuid?: components["schemas"]["builds_build_uuid"];
       created_on?: components["schemas"]["builds_created_on"];
@@ -2315,7 +2327,7 @@ export interface components {
      * @example github
      * @enum {string}
      */
-    builds_SCMProviderType: "github" | "gitlab" | "gitlab_internal";
+    builds_SCMProviderType: "github" | "gitlab" | "gitlab_internal" | "origin";
     /** @example workers-sdk */
     builds_repo_name: string;
     /**
@@ -2405,18 +2417,6 @@ export interface components {
      * @description Trigger UUID.
      */
     builds_trigger_uuid: string;
-    builds_ErrorResponse: {
-      errors: {
-        /** @example 12000 */
-        code?: number;
-        /** @example Not found */
-        message: string;
-      }[];
-      messages: string[];
-      result: Record<string, unknown> | null;
-      /** @example false */
-      success: boolean;
-    };
     builds_CanceledBuildResponse: {
       build_outcome?: components["schemas"]["builds_BuildOutcome"];
       build_uuid?: components["schemas"]["builds_build_uuid"];
@@ -2457,7 +2457,8 @@ export interface components {
       env_worker_names?: {
         [key: string]: string;
       } | null;
-      package_manager?: (string & components["schemas"]["builds_PackageManager"]) | null;
+      /** @description Package manager inferred from repository lockfiles; defaults to npm when none is detected. */
+      package_manager?: string & components["schemas"]["builds_PackageManager"];
       /**
        * @example {
        *       "build": "npm run build",
@@ -2658,7 +2659,7 @@ export interface components {
       repo_id: components["schemas"]["builds_repo_id"];
       repo_name: components["schemas"]["builds_repo_name"];
     };
-    /** @description Internal GitLab repository input for creating a Worker build configuration */
+    /** @description Grant-backed repository input for creating a Worker build configuration */
     builds_CreateWorkerGitRepositoryGrantInput: {
       /**
        * @description Git branch to watch for builds
@@ -2666,7 +2667,7 @@ export interface components {
        */
       branch: string;
       /**
-       * @description Grant ID required when provider_type is gitlab_internal
+       * @description Grant ID required for grant-backed providers
        * @example grant-123
        */
       grant_id: string;
@@ -2676,7 +2677,7 @@ export interface components {
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
        */
-      provider_type: "gitlab_internal";
+      provider_type: "gitlab_internal" | "origin";
       repo_id: components["schemas"]["builds_repo_id"];
       repo_name: components["schemas"]["builds_repo_name"];
     };
@@ -4571,7 +4572,7 @@ export interface components {
           details: components["schemas"]["workers_exports_reconciliation_error"][];
         };
       }[];
-      messages: unknown[];
+      messages: components["schemas"]["workers_messages"];
       /** @enum {object|null} */
       result: never | null;
       /**
@@ -5743,7 +5744,7 @@ export interface components {
        *     }
        */
       resources: $Read<{
-        bindings?: components["schemas"]["workers_bindings"] & unknown;
+        bindings?: components["schemas"]["workers_binding_item"][];
         /**
          * @example {
          *       "etag": "13a3240e8fb414561b0366813b0b8f42b3e6cfa0d9e70e99835dae83d0d8a794",
@@ -6485,6 +6486,28 @@ export interface components {
     iam_token_status: "active" | "disabled" | "expired";
   };
   responses: {
+    /** @description Authentication required */
+    builds_Unauthorized: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "errors": [
+         *         {
+         *           "code": 12005,
+         *           "message": "Missing token from authorization header"
+         *         }
+         *       ],
+         *       "messages": [],
+         *       "result": null,
+         *       "success": false
+         *     }
+         */
+        "application/json": components["schemas"]["builds_ErrorResponse"];
+      };
+    };
     /** @description Resource not found */
     builds_NotFound: {
       headers: {
@@ -6536,28 +6559,6 @@ export interface components {
          *         {
          *           "code": 12002,
          *           "message": "Invalid request body"
-         *         }
-         *       ],
-         *       "messages": [],
-         *       "result": null,
-         *       "success": false
-         *     }
-         */
-        "application/json": components["schemas"]["builds_ErrorResponse"];
-      };
-    };
-    /** @description Authentication required */
-    builds_Unauthorized: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        /**
-         * @example {
-         *       "errors": [
-         *         {
-         *           "code": 12005,
-         *           "message": "Missing token from authorization header"
          *         }
          *       ],
          *       "messages": [],
@@ -6812,6 +6813,7 @@ export type BuildsAccountId = components["schemas"]["builds_account_id"];
 export type BuildsApiResponse = components["schemas"]["builds_APIResponse"];
 export type BuildsPaginationInfo = components["schemas"]["builds_PaginationInfo"];
 export type BuildsGetAccountLimitResponse = components["schemas"]["builds_GetAccountLimitResponse"];
+export type BuildsErrorResponse = components["schemas"]["builds_ErrorResponse"];
 export type BuildsVersionIds = components["schemas"]["builds_version_ids"];
 export type BuildsBuildsByVersionResponse = components["schemas"]["builds_BuildsByVersionResponse"];
 export type BuildsBuildResponse = components["schemas"]["builds_BuildResponse"];
@@ -6848,7 +6850,6 @@ export type BuildsRepoConnectionUuid = components["schemas"]["builds_repo_connec
 export type BuildsRepoId = components["schemas"]["builds_repo_id"];
 export type BuildsTriggerName = components["schemas"]["builds_trigger_name"];
 export type BuildsTriggerUuid = components["schemas"]["builds_trigger_uuid"];
-export type BuildsErrorResponse = components["schemas"]["builds_ErrorResponse"];
 export type BuildsCanceledBuildResponse = components["schemas"]["builds_CanceledBuildResponse"];
 export type BuildsCursor = components["schemas"]["builds_cursor"];
 export type BuildsBuildLogsResponse = components["schemas"]["builds_BuildLogsResponse"];
@@ -7143,10 +7144,10 @@ export type IamExpiresOn = components["schemas"]["iam_expires_on"];
 export type IamTokenIdentifier = components["schemas"]["iam_token_identifier"];
 export type IamNotBefore = components["schemas"]["iam_not_before"];
 export type IamTokenStatus = components["schemas"]["iam_token_status"];
+export type ResponseBuildsUnauthorized = components["responses"]["builds_Unauthorized"];
 export type ResponseBuildsNotFound = components["responses"]["builds_NotFound"];
 export type ResponseBuildsSuccessEmpty = components["responses"]["builds_SuccessEmpty"];
 export type ResponseBuildsBadRequest = components["responses"]["builds_BadRequest"];
-export type ResponseBuildsUnauthorized = components["responses"]["builds_Unauthorized"];
 export type ResponseBuildsConflict = components["responses"]["builds_Conflict"];
 export type ResponseWorkers_200 = components["responses"]["workers_200"];
 export type ResponseWorkers_4Xx = components["responses"]["workers_4XX"];
@@ -7261,6 +7262,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   getBuildsByVersionIds: {
@@ -7287,6 +7289,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   getBuildByUuid: {
@@ -7312,6 +7315,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7338,6 +7342,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7366,6 +7371,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7393,6 +7399,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   getWorkerConfigAutofill: {
@@ -7424,6 +7431,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   upsertRepoConnection: {
@@ -7452,6 +7460,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   deleteRepoConnection: {
@@ -7467,6 +7476,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       200: components["responses"]["builds_SuccessEmpty"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7498,6 +7508,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   createBuildToken: {
@@ -7526,6 +7537,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   deleteBuildToken: {
@@ -7541,6 +7553,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       200: components["responses"]["builds_SuccessEmpty"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7570,6 +7583,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   deleteTrigger: {
@@ -7585,6 +7599,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       200: components["responses"]["builds_SuccessEmpty"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7615,6 +7630,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7645,6 +7661,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   listEnvironmentVariables: {
@@ -7670,6 +7687,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   upsertEnvironmentVariables: {
@@ -7699,6 +7717,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7716,6 +7735,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       200: components["responses"]["builds_SuccessEmpty"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7732,6 +7752,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       200: components["responses"]["builds_SuccessEmpty"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7759,7 +7780,7 @@ export interface operations {
          *       "production_settings": {
          *         "build_caching_enabled": true,
          *         "build_command": "npm run build",
-         *         "build_token_uuid": "your-build-token-uuid",
+         *         "build_token_uuid": "4b1e4d0f-6f2a-4c9d-9a3b-7c5e2f8a1d64",
          *         "deploy_command": "npx wrangler deploy",
          *         "environment_variables": {},
          *         "path_excludes": [
@@ -7823,6 +7844,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   listTriggersByScript: {
@@ -7848,6 +7870,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   listDeployHooks: {
@@ -7874,6 +7897,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
     };
   };
   createDeployHook: {
@@ -7905,6 +7929,7 @@ export interface operations {
         };
       };
       400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
       409: components["responses"]["builds_Conflict"];
     };
@@ -7935,6 +7960,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -7969,6 +7995,7 @@ export interface operations {
         };
       };
       400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
       409: components["responses"]["builds_Conflict"];
     };
@@ -7999,6 +8026,7 @@ export interface operations {
           };
         };
       };
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
