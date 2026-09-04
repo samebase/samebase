@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Phases 1 to 4 merged; Phase 5 in this pull request; then stop
+- Status: Closed by the final organization pull request; Phases 1 to 5 merged
 - Owner: Samebase monorepo
 - Updated: 2026-09-05
 - Related: [Documentation standard](../docs/repo-documentation-standard.md),
@@ -61,30 +61,54 @@ with their code. The PR records the file map and checks.
 
 ## Phase 5: Repository Setup
 
-This PR contains the complete approved group and its checks. Group app creation, repository
-connection, repository picker search, and shared deployment setup controls under
-`apps/samebase/src/repository/setup/`. Move their existing tests and fixtures with them. Update all
-direct callers, mock paths, fixture dispatch, tracked metadata, and active document references.
+Merged in [PR 1592](https://github.com/samebase/samebase/pull/1592).
+
+App creation, repository connection, repository picker search, and shared deployment setup controls
+now live under `apps/samebase/src/repository/setup/`, with their existing tests and fixtures.
 
 The shared controls serve app creation, dashboard setup dialogs, and organization settings. Keep
 their exports and behavior unchanged. Database attachment helpers, route declarations, shared
 contracts, and provider logos keep their current owners.
 
-Stop after this ready PR. Any further folder work needs a new user decision.
+## Phase 6: Backend Identity and Organization
 
-## Backlog
+The final PR groups 14 plain backend modules and seven owner tests under
+`apps/samebase/convex/identity/` and `apps/samebase/convex/organization/`. It changes direct imports
+and generated module metadata, not registered function paths, table names, validators, or behavior.
 
-These areas are backlog, not automatic tasks. Select any later work through a new user decision.
+This replaces the proposed provisioning function-path migration. Existing
+[workflow starts](../apps/samebase/convex/repositoryProvisioningWorkflow.ts#L81) save function and
+completion callback references. Running provider actions can also call the shared authority after a
+deployment. A read that finds no active work cannot prevent new work from starting before
+deployment. The six registered modules therefore keep their current paths as runtime-owned
+exceptions in [Spec 100](../specs/100_CONVEX_REPOSITORY_MODULE_LAYOUT_SPEC.md). No production
+maintenance gate or compatibility wrapper was added for folder organization.
 
-| Area                    | Next useful change                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Other frontend features | Move a proven group, such as public-site code.                                                     |
-| Dead files              | Delete confirmed unused files and re-export shims after checking runtime and generated references. |
-| Documents               | Reclassify small batches using the documentation standard and update links in the same change.     |
-| Convex                  | Move plain helpers where ownership is clear. Assess registered function path changes separately.   |
+## Phase 7: Confirmed Cleanup
 
-Do not require RFC 123 production cleanup before unrelated folder changes. A specific runtime
-dependency must be demonstrated before it becomes a prerequisite.
+The final PR archives superseded dashboard RFCs 066, 068, 087, 088, and 092. Their links identify
+[Spec 116](../specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md) as the current contract. Their old
+implementation was replaced in [PR 1234](https://github.com/samebase/samebase/pull/1234).
+
+No product code deletion was justified by this fixed batch. Active tests, opt-in tools, and
+workspaces were retained. References, generated tracked paths, and the existing file-list fixture
+were updated with the document moves.
+
+## Phase 8: Closure
+
+The final PR includes the remaining code and document changes, their verification, and this closure.
+This record moves to `archive/`; it no longer assigns future work. Current guardrails remain in
+`AGENTS.md`, the code guardrails, the documentation standard, and Spec 100. No separate closure PR
+or broad new architecture-check framework is required.
+
+## Intentional Deferrals
+
+- Registered Convex path changes require a separate migration decision and production coordination.
+- Public-site, admin, brand, and further document grouping are not part of this round.
+- RFC 123 production data cleanup remains separate. No production data was read or changed here.
+
+Empty folders and a fixed maximum file count are not completion requirements. Further organization
+work needs a new purpose and scope; these deferrals are not automatic tasks.
 
 ## Working Rules
 
@@ -106,15 +130,11 @@ dependency must be demonstrated before it becomes a prerequisite.
 
 ## Verification and Completion
 
-For Phase 5, run the existing setup and affected caller tests, root `check:ci`, and app `build:ci`.
-Verify that the moved code differs only in path references. Use existing narrow browser coverage
-when it adds useful evidence. Do not add tests or screenshot baselines for path moves alone.
+The final PR records focused owner and caller tests, root `check:ci`, app `build:ci`, source
+equivalence checks, and a comparison of the local deployed function metadata. The checks must show
+that registered API paths and schemas remain unchanged. Document links and tracked-file references
+must resolve. CI owns the configured full suites under the
+[Samebase test policy](../.agents/skills/samebase-test-policy/SKILL.md).
 
-Each later PR selects its existing owner tests under the
-[Samebase test policy](../.agents/skills/samebase-test-policy/SKILL.md). CI owns the configured full
-suites.
-
-A change is complete when its related code is easier to locate, old live path references are gone,
-and its verification passes. Update this roadmap when evidence changes the next useful step. Move
-durable accepted rules into a focused spec only when future work needs that contract. Remove
-completed rollout detail when code, tests, and focused documentation make it redundant.
+This round ends with the verified final PR ready for review. Merge and deployment remain separate
+operator actions. No further phase starts from this archived record.
