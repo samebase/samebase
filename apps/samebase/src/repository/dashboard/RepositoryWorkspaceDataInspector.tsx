@@ -1,4 +1,4 @@
-import type { RepositoryPullRequestsState } from "@/hooks/useRepositoryPullRequests";
+import type { RepositoryPullRequestsState } from "@/repository/dashboard/useRepositoryPullRequests";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 function serializePullRequests(pullRequests: RepositoryPullRequestsState) {

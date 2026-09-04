@@ -1,21 +1,24 @@
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   RepositoryPullRequest as RepositoryPullRequestPayload,
   RepositoryPullRequestPage,
   RepositoryStatusCheckRollup,
-} from "../../convex/repositoryPullRequests";
-import type { UserRepositoryResult } from "../../convex/repository/contracts/getUserRepositories";
+} from "../../../convex/repositoryPullRequests";
+import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
   PullRequestResourceRead,
   PullRequestResources,
-} from "../../convex/repository/pullRequestResources";
-import { summarizeRepositoryChecks, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
-import { repositoryExternalDataQueryKey } from "@/lib/repositoryExternalDataQueryKey";
+} from "../../../convex/repository/pullRequestResources";
+import {
+  summarizeRepositoryChecks,
+  type RepositoryCheckSummary,
+} from "@/repository/dashboard/repositoryChecks";
+import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
-import type { ConvexCodeLocation } from "../../shared/convexCodeLocation";
+import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
 
 const PULL_REQUEST_STALE_MS = 60_000;
 const PULL_REQUEST_GC_MS = 5 * 60_000;

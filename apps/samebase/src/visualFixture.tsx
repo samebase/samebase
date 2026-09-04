@@ -14,7 +14,7 @@ import {
 import {
   RepositoryOverviewVisualFixture,
   type RepositoryOverviewVisualMode,
-} from "@/components/repository-dashboard/RepositoryOverviewVisualFixture";
+} from "@/repository/dashboard/RepositoryOverviewVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,

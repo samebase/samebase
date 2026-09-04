@@ -1,4 +1,7 @@
-import { normalizePullRequestLabels, type PullRequestLabelInput } from "@/lib/pullRequestLabels";
+import {
+  normalizePullRequestLabels,
+  type PullRequestLabelInput,
+} from "@/repository/dashboard/pullRequestLabels";
 
 export type RepositoryPullRequestFilters = {
   hiddenLabels: string[];

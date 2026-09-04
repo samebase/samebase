@@ -3,17 +3,17 @@ import {
   GitHubProviderLogo,
   SamebaseLogoMark,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
-import { RepositoryChecksPopover } from "@/components/repository-dashboard/RepositoryChecksPopover";
+import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import {
   PullRequestResources,
   RepositoryOverviewLoadingLines,
-} from "@/components/repository-dashboard/RepositoryEnvironmentTree";
+} from "@/repository/dashboard/RepositoryEnvironmentTree";
 import type {
   PullRequestResourceState,
   RepositoryPullRequest,
   RepositoryPullRequestLoadMoreState,
   RepositoryPullRequestsState,
-} from "@/hooks/useRepositoryPullRequests";
+} from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildRepositoryFileRoute, buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
 import { Link } from "@tanstack/react-router";

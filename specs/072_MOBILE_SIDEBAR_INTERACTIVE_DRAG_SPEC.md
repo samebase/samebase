@@ -9,7 +9,7 @@
   - `apps/samebase/src/components/DashboardWorkspaceLayout.tsx`
   - `apps/samebase/src/components/RepositoryWorkspaceFrame.tsx`
   - `apps/samebase/src/components/FileView.tsx`
-  - `apps/samebase/src/components/repository-dashboard/RepositoryDashboard.tsx`
+  - `apps/samebase/src/repository/dashboard/RepositoryDashboard.tsx`
   - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`
   - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`
 

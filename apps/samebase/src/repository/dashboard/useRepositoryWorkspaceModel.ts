@@ -1,7 +1,7 @@
 import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
-import { useRepositoryPullRequests } from "@/hooks/useRepositoryPullRequests";
-import { useRepositorySidebarSummaries } from "@/hooks/useRepositorySidebarSummaries";
+import { useRepositoryPullRequests } from "@/repository/dashboard/useRepositoryPullRequests";
+import { useRepositorySidebarSummaries } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import { useCacheQuery } from "@/lib/convexQueryCache";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";

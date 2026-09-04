@@ -6,10 +6,10 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import type { RepositoryPullRequestPage } from "../../convex/repositoryPullRequests";
-import { repositoryExternalDataQueryKey } from "@/lib/repositoryExternalDataQueryKey";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import type { RepositoryPullRequestPage } from "../../../convex/repositoryPullRequests";
+import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import {
   useRepositoryPullRequests,
   type RepositoryPullRequestsState,

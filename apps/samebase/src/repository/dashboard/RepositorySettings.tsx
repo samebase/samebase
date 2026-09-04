@@ -11,13 +11,13 @@ import {
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
-import { RootDirectoryLabel } from "@/components/repository-dashboard/RepositoryEnvironmentTree";
+import { RootDirectoryLabel } from "@/repository/dashboard/RepositoryEnvironmentTree";
 import type {
   RepositorySettingsAction,
   RepositorySettingsResource,
   RepositorySettingsState,
-} from "@/components/repository-dashboard/repositorySettingsState";
-import { RepositoryWorkspaceDataInspector } from "@/components/repository-dashboard/RepositoryWorkspaceDataInspector";
+} from "@/repository/dashboard/repositorySettingsState";
+import { RepositoryWorkspaceDataInspector } from "@/repository/dashboard/RepositoryWorkspaceDataInspector";
 import {
   organizationGitHubIdentityQueryKey,
   type OrganizationGitHubIdentityObservation,

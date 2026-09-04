@@ -5,12 +5,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
+import { buildPullRequestLabelStyle } from "@/repository/dashboard/pullRequestLabels";
 import {
   setRepositoryPullRequestFilterLabelIncluded,
   type RepositoryPullRequestFilterOption,
   type RepositoryPullRequestFilters,
-} from "@/components/repository-dashboard/repositoryDashboardPullRequestFilters";
+} from "@/repository/dashboard/repositoryDashboardPullRequestFilters";
 import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 
 function matchesOptionSearch(option: RepositoryPullRequestFilterOption, search: string) {

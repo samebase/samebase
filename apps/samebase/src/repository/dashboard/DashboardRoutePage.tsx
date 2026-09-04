@@ -2,7 +2,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { lazy } from "react";
 
 const RepositoryDashboard = lazy(async () => {
-  const module = await import("@/components/repository-dashboard/RepositoryDashboard");
+  const module = await import("@/repository/dashboard/RepositoryDashboard");
   return { default: module.RepositoryDashboard };
 });
 

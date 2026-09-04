@@ -2,7 +2,7 @@ import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import { repositoryExternalDataQueryKey } from "@/lib/repositoryExternalDataQueryKey";
+import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 
 export type RepositoryCloudflareWorkerObservation =
   (typeof api.repository.providerObservations.observeCloudflareWorkers)["_returnType"][number];

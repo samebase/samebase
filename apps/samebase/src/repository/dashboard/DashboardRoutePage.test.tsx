@@ -12,7 +12,7 @@ vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: ReactNode }) => children,
 }));
 
-vi.mock("@/components/repository-dashboard/RepositoryDashboard", () => ({
+vi.mock("@/repository/dashboard/RepositoryDashboard", () => ({
   RepositoryDashboard: repositoryDashboardMock,
 }));
 

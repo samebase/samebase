@@ -25,7 +25,7 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
 }));
 
-vi.mock("@/components/DashboardRoutePage", () => ({
+vi.mock("@/repository/dashboard/DashboardRoutePage", () => ({
   DashboardRoutePage: ({
     organizationOwner,
     page = "overview",

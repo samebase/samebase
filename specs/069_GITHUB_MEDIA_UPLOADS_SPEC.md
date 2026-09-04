@@ -8,7 +8,7 @@
 - Depends on:
   - `apps/samebase/src/components/FileView.tsx`
   - `apps/samebase/src/components/RepositoryMediaViewer.tsx`
-  - `apps/samebase/src/components/repository-dashboard/RepositoryDashboard.tsx`
+  - `apps/samebase/src/repository/dashboard/RepositoryDashboard.tsx`
   - `apps/samebase/src/components/AddRepository.tsx`
   - `apps/samebase/shared/repositoryMedia.ts`
   - `apps/samebase/convex/fileStaging.ts`
