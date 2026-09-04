@@ -182,6 +182,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -241,6 +244,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -295,6 +301,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -352,6 +361,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -417,6 +429,9 @@
               }
             }
           },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
           }
@@ -478,6 +493,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -569,6 +587,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -630,6 +651,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -665,6 +689,9 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/builds_SuccessEmpty"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -731,6 +758,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -790,6 +820,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -830,6 +863,9 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/builds_SuccessEmpty"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -894,6 +930,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -929,6 +968,9 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/builds_SuccessEmpty"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -994,6 +1036,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -1061,6 +1106,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -1115,6 +1163,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -1178,6 +1229,9 @@
               }
             }
           },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
           }
@@ -1224,6 +1278,9 @@
           "200": {
             "$ref": "#/components/responses/builds_SuccessEmpty"
           },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
           }
@@ -1261,6 +1318,9 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/builds_SuccessEmpty"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -1310,7 +1370,7 @@
                 "production_settings": {
                   "build_caching_enabled": true,
                   "build_command": "npm run build",
-                  "build_token_uuid": "your-build-token-uuid",
+                  "build_token_uuid": "4b1e4d0f-6f2a-4c9d-9a3b-7c5e2f8a1d64",
                   "deploy_command": "npx wrangler deploy",
                   "environment_variables": {},
                   "path_excludes": ["*.md"],
@@ -1430,6 +1490,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -1492,6 +1555,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -1549,6 +1615,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           }
         },
         "security": [
@@ -1615,6 +1684,9 @@
           "400": {
             "$ref": "#/components/responses/builds_BadRequest"
           },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
           },
@@ -1678,6 +1750,9 @@
               }
             }
           },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
           }
@@ -1735,6 +1810,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -1806,6 +1884,9 @@
           },
           "400": {
             "$ref": "#/components/responses/builds_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/builds_NotFound"
@@ -17482,6 +17563,43 @@
           }
         }
       },
+      "builds_ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "properties": {
+                "code": {
+                  "type": "integer",
+                  "example": 12000
+                },
+                "message": {
+                  "type": "string",
+                  "example": "Not found"
+                }
+              },
+              "required": ["message"],
+              "type": "object"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "result": {
+            "type": "object",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": ["success", "errors", "messages", "result"]
+      },
       "builds_version_ids": {
         "description": "Comma-separated list of version UUIDs (max 20).",
         "type": "string",
@@ -17502,7 +17620,13 @@
         "type": "object",
         "properties": {
           "build_outcome": {
-            "$ref": "#/components/schemas/builds_BuildOutcome"
+            "type": "string",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/builds_BuildOutcome"
+              }
+            ],
+            "nullable": true
           },
           "build_trigger_metadata": {
             "$ref": "#/components/schemas/builds_BuildTriggerMetadataResponse"
@@ -17693,7 +17817,7 @@
       "builds_SCMProviderType": {
         "type": "string",
         "example": "github",
-        "enum": ["github", "gitlab", "gitlab_internal"]
+        "enum": ["github", "gitlab", "gitlab_internal", "origin"]
       },
       "builds_repo_name": {
         "type": "string",
@@ -17827,43 +17951,6 @@
         "type": "string",
         "format": "uuid"
       },
-      "builds_ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "errors": {
-            "type": "array",
-            "items": {
-              "properties": {
-                "code": {
-                  "type": "integer",
-                  "example": 12000
-                },
-                "message": {
-                  "type": "string",
-                  "example": "Not found"
-                }
-              },
-              "required": ["message"],
-              "type": "object"
-            }
-          },
-          "messages": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "result": {
-            "type": "object",
-            "nullable": true
-          },
-          "success": {
-            "type": "boolean",
-            "example": false
-          }
-        },
-        "required": ["success", "errors", "messages", "result"]
-      },
       "builds_CanceledBuildResponse": {
         "type": "object",
         "properties": {
@@ -17958,13 +18045,13 @@
             "nullable": true
           },
           "package_manager": {
+            "description": "Package manager inferred from repository lockfiles; defaults to npm when none is detected.",
             "type": "string",
             "allOf": [
               {
                 "$ref": "#/components/schemas/builds_PackageManager"
               }
-            ],
-            "nullable": true
+            ]
           },
           "scripts": {
             "type": "object",
@@ -18399,7 +18486,8 @@
           "mapping": {
             "github": "#/components/schemas/builds_CreateWorkerGitRepositoryFunfettiInput",
             "gitlab": "#/components/schemas/builds_CreateWorkerGitRepositoryFunfettiInput",
-            "gitlab_internal": "#/components/schemas/builds_CreateWorkerGitRepositoryGrantInput"
+            "gitlab_internal": "#/components/schemas/builds_CreateWorkerGitRepositoryGrantInput",
+            "origin": "#/components/schemas/builds_CreateWorkerGitRepositoryGrantInput"
           },
           "propertyName": "provider_type"
         },
@@ -18451,7 +18539,7 @@
         ]
       },
       "builds_CreateWorkerGitRepositoryGrantInput": {
-        "description": "Internal GitLab repository input for creating a Worker build configuration",
+        "description": "Grant-backed repository input for creating a Worker build configuration",
         "type": "object",
         "properties": {
           "branch": {
@@ -18462,7 +18550,7 @@
             "minLength": 1
           },
           "grant_id": {
-            "description": "Grant ID required when provider_type is gitlab_internal",
+            "description": "Grant ID required for grant-backed providers",
             "type": "string",
             "example": "grant-123",
             "minLength": 1
@@ -18476,7 +18564,7 @@
           "provider_type": {
             "type": "string",
             "example": "gitlab_internal",
-            "enum": ["gitlab_internal"]
+            "enum": ["gitlab_internal", "origin"]
           },
           "repo_id": {
             "$ref": "#/components/schemas/builds_repo_id"
@@ -19077,6 +19165,7 @@
         }
       },
       "workers_script-response": {
+        "type": "object",
         "properties": {
           "cache_options": {
             "$ref": "#/components/schemas/workers_cache_options"
@@ -21728,8 +21817,7 @@
             }
           },
           "messages": {
-            "type": "array",
-            "items": {}
+            "$ref": "#/components/schemas/workers_messages"
           },
           "result": {
             "type": "object",
@@ -24548,12 +24636,20 @@
                 },
                 "properties": {
                   "bindings": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/workers_binding_item"
+                    },
                     "allOf": [
                       {
                         "$ref": "#/components/schemas/workers_bindings"
                       },
                       {
-                        "readOnly": true
+                        "items": {
+                          "$ref": "#/components/schemas/workers_binding_item"
+                        },
+                        "readOnly": true,
+                        "type": "array"
                       }
                     ]
                   },
@@ -25785,6 +25881,27 @@
       }
     },
     "responses": {
+      "builds_Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": 12005,
+                  "message": "Missing token from authorization header"
+                }
+              ],
+              "messages": [],
+              "result": null,
+              "success": false
+            },
+            "schema": {
+              "$ref": "#/components/schemas/builds_ErrorResponse"
+            }
+          }
+        }
+      },
       "builds_NotFound": {
         "description": "Resource not found",
         "content": {
@@ -25831,27 +25948,6 @@
                 {
                   "code": 12002,
                   "message": "Invalid request body"
-                }
-              ],
-              "messages": [],
-              "result": null,
-              "success": false
-            },
-            "schema": {
-              "$ref": "#/components/schemas/builds_ErrorResponse"
-            }
-          }
-        }
-      },
-      "builds_Unauthorized": {
-        "description": "Authentication required",
-        "content": {
-          "application/json": {
-            "example": {
-              "errors": [
-                {
-                  "code": 12005,
-                  "message": "Missing token from authorization header"
                 }
               ],
               "messages": [],
