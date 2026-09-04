@@ -1,8 +1,8 @@
 import type { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type { AccessKey } from "../../../shared/accessModel";
-import type { RepositoryPullRequestsState } from "@/hooks/useRepositoryPullRequests";
-import type { RepositorySidebarSummariesState } from "@/hooks/useRepositorySidebarSummaries";
+import type { RepositoryPullRequestsState } from "@/repository/dashboard/useRepositoryPullRequests";
+import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import type { RepositoryEnvironmentRoot } from "./repositoryEnvironmentRoots";
 import type {
   RepositoryCloudflareProviderObservationState,

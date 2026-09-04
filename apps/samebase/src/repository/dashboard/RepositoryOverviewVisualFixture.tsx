@@ -3,37 +3,37 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   RepositoryOverviewLoadingPage,
   RepositoryOverviewPage,
-} from "@/components/repository-dashboard/RepositoryOverviewPage";
+} from "@/repository/dashboard/RepositoryOverviewPage";
 import {
   type RepositoryFolderCallbacks,
   RepositoryOverviewOrganizationSidebar,
   RepositoryOverviewSidebarLoading,
-} from "@/components/repository-dashboard/RepositoryOverviewSidebar";
-import { buildProductionEnvironmentRoots } from "@/components/repository-dashboard/repositoryEnvironmentRoots";
-import { buildRepositorySettingsState } from "@/components/repository-dashboard/repositorySettingsState";
+} from "@/repository/dashboard/RepositoryOverviewSidebar";
+import { buildProductionEnvironmentRoots } from "@/repository/dashboard/repositoryEnvironmentRoots";
+import { buildRepositorySettingsState } from "@/repository/dashboard/repositorySettingsState";
 import type {
   RepositoryFolderState,
   RepositoryOrganizationTreeSettings,
   RepositoryWorkspaceSelected,
-} from "@/components/repository-dashboard/repositoryWorkspaceModel";
+} from "@/repository/dashboard/repositoryWorkspaceModel";
 import {
   type RepositoryOrganization,
   RepositoryOverviewListHeader,
   RepositoryOverviewPickerPane,
-} from "@/components/repository-dashboard/RepositoryOverviewPickerPane";
+} from "@/repository/dashboard/RepositoryOverviewPickerPane";
 import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
   RepositoryDefaultBranchObservation,
   RepositoryPullRequest,
   RepositoryPullRequestsState,
-} from "@/hooks/useRepositoryPullRequests";
-import type { RepositorySidebarSummariesState } from "@/hooks/useRepositorySidebarSummaries";
+} from "@/repository/dashboard/useRepositoryPullRequests";
+import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import type {
   RepositoryCloudflareProviderObservationState,
   RepositoryConvexProjectObservation,
   RepositoryProviderObservationState,
-} from "@/components/repository-dashboard/useRepositoryProviderObservations";
+} from "@/repository/dashboard/useRepositoryProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 import {
@@ -43,7 +43,7 @@ import {
 import {
   RepositoryConvexSchemaGraphVisualFixture,
   type RepositoryConvexSchemaGraphVisualMode,
-} from "./RepositoryConvexSchemaGraphVisualFixture";
+} from "../../components/repository-dashboard/RepositoryConvexSchemaGraphVisualFixture";
 
 export type RepositoryOverviewVisualMode =
   | RepositoryOverviewDialogsVisualMode

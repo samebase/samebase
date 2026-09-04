@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { RepositoryOverviewVisualMode } from "../src/components/repository-dashboard/RepositoryOverviewVisualFixture";
+import type { RepositoryOverviewVisualMode } from "../src/repository/dashboard/RepositoryOverviewVisualFixture";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 

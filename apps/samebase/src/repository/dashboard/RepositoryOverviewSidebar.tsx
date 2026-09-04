@@ -1,4 +1,4 @@
-import type { RepositoryOverviewPageKind } from "@/components/repository-dashboard/RepositoryOverviewPage";
+import type { RepositoryOverviewPageKind } from "@/repository/dashboard/RepositoryOverviewPage";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -20,15 +20,18 @@ import type {
   RepositoryOrganization,
   RepositoryOrganizationTreeSettings,
   RepositoryWorkspaceSelected,
-} from "@/components/repository-dashboard/repositoryWorkspaceModel";
+} from "@/repository/dashboard/repositoryWorkspaceModel";
 import type {
   RepositorySidebarSummariesState,
   RepositorySidebarSummary,
-} from "@/hooks/useRepositorySidebarSummaries";
+} from "@/repository/dashboard/useRepositorySidebarSummaries";
 import type { OrganizationGitHubIdentityObservation } from "@/hooks/useOrganizationGitHubIdentity";
 import { useOrganizationGitHubIdentities } from "@/hooks/useOrganizationGitHubIdentity";
 import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
-import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import {
+  formatRepositoryCheckSummary,
+  type RepositoryCheckSummary,
+} from "@/repository/dashboard/repositoryChecks";
 import { personalOrganizationsFirst } from "@/lib/organizationOrder";
 import {
   buildRepositoryDashboardRoute,

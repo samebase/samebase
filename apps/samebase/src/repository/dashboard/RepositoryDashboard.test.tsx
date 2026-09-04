@@ -12,7 +12,7 @@ import { api } from "../../../convex/_generated/api";
 import type {
   RepositoryPullRequest,
   RepositoryPullRequestsState,
-} from "@/hooks/useRepositoryPullRequests";
+} from "@/repository/dashboard/useRepositoryPullRequests";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContext } from "@/lib/organizationContext";
 import type { Id } from "../../../convex/_generated/dataModel";

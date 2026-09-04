@@ -3,11 +3,11 @@ import { GitHubProviderLogo } from "@/components/repository-dashboard/Repository
 import {
   DefaultBranchSection,
   RepositoryOverviewLoadingLines,
-} from "@/components/repository-dashboard/RepositoryEnvironmentTree";
-import { PullRequestsSection } from "@/components/repository-dashboard/RepositoryPullRequestsSection";
-import { RepositorySettings } from "@/components/repository-dashboard/RepositorySettings";
-import { RepositoryWorkspaceDataInspector } from "@/components/repository-dashboard/RepositoryWorkspaceDataInspector";
-import type { RepositorySettingsState } from "@/components/repository-dashboard/repositorySettingsState";
+} from "@/repository/dashboard/RepositoryEnvironmentTree";
+import { PullRequestsSection } from "@/repository/dashboard/RepositoryPullRequestsSection";
+import { RepositorySettings } from "@/repository/dashboard/RepositorySettings";
+import { RepositoryWorkspaceDataInspector } from "@/repository/dashboard/RepositoryWorkspaceDataInspector";
+import type { RepositorySettingsState } from "@/repository/dashboard/repositorySettingsState";
 import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
 import {
   buildRepositoryDashboardRoute,

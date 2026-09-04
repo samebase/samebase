@@ -76,7 +76,7 @@ installs keys for one selected attached Convex project and starts the production
 - `apps/samebase/convex/repository/cloudflareMutations.ts`
 - `apps/samebase/convex/repository/infrastructureOperation.ts`
 - `apps/samebase/convex/schema.ts`
-- `apps/samebase/src/components/repository-dashboard/RepositoryDashboard.tsx`
+- `apps/samebase/src/repository/dashboard/RepositoryDashboard.tsx`
 
 ## Data Model
 

@@ -1,5 +1,5 @@
 import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
-import { DashboardRoutePage } from "@/components/DashboardRoutePage";
+import { DashboardRoutePage } from "@/repository/dashboard/DashboardRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 

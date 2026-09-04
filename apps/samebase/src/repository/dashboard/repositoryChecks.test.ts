@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { RepositoryStatusCheckRollup } from "../../convex/repositoryPullRequests";
+import type { RepositoryStatusCheckRollup } from "../../../convex/repositoryPullRequests";
 import {
   formatRepositoryCheckSummary,
   type RepositoryCheckSummary,

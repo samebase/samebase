@@ -11,7 +11,7 @@ import {
   NetlifyProviderLogo,
   SamebaseLogoMark,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
-import { RepositoryChecksPopover } from "@/components/repository-dashboard/RepositoryChecksPopover";
+import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import {
   buildPullRequestEnvironmentRoots,
   buildPullRequestOtherPreviews,
@@ -20,8 +20,8 @@ import {
   type RepositoryEnvironmentRoot,
   type RepositoryEnvironmentWorker,
   type RepositoryOtherPreview,
-} from "@/components/repository-dashboard/repositoryEnvironmentRoots";
-import type { PullRequestResourceState } from "@/hooks/useRepositoryPullRequests";
+} from "@/repository/dashboard/repositoryEnvironmentRoots";
+import type { PullRequestResourceState } from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";

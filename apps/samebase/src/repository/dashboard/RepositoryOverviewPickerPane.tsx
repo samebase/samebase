@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
-import type { RepositorySidebarSummariesState } from "@/hooks/useRepositorySidebarSummaries";
+import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import { ORGANIZATIONS_ROUTE } from "@/lib/organizationRoutes";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import {

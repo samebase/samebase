@@ -1,4 +1,4 @@
-import { DashboardRoutePage } from "@/components/DashboardRoutePage";
+import { DashboardRoutePage } from "@/repository/dashboard/DashboardRoutePage";
 import { DASHBOARD_ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";

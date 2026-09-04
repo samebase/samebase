@@ -38,14 +38,14 @@ vi.mock("@/lib/convexQueryCache", () => ({
   },
 }));
 
-vi.mock("@/hooks/useRepositoryPullRequests", () => ({
+vi.mock("@/repository/dashboard/useRepositoryPullRequests", () => ({
   useRepositoryPullRequests: (args: unknown) => {
     testState.pullRequestArgs.push(args);
     return { state: "loading" };
   },
 }));
 
-vi.mock("@/hooks/useRepositorySidebarSummaries", () => ({
+vi.mock("@/repository/dashboard/useRepositorySidebarSummaries", () => ({
   useRepositorySidebarSummaries: () => ({ state: "loading" }),
 }));
 
