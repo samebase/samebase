@@ -142,8 +142,8 @@ describe("AppSidebarMetaSection", () => {
     prerenderedElement.innerHTML = markup;
 
     expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
-      "X.com",
-      "YouTube",
+      "/x.com",
+      "/YouTube",
       "/terms",
       "/privacy",
       "/pricing",
@@ -153,22 +153,22 @@ describe("AppSidebarMetaSection", () => {
     const browserElement = await renderSidebarMetaSection();
 
     expect(readSidebarLinkLabels(browserElement)).toEqual([
-      "X.com",
-      "YouTube",
+      "/x.com",
+      "/YouTube",
       "/terms",
       "/privacy",
       "/pricing",
       "/landing",
     ]);
     const links = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")];
-    const xLink = links.find((link) => link.textContent === "X.com");
+    const xLink = links.find((link) => link.textContent === "/x.com");
     expect(xLink?.getAttribute("href")).toBe("https://x.com/samebasecom");
     expect(xLink?.getAttribute("class")).toBe("text-foreground");
     expect(xLink?.getAttribute("rel")).toBe("noreferrer");
     expect(xLink?.getAttribute("target")).toBe("_blank");
 
-    const youtubeLink = links.find((link) => link.textContent === "YouTube");
-    expect(youtubeLink?.getAttribute("href")).toBe("/youtube");
+    const youtubeLink = links.find((link) => link.textContent === "/YouTube");
+    expect(youtubeLink?.getAttribute("href")).toBe("https://www.youtube.com/@samebasecom");
     expect(youtubeLink?.getAttribute("class")).toBe("text-[#FF0000]");
     expect(youtubeLink?.getAttribute("rel")).toBe("noreferrer");
     expect(youtubeLink?.getAttribute("target")).toBe("_blank");
@@ -192,8 +192,8 @@ describe("AppSidebarMetaSection", () => {
 
       expect(readSidebarLinkLabels(rootElement)).toEqual([
         "?reset",
-        "X.com",
-        "YouTube",
+        "/x.com",
+        "/YouTube",
         "/terms",
         "/privacy",
         "/pricing",
@@ -214,8 +214,8 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readSidebarLinkLabels(rootElement)).toEqual([
       "?reset",
-      "X.com",
-      "YouTube",
+      "/x.com",
+      "/YouTube",
       "/terms",
       "/privacy",
       "/pricing",

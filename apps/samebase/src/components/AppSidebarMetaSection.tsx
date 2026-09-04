@@ -90,19 +90,19 @@ export function AppSidebarMetaSection({
       <div className={APP_SIDEBAR_META_COMMUNITY_LINKS_CLASS_NAMES[linkAlignment]}>
         <a
           className="text-foreground"
-          href="https://x.com/samebasecom"
+          href={SAMEBASE_PUBLIC_LINKS.x.destination}
           rel="noreferrer"
           target="_blank"
         >
-          X.com
+          /x.com
         </a>
         <a
           className="text-[#FF0000]"
-          href={SAMEBASE_PUBLIC_LINKS.youtube.path}
+          href={SAMEBASE_PUBLIC_LINKS.youtube.destination}
           rel="noreferrer"
           target="_blank"
         >
-          YouTube
+          /YouTube
         </a>
       </div>
       <Link to="/terms">/terms</Link>

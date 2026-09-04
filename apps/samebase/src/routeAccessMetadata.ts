@@ -56,6 +56,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     pathSuggestion: "redirect",
     prerender: false,
   },
+  "/x.com": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/youtube": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/discord": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/localStorage": { access: "access_admin" },
