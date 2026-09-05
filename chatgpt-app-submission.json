@@ -22,8 +22,8 @@
     },
     "cloudflare_listWorkersBuildTokens": {
       "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
+        "readOnlyHint": true,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {

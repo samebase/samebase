@@ -31,10 +31,10 @@ export const cloudflareListWorkersBuildTokensContract = {
     name: "cloudflare_listWorkersBuildTokens",
     description:
       "List the non-secret Workers Builds token names and UUIDs in the Cloudflare account connected to a Samebase organization, with its available last-used UUID.",
-    safety: "write",
+    safety: "read_only",
     annotations: {
-      readOnlyHint: false,
-      openWorldHint: false,
+      readOnlyHint: true,
+      openWorldHint: true,
       destructiveHint: false,
     },
     inputDescriptions: {
