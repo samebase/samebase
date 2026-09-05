@@ -7,8 +7,15 @@ export function SamebaseAttribution() {
       className="text-muted-foreground hover:text-foreground focus-visible:outline-ring inline-flex min-h-11 items-center gap-1 px-2 text-xs underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       Managed with{" "}
-      <span className="inline-flex items-center gap-1 font-semibold">
-        <img src="/samebase.svg" alt="" width={16} height={16} className="size-4 dark:invert" />
+      <span className="text-foreground whitespace-nowrap font-bold">
+        <img
+          src="/samebase.svg"
+          alt=""
+          width={20}
+          height={20}
+          className="inline-block size-[calc(1em*10/9)] align-[-0.125em] dark:invert"
+        />
+        {"\u00a0"}
         Samebase
       </span>
     </a>
