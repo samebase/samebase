@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 const HOME_DIR = process.env.HOME ?? "";
 const HELP_HINT = "(run with --help for usage)";
 
@@ -8,6 +9,7 @@ type WorktreeEntry = {
   HEAD: string;
   branch?: string;
   detached: boolean;
+  prunable: boolean;
   branchName?: string;
   shortBranch?: string;
 };
@@ -348,7 +350,7 @@ function resolveTarget(target: string, rest: string[]): void {
     failWithUsage(`unknown option: ${target}`);
   }
 
-  const worktrees = getWorktrees();
+  const worktrees = getAvailableWorktrees();
   const wt = worktrees.find(
     (worktree) => worktree.shortBranch === target || worktree.branchName === target,
   );
@@ -365,7 +367,7 @@ function resolveTarget(target: string, rest: string[]): void {
 
 // MARK: - Helpers
 
-function getWorktrees(): WorktreeEntry[] {
+function getRegisteredWorktrees(): WorktreeEntry[] {
   const output = execFileSync("git", ["worktree", "list", "--porcelain"], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -377,6 +379,10 @@ function getWorktrees(): WorktreeEntry[] {
   }
 
   return trimmed.split("\n\n").filter(Boolean).map(parseWorktreeBlock);
+}
+
+function getAvailableWorktrees(): WorktreeEntry[] {
+  return getRegisteredWorktrees().filter((wt) => !wt.prunable && existsSync(wt.worktree));
 }
 
 function parseWorktreeBlock(block: string): WorktreeEntry {
@@ -412,6 +418,7 @@ function parseWorktreeBlock(block: string): WorktreeEntry {
     HEAD,
     branch,
     detached: Boolean(raw.detached),
+    prunable: Boolean(raw.prunable),
     branchName,
     shortBranch: branchName?.split("/").pop(),
   };
@@ -429,7 +436,7 @@ function getLocalBranches(repoRoot: string): string[] {
 
 function printWorktreeList(options: ListOptions = { status: false }): void {
   const repoRoot = git(["rev-parse", "--show-toplevel"]).trim();
-  const worktrees = getWorktrees();
+  const worktrees = getAvailableWorktrees();
   const baseRef = resolveListBaseRef(repoRoot, options.base);
   const requestedBase = options.base?.trim();
   if (requestedBase && requestedBase.length > 0 && !baseRef) {
@@ -695,7 +702,7 @@ function runClean(options: CleanOptions): void {
   const repoRoot = git(["rev-parse", "--show-toplevel"]).trim();
   const { base, baseRef } = resolveVerifiedCleanupBase(repoRoot, baseOption);
 
-  const worktrees = getWorktrees();
+  const worktrees = getAvailableWorktrees();
   const toRemove: WorktreeRemovalCandidate[] = [];
   const manualCheck: WorktreeRemovalCandidate[] = [];
 
@@ -792,9 +799,6 @@ function runClean(options: CleanOptions): void {
     }
   }
 
-  if (removed > 0) {
-    git(["worktree", "prune"], { cwd: repoRoot });
-  }
   console.log(`done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`);
 }
 
@@ -804,7 +808,7 @@ function runBranchClean(options: CleanOptions): void {
   const repoRoot = git(["rev-parse", "--show-toplevel"]).trim();
   const { base, baseRef } = resolveVerifiedCleanupBase(repoRoot, baseOption);
 
-  const worktrees = getWorktrees();
+  const worktrees = getRegisteredWorktrees();
   const activeBranches = new Map<string, string[]>();
   for (const wt of worktrees) {
     if (!wt.branchName) {

@@ -2043,6 +2043,7 @@ export const trackedFilePaths = [
   "scripts/worktree-env-allowlist.ts",
   "scripts/worktree-share.test.ts",
   "scripts/worktree-share.ts",
+  "scripts/wt.test.ts",
   "scripts/wt.ts",
   "skills-lock.json",
   "skills/README.md",
