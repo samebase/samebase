@@ -52,7 +52,6 @@ type CloudflareWorkerTagSource = {
 type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
 export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
 export type CloudflareWorkerBuild = Readable<components["schemas"]["builds_BuildResponse"]>;
-export type CloudflareWorkerVersion = Readable<components["schemas"]["workers_Version"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
 type CloudflareApiCallOptions = {
@@ -2162,37 +2161,6 @@ export async function readRecentCloudflareWorkerBuilds(args: {
     }
   }
   return good({ builds, exhausted: false });
-}
-
-export async function readCloudflareWorkerVersionsPage(args: {
-  token: string;
-  transport: CloudflareApiTransport;
-  accountId: string;
-  workerName: string;
-  page: number;
-  perPage: number;
-}): Promise<CloudflareWorkerVersion[]> {
-  const versions = await requestCloudflareApiOrThrow({
-    token: args.token,
-    transport: args.transport,
-    method: "GET",
-    path: "/accounts/{account_id}/workers/workers/{worker_id}/versions",
-    params: {
-      path: {
-        account_id: args.accountId,
-        worker_id: args.workerName,
-      },
-      query: {
-        page: args.page,
-        per_page: args.perPage,
-      },
-    },
-  });
-
-  return requireCloudflareResult(
-    versions,
-    `Cloudflare did not return versions for Worker ${args.workerName}.`,
-  );
 }
 
 type DeleteCloudflareResourcesArgs = {
