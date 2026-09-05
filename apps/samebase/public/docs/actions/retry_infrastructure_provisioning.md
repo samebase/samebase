@@ -8,13 +8,15 @@ Retries failed Samebase-managed infrastructure setup: starts a fresh managed pro
 re-reads the app's current infrastructure state and skips the blocks whose resources already exist,
 so completed work is not redone. It does not require or inspect a prior failed run.
 
-Only valid for live Samebase-managed apps, which are apps created by `create_repository`; imported
-repositories repair through the explicit manual attachment and provider-configuration actions
-instead. Progress is readable through `get_user_repositories` while the run executes.
+Only valid for live Samebase-managed apps, which are apps created by
+`repository_actions_createRepository`; imported repositories repair through the explicit manual
+attachment and provider-configuration actions instead. Progress is readable through
+`repository_dashboard_getUserRepositories` while the run executes.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 
 ## Returns
 

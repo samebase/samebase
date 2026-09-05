@@ -271,7 +271,7 @@ ${actionLines}
 - [MCP server](https://api.samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
   browser); the tools are the actions listed above.
 - [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker
-  logs provider-direct, with coordinates from get_user_repositories
+  logs provider-direct, with coordinates from repository_dashboard_getUserRepositories
 - [Custom domain](https://samebase.com/docs/operate/custom-domain.md): attach a domain to the
   app's Worker in your own Cloudflare account
 

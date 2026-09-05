@@ -314,7 +314,7 @@ describe("MCP tool listing access", () => {
         properties: {
           accountId: {
             description:
-              "The Samebase repository's cloudflareAccountId returned by get_user_repositories.",
+              "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
           },
         },
       },
@@ -326,7 +326,7 @@ describe("MCP tool listing access", () => {
         properties: {
           accountId: {
             description:
-              "The Samebase repository's cloudflareAccountId returned by get_user_repositories.",
+              "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
           },
         },
       },

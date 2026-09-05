@@ -18,7 +18,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     title: "Configure Workers Builds for GitHub",
     name: "repository_cloudflare_configureWorkersBuildsForGitHub",
     description:
-      "Call get_user_repositories first and use its returned repositoryId. Configure the selected Worker's production and preview Workers Builds triggers for the Samebase repository's GitHub repository, then start a production build.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Configure the selected Worker's production and preview Workers Builds triggers for the Samebase repository's GitHub repository, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -26,8 +26,9 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by get_user_repositories.",
-      workerId: "Stable Samebase Worker attachment id returned by get_user_repositories.",
+      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
+      workerId:
+        "Stable Samebase Worker attachment id returned by repository_dashboard_getUserRepositories.",
       rootDirectory: "Repository root to write to this Worker's GitHub Builds triggers.",
       buildTokenUuid: "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
     },

@@ -17,7 +17,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     title: "Rotate Convex deploy keys for Workers Builds",
     name: "repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
     description:
-      "Call get_user_repositories first and use its returned repositoryId. Rotate Samebase-named production and preview Convex deploy keys, write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers, then start a production build.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Rotate Samebase-named production and preview Convex deploy keys, write them with the readable SAMEBASE_CONVEX_PROJECT marker to both Workers Builds triggers, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -25,8 +25,9 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by get_user_repositories.",
-      workerId: "Stable Samebase Worker attachment id returned by get_user_repositories.",
+      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
+      workerId:
+        "Stable Samebase Worker attachment id returned by repository_dashboard_getUserRepositories.",
       convexProjectId: "Attached Convex project selected for this deploy-key rotation.",
     },
   } as const satisfies AppFunctionMcpMetadata,

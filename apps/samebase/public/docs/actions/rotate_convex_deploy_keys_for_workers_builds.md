@@ -23,9 +23,10 @@ Convex.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 - `workerId` (string, required): Stable Samebase Worker attachment id returned by
-  get_user_repositories.
+  repository_dashboard_getUserRepositories.
 - `convexProjectId` (string, required): Attached Convex project selected for this deploy-key
   rotation.
 

@@ -10,9 +10,10 @@ location is attached or none are. Convex projects and GitHub files are not modif
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 - `projects` (array, required): One or more project id and code location selections returned by
-  discover_convex_projects.
+  repository_convex_discoverProjects.
 
 ## Returns
 

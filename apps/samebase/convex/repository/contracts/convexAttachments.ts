@@ -91,7 +91,7 @@ export const convexDiscoverProjectsContract = {
     title: "Discover Convex projects",
     name: "repository_convex_discoverProjects",
     description:
-      "Call get_user_repositories first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -99,7 +99,7 @@ export const convexDiscoverProjectsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by get_user_repositories.",
+      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads the repository's exact default-branch Git tree to find explicit convex.json files and
@@ -129,7 +129,7 @@ export const convexAttachProjectsContract = {
     title: "Attach Convex projects",
     name: "repository_convex_attachProjects",
     description:
-      "Call get_user_repositories first and use its returned repositoryId. Attach selected existing Convex projects to a Samebase repository at discovered repository code locations.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach selected existing Convex projects to a Samebase repository at discovered repository code locations.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -137,9 +137,9 @@ export const convexAttachProjectsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by get_user_repositories.",
+      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
       projects:
-        "One or more project id and code location selections returned by discover_convex_projects.",
+        "One or more project id and code location selections returned by repository_convex_discoverProjects.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads every selected Convex project and exact repository code location before writing

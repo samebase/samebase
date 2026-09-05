@@ -13,8 +13,8 @@ supported use on its own).
 
 Preconditions: organization membership and installation read access to the repository. Nothing is
 created on any provider; the only writes are Samebase's own record and the tree sync. Progress and
-failure are readable through `get_user_repositories` (`sourceSetup` running/failed with step and
-message).
+failure are readable through `repository_dashboard_getUserRepositories` (`sourceSetup`
+running/failed with step and message).
 
 ## Arguments
 

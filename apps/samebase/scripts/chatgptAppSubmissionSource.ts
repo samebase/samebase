@@ -167,12 +167,12 @@ type SubmissionNegativeTestCases = readonly [
 export const testCases = [
   {
     description:
-      "Confirm the submitted reviewer credentials resolve to the prepared Samebase demo account.",
-    user_prompt: "Am I connected to Samebase?",
+      "Inspect the identity and permissions of an already-authorized reviewer connection.",
+    user_prompt: "Which Samebase account am I signed in as, and what can this connection access?",
     file_attachment_urls: null,
     tools_triggered: ["samebase_auth_getAuthenticationStatus"],
     expected_output:
-      "Confirms that the reviewer account is connected. It can report the account email, role, and granted scope names, but must not expose tokens or internal account IDs.",
+      "Returns the authenticated reviewer account's email, role, and granted scope names. Does not expose access tokens or internal account IDs.",
     expected_output_url: null,
   },
   {
@@ -187,8 +187,9 @@ export const testCases = [
   },
   {
     description:
-      "Discover Cloudflare Workers for a prepared app by using its stored provider destination.",
-    user_prompt: "Show me the Cloudflare Workers I can attach to my prepared Samebase app.",
+      "Discover Cloudflare Workers for samebase-live-tests/tmp-my-cool-app2 by using its stored provider destination.",
+    user_prompt:
+      "Show me the Cloudflare Workers I can attach to samebase-live-tests/tmp-my-cool-app2.",
     file_attachment_urls: null,
     tools_triggered: [
       "repository_dashboard_getUserRepositories",
@@ -200,9 +201,9 @@ export const testCases = [
   },
   {
     description:
-      "Create one private app with the reviewer account's prepared noter-guest GitHub, Convex, and Cloudflare connections.",
+      "Create one private app with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections.",
     user_prompt:
-      "Create a private Samebase app under noter-guest in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
+      "Create a private Samebase app under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
     file_attachment_urls: null,
     tools_triggered: [
       "repository_dashboard_getUserRepositories",
