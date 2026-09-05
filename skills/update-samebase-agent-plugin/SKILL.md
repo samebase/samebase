@@ -43,17 +43,19 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last full run
 
 - Date: 2026-09-05
-- Artifact commit: `78620526c`
+- Artifact commit: `ff12f1238`, plugin version `0.2.34`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: both models passed all eight cases with the same frozen public skill and live tool
-  descriptions. Each selected the declared actions and order for authentication, inventory, Worker
-  discovery, managed creation, and browser handoff. Each preserved the token selection branches and
-  reported Cloudflare setup as pending when the token list was empty. Neither selected a Samebase
-  action for ordinary GitHub work, a deletion question, or standalone Cloudflare work. The tests
-  checked planned calls without creating provider resources.
-- Final focused check: after the account field rule was limited to actions that require `accountId`,
-  fresh Luna low and Sol low agents both passed Worker discovery again. The final public skill
-  SHA-256 is `521b6917b60db51511071d242d3d8fcebd744a6d32df42ab3097505dbcd84034`.
+- Result: both models passed all eight cases with the same frozen candidate skill and tool
+  definitions. Fresh subjects received one prompt each without expected calls or outputs. Both
+  selected the declared authentication, inventory, Worker discovery, managed creation, and browser
+  handoff calls in order. Both preserved the token selection branches and the empty-token
+  Cloudflare-pending result. Neither selected a Samebase action for the three negative cases.
+- These were planned-call checks. No provider resource was created for the text correction. One
+  invalid Luna harness attempt could not read the bundle and was discarded, then rerun with a fresh
+  subject and explicit permission for local reads.
+- The candidate's 15 tool names, titles, input and output fields, and annotations match the live
+  `0.2.33` catalog. Only description text changed.
+- Public skill SHA-256: `06b26cf2235e96a71adc76addb3e6d07e24a902f5ccf3a76d4d09ff0c0517edc`.
 
 ## Last focused reviewer authentication run
 

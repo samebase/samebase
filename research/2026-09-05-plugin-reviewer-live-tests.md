@@ -70,3 +70,20 @@ The OAuth scan returned all 15 tools after all six scopes were always requested.
 import applied five positive cases, three negative cases, and 15 tool justifications, with zero
 missing, skipped, or mismatched entries. The `0.2.33` skill package passed its scan.
 `cloudflare_listWorkersBuildTokens` remained read-only in the live catalog and marketplace form.
+
+## Tool reference correction, 0.2.34
+
+Commit `ff12f1238` replaces internal action IDs in agent-facing instructions with the exact callable
+MCP names. The public skill, tool descriptions, parameter help, and generated action docs now use
+the same names. No callable name, argument field, output field, title, or safety annotation changed.
+A comparison against all 15 live `0.2.33` definitions passed after excluding description text.
+
+Fresh Luna low and Sol low subjects passed all eight current reviewer prompts each using one frozen
+candidate bundle. They received no expected calls or outputs. Each positive case selected the saved
+tool sequence; the three negative cases selected no Samebase tool. These were planned-call checks,
+so the live provider tests above were not repeated. One invalid harness attempt that prohibited
+local bundle reads was discarded and rerun with a fresh subject.
+
+The `0.2.34` skill SHA-256 is `06b26cf2235e96a71adc76addb3e6d07e24a902f5ccf3a76d4d09ff0c0517edc`.
+Plugin checks, generated-doc verification, both documentation-generator tests, and all 41 MCP HTTP
+tests passed. Two existing HTTP test expectations were updated to the corrected description text.
