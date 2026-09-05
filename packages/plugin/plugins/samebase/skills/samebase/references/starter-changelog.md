@@ -22,7 +22,7 @@ relevant, and preserve unrelated user changes.
 For a review of several apps, compare each repository independently. Do not reuse one app's starter
 build or relevance result for another app.
 
-## v2006: Use trigger-scoped keys and Worker Previews
+## v2035: Use trigger-scoped keys and Worker Previews
 
 Workers Builds production and preview triggers can use the same `CONVEX_DEPLOY_KEY` name with a
 different value on each trigger. This removes the old need for two secret names in Samebase-managed
@@ -60,7 +60,7 @@ Verify that each trigger has one secret named `CONVEX_DEPLOY_KEY`. Confirm that 
 trigger has the readable `SAMEBASE_CONVEX_PROJECT` marker. Run the build-script and Worker Preview
 adapter tests.
 
-Source: [samebase/samebase v2006](https://github.com/samebase/samebase/pull/1562)
+Source: [samebase/samebase v2035](https://github.com/samebase/samebase/pull/1562)
 
 ## v1996: Upgrade Convex to 1.45.0
 
