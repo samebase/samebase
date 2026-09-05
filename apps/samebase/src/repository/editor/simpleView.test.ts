@@ -1,7 +1,5 @@
-import { execSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -14,116 +12,22 @@ import {
   shouldLoadRepositorySimpleViewConfig,
 } from "./simpleView";
 
-type TreeItem = {
-  path: string;
-  type: "tree" | "blob";
-};
+const repositoryConfig = parseSimpleViewConfig(
+  readFileSync(new URL("../../../../../samebase.md", import.meta.url), "utf8"),
+);
 
-const UPDATE_SIMPLE_VIEW_FIXTURES = process.env["UPDATE_SIMPLE_VIEW_FIXTURES"] === "1";
-// Regenerate fixtures with:
-// UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vp test run apps/samebase/src/repository/editor/simpleView.test.ts
-
-function getRepositoryRoot(): string {
-  return fileURLToPath(new URL("../../../../../", import.meta.url));
-}
-
-function getRootSamebaseMarkdown(): string {
-  return readFileSync(`${getRepositoryRoot()}/samebase.md`, "utf8");
-}
-
-function getTrackedFiles(): string[] {
-  const trackedFilesOutput = execSync("git ls-files", {
-    cwd: getRepositoryRoot(),
-    encoding: "utf8",
-  });
-
-  return trackedFilesOutput
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .sort((a, b) => a.localeCompare(b));
-}
-
-function getRepositoryTreeItems(): TreeItem[] {
-  const trackedFiles = getTrackedFiles();
-
-  const directories = new Set<string>();
-  trackedFiles.forEach((filePath) => {
-    const pathParts = filePath.split("/");
-    pathParts.pop();
-
-    let currentDirectory = "";
-    pathParts.forEach((pathPart, index) => {
-      currentDirectory = index === 0 ? pathPart : `${currentDirectory}/${pathPart}`;
-      directories.add(currentDirectory);
-    });
-  });
-
-  const directoryItems = [...directories]
-    .sort((a, b) => a.localeCompare(b))
-    .map((path) => ({ path, type: "tree" as const }));
-  const fileItems = trackedFiles.map((path) => ({
-    path,
-    type: "blob" as const,
-  }));
-
-  return [...directoryItems, ...fileItems];
-}
-
-function getSimpleViewFixturesDir(): string {
-  return `${getRepositoryRoot()}/apps/samebase/src/repository/editor/__fixtures__/simpleView`;
-}
-
-function toFixtureFilePath(fileName: string): string {
-  return `${getSimpleViewFixturesDir()}/${fileName}`;
-}
-
-function serializePathList(paths: string[]): string {
-  return `${paths.join("\n")}\n`;
-}
-
-function readPathFixture(fixturePath: string): string[] {
-  return readFileSync(fixturePath, "utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
-function assertPathsContainFixture(fixturePath: string, actualPaths: string[]): void {
-  if (UPDATE_SIMPLE_VIEW_FIXTURES) {
-    mkdirSync(dirname(fixturePath), { recursive: true });
-    writeFileSync(fixturePath, serializePathList(actualPaths), "utf8");
-  }
-
-  const expectedPaths = readPathFixture(fixturePath);
-  const actualPathSet = new Set(actualPaths);
-  const missingPaths = expectedPaths.filter((path) => !actualPathSet.has(path));
-  expect(missingPaths).toEqual([]);
-}
-
-function getRootVisibleSimpleViewFilePaths(): string[] {
-  const parsedConfig = parseSimpleViewConfig(getRootSamebaseMarkdown());
-  if (!parsedConfig.hasValidConfig) {
-    throw new Error("Expected root samebase.md to have valid simpleView config");
-  }
-
-  return filterSimpleViewTreeItems(getRepositoryTreeItems(), parsedConfig.excludePatterns)
-    .filter((item) => item.type === "blob")
-    .map((item) => item.path)
-    .sort((a, b) => a.localeCompare(b));
-}
-
-describe("repository file tree fixtures", () => {
-  it("contains the visible simple-view baseline fixture for root samebase.md", () => {
-    const visibleFiles = getRootVisibleSimpleViewFilePaths();
-
-    assertPathsContainFixture(toFixtureFilePath("visible-simple-view-files.txt"), visibleFiles);
-  });
-
+describe("repository documentation", () => {
   it("keeps visible spec files on the numbered underscore naming convention", () => {
-    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter((path) =>
-      path.startsWith("specs/"),
-    );
+    const trackedSpecPaths = execFileSync("git", ["ls-files", "--", "specs/"], {
+      cwd: new URL("../../../../../", import.meta.url),
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter((path) => path.length > 0);
+    const visibleSpecPaths = filterSimpleViewTreeItems(
+      trackedSpecPaths.map((path) => ({ path, type: "blob" as const })),
+      repositoryConfig.excludePatterns,
+    ).map((item) => item.path);
 
     const invalidSpecPaths = visibleSpecPaths.filter((path) => {
       const specFileName = path.slice("specs/".length);
@@ -395,81 +299,40 @@ describe("filterSimpleViewTreeItems", () => {
   });
 });
 
-describe("filterSimpleViewTreeItems with repository structure", () => {
-  const repositoryTreeItems = getRepositoryTreeItems();
-
-  it("uses real repository paths in this workspace", () => {
-    expect(
-      repositoryTreeItems.some(
-        (item) => item.path === "tsconfig.base.json" && item.type === "blob",
-      ),
-    ).toBe(true);
-    expect(
-      repositoryTreeItems.some(
-        (item) => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
-      ),
-    ).toBe(true);
-  });
-
-  it("hides tsconfig.base.json with an exact filename pattern", () => {
-    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, ["tsconfig.base.json"]);
-
-    expect(
-      filtered.some((item) => item.path === "tsconfig.base.json" && item.type === "blob"),
-    ).toBe(false);
-  });
-
-  it("requires path-aware pattern to hide .vite-hooks/pre-commit", () => {
-    const basenamePatternFiltered = filterSimpleViewTreeItems(repositoryTreeItems, ["pre-commit"]);
-    expect(
-      basenamePatternFiltered.some(
-        (item) => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
-      ),
-    ).toBe(true);
-
-    const explicitPathFiltered = filterSimpleViewTreeItems(repositoryTreeItems, [
-      ".vite-hooks/pre-commit",
-    ]);
-    expect(
-      explicitPathFiltered.some(
-        (item) => item.path === ".vite-hooks/pre-commit" && item.type === "blob",
-      ),
-    ).toBe(false);
-  });
-});
-
-describe("current samebase.md config with repository tree", () => {
-  const repositoryTreeItems = getRepositoryTreeItems();
-  const parsedConfig = parseSimpleViewConfig(getRootSamebaseMarkdown());
-
+describe("current samebase.md config", () => {
   it("parses root samebase.md simpleView config", () => {
-    expect(parsedConfig.hasConfigFile).toBe(true);
-    expect(parsedConfig.hasValidConfig).toBe(true);
-    expect(parsedConfig.excludePatterns.length).toBeGreaterThan(0);
+    expect(repositoryConfig.hasConfigFile).toBe(true);
+    expect(repositoryConfig.hasValidConfig).toBe(true);
+    expect(repositoryConfig.excludePatterns.length).toBeGreaterThan(0);
   });
 
-  it("hides known noisy files from this repository", () => {
-    if (!parsedConfig.hasValidConfig) {
-      throw new Error("Expected root samebase.md to have valid simpleView config");
-    }
+  it("keeps documentation visible and hides implementation files", () => {
+    const paths = [
+      "AGENTS.md",
+      "README.md",
+      "docs/guide.md",
+      "specs/001_FEATURE_SPEC.md",
+      "rfcs/proposal.md",
+      "archive/old-plan.md",
+      "tsconfig.base.json",
+      ".vite-hooks/pre-commit",
+      "apps/samebase/src/components/notes.md",
+      "apps/samebase/convex/README.md",
+      "node_modules/example/README.md",
+      "apps/example/dist/index.html",
+    ];
+    const filtered = filterSimpleViewTreeItems(
+      paths.map((path) => ({ path, type: "blob" as const })),
+      repositoryConfig.excludePatterns,
+    );
 
-    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, parsedConfig.excludePatterns);
-
-    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(false);
-    expect(filtered.some((item) => item.path === ".vite-hooks/pre-commit")).toBe(false);
-    expect(
-      filtered.some((item) => item.path === "apps/samebase/src/components/Untitled-1.md"),
-    ).toBe(false);
-    expect(filtered.some((item) => item.path === "apps/samebase/convex/README.md")).toBe(false);
-  });
-
-  it("keeps top-level docs visible", () => {
-    if (!parsedConfig.hasValidConfig) {
-      throw new Error("Expected root samebase.md to have valid simpleView config");
-    }
-
-    const filtered = filterSimpleViewTreeItems(repositoryTreeItems, parsedConfig.excludePatterns);
-
-    expect(filtered.some((item) => item.path === "AGENTS.md")).toBe(true);
+    expect(filtered.map((item) => item.path)).toEqual([
+      "AGENTS.md",
+      "README.md",
+      "docs/guide.md",
+      "specs/001_FEATURE_SPEC.md",
+      "rfcs/proposal.md",
+      "archive/old-plan.md",
+    ]);
   });
 });

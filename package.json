@@ -68,7 +68,6 @@
     "template:export": "node scripts/export-starter-manifest.ts",
     "verify:template-export": "pnpm run template:export && git diff --exit-code -- apps/samebase/convex/starterSeedManifest.generated.ts",
     "prepare": "vp config --hooks-dir .vite-hooks",
-    "fixtures:update": "node ./scripts/update-simple-view-fixtures.ts",
     "killport": "node ./scripts/killport.ts",
     "lint:scripts": "pnpm exec vp lint --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts packages/plugin/scripts .devcontainer/postcreate.ts apps/samebase/scripts apps/samebase/postcss.config.ts apps/samebase/tailwind.config.ts",
     "playwright:open": "node ./scripts/playwright-session.ts open",
