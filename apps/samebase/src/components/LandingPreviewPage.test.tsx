@@ -125,7 +125,7 @@ describe("LandingPage", () => {
       'src="/landing-preview/logos/cloudflare.svg" width="28"/> Cloudflare Workers</span> is all you need to ship a production app.</p>',
     );
     expect(markup).toContain(
-      'src="/brand/logo/v1-side-primary-duotone-inline-80.svg" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>',
+      `src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>`,
     );
     expect(markup).toContain('class="mb-3 flex justify-end text-lg"');
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);

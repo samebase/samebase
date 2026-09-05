@@ -121,6 +121,12 @@ describe("compactIdentitySvgAsset", () => {
     expect(readPublicSvg(COMPACT_IDENTITY_SOURCE_SVG_URL)).toBe(generatedSvg);
     expect(readPublicSvg(COMPACT_IDENTITY_SVG_URL)).toBe(generatedSvg);
     expect(readPublicSvg(INSTALL_ICON_SVG_URL)).toBe(generatedSvg);
+    expect(
+      readFileSync(
+        new URL("../../../../templates/base/public/favicon.svg", import.meta.url),
+        "utf8",
+      ).trim(),
+    ).toBe(generatedSvg);
   });
 
   it("keeps the standard mark inside a circular crop", () => {
@@ -143,8 +149,16 @@ describe("compactIdentitySvgAsset", () => {
     const generatedSvg = createLandingInline80PercentMarkSvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(readPublicSvg(LANDING_INLINE_80_PERCENT_MARK_SVG_URL)).toBe(generatedSvg);
-    expect(generatedSvg).toContain('x="6" y="6" width="48" height="48"');
-    expect(generatedSvg).toContain('x="22" y="22" width="16" height="16"');
+    expect(generatedSvg).toContain('viewBox="0 0 60 60"');
+    expect(generatedSvg).toContain('d="M6 6h48v48H6z M22 22h16v16H22z"');
+    expect(generatedSvg).toContain('fill-rule="evenodd"');
+    expect(generatedSvg).not.toContain("<rect ");
+    for (const assetPath of [
+      "../../../../templates/base/public/samebase.svg",
+      "../../../sidebars-example/public/samebase.svg",
+    ]) {
+      expect(readFileSync(new URL(assetPath, import.meta.url), "utf8").trim()).toBe(generatedSvg);
+    }
   });
 
   it("keeps the dark ChatGPT icon on the inverse compact identity", () => {
