@@ -2,7 +2,7 @@
 
 # List Cloudflare Workers Builds tokens (`list_workers_build_tokens`)
 
-MCP tool `cloudflare_listWorkersBuildTokens` · scope `access_provider_connections` · read_only
+MCP tool `cloudflare_listWorkersBuildTokens` · scope `access_provider_connections` · write
 
 Lists the Workers Builds token records in the Cloudflare account connected to the selected Samebase
 organization. The result contains each token's non-secret name and Workers Builds UUID. It also

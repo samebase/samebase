@@ -289,8 +289,8 @@ describe("MCP tool listing access", () => {
     expect(tools.find((tool) => tool.name === "cloudflare_listWorkersBuildTokens")).toMatchObject({
       title: "List Cloudflare Workers Builds tokens",
       annotations: {
-        readOnlyHint: true,
-        openWorldHint: true,
+        readOnlyHint: false,
+        openWorldHint: false,
         destructiveHint: false,
       },
       outputSchema: {
