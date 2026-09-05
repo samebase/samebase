@@ -12,6 +12,14 @@ billing, and infrastructure provisioning.
 5. `mcp/` - remote MCP protocol, OAuth, grants, and tokens
 6. `toolRuntime/` - shared action catalog, validation, authorization, and execution
 
+## Identity And Organization Models
+
+- `identity/` owns account tables, sign-in and account-linking helpers, user lifecycle validators,
+  viewer access, and new-user notification content.
+- `organization/` owns organization, membership, invitation, and provider credential models, member
+  capacity checks, and GitHub membership response parsing.
+- Registered functions remain in their existing modules. They import these owners directly.
+
 ## Repository Module Map
 
 - `repository/actions.ts` - public actions for GitHub repository ownership, connect/create,
@@ -24,6 +32,9 @@ billing, and infrastructure provisioning.
 - `repository/model.ts` + `repository/state.ts` - validators and runtime guards.
 - `repository/deletion/` - removal eligibility, runs, events, local cleanup, workflow orchestration,
   and provider actions.
+- The root provisioning and shared workflow authority modules retain their registered function
+  paths.
+  [Spec 100 records the runtime boundary](../../../specs/100_CONVEX_REPOSITORY_MODULE_LAYOUT_SPEC.md#registered-function-path-exceptions).
 
 ## Key Workflows
 

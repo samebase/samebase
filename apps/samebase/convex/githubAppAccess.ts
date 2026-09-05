@@ -16,7 +16,7 @@ import {
   requireOrganizationMembershipRecord,
   requireRepositoryForUser,
 } from "./organizationAccess";
-import { vGitHubOwnerType } from "./organizationModel";
+import { vGitHubOwnerType } from "./organization/model";
 import {
   requireActiveRepositoryDeletionAuthority,
   requireActiveRepositoryProvisioningAuthority,

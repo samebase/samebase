@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as accessModelValidators from "../accessModelValidators.js";
 import type * as accountDeletion_authCleanup from "../accountDeletion/authCleanup.js";
 import type * as accountDeletion_cleanup from "../accountDeletion/cleanup.js";
 import type * as accountDeletion_completionEmail from "../accountDeletion/completionEmail.js";
@@ -20,8 +19,6 @@ import type * as accountDeletion_workflow from "../accountDeletion/workflow.js";
 import type * as agentBrowserHandoff from "../agentBrowserHandoff.js";
 import type * as agentBrowserHandoff_contracts_createBrowserHandoff from "../agentBrowserHandoff/contracts/createBrowserHandoff.js";
 import type * as auth from "../auth.js";
-import type * as authAccountLinking from "../authAccountLinking.js";
-import type * as authAccountModel from "../authAccountModel.js";
 import type * as authAdmin from "../authAdmin.js";
 import type * as authorizationCompletion from "../authorizationCompletion.js";
 import type * as billing from "../billing.js";
@@ -64,11 +61,18 @@ import type * as githubAppInstallation from "../githubAppInstallation.js";
 import type * as githubAppSetupModel from "../githubAppSetupModel.js";
 import type * as githubChecks from "../githubChecks.js";
 import type * as githubRepoApi from "../githubRepoApi.js";
-import type * as githubSignIn from "../githubSignIn.js";
 import type * as githubUserAuthorizationModel from "../githubUserAuthorizationModel.js";
 import type * as githubUserAuthorizations from "../githubUserAuthorizations.js";
 import type * as http from "../http.js";
-import type * as identityModel from "../identityModel.js";
+import type * as identity_access from "../identity/access.js";
+import type * as identity_accessValidators from "../identity/accessValidators.js";
+import type * as identity_accountLinking from "../identity/accountLinking.js";
+import type * as identity_accountModel from "../identity/accountModel.js";
+import type * as identity_githubSignIn from "../identity/githubSignIn.js";
+import type * as identity_lifecycle from "../identity/lifecycle.js";
+import type * as identity_model from "../identity/model.js";
+import type * as identity_newUserNotification from "../identity/newUserNotification.js";
+import type * as identity_viewerRole from "../identity/viewerRole.js";
 import type * as infraProvisioning from "../infraProvisioning.js";
 import type * as jsonUtils from "../jsonUtils.js";
 import type * as mcp_client from "../mcp/client.js";
@@ -83,18 +87,17 @@ import type * as mcp_protocol from "../mcp/protocol.js";
 import type * as mcp_scopes from "../mcp/scopes.js";
 import type * as mcp_tokens from "../mcp/tokens.js";
 import type * as mcpTokenHealth from "../mcpTokenHealth.js";
-import type * as newUserNotification from "../newUserNotification.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
+import type * as organization_billingLimits from "../organization/billingLimits.js";
+import type * as organization_invitationModel from "../organization/invitationModel.js";
+import type * as organization_memberGitHub from "../organization/memberGitHub.js";
+import type * as organization_model from "../organization/model.js";
+import type * as organization_providerCredentialModel from "../organization/providerCredentialModel.js";
 import type * as organizationAccess from "../organizationAccess.js";
 import type * as organizationAdmin from "../organizationAdmin.js";
 import type * as organizationBilling from "../organizationBilling.js";
-import type * as organizationBillingLimits from "../organizationBillingLimits.js";
-import type * as organizationInvitationModel from "../organizationInvitationModel.js";
-import type * as organizationMemberGitHub from "../organizationMemberGitHub.js";
 import type * as organizationMembers from "../organizationMembers.js";
-import type * as organizationModel from "../organizationModel.js";
-import type * as organizationProviderCredentialModel from "../organizationProviderCredentialModel.js";
 import type * as organizationProviderCredentials from "../organizationProviderCredentials.js";
 import type * as organizations from "../organizations.js";
 import type * as polarBillingState from "../polarBillingState.js";
@@ -173,11 +176,8 @@ import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js
 import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as usageAttribution from "../usageAttribution.js";
-import type * as userAccess from "../userAccess.js";
-import type * as userLifecycle from "../userLifecycle.js";
 import type * as userPreferenceModel from "../userPreferenceModel.js";
 import type * as users from "../users.js";
-import type * as viewerRole from "../viewerRole.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
 
 import type {
@@ -187,7 +187,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  accessModelValidators: typeof accessModelValidators;
   "accountDeletion/authCleanup": typeof accountDeletion_authCleanup;
   "accountDeletion/cleanup": typeof accountDeletion_cleanup;
   "accountDeletion/completionEmail": typeof accountDeletion_completionEmail;
@@ -199,8 +198,6 @@ declare const fullApi: ApiFromModules<{
   agentBrowserHandoff: typeof agentBrowserHandoff;
   "agentBrowserHandoff/contracts/createBrowserHandoff": typeof agentBrowserHandoff_contracts_createBrowserHandoff;
   auth: typeof auth;
-  authAccountLinking: typeof authAccountLinking;
-  authAccountModel: typeof authAccountModel;
   authAdmin: typeof authAdmin;
   authorizationCompletion: typeof authorizationCompletion;
   billing: typeof billing;
@@ -243,11 +240,18 @@ declare const fullApi: ApiFromModules<{
   githubAppSetupModel: typeof githubAppSetupModel;
   githubChecks: typeof githubChecks;
   githubRepoApi: typeof githubRepoApi;
-  githubSignIn: typeof githubSignIn;
   githubUserAuthorizationModel: typeof githubUserAuthorizationModel;
   githubUserAuthorizations: typeof githubUserAuthorizations;
   http: typeof http;
-  identityModel: typeof identityModel;
+  "identity/access": typeof identity_access;
+  "identity/accessValidators": typeof identity_accessValidators;
+  "identity/accountLinking": typeof identity_accountLinking;
+  "identity/accountModel": typeof identity_accountModel;
+  "identity/githubSignIn": typeof identity_githubSignIn;
+  "identity/lifecycle": typeof identity_lifecycle;
+  "identity/model": typeof identity_model;
+  "identity/newUserNotification": typeof identity_newUserNotification;
+  "identity/viewerRole": typeof identity_viewerRole;
   infraProvisioning: typeof infraProvisioning;
   jsonUtils: typeof jsonUtils;
   "mcp/client": typeof mcp_client;
@@ -262,18 +266,17 @@ declare const fullApi: ApiFromModules<{
   "mcp/scopes": typeof mcp_scopes;
   "mcp/tokens": typeof mcp_tokens;
   mcpTokenHealth: typeof mcpTokenHealth;
-  newUserNotification: typeof newUserNotification;
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
+  "organization/billingLimits": typeof organization_billingLimits;
+  "organization/invitationModel": typeof organization_invitationModel;
+  "organization/memberGitHub": typeof organization_memberGitHub;
+  "organization/model": typeof organization_model;
+  "organization/providerCredentialModel": typeof organization_providerCredentialModel;
   organizationAccess: typeof organizationAccess;
   organizationAdmin: typeof organizationAdmin;
   organizationBilling: typeof organizationBilling;
-  organizationBillingLimits: typeof organizationBillingLimits;
-  organizationInvitationModel: typeof organizationInvitationModel;
-  organizationMemberGitHub: typeof organizationMemberGitHub;
   organizationMembers: typeof organizationMembers;
-  organizationModel: typeof organizationModel;
-  organizationProviderCredentialModel: typeof organizationProviderCredentialModel;
   organizationProviderCredentials: typeof organizationProviderCredentials;
   organizations: typeof organizations;
   polarBillingState: typeof polarBillingState;
@@ -352,11 +355,8 @@ declare const fullApi: ApiFromModules<{
   "toolRuntime/mcpScopes": typeof toolRuntime_mcpScopes;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   usageAttribution: typeof usageAttribution;
-  userAccess: typeof userAccess;
-  userLifecycle: typeof userLifecycle;
   userPreferenceModel: typeof userPreferenceModel;
   users: typeof users;
-  viewerRole: typeof viewerRole;
   workspaceSidebarState: typeof workspaceSidebarState;
 }>;
 

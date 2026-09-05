@@ -3,11 +3,13 @@
 ## Document Control
 
 - Status: Superseded
+- Superseded by:
+  [Pull request provider query spec](../specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 - Owner: vault dashboard, GitHub checks, repository refresh
 - Created: 2026-06-24
 - Last updated: 2026-06-24
 - Related RFCs:
-  - `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
+  - `archive/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
 - Related specs:
   - `archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
 

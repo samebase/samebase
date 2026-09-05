@@ -9,17 +9,17 @@
   - `specs/045_REPOSITORY_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
 - Related RFCs:
-  - `rfcs/066_DASHBOARD_CLOUDFLARE_BRANCH_PREVIEW_LINKS_AND_THUMBNAILS.md`
+  - `archive/066_DASHBOARD_CLOUDFLARE_BRANCH_PREVIEW_LINKS_AND_THUMBNAILS.md`
 
 ## Supersession Note
 
 This behavior is no longer current. The PR-comment parser and branch-level Cloudflare preview row
-were replaced by the GitHub check snapshot model in `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`.
+were replaced by the GitHub check snapshot model in `archive/087_PR_CHECKS_BASED_REFRESH_PLAN.md`.
 Runtime code no longer reads or writes the branch-level Cloudflare preview projection, and the old
 `observations_vaultRepository_branches` schema fields have been removed.
 
 The historical implementation notes below also predate the selected-vault branch pagination work in
-`rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md`. Current dashboard branch rows are
+`archive/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md`. Current dashboard branch rows are
 served by `api.vault.branches.listVaultRemoteBranchesPage`, not by
 `api.vault.dashboard.getUserVaults`.
 

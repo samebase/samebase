@@ -11,7 +11,7 @@ import { requireBillingAccountForOrganization } from "./organizationBilling";
 import {
   readOrganizationMemberCapacity,
   readOrganizationMembershipCount,
-} from "./organizationBillingLimits";
+} from "./organization/billingLimits";
 import { requireActiveRepositoryProvisioningAuthority } from "./repositoryWorkflowAuthority";
 import { requireManualProviderWriteCheckpoint } from "./repository/infrastructureOperation";
 

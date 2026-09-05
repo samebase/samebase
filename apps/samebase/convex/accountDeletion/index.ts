@@ -7,8 +7,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { env, internalMutation, type MutationCtx } from "../_generated/server";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
-import { isAdminUser } from "../userAccess";
-import { readUserProfile } from "../userLifecycle";
+import { isAdminUser } from "../identity/access";
+import { readUserProfile } from "../identity/lifecycle";
 import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,

@@ -10,7 +10,7 @@ import { env, internalAction, internalMutation, type MutationCtx } from "./_gene
 import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
-import { vGitHubOwnerType } from "./organizationModel";
+import { vGitHubOwnerType } from "./organization/model";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
 import {
@@ -20,7 +20,7 @@ import {
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;

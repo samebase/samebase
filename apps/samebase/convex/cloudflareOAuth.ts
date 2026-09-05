@@ -16,8 +16,8 @@ import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
-import { vOrganizationCloudflareAccount } from "./organizationModel";
-import { vCloudflareTokenRefreshLease } from "./organizationProviderCredentialModel";
+import { vOrganizationCloudflareAccount } from "./organization/model";
+import { vCloudflareTokenRefreshLease } from "./organization/providerCredentialModel";
 import {
   listCloudflareAccountsForToken,
   resolveCloudflareAccountAfterAuthorization,

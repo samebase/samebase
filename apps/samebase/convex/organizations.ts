@@ -4,10 +4,10 @@ import type { Id, TableNames } from "./_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
-import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organization/model";
 import { vGitHubAppInstallationAccess } from "./githubAppAccess";
 import { isPreviewSeedUser, PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 
 const { boolean, id, object, string } = v;
 const ORGANIZATION_DELETION_ROW_LIMIT = 500;

@@ -1,6 +1,6 @@
-import { isAdminUser } from "./userAccess";
-import type { NonDeletedUserLifecycleDoc } from "./userLifecycle";
-import type { ViewerRole } from "../shared/accessModel";
+import { isAdminUser } from "./access";
+import type { NonDeletedUserLifecycleDoc } from "./lifecycle";
+import type { ViewerRole } from "../../shared/accessModel";
 
 export function readViewerRoleForUser(user: NonDeletedUserLifecycleDoc): ViewerRole {
   switch (user.state) {

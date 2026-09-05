@@ -1,7 +1,7 @@
 import type {
   CloudflareProviderCredential,
   ConvexProviderCredential,
-} from "./organizationProviderCredentialModel";
+} from "./organization/providerCredentialModel";
 import type { ProviderAuth } from "./providerAuth";
 import { sha256Hex } from "./mcp/tokens";
 

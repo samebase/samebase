@@ -3,6 +3,8 @@
 ## Document Control
 
 - Status: Superseded research note
+- Superseded by:
+  [Pull request provider query spec](../specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
 - Owner: Noter product/frontend
 - Last updated: 2026-03-23
 - Depends on:

@@ -2,7 +2,7 @@ import { Infer, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type DatabaseReader, type MutationCtx } from "./_generated/server";
-import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
+import { requireOrganizationNotBillingLimited } from "./organization/billingLimits";
 
 const { id, literal, object, union } = v;
 

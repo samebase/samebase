@@ -1,8 +1,8 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { vMcpTokenHealth } from "./mcpTokenHealth";
-import { vCloudflareProviderAuth, vStandardProviderAuth } from "./providerAuth";
+import { vMcpTokenHealth } from "../mcpTokenHealth";
+import { vCloudflareProviderAuth, vStandardProviderAuth } from "../providerAuth";
 
 const { id, literal, number, object, optional, string, union } = v;
 

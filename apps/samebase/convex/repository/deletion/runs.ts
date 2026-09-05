@@ -17,7 +17,7 @@ import {
   requireActiveRepositoryDeletionContinuation,
   requireActiveRepositoryDeletionRun,
 } from "../../repositoryWorkflowAuthority";
-import { readActiveUser } from "../../userLifecycle";
+import { readActiveUser } from "../../identity/lifecycle";
 
 const { boolean, id, literal, object, string, union } = v;
 

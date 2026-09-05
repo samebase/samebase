@@ -4,7 +4,7 @@ import {
   parseGitHubInvitationTarget,
   parseGitHubOrganizationRelationship,
   readPublicGitHubUserByLogin,
-} from "./organizationMemberGitHub";
+} from "./memberGitHub";
 
 afterEach(() => {
   vi.unstubAllGlobals();

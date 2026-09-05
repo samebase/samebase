@@ -160,11 +160,11 @@ custom user callback, corrects its link flags, stores the GitHub login observati
 account, and maps only allowlisted callback failures to safe route errors. Tests must cover these
 behaviors before the patch changes or is removed.
 
-- `authAccountLinking.convex.test.ts` covers known identities, stable account email, explicit
+- `identity/accountLinking.convex.test.ts` covers known identities, stable account email, explicit
   session-bound linking, missing and expired sessions, cross-table identity conflicts, and account
   deletion. It also covers terminal rejection and later signup with a new user ID.
-- `githubSignIn.test.ts` covers the verified primary email parser, exact OAuth parameters, and
-  provider API failures.
+- `identity/githubSignIn.test.ts` covers the verified primary email parser, exact OAuth parameters,
+  and provider API failures.
 - `githubUserAuthorizations.convex.test.ts` covers durable authorization status, refresh,
   revocation, GitHub sign-in matching, and GitHub App identity conflicts.
 - `githubAppInstallation.convex.test.ts` covers one-use setup state, callback identity checks,

@@ -2,19 +2,19 @@ import type { ConvexAuthConfig } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent";
 import { ConvexError } from "convex/values";
 
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import { env, type MutationCtx } from "./_generated/server";
-import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import { env, type MutationCtx } from "../_generated/server";
+import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../../runtime/localWorktreePasswordAuth";
 import {
   type PasswordAuthMode,
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
-} from "./deploymentProfile";
+} from "../deploymentProfile";
 import { buildNewUserNotification } from "./newUserNotification";
-import { readOptionalEnv } from "./oauthUtils";
-import { normalizeAccountEmail } from "../shared/accountPresentation";
-import type { AuthAccountProvider } from "./authAccountModel";
+import { readOptionalEnv } from "../oauthUtils";
+import { normalizeAccountEmail } from "../../shared/accountPresentation";
+import type { AuthAccountProvider } from "./accountModel";
 
 type ConvexAuthCallbacks = NonNullable<ConvexAuthConfig["callbacks"]>;
 type CreateOrUpdateUser = NonNullable<ConvexAuthCallbacks["createOrUpdateUser"]>;

@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import type {
   CloudflareProviderCredential,
   ConvexProviderCredential,
-} from "./organizationProviderCredentialModel";
+} from "./organization/providerCredentialModel";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 

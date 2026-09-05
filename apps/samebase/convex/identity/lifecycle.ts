@@ -1,12 +1,12 @@
 import { v, type Infer } from "convex/values";
 import { omitUndefined } from "@samebase/dependent/object";
 
-import type { Doc } from "./_generated/dataModel";
-import { resolveAccountPresentation } from "../shared/accountPresentation";
+import type { Doc } from "../_generated/dataModel";
+import { resolveAccountPresentation } from "../../shared/accountPresentation";
 import {
   DELETED_SAMEBASE_ACCOUNT_LABEL,
   type UserReferencePresentation,
-} from "../shared/userReferencePresentation";
+} from "../../shared/userReferencePresentation";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 

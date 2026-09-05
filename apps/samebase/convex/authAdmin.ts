@@ -10,7 +10,7 @@ import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { assertPasswordAuthLogLevelAllowed } from "./deploymentProfile";
 import { readOptionalEnv } from "./oauthUtils";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 
 const { boolean, id, literal, object, string, union } = v;
 

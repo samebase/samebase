@@ -1,8 +1,8 @@
 import { ConvexError } from "convex/values";
 
-import type { Doc, Id } from "./_generated/dataModel";
-import type { DatabaseReader } from "./_generated/server";
-import { ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX } from "./billingErrors";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { DatabaseReader } from "../_generated/server";
+import { ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX } from "../billingErrors";
 
 export type OrganizationMemberCapacity = {
   includedMembers: number;

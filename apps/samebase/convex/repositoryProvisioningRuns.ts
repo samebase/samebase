@@ -12,7 +12,7 @@ import { readRepositoryInfrastructureState } from "./repository/infrastructureOp
 import { assertConnectedRepository } from "./repository/state";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
 import { requireRepositoryForUser, requireRepositoryOrganization } from "./organizationAccess";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser } from "./identity/lifecycle";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_REPOSITORY = 20;

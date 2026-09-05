@@ -1,8 +1,8 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { vAuthAccountLinkIntent } from "./authAccountModel";
-import { vUserLifecycle } from "./userLifecycle";
+import { vAuthAccountLinkIntent } from "./accountModel";
+import { vUserLifecycle } from "./lifecycle";
 
 const { id, number, optional, string } = v;
 const {

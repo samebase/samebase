@@ -13,7 +13,7 @@ import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./mode
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import { revokeActiveMcpGrant } from "./grants";
 import { parseScopeTokens } from "./scopes";
-import { readActiveUser } from "../userLifecycle";
+import { readActiveUser } from "../identity/lifecycle";
 import {
   createAuthorizationCodeValue,
   MCP_AUTHORIZATION_CODE_TTL_MS,

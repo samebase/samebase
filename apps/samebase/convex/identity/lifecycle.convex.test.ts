@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
-import { resolveUserReferencePresentation } from "./userLifecycle";
+import { api, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import { resolveUserReferencePresentation } from "./lifecycle";
 
 type TestBackend = ReturnType<typeof makeConvexTest>;
 type LifecycleState = "active" | "deleting" | "deleted";

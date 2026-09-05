@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 
-import { vAccessKey, vViewerRole } from "../../accessModelValidators";
+import { vAccessKey, vViewerRole } from "../../identity/accessValidators";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, literal, object, optional, string, union } = v;

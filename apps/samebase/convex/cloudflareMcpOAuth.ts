@@ -20,8 +20,8 @@ import {
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
 import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
-import { vOrganizationCloudflareAccount } from "./organizationModel";
-import { vCloudflareTokenRefreshLease } from "./organizationProviderCredentialModel";
+import { vOrganizationCloudflareAccount } from "./organization/model";
+import { vCloudflareTokenRefreshLease } from "./organization/providerCredentialModel";
 import {
   listCloudflareAccountsForToken,
   resolveCloudflareAccountAfterAuthorization,

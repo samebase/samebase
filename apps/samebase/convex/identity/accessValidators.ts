@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { ACCESS_KEYS, VIEWER_ROLES } from "../shared/accessModel";
+import { ACCESS_KEYS, VIEWER_ROLES } from "../../shared/accessModel";
 
 const { array, boolean, literal, object, union } = v;
 

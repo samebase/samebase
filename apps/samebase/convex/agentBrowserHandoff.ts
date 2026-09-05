@@ -9,8 +9,8 @@ import {
 } from "../shared/accessModel";
 import { isMcpOauthClientInactive } from "./mcp/client";
 import { parseScopeTokens } from "./mcp/scopes";
-import { readNonDeletedUser } from "./userLifecycle";
-import { readViewerRoleForUser } from "./viewerRole";
+import { readNonDeletedUser } from "./identity/lifecycle";
+import { readViewerRoleForUser } from "./identity/viewerRole";
 
 const { id, literal, number, object, optional, string, union } = v;
 

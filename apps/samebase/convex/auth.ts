@@ -7,7 +7,10 @@ import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { internal } from "./_generated/api";
-import { createOrUpdateSamebaseUser, requireAuthSessionUserCanSignIn } from "./authAccountLinking";
+import {
+  createOrUpdateSamebaseUser,
+  requireAuthSessionUserCanSignIn,
+} from "./identity/accountLinking";
 import {
   assertPasswordAuthFlowAllowed,
   assertPasswordAuthLogLevelAllowed,
@@ -18,7 +21,7 @@ import {
   fetchVerifiedGitHubOAuthProfile,
   GITHUB_SIGN_IN_AUTHORIZATION_PARAMS,
   readGitHubSignInProfile,
-} from "./githubSignIn";
+} from "./identity/githubSignIn";
 import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
 import { readOptionalEnv } from "./oauthUtils";
 
