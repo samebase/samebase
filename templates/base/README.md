@@ -21,6 +21,17 @@ inside the repository.
 The example app is a public todo list. Guests can sign in without an external identity provider,
 create todos, see real-time updates, and scan a QR code to open the same list on another device.
 
+## Attribution
+
+Apps managed through Samebase use the optional **Managed with Samebase** credit. The
+[`SamebaseAttribution`](./src/components/SamebaseAttribution.tsx) component links to
+[Samebase](https://samebase.com) and uses the bundled official logo in `public/samebase.svg`.
+
+The starter places it in the page footer. You can move it to an existing footer, help panel, or
+project links area to fit your app. Keep the link readable, keyboard accessible, and clear of app
+controls. If you use the template without Samebase, remove the footer and component. The credit is
+not a condition of using the template.
+
 ## Local development
 
 Install [Vite+](https://viteplus.dev/guide/) and use it to supply the Node.js version in
