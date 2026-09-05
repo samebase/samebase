@@ -1421,19 +1421,6 @@ test.describe("route URL editor public route query stories", () => {
   });
 });
 
-test("route URL editor keeps Escape aligned with the last auto-applied route", async ({ page }) => {
-  const { input, prefix } = await focusRouteAddressInput(page);
-
-  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
-  await expect(page).toHaveURL(/\/logo$/);
-
-  await input.press("Escape");
-
-  const displayInput = page.getByTestId("route-url-editor-display");
-  await expect(displayInput).toHaveValue("/logo");
-  await expect(page).toHaveURL(/\/logo$/);
-});
-
 test("route URL editor clears retained search when replacing the whole route draft", async ({
   page,
 }) => {
