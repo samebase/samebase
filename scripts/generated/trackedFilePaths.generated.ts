@@ -1911,6 +1911,7 @@ export const trackedFilePaths = [
   "research/2026-09-02-typegpu-menger-hover-rest.png",
   "research/2026-09-02-typegpu-menger-hover-shallow-depth-8.png",
   "research/2026-09-02-typegpu-redraw-menger.md",
+  "research/2026-09-05-test-value-audit.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",
