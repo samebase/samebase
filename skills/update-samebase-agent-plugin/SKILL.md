@@ -55,6 +55,18 @@ not copy tool schemas or general coding instructions into the skill.
   fresh Luna low and Sol low agents both passed Worker discovery again. The final public skill
   SHA-256 is `521b6917b60db51511071d242d3d8fcebd744a6d32df42ab3097505dbcd84034`.
 
+## Last focused reviewer authentication run
+
+- Date: 2026-09-05
+- Public artifact commit: `59855c2ab`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Result: both models passed the revised account-and-permissions prompt and all three negative cases
+  with the same frozen public skill and live tool descriptions. The authentication prompt selected
+  only the authentication-status tool. No negative case selected a Samebase tool. These were
+  planned-call checks, not live reviewer-account tests.
+- Live boundary check: the public MCP server returned HTTP 401 for the authentication-status call
+  without a bearer token. Test signed-out reviewer login separately from authenticated MCP calls.
+
 ## Last focused feedback approval run
 
 - Date: 2026-08-21

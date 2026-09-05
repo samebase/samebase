@@ -167,12 +167,12 @@ type SubmissionNegativeTestCases = readonly [
 export const testCases = [
   {
     description:
-      "Confirm the submitted reviewer credentials resolve to the prepared Samebase demo account.",
-    user_prompt: "Am I connected to Samebase?",
+      "Inspect the identity and permissions of an already-authorized reviewer connection.",
+    user_prompt: "Which Samebase account am I signed in as, and what can this connection access?",
     file_attachment_urls: null,
     tools_triggered: ["samebase_auth_getAuthenticationStatus"],
     expected_output:
-      "Confirms that the reviewer account is connected. It can report the account email, role, and granted scope names, but must not expose tokens or internal account IDs.",
+      "Returns the authenticated reviewer account's email, role, and granted scope names. Does not expose access tokens or internal account IDs.",
     expected_output_url: null,
   },
   {
