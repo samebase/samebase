@@ -207,16 +207,16 @@
       "expected_output_url": null
     },
     {
-      "description": "Discover Cloudflare Workers for a prepared app by using its stored provider destination.",
-      "user_prompt": "Show me the Cloudflare Workers I can attach to my prepared Samebase app.",
+      "description": "Discover Cloudflare Workers for samebase-live-tests/tmp-my-cool-app2 by using its stored provider destination.",
+      "user_prompt": "Show me the Cloudflare Workers I can attach to samebase-live-tests/tmp-my-cool-app2.",
       "file_attachment_urls": null,
       "tools_triggered": "repository_dashboard_getUserRepositories, repository_cloudflare_discoverWorkers",
       "expected_output": "Reads the app inventory, passes that repository's cloudflareAccountId to Worker discovery, and reports Workers from only that account. It does not select another account or create a Cloudflare resource.",
       "expected_output_url": null
     },
     {
-      "description": "Create one private app with the reviewer account's prepared noter-guest GitHub, Convex, and Cloudflare connections.",
-      "user_prompt": "Create a private Samebase app under noter-guest in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
+      "description": "Create one private app with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections.",
+      "user_prompt": "Create a private Samebase app under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
       "file_attachment_urls": null,
       "tools_triggered": "repository_dashboard_getUserRepositories, cloudflare_listWorkersBuildTokens, repository_actions_createRepository",
       "expected_output": "Reads inventory and passes aws-us-east-1 as the requested Convex production region without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",

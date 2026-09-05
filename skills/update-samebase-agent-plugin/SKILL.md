@@ -67,6 +67,19 @@ not copy tool schemas or general coding instructions into the skill.
 - Live boundary check: the public MCP server returned HTTP 401 for the authentication-status call
   without a bearer token. Test signed-out reviewer login separately from authenticated MCP calls.
 
+## Last live reviewer run
+
+- Date: 2026-09-05
+- Plugin version: `0.2.33`, public artifact commit `59855c2ab`
+- Result: password login, OAuth, and all five positive cases passed with the dedicated reviewer
+  account in `samebase-live-tests`. The created app reached ready source and provider setup. Its
+  first Cloudflare build failed during local prerender; one same-commit retry passed and the live
+  page returned HTTP 200.
+- Fresh Luna low and Sol low subjects also passed the corrected Worker discovery and creation
+  prompts. The token selection branches were planned-call checks; the live creation used the
+  available last-used token.
+- Evidence: [reviewer test record](../../research/2026-09-05-plugin-reviewer-live-tests.md).
+
 ## Last focused feedback approval run
 
 - Date: 2026-08-21
