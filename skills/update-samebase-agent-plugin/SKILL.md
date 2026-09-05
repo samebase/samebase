@@ -42,14 +42,18 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last full run
 
-- Date: 2026-08-25
-- Artifact commit: `6cc5e5d1c`
+- Date: 2026-09-05
+- Artifact commit: `78620526c`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: both models passed all eight cases. Each model selected the declared Samebase actions in
-  the required order for connection status, app inventory, Worker discovery, managed app creation,
-  and browser handoff. Each model used no Samebase action for ordinary GitHub work, a deletion
-  question, or standalone Cloudflare work. Neither model opened a dashboard before user acceptance
-  or used a URL other than the one-time browser handoff.
+- Result: both models passed all eight cases with the same frozen public skill and live tool
+  descriptions. Each selected the declared actions and order for authentication, inventory, Worker
+  discovery, managed creation, and browser handoff. Each preserved the token selection branches and
+  reported Cloudflare setup as pending when the token list was empty. Neither selected a Samebase
+  action for ordinary GitHub work, a deletion question, or standalone Cloudflare work. The tests
+  checked planned calls without creating provider resources.
+- Final focused check: after the account field rule was limited to actions that require `accountId`,
+  fresh Luna low and Sol low agents both passed Worker discovery again. The final public skill
+  SHA-256 is `521b6917b60db51511071d242d3d8fcebd744a6d32df42ab3097505dbcd84034`.
 
 ## Last focused feedback approval run
 

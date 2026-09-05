@@ -57,8 +57,8 @@ description:
   returned by `get_user_repositories`. `githubRepositoryDatabaseId` is GitHub's numeric repository
   database ID stored as a string. Never substitute one for the other. Do not use or invent
   `githubRepositoryId`, `repoId`, or `ghRepoId`.
-- For a Cloudflare action on an existing app, pass that inventory entry's `cloudflareAccountId` as
-  `accountId`.
+- When a Cloudflare action requires `accountId`, use the selected app's `cloudflareAccountId` from
+  inventory.
 - Managed app creation always uses these steps:
   1. Read inventory.
   2. Resolve the Convex production region.
