@@ -12,9 +12,10 @@ provider configuration, and stores no trigger or status mirror in Convex.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 - `workerId` (string, required): Stable Samebase Worker attachment id returned by
-  get_user_repositories.
+  repository_dashboard_getUserRepositories.
 - `rootDirectory` (string, required): Repository root to write to this Worker's GitHub Builds
   triggers.
 - `buildTokenUuid` (string, required): Workers Builds token UUID returned by

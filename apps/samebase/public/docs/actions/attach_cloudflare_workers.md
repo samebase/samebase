@@ -10,11 +10,12 @@ every selected Worker is attached or none are. Cloudflare configuration is not c
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 - `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
-  get_user_repositories and used for the preceding Worker discovery.
+  repository_dashboard_getUserRepositories and used for the preceding Worker discovery.
 - `workers` (array, required): One or more Worker name and stable tag pairs returned by
-  discover_cloudflare_workers.
+  repository_cloudflare_discoverWorkers.
 
 ## Returns
 

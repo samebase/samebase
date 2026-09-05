@@ -31,7 +31,7 @@ export const connectRepositoryContract = {
     title: "Connect existing repository",
     name: "repository_actions_connectRepository",
     description:
-      "Call get_user_repositories first to avoid a duplicate connection. Connect a GitHub repository by its githubRepositoryDatabaseId as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unconfigured until explicitly attached.",
+      "Call repository_dashboard_getUserRepositories first to avoid a duplicate connection. Connect a GitHub repository by its githubRepositoryDatabaseId as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unconfigured until explicitly attached.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -54,5 +54,5 @@ repository GitHub-only (watching and editing a repository is a supported use on 
 
 Preconditions: organization membership and installation read access to the repository. Nothing is created
 on any provider; the only writes are Samebase's own record and the tree sync. Progress and failure
-are readable through \`get_user_repositories\` (\`sourceSetup\` running/failed with step and message).`,
+are readable through \`repository_dashboard_getUserRepositories\` (\`sourceSetup\` running/failed with step and message).`,
 } as const;

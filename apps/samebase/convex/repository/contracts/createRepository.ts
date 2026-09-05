@@ -79,7 +79,7 @@ GitHub repository and Convex project names must be available. The Cloudflare Wor
 available only when a token UUID requests automatic Cloudflare provisioning. A required
 cloudflareWorkerName is ignored when the token is null. A relevant name collision fails the call
 immediately before any repository or run is created, so pick a different name and call again; failures
-after provisioning starts surface through \`get_user_repositories\` instead.
+after provisioning starts surface through \`repository_dashboard_getUserRepositories\` instead.
 
 What it writes: one repository (private by default) and one Convex project with one production
 deployment in the resolved region. When
@@ -88,9 +88,9 @@ that carry \`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\` variables. Al
 the organization's provider accounts. Deleting the Samebase account does not remove or stop any of
 them.
 
-Progress and failure are readable through \`get_user_repositories\`: while running, \`providerSetup\`
+Progress and failure are readable through \`repository_dashboard_getUserRepositories\`: while running, \`providerSetup\`
 carries the current step; on failure it carries the failed step and a message. Repair it with
-\`retry_infrastructure_provisioning\`. When the token was null, \`providerSetup.status: ready\`
+\`repository_actions_retryInfrastructureProvisioning\`. When the token was null, \`providerSetup.status: ready\`
 means that the requested GitHub and Convex work finished. It does not mean Cloudflare is complete.
 This expected pending state is not a failure and must not be repaired with the retry action. Cost:
 the created resources run on the providers' free tiers; an idle app costs $0/month.`,

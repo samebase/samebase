@@ -14,7 +14,8 @@ GitHub, Convex, Cloudflare, or public internet state.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 
 ## Returns
 

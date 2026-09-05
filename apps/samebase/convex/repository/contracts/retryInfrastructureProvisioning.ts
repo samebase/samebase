@@ -16,7 +16,7 @@ export const retryInfrastructureProvisioningContract = {
     title: "Retry infrastructure provisioning",
     name: "repository_actions_retryInfrastructureProvisioning",
     description:
-      "Call get_user_repositories first and use its returned repositoryId. Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -24,7 +24,7 @@ export const retryInfrastructureProvisioningContract = {
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by get_user_repositories.",
+      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Retries failed Samebase-managed infrastructure setup: starts a fresh
@@ -32,8 +32,8 @@ managed provisioning run that re-reads the app's current infrastructure state an
 whose resources already exist, so completed work is not redone. It does not require or inspect a
 prior failed run.
 
-Only valid for live Samebase-managed apps, which are apps created by \`create_repository\`; imported
+Only valid for live Samebase-managed apps, which are apps created by \`repository_actions_createRepository\`; imported
 repositories repair through the explicit manual attachment and provider-configuration actions
 instead. Progress is
-readable through \`get_user_repositories\` while the run executes.`,
+readable through \`repository_dashboard_getUserRepositories\` while the run executes.`,
 } as const;

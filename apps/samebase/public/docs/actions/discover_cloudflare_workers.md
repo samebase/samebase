@@ -12,9 +12,10 @@ provider-connection bookkeeping, but it writes no attachment or provider resourc
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 - `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
-  get_user_repositories.
+  repository_dashboard_getUserRepositories.
 
 ## Returns
 

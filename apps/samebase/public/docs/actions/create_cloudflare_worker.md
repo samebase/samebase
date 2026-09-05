@@ -16,9 +16,10 @@ attached. Reread inventory after every result before another write.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by get_user_repositories.
+- `repositoryId` (string, required): Samebase repository ID returned by
+  repository_dashboard_getUserRepositories.
 - `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
-  get_user_repositories.
+  repository_dashboard_getUserRepositories.
 - `workerName` (string, required): Name for the new Cloudflare Worker. An existing name is rejected.
 - `rootDirectory` (string, required): Repository root for this Worker's GitHub Builds triggers.
 - `buildTokenUuid` (string, required): Workers Builds token UUID returned by
