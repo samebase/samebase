@@ -121,12 +121,6 @@ describe("compactIdentitySvgAsset", () => {
     expect(readPublicSvg(COMPACT_IDENTITY_SOURCE_SVG_URL)).toBe(generatedSvg);
     expect(readPublicSvg(COMPACT_IDENTITY_SVG_URL)).toBe(generatedSvg);
     expect(readPublicSvg(INSTALL_ICON_SVG_URL)).toBe(generatedSvg);
-    expect(
-      readFileSync(
-        new URL("../../../../templates/base/public/favicon.svg", import.meta.url),
-        "utf8",
-      ).trim(),
-    ).toBe(generatedSvg);
   });
 
   it("keeps the standard mark inside a circular crop", () => {
@@ -155,7 +149,7 @@ describe("compactIdentitySvgAsset", () => {
     );
     expect(
       readFileSync(
-        new URL("../../../../templates/base/public/samebase.svg", import.meta.url),
+        new URL("../../../../templates/base/public/favicon.svg", import.meta.url),
         "utf8",
       ).trim(),
     ).toBe(generatedSvg);

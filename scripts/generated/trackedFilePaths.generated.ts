@@ -2187,7 +2187,6 @@ export const trackedFilePaths = [
   "templates/base/prerender.config.ts",
   "templates/base/public/_redirects",
   "templates/base/public/favicon.svg",
-  "templates/base/public/samebase.svg",
   "templates/base/scripts/build-cloudflare.test.ts",
   "templates/base/scripts/build-cloudflare.ts",
   "templates/base/scripts/deploy-cloudflare.test.ts",

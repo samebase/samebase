@@ -109,9 +109,8 @@ gets the same stripe phase.
   a centered 16-unit opening. The canvas and opening stay white for use on dark backgrounds.
 - Maskable manifest assets preserve the same square-ring geometry with additional white safety space
   so platform crops do not clip the outer square.
-- The logo asset generator writes the starter favicon from the standard compact source and the
-  starter attribution logo from the inline source. Both landing-page wordmarks use that inline
-  source.
+- The starter favicon and attribution share `public/favicon.svg`, generated from the 80% inline
+  source. Both landing-page wordmarks use that source.
 
 ## Product Usage
 

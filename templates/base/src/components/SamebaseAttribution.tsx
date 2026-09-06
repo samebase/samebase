@@ -9,7 +9,7 @@ export function SamebaseAttribution() {
       <span className="inline-flex items-center gap-1 border-b border-transparent group-hover:border-current">
         Managed with{" "}
         <span className="text-foreground inline-flex items-center gap-1 whitespace-nowrap font-bold">
-          <img src="/samebase.svg" alt="" width={15} height={15} className="dark:invert" />
+          <img src="/favicon.svg" alt="" width={15} height={15} className="dark:invert" />
           Samebase
         </span>
       </span>
