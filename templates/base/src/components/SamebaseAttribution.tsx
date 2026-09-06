@@ -9,7 +9,18 @@ export function SamebaseAttribution() {
       <span className="inline-flex items-center gap-1 border-b border-transparent group-hover:border-current">
         Managed with{" "}
         <span className="text-foreground inline-flex items-center gap-1 whitespace-nowrap font-bold">
-          <img src="/favicon.svg" alt="" width={15} height={15} className="dark:invert" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 60 60"
+            width={15}
+            height={15}
+            shapeRendering="crispEdges"
+            className="dark:invert"
+            aria-hidden="true"
+          >
+            <rect width="60" height="60" fill="#ffffff" />
+            <path d="M6 6h48v48H6z M22 22h16v16H22z" fill="#394447" fillRule="evenodd" />
+          </svg>
           Samebase
         </span>
       </span>

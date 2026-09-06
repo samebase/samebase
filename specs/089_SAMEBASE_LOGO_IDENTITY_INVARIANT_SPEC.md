@@ -109,8 +109,9 @@ gets the same stripe phase.
   a centered 16-unit opening. The canvas and opening stay white for use on dark backgrounds.
 - Maskable manifest assets preserve the same square-ring geometry with additional white safety space
   so platform crops do not clip the outer square.
-- The starter favicon and attribution share `public/favicon.svg`, generated from the 80% inline
-  source. Both landing-page wordmarks use that source.
+- The starter attribution embeds the 80% mark so replacing the app's `public/favicon.svg` does not
+  change the Samebase credit. The default favicon and both landing-page wordmarks use the same
+  compact geometry.
 
 ## Product Usage
 
