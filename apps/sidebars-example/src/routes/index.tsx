@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { SamebaseAttribution } from "@/components/SamebaseAttribution";
 import { ExampleSidebarLayout } from "@/sidebars/ExampleSidebarLayout";
 
 const EXAMPLE_LINKS = [
@@ -63,6 +64,11 @@ function ExamplePage() {
       }}
       main={{
         content: <ExampleMain />,
+        footer: (
+          <footer className="example-footer">
+            <SamebaseAttribution />
+          </footer>
+        ),
         scrollRestorationId: "example-main",
       }}
       right={{
