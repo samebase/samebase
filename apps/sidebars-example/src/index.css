@@ -208,6 +208,43 @@ a {
   line-height: 1.65;
 }
 
+[data-sidebar-layout-part="pane-footer"] {
+  container-type: inline-size;
+}
+
+.example-footer {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+  padding: 0 clamp(2rem, 8cqw, 6rem) 1rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.samebase-attribution {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: inherit;
+  font-size: 0.75rem;
+  text-decoration: none;
+  outline-color: currentColor;
+}
+
+.samebase-attribution > span {
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.samebase-attribution:hover > span {
+  border-color: currentColor;
+}
+
+.samebase-attribution svg {
+  display: inline-block;
+  margin-right: 0.15em;
+  vertical-align: baseline;
+}
+
 .example-details {
   display: flex;
   flex-direction: column;
