@@ -46,6 +46,7 @@ import {
   type FileViewProsemarkHeightVisualMode,
 } from "@/repository/editor/FileViewProsemarkHeightVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
+import { SamebaseAttributionVisualFixture } from "@/components/SamebaseAttributionVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
   type AppBootFailureStateVisualMode,
@@ -111,6 +112,7 @@ type VisualFixtureMode =
   | RouteUrlEditorVisualMode
   | "public-account-checking-login"
   | "button"
+  | "samebase-attribution"
   | AppBootFailureStateVisualMode
   | "corner-notch"
   | "corner-notch-detail"
@@ -262,6 +264,7 @@ const MISC_VISUAL_MODES = [
   "public-account-checking-login",
   ...SIDEBAR_LAYOUT_VISUAL_MODES,
   "button",
+  "samebase-attribution",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
   "corner-notch",
@@ -478,6 +481,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "button") {
     return <ButtonVisualFixture />;
+  }
+
+  if (mode === "samebase-attribution") {
+    return <SamebaseAttributionVisualFixture />;
   }
 
   if (mode === "app-boot-failure-stale" || mode === "app-boot-failure-generic") {

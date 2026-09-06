@@ -15,7 +15,8 @@
     "allowSyntheticDefaultImports": true,
     "moduleDetection": "force",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime.d.ts"]
     },
     "sourceMap": true,
     "inlineSources": true
