@@ -450,6 +450,7 @@ export default defineConfig({
     typegpu(),
   ],
   resolve: {
+    dedupe: ["react", "react-dom"],
     conditions: ["samebase-source", ...defaultClientConditions],
     tsconfigPaths: true,
     alias: {
