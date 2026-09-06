@@ -26,15 +26,6 @@ function ExampleLinks() {
           {label}
         </a>
       ))}
-      <a
-        className="samebase-attribution"
-        href="https://samebase.com"
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        Managed with <img src="/samebase.svg" alt="" width={16} height={16} />
-        Samebase
-      </a>
     </nav>
   );
 }

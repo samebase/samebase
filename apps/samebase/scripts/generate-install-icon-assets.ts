@@ -350,15 +350,10 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
     toPublicPath(sourceAssetPath),
     path.join(repoRoot, trackedFilePath("templates/base/public/favicon.svg")),
   );
-  for (const targetPath of [
-    "templates/base/public/samebase.svg",
-    "apps/sidebars-example/public/samebase.svg",
-  ] as const) {
-    copyFileSync(
-      toPublicPath("/brand/icon/compact-v1-landing-inline-80.svg"),
-      path.join(repoRoot, trackedFilePath(targetPath)),
-    );
-  }
+  copyFileSync(
+    toPublicPath("/brand/icon/compact-v1-landing-inline-80.svg"),
+    path.join(repoRoot, trackedFilePath("templates/base/public/samebase.svg")),
+  );
 
   const faviconMarkup = modules.createFaviconCompactIdentitySvgMarkup();
   for (const job of faviconIconJobs) {

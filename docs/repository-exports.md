@@ -85,20 +85,6 @@ older entries selected by the changelog's starter-build rules. Report each app a
 `already current`, `not relevant`, or `unavailable`. Put app changes in separate repository pull
 requests. The changelog work is not complete until the sweep is recorded.
 
-### App attribution
-
-The [starter attribution guidance](../templates/base/README.md#attribution) defines the optional
-`Managed with Samebase` credit. Include its component and bundled logo in the starter export and
-runtime seed. Adapt its placement to each existing app through a repository pull request.
-
-The logo asset generator owns the starter's `public/favicon.svg` and `public/samebase.svg` copies.
-Run `pnpm --filter samebase generate:logo-assets` after changing the compact logo source, then stage
-the template files and run the template export. Keep the compact geometry contract in
-[the logo identity spec](../specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md#asset-contract).
-
-Do not add the credit to `samebase.com`. Its existing Samebase branding already identifies the
-product. Temporary test repositories and repositories without an application UI do not need it.
-
 ## Sidebars package export
 
 `packages/sidebars` publishes to the public `samebase/sidebars` repository on `main`. The package

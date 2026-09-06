@@ -22,21 +22,6 @@ relevant, and preserve unrelated user changes.
 For a review of several apps, compare each repository independently. Do not reuse one app's starter
 build or relevance result for another app.
 
-## v2035: Add optional Samebase attribution
-
-Apps managed through Samebase use the optional `Managed with Samebase` credit. The starter includes
-an editable `SamebaseAttribution` component and the official local `public/samebase.svg` logo.
-
-Relevant when a connected app has a public UI and has no Samebase credit, or uses older wording. Use
-a small link to `https://samebase.com` with the logo immediately before `Samebase`. Place it in an
-existing footer, help panel, or project links area. Preserve app controls, keyboard focus, mobile
-layout, and page scrolling. Keep the credit removable for apps that do not use Samebase.
-
-Do not add this credit to `samebase.com`, temporary test apps, or repositories without an
-application UI. Inspect the real app at desktop and mobile widths after adding the credit.
-
-Source: [Samebase base attribution guidance](https://github.com/samebase/base#attribution)
-
 ## v1996: Upgrade Convex to 1.45.0
 
 The starter now uses Convex 1.45.0. This release upgrades local deployments in place and adds
