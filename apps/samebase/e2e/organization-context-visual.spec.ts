@@ -208,7 +208,7 @@ test("persists one user's collapsed organization across repository routes", asyn
   ).toHaveAttribute("aria-expanded", "false");
 });
 
-test("keeps one organization switchable across settings, providers, and billing", async ({
+test("shows one organization context across global pages, settings, providers, and billing", async ({
   page,
 }, testInfo) => {
   await createApprovedAccount(page, testInfo, "one", [
@@ -219,18 +219,33 @@ test("keeps one organization switchable across settings, providers, and billing"
     },
   ]);
 
-  await openRoute(page, "/org/org-context-solo/settings");
+  await openRoute(page, "/repo");
+  const rightPane = await openDesktopRightPane(page);
+  const organizationContext = rightPane.getByTestId("organization-context-control");
+  await expect(organizationContext).toHaveText("org-context-solo");
+  await expect(organizationContext.getByRole("button")).toHaveCount(0);
+  await expect(rightPane.getByRole("link", { name: "New app", exact: true })).toHaveAttribute(
+    "href",
+    "/org/org-context-solo/new-app",
+  );
+  await expect(
+    rightPane.getByRole("link", { name: "Connect repository", exact: true }),
+  ).toHaveAttribute("href", "/org/org-context-solo/connect-repo");
+  await expect(page).toHaveURL(/\/repo$/u);
+
+  await rightPane.getByRole("link", { name: "Organizations", exact: true }).click();
+  await expect(page).toHaveURL(/\/org$/u);
+  await expect(page.getByRole("heading", { name: "Organizations", exact: true })).toBeVisible();
+  await expect(organizationContext).toHaveText("org-context-solo");
+  await expect(organizationContext.getByRole("button")).toHaveCount(0);
+  await rightPane.getByRole("link", { name: "Organization settings", exact: true }).click();
+  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings$/u);
 
   const header = page.locator(MAIN_HEADER_SELECTOR);
   await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
-  const rightPane = await openDesktopRightPane(page);
-  const organizationContext = rightPane.getByTestId("organization-context-control");
-  await expect(
-    organizationContext.getByRole("button", {
-      name: "Switch organization, current context org-context-solo",
-    }),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(organizationContext).toHaveText("org-context-solo");
+  await expect(organizationContext.getByRole("button")).toHaveCount(0);
   const organizationSettings = page.getByTestId("organization-settings-page");
   await expect(
     organizationSettings.getByRole("heading", { name: "Organization settings" }),
@@ -293,6 +308,10 @@ test("keeps one organization switchable across settings, providers, and billing"
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   }
   await expect(organizationContext).toBeVisible();
+  await expect(organizationContext).toHaveText("org-context-unavailable");
+  await expect(
+    rightPane.getByRole("navigation", { name: "Organization", exact: true }),
+  ).toHaveCount(0);
   await expect(page).toHaveScreenshot("organization-providers-authorization-error.png", {
     ...screenshotOptions,
     fullPage: true,

@@ -405,11 +405,13 @@ function AuthenticatedAppRightSidebarContent({
   const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
   const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
-  const routedOrganization =
+  const navigationOrganization =
     surface.kind === "organization" && organizations
       ? findViewerOrganization(organizations, surface.owner)
-      : null;
-  const organizationContextPending = surface.kind === "organization" && organizations === undefined;
+      : (surface.kind === "allRepositories" || surface.kind === "organizations") &&
+          organizations?.length === 1
+        ? organizations[0]
+        : null;
   const showOnboardingVideo =
     repositories !== undefined &&
     !repositories.some(
@@ -428,8 +430,8 @@ function AuthenticatedAppRightSidebarContent({
       <GlobalAppRightSidebarLinks showOrganizations />
       <OrganizationContextControl />
       {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
-      {organizationContextPending || routedOrganization === null ? null : (
-        <OrganizationAppRightSidebarLinks organization={routedOrganization} />
+      {navigationOrganization === null ? null : (
+        <OrganizationAppRightSidebarLinks organization={navigationOrganization} />
       )}
       <AppRightSidebarFooter
         consentPrompt={consentPrompt}

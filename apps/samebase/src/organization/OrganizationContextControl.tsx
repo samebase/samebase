@@ -1,4 +1,8 @@
-import { useOrganizationContext, type AppOrganizationSurface } from "@/organization/context";
+import {
+  useOrganizationContext,
+  type AppOrganizationSurface,
+  type ViewerOrganization,
+} from "@/organization/context";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,9 +15,15 @@ import { buildOrganizationSwitchHref } from "@/organization/organizationSwitchRo
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 
-function readContextLabel(surface: AppOrganizationSurface): string | null {
-  if (surface.kind === "allRepositories") {
-    return "No organization selected";
+function readContextLabel(
+  surface: AppOrganizationSurface,
+  organizations: readonly ViewerOrganization[],
+): string | null {
+  if (surface.kind === "allRepositories" || surface.kind === "organizations") {
+    if (organizations.length === 1) {
+      return organizations[0].githubOwnerLogin;
+    }
+    return surface.kind === "allRepositories" ? "No organization selected" : null;
   }
   if (surface.kind === "organization") {
     return surface.owner;
@@ -25,13 +35,13 @@ export function OrganizationContextControl() {
   const { organizations, surface } = useOrganizationContext();
   const navigate = useNavigate();
   const location = useLocation();
-  const displayedLabel = readContextLabel(surface);
   const orderedOrganizations = personalOrganizationsFirst(organizations ?? []);
+  const displayedLabel = readContextLabel(surface, orderedOrganizations);
   if (displayedLabel === null) {
     return null;
   }
-  if (orderedOrganizations.length === 0) {
-    return surface.kind === "organization" ? (
+  if (orderedOrganizations.length <= 1) {
+    return orderedOrganizations.length === 1 || surface.kind === "organization" ? (
       <div
         className="repository-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
         data-testid="organization-context-control"
