@@ -11,9 +11,6 @@ type CompactIdentityGeometry = {
   backgroundColor: string;
   foregroundColor: string;
   inset: number;
-  markSize: number;
-  openingInset: number;
-  openingSize: number;
   viewBoxSize: number;
 };
 
@@ -21,15 +18,15 @@ function createCompactIdentitySvgMarkupForGeometry({
   backgroundColor,
   foregroundColor,
   inset,
-  markSize,
-  openingInset,
-  openingSize,
   viewBoxSize,
 }: CompactIdentityGeometry) {
+  const markSize = viewBoxSize - 2 * inset;
+  const openingSize = markSize / 3;
+  const openingInset = inset + openingSize;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${viewBoxSize}" height="${viewBoxSize}" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" shape-rendering="crispEdges">
   <rect width="${viewBoxSize}" height="${viewBoxSize}" fill="${backgroundColor}" />
-  <rect x="${inset}" y="${inset}" width="${markSize}" height="${markSize}" fill="${foregroundColor}" />
-  <rect x="${openingInset}" y="${openingInset}" width="${openingSize}" height="${openingSize}" fill="${backgroundColor}" />
+  <path d="M${inset} ${inset}h${markSize}v${markSize}H${inset}z M${openingInset} ${openingInset}h${openingSize}v${openingSize}H${openingInset}z" fill="${foregroundColor}" fill-rule="evenodd" />
 </svg>`;
 }
 
@@ -43,9 +40,6 @@ export function createCompactIdentitySvgMarkup() {
     backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
     foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
     inset: 9,
-    markSize: 42,
-    openingInset: 23,
-    openingSize: 14,
     viewBoxSize: 60,
   });
 }
@@ -59,9 +53,6 @@ export function createDarkCompactIdentitySvgMarkup() {
     backgroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
     foregroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
     inset: 9,
-    markSize: 42,
-    openingInset: 23,
-    openingSize: 14,
     viewBoxSize: 60,
   });
 }
@@ -75,19 +66,18 @@ export function createFaviconCompactIdentitySvgMarkup() {
     backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
     foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
     inset: 1,
-    markSize: 6,
-    openingInset: 3,
-    openingSize: 2,
     viewBoxSize: 8,
   });
 }
 
 /** The 60-unit grid gives the 80% square and its one-third opening integer coordinates. */
 export function createLandingInline80PercentMarkSvgMarkup() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" shape-rendering="crispEdges">
-  <rect width="60" height="60" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />
-  <path d="M6 6h48v48H6z M22 22h16v16H22z" fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}" fill-rule="evenodd" />
-</svg>`;
+  return createCompactIdentitySvgMarkupForGeometry({
+    backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
+    foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
+    inset: 6,
+    viewBoxSize: 60,
+  });
 }
 
 /**
@@ -99,9 +89,6 @@ export function createMaskableCompactIdentitySvgMarkup() {
     backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
     foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
     inset: 7,
-    markSize: 18,
-    openingInset: 13,
-    openingSize: 6,
     viewBoxSize: 32,
   });
 }
