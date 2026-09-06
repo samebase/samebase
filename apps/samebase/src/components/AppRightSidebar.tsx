@@ -171,7 +171,6 @@ function AppRightSidebarProductUpdateEmailConsent() {
           onClick={() => void saveDecision("granted")}
           size="sm"
           type="button"
-          variant="outline"
         >
           {pendingDecision === "granted" ? "Saving..." : "Email me"}
         </Button>
