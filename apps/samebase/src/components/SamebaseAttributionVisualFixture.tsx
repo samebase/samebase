@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { SamebaseAttribution } from "../../../../templates/base/src/components/SamebaseAttribution";
 
-const guideScale = 6;
+const guideScale = 10;
 
 export function SamebaseAttributionVisualFixture() {
   const comparison = useRef<HTMLDivElement>(null);
@@ -66,7 +66,7 @@ export function SamebaseAttributionVisualFixture() {
         </div>
       </div>
       <div className="overflow-x-auto bg-white p-4 text-[#394447]">
-        <p className="text-sm">Alignment guides · 6×</p>
+        <p className="text-sm">Alignment guides · {guideScale}×</p>
         <div
           ref={comparison}
           data-testid="samebase-attribution-guides"
