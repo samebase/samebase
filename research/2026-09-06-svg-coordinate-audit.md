@@ -13,6 +13,7 @@ clearly:
 
 ```svg
 <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" shape-rendering="crispEdges">
+  <rect width="60" height="60" fill="#ffffff" />
   <path d="M6 6h48v48H6z M22 22h16v16H22z" fill="#394447" fill-rule="evenodd" />
 </svg>
 ```
@@ -51,8 +52,10 @@ owns the assets.
 | Inline wordmarks and attribution   |           60 |           48 |       6 |            16 |            80% |
 | Maskable install icons             |           32 |           18 |       7 |             6 |         56.25% |
 
-These grids already give exact centered openings without rounded coordinates. The inline asset has a
-transparent opening and canvas. Other compact icons retain their existing opaque background.
+These grids already give exact centered openings without rounded coordinates. Compact icons keep an
+opaque canvas and opening. The inline asset uses a white background rectangle behind the simple path
+so it stays visible on dark backgrounds. App-owned dark themes can invert the whole image; external
+consumers do not need CSS to make the SVG visible.
 
 ## Source ownership
 
@@ -85,5 +88,6 @@ active identity generator. This change does not assign it a new role.
 
 Existing compact-asset tests cover the integer geometry, generated copies, and exact icon raster
 pixels. Landing-page tests cover the shared asset URL. Projected and social asset tests check that
-those families still match their generators. Regeneration changes no PNG bytes, and the template SVG
-is identical to its version before the 100-unit experiment.
+those families still match their generators. Regeneration changes no PNG bytes. Browser checks cover
+the inline SVG on white, black, and gray backgrounds, its inverted rendering on black, and the
+template credit in light and dark mode. The white backing covers the canvas and opening.

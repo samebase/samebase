@@ -152,7 +152,9 @@ describe("compactIdentitySvgAsset", () => {
     expect(generatedSvg).toContain('viewBox="0 0 60 60"');
     expect(generatedSvg).toContain('d="M6 6h48v48H6z M22 22h16v16H22z"');
     expect(generatedSvg).toContain('fill-rule="evenodd"');
-    expect(generatedSvg).not.toContain("<rect ");
+    expect(generatedSvg).toContain(
+      `<rect width="60" height="60" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />`,
+    );
     for (const assetPath of [
       "../../../../templates/base/public/samebase.svg",
       "../../../sidebars-example/public/samebase.svg",

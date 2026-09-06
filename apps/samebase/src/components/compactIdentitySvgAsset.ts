@@ -85,6 +85,7 @@ export function createFaviconCompactIdentitySvgMarkup() {
 /** The 60-unit grid gives the 80% square and its one-third opening integer coordinates. */
 export function createLandingInline80PercentMarkSvgMarkup() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" shape-rendering="crispEdges">
+  <rect width="60" height="60" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />
   <path d="M6 6h48v48H6z M22 22h16v16H22z" fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}" fill-rule="evenodd" />
 </svg>`;
 }

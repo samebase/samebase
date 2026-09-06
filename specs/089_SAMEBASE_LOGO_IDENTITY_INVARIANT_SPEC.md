@@ -107,8 +107,8 @@ gets the same stripe phase.
 - The landing-page inline lockup uses a generated compact mark whose visible square occupies 80% of
   the canvas. Its 60-unit viewBox gives integer geometry: 6 units of padding, a 48-unit square, and
   a centered 16-unit opening. Keep this simple path rather than deriving it from the 3D projection
-  or converting it to a 100-unit grid with fractional thirds. Its opening and canvas are
-  transparent.
+  or converting it to a 100-unit grid with fractional thirds. Keep its white canvas and white
+  opening so the SVG remains visible on dark backgrounds without requiring theme-specific CSS.
 - Maskable manifest assets preserve the same square-ring geometry with additional white safety space
   so platform crops do not clip the outer square.
 - Choose compact SVG coordinate grids that keep the geometry exact and readable. The standard and
