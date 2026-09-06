@@ -46,7 +46,10 @@ export function OrganizationContextControl() {
         className="repository-dashboard-sidebar-inset min-w-0 border-b border-border/50 py-3"
         data-testid="organization-context-control"
       >
-        <span className="block w-full min-w-0 truncate text-sm font-medium" title={displayedLabel}>
+        <span
+          className="block h-8 w-full min-w-0 truncate text-sm font-medium leading-8"
+          title={displayedLabel}
+        >
           {displayedLabel}
         </span>
       </div>
