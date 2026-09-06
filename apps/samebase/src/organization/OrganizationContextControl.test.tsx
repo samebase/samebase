@@ -123,29 +123,26 @@ describe("OrganizationContextControl", () => {
     rootElement = null;
   });
 
-  it("uses the same switch control for one organization", async () => {
-    testState.context.organizations = [organization("samebase")];
-    const container = await mountControl();
+  it.each([
+    { kind: "allRepositories" },
+    { kind: "organizations" },
+    { kind: "organization", owner: "samebase", section: "settings", source: "organization" },
+  ] satisfies AppOrganizationSurface[])(
+    "shows one organization name without a switch on $kind",
+    async (surface) => {
+      testState.context.organizations = [organization("samebase", "user")];
+      testState.context.surface = surface;
+      const container = await mountControl();
 
-    expect(container.querySelector('[data-testid="organization-context-control"]')).not.toBeNull();
-    expect(container.textContent).toContain("No organization selected");
-    expect(container.textContent).toContain("samebase");
-    expect(
-      container.querySelector(
-        '[aria-label="Switch organization, current context No organization selected"]',
-      ),
-    ).not.toBeNull();
-    const menuItems = [
-      ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
-    ];
-    expect(menuItems.map((item) => item.textContent)).toEqual(["samebase"]);
-    await act(async () => {
-      menuItems[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(testState.navigate).toHaveBeenCalledWith({ href: "/org/samebase/repositories" });
-  });
+      expect(
+        container.querySelector('[data-testid="organization-context-control"]'),
+      ).not.toBeNull();
+      expect(container.textContent).toBe("samebase");
+      expect(container.querySelector("button")).toBeNull();
+      expect(container.querySelector('[data-testid="organization-context-menu"]')).toBeNull();
+      expect(testState.navigate).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not show a switch when there are no organizations", async () => {
     testState.context.organizations = [];
@@ -156,7 +153,7 @@ describe("OrganizationContextControl", () => {
   });
 
   it("keeps a routed organization visible when its membership is unavailable", async () => {
-    testState.context.organizations = [];
+    testState.context.organizations = [organization("other-org")];
     testState.context.surface = {
       kind: "organization",
       owner: "lost-org",
@@ -241,6 +238,7 @@ describe("OrganizationContextControl", () => {
   });
 
   it("does not repeat account context below the account section", async () => {
+    testState.context.organizations = [organization("samebase", "user")];
     testState.context.surface = { kind: "account" };
     const container = await mountControl();
 

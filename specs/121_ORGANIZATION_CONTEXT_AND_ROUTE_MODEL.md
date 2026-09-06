@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-09-02
+- Last updated: 2026-09-07
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Related: `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
@@ -65,25 +65,32 @@ link stays visible on global repository and organization routes. On small screen
 `/org/:owner/*`, and `/repo/:owner/:repository/*` show the standard right-pane toggle. User settings
 do not show an organization context control.
 
-A user with one or more organizations sees the same switch control below the global links. The
-switch contains only current organizations, with personal owners first and each owner type sorted by
-owner login. A user with no organizations sees no switch control.
+A user with one organization sees its owner name as text below the global links, followed by the
+organization navigation links. This also applies on `/repo` and `/org`, without changing those
+global routes. There is no dropdown or `No organization selected` label for that user.
+
+A user with several organizations sees the switch control on the global repository and scoped
+organization or repository routes. The switch contains only current organizations, with personal
+owners first and each owner type sorted by owner login. A user with no organizations sees no switch
+control. Account settings have no organization context or organization navigation links.
 
 The switch keeps the same organization section when the target route supports it. A switch from a
 repository route opens the target organization's repository list. Each switch creates a normal
 browser history entry. Back, Forward, reload, and direct links read the owner from the route.
 
-The right navigation pane uses the route owner. Below the switch control, it provides
+On a scoped route, the right navigation pane uses the route owner. An unavailable route owner never
+falls back to another membership. Below the organization name or switch control, the pane provides
 `Repositories`, `Providers`, `New app`, `Connect repository`, `Members`, and `Organization settings`
 in that order. The global repository empty state provides an `Add organization` action that opens
 `/org`.
 
 ## Organizations Directory
 
-`/org` is a user-global route with the standard right navigation pane and no selected organization.
-The page first lists every current Samebase membership. These rows do not depend on GitHub sign-in,
-authorization, or installation discovery. Each membership row shows `Connected to Samebase` and an
-`Open` action for `/org/:owner/repositories`.
+`/org` is a user-global route with the standard right navigation pane. A sole membership supplies
+navigation links without filtering the directory. The page first lists every current Samebase
+membership. These rows do not depend on GitHub sign-in, authorization, or installation discovery.
+Each membership row shows `Connected to Samebase` and an `Open` action for
+`/org/:owner/repositories`.
 
 GitHub discovery runs as an independent second data source. The page links to Account settings when
 the GitHub identity is missing and asks the user to authorize GitHub only when the authorization is

@@ -857,68 +857,113 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('href="/admin/account-deletions"');
   });
 
-  it("renders the approved organization navigation without a billing item", async () => {
-    const organization = {
-      canCreateRepository: true,
-      githubOwnerId: "456",
-      githubOwnerLogin: "samebase",
-      githubOwnerType: "organization" as const,
-      organizationId: fakeOrganizationId("organization_samebase"),
-      role: "owner" as const,
-    } satisfies ViewerOrganization;
-    organizationContextState.organizations = [organization];
-    organizationContextState.surface = {
-      kind: "organization",
-      owner: "samebase",
-      section: "settings",
-      source: "organization",
-    };
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-    blockProviderStatusQueries();
+  it.each([
+    { kind: "allRepositories" },
+    { kind: "organizations" },
+    { kind: "organization", owner: "samebase", section: "settings", source: "organization" },
+  ] satisfies AppOrganizationSurface[])(
+    "renders the approved organization navigation on $kind without a billing item",
+    async (surface) => {
+      const organization = {
+        canCreateRepository: true,
+        githubOwnerId: "456",
+        githubOwnerLogin: "samebase",
+        githubOwnerType: "organization" as const,
+        organizationId: fakeOrganizationId("organization_samebase"),
+        role: "owner" as const,
+      } satisfies ViewerOrganization;
+      organizationContextState.organizations = [organization];
+      organizationContextState.surface = surface;
+      window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+      blockProviderStatusQueries();
 
-    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
-      new Map([
-        [
-          getFunctionName(api.users.currentViewerAccess),
-          {
-            role: "role_member",
-            accessKeys: ["access_public", "access_provider_connections"],
-          },
-        ],
-        [
-          getFunctionName(api.users.viewer),
-          {
-            _id: "user_123",
-            accountPresentation: { kind: "email", label: "nicu@samebase.md" },
-          },
-        ],
-      ]),
-    );
+      const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+        new Map([
+          [
+            getFunctionName(api.users.currentViewerAccess),
+            {
+              role: "role_member",
+              accessKeys: ["access_public", "access_provider_connections"],
+            },
+          ],
+          [
+            getFunctionName(api.users.viewer),
+            {
+              _id: "user_123",
+              accountPresentation: { kind: "email", label: "nicu@samebase.md" },
+            },
+          ],
+        ]),
+      );
 
-    expect(hydratedMarkup).toContain('href="/org/samebase/repositories"');
-    expect(hydratedMarkup).toContain('href="/org/samebase/providers"');
-    expect(hydratedMarkup).toContain('href="/org/samebase/new-app"');
-    expect(hydratedMarkup).toContain('href="/org/samebase/connect-repo"');
-    expect(hydratedMarkup).toContain('href="/org/samebase/settings/members"');
-    expect(hydratedMarkup).toContain('href="/org/samebase/settings"');
-    expect(hydratedMarkup.indexOf("Members")).toBeLessThan(
-      hydratedMarkup.indexOf("Organization settings"),
-    );
-    expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
-    expect(hydratedMarkup).toContain("All repositories");
-    expect(hydratedMarkup).toContain("Organizations");
-    expect(hydratedMarkup).toContain("Account settings");
-    const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
-    const allRepositoriesIndex = hydratedMarkup.indexOf('href="/repo"');
-    const organizationsIndex = hydratedMarkup.indexOf('href="/org"');
-    const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
-    const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
-    expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(allRepositoriesIndex).toBeGreaterThan(accountIndex);
-    expect(organizationsIndex).toBeGreaterThan(allRepositoriesIndex);
-    expect(contextIndex).toBeGreaterThan(organizationsIndex);
-    expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
-  });
+      expect(hydratedMarkup).toContain('href="/org/samebase/repositories"');
+      expect(hydratedMarkup).toContain('href="/org/samebase/providers"');
+      expect(hydratedMarkup).toContain('href="/org/samebase/new-app"');
+      expect(hydratedMarkup).toContain('href="/org/samebase/connect-repo"');
+      expect(hydratedMarkup).toContain('href="/org/samebase/settings/members"');
+      expect(hydratedMarkup).toContain('href="/org/samebase/settings"');
+      expect(hydratedMarkup.indexOf("Members")).toBeLessThan(
+        hydratedMarkup.indexOf("Organization settings"),
+      );
+      expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
+      expect(hydratedMarkup).toContain("All repositories");
+      expect(hydratedMarkup).toContain("Organizations");
+      expect(hydratedMarkup).toContain("Account settings");
+      const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
+      const allRepositoriesIndex = hydratedMarkup.indexOf('href="/repo"');
+      const organizationsIndex = hydratedMarkup.indexOf('href="/org"');
+      const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
+      const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
+      expect(accountIndex).toBeGreaterThanOrEqual(0);
+      expect(allRepositoriesIndex).toBeGreaterThan(accountIndex);
+      expect(organizationsIndex).toBeGreaterThan(allRepositoriesIndex);
+      expect(contextIndex).toBeGreaterThan(organizationsIndex);
+      expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
+    },
+  );
+
+  it.each([
+    { kind: "account" },
+    { kind: "none" },
+    { kind: "organization", owner: "lost-org", section: "settings", source: "organization" },
+    { kind: "organization", owner: "lost-org", section: "repositories", source: "repository" },
+  ] satisfies AppOrganizationSurface[])(
+    "does not infer organization navigation on $kind outside global pages",
+    async (surface) => {
+      organizationContextState.organizations = [
+        {
+          canCreateRepository: true,
+          githubOwnerId: "456",
+          githubOwnerLogin: "samebase",
+          githubOwnerType: "user",
+          organizationId: fakeOrganizationId("organization_samebase"),
+          role: "owner",
+        },
+      ];
+      organizationContextState.surface = surface;
+      window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+      const markup = await renderRightSidebarAfterEffectsWithNamedQueries(
+        new Map([
+          [
+            getFunctionName(api.users.currentViewerAccess),
+            {
+              role: "role_member",
+              accessKeys: ["access_public", "access_provider_connections"],
+            },
+          ],
+        ]),
+      );
+
+      expect(markup).not.toContain('aria-label="Organization"');
+      expect(markup).not.toContain('href="/org/samebase/');
+      if (surface.kind === "organization") {
+        expect(markup).toContain("lost-org");
+      } else {
+        expect(markup).not.toContain('data-testid="organization-context-control"');
+      }
+    },
+  );
 
   it("keeps All repositories visible while organization memberships load", async () => {
     organizationContextState.organizations = undefined;
