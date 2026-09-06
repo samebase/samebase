@@ -409,7 +409,7 @@ function LandingPreviewOverview() {
                       alt=""
                       className="inline-block h-5 w-5 align-[-0.125em] dark:invert"
                       height="20"
-                      src="/brand/logo/v1-side-primary-duotone-inline-80.svg"
+                      src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
                       width="20"
                     />
                     {"\u00a0"}

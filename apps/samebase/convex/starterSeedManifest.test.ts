@@ -2,13 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("identifies the v1999 template snapshot", () => {
+  it("identifies the v2035 template snapshot", () => {
     expect({
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "c913ce37109212957dc14e4fe2b0edbb7eecbd7ee6ddfaa80673baef78dea3bf",
-      commitMessage: "Initialize app from Samebase starter build v1999",
+      contentHash: "24c54ff0d619aeabac6b51bc74958e71016a5687563a504225dc23e6a28fe37f",
+      commitMessage: "Initialize app from Samebase starter build v2035",
     });
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,

@@ -105,9 +105,13 @@ gets the same stripe phase.
 - The 16px and 32px favicon rasters retain their denser pixel-aligned spacing instead of inheriting
   the avatar-safe clear space. Their visible mark occupies 75% of the canvas.
 - The landing-page inline lockup uses a generated compact mark whose visible square occupies 80% of
-  the canvas.
+  the canvas. Its 60-unit viewBox gives integer geometry: 6 units of padding, a 48-unit square, and
+  a centered 16-unit opening. The canvas and opening stay white for use on dark backgrounds.
 - Maskable manifest assets preserve the same square-ring geometry with additional white safety space
   so platform crops do not clip the outer square.
+- The starter attribution embeds the 80% mark so replacing the app's `public/favicon.svg` does not
+  change the Samebase credit. The default favicon and both landing-page wordmarks use the same
+  compact geometry.
 
 ## Product Usage
 

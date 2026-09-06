@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
@@ -346,6 +346,10 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
   writeTextAsset(maskableSourceAssetPath, modules.createMaskableCompactIdentitySvgMarkup());
   copyTextAsset(sourceAssetPath, "/samebase-icon.svg");
   copyTextAsset(sourceAssetPath, "/install-icon.svg");
+  copyFileSync(
+    toPublicPath("/brand/icon/compact-v1-landing-inline-80.svg"),
+    path.join(repoRoot, trackedFilePath("templates/base/public/favicon.svg")),
+  );
 
   const faviconMarkup = modules.createFaviconCompactIdentitySvgMarkup();
   for (const job of faviconIconJobs) {

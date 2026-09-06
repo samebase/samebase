@@ -128,23 +128,31 @@ describe("compactIdentitySvgAsset", () => {
 
     expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}"`);
     expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}"`);
-    expect(generatedSvg).toContain('x="9" y="9" width="42" height="42"');
-    expect(generatedSvg).toContain('x="23" y="23" width="14" height="14"');
+    expect(generatedSvg).toContain('d="M9 9h42v42H9z M23 23h14v14H23z"');
   });
 
   it("keeps the favicon visible mark at 75% on the 8px grid", () => {
     const generatedSvg = createFaviconCompactIdentitySvgMarkup();
 
-    expect(generatedSvg).toContain('x="1" y="1" width="6" height="6"');
-    expect(generatedSvg).toContain('x="3" y="3" width="2" height="2"');
+    expect(generatedSvg).toContain('d="M1 1h6v6H1z M3 3h2v2H3z"');
   });
 
   it("keeps the landing-page inline visible mark at 80%", () => {
     const generatedSvg = createLandingInline80PercentMarkSvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(readPublicSvg(LANDING_INLINE_80_PERCENT_MARK_SVG_URL)).toBe(generatedSvg);
-    expect(generatedSvg).toContain('x="6" y="6" width="48" height="48"');
-    expect(generatedSvg).toContain('x="22" y="22" width="16" height="16"');
+    expect(generatedSvg).toContain('viewBox="0 0 60 60"');
+    expect(generatedSvg).toContain('d="M6 6h48v48H6z M22 22h16v16H22z"');
+    expect(generatedSvg).toContain('fill-rule="evenodd"');
+    expect(generatedSvg).toContain(
+      `<rect width="60" height="60" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />`,
+    );
+    expect(
+      readFileSync(
+        new URL("../../../../templates/base/public/favicon.svg", import.meta.url),
+        "utf8",
+      ).trim(),
+    ).toBe(generatedSvg);
   });
 
   it("keeps the dark ChatGPT icon on the inverse compact identity", () => {
@@ -152,16 +160,14 @@ describe("compactIdentitySvgAsset", () => {
 
     expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_FOREGROUND_COLOR}"`);
     expect(generatedSvg).toContain(`fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}"`);
-    expect(generatedSvg).toContain('x="9" y="9" width="42" height="42"');
-    expect(generatedSvg).toContain('x="23" y="23" width="14" height="14"');
+    expect(generatedSvg).toContain('d="M9 9h42v42H9z M23 23h14v14H23z"');
   });
 
   it("keeps the maskable mark square and inside its safe area", () => {
     const generatedSvg = createMaskableCompactIdentitySvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(readPublicSvg(MASKABLE_COMPACT_IDENTITY_SOURCE_SVG_URL)).toBe(generatedSvg);
-    expect(generatedSvg).toContain('x="7" y="7" width="18" height="18"');
-    expect(generatedSvg).toContain('x="13" y="13" width="6" height="6"');
+    expect(generatedSvg).toContain('d="M7 7h18v18H7z M13 13h6v6H13z"');
   });
 
   it("keeps every raster export on exact square geometry", () => {
