@@ -188,6 +188,10 @@ export default defineConfig({
     conditions: ["samebase-source", ...defaultClientConditions],
     alias: {
       "@": path.resolve(rootDir, "./apps/samebase/src"),
+      "react/jsx-dev-runtime": path.resolve(
+        rootDir,
+        "./apps/samebase/node_modules/react/jsx-dev-runtime.js",
+      ),
     },
   },
   staged: {
