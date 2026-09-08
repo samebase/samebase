@@ -13,18 +13,23 @@ This path checks an experimental fixture. It does not define the shipped workspa
    the row. Resize the divider between Source and Reference. Confirm that the two widths change by
    equal and opposite amounts.
 4. Focus the same divider with the keyboard. Use the arrow keys. Confirm that it resizes the same
-   two panes. Focus Source with its header button, then restore it. Confirm that the previous widths
-   return. Return to Source and undo the edit.
+   two panes. Resize Outline, then close both sidebars with their header buttons. Confirm that the
+   two work panes fill the available width. Keyboard focus must move to the Source selector. Reopen
+   each sidebar by its pane button. Confirm that Outline keeps its saved width and Notes keeps its
+   edit. Return to each editor and undo its edit.
 5. Select Tool rail. Use its icons to switch between Outline and Notes. Confirm that both code panes
-   stay visible. Resize Notes while it occupies the left slot. Confirm that Source is its adjacent
-   pane. Return to Notes and confirm that its edit remains. Tab from the last rail icon into the
-   panes. Confirm that Notes receives focus before Source. This check depends on CSS `reading-flow`
-   support.
+   stay visible. Close the selected tool and confirm that the tool slot disappears. Its icon must
+   show an unselected state. Reopen Notes and resize it while it occupies the left slot. Confirm
+   that Source is its adjacent pane. Tab from the last rail icon into the panes. Confirm that Notes
+   receives focus before Source. This check depends on CSS `reading-flow` support.
 6. Select Pane row. Use the pane buttons to bring each pane into view. Try horizontal trackpad
-   scrolling and mouse text selection. Focus a pane, then restore it.
+   scrolling and mouse text selection. Resize Notes, close it, then select Reference. Confirm that
+   Reference aligns at the start and no extra blank screen follows it. Reopen Notes and confirm that
+   its width stays the same.
 7. Start a fresh mobile context with touch enabled. Swipe horizontally on a pane header. Confirm
    that the row stops at the next pane and the pane selector follows it. Check all four pane
-   buttons, including Notes at the end of the row.
+   buttons, including Notes at the end of the row. Close Notes, confirm that Source becomes active,
+   then reopen Notes. Confirm that its text remains and its header aligns at the start.
 8. Swipe inside CodeMirror, then Monaco. Record which editor lets the row move. The current
    prototype supports CodeMirror swipes. Monaco needs the header swipe or pane buttons.
 9. Capture the three desktop choices and the settled mobile view. Reload and confirm that the demo

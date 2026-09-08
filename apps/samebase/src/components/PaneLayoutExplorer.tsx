@@ -1,14 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import {
-  Columns3,
-  FileText,
-  ListTree,
-  Maximize2,
-  Minimize2,
-  PanelLeft,
-  SquareSplitHorizontal,
-} from "lucide-react";
+import { Columns3, FileText, ListTree, PanelLeft, SquareSplitHorizontal, X } from "lucide-react";
 import { PaneFrame } from "@samebase/sidebars/PaneFrame";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
@@ -31,7 +23,7 @@ const LAYOUTS = [
 
 const DESCRIPTIONS = {
   split:
-    "Outline and Notes flank two work panes. Drag a divider to share space. Focus a pane when you need more room.",
+    "Close Outline or Notes to give the two work panes more space. Select its name above to reopen it.",
   rail: "Outline and Notes share one slot. The icon strip switches that slot. Source and Reference stay visible.",
   row: "Each pane keeps a useful width. Select a pane above or scroll sideways to bring it into view.",
 } satisfies Record<Layout, string>;
@@ -53,7 +45,7 @@ Compare the pane model with the layout rules. Record your findings in Notes.
 
 1. Edit text in each pane.
 2. Resize the work panes.
-3. Focus Source, then restore.
+3. Close Notes, then reopen it above.
 4. Switch the layout.
 5. Return to your text.
 
@@ -107,25 +99,21 @@ const REFERENCE = `type Layout = "split" | "rail" | "row";
 type Workspace = {
   layout: Layout;
   activePane: string;
-  focusedPane: string | null;
+  closedSidebars: string[];
 };
 
 export const workspace: Workspace = {
   layout: "split",
   activePane: "source",
-  focusedPane: null,
+  closedSidebars: [],
 };
 
-export function focusPane(state: Workspace, id: string): Workspace {
-  return { ...state, activePane: id, focusedPane: id };
-}
-
-export function restoreLayout(state: Workspace): Workspace {
-  return { ...state, focusedPane: null };
+export function closeSidebar(state: Workspace, id: string): Workspace {
+  return { ...state, activePane: "source", closedSidebars: [...state.closedSidebars, id] };
 }
 
 export function selectPane(state: Workspace, id: string): Workspace {
-  return { ...state, activePane: id };
+  return { ...state, activePane: id, closedSidebars: state.closedSidebars.filter((pane) => pane !== id) };
 }
 
 // A layout change must keep the same editor instance.
@@ -144,7 +132,7 @@ Both files stay visible. The outer panes use some of the available width.
 
 - Compare Source with Reference.
 - Try this at laptop width.
-- Focus a pane, then restore it.
+- Close a sidebar, then select its name above to reopen it.
 
 ## Tool rail
 
@@ -209,10 +197,11 @@ export function PaneLayoutExplorer() {
   const [layout, setLayout] = useState<Layout>("split");
   const [active, setActive] = useState<PaneId>("outline");
   const [tool, setTool] = useState<"outline" | "notes">("outline");
-  const [focused, setFocused] = useState<PaneId | null>(null);
+  const [closed, setClosed] = useState({ outline: false, notes: false });
   const [widths, setWidths] = useState<Partial<Record<PaneId, number>>>({});
   const [measuredWidths, setMeasuredWidths] = useState(new Map<PaneId, number>());
   const viewport = useRef<HTMLDivElement>(null);
+  const sourceButton = useRef<HTMLButtonElement>(null);
   const elements = useRef(new Map<PaneId, HTMLDivElement>());
   const drag = useRef<{
     x: number;
@@ -221,8 +210,15 @@ export function PaneLayoutExplorer() {
     leftWidth: number;
     rightWidth: number;
   } | null>(null);
+  const open = PANES.filter(
+    (pane) => pane.id === "source" || pane.id === "reference" || !closed[pane.id],
+  );
   const visible =
-    layout === "rail" ? [PANES[tool === "outline" ? 0 : 3], PANES[1], PANES[2]] : PANES;
+    layout === "rail"
+      ? [PANES[tool === "outline" ? 0 : 3], PANES[1], PANES[2]].filter((pane) =>
+          open.includes(pane),
+        )
+      : open;
   // Separator announcements and trailing scroll space follow actual pane widths.
   useLayoutEffect(() => {
     const observer = new ResizeObserver(() => {
@@ -240,12 +236,36 @@ export function PaneLayoutExplorer() {
   function selectPane(id: PaneId) {
     flushSync(() => {
       setActive(id);
-      if (id === "outline" || id === "notes") setTool(id);
-      if (focused) setFocused(id);
+      if (id === "outline" || id === "notes") {
+        setTool(id);
+        if (closed[id]) {
+          setClosed((previous) => ({ ...previous, [id]: false }));
+          rebalanceWorkPanes();
+        }
+      }
     });
     elements.current
       .get(id)
       ?.scrollIntoView({ block: "nearest", inline: "start", behavior: "instant" });
+  }
+
+  function rebalanceWorkPanes() {
+    if (layout === "row") return;
+    setWidths((previous) => {
+      const next = { ...previous };
+      delete next.source;
+      delete next.reference;
+      return next;
+    });
+  }
+
+  function closeSidebar(id: "outline" | "notes") {
+    flushSync(() => {
+      setClosed((previous) => ({ ...previous, [id]: true }));
+      rebalanceWorkPanes();
+    });
+    selectPane("source");
+    sourceButton.current?.focus({ preventScroll: true });
   }
 
   function resize(delta: number) {
@@ -276,7 +296,6 @@ export function PaneLayoutExplorer() {
               onClick={() => {
                 flushSync(() => {
                   setLayout(id);
-                  setFocused(null);
                   setWidths({});
                   if (id === "rail" && (active === "outline" || active === "notes"))
                     setTool(active);
@@ -297,34 +316,24 @@ export function PaneLayoutExplorer() {
           <button
             key={pane.id}
             type="button"
+            ref={pane.id === "source" ? sourceButton : undefined}
             aria-current={active === pane.id ? "true" : undefined}
             onClick={() => selectPane(pane.id)}
           >
             {pane.title}
           </button>
         ))}
-        <button
-          className="pane-explorer-restore"
-          type="button"
-          onClick={() => {
-            setFocused(null);
-            setWidths({});
-          }}
-        >
-          Restore layout
+        <button className="pane-explorer-reset" type="button" onClick={() => setWidths({})}>
+          Reset widths
         </button>
       </nav>
-      <div
-        className="pane-explorer-workspace"
-        data-layout={layout}
-        data-focused={focused ?? undefined}
-      >
+      <div className="pane-explorer-workspace" data-layout={layout}>
         <nav className="pane-explorer-rail" aria-label="Tools">
           <button
             type="button"
             title="Outline"
             aria-label="Show Outline"
-            aria-pressed={tool === "outline"}
+            aria-pressed={tool === "outline" && !closed.outline}
             onClick={() => selectPane("outline")}
           >
             <ListTree size={24} />
@@ -333,7 +342,7 @@ export function PaneLayoutExplorer() {
             type="button"
             title="Notes"
             aria-label="Show Notes"
-            aria-pressed={tool === "notes"}
+            aria-pressed={tool === "notes" && !closed.notes}
             onClick={() => selectPane("notes")}
           >
             <FileText size={24} />
@@ -374,7 +383,11 @@ export function PaneLayoutExplorer() {
                     ? "true"
                     : undefined
                 }
-                data-focus-hidden={focused && focused !== pane.id ? "true" : undefined}
+                data-closed={
+                  (pane.id === "outline" || pane.id === "notes") && closed[pane.id]
+                    ? "true"
+                    : undefined
+                }
                 style={{
                   flexBasis:
                     widths[pane.id] ?? (layout === "row" ? Math.max(pane.width, 420) : pane.width),
@@ -394,18 +407,16 @@ export function PaneLayoutExplorer() {
                         {pane.title}
                         <small>{pane.file}</small>
                       </span>
-                      <button
-                        type="button"
-                        aria-label={
-                          focused === pane.id ? `Restore ${pane.title}` : `Focus ${pane.title}`
-                        }
-                        onClick={() => {
-                          setActive(pane.id);
-                          setFocused(focused === pane.id ? null : pane.id);
-                        }}
-                      >
-                        {focused === pane.id ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-                      </button>
+                      {(pane.id === "outline" || pane.id === "notes") && (
+                        <button
+                          type="button"
+                          aria-label={`Close ${pane.title}`}
+                          title={`Close ${pane.title}`}
+                          onClick={() => closeSidebar(pane.id)}
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
                     </div>
                   }
                   content={CONTENT[pane.id]}
@@ -474,7 +485,9 @@ export function PaneLayoutExplorer() {
           <div
             aria-hidden="true"
             className="pane-explorer-end-space"
-            style={{ flexBasis: `max(0px, calc(100% - ${measuredWidths.get("notes") ?? 420}px))` }}
+            style={{
+              flexBasis: `max(0px, calc(100% - ${measuredWidths.get(closed.notes ? "reference" : "notes") ?? 420}px))`,
+            }}
           />
         </div>
       </div>
