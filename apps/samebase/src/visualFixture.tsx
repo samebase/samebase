@@ -92,6 +92,7 @@ import {
 } from "@/organization/OrganizationMembersPageVisualFixture";
 import { OrganizationsPageVisualFixture } from "@/organization/OrganizationsPageVisualFixture";
 import { TermsAcceptanceVisualFixture } from "@/components/TermsAcceptanceVisualFixture";
+import { PaneLayoutExplorer } from "@/components/PaneLayoutExplorer";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
@@ -121,7 +122,8 @@ type VisualFixtureMode =
   | NewAppPageVisualMode
   | OrganizationMembersPageVisualMode
   | "organizations-page"
-  | "terms-acceptance";
+  | "terms-acceptance"
+  | "pane-layout-explorer";
 
 type VisualFixtureSelection =
   | {
@@ -270,6 +272,7 @@ const MISC_VISUAL_MODES = [
   "corner-notch",
   "corner-notch-detail",
   "terms-acceptance",
+  "pane-layout-explorer",
 ] as const satisfies readonly VisualFixtureMode[];
 
 const VISUAL_FIXTURE_GROUPS = [
@@ -444,6 +447,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "sidebar-layout-status-bar") {
     return <SidebarLayoutVisualFixture />;
+  }
+
+  if (mode === "pane-layout-explorer") {
+    return <PaneLayoutExplorer />;
   }
 
   if (mode === "route-url-editor") {
