@@ -19,33 +19,40 @@ import { useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
 
 export function useSidebarLayoutMobileCarouselController({
   activeGripResizeSideRef,
+  activeMainPaneIndex,
   carouselRef,
   hasLeftPane,
   hasRightPane,
   isMobile,
   leftWidthPx,
   mainWidthPx,
+  mainPaneCount,
   mergedSurfaceSide,
   mobilePane,
   rightWidthPx,
   setMobilePane,
+  onMainPaneChange,
   viewportWidthPx,
 }: {
   activeGripResizeSideRef: RefObject<"left" | "right" | null>;
+  activeMainPaneIndex: number;
   carouselRef: RefObject<HTMLDivElement | null>;
   hasLeftPane: boolean;
   hasRightPane: boolean;
   isMobile: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
+  mainPaneCount: number;
   mergedSurfaceSide: SidebarLayoutMobileMergedSide | null;
   mobilePane: MobilePane;
   rightWidthPx: number;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
+  onMainPaneChange: (index: number) => void;
   viewportWidthPx: number;
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
-  const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
+  const scrollDerivedMobilePaneRef = useRef<"left" | "right" | number | null>(null);
+  const mobilePosition = mobilePane === "main" ? activeMainPaneIndex : mobilePane;
   const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useSidebarLayoutActions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
@@ -59,7 +66,8 @@ export function useSidebarLayoutMobileCarouselController({
       return;
     }
 
-    const nextPane = getMobilePaneFromScrollLeft({
+    const nextPosition = getMobilePaneFromScrollLeft({
+      mainPaneCount,
       hasLeftPane,
       hasRightPane,
       leftWidthPx,
@@ -71,6 +79,7 @@ export function useSidebarLayoutMobileCarouselController({
     });
     setMobilePaneScrollProgress(
       getMobilePaneScrollProgress({
+        mainPaneCount,
         hasLeftPane,
         hasRightPane,
         leftWidthPx,
@@ -82,12 +91,15 @@ export function useSidebarLayoutMobileCarouselController({
       }),
     );
     const isScrollSettled = isMobilePaneScrollSettled({
+      mainPaneCount,
+      activeMainPaneIndex:
+        nextPosition.pane === "main" ? nextPosition.mainPaneIndex : activeMainPaneIndex,
       hasLeftPane,
       hasRightPane,
       leftWidthPx,
       mainWidthPx,
       mergedSurfaceSide,
-      pane: nextPane,
+      pane: nextPosition.pane,
       rightWidthPx,
       scrollLeftPx: carouselNode.scrollLeft,
       viewportWidthPx,
@@ -96,18 +108,18 @@ export function useSidebarLayoutMobileCarouselController({
     if (mergedSurfaceSide !== null && !isScrollSettled) {
       return;
     }
-    if (mobilePane === nextPane) {
+    const nextTarget =
+      nextPosition.pane === "main" ? nextPosition.mainPaneIndex : nextPosition.pane;
+    if (mobilePosition === nextTarget) {
       return;
     }
-    setMobilePane((currentPane) => {
-      if (currentPane === nextPane) {
-        return currentPane;
-      }
-
-      scrollDerivedMobilePaneRef.current =
-        mergedSurfaceSide !== null && currentPane === mergedSurfaceSide ? null : nextPane;
-      return nextPane;
-    });
+    scrollDerivedMobilePaneRef.current =
+      mergedSurfaceSide !== null &&
+      (mobilePane === mergedSurfaceSide || nextPosition.pane === "main")
+        ? null
+        : nextTarget;
+    if (nextPosition.pane === "main") onMainPaneChange(nextPosition.mainPaneIndex);
+    setMobilePane(nextPosition.pane);
   });
 
   useEffect(() => {
@@ -136,6 +148,8 @@ export function useSidebarLayoutMobileCarouselController({
     }
 
     const nextScrollLeftPx = getMobilePaneScrollLeftPx(mobilePane, {
+      activeMainPaneIndex,
+      mainPaneCount,
       hasLeftPane,
       hasRightPane,
       leftWidthPx,
@@ -152,7 +166,7 @@ export function useSidebarLayoutMobileCarouselController({
       return;
     }
 
-    if (scrollDerivedMobilePaneRef.current === mobilePane) {
+    if (scrollDerivedMobilePaneRef.current === mobilePosition) {
       scrollDerivedMobilePaneRef.current = null;
       return;
     }
@@ -161,6 +175,9 @@ export function useSidebarLayoutMobileCarouselController({
     setIsMobilePaneSettledEffect(true);
   }, [
     activeGripResizeSideRef,
+    activeMainPaneIndex,
+    mainPaneCount,
+    mobilePosition,
     carouselRef,
     hasLeftPane,
     hasRightPane,
@@ -219,6 +236,7 @@ export function useSidebarLayoutMobileCarouselController({
     syncPaneFromScroll(carouselNode);
   }, [
     canSyncScroll,
+    mainPaneCount,
     carouselRef,
     hasLeftPane,
     hasRightPane,

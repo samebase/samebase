@@ -18,12 +18,6 @@ export const SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX =
   );
 export const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 
-const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
-const MOBILE_PANE_ORDER_WITHOUT_MAIN = ["left", "right"] as const;
-const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
-const MOBILE_PANE_ORDER_WITHOUT_LEFT = ["main", "right"] as const;
-const MOBILE_PANE_ORDER_MAIN_ONLY = ["main"] as const;
-
 export type SidebarLayoutMobileMinResizeBehavior = "min_resize_to_slide" | "min_resize_to_merge";
 export type SidebarLayoutMobileMergedSide = SidebarSide;
 export type SidebarLayoutActiveResizeSide = SidebarSide | null;
@@ -197,73 +191,48 @@ export function getDesktopSidebarWidthPx(args: {
   );
 }
 
-function getMobilePaneOrder({
-  hasLeftPane,
-  hasRightPane,
-  mergedSurfaceSide,
-}: {
-  hasLeftPane: boolean;
-  hasRightPane: boolean;
+export function getMobileMainPaneWidthPx(args: {
+  index: number;
+  mainPaneCount: number;
+  mainWidthPx: number;
   mergedSurfaceSide: SidebarLayoutMobileMergedSide | null;
-}): readonly MobilePane[] {
-  if (mergedSurfaceSide === "left" && hasLeftPane) {
-    return hasRightPane ? MOBILE_PANE_ORDER_WITHOUT_MAIN : ["left"];
-  }
-
-  if (mergedSurfaceSide === "right" && hasRightPane) {
-    return hasLeftPane ? MOBILE_PANE_ORDER_WITHOUT_MAIN : ["right"];
-  }
-
-  if (hasLeftPane && hasRightPane) {
-    return MOBILE_PANE_ORDER;
-  }
-
-  if (hasLeftPane) {
-    return MOBILE_PANE_ORDER_WITHOUT_RIGHT;
-  }
-
-  if (hasRightPane) {
-    return MOBILE_PANE_ORDER_WITHOUT_LEFT;
-  }
-
-  return MOBILE_PANE_ORDER_MAIN_ONLY;
+  viewportWidthPx: number;
+}) {
+  const resizedIndex = args.mergedSurfaceSide === "right" ? args.mainPaneCount - 1 : 0;
+  return args.index === resizedIndex ? args.mainWidthPx : args.viewportWidthPx;
 }
 
 function getMobilePaneScrollOffsets(args: {
+  activeMainPaneIndex?: number;
   hasLeftPane: boolean;
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
+  mainPaneCount?: number;
   mergedSurfaceSide: SidebarLayoutMobileMergedSide | null;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
-  const paneOrder = getMobilePaneOrder({
-    hasLeftPane: args.hasLeftPane,
-    hasRightPane: args.hasRightPane,
-    mergedSurfaceSide: args.mergedSurfaceSide,
-  });
-
-  return paneOrder.map((pane) => {
-    if (pane === "left") {
-      return { pane, scrollLeftPx: 0 };
-    }
-
-    if (pane === "main") {
-      return { pane, scrollLeftPx: args.hasLeftPane ? args.leftWidthPx : 0 };
-    }
-
-    return {
-      pane,
-      scrollLeftPx: Math.max(
-        0,
-        (args.hasLeftPane ? args.leftWidthPx : 0) +
-          args.mainWidthPx +
-          args.rightWidthPx -
-          args.viewportWidthPx,
-      ),
-    };
-  });
+  const mainPaneCount = args.mainPaneCount ?? 1;
+  const offsets: Array<
+    ({ pane: SidebarSide } | { pane: "main"; mainPaneIndex: number }) & { scrollLeftPx: number }
+  > = [];
+  if (args.hasLeftPane) offsets.push({ pane: "left", scrollLeftPx: 0 });
+  let positionPx = args.hasLeftPane ? args.leftWidthPx : 0;
+  for (let index = 0; index < mainPaneCount; index++) {
+    const isMerged =
+      (args.mergedSurfaceSide === "left" && args.hasLeftPane && index === 0) ||
+      (args.mergedSurfaceSide === "right" && args.hasRightPane && index === mainPaneCount - 1);
+    if (!isMerged) offsets.push({ pane: "main", mainPaneIndex: index, scrollLeftPx: positionPx });
+    positionPx += getMobileMainPaneWidthPx({ ...args, index, mainPaneCount });
+  }
+  if (args.hasRightPane) {
+    offsets.push({
+      pane: "right",
+      scrollLeftPx: Math.max(0, positionPx + args.rightWidthPx - args.viewportWidthPx),
+    });
+  }
+  return offsets;
 }
 
 export function getMobilePaneScrollLeftPx(
@@ -271,8 +240,12 @@ export function getMobilePaneScrollLeftPx(
   args: Parameters<typeof getMobilePaneScrollOffsets>[0],
 ) {
   return (
-    getMobilePaneScrollOffsets(args).find((paneOffset) => paneOffset.pane === pane)?.scrollLeftPx ??
-    0
+    getMobilePaneScrollOffsets(args).find(
+      (paneOffset) =>
+        paneOffset.pane === pane &&
+        (paneOffset.pane !== "main" ||
+          paneOffset.mainPaneIndex === (args.activeMainPaneIndex ?? 0)),
+    )?.scrollLeftPx ?? 0
   );
 }
 
@@ -285,7 +258,11 @@ export function getMobilePaneScrollProgress(
     return 0;
   }
 
-  const mainScrollLeftPx = getMobilePaneScrollLeftPx("main", args);
+  const mainScrollLeftPx = getMobilePaneScrollLeftPx("main", { ...args, activeMainPaneIndex: 0 });
+  const lastMainScrollLeftPx = getMobilePaneScrollLeftPx("main", {
+    ...args,
+    activeMainPaneIndex: (args.mainPaneCount ?? 1) - 1,
+  });
   if (args.scrollLeftPx < mainScrollLeftPx && args.hasLeftPane) {
     const leftScrollLeftPx = getMobilePaneScrollLeftPx("left", args);
     const distanceToLeftPx = mainScrollLeftPx - leftScrollLeftPx;
@@ -294,30 +271,25 @@ export function getMobilePaneScrollProgress(
       : -clampNumber((mainScrollLeftPx - args.scrollLeftPx) / distanceToLeftPx, 0, 1);
   }
 
-  if (args.scrollLeftPx > mainScrollLeftPx && args.hasRightPane) {
+  if (args.scrollLeftPx > lastMainScrollLeftPx && args.hasRightPane) {
     const rightScrollLeftPx = getMobilePaneScrollLeftPx("right", args);
-    const distanceToRightPx = rightScrollLeftPx - mainScrollLeftPx;
+    const distanceToRightPx = rightScrollLeftPx - lastMainScrollLeftPx;
     return distanceToRightPx <= 0
       ? 0
-      : clampNumber((args.scrollLeftPx - mainScrollLeftPx) / distanceToRightPx, 0, 1);
+      : clampNumber((args.scrollLeftPx - lastMainScrollLeftPx) / distanceToRightPx, 0, 1);
   }
 
   return 0;
 }
 
-export function getMobilePaneFromScrollLeft(args: {
-  hasLeftPane: boolean;
-  hasRightPane: boolean;
-  leftWidthPx: number;
-  mainWidthPx: number;
-  mergedSurfaceSide: SidebarLayoutMobileMergedSide | null;
-  rightWidthPx: number;
-  scrollLeftPx: number;
-  viewportWidthPx: number;
-}) {
+export function getMobilePaneFromScrollLeft(
+  args: Parameters<typeof getMobilePaneScrollOffsets>[0] & {
+    scrollLeftPx: number;
+  },
+) {
   const paneOffsets = getMobilePaneScrollOffsets(args);
   if (paneOffsets.length === 0) {
-    return "main" as const;
+    return { pane: "main", mainPaneIndex: 0, scrollLeftPx: 0 } as const;
   }
 
   return paneOffsets.reduce((closestPane, candidatePane) =>
@@ -325,7 +297,7 @@ export function getMobilePaneFromScrollLeft(args: {
     Math.abs(closestPane.scrollLeftPx - args.scrollLeftPx)
       ? candidatePane
       : closestPane,
-  ).pane;
+  );
 }
 
 export function isMobilePaneScrollSettled(
@@ -338,6 +310,8 @@ export function isMobilePaneScrollSettled(
     Math.abs(
       args.scrollLeftPx -
         getMobilePaneScrollLeftPx(args.pane, {
+          activeMainPaneIndex: args.activeMainPaneIndex,
+          mainPaneCount: args.mainPaneCount,
           hasLeftPane: args.hasLeftPane,
           hasRightPane: args.hasRightPane,
           leftWidthPx: args.leftWidthPx,

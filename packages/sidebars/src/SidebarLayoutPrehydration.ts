@@ -256,26 +256,35 @@ function InlineScript_prehydrateSidebarLayoutMobilePane(
   }
 
   function getMobilePaneScrollLeftPx({
+    activeMainPaneIndex,
     hasLeftPane,
     leftWidthPx,
     mainWidthPx,
+    mainPaneCount,
     mobilePane,
     rightWidthPx,
     viewportWidthPx,
   }: {
+    activeMainPaneIndex: number;
     hasLeftPane: boolean;
     leftWidthPx: number;
     mainWidthPx: number;
+    mainPaneCount: number;
     mobilePane: SidebarLayoutPrehydrationState["mobilePane"];
     rightWidthPx: number;
     viewportWidthPx: number;
   }) {
     if (mobilePane === "left") return 0;
-    if (mobilePane === "main") return hasLeftPane ? leftWidthPx : 0;
+    if (mobilePane === "main")
+      return (hasLeftPane ? leftWidthPx : 0) + activeMainPaneIndex * viewportWidthPx;
 
     return Math.max(
       0,
-      (hasLeftPane ? leftWidthPx : 0) + mainWidthPx + rightWidthPx - viewportWidthPx,
+      (hasLeftPane ? leftWidthPx : 0) +
+        mainWidthPx +
+        (mainPaneCount - 1) * viewportWidthPx +
+        rightWidthPx -
+        viewportWidthPx,
     );
   }
 
@@ -411,6 +420,20 @@ function InlineScript_prehydrateSidebarLayoutMobilePane(
     });
     const viewportWidthPx = getViewportWidth(carouselNode);
     const defaultMainWidthPx = Math.max(1, viewportWidthPx);
+    const mainPaneNodes = Array.from(
+      carouselNode.querySelectorAll('[data-sidebar-layout-part="pane"][data-pane-side="main"]'),
+    );
+    const activeMainPaneId = layoutRoot.getAttribute("data-mobile-main-pane");
+    const activeMainPaneIndex = Math.max(
+      0,
+      mainPaneNodes.findIndex(
+        (pane) => pane.getAttribute("data-main-pane-id") === activeMainPaneId,
+      ),
+    );
+    layoutRoot.style.setProperty(
+      "--sidebar-layout-unmerged-main-mobile-width",
+      defaultMainWidthPx + "px",
+    );
     const sidebarMaxWidthPx = Math.max(
       1,
       Math.floor(viewportWidthPx - args.mobileMainReachableWidthPx),
@@ -443,6 +466,8 @@ function InlineScript_prehydrateSidebarLayoutMobilePane(
       rightWidthPx,
     });
     carouselNode.scrollLeft = getMobilePaneScrollLeftPx({
+      activeMainPaneIndex,
+      mainPaneCount: mainPaneNodes.length,
       hasLeftPane,
       leftWidthPx,
       mainWidthPx,

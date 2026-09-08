@@ -76,6 +76,40 @@ each side pane so it stays reachable when a side pane covers the main pane.
 progress is available during a resize and after a merge settles. The desktop open fields let
 consumer-owned toggle buttons expose their current state.
 
+## Use multiple main panes
+
+Pass `mainPanes` instead of `main` to give each document its own mobile swipe position. The same
+editor elements remain mounted on desktop and mobile.
+
+```tsx
+<SidebarLayout
+  addressChrome={<Toolbar />}
+  left={<Navigation />}
+  mainPanes={{
+    panes: [
+      { id: "source", content: <SourceEditor /> },
+      { id: "reference", content: <ReferenceEditor /> },
+    ],
+    activePaneId,
+    onActivePaneChange: setActivePaneId,
+  }}
+  right={<Notes />}
+  resizeHandleLabels={{ left: "Resize navigation", right: "Resize notes" }}
+/>
+```
+
+Supply at least one main pane, with a unique stable ID for each pane. The consumer controls and
+stores `activePaneId`. Swiping or focusing a main pane calls `onActivePaneChange`. Closing a mobile
+sidebar returns to that main pane. `mobilePane` still reports the left, main, or right category.
+
+Main panes share the desktop work area equally by default. Use `data-main-pane-id` to style their
+desktop widths. The `main-group` contains the desktop work area; on mobile it uses
+`display: contents`, so every main pane participates in the same native carousel as the sidebars.
+
+A left merge resizes the first main pane. A right merge resizes the last main pane. Other main panes
+retain their width and swipe positions. Focusing an editor within a merged pair keeps the pair
+merged. Navigating to a separate main pane clears the merge.
+
 ## Load the structural CSS
 
 `SidebarLayout` imports its required structural CSS. Build tools can also resolve the same file
@@ -178,11 +212,12 @@ the package with its parts, states, and focus-outline variable.
 }
 ```
 
-Stable parts are `root`, `address-chrome`, `viewport`, `carousel`, `pane`, `pane-surface`,
-`resize-track`, `resize-handle`, `resize-grip-indicator`, `pane-frame`, `pane-header`,
-`pane-scrollport`, `pane-content`, and `pane-footer`.
+Stable parts are `root`, `address-chrome`, `viewport`, `carousel`, `main-group`, `pane`,
+`pane-surface`, `resize-track`, `resize-handle`, `resize-grip-indicator`, `pane-frame`,
+`pane-header`, `pane-scrollport`, `pane-content`, and `pane-footer`.
 
 Stable state attributes are `data-mobile-pane`, `data-mobile-min-resize-behavior`,
+`data-mobile-main-pane`, `data-main-pane-id`, `data-main-pane-edge`,
 `data-sidebar-layout-mobile-merged-side`, `data-pane-side`, `data-desktop-open`,
 `data-active-resize`, `data-transition-enabled`, `data-resize-side`, `data-resize-mode`,
 `data-resizing`, `data-viewport-measured`, and `data-carousel-scroll-locked`.
@@ -194,6 +229,7 @@ The runtime writes these read-only geometry variables:
 
 - `--sidebar-layout-left-mobile-width`
 - `--sidebar-layout-main-mobile-width`
+- `--sidebar-layout-unmerged-main-mobile-width` (before hydration, for multiple main panes)
 - `--sidebar-layout-right-mobile-width`
 - `--sidebar-layout-left-desktop-width`
 - `--sidebar-layout-right-desktop-width`

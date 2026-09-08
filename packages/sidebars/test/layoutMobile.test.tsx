@@ -19,6 +19,7 @@ import {
 } from "../src/SidebarRuntimeInternal.tsx";
 import {
   useSidebarLayoutPresentation,
+  useSidebarActions,
   type SidebarLayoutPresentation,
 } from "../src/SidebarRuntime.ts";
 import type {
@@ -196,6 +197,27 @@ function SidebarLayoutPresentationProbe() {
     latestLayoutPresentation = presentation;
   }, [presentation]);
   return null;
+}
+
+function MultipleMainMobileLayout({ includeRightPane }: { includeRightPane: boolean }) {
+  const [activePaneId, setActivePaneId] = React.useState("first");
+  const { toggleRightPane } = useSidebarActions();
+  return (
+    <SidebarLayout
+      addressChrome={<button onClick={toggleRightPane}>Toggle right</button>}
+      left={<div>left</div>}
+      right={includeRightPane ? <div>right</div> : undefined}
+      mainPanes={{
+        panes: [
+          { id: "first", content: <input aria-label="First editor" defaultValue="first" /> },
+          { id: "second", content: <input aria-label="Second editor" defaultValue="second" /> },
+        ],
+        activePaneId,
+        onActivePaneChange: setActivePaneId,
+      }}
+      resizeHandleLabels={{ left: "Resize left", right: "Resize right" }}
+    />
+  );
 }
 
 function ControlledMobileLayout() {
@@ -429,6 +451,61 @@ describe("SidebarLayout mobile boot alignment", () => {
       ),
     ).toBeNull();
   });
+
+  it.each([true, false])(
+    "keeps the second main reachable after left merge, with right pane %s",
+    (includeRightPane) => {
+      if (root === null || rootElement === null) throw new Error("Expected mounted root");
+      const mountedRoot = root;
+      act(() => {
+        mountedRoot.render(
+          <SidebarLayoutMemoryProvider
+            initialState={createMobileSidebarState({
+              leftMobileWidthPx: 130,
+              mobilePane: "left",
+              mobileSurface: { kind: "merged", side: "left", mainWidthPx: 260 },
+            })}
+          >
+            <MultipleMainMobileLayout includeRightPane={includeRightPane} />
+          </SidebarLayoutMemoryProvider>,
+        );
+      });
+      const carousel = getRequiredElement(rootElement, '[data-sidebar-layout-part="carousel"]');
+      const viewport = getRequiredElement(rootElement, '[data-sidebar-layout-part="viewport"]');
+      const first = getRequiredElement(rootElement, '[data-main-pane-id="first"]');
+      const second = getRequiredElement(rootElement, '[data-main-pane-id="second"]');
+      const input = getRequiredElement(first, "input");
+      expect(first.style.width).toBe("260px");
+      expect(second.style.width).toBe("390px");
+      expect(carousel.hasAttribute("data-carousel-scroll-locked")).toBe(false);
+      act(() => input.focus());
+      expectSidebarMobileMergedSide(rootElement, "left");
+      if (includeRightPane) {
+        const toggle = getRequiredElement(rootElement, "button");
+        act(() => toggle.click());
+        expect(viewport.getAttribute("data-mobile-pane")).toBe("right");
+        expectSidebarMobileMergedSide(rootElement, "left");
+      }
+
+      act(() => {
+        carousel.scrollLeft = 390;
+        carousel.dispatchEvent(new Event("scroll"));
+      });
+      expect(viewport.getAttribute("data-mobile-pane")).toBe("main");
+      expect(viewport.getAttribute("data-mobile-main-pane")).toBe("second");
+      expectSidebarMobileMergedSide(rootElement, null);
+      expect(carousel.scrollLeft).toBe(520);
+      expect(first.contains(input)).toBe(true);
+      if (includeRightPane) {
+        const toggle = getRequiredElement(rootElement, "button");
+        act(() => toggle.click());
+        expect(viewport.getAttribute("data-mobile-pane")).toBe("right");
+        act(() => toggle.click());
+        expect(viewport.getAttribute("data-mobile-main-pane")).toBe("second");
+        expect(carousel.scrollLeft).toBe(520);
+      }
+    },
+  );
 
   it("boots mobile routes onto the persisted pane when one is provided", () => {
     const mountedRoot = root;

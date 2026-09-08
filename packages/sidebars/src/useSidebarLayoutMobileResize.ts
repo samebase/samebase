@@ -34,6 +34,7 @@ export function useSidebarLayoutMobileGripResizeController({
   hasRightPane,
   isMobile,
   leftWidthPx,
+  mainPaneCount,
   mobileMinResizeBehavior,
   rightWidthPx,
   viewportWidthPx,
@@ -44,6 +45,7 @@ export function useSidebarLayoutMobileGripResizeController({
   hasRightPane: boolean;
   isMobile: boolean;
   leftWidthPx: number;
+  mainPaneCount: number;
   mobileMinResizeBehavior: SidebarLayoutMobileMinResizeBehavior;
   rightWidthPx: number;
   viewportWidthPx: number;
@@ -107,6 +109,7 @@ export function useSidebarLayoutMobileGripResizeController({
   const lockCarouselScroll =
     mobileMinResizeBehavior === "min_resize_to_merge" &&
     isMobileMergedFit &&
+    mainPaneCount === 1 &&
     !hasOppositePaneForMergedSide;
 
   function setMobileGripState(nextMobileGrip: SidebarLayoutMobileGrip) {
@@ -243,6 +246,7 @@ export function useSidebarLayoutMobileGripResizeController({
         });
         if (carouselNode !== null) {
           carouselNode.scrollLeft = getMobilePaneScrollLeftPx(resizeHandle.side, {
+            mainPaneCount,
             hasLeftPane,
             hasRightPane,
             leftWidthPx: resizeHandle.side === "left" ? resizeHandle.minWidthPx : leftWidthPx,
@@ -327,6 +331,7 @@ export function useSidebarLayoutMobileGripResizeController({
           sidebarMinWidthPx: resizeHandle.minWidthPx,
         });
         const scrollOffsetArgs = {
+          mainPaneCount,
           hasLeftPane,
           hasRightPane,
           leftWidthPx: resizeHandle.side === "left" ? mergeResizeWidths.sideWidthPx : leftWidthPx,
@@ -388,6 +393,7 @@ export function useSidebarLayoutMobileGripResizeController({
       const nextRightWidthPx = resizeHandle.side === "right" ? nextSideWidthPx : rightWidthPx;
       resizeHandle.onWidthChange(nextSideWidthPx);
       carouselNode.scrollLeft = getMobilePaneScrollLeftPx(resizeHandle.side, {
+        mainPaneCount,
         hasLeftPane,
         hasRightPane,
         leftWidthPx: nextLeftWidthPx,
@@ -402,6 +408,8 @@ export function useSidebarLayoutMobileGripResizeController({
 
     clearPreviewMobileSurface();
     const scrollOffsetArgs = {
+      mainPaneCount,
+      activeMainPaneIndex: resizeHandle.side === "left" ? 0 : mainPaneCount - 1,
       hasLeftPane,
       hasRightPane,
       leftWidthPx: resizeHandle.side === "left" ? clampedRawWidthPx : leftWidthPx,

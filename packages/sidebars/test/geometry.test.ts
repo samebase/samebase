@@ -74,7 +74,7 @@ describe("sidebar layout geometry", () => {
 
     expect(getMobilePaneScrollLeftPx("main", geometry)).toBe(0);
     expect(getMobilePaneScrollLeftPx("right", geometry)).toBe(200);
-    expect(getMobilePaneFromScrollLeft({ ...geometry, scrollLeftPx: 190 })).toBe("right");
+    expect(getMobilePaneFromScrollLeft({ ...geometry, scrollLeftPx: 190 }).pane).toBe("right");
   });
 
   it("rejects a merged surface when the viewport cannot fit both panes", () => {
@@ -86,5 +86,49 @@ describe("sidebar layout geometry", () => {
         viewportWidthPx: 300,
       }),
     ).toBeNull();
+  });
+
+  it("gives each main pane a stop and merges only the adjacent main", () => {
+    const geometry = {
+      hasLeftPane: true,
+      hasRightPane: true,
+      leftWidthPx: 130,
+      rightWidthPx: 130,
+      mainWidthPx: 390,
+      mainPaneCount: 2,
+      mergedSurfaceSide: null,
+      viewportWidthPx: 390,
+    } as const;
+    expect(getMobilePaneFromScrollLeft({ ...geometry, scrollLeftPx: 130 })).toEqual({
+      pane: "main",
+      mainPaneIndex: 0,
+      scrollLeftPx: 130,
+    });
+    expect(getMobilePaneFromScrollLeft({ ...geometry, scrollLeftPx: 520 })).toEqual({
+      pane: "main",
+      mainPaneIndex: 1,
+      scrollLeftPx: 520,
+    });
+    expect(getMobilePaneScrollLeftPx("right", geometry)).toBe(650);
+
+    const leftMerge = { ...geometry, mainWidthPx: 260, mergedSurfaceSide: "left" } as const;
+    expect(getMobilePaneFromScrollLeft({ ...leftMerge, scrollLeftPx: 0 }).pane).toBe("left");
+    expect(getMobilePaneFromScrollLeft({ ...leftMerge, scrollLeftPx: 390 })).toEqual({
+      pane: "main",
+      mainPaneIndex: 1,
+      scrollLeftPx: 390,
+    });
+    expect(getMobilePaneScrollLeftPx("right", leftMerge)).toBe(520);
+
+    const rightMerge = { ...geometry, mainWidthPx: 260, mergedSurfaceSide: "right" } as const;
+    expect(getMobilePaneFromScrollLeft({ ...rightMerge, scrollLeftPx: 130 })).toEqual({
+      pane: "main",
+      mainPaneIndex: 0,
+      scrollLeftPx: 130,
+    });
+    expect(getMobilePaneFromScrollLeft({ ...rightMerge, scrollLeftPx: 520 }).pane).toBe("right");
+    expect(
+      getMobilePaneScrollLeftPx("main", { ...geometry, mainPaneCount: 3, activeMainPaneIndex: 2 }),
+    ).toBe(910);
   });
 });

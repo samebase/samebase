@@ -47,15 +47,26 @@ export type SidebarLayoutResizeHandleValueTextFormatter = (args: {
   widthPx: number;
 }) => string;
 
+export type SidebarLayoutMainPanes = {
+  panes: readonly [
+    { id: string; content: ReactElement },
+    ...{ id: string; content: ReactElement }[],
+  ];
+  activePaneId: string;
+  onActivePaneChange: (id: string) => void;
+};
+
 export type SidebarLayoutProps = {
   addressChrome: ReactNode;
   formatResizeHandleValueText?: SidebarLayoutResizeHandleValueTextFormatter;
   left?: ReactElement;
-  main: ReactElement;
   mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
   resizeHandleLabels: SidebarLayoutResizeHandleLabels;
   right?: ReactElement;
-};
+} & (
+  | { main: ReactElement; mainPanes?: never }
+  | { main?: never; mainPanes: SidebarLayoutMainPanes }
+);
 
 type SidebarLayoutRootStyle = CSSProperties & {
   "--sidebar-layout-left-mobile-width": string;
@@ -88,6 +99,7 @@ export function SidebarLayout({
   formatResizeHandleValueText,
   left,
   main,
+  mainPanes,
   mobileMinResizeBehavior = "min_resize_to_merge",
   resizeHandleLabels,
   right,
@@ -122,6 +134,18 @@ export function SidebarLayout({
   } = useSidebarRuntimeActions();
   const hasLeftPane = left !== undefined;
   const hasRightPane = right !== undefined;
+  const mainPaneCount = mainPanes?.panes.length ?? 1;
+  const activeMainPaneIndex = mainPanes
+    ? Math.max(
+        0,
+        mainPanes.panes.findIndex((pane) => pane.id === mainPanes.activePaneId),
+      )
+    : 0;
+  function selectMainPane(index: number) {
+    if (!mainPanes) return;
+    const pane = mainPanes.panes[index];
+    if (pane && pane.id !== mainPanes.activePaneId) mainPanes.onActivePaneChange(pane.id);
+  }
   const hasMeasuredViewport = viewportSize.widthPx > 0;
   const hasCompletedViewportMeasurementRef = useRef(false);
   const enableDesktopPaneTransitions =
@@ -180,6 +204,7 @@ export function SidebarLayout({
     : 0;
   const activeMobileGripResizeSideRef = useRef<"left" | "right" | null>(null);
   const mobileGripResize = useSidebarLayoutMobileGripResizeController({
+    mainPaneCount,
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
     hasLeftPane,
@@ -213,6 +238,9 @@ export function SidebarLayout({
       }
     : undefined;
   useSidebarLayoutMobileCarouselController({
+    activeMainPaneIndex,
+    mainPaneCount,
+    onMainPaneChange: selectMainPane,
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
     hasLeftPane,
@@ -345,6 +373,7 @@ export function SidebarLayout({
         <div
           ref={viewportRef}
           data-mobile-pane={mobilePane}
+          data-mobile-main-pane={mainPanes?.panes[activeMainPaneIndex]?.id}
           data-mobile-min-resize-behavior={mobileMinResizeBehavior}
           data-sidebar-layout-part="viewport"
           data-sidebar-layout-mobile-merged-side={
@@ -368,6 +397,9 @@ export function SidebarLayout({
             leftWidthPx={mobileLeftWidthPx}
             lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
             mainContent={main}
+            mainPanes={mainPanes}
+            mergedSurfaceSide={activeMobileSurface?.side ?? null}
+            viewportWidthPx={Math.max(1, viewportSize.widthPx)}
             paneWidthPx={mobileMainWidthPx}
             rightContent={right}
             rightPaneId={rightPaneId}

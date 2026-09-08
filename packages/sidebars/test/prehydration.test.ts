@@ -147,10 +147,13 @@ function runDesktopPrehydrationScript({
   }
 }
 
-function runMobilePrehydrationScript(scriptElement: HTMLScriptElement) {
+function runMobilePrehydrationScript(
+  scriptElement: HTMLScriptElement,
+  readState = readMergedMobilePrehydrationState,
+) {
   const script = buildSidebarLayoutMobilePanePrehydrationScript(
     { desktopStyleElementId: TEST_DESKTOP_STYLE_ELEMENT_ID },
-    readMergedMobilePrehydrationState,
+    readState,
   );
   const currentScriptSpy = vi
     .spyOn(document, "currentScript", "get")
@@ -257,6 +260,31 @@ describe("sidebar layout prehydration", () => {
     expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
     expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("390px");
     expect(carousel.scrollLeft).toBe(390);
+  });
+
+  it("aligns multiple main panes and an edge merge before hydration", () => {
+    installDesktopViewport(390);
+    const { carousel, layoutRoot, scriptElement } =
+      appendMobilePrehydrationLayout("min_resize_to_merge");
+    const first = carousel.querySelector('[data-pane-side="main"]');
+    if (!first) throw new Error("Expected the main pane");
+    const second = document.createElement("div");
+    second.setAttribute("data-sidebar-layout-part", "pane");
+    second.setAttribute("data-pane-side", "main");
+    second.setAttribute("data-main-pane-id", "second");
+    first.after(second);
+    layoutRoot.setAttribute("data-mobile-main-pane", "second");
+
+    runMobilePrehydrationScript(scriptElement);
+    expect(carousel.scrollLeft).toBe(650);
+    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("260px");
+    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-unmerged-main-mobile-width")).toBe(
+      "390px",
+    );
+
+    runMobilePrehydrationScript(scriptElement, readDesktopPrehydrationState);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+    expect(carousel.scrollLeft).toBe(630);
   });
 
   it("uses the 600px layout width in a 1200px window", () => {

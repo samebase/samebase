@@ -1,9 +1,15 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
-import { type SidebarLayoutActiveResizeSide } from "./SidebarLayoutGeometryInternal.ts";
+import {
+  getMobileMainPaneWidthPx,
+  type SidebarLayoutActiveResizeSide,
+  type SidebarLayoutMobileMergedSide,
+} from "./SidebarLayoutGeometryInternal.ts";
+import type { SidebarLayoutMainPanes } from "./SidebarLayout.tsx";
 
 type SidebarLayoutResolvedPaneContent = {
   leftContent: ReactElement | undefined;
-  mainContent: ReactElement;
+  mainContent: ReactElement | undefined;
+  mainPanes: SidebarLayoutMainPanes | undefined;
   rightContent: ReactElement | undefined;
 };
 
@@ -24,6 +30,8 @@ type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
   leftWidthPx: number;
   lockCarouselScroll: boolean;
   paneWidthPx: number;
+  mergedSurfaceSide: SidebarLayoutMobileMergedSide | null;
+  viewportWidthPx: number;
   rightWidthPx: number;
   rightPaneId: string;
   showLeftPane: boolean;
@@ -43,6 +51,9 @@ export function SidebarLayoutViewport({
   leftWidthPx,
   lockCarouselScroll,
   mainContent,
+  mainPanes,
+  mergedSurfaceSide,
+  viewportWidthPx,
   paneWidthPx,
   rightContent,
   rightPaneId,
@@ -88,9 +99,41 @@ export function SidebarLayoutViewport({
         </div>
       ) : null}
 
-      <div data-pane-side="main" data-sidebar-layout-part="pane" style={{ width: mainPaneWidth }}>
-        <div data-sidebar-layout-part="pane-surface">{mainContent}</div>
-      </div>
+      {mainPanes ? (
+        <div data-sidebar-layout-part="main-group">
+          {mainPanes.panes.map((pane, index) => (
+            <div
+              key={pane.id}
+              data-pane-side="main"
+              data-main-pane-id={pane.id}
+              data-main-pane-edge={
+                index === 0
+                  ? mainPanes.panes.length === 1
+                    ? "left right"
+                    : "left"
+                  : index === mainPanes.panes.length - 1
+                    ? "right"
+                    : undefined
+              }
+              data-sidebar-layout-part="pane"
+              onFocusCapture={() => {
+                if (pane.id !== mainPanes.activePaneId) mainPanes.onActivePaneChange(pane.id);
+              }}
+              style={{
+                width: hasMeasuredViewport
+                  ? `${getMobileMainPaneWidthPx({ index, mainPaneCount: mainPanes.panes.length, mainWidthPx: paneWidthPx, mergedSurfaceSide, viewportWidthPx })}px`
+                  : "var(--sidebar-layout-unmerged-main-mobile-width, 100%)",
+              }}
+            >
+              <div data-sidebar-layout-part="pane-surface">{pane.content}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div data-pane-side="main" data-sidebar-layout-part="pane" style={{ width: mainPaneWidth }}>
+          <div data-sidebar-layout-part="pane-surface">{mainContent}</div>
+        </div>
+      )}
 
       {showRightPane ? (
         <div
