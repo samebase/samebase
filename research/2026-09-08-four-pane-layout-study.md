@@ -17,6 +17,12 @@ The fixture is `/visual-fixture?mode=pane-layout-explorer`. It uses the package'
 Samebase's real Monaco and CodeMirror/ProseMark components. The experimental row layout lives in the
 app fixture. It does not change the package's three-pane layout or its public API.
 
+The same component also has a standalone Vite development entry at `/pane-study.html`. After
+worktree setup, run `pnpm --filter samebase exec vp dev --config vite.pane-study.config.ts`. It uses
+port 5197 and its own dependency cache. Point a Cloudflare tunnel at that port to compare the
+layouts on a phone. It mounts the editors and theme directly, without app routes or backend access.
+The app fixture remains local-only.
+
 | Option         | Arrangement                                        | Use                                                                        | Cost                                                                                    |
 | -------------- | -------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Two work panes | Outline / Source / Reference / Notes               | Compare two documents while keeping context and notes visible.             | At 1280px, each code pane has about 410px. Focus/restore is necessary for wider work.   |

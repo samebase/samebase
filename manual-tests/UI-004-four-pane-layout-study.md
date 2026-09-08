@@ -3,7 +3,10 @@
 This path checks an experimental fixture. It does not define the shipped workspace contract.
 
 1. Run `pnpm run dev` in the current worktree. Open `/visual-fixture?mode=pane-layout-explorer` on
-   the reported origin.
+   the reported origin. For the separate phone demo, run
+   `pnpm --filter samebase exec vp dev --config vite.pane-study.config.ts` after worktree setup.
+   Point a Cloudflare tunnel at port 5197 and open `/pane-study.html?prod-ui`. This entry does not
+   change the app fixture's local-only policy.
 2. Use desktop viewports at 1000px, 1280px, and 1440px. Confirm that Outline, Source, Reference, and
    Notes are visible in Two work panes.
 3. Edit Source and Notes. Select text in Source with the mouse. Confirm that selection does not move
