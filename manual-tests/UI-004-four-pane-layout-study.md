@@ -6,34 +6,35 @@ workspace contract.
 1. Run `pnpm run dev` in the current worktree, then
    `pnpm --filter samebase exec vp dev --config vite.pane-study.config.ts`. Open
    `http://localhost:5197/pane-study.html?prod-ui`. For phone access, point a Cloudflare tunnel at
-   port 5197. The page must contain exactly one `[data-sidebar-layout-part="root"]`.
-2. Start a fresh iPhone 13 context with touch enabled. The page starts at the main slot with State
-   selected. Edit State, select Geometry, then return to State. The edit must remain. Arrow keys
-   must move focus and selection between the file tabs.
-3. Select Left sidebar. Wait for the native three-dot grip. Drag it wider, return to main, and
-   select Left sidebar again. Its width must remain. Drag it to the minimum and continue inward. The
-   package must merge the left sidebar with the main pane. The selected editor must fit the complete
-   remaining main width. Switch editor tabs in this narrow main area.
-4. Drag the left grip wider to separate the panes. Repeat resize, merge, and unmerge with Right
-   sidebar. Swipe from the Notes header back to main. Return to State and undo its edit. The same
-   editor DOM element must remain connected. Check for page-level horizontal overflow.
-5. Open a fresh desktop page. Also check the user's 1145px width. Confirm one header with a Layout
-   menu and persistent sidebar toggles. There must be no explanatory footer, pane navigation row,
-   reset-width button, or X buttons in pane headers.
-6. Edit State and Notes. Drag the middle divider and use its arrow keys. The work editors must
-   exchange width. Resize the left sidebar with its native handle. Record its width and the work
-   editor ratio. Collapse both sidebars. The work editors must fill the available space and retain
-   their ratio. Focus must stay on the toggle. Expand the sidebars and check their saved widths.
-7. Select Tool rail. README and Notes icons must toggle their existing left and right sidebars.
-   Select Editor row and scroll the main area to Geometry. Each editor must keep at least 420px.
-   Return to Two work panes. At 768px, the two editors must fit the narrow main area. At 767px, the
-   package switches to its mobile carousel and the editors use tabs.
-8. Confirm that the same Monaco and CodeMirror elements remain connected across these changes. Undo
-   both desktop edits. Collapse Notes on desktop, change to mobile, and select Notes there. Return
-   to desktop. Notes must still be collapsed in desktop mode.
-9. Open a fresh native WebKit mobile context. Check both file tabs, both native grip targets, and
-   keyboard resize on a focused grip. Capture the three desktop layouts, both sidebars collapsed,
-   the mobile grip, and the merged mobile view. Check the console for runtime failures.
+   port 5197. The page must contain one package carousel and four native pane elements.
+2. Start a fresh iPhone 13 context with touch enabled. State starts selected. Edit State, then swipe
+   its header left to Geometry. Geometry must fill the viewport. There must be no file tabs. Edit
+   Geometry, then swipe back to State. Both edits and editor DOM instances must remain.
+3. Open Left sidebar and drag its native grip wider. Return to main, then reopen Left sidebar. Its
+   width must remain. Drag it to the minimum and continue inward. README must merge with State.
+   Geometry must retain its full mobile width and remain reachable by swiping left.
+4. Enter Geometry from the merged pair. The merge must clear and Geometry must align with the
+   viewport. Repeat with Right sidebar: Notes merges with Geometry, while State remains a separate
+   full-width swipe position. Enter State and check alignment after the merge clears.
+5. Check a merge exit through the opposite sidebar. Merge README with State, use Right sidebar, then
+   swipe from Notes back to Geometry. Geometry must align after State expands. Repeat in the other
+   direction after merging Notes with Geometry. Editing inside a merged pair must preserve the
+   merge.
+6. Open a sidebar from Geometry, then close it with the same toggle. Geometry must return. Undo both
+   earlier edits in their original editors. Confirm that all editor elements stay mounted.
+7. Open a fresh desktop page. Also check the user's 1145px width. The header has a Layout menu and
+   persistent sidebar toggles. There is no helper footer, pane navigation row, reset-width button, X
+   button, or full-screen action.
+8. Drag the center divider and use its arrow keys. Resize the left sidebar with its native handle.
+   Collapse both sidebars. The work panes must fill the available space and keep their ratio. Expand
+   the sidebars and check their saved widths and editor text.
+9. Select Tool rail, then Editor row. Rail icons toggle the existing sidebars. In Editor row, each
+   main editor keeps at least 420px and the main group scrolls. Return to Two work panes. At 768px,
+   both editors fit the desktop main group. At 767px, they have separate mobile swipe positions.
+10. Start native WebKit with mobile emulation. Check four pane elements, main scroll alignment,
+    return to the last main pane, and both native grip targets. Capture the desktop choices,
+    collapsed sidebars, both mobile main positions, the mobile grip, and a merged pair. Check the
+    console for runtime failures.
 
-These screenshots are research evidence, not product baselines. Native WebKit checks do not replace
-real-device touch checks. The package still has three mobile positions; two editor tabs share main.
+These screenshots are research evidence, not product baselines. Chromium touch input checks and
+WebKit scroll checks do not replace real-device testing.
