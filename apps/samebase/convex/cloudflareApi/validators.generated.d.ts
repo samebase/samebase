@@ -49,9 +49,6 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/destinations/{slug}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destinations.delete"]>
     >;
-    "/accounts/{account_id}/workers/observability/metricsexport": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["metricsExport.delete"]>
-    >;
     "/accounts/{account_id}/workers/observability/queries/{queryId}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.delete"]>
     >;
@@ -183,6 +180,12 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/usage": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["usage.get"]>
     >;
+    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/rules": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["zone.observability.tracing.rules.get"]>
+    >;
+    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/settings": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["zone.observability.tracing.settings.get"]>
+    >;
     "/accounts/{account_id}/workers/placement/regions": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-placement-list-regions"]>
     >;
@@ -278,6 +281,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/observability/queries/{queryId}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.patch"]>
+    >;
+    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/settings": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["zone.observability.tracing.settings.update"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/script-settings": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-script-settings-patch-settings"]>
@@ -407,6 +413,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/domains": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["workers.domains.update"]>
+    >;
+    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/rules": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["zone.observability.tracing.rules.update"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-script-upload-worker-module"]>

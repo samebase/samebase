@@ -1081,11 +1081,7 @@ export interface paths {
      * @description Create or replace resources configured for Workers Observability metrics export.
      */
     post: operations["metricsExport.upsert"];
-    /**
-     * Delete Metrics Export
-     * @description Delete one resource configured for Workers Observability metrics export.
-     */
-    delete: operations["metricsExport.delete"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1331,6 +1327,60 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/rules": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * View zone trace rules
+     * @description Retrieve the ordered sampling overrides for a zone's managed Cloudflare Traces ruleset.
+     */
+    get: operations["zone.observability.tracing.rules.get"];
+    /**
+     * Replace zone trace rules
+     * @description Replace all sampling overrides in a zone's managed Cloudflare Traces ruleset. Rules are evaluated in the supplied order.
+     */
+    put: operations["zone.observability.tracing.rules.update"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * View zone tracing settings
+     * @description Retrieve the zone-level Cloudflare Traces settings.
+     */
+    get: operations["zone.observability.tracing.settings.get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update zone tracing settings
+     * @description Update the zone-level Cloudflare Traces settings.
+     */
+    patch: operations["zone.observability.tracing.settings.update"];
     trace?: never;
   };
   "/accounts/{account_id}/workers/placement/regions": {
@@ -9835,6 +9885,26 @@ export interface operations {
           };
         };
       };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Conflict";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
       /** @description Internal error */
       500: {
         headers: {
@@ -10033,7 +10103,7 @@ export interface operations {
               destinations: string[];
               resourceId: string;
               /** @enum {string} */
-              resourceType: "workers" | "d1" | "r2";
+              resourceType: "workers" | "d1" | "r2" | "containers";
               updatedAt: string;
             }[];
             /** @enum {boolean} */
@@ -10095,34 +10165,19 @@ export interface operations {
     };
     requestBody?: {
       content: {
-        "application/json":
-          | {
-              destinations: string[];
-              resourceId: string;
-              /** @enum {string} */
-              resourceType: "workers" | "d1" | "r2";
-            }
-          | {
-              requester: {
-                requesterId: string;
-                /** @enum {string} */
-                requesterType: "workers";
-              };
-              resources: {
-                destinations: string[];
-                resourceId: string;
-                /** @enum {string} */
-                resourceType: "workers" | "d1" | "r2";
-              }[];
-            }
-          | {
-              resources: {
-                destinations: string[];
-                resourceId: string;
-                /** @enum {string} */
-                resourceType: "workers" | "d1" | "r2";
-              }[];
-            };
+        "application/json": {
+          requester: {
+            requesterId: string;
+            /** @enum {string} */
+            requesterType: "workers";
+          };
+          resources: {
+            destinations: string[];
+            resourceId: string;
+            /** @enum {string} */
+            resourceType: "workers" | "d1" | "r2" | "containers";
+          }[];
+        };
       };
     };
     responses: {
@@ -10145,7 +10200,7 @@ export interface operations {
               destinations: string[];
               resourceId: string;
               /** @enum {string} */
-              resourceType: "workers" | "d1" | "r2";
+              resourceType: "workers" | "d1" | "r2" | "containers";
               updatedAt: string;
             }[];
             /** @enum {boolean} */
@@ -10184,150 +10239,6 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Conflict */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Conflict";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Internal error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Internal error";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-    };
-  };
-  "metricsExport.delete": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": {
-          resourceId: string;
-          /** @enum {string} */
-          resourceType: "workers" | "d1" | "r2";
-        };
-      };
-    };
-    responses: {
-      /** @description Successful request */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              message: string;
-            }[];
-            messages: {
-              /** @enum {string} */
-              message: "Successful request";
-            }[];
-            result: {
-              deleted: boolean;
-            };
-            /** @enum {boolean} */
-            success: true;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Bad Request";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Unauthorized";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Not found";
             }[];
             messages: {
               message: string;
@@ -12655,6 +12566,570 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Gateway timeout";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "zone.observability.tracing.rules.get": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        /** @description Specify the zone ID. */
+        zone_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              /** @description Trace rules in evaluation order. */
+              rules: {
+                /** @enum {string} */
+                action: "set_trace_settings";
+                action_parameters: {
+                  /** @description The ratio of requests sampled for tracing, from 0 to 1. */
+                  sampling_ratio: number;
+                };
+                description: string;
+                enabled: boolean;
+                /** @description A Rules language expression that selects requests. */
+                expression: string;
+              }[];
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "zone.observability.tracing.rules.update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        /** @description Specify the zone ID. */
+        zone_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Replace the ordered trace rules */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Trace rules in evaluation order. */
+          rules: {
+            /** @enum {string} */
+            action: "set_trace_settings";
+            action_parameters: {
+              /** @description The ratio of requests sampled for tracing, from 0 to 1. */
+              sampling_ratio: number;
+            };
+            description: string;
+            enabled: boolean;
+            /** @description A Rules language expression that selects requests. */
+            expression: string;
+          }[];
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              /** @description Trace rules in evaluation order. */
+              rules: {
+                /** @enum {string} */
+                action: "set_trace_settings";
+                action_parameters: {
+                  /** @description The ratio of requests sampled for tracing, from 0 to 1. */
+                  sampling_ratio: number;
+                };
+                description: string;
+                enabled: boolean;
+                /** @description A Rules language expression that selects requests. */
+                expression: string;
+              }[];
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "zone.observability.tracing.settings.get": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        /** @description Specify the zone ID. */
+        zone_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              /** @description OpenTelemetry destination identifiers that receive traces. */
+              destinations: string[];
+              /** @description Whether Cloudflare Traces is enabled for the zone. */
+              enabled: boolean;
+              /** @description Whether trace context is sent externally or across a zone boundary. */
+              forward_context: boolean;
+              /** @description Whether traces are persisted in Cloudflare. */
+              persist: boolean;
+              /**
+               * @description When inbound trace context may be continued.
+               * @enum {string}
+               */
+              propagation_policy: "authenticated" | "unauthenticated";
+              /** @description The ratio of requests sampled for tracing, from 0 to 1. */
+              sampling_ratio: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "zone.observability.tracing.settings.update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        /** @description Specify the zone ID. */
+        zone_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Update zone tracing settings */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description OpenTelemetry destination identifiers that receive traces. */
+          destinations?: string[];
+          /** @description Whether Cloudflare Traces is enabled for the zone. */
+          enabled?: boolean;
+          /** @description Whether trace context is sent externally or across a zone boundary. */
+          forward_context?: boolean;
+          /** @description Whether traces are persisted in Cloudflare. */
+          persist?: boolean;
+          /**
+           * @description When inbound trace context may be continued.
+           * @enum {string}
+           */
+          propagation_policy?: "authenticated" | "unauthenticated";
+          /** @description The ratio of requests sampled for tracing, from 0 to 1. */
+          sampling_ratio?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              /** @description OpenTelemetry destination identifiers that receive traces. */
+              destinations: string[];
+              /** @description Whether Cloudflare Traces is enabled for the zone. */
+              enabled: boolean;
+              /** @description Whether trace context is sent externally or across a zone boundary. */
+              forward_context: boolean;
+              /** @description Whether traces are persisted in Cloudflare. */
+              persist: boolean;
+              /**
+               * @description When inbound trace context may be continued.
+               * @enum {string}
+               */
+              propagation_policy: "authenticated" | "unauthenticated";
+              /** @description The ratio of requests sampled for tracing, from 0 to 1. */
+              sampling_ratio: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
             }[];
             messages: {
               message: string;
