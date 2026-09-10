@@ -4,7 +4,7 @@ export type { MobilePane } from "./SidebarLayoutState.ts";
 
 export const SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX = 768;
 export const SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
-export const SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
+export const SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX = 160;
 export const SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
 export const SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO = 1 / 3;
 export const SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX = 40;
@@ -51,11 +51,42 @@ export function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
-  return Math.max(
-    SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-    Math.round(viewportWidthPx * SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
-  );
+/**
+Fit saved widths without changing the saved preferences. This function is also
+serialized into the desktop prehydration script, so keep its body self-contained.
+*/
+export function getDesktopPaneWidths(args: {
+  leftOpen: boolean;
+  leftWidthPx: number;
+  mainMinWidthPx: number;
+  rightOpen: boolean;
+  rightWidthPx: number;
+  sidebarMinWidthPx: number;
+  viewportWidthPx: number;
+}) {
+  const minimumTotalWidthPx =
+    args.mainMinWidthPx + (Number(args.leftOpen) + Number(args.rightOpen)) * args.sidebarMinWidthPx;
+  // An embedded desktop layout can be narrower than the sum of pane minima.
+  const minimumScale =
+    args.viewportWidthPx > 0 ? Math.min(1, args.viewportWidthPx / minimumTotalWidthPx) : 1;
+  const sidebarMinWidthPx = Math.floor(args.sidebarMinWidthPx * minimumScale);
+  const mainMinWidthPx = Math.floor(args.mainMinWidthPx * minimumScale);
+  const leftMinWidthPx = args.leftOpen ? sidebarMinWidthPx : 0;
+  const rightMinWidthPx = args.rightOpen ? sidebarMinWidthPx : 0;
+  let leftWidthPx = args.leftOpen ? Math.max(leftMinWidthPx, Math.round(args.leftWidthPx)) : 0;
+  let rightWidthPx = args.rightOpen ? Math.max(rightMinWidthPx, Math.round(args.rightWidthPx)) : 0;
+  const availableWidthPx = Math.max(0, Math.floor(args.viewportWidthPx) - mainMinWidthPx);
+
+  if (args.viewportWidthPx > 0 && leftWidthPx + rightWidthPx > availableWidthPx) {
+    const leftExtraPx = leftWidthPx - leftMinWidthPx;
+    const rightExtraPx = rightWidthPx - rightMinWidthPx;
+    const availableExtraPx = availableWidthPx - leftMinWidthPx - rightMinWidthPx;
+    leftWidthPx =
+      leftMinWidthPx + Math.round((availableExtraPx * leftExtraPx) / (leftExtraPx + rightExtraPx));
+    rightWidthPx = availableWidthPx - leftWidthPx;
+  }
+
+  return { leftWidthPx, mainMinWidthPx, rightWidthPx, sidebarMinWidthPx };
 }
 
 export function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
@@ -175,26 +206,6 @@ export function getMobileSidebarWidthPx(args: {
   storedWidthPx: number;
 }) {
   return clampNumber(Math.round(args.storedWidthPx), args.minWidthPx, args.maxWidthPx);
-}
-
-export function getDesktopSidebarWidthPx(args: {
-  isOpen: boolean;
-  storedWidthPx: number;
-  viewportWidthPx: number;
-}) {
-  if (!args.isOpen) {
-    return 0;
-  }
-
-  if (args.viewportWidthPx <= 0) {
-    return Math.max(SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX, Math.round(args.storedWidthPx));
-  }
-
-  return clampNumber(
-    Math.round(args.storedWidthPx),
-    SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-    getDesktopSidebarMaxWidthPx(args.viewportWidthPx),
-  );
 }
 
 function getMobilePaneOrder({

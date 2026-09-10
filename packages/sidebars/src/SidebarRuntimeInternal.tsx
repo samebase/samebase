@@ -33,12 +33,11 @@ export type SidebarRuntimeState = SidebarLayoutState & {
 
 export type SidebarRuntimeActions = {
   setLeftDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
+  setDesktopWidths: (widths: { leftWidthPx: number; rightWidthPx: number }) => void;
   setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
   setMobileSurface: Dispatch<SetStateAction<SidebarLayoutState["mobileSurface"]>>;
   setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
   setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
   settleMobileMergedSurface: (args: {
     mainWidthPx: number;
@@ -234,17 +233,20 @@ export function SidebarRuntimeProvider({ children, controller }: SidebarRuntimeP
     },
     [updatePaneState],
   );
-  const setLeftDesktopWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
-      updatePaneState("leftDesktopWidthPx", nextWidthPx, "width_deferred");
+  const setDesktopWidths = useCallback(
+    ({ leftWidthPx, rightWidthPx }: { leftWidthPx: number; rightWidthPx: number }) => {
+      controller.setState((state) => {
+        if (
+          state.leftDesktopWidthPx === leftWidthPx &&
+          state.rightDesktopWidthPx === rightWidthPx
+        ) {
+          return state;
+        }
+
+        return { ...state, leftDesktopWidthPx: leftWidthPx, rightDesktopWidthPx: rightWidthPx };
+      }, "width_deferred");
     },
-    [updatePaneState],
-  );
-  const setRightDesktopWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
-      updatePaneState("rightDesktopWidthPx", nextWidthPx, "width_deferred");
-    },
-    [updatePaneState],
+    [controller],
   );
   const setLeftMobileWidthPx = useCallback(
     (nextWidthPx: SetStateAction<number>) => {
@@ -390,12 +392,11 @@ export function SidebarRuntimeProvider({ children, controller }: SidebarRuntimeP
   const sidebarRuntimeActions = useMemo<SidebarRuntimeActions>(
     () => ({
       setLeftDesktopOpen,
-      setLeftDesktopWidthPx,
+      setDesktopWidths,
       setLeftMobileWidthPx,
       setMobilePane,
       setMobileSurface,
       setRightDesktopOpen,
-      setRightDesktopWidthPx,
       setRightMobileWidthPx,
       settleMobileMergedSurface,
       toggleLeftPane,
@@ -403,12 +404,11 @@ export function SidebarRuntimeProvider({ children, controller }: SidebarRuntimeP
     }),
     [
       setLeftDesktopOpen,
-      setLeftDesktopWidthPx,
+      setDesktopWidths,
       setLeftMobileWidthPx,
       setMobilePane,
       setMobileSurface,
       setRightDesktopOpen,
-      setRightDesktopWidthPx,
       setRightMobileWidthPx,
       settleMobileMergedSurface,
       toggleLeftPane,

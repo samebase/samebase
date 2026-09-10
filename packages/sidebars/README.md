@@ -128,6 +128,17 @@ not use a window media query for that decision.
 This query-container contract covers the `PaneFrame` header and content. It does not cover
 `addressChrome` or the `PaneFrame` footer.
 
+## Desktop resizing
+
+Desktop sidebars have no fixed maximum width. Dragging a sidebar first reduces the main pane to
+160px, then reduces the opposite open sidebar to 160px. Closed or absent sidebars use no space.
+Keyboard resize controls use the same limits, and the controller saves both changed sidebar widths
+together.
+
+A smaller layout fits the saved widths without replacing them. Embedded layouts narrower than the
+combined pane minima scale those minima down to fit. The first paint uses the same width calculation
+as the live layout.
+
 ## Style parts and states
 
 The structural stylesheet contains no consumer theme colors, shadows, radii, typography, or
