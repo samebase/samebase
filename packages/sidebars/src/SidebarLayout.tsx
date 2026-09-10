@@ -18,10 +18,11 @@ import {
 } from "./SidebarRuntimeInternal.tsx";
 import {
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+  SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
+  SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_UNMERGED_MOBILE_SURFACE,
-  getDesktopSidebarMaxWidthPx,
-  getDesktopSidebarWidthPx,
+  getDesktopPaneWidths,
   getMergedMobileMainWidthPx,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
@@ -113,43 +114,34 @@ export function SidebarLayout({
     rightDesktopWidthPx,
     rightMobileWidthPx,
   } = useSidebarRuntimeState();
-  const {
-    setLeftDesktopWidthPx,
-    setLeftMobileWidthPx,
-    setMobilePane,
-    setRightDesktopWidthPx,
-    setRightMobileWidthPx,
-  } = useSidebarRuntimeActions();
+  const { setDesktopWidths, setLeftMobileWidthPx, setMobilePane, setRightMobileWidthPx } =
+    useSidebarRuntimeActions();
   const hasLeftPane = left !== undefined;
   const hasRightPane = right !== undefined;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
-  const hasCompletedViewportMeasurementRef = useRef(false);
+  const previousViewportWidthRef = useRef(0);
   const enableDesktopPaneTransitions =
-    hasMeasuredViewport && hasCompletedViewportMeasurementRef.current;
+    hasMeasuredViewport &&
+    previousViewportWidthRef.current === viewportSize.widthPx &&
+    activeResizeSide === null;
   useLayoutEffect(() => {
-    hasCompletedViewportMeasurementRef.current = hasMeasuredViewport;
-  }, [hasMeasuredViewport]);
+    previousViewportWidthRef.current = viewportSize.widthPx;
+  }, [viewportSize.widthPx]);
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
     mobilePane: storedMobilePane,
   });
 
-  const desktopLeftWidthPx = hasLeftPane
-    ? getDesktopSidebarWidthPx({
-        isOpen: leftDesktopOpen,
-        storedWidthPx: leftDesktopWidthPx,
-        viewportWidthPx: viewportSize.widthPx,
-      })
-    : 0;
-  const desktopRightWidthPx = hasRightPane
-    ? getDesktopSidebarWidthPx({
-        isOpen: rightDesktopOpen,
-        storedWidthPx: rightDesktopWidthPx,
-        viewportWidthPx: viewportSize.widthPx,
-      })
-    : 0;
-  const desktopSidebarMaxWidthPx = getDesktopSidebarMaxWidthPx(viewportSize.widthPx);
+  const desktopWidths = getDesktopPaneWidths({
+    leftOpen: hasLeftPane && leftDesktopOpen,
+    leftWidthPx: leftDesktopWidthPx,
+    mainMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
+    rightOpen: hasRightPane && rightDesktopOpen,
+    rightWidthPx: rightDesktopWidthPx,
+    sidebarMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    viewportWidthPx: viewportSize.widthPx,
+  });
   const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
     configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
@@ -227,15 +219,20 @@ export function SidebarLayout({
     viewportWidthPx: viewportSize.widthPx,
   });
   const desktopResizeHandles = getSidebarLayoutDesktopResizeHandles({
-    desktopLeftWidthPx,
-    desktopRightWidthPx,
-    desktopSidebarMaxWidthPx,
+    desktopLeftWidthPx: desktopWidths.leftWidthPx,
+    desktopRightWidthPx: desktopWidths.rightWidthPx,
+    desktopMainMinWidthPx: desktopWidths.mainMinWidthPx,
+    desktopSidebarMinWidthPx: desktopWidths.sidebarMinWidthPx,
     hasLeftPane,
     hasRightPane,
     leftDesktopOpen,
     rightDesktopOpen,
-    setLeftDesktopWidthPx,
-    setRightDesktopWidthPx,
+    setDesktopWidths: ({ leftWidthPx, rightWidthPx }) => {
+      setDesktopWidths({
+        leftWidthPx: hasLeftPane && leftDesktopOpen ? leftWidthPx : leftDesktopWidthPx,
+        rightWidthPx: hasRightPane && rightDesktopOpen ? rightWidthPx : rightDesktopWidthPx,
+      });
+    },
     viewportWidthPx: viewportSize.widthPx,
   });
   const mobileResizeHandles = getSidebarLayoutMobileResizeHandles({
@@ -358,8 +355,8 @@ export function SidebarLayout({
           <SidebarLayoutViewport
             activeResizeSide={activeResizeSide}
             carouselRef={mobileCarouselRef}
-            desktopLeftWidthPx={desktopLeftWidthPx}
-            desktopRightWidthPx={desktopRightWidthPx}
+            desktopLeftWidthPx={desktopWidths.leftWidthPx}
+            desktopRightWidthPx={desktopWidths.rightWidthPx}
             enableDesktopPaneTransitions={enableDesktopPaneTransitions}
             hasMeasuredViewport={hasMeasuredViewport}
             inertClosedDesktopPanes={hasMeasuredViewport && !isMobile}

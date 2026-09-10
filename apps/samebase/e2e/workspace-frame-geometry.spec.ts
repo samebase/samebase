@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-function getSidebarLayoutPane(page: Page, side: "left" | "right") {
+function getSidebarLayoutPane(page: Page, side: "left" | "main" | "right") {
   return page.locator(`[data-sidebar-layout-part="pane"][data-pane-side="${side}"]`);
 }
 
@@ -84,32 +84,93 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
     .toBe(scrollTopBeforeCollapse);
 });
 
-test("fileview desktop left sidebar resize persists across collapse", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
-    waitUntil: "domcontentloaded",
+for (const side of ["left", "right"] as const) {
+  test(`fileview desktop ${side} sidebar uses available space and preserves pane minimums`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await page.goto("/visual-fixture?mode=fileview-layout-persistence", {
+      waitUntil: "domcontentloaded",
+    });
+    await page.waitForLoadState("networkidle");
+
+    const sidebar = getSidebarLayoutPane(page, side);
+    const oppositeSide = side === "left" ? "right" : "left";
+    const oppositeSidebar = getSidebarLayoutPane(page, oppositeSide);
+    const main = getSidebarLayoutPane(page, "main");
+    const handle = getSidebarLayoutResizeHandle(page, side);
+    const direction = side === "left" ? 1 : -1;
+    const initialWidthPx = (await getBox(sidebar)).width;
+    const oppositeWidthPx = (await getBox(oppositeSidebar)).width;
+    const toggle = page.getByRole("button", {
+      name: side === "left" ? "Toggle Left Sidebar" : "Toggle Right Sidebar",
+    });
+
+    await expect(handle).toBeVisible();
+    await dragHorizontalHandle(page, handle, direction * (700 - initialWidthPx));
+    await expect.poll(async () => (await getBox(sidebar)).width).toBe(700);
+    expect((await getBox(oppositeSidebar)).width).toBe(oppositeWidthPx);
+
+    await dragHorizontalHandle(page, handle, direction * 1000);
+    await expect
+      .poll(async () =>
+        Promise.all(
+          [sidebar, main, oppositeSidebar].map(async (pane) => (await getBox(pane)).width),
+        ),
+      )
+      .toEqual([960, 160, 160]);
+    await expect(handle).toHaveAttribute("aria-valuemax", "960");
+
+    await handle.press(side === "left" ? "ArrowLeft" : "ArrowRight");
+    await expect
+      .poll(async () =>
+        Promise.all(
+          [sidebar, main, oppositeSidebar].map(async (pane) => (await getBox(pane)).width),
+        ),
+      )
+      .toEqual([936, 184, 160]);
+    await handle.press(side === "left" ? "ArrowRight" : "ArrowLeft");
+
+    await toggle.click();
+    await expect.poll(async () => (await getBox(sidebar)).width).toBe(0);
+    await toggle.click();
+    await expect.poll(async () => (await getBox(sidebar)).width).toBe(960);
+
+    await page.setViewportSize({ width: 900, height: 760 });
+    await expect
+      .poll(async () =>
+        Promise.all(
+          [sidebar, main, oppositeSidebar].map(async (pane) => (await getBox(pane)).width),
+        ),
+      )
+      .toEqual([580, 160, 160]);
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await expect.poll(async () => (await getBox(sidebar)).width).toBe(960);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect
+      .poll(async () =>
+        Promise.all(
+          [sidebar, main, oppositeSidebar].map(async (pane) => (await getBox(pane)).width),
+        ),
+      )
+      .toEqual([960, 160, 160]);
+
+    if (side === "right") {
+      await expect(page.locator('[data-sidebar-layout-part="root"]')).toHaveScreenshot(
+        "desktop-right-sidebar-maximum.png",
+        { animations: "disabled", caret: "hide", scale: "css" },
+      );
+    }
+
+    await page
+      .getByRole("button", {
+        name: oppositeSide === "left" ? "Toggle Left Sidebar" : "Toggle Right Sidebar",
+      })
+      .click();
+    await expect.poll(async () => (await getBox(oppositeSidebar)).width).toBe(0);
+    await expect(handle).toHaveAttribute("aria-valuemax", "1120");
+    await dragHorizontalHandle(page, handle, direction * 1000);
+    await expect.poll(async () => (await getBox(sidebar)).width).toBe(1120);
+    expect((await getBox(main)).width).toBe(160);
   });
-  await page.waitForLoadState("networkidle");
-
-  const leftSidebar = getSidebarLayoutPane(page, "left");
-  const handle = getSidebarLayoutResizeHandle(page, "left");
-  const initialWidthPx = (await getBox(getSidebarLayoutPane(page, "left"))).width;
-
-  await expect(handle).toBeVisible();
-  await dragHorizontalHandle(page, getSidebarLayoutResizeHandle(page, "left"), 96);
-  await expect
-    .poll(async () => (await getBox(getSidebarLayoutPane(page, "left"))).width)
-    .toBeGreaterThan(initialWidthPx + 48);
-
-  const resizedWidthPx = (await getBox(getSidebarLayoutPane(page, "left"))).width;
-  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
-  await expect
-    .poll(async () => Math.round((await getBox(getSidebarLayoutPane(page, "left"))).width))
-    .toBe(0);
-
-  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
-  await expect(leftSidebar).toBeVisible();
-  await expect
-    .poll(async () => (await getBox(getSidebarLayoutPane(page, "left"))).width)
-    .toBeGreaterThanOrEqual(resizedWidthPx - 1);
-});
+}

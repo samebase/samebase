@@ -1,12 +1,13 @@
 import type { SidebarLayoutState } from "./SidebarLayoutState.ts";
 import {
   SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO,
+  SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
+  getDesktopPaneWidths,
 } from "./SidebarLayoutGeometryInternal.ts";
 
 export type SidebarLayoutPrehydrationState = Pick<
@@ -27,7 +28,7 @@ export type SidebarLayoutPrehydrationArgs = {
 
 type SidebarLayoutPrehydrationInlineArgs = SidebarLayoutPrehydrationArgs & {
   desktopMinWidthPx: number;
-  desktopSidebarMaxWidthRatio: number;
+  desktopMainMinWidthPx: number;
   desktopSidebarMinWidthPx: number;
   mobileMainReachableWidthPx: number;
   mobileMainMinWidthPx: number;
@@ -43,7 +44,7 @@ function getSidebarLayoutPrehydrationInlineArgs(
   return {
     ...args,
     desktopMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX,
-    desktopSidebarMaxWidthRatio: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO,
+    desktopMainMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
     desktopSidebarMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     mobileMainReachableWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX,
     mobileMainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
@@ -84,6 +85,7 @@ resizing and normal layout updates.
 function InlineScript_prehydrateSidebarLayoutDesktopSidebar(
   args: SidebarLayoutPrehydrationInlineArgs,
   readState: SidebarLayoutPrehydrationStateReader,
+  getPaneWidths: typeof getDesktopPaneWidths,
 ) {
   function installPrehydrationStyle({
     carouselNode,
@@ -149,17 +151,6 @@ function InlineScript_prehydrateSidebarLayoutDesktopSidebar(
     return Number.isFinite(width) && width > 0 ? width : Math.max(1, Math.round(window.innerWidth));
   }
 
-  function readDesktopWidth(open: boolean, width: number, viewportWidthPx: number) {
-    if (!open) return "0px";
-
-    const maxWidthPx = Math.max(
-      args.desktopSidebarMinWidthPx,
-      Math.round(viewportWidthPx * args.desktopSidebarMaxWidthRatio),
-    );
-
-    return Math.min(Math.max(args.desktopSidebarMinWidthPx, Math.round(width)), maxWidthPx) + "px";
-  }
-
   try {
     if (window.innerWidth < args.desktopMinWidthPx) return;
 
@@ -179,21 +170,26 @@ function InlineScript_prehydrateSidebarLayoutDesktopSidebar(
     }
 
     const viewportWidthPx = getViewportWidth(carouselNode);
-    const leftDesktopWidth = readDesktopWidth(
-      state.leftDesktopOpen,
-      state.leftDesktopWidthPx,
+    const widths = getPaneWidths({
+      leftOpen:
+        state.leftDesktopOpen &&
+        carouselNode.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="left"]') !==
+          null,
+      leftWidthPx: state.leftDesktopWidthPx,
+      mainMinWidthPx: args.desktopMainMinWidthPx,
+      rightOpen:
+        state.rightDesktopOpen &&
+        carouselNode.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="right"]') !==
+          null,
+      rightWidthPx: state.rightDesktopWidthPx,
+      sidebarMinWidthPx: args.desktopSidebarMinWidthPx,
       viewportWidthPx,
-    );
-    const rightDesktopWidth = readDesktopWidth(
-      state.rightDesktopOpen,
-      state.rightDesktopWidthPx,
-      viewportWidthPx,
-    );
+    });
 
     installPrehydrationStyle({
       carouselNode,
-      left: { width: leftDesktopWidth, open: state.leftDesktopOpen },
-      right: { width: rightDesktopWidth, open: state.rightDesktopOpen },
+      left: { width: `${widths.leftWidthPx}px`, open: state.leftDesktopOpen },
+      right: { width: `${widths.rightWidthPx}px`, open: state.rightDesktopOpen },
     });
   } catch {}
 }
@@ -457,7 +453,7 @@ export function buildSidebarLayoutDesktopPrehydrationScript(
   args: SidebarLayoutPrehydrationArgs,
   readState: SidebarLayoutPrehydrationStateReader,
 ) {
-  return `(${InlineScript_prehydrateSidebarLayoutDesktopSidebar.toString()})(${JSON.stringify(getSidebarLayoutPrehydrationInlineArgs(args))}, ${readState.toString()});`;
+  return `(${InlineScript_prehydrateSidebarLayoutDesktopSidebar.toString()})(${JSON.stringify(getSidebarLayoutPrehydrationInlineArgs(args))}, ${readState.toString()}, ${getDesktopPaneWidths.toString()});`;
 }
 
 export function buildSidebarLayoutMobilePanePrehydrationScript(

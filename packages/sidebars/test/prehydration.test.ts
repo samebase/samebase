@@ -2,10 +2,7 @@
 
 import { createContext, Script } from "node:vm";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  getDesktopSidebarWidthPx,
-  type SidebarLayoutMobileMinResizeBehavior,
-} from "../src/SidebarLayoutGeometryInternal.ts";
+import { type SidebarLayoutMobileMinResizeBehavior } from "../src/SidebarLayoutGeometryInternal.ts";
 import {
   buildSidebarLayoutDesktopPrehydrationScript,
   buildSidebarLayoutMobilePanePrehydrationScript,
@@ -272,13 +269,7 @@ describe("sidebar layout prehydration", () => {
       TEST_DESKTOP_STYLE_ELEMENT_ID,
       `${viewportSelector} [data-sidebar-layout-part="pane"][data-pane-side="left"]`,
     );
-    expect(leftPaneRule.style.width).toBe(
-      `${getDesktopSidebarWidthPx({
-        isOpen: true,
-        storedWidthPx: 500,
-        viewportWidthPx: layoutWidthPx,
-      })}px`,
-    );
+    expect(leftPaneRule.style.width).toBe("440px");
     expect(leftPaneRule.style.getPropertyPriority("width")).toBe("important");
   });
 
@@ -301,6 +292,35 @@ describe("sidebar layout prehydration", () => {
     expect(leftPaneRule.style.getPropertyPriority("border-inline-end-width")).toBe("important");
     expect(rightPaneRule.style.getPropertyValue("border-inline-start-width")).toBe("0px");
     expect(rightPaneRule.style.getPropertyPriority("border-inline-start-width")).toBe("important");
+  });
+
+  it.each([true, false])("fits both saved widths with the left pane present: %s", (hasLeftPane) => {
+    installDesktopViewport(1200);
+    const { carousel, scriptElement } = appendDesktopPrehydrationLayout(1200);
+    if (!hasLeftPane) {
+      carousel.querySelector('[data-pane-side="left"]')?.remove();
+    }
+
+    runDesktopPrehydrationScript({
+      scriptElement,
+      readState: () => ({
+        leftDesktopOpen: true,
+        leftDesktopWidthPx: 900,
+        leftMobileWidthPx: 240,
+        mobilePane: "main",
+        mobileSurface: { kind: "unmerged" },
+        rightDesktopOpen: true,
+        rightDesktopWidthPx: 1100,
+        rightMobileWidthPx: 240,
+      }),
+    });
+
+    const viewportSelector = getDesktopViewportSelector(carousel);
+    const rightPaneRule = getRequiredDesktopStyleRule(
+      TEST_DESKTOP_STYLE_ELEMENT_ID,
+      `${viewportSelector} [data-sidebar-layout-part="pane"][data-pane-side="right"]`,
+    );
+    expect(rightPaneRule.style.width).toBe(hasLeftPane ? "563px" : "1040px");
   });
 
   it("scopes different stored states to two layout instances", () => {
@@ -339,9 +359,9 @@ describe("sidebar layout prehydration", () => {
       SECOND_DESKTOP_STYLE_ELEMENT_ID,
       `${secondViewportSelector} [data-sidebar-layout-part="pane"][data-pane-side="right"]`,
     );
-    expect(firstLeftPaneRule.style.width).toBe("270px");
+    expect(firstLeftPaneRule.style.width).toBe("440px");
     expect(firstRightPaneRule.style.width).toBe("0px");
     expect(secondLeftPaneRule.style.width).toBe("0px");
-    expect(secondRightPaneRule.style.width).toBe("360px");
+    expect(secondRightPaneRule.style.width).toBe("640px");
   });
 });

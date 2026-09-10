@@ -1,8 +1,4 @@
-import {
-  SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-  clampNumber,
-  type MobilePane,
-} from "./SidebarLayoutGeometryInternal.ts";
+import { clampNumber, type MobilePane } from "./SidebarLayoutGeometryInternal.ts";
 
 export type SidebarLayoutResizeHandleConfig = {
   currentWidthPx: number;
@@ -16,57 +12,59 @@ export type SidebarLayoutResizeHandleConfig = {
 export function getSidebarLayoutDesktopResizeHandles(args: {
   desktopLeftWidthPx: number;
   desktopRightWidthPx: number;
-  desktopSidebarMaxWidthPx: number;
+  desktopMainMinWidthPx: number;
+  desktopSidebarMinWidthPx: number;
   hasLeftPane: boolean;
   hasRightPane: boolean;
   leftDesktopOpen: boolean;
   rightDesktopOpen: boolean;
-  setLeftDesktopWidthPx: (nextWidthPx: number) => void;
-  setRightDesktopWidthPx: (nextWidthPx: number) => void;
+  setDesktopWidths: (widths: { leftWidthPx: number; rightWidthPx: number }) => void;
   viewportWidthPx: number;
 }) {
   if (args.viewportWidthPx <= 0) {
     return [];
   }
 
-  return [
-    args.hasLeftPane && args.leftDesktopOpen
-      ? {
-          currentWidthPx: args.desktopLeftWidthPx,
-          maxWidthPx: args.desktopSidebarMaxWidthPx,
-          minWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-          onWidthChange: (nextWidthPx: number) => {
-            args.setLeftDesktopWidthPx(
-              clampNumber(
-                Math.round(nextWidthPx),
-                SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-                args.desktopSidebarMaxWidthPx,
-              ),
-            );
-          },
-          positionPx: args.desktopLeftWidthPx,
-          side: "left" as const,
-        }
-      : null,
-    args.hasRightPane && args.rightDesktopOpen
-      ? {
-          currentWidthPx: args.desktopRightWidthPx,
-          maxWidthPx: args.desktopSidebarMaxWidthPx,
-          minWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-          onWidthChange: (nextWidthPx: number) => {
-            args.setRightDesktopWidthPx(
-              clampNumber(
-                Math.round(nextWidthPx),
-                SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-                args.desktopSidebarMaxWidthPx,
-              ),
-            );
-          },
-          positionPx: args.viewportWidthPx - args.desktopRightWidthPx,
-          side: "right" as const,
-        }
-      : null,
-  ].filter((resizeHandle) => resizeHandle !== null);
+  const availableWidthPx = Math.floor(args.viewportWidthPx) - args.desktopMainMinWidthPx;
+
+  return (["left", "right"] as const).flatMap((side) => {
+    const isOpen =
+      side === "left"
+        ? args.hasLeftPane && args.leftDesktopOpen
+        : args.hasRightPane && args.rightDesktopOpen;
+    if (!isOpen) return [];
+
+    const oppositeOpen =
+      side === "left"
+        ? args.hasRightPane && args.rightDesktopOpen
+        : args.hasLeftPane && args.leftDesktopOpen;
+    const currentWidthPx = side === "left" ? args.desktopLeftWidthPx : args.desktopRightWidthPx;
+    const oppositeWidthPx = side === "left" ? args.desktopRightWidthPx : args.desktopLeftWidthPx;
+    const maxWidthPx = availableWidthPx - (oppositeOpen ? args.desktopSidebarMinWidthPx : 0);
+
+    return [
+      {
+        currentWidthPx,
+        maxWidthPx,
+        minWidthPx: args.desktopSidebarMinWidthPx,
+        onWidthChange: (nextWidthPx: number) => {
+          const widthPx = clampNumber(
+            Math.round(nextWidthPx),
+            args.desktopSidebarMinWidthPx,
+            maxWidthPx,
+          );
+          const nextOppositeWidthPx = Math.min(oppositeWidthPx, availableWidthPx - widthPx);
+
+          args.setDesktopWidths({
+            leftWidthPx: side === "left" ? widthPx : nextOppositeWidthPx,
+            rightWidthPx: side === "right" ? widthPx : nextOppositeWidthPx,
+          });
+        },
+        positionPx: side === "left" ? currentWidthPx : args.viewportWidthPx - currentWidthPx,
+        side,
+      },
+    ];
+  });
 }
 
 export function getSidebarLayoutMobileResizeHandles(args: {

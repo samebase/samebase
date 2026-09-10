@@ -79,6 +79,22 @@ selected pane action.
 The package does not own app routing, route readiness, header controls, or the choice of which pane
 a product shortcut toggles.
 
+### Desktop Pane Widths
+
+Each visible desktop pane has a 160px minimum. A sidebar can use all space that remains after the
+other visible panes reach their minimum widths. A resize first reduces the main pane. After the main
+pane reaches its minimum, it reduces the opposite sidebar. Both sidebar widths are saved in one
+state update. Reversing the resize gives space back to main and keeps the opposite sidebar at its
+reduced width. Pointer and keyboard resizing use the same limits.
+
+Closed or absent sidebars reserve no space and keep their saved widths. When the layout becomes
+narrower, it reduces the displayed sidebar widths in proportion to their space above the minimum.
+This does not change the saved widths. If an embedded desktop layout cannot fit all pane minima, the
+minima scale down to fit. Resize controls report these same local limits.
+
+Sidebar width transitions are disabled during a resize and when the measured layout width changes.
+The desktop prehydration script uses the same calculation as the live layout.
+
 ### Static First Paint
 
 The package owns the data attributes, CSS variables, responsive boundary, and geometry rules used
