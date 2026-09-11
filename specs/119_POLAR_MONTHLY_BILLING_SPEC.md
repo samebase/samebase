@@ -207,6 +207,14 @@ invoices, receipts, cancellation, and reactivation.
 - The server rejects billing-change requests from pull request previews before it accesses Polar.
 - Production uses the stable Samebase origin, one current production Pro product, retained
   historical Pro entries when needed, and one stable production webhook.
+- Polar API requests pin `Polar-Version: 2026-04`, matching the current SDK contract. The production
+  webhook endpoint must separately pin `api_version` to `2026-04`; deploying the client does not
+  change that setting. Test the next API contract in Sandbox and update both versions before Polar
+  removes the pinned version. See
+  [Polar API versioning](https://polar.sh/docs/api-reference/2026-04/versioning).
+- Webhook verification supports both the legacy Polar HMAC key and the Standard Webhooks key used
+  for secrets generated from September 8, 2026. See
+  [Polar webhook delivery](https://polar.sh/docs/integrate/webhooks/delivery).
 - Production configuration needs operator approval.
 
 ### Beta Cutover

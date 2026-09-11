@@ -1,4 +1,5 @@
 import { Polar } from "@polar-sh/sdk";
+import { HTTPClient } from "@polar-sh/sdk/lib/http";
 import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 
 import { env } from "./_generated/server";
@@ -102,8 +103,14 @@ export function createPolarClient(timeoutMs = POLAR_API_TIMEOUT_MS): Polar {
     throw new Error("Polar billing is not configured.");
   }
 
+  const httpClient = new HTTPClient();
+  httpClient.addHook("beforeRequest", (request) => {
+    request.headers.set("Polar-Version", "2026-04");
+  });
+
   return new Polar({
     accessToken,
+    httpClient,
     server: resolvePolarServer(),
     timeoutMs,
   });
