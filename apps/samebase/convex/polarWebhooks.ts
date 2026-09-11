@@ -8,36 +8,6 @@ import { createPolarClient, readPolarErrorLogFields } from "./polarClient";
 
 const POLAR_WEBHOOK_API_TIMEOUT_MS = 1_500;
 
-/**
- * Polar secrets generated before September 8, 2026 use the full UTF-8 string as the HMAC key.
- * Newer secrets use Standard Webhooks decoding. Verify both without Node `Buffer` in Convex V8.
- */
-export function verifyPolarWebhookEvent(args: {
-  body: string;
-  headers: Record<string, string>;
-  secret: string;
-}): unknown {
-  try {
-    return new Webhook(new TextEncoder().encode(args.secret), { format: "raw" }).verify(
-      args.body,
-      args.headers,
-    );
-  } catch (error) {
-    if (!(error instanceof WebhookVerificationError)) {
-      throw error;
-    }
-
-    let webhook: Webhook;
-    try {
-      webhook = new Webhook(args.secret);
-    } catch {
-      // Legacy secrets can be arbitrary strings that are not valid Base64.
-      throw error;
-    }
-    return webhook.verify(args.body, args.headers);
-  }
-}
-
 export const handlePolarWebhook = httpAction(async (ctx, request) => {
   const secret = env.POLAR_WEBHOOK_SECRET?.trim();
   if (!secret) {
@@ -52,7 +22,7 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
 
   let verifiedEvent: unknown;
   try {
-    verifiedEvent = verifyPolarWebhookEvent({ body, headers, secret });
+    verifiedEvent = new Webhook(secret).verify(body, headers);
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
       return new Response("Invalid webhook signature", { status: 401 });

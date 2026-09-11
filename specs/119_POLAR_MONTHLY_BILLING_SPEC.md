@@ -212,8 +212,10 @@ invoices, receipts, cancellation, and reactivation.
   change that setting. Test the next API contract in Sandbox and update both versions before Polar
   removes the pinned version. See
   [Polar API versioning](https://polar.sh/docs/api-reference/2026-04/versioning).
-- Webhook verification supports both the legacy Polar HMAC key and the Standard Webhooks key used
-  for secrets generated from September 8, 2026. See
+- Webhook verification uses Standard Webhooks only. Use Polar's reset-secret operation
+  (`PATCH /v1/webhooks/endpoints/{id}/secret`) to replace any secret generated before September
+  8, 2026. Store the returned secret as `POLAR_WEBHOOK_SECRET` in Convex when deploying the
+  receiver, before enabling webhook delivery. See
   [Polar webhook delivery](https://polar.sh/docs/integrate/webhooks/delivery).
 - Production configuration needs operator approval.
 

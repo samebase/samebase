@@ -5,19 +5,10 @@ import { makeConvexTest } from "./test.setup";
 
 const webhookSecret = "whsec_c2FtZWJhc2UtcG9sYXItd2ViaG9vay10ZXN0LXNlY3JldA==";
 const standardSigner = new Webhook(webhookSecret);
-// Polar documents both signing keys at https://polar.sh/docs/integrate/webhooks/delivery.
-const signingSchemes = [
-  ["legacy Polar HMAC", new Webhook(new TextEncoder().encode(webhookSecret), { format: "raw" })],
-  ["Standard Webhooks", standardSigner],
-] as const;
 
-function createSignedWebhookRequest(
-  body: string,
-  signer: Webhook,
-  timestamp = new Date(),
-): RequestInit {
+function createSignedWebhookRequest(body: string, timestamp = new Date()): RequestInit {
   const messageId = "webhook-message-1";
-  const signature = signer.sign(messageId, timestamp, body);
+  const signature = standardSigner.sign(messageId, timestamp, body);
   return {
     body,
     headers: {
@@ -40,8 +31,7 @@ describe("Polar webhooks", () => {
     vi.unstubAllEnvs();
   });
 
-  it("rejects an invalid signature with a legacy secret that is not Base64", async () => {
-    vi.stubEnv("POLAR_WEBHOOK_SECRET", "samebase-polar-webhook-test-secret");
+  it("rejects an invalid signature", async () => {
     const response = await makeConvexTest().fetch("/webhooks/polar", {
       body: JSON.stringify({ type: "ignored.event" }),
       headers: {
@@ -56,34 +46,49 @@ describe("Polar webhooks", () => {
     expect(response.status).toBe(401);
   });
 
-  it.each(signingSchemes)("ignores an unused event signed with %s", async (_scheme, signer) => {
+  it("ignores a valid signed event that Samebase does not use", async () => {
     const body = JSON.stringify({ type: "ignored.event" });
     const response = await makeConvexTest().fetch(
       "/webhooks/polar",
-      createSignedWebhookRequest(body, signer),
+      createSignedWebhookRequest(body),
     );
 
     expect(response.status).toBe(204);
   });
 
-  it.each(signingSchemes)(
-    "rejects changed or expired requests signed with %s",
-    async (_scheme, signer) => {
-      const body = JSON.stringify({ type: "ignored.event" });
-      const t = makeConvexTest();
-      const changedBody = await t.fetch("/webhooks/polar", {
-        ...createSignedWebhookRequest(body, signer),
-        body: JSON.stringify({ type: "subscription.updated" }),
-      });
-      const expired = await t.fetch(
-        "/webhooks/polar",
-        createSignedWebhookRequest(body, signer, new Date(Date.now() - 600_000)),
-      );
+  it("rejects changed or expired signed requests", async () => {
+    const body = JSON.stringify({ type: "ignored.event" });
+    const t = makeConvexTest();
+    const changedBody = await t.fetch("/webhooks/polar", {
+      ...createSignedWebhookRequest(body),
+      body: JSON.stringify({ type: "subscription.updated" }),
+    });
+    const expired = await t.fetch(
+      "/webhooks/polar",
+      createSignedWebhookRequest(body, new Date(Date.now() - 600_000)),
+    );
 
-      expect(changedBody.status).toBe(401);
-      expect(expired.status).toBe(401);
-    },
-  );
+    expect(changedBody.status).toBe(401);
+    expect(expired.status).toBe(401);
+  });
+
+  it("rejects the legacy Polar signing method", async () => {
+    const body = JSON.stringify({ type: "ignored.event" });
+    const timestamp = new Date();
+    const signed = createSignedWebhookRequest(body, timestamp);
+    const headers = new Headers(signed.headers);
+    headers.set(
+      "webhook-signature",
+      new Webhook(new TextEncoder().encode(webhookSecret), { format: "raw" }).sign(
+        "webhook-message-1",
+        timestamp,
+        body,
+      ),
+    );
+    const response = await makeConvexTest().fetch("/webhooks/polar", { ...signed, headers });
+
+    expect(response.status).toBe(401);
+  });
 
   it("rejects a malformed signed subscription event without changing billing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -93,10 +98,7 @@ describe("Polar webhooks", () => {
       type: "subscription.updated",
     });
     const t = makeConvexTest();
-    const response = await t.fetch(
-      "/webhooks/polar",
-      createSignedWebhookRequest(body, standardSigner),
-    );
+    const response = await t.fetch("/webhooks/polar", createSignedWebhookRequest(body));
 
     expect(response.status).toBe(500);
     await expect(
