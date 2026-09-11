@@ -72,8 +72,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get account limits
-     * @description Retrieve account limits and usage information
+     * Get build-minute availability
+     * @description Return whether the account's build-minute allowance is exhausted and when it refreshes.
      */
     get: operations["getAccountLimits"];
     put?: never;
@@ -92,8 +92,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get builds by version IDs
-     * @description Retrieve builds for specific version IDs
+     * Get builds by Worker version
+     * @description Retrieve builds associated with one or more Worker version IDs.
      */
     get: operations["getBuildsByVersionIds"];
     put?: never;
@@ -112,8 +112,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get build by UUID
-     * @description Retrieve detailed information about a specific build
+     * Get a Workers build
+     * @description Retrieve status, outcome, timestamps, trigger settings, and source metadata for a build UUID.
      */
     get: operations["getBuildByUuid"];
     put?: never;
@@ -133,8 +133,8 @@ export interface paths {
     };
     get?: never;
     /**
-     * Cancel build
-     * @description Cancel a running or queued build
+     * Cancel a Workers build
+     * @description Cancel a queued or running build.
      */
     put: operations["cancelBuildByUuid"];
     post?: never;
@@ -152,8 +152,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get build logs
-     * @description Retrieve logs for a specific build with cursor-based pagination
+     * Get Workers build logs
+     * @description Retrieve cursor-paginated log lines for a build UUID.
      */
     get: operations["getBuildLogs"];
     put?: never;
@@ -213,8 +213,8 @@ export interface paths {
     };
     get?: never;
     /**
-     * Create or update repository connection
-     * @description Upsert a repository connection for CI/CD integration
+     * Create or update a repository connection
+     * @description Save the repository connection required by build triggers.
      */
     put: operations["upsertRepoConnection"];
     post?: never;
@@ -235,8 +235,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete repository connection
-     * @description Remove a repository connection
+     * Delete a repository connection
+     * @description Delete a saved repository connection.
      */
     delete: operations["deleteRepoConnection"];
     options?: never;
@@ -253,7 +253,7 @@ export interface paths {
     };
     /**
      * List build tokens
-     * @description Get all build tokens with pagination
+     * @description List metadata for build tokens available to the current user without returning their secrets.
      */
     get: operations["listBuildTokens"];
     put?: never;
@@ -279,8 +279,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete build token
-     * @description Remove a build authentication token
+     * Delete a build token
+     * @description Delete a stored build token owned by the current user.
      */
     delete: operations["deleteBuildToken"];
     options?: never;
@@ -298,8 +298,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create trigger
-     * @description Create a new CI/CD trigger
+     * Create a build trigger
+     * @description Create a trigger defining the repository connection, Worker tag, commands, filters, cache setting, and build token.
      */
     post: operations["createTrigger"];
     delete?: never;
@@ -319,15 +319,15 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete trigger
-     * @description Remove a CI/CD trigger
+     * Delete a build trigger
+     * @description Delete a trigger and cancel its unfinished builds.
      */
     delete: operations["deleteTrigger"];
     options?: never;
     head?: never;
     /**
-     * Update trigger
-     * @description Update an existing CI/CD trigger
+     * Update a build trigger
+     * @description Update commands, cache settings, or branch and path filters for a trigger.
      */
     patch: operations["updateTrigger"];
     trace?: never;
@@ -342,8 +342,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create manual build
-     * @description Trigger a manual build for a specific trigger
+     * Start a Workers build
+     * @description Start a build for a branch or commit using the selected trigger.
      */
     post: operations["createManualBuild"];
     delete?: never;
@@ -360,8 +360,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List environment variables
-     * @description Get all environment variables for a trigger
+     * List build variables
+     * @description List build-time variables configured for a trigger. Secret values are not returned.
      */
     get: operations["listEnvironmentVariables"];
     put?: never;
@@ -370,8 +370,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Upsert environment variables
-     * @description Create or update environment variables for a trigger
+     * Set build variables
+     * @description Add or replace build-time variables and secrets without changing unspecified keys.
      */
     patch: operations["upsertEnvironmentVariables"];
     trace?: never;
@@ -387,8 +387,8 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete environment variable
-     * @description Remove a specific environment variable from a trigger
+     * Delete a build variable
+     * @description Delete one build-time variable or secret by key.
      */
     delete: operations["deleteEnvironmentVariable"];
     options?: never;
@@ -406,8 +406,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Purge build cache
-     * @description Clear the build cache for a specific trigger
+     * Purge a trigger's build cache
+     * @description Delete cached dependencies and build artifacts associated with a trigger.
      */
     post: operations["purgeBuildCache"];
     delete?: never;
@@ -426,8 +426,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create worker build configuration
-     * @description Create a new build configuration for a Worker script, linking it to a git repository with CI/CD triggers.
+     * Create Worker build configuration
+     * @description Connect a Worker tag to a repository and production build settings.
      */
     post: operations["createWorkerBuild"];
     delete?: never;
@@ -444,8 +444,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List builds by script
-     * @description Get all builds for a specific worker script with pagination
+     * List builds for a Worker
+     * @description List paginated build records associated with a Worker tag.
      */
     get: operations["listBuildsByScript"];
     put?: never;
@@ -464,8 +464,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List triggers by script
-     * @description Get all triggers for a specific worker script
+     * List triggers for a Worker
+     * @description List trigger UUIDs and build settings associated with a Worker tag.
      */
     get: operations["listTriggersByScript"];
     put?: never;
@@ -485,13 +485,13 @@ export interface paths {
     };
     /**
      * List deploy hooks
-     * @description Get all deploy hooks for a specific worker script.
+     * @description List the branch-specific deploy hooks configured for a Worker.
      */
     get: operations["listDeployHooks"];
     put?: never;
     /**
-     * Create deploy hook
-     * @description Create a new deploy hook for a worker script.
+     * Create a deploy hook
+     * @description Create an HTTP hook that starts a build for a selected Worker branch.
      */
     post: operations["createDeployHook"];
     delete?: never;
@@ -508,19 +508,19 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get deploy hook
-     * @description Get details of a specific deploy hook.
+     * Get a deploy hook
+     * @description Retrieve the name, branch, Worker identifier, and timestamps for a deploy hook.
      */
     get: operations["getDeployHook"];
     /**
-     * Update deploy hook
-     * @description Update an existing deploy hook.
+     * Update a deploy hook
+     * @description Replace the name and target branch for a deploy hook.
      */
     put: operations["updateDeployHook"];
     post?: never;
     /**
-     * Delete deploy hook
-     * @description Delete a deploy hook.
+     * Delete a deploy hook
+     * @description Delete a deploy hook so its UUID can no longer start builds.
      */
     delete: operations["deleteDeployHook"];
     options?: never;
@@ -536,22 +536,22 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get worker build configuration
-     * @description Retrieve the build configuration for a specific Worker script, including git repository details and production settings.
+     * Get Worker build configuration
+     * @description Retrieve the repository and production build settings associated with a Worker tag.
      */
     get: operations["getWorkerBuild"];
     put?: never;
     post?: never;
     /**
-     * Delete worker build configuration
-     * @description Delete the build configuration for a Worker script.
+     * Delete Worker build configuration
+     * @description Delete build settings and triggers for a Worker tag and cancel unfinished builds. The Worker is not deleted.
      */
     delete: operations["deleteWorkerBuild"];
     options?: never;
     head?: never;
     /**
-     * Update worker build configuration
-     * @description Update the build configuration for a Worker script. Supports partial updates to git repository settings and production build settings.
+     * Update Worker build configuration
+     * @description Update the repository branch or production build settings associated with a Worker tag.
      */
     patch: operations["updateWorkerBuild"];
     trace?: never;
@@ -786,7 +786,10 @@ export interface paths {
     get: operations["namespace-worker-list-script-secrets"];
     /**
      * Add script secret
-     * @description Add a secret to a script uploaded to a Workers for Platforms namespace.
+     * @description Add a secret to a script by creating a new version with that secret.
+     *
+     *     When changing more than one secret at a time, prefer the "Patch multiple
+     *     script secrets" API instead of changing many secrets individually.
      */
     put: operations["namespace-worker-put-script-secrets"];
     post?: never;
@@ -812,6 +815,8 @@ export interface paths {
     /**
      * Patch multiple script secrets
      * @description Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).
+     *     This operation creates a single version with all changes included.
+     *     Prefer this API instead of changing many secrets individually.
      *
      *     Usage:
      *
@@ -838,7 +843,11 @@ export interface paths {
     post?: never;
     /**
      * Delete script secret
-     * @description Remove a secret from a script uploaded to a Workers for Platforms namespace.
+     * @description Remove a secret from a script by creating a new version without that
+     *     secret.
+     *
+     *     When changing more than one secret at a time, prefer the "Patch multiple
+     *     script secrets" API instead of changing many secrets individually.
      */
     delete: operations["namespace-worker-delete-script-secret"];
     options?: never;
@@ -1641,7 +1650,10 @@ export interface paths {
     get: operations["worker-list-script-secrets"];
     /**
      * Add script secret
-     * @description Add a secret to a script.
+     * @description Add a secret to a script by creating a new version with that secret.
+     *
+     *     When changing more than one secret at a time, prefer the "Patch multiple
+     *     script secrets" API instead of changing many secrets individually.
      */
     put: operations["worker-put-script-secret"];
     post?: never;
@@ -1667,6 +1679,8 @@ export interface paths {
     /**
      * Patch multiple script secrets
      * @description Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).
+     *     This operation creates a single version with all changes included.
+     *     Prefer this API instead of changing many secrets individually.
      *
      *     Usage:
      *
@@ -1693,7 +1707,11 @@ export interface paths {
     post?: never;
     /**
      * Delete script secret
-     * @description Remove a secret from a script.
+     * @description Remove a secret from a script by creating a new version without that
+     *     secret.
+     *
+     *     When changing more than one secret at a time, prefer the "Patch multiple
+     *     script secrets" API instead of changing many secrets individually.
      */
     delete: operations["worker-delete-script-secret"];
     options?: never;
@@ -2350,13 +2368,16 @@ export interface components {
      * @example main
      */
     builds_branch: string;
-    /** @example npm run build */
+    /**
+     * @description Command to build the Worker.
+     * @example npm run build
+     */
     builds_build_command: string;
     /** @example My Build Token */
     builds_build_token_name: string;
     /**
      * Format: uuid
-     * @description Build token UUID.
+     * @description UUID of the build token used when deploying the Worker.
      */
     builds_build_token_uuid: string;
     /**
@@ -2369,19 +2390,29 @@ export interface components {
      * @example abc123def456
      */
     builds_commit_hash: string;
-    /** @example npx wrangler deploy */
+    /**
+     * @description Command to deploy the Worker.
+     * @example npx wrangler deploy
+     */
     builds_deploy_command: string;
-    /** @example Cloudflare */
+    /**
+     * @description Human-readable name of the account or namespace that owns the repository.
+     * @example Cloudflare
+     */
     builds_provider_account_name: string;
     /**
+     * @description Source control provider.
      * @example github
      * @enum {string}
      */
     builds_SCMProviderType: "github" | "gitlab" | "gitlab_internal" | "origin";
-    /** @example workers-sdk */
+    /**
+     * @description Human-readable repository name.
+     * @example workers-sdk
+     */
     builds_repo_name: string;
     /**
-     * @description Root directory path.
+     * @description Repository directory in which build and deploy commands run.
      * @example /
      */
     builds_root_directory: string;
@@ -2401,15 +2432,20 @@ export interface components {
     builds_BuildStatus: "queued" | "initializing" | "running" | "stopped";
     /** Format: date-time */
     builds_stopped_on: string | null;
-    /** @example [] */
+    /**
+     * @description Branch patterns that must not start builds.
+     * @example []
+     */
     builds_branch_excludes: string[];
     /**
+     * @description Branch patterns that can start builds.
      * @example [
      *       "main"
      *     ]
      */
     builds_branch_includes: string[];
     /**
+     * @description Whether builds reuse cached dependencies and build artifacts.
      * @default false
      * @example false
      */
@@ -2417,18 +2453,22 @@ export interface components {
     /** Format: date-time */
     builds_deleted_on: string | null;
     /**
-     * @description System-generated worker script tag.
+     * @description System-generated tag of the Worker. This is not the Worker name.
      * @example dd7160bb9cef458093557736f4b9e75b
      */
     builds_external_script_id: string;
     /**
+     * @description Path patterns that must not start builds.
      * @example [
      *       "*.md"
      *     ]
      */
     builds_path_excludes: string[];
     /**
-     * @default *
+     * @description Path patterns that can start builds.
+     * @default [
+     *       "*"
+     *     ]
      * @example [
      *       "*"
      *     ]
@@ -2446,7 +2486,7 @@ export interface components {
       repo_name?: components["schemas"]["builds_repo_name"];
     };
     /**
-     * @description Provider account identifier.
+     * @description Provider-specific identifier of the account or namespace that owns the repository.
      * @example cloudflare
      */
     builds_provider_account_id: string;
@@ -2456,11 +2496,14 @@ export interface components {
      */
     builds_repo_connection_uuid: string;
     /**
-     * @description Repository identifier.
+     * @description Provider-specific repository identifier.
      * @example workers-sdk
      */
     builds_repo_id: string;
-    /** @example Production Deploy */
+    /**
+     * @description Human-readable name of the build trigger.
+     * @example Production Deploy
+     */
     builds_trigger_name: string;
     /**
      * Format: uuid
@@ -2604,18 +2647,34 @@ export interface components {
           branch?: components["schemas"]["builds_branch"];
           /** @description Git commit hash (required if branch not provided) */
           commit_hash?: components["schemas"]["builds_commit_hash"];
+          /** @description Optional repository and file overrides used to seed this build. */
           seed_repo?: components["schemas"]["builds_BuildSeedRepoInput"];
         }
       | unknown;
     builds_BuildSeedRepoInput: {
-      branch: components["schemas"]["builds_branch"];
+      /** @description Repository branch to seed. */
+      branch?: components["schemas"]["builds_branch"];
+      /** @description Files to add or replace for this build. Maximum 2. */
       files?: components["schemas"]["builds_BuildSeedRepoInputFile"][];
-      /** @example cloudflare */
+      /**
+       * @description Repository owner or namespace.
+       * @example cloudflare
+       */
       owner: string;
-      /** @example / */
-      path: string;
-      provider: components["schemas"]["builds_SCMProviderType"];
-      /** @example workers-sdk */
+      /**
+       * @description Path within the repository to seed.
+       * @example /
+       */
+      path?: string;
+      /**
+       * @description Source control provider for the seed repository.
+       * @enum {string}
+       */
+      provider: "github" | "gitlab";
+      /**
+       * @description Repository name.
+       * @example workers-sdk
+       */
       repository: string;
     };
     builds_BuildSeedRepoInputFile: {
@@ -2626,9 +2685,12 @@ export interface components {
       content: string;
       /** @example wrangler.toml */
       filename: string;
-      /** @default false */
+      /**
+       * @description Whether content is Base64-encoded.
+       * @default false
+       */
       isBase64: boolean;
-      /** @description Text to replace in the file */
+      /** @description Existing text in the target file to replace with content. */
       replace?: string;
     };
     builds_InsertBuildResponse: {
@@ -2657,9 +2719,13 @@ export interface components {
         value?: string | null;
       };
     };
-    /** @example false */
+    /**
+     * @description Whether to hide the value after it is saved. Secret values remain available to builds but appear as `null` when you list variables; non-secret values remain visible.
+     * @example false
+     */
     builds_is_secret: boolean;
     /**
+     * @description Map of environment-variable names to build-time values. Names must begin with a letter or underscore and contain only letters, numbers, and underscores.
      * @example {
      *       "API_KEY": {
      *         "is_secret": true,
@@ -2674,8 +2740,11 @@ export interface components {
     builds_EnvironmentVariablesRequest: {
       [key: string]: {
         is_secret: components["schemas"]["builds_is_secret"];
-        /** @example production */
-        value?: string | null;
+        /**
+         * @description Value made available to the build. Maximum length is 5000 characters.
+         * @example production
+         */
+        value: string;
       };
     };
     /**
@@ -2777,7 +2846,7 @@ export interface components {
       root_directory?: components["schemas"]["builds_root_directory"];
     };
     /**
-     * @description Human-readable name of the worker.
+     * @description Human-readable name of the Worker.
      * @example my-worker
      */
     builds_script_name: string;
@@ -2836,6 +2905,7 @@ export interface components {
       environment_variables?: {
         [key: string]: {
           is_secret: components["schemas"]["builds_is_secret"];
+          /** @description Value made available to the build. Maximum length is 5000 characters. */
           value: string;
         } | null;
       };
@@ -4864,7 +4934,7 @@ export interface components {
        * @description Worker environment associated with the domain.
        * @example production
        */
-      environment?: $Read<string>;
+      environment: $Read<string>;
       /**
        * @description Hostname of the domain. Can be either the zone apex or a subdomain of the zone. Requests to this hostname will be routed to the configured Worker.
        * @example app.example.com
@@ -6355,6 +6425,17 @@ export interface components {
         /** @description Token provided upon successful upload of all files from a registered manifest. */
         jwt?: string;
       };
+      /**
+       * Format: email
+       * @description Email of the user who created the version.
+       * @example user@example.com
+       */
+      author_email?: $Read<string>;
+      /**
+       * @description Identifier of the user who created the version.
+       * @example 408cbcdfd4dda4617efef40b04d168a1
+       */
+      author_id?: $Read<string>;
       bindings?: components["schemas"]["workers_bindings"];
       cache_options?: components["schemas"]["workers_cache_options"];
       compatibility_date?: components["schemas"]["workers_compatibility_date"];

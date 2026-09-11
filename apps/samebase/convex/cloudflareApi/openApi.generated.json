@@ -153,8 +153,8 @@
     "/accounts/{account_id}/builds/account/limits": {
       "get": {
         "operationId": "getAccountLimits",
-        "summary": "Get account limits",
-        "description": "Retrieve account limits and usage information",
+        "summary": "Get build-minute availability",
+        "description": "Return whether the account's build-minute allowance is exhausted and when it refreshes.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -199,16 +199,15 @@
         "tags": ["Account"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds",
-        "x-fern-sdk-method-name": "get-account-limits",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.limits",
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/builds/builds": {
       "get": {
         "operationId": "getBuildsByVersionIds",
-        "summary": "Get builds by version IDs",
-        "description": "Retrieve builds for specific version IDs",
+        "summary": "Get builds by Worker version",
+        "description": "Retrieve builds associated with one or more Worker version IDs.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -261,16 +260,15 @@
         "tags": ["Builds"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds",
-        "x-fern-sdk-method-name": "get-builds-by-version",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.versions",
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/builds/builds/{build_uuid}": {
       "get": {
         "operationId": "getBuildByUuid",
-        "summary": "Get build by UUID",
-        "description": "Retrieve detailed information about a specific build",
+        "summary": "Get a Workers build",
+        "description": "Retrieve status, outcome, timestamps, trigger settings, and source metadata for a build UUID.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -321,16 +319,15 @@
         "tags": ["Builds"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.builds",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds",
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/builds/builds/{build_uuid}/cancel": {
       "put": {
         "operationId": "cancelBuildByUuid",
-        "summary": "Cancel build",
-        "description": "Cancel a running or queued build",
+        "summary": "Cancel a Workers build",
+        "description": "Cancel a queued or running build.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -381,16 +378,15 @@
         "tags": ["Builds"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.builds",
-        "x-fern-sdk-method-name": "cancel",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds",
+        "x-fern-sdk-method-name": "cancel"
       }
     },
     "/accounts/{account_id}/builds/builds/{build_uuid}/logs": {
       "get": {
         "operationId": "getBuildLogs",
-        "summary": "Get build logs",
-        "description": "Retrieve logs for a specific build with cursor-based pagination",
+        "summary": "Get Workers build logs",
+        "description": "Retrieve cursor-paginated log lines for a build UUID.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -448,9 +444,8 @@
         "tags": ["Builds"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.builds.logs",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.logs",
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/builds/builds/latest": {
@@ -510,8 +505,8 @@
         "tags": ["Builds"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds",
-        "x-fern-sdk-method-name": "get-latest-builds",
+        "x-fern-sdk-group-name": "builds.latest",
+        "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       }
     },
@@ -604,7 +599,7 @@
         "tags": ["GitHub Integration"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.repos.config-autofill",
+        "x-fern-sdk-group-name": "builds.repos.config-autofill",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       }
@@ -612,8 +607,8 @@
     "/accounts/{account_id}/builds/repos/connections": {
       "put": {
         "operationId": "upsertRepoConnection",
-        "summary": "Create or update repository connection",
-        "description": "Upsert a repository connection for CI/CD integration",
+        "summary": "Create or update a repository connection",
+        "description": "Save the repository connection required by build triggers.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -668,7 +663,7 @@
         "tags": ["Repository Connections"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.repos.connections",
+        "x-fern-sdk-group-name": "builds.repos.connections",
         "x-fern-sdk-method-name": "upsert",
         "x-forge-hidden": true
       }
@@ -676,8 +671,8 @@
     "/accounts/{account_id}/builds/repos/connections/{repo_connection_uuid}": {
       "delete": {
         "operationId": "deleteRepoConnection",
-        "summary": "Delete repository connection",
-        "description": "Remove a repository connection",
+        "summary": "Delete a repository connection",
+        "description": "Delete a saved repository connection.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -709,7 +704,7 @@
         "tags": ["Repository Connections"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.repos.connections",
+        "x-fern-sdk-group-name": "builds.repos.connections",
         "x-fern-sdk-method-name": "delete",
         "x-forge-hidden": true
       }
@@ -718,7 +713,7 @@
       "get": {
         "operationId": "listBuildTokens",
         "summary": "List build tokens",
-        "description": "Get all build tokens with pagination",
+        "description": "List metadata for build tokens available to the current user without returning their secrets.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -775,9 +770,8 @@
         "tags": ["Build Tokens"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.tokens",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.tokens",
+        "x-fern-sdk-method-name": "list"
       },
       "post": {
         "operationId": "createBuildToken",
@@ -837,7 +831,7 @@
         "tags": ["Build Tokens"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.tokens",
+        "x-fern-sdk-group-name": "builds.tokens",
         "x-fern-sdk-method-name": "create",
         "x-forge-hidden": true
       }
@@ -845,8 +839,8 @@
     "/accounts/{account_id}/builds/tokens/{build_token_uuid}": {
       "delete": {
         "operationId": "deleteBuildToken",
-        "summary": "Delete build token",
-        "description": "Remove a build authentication token",
+        "summary": "Delete a build token",
+        "description": "Delete a stored build token owned by the current user.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -883,7 +877,7 @@
         "tags": ["Build Tokens"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.tokens",
+        "x-fern-sdk-group-name": "builds.tokens",
         "x-fern-sdk-method-name": "delete",
         "x-forge-hidden": true
       }
@@ -891,8 +885,8 @@
     "/accounts/{account_id}/builds/triggers": {
       "post": {
         "operationId": "createTrigger",
-        "summary": "Create trigger",
-        "description": "Create a new CI/CD trigger",
+        "summary": "Create a build trigger",
+        "description": "Create a trigger defining the repository connection, Worker tag, commands, filters, cache setting, and build token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -947,7 +941,7 @@
         "tags": ["Triggers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-group-name": "builds.triggers",
         "x-fern-sdk-method-name": "create",
         "x-forge-hidden": true
       }
@@ -955,8 +949,8 @@
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}": {
       "delete": {
         "operationId": "deleteTrigger",
-        "summary": "Delete trigger",
-        "description": "Remove a CI/CD trigger",
+        "summary": "Delete a build trigger",
+        "description": "Delete a trigger and cancel its unfinished builds.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -988,14 +982,15 @@
         "tags": ["Triggers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-group-name": "builds.triggers",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-forge-hidden": true,
+        "x-forge-require-confirmation": "This operation deletes the build trigger and cancels its unfinished builds."
       },
       "patch": {
         "operationId": "updateTrigger",
-        "summary": "Update trigger",
-        "description": "Update an existing CI/CD trigger",
+        "summary": "Update a build trigger",
+        "description": "Update commands, cache settings, or branch and path filters for a trigger.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1056,7 +1051,7 @@
         "tags": ["Triggers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-group-name": "builds.triggers",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
       }
@@ -1064,8 +1059,8 @@
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds": {
       "post": {
         "operationId": "createManualBuild",
-        "summary": "Create manual build",
-        "description": "Trigger a manual build for a specific trigger",
+        "summary": "Start a Workers build",
+        "description": "Start a build for a branch or commit using the selected trigger.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1123,16 +1118,16 @@
         "tags": ["Triggers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers",
-        "x-fern-sdk-method-name": "create-build",
+        "x-fern-sdk-group-name": "builds",
+        "x-fern-sdk-method-name": "create",
         "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables": {
       "get": {
         "operationId": "listEnvironmentVariables",
-        "summary": "List environment variables",
-        "description": "Get all environment variables for a trigger",
+        "summary": "List build variables",
+        "description": "List build-time variables configured for a trigger. Secret values are not returned.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1180,14 +1175,14 @@
         "tags": ["Environment Variables"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers.environment-variables",
+        "x-fern-sdk-group-name": "builds.triggers.environment-variables",
         "x-fern-sdk-method-name": "list",
         "x-forge-hidden": true
       },
       "patch": {
         "operationId": "upsertEnvironmentVariables",
-        "summary": "Upsert environment variables",
-        "description": "Create or update environment variables for a trigger",
+        "summary": "Set build variables",
+        "description": "Add or replace build-time variables and secrets without changing unspecified keys.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1248,7 +1243,7 @@
         "tags": ["Environment Variables"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers.environment-variables",
+        "x-fern-sdk-group-name": "builds.triggers.environment-variables",
         "x-fern-sdk-method-name": "upsert",
         "x-forge-hidden": true
       }
@@ -1256,8 +1251,8 @@
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables/{environment_variable_key}": {
       "delete": {
         "operationId": "deleteEnvironmentVariable",
-        "summary": "Delete environment variable",
-        "description": "Remove a specific environment variable from a trigger",
+        "summary": "Delete a build variable",
+        "description": "Delete one build-time variable or secret by key.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1297,7 +1292,7 @@
         "tags": ["Environment Variables"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers.environment-variables",
+        "x-fern-sdk-group-name": "builds.triggers.environment-variables",
         "x-fern-sdk-method-name": "delete",
         "x-forge-hidden": true
       }
@@ -1305,8 +1300,8 @@
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/purge_build_cache": {
       "post": {
         "operationId": "purgeBuildCache",
-        "summary": "Purge build cache",
-        "description": "Clear the build cache for a specific trigger",
+        "summary": "Purge a trigger's build cache",
+        "description": "Delete cached dependencies and build artifacts associated with a trigger.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1338,17 +1333,17 @@
         "tags": ["Triggers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers",
-        "x-fern-sdk-method-name": "purge-cache",
+        "x-fern-sdk-group-name": "builds.triggers.cache",
+        "x-fern-sdk-method-name": "purge",
         "x-forge-hidden": true,
-        "x-forge-require-confirmation": "This operation wipes the workers-build cache."
+        "x-forge-require-confirmation": "This operation purges the build cache for a Workers Builds trigger."
       }
     },
     "/accounts/{account_id}/builds/workers": {
       "post": {
         "operationId": "createWorkerBuild",
-        "summary": "Create worker build configuration",
-        "description": "Create a new build configuration for a Worker script, linking it to a git repository with CI/CD triggers.",
+        "summary": "Create Worker build configuration",
+        "description": "Connect a Worker tag to a repository and production build settings.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1433,16 +1428,15 @@
         "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.workers",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.workers",
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/builds/workers/{external_script_id}/builds": {
       "get": {
         "operationId": "listBuildsByScript",
-        "summary": "List builds by script",
-        "description": "Get all builds for a specific worker script with pagination",
+        "summary": "List builds for a Worker",
+        "description": "List paginated build records associated with a Worker tag.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1507,16 +1501,15 @@
         "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.builds",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds",
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/accounts/{account_id}/builds/workers/{external_script_id}/triggers": {
       "get": {
         "operationId": "listTriggersByScript",
-        "summary": "List triggers by script",
-        "description": "Get all triggers for a specific worker script",
+        "summary": "List triggers for a Worker",
+        "description": "List trigger UUIDs and build settings associated with a Worker tag.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1572,7 +1565,7 @@
         "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.triggers",
+        "x-fern-sdk-group-name": "builds.triggers",
         "x-fern-sdk-method-name": "list",
         "x-forge-hidden": true
       }
@@ -1581,7 +1574,7 @@
       "get": {
         "operationId": "listDeployHooks",
         "summary": "List deploy hooks",
-        "description": "Get all deploy hooks for a specific worker script.",
+        "description": "List the branch-specific deploy hooks configured for a Worker.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1632,14 +1625,13 @@
         "tags": ["Deploy Hooks"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.deploy-hooks",
+        "x-fern-sdk-method-name": "list"
       },
       "post": {
         "operationId": "createDeployHook",
-        "summary": "Create deploy hook",
-        "description": "Create a new deploy hook for a worker script.",
+        "summary": "Create a deploy hook",
+        "description": "Create an HTTP hook that starts a build for a selected Worker branch.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1706,16 +1698,15 @@
         "tags": ["Deploy Hooks"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.deploy-hooks",
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks/{deploy_hook_uuid}": {
       "delete": {
         "operationId": "deleteDeployHook",
-        "summary": "Delete deploy hook",
-        "description": "Delete a deploy hook.",
+        "summary": "Delete a deploy hook",
+        "description": "Delete a deploy hook so its UUID can no longer start builds.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1769,14 +1760,13 @@
         "tags": ["Deploy Hooks"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
-        "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.deploy-hooks",
+        "x-fern-sdk-method-name": "delete"
       },
       "get": {
         "operationId": "getDeployHook",
-        "summary": "Get deploy hook",
-        "description": "Get details of a specific deploy hook.",
+        "summary": "Get a deploy hook",
+        "description": "Retrieve the name, branch, Worker identifier, and timestamps for a deploy hook.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1830,14 +1820,13 @@
         "tags": ["Deploy Hooks"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.deploy-hooks",
+        "x-fern-sdk-method-name": "get"
       },
       "put": {
         "operationId": "updateDeployHook",
-        "summary": "Update deploy hook",
-        "description": "Update an existing deploy hook.",
+        "summary": "Update a deploy hook",
+        "description": "Replace the name and target branch for a deploy hook.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1907,16 +1896,15 @@
         "tags": ["Deploy Hooks"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.deploy-hooks",
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/builds/workers/{script_tag}": {
       "delete": {
         "operationId": "deleteWorkerBuild",
-        "summary": "Delete worker build configuration",
-        "description": "Delete the build configuration for a Worker script.",
+        "summary": "Delete Worker build configuration",
+        "description": "Delete build settings and triggers for a Worker tag and cancel unfinished builds. The Worker is not deleted.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -1968,14 +1956,14 @@
         "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.workers",
+        "x-fern-sdk-group-name": "builds.workers",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-forge-require-confirmation": "This operation deletes the Worker build configuration and its triggers, and cancels unfinished builds. The Worker is not deleted."
       },
       "get": {
         "operationId": "getWorkerBuild",
-        "summary": "Get worker build configuration",
-        "description": "Retrieve the build configuration for a specific Worker script, including git repository details and production settings.",
+        "summary": "Get Worker build configuration",
+        "description": "Retrieve the repository and production build settings associated with a Worker tag.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -2026,14 +2014,13 @@
         "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.workers",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.workers",
+        "x-fern-sdk-method-name": "get"
       },
       "patch": {
         "operationId": "updateWorkerBuild",
-        "summary": "Update worker build configuration",
-        "description": "Update the build configuration for a Worker script. Supports partial updates to git repository settings and production build settings.",
+        "summary": "Update Worker build configuration",
+        "description": "Update the repository branch or production build settings associated with a Worker tag.",
         "parameters": [
           {
             "$ref": "#/components/parameters/builds_AccountId"
@@ -2103,9 +2090,8 @@
         "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-builds.workers",
-        "x-fern-sdk-method-name": "edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-group-name": "builds.workers",
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/account-settings": {
@@ -3604,7 +3590,7 @@
       "put": {
         "operationId": "namespace-worker-put-script-secrets",
         "summary": "Add script secret",
-        "description": "Add a secret to a script uploaded to a Workers for Platforms namespace.",
+        "description": "Add a secret to a script by creating a new version with that secret.\n\nWhen changing more than one secret at a time, prefer the \"Patch multiple\nscript secrets\" API instead of changing many secrets individually.\n",
         "parameters": [
           {
             "name": "account_id",
@@ -3707,7 +3693,7 @@
       "patch": {
         "operationId": "namespace-worker-patch-script-secrets-bulk",
         "summary": "Patch multiple script secrets",
-        "description": "Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).\n\nUsage:\n\n- To create or update a secret, set its value to a secret object.\n- To delete a secret, set its value to `null`.\n- Secrets not included in the request are left unchanged.\n",
+        "description": "Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).\nThis operation creates a single version with all changes included.\nPrefer this API instead of changing many secrets individually.\n\nUsage:\n\n- To create or update a secret, set its value to a secret object.\n- To delete a secret, set its value to `null`.\n- Secrets not included in the request are left unchanged.\n",
         "parameters": [
           {
             "name": "account_id",
@@ -3814,7 +3800,7 @@
       "delete": {
         "operationId": "namespace-worker-delete-script-secret",
         "summary": "Delete script secret",
-        "description": "Remove a secret from a script uploaded to a Workers for Platforms namespace.",
+        "description": "Remove a secret from a script by creating a new version without that\nsecret.\n\nWhen changing more than one secret at a time, prefer the \"Patch multiple\nscript secrets\" API instead of changing many secrets individually.\n",
         "parameters": [
           {
             "name": "account_id",
@@ -14751,7 +14737,7 @@
       "put": {
         "operationId": "worker-put-script-secret",
         "summary": "Add script secret",
-        "description": "Add a secret to a script.",
+        "description": "Add a secret to a script by creating a new version with that secret.\n\nWhen changing more than one secret at a time, prefer the \"Patch multiple\nscript secrets\" API instead of changing many secrets individually.\n",
         "parameters": [
           {
             "name": "account_id",
@@ -14851,7 +14837,7 @@
       "patch": {
         "operationId": "worker-patch-script-secrets-bulk",
         "summary": "Patch multiple script secrets",
-        "description": "Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).\n\nUsage:\n\n- To create or update a secret, set its value to a secret object.\n- To delete a secret, set its value to `null`.\n- Secrets not included in the request are left unchanged.\n",
+        "description": "Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).\nThis operation creates a single version with all changes included.\nPrefer this API instead of changing many secrets individually.\n\nUsage:\n\n- To create or update a secret, set its value to a secret object.\n- To delete a secret, set its value to `null`.\n- Secrets not included in the request are left unchanged.\n",
         "parameters": [
           {
             "name": "account_id",
@@ -14949,7 +14935,7 @@
       "delete": {
         "operationId": "worker-delete-script-secret",
         "summary": "Delete script secret",
-        "description": "Remove a secret from a script.",
+        "description": "Remove a secret from a script by creating a new version without that\nsecret.\n\nWhen changing more than one secret at a time, prefer the \"Patch multiple\nscript secrets\" API instead of changing many secrets individually.\n",
         "parameters": [
           {
             "name": "account_id",
@@ -18784,6 +18770,7 @@
         "example": "main"
       },
       "builds_build_command": {
+        "description": "Command to build the Worker.",
         "type": "string",
         "example": "npm run build"
       },
@@ -18792,7 +18779,7 @@
         "example": "My Build Token"
       },
       "builds_build_token_uuid": {
-        "description": "Build token UUID.",
+        "description": "UUID of the build token used when deploying the Worker.",
         "type": "string",
         "format": "uuid"
       },
@@ -18807,24 +18794,28 @@
         "example": "abc123def456"
       },
       "builds_deploy_command": {
+        "description": "Command to deploy the Worker.",
         "type": "string",
         "example": "npx wrangler deploy"
       },
       "builds_provider_account_name": {
+        "description": "Human-readable name of the account or namespace that owns the repository.",
         "type": "string",
         "example": "Cloudflare"
       },
       "builds_SCMProviderType": {
+        "description": "Source control provider.",
         "type": "string",
         "example": "github",
         "enum": ["github", "gitlab", "gitlab_internal", "origin"]
       },
       "builds_repo_name": {
+        "description": "Human-readable repository name.",
         "type": "string",
         "example": "workers-sdk"
       },
       "builds_root_directory": {
-        "description": "Root directory path.",
+        "description": "Repository directory in which build and deploy commands run.",
         "type": "string",
         "example": "/"
       },
@@ -18852,6 +18843,7 @@
         "nullable": true
       },
       "builds_branch_excludes": {
+        "description": "Branch patterns that must not start builds.",
         "type": "array",
         "items": {
           "type": "string"
@@ -18859,6 +18851,7 @@
         "example": []
       },
       "builds_branch_includes": {
+        "description": "Branch patterns that can start builds.",
         "type": "array",
         "items": {
           "type": "string"
@@ -18866,6 +18859,7 @@
         "example": ["main"]
       },
       "builds_build_caching_enabled": {
+        "description": "Whether builds reuse cached dependencies and build artifacts.",
         "type": "boolean",
         "example": false,
         "default": false
@@ -18876,11 +18870,12 @@
         "nullable": true
       },
       "builds_external_script_id": {
-        "description": "System-generated worker script tag.",
+        "description": "System-generated tag of the Worker. This is not the Worker name.",
         "type": "string",
         "example": "dd7160bb9cef458093557736f4b9e75b"
       },
       "builds_path_excludes": {
+        "description": "Path patterns that must not start builds.",
         "type": "array",
         "items": {
           "type": "string"
@@ -18888,12 +18883,13 @@
         "example": ["*.md"]
       },
       "builds_path_includes": {
+        "description": "Path patterns that can start builds.",
         "type": "array",
         "items": {
           "type": "string"
         },
         "example": ["*"],
-        "default": "*"
+        "default": ["*"]
       },
       "builds_UpsertRepoConnectionResponse": {
         "type": "object",
@@ -18928,7 +18924,7 @@
         }
       },
       "builds_provider_account_id": {
-        "description": "Provider account identifier.",
+        "description": "Provider-specific identifier of the account or namespace that owns the repository.",
         "type": "string",
         "example": "cloudflare"
       },
@@ -18938,11 +18934,12 @@
         "format": "uuid"
       },
       "builds_repo_id": {
-        "description": "Repository identifier.",
+        "description": "Provider-specific repository identifier.",
         "type": "string",
         "example": "workers-sdk"
       },
       "builds_trigger_name": {
+        "description": "Human-readable name of the build trigger.",
         "type": "string",
         "example": "Production Deploy"
       },
@@ -19321,7 +19318,12 @@
             ]
           },
           "seed_repo": {
-            "$ref": "#/components/schemas/builds_BuildSeedRepoInput"
+            "description": "Optional repository and file overrides used to seed this build.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/builds_BuildSeedRepoInput"
+              }
+            ]
           }
         },
         "anyOf": [
@@ -19337,9 +19339,15 @@
         "type": "object",
         "properties": {
           "branch": {
-            "$ref": "#/components/schemas/builds_branch"
+            "description": "Repository branch to seed.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/builds_branch"
+              }
+            ]
           },
           "files": {
+            "description": "Files to add or replace for this build. Maximum 2.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/builds_BuildSeedRepoInputFile"
@@ -19347,22 +19355,27 @@
             "maxItems": 2
           },
           "owner": {
+            "description": "Repository owner or namespace.",
             "type": "string",
             "example": "cloudflare"
           },
           "path": {
+            "description": "Path within the repository to seed.",
             "type": "string",
             "example": "/"
           },
           "provider": {
-            "$ref": "#/components/schemas/builds_SCMProviderType"
+            "description": "Source control provider for the seed repository.",
+            "type": "string",
+            "enum": ["github", "gitlab"]
           },
           "repository": {
+            "description": "Repository name.",
             "type": "string",
             "example": "workers-sdk"
           }
         },
-        "required": ["provider", "owner", "repository", "branch", "path"]
+        "required": ["provider", "owner", "repository"]
       },
       "builds_BuildSeedRepoInputFile": {
         "type": "object",
@@ -19376,11 +19389,12 @@
             "example": "wrangler.toml"
           },
           "isBase64": {
+            "description": "Whether content is Base64-encoded.",
             "type": "boolean",
             "default": false
           },
           "replace": {
-            "description": "Text to replace in the file",
+            "description": "Existing text in the target file to replace with content.",
             "type": "string"
           }
         },
@@ -19430,10 +19444,12 @@
         }
       },
       "builds_is_secret": {
+        "description": "Whether to hide the value after it is saved. Secret values remain available to builds but appear as `null` when you list variables; non-secret values remain visible.",
         "type": "boolean",
         "example": false
       },
       "builds_EnvironmentVariablesRequest": {
+        "description": "Map of environment-variable names to build-time values. Names must begin with a letter or underscore and contain only letters, numbers, and underscores.",
         "type": "object",
         "example": {
           "API_KEY": {
@@ -19451,12 +19467,13 @@
               "$ref": "#/components/schemas/builds_is_secret"
             },
             "value": {
+              "description": "Value made available to the build. Maximum length is 5000 characters.",
               "type": "string",
               "example": "production",
-              "nullable": true
+              "maxLength": 5000
             }
           },
-          "required": ["is_secret"],
+          "required": ["is_secret", "value"],
           "type": "object"
         }
       },
@@ -19703,7 +19720,7 @@
         }
       },
       "builds_script_name": {
-        "description": "Human-readable name of the worker.",
+        "description": "Human-readable name of the Worker.",
         "type": "string",
         "example": "my-worker"
       },
@@ -19836,7 +19853,9 @@
                   "$ref": "#/components/schemas/builds_is_secret"
                 },
                 "value": {
-                  "type": "string"
+                  "description": "Value made available to the build. Maximum length is 5000 characters.",
+                  "type": "string",
+                  "maxLength": 5000
                 }
               },
               "required": ["is_secret", "value"],
@@ -23399,7 +23418,7 @@
             "x-stainless-terraform-configurability": "computed_optional"
           }
         },
-        "required": ["id", "cert_id", "zone_id", "zone_name", "hostname", "service"]
+        "required": ["id", "cert_id", "environment", "zone_id", "zone_name", "hostname", "service"]
       },
       "workers_namespace": {
         "type": "object",
@@ -26529,6 +26548,21 @@
                 "x-sensitive": true
               }
             }
+          },
+          "author_email": {
+            "description": "Email of the user who created the version.",
+            "type": "string",
+            "format": "email",
+            "example": "user@example.com",
+            "readOnly": true,
+            "x-auditable": true
+          },
+          "author_id": {
+            "description": "Identifier of the user who created the version.",
+            "type": "string",
+            "example": "408cbcdfd4dda4617efef40b04d168a1",
+            "readOnly": true,
+            "x-auditable": true
           },
           "bindings": {
             "$ref": "#/components/schemas/workers_bindings"
