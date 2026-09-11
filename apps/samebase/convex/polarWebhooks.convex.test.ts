@@ -3,14 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { makeConvexTest } from "./test.setup";
 
-const webhookSecret = "samebase-polar-webhook-test-secret";
+const webhookSecret = "whsec_c2FtZWJhc2UtcG9sYXItd2ViaG9vay10ZXN0LXNlY3JldA==";
+const standardSigner = new Webhook(webhookSecret);
 
-function createSignedWebhookRequest(body: string): RequestInit {
+function createSignedWebhookRequest(body: string, timestamp = new Date()): RequestInit {
   const messageId = "webhook-message-1";
-  const timestamp = new Date();
-  const signature = new Webhook(new TextEncoder().encode(webhookSecret), {
-    format: "raw",
-  }).sign(messageId, timestamp, body);
+  const signature = standardSigner.sign(messageId, timestamp, body);
   return {
     body,
     headers: {
@@ -56,6 +54,40 @@ describe("Polar webhooks", () => {
     );
 
     expect(response.status).toBe(204);
+  });
+
+  it("rejects changed or expired signed requests", async () => {
+    const body = JSON.stringify({ type: "ignored.event" });
+    const t = makeConvexTest();
+    const changedBody = await t.fetch("/webhooks/polar", {
+      ...createSignedWebhookRequest(body),
+      body: JSON.stringify({ type: "subscription.updated" }),
+    });
+    const expired = await t.fetch(
+      "/webhooks/polar",
+      createSignedWebhookRequest(body, new Date(Date.now() - 600_000)),
+    );
+
+    expect(changedBody.status).toBe(401);
+    expect(expired.status).toBe(401);
+  });
+
+  it("rejects the legacy Polar signing method", async () => {
+    const body = JSON.stringify({ type: "ignored.event" });
+    const timestamp = new Date();
+    const signed = createSignedWebhookRequest(body, timestamp);
+    const headers = new Headers(signed.headers);
+    headers.set(
+      "webhook-signature",
+      new Webhook(new TextEncoder().encode(webhookSecret), { format: "raw" }).sign(
+        "webhook-message-1",
+        timestamp,
+        body,
+      ),
+    );
+    const response = await makeConvexTest().fetch("/webhooks/polar", { ...signed, headers });
+
+    expect(response.status).toBe(401);
   });
 
   it("rejects a malformed signed subscription event without changing billing", async () => {

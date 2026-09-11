@@ -1,14 +1,56 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { SDKError } from "@polar-sh/sdk/models/errors/sdkerror";
 
 import {
   POLAR_PRODUCT_CATALOG,
+  createPolarClient,
   readPolarErrorLogFields,
   readPolarCheckoutProductId,
   readPolarProductCatalogFromEntries,
   resolvePolarProduct,
   type PolarProductCatalog,
 } from "./polarClient";
+
+describe("Polar API version", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    ["local:test", "https://sandbox-api.polar.sh"],
+    ["prod:test", "https://api.polar.sh"],
+  ])("pins reads and writes on %s to the SDK's API contract", async (deployment, origin) => {
+    vi.stubEnv("POLAR_ACCESS_TOKEN", "polar-test-token");
+    vi.stubEnv("CONVEX_AGENT_MODE", "");
+    vi.stubEnv("CONVEX_DEPLOYMENT", deployment);
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 401 })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const polar = createPolarClient();
+    await expect(polar.customers.getExternal({ externalId: "test-customer" })).rejects.toThrow();
+    await expect(
+      polar.customerSessions.create({ externalCustomerId: "test-customer" }),
+    ).rejects.toThrow();
+
+    expect(
+      fetchMock.mock.calls.map(([input, init]) => {
+        const request = new Request(input, init);
+        return {
+          origin: new URL(request.url).origin,
+          method: request.method,
+          authorization: request.headers.get("Authorization"),
+          version: request.headers.get("Polar-Version"),
+        };
+      }),
+    ).toEqual([
+      { origin, method: "GET", authorization: "Bearer polar-test-token", version: "2026-04" },
+      { origin, method: "POST", authorization: "Bearer polar-test-token", version: "2026-04" },
+    ]);
+  });
+});
 
 const catalogEntries = [
   {

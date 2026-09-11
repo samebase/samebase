@@ -8,21 +8,6 @@ import { createPolarClient, readPolarErrorLogFields } from "./polarClient";
 
 const POLAR_WEBHOOK_API_TIMEOUT_MS = 1_500;
 
-/**
- * Polar's SDK verifier converts this secret with Node `Buffer`. Use its Standard Webhooks
- * dependency in raw-key mode so verification also runs in the Convex V8 runtime.
- */
-export function verifyPolarWebhookEvent(args: {
-  body: string;
-  headers: Record<string, string>;
-  secret: string;
-}): unknown {
-  return new Webhook(new TextEncoder().encode(args.secret), { format: "raw" }).verify(
-    args.body,
-    args.headers,
-  );
-}
-
 export const handlePolarWebhook = httpAction(async (ctx, request) => {
   const secret = env.POLAR_WEBHOOK_SECRET?.trim();
   if (!secret) {
@@ -37,7 +22,7 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
 
   let verifiedEvent: unknown;
   try {
-    verifiedEvent = verifyPolarWebhookEvent({ body, headers, secret });
+    verifiedEvent = new Webhook(secret).verify(body, headers);
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
       return new Response("Invalid webhook signature", { status: 401 });
