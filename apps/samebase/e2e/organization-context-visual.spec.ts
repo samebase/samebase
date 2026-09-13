@@ -134,8 +134,8 @@ test("groups the global inventory and exposes every organization context", async
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(rightPane).toBeVisible();
-  await expect(rightPane.getByRole("link", { current: "page" })).toHaveText("All repositories");
-  await expect(rightPane.getByRole("link", { current: "page" })).toHaveCSS("font-weight", "600");
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveText("All repositories");
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveCSS("font-weight", "600");
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
   await expect(contextMenu.getByRole("menuitem", { name: "All repositories" })).toHaveCount(0);
@@ -159,7 +159,7 @@ test("groups the global inventory and exposes every organization context", async
   await page.keyboard.press("Escape");
   await rightPane.getByRole("link", { name: "Organizations" }).click();
   await expect(page).toHaveURL(/\/org$/u);
-  await expect(rightPane.getByRole("link", { current: "page" })).toHaveText("Organizations");
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveText("Organizations");
   await expect(page.getByRole("heading", { name: "Organizations" })).toBeVisible();
   for (const ownerLogin of ["org-context-alpha", "org-context-beta", "org-context-zeta"]) {
     await expect(
@@ -225,7 +225,7 @@ test("shows one organization context across global pages, settings, providers, a
   await openRoute(page, "/repo");
   const rightPane = await openDesktopRightPane(page);
   const organizationContext = rightPane.getByTestId("organization-context-control");
-  const currentSidebarLink = rightPane.getByRole("link", { current: "page" });
+  const currentSidebarLink = rightPane.locator('a[aria-current="page"]');
   await expect(currentSidebarLink).toHaveText("All repositories");
   await expect(organizationContext).toHaveText("org-context-solo");
   await expect(organizationContext.getByRole("button")).toHaveCount(0);

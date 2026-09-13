@@ -55,7 +55,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await page.goto("/", { waitUntil: "networkidle" });
   const currentSidebarLink = page
     .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
-    .getByRole("link", { current: "page" });
+    .locator('a[aria-current="page"]');
   await expect(currentSidebarLink).toHaveText("/landing");
   await expect(currentSidebarLink).toHaveCSS("font-weight", "600");
   await page.getByRole("link", { name: "/terms", exact: true }).first().click();
@@ -101,7 +101,7 @@ test("public legal routes share the public account right sidebar", async ({ page
   await expect(
     page
       .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
-      .getByRole("link", { current: "page" }),
+      .locator('a[aria-current="page"]'),
   ).toHaveText("/privacy");
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
   await expect(
