@@ -74,9 +74,7 @@ export function LocalStorageWorkspacePage() {
   const snapshot = useBrowserLocalStorageSnapshot();
 
   return (
-    <AppWorkspaceRouteChrome
-      left={{ content: <BrowserStorageSidebarContent currentView="localStorage" /> }}
-    >
+    <AppWorkspaceRouteChrome left={{ content: <BrowserStorageSidebarContent /> }}>
       <LocalStorageEntriesTable snapshot={snapshot} />
     </AppWorkspaceRouteChrome>
   );

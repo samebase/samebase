@@ -117,6 +117,12 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
   const repositoryNavigation = fixture.getByRole("navigation", { name: "Repositories" });
+  const currentRepositoryLabel = repositoryNavigation
+    .locator('a[aria-current="page"]')
+    .getByText("samebase", { exact: true });
+  await expect(currentRepositoryLabel).toHaveCSS("padding", "2px 6px");
+  await expect(currentRepositoryLabel).toHaveCSS("font-weight", "400");
+  await expect(currentRepositoryLabel).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   await expect(
     repositoryNavigation.getByRole("button", { name: "empty-owner", exact: true }),

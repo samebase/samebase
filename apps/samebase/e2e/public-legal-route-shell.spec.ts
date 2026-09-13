@@ -63,6 +63,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await expect(page).toHaveURL(/\/terms$/);
   await expect(currentSidebarLink).toHaveText("/terms");
   await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
+  await expect(currentSidebarLink).toHaveCSS("padding", "2px 6px");
   await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const clientNavigationState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);

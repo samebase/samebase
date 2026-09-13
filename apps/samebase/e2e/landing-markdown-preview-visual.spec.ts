@@ -316,6 +316,10 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  const currentDocsLink = page.getByTestId(DOCS_SIDEBAR_TEST_ID).locator('a[aria-current="page"]');
+  await expect(currentDocsLink).toHaveText("Do it yourself");
+  await expect(currentDocsLink).toHaveCSS("font-weight", "400");
+  await expect(currentDocsLink).toHaveCSS("padding", "2px 6px");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(
     article.getByRole("heading", {
@@ -333,11 +337,13 @@ test("landing document navigation resets pages, restores history, and aligns dir
     .click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_THE_STACK_ROUTE}$`));
+  await expect(currentDocsLink).toHaveText("The stack");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(article.getByRole("heading", { exact: true, name: "The stack" })).toBeInViewport();
 
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  await expect(currentDocsLink).toHaveText("Do it yourself");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(doItYourselfScrollTop);
 
   await page.goBack();
@@ -359,6 +365,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
     waitUntil: "domcontentloaded",
   });
   const finalHeading = article.locator('[id="7-delete-the-app"]');
+  await expect(currentDocsLink).toHaveText("Do it yourself");
   await expect(finalHeading).toBeInViewport();
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
@@ -502,6 +509,7 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Receipts" })).toBeVisible();
+  await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Receipts");
   await expect(article).toContainText("Requests to static assets are free and unlimited.");
   await expect(article).toContainText("security researcher Matt Palmer");
   await expect(article).toContainText("Last full check: 2026-07-02");
@@ -569,6 +577,7 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
+  await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Pricing");
   await expect(article).toContainText("Start free. Upgrade when you need more connections.");
   await expect(article.getByRole("row", { name: "Personal account Free $0 12 1" })).toBeVisible();
   await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
@@ -599,6 +608,7 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
     page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
   ).toHaveCount(0);
   await expect(docsNavigation).toBeVisible();
+  await expect(docsNavigation.locator('a[aria-current="page"]')).toHaveCount(0);
   await expectSidebarFiles(docsNavigation);
   await expect(mainPane).toHaveScreenshot("docs-index-desktop.png", {
     animations: "disabled",
@@ -620,6 +630,11 @@ test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({
 
   const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   await expect(sidebar).toBeVisible();
+  await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Do it yourself");
+  await expect(sidebar.locator('a[aria-current="page"]')).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)",
+  );
   await expectSidebarFiles(sidebar);
   await expect
     .poll(() => {
