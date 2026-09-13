@@ -1,4 +1,6 @@
 import type { RepositoryOverviewPageKind } from "@/repository/dashboard/RepositoryOverviewPage";
+import { APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME } from "@/components/appSidebarNavigation";
+import { cn } from "@/lib/utils";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -228,9 +230,6 @@ function RepositoryRow({
   const pullRequestCount = summary?.openPullRequestCount;
   const workerLabel = `${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}`;
   const convexProjectLabel = `${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}`;
-  const rowClassName = selected
-    ? "flex min-w-0 bg-muted @max-[200px]:px-1"
-    : "flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
   const settingsWarning =
     githubIdentity?.status === "renamed"
       ? { label: "Repository name changed", tone: "warning" as const }
@@ -239,7 +238,7 @@ function RepositoryRow({
         : null;
 
   return (
-    <div className={rowClassName}>
+    <div className="flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1">
       <Link
         aria-current={selected ? "page" : undefined}
         aria-label={`${repository.githubRepositoryFullName}, ${status.label}${workerCount > 0 ? `, ${workerLabel}` : ""}${convexProjectCount > 0 ? `, ${convexProjectLabel}` : ""}${pullRequestCount ? `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}` : ""}`}
@@ -253,7 +252,12 @@ function RepositoryRow({
         to={repositoryRoute(repository, page)}
       >
         <span className="block min-w-0 max-w-full text-sm leading-5">
-          <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
+          <span
+            className={cn(
+              "min-w-0 max-w-full w-fit line-clamp-2 text-primary [overflow-wrap:anywhere]",
+              selected && APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
+            )}
+          >
             {repository.githubRepositoryName}
           </span>
         </span>

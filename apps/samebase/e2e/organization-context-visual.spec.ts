@@ -134,6 +134,12 @@ test("groups the global inventory and exposes every organization context", async
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(rightPane).toBeVisible();
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveText("All repositories");
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveCSS("font-weight", "400");
+  await expect(rightPane.locator('a[aria-current="page"]')).not.toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
   await expect(contextMenu.getByRole("menuitem", { name: "All repositories" })).toHaveCount(0);
@@ -157,6 +163,7 @@ test("groups the global inventory and exposes every organization context", async
   await page.keyboard.press("Escape");
   await rightPane.getByRole("link", { name: "Organizations" }).click();
   await expect(page).toHaveURL(/\/org$/u);
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveText("Organizations");
   await expect(page.getByRole("heading", { name: "Organizations" })).toBeVisible();
   for (const ownerLogin of ["org-context-alpha", "org-context-beta", "org-context-zeta"]) {
     await expect(
@@ -222,6 +229,8 @@ test("shows one organization context across global pages, settings, providers, a
   await openRoute(page, "/repo");
   const rightPane = await openDesktopRightPane(page);
   const organizationContext = rightPane.getByTestId("organization-context-control");
+  const currentSidebarLink = rightPane.locator('a[aria-current="page"]');
+  await expect(currentSidebarLink).toHaveText("All repositories");
   await expect(organizationContext).toHaveText("org-context-solo");
   await expect(organizationContext.getByRole("button")).toHaveCount(0);
   await expect(rightPane.getByRole("link", { name: "New app", exact: true })).toHaveAttribute(
@@ -240,6 +249,9 @@ test("shows one organization context across global pages, settings, providers, a
   await expect(organizationContext.getByRole("button")).toHaveCount(0);
   await rightPane.getByRole("link", { name: "Organization settings", exact: true }).click();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/settings$/u);
+  await expect(currentSidebarLink).toHaveText("Organization settings");
+  await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
+  await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   const header = page.locator(MAIN_HEADER_SELECTOR);
   await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
@@ -289,6 +301,15 @@ test("shows one organization context across global pages, settings, providers, a
     screenshotOptions,
   );
   await deleteOrganizationDialog.getByRole("button", { name: "Cancel" }).click();
+  await rightPane.getByRole("link", { name: "Members", exact: true }).click();
+  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings\/members$/u);
+  await expect(currentSidebarLink).toHaveText("Members");
+  await page.goBack();
+  await expect(currentSidebarLink).toHaveText("Organization settings");
+  await page.goForward();
+  await expect(currentSidebarLink).toHaveText("Members");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(currentSidebarLink).toHaveText("Members");
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
 
   await openRoute(

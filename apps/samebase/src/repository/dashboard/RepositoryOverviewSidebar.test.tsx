@@ -266,6 +266,7 @@ describe("RepositoryOverviewSidebar", () => {
 
     expect(markup).toContain('aria-current="page"');
     expect(markup).toContain('aria-label="samebase/active, Loading checks"');
+    expect(markup).toContain("app-sidebar-current-label");
     expect(markup).not.toContain("Cloudflare Worker");
     expect(markup).not.toContain("Convex project");
   });

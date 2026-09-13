@@ -6,15 +6,20 @@ import {
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
 import { getFunctionName } from "convex/server";
-import { act, type ReactNode } from "react";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AppRightSidebarContent } from "./AppRightSidebar";
-import type { AppOrganizationSurface, ViewerOrganization } from "@/organization/context";
+import {
+  readAppOrganizationSurface,
+  type AppOrganizationSurface,
+  type ViewerOrganization,
+} from "@/organization/context";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
@@ -170,32 +175,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 
   return {
     ...actual,
-    Link: ({
-      children,
-      className,
-      onClick,
-      params,
-      to,
-    }: {
-      children?: ReactNode;
-      className?: string;
-      onClick?: () => void;
-      params?: { owner?: string };
-      to: string;
-    }) => (
-      <a
-        className={className}
-        href={params?.owner ? to.replace("$owner", params.owner) : to}
-        onClick={onClick}
-      >
-        {children}
-      </a>
-    ),
-    useLocation: () => ({
-      href: "/repo",
-      pathname: "/repo",
-      searchStr: "",
-    }),
     useMatches: ({
       select,
     }: {
@@ -207,10 +186,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         { staticData: { access: "access_public" } },
         { staticData: { access: "access_dashboard" } },
       ]),
-    useNavigate: () => vi.fn(),
-    useRouter: () => ({
-      buildLocation: () => ({ href: "/" }),
-    }),
   };
 });
 
@@ -238,11 +213,13 @@ function expectProviderStatusQueriesNotSeen() {
   }
 }
 
-function createRightSidebarElement() {
+function createRightSidebarElement(initialEntry = "/repo") {
   return (
-    <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
-      <AppRightSidebarContent />
-    </AppAuthPresentationProvider>
+    <TestRouterProvider initialEntries={[initialEntry]}>
+      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
+        <AppRightSidebarContent />
+      </AppAuthPresentationProvider>
+    </TestRouterProvider>
   );
 }
 
@@ -261,6 +238,7 @@ async function renderRightSidebarAfterEffects(queryResults: unknown[]) {
 
 async function renderRightSidebarAfterEffectsWithNamedQueries(
   queryResults: ReadonlyMap<string, unknown>,
+  initialEntry = "/repo",
 ) {
   prepareRightSidebarNamed(queryResults);
   const rootElement = document.createElement("div");
@@ -269,7 +247,7 @@ async function renderRightSidebarAfterEffectsWithNamedQueries(
 
   try {
     await act(async () => {
-      root.render(createRightSidebarElement());
+      root.render(createRightSidebarElement(initialEntry));
     });
 
     return rootElement.innerHTML;
@@ -827,6 +805,64 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("First time using Samebase?");
     expect(hydratedMarkup).not.toContain("/onboarding/complete-onboarding-poster.webp");
     expect(hydratedMarkup).not.toContain("Help improve Samebase");
+  });
+
+  it.each([
+    ["/repo", "All repositories"],
+    ["/repo/?dev#inventory", "All repositories"],
+    ["/repo/samebase/app", null],
+    ["/org", "Organizations"],
+    ["/settings?dev#profile", "Account settings"],
+    ["/admin/users", "Users"],
+    ["/admin/account-deletions", "Account deletions"],
+    ["/org/samebase/repositories", "Repositories"],
+    ["/org/samebase/providers", "Providers"],
+    ["/org/samebase/new-app", "New app"],
+    ["/org/samebase/connect-repo", "Connect repository"],
+    ["/org/samebase/settings/members?dev#members", "Members"],
+    ["/org/samebase/settings?checkout=cancel#billing", "Organization settings"],
+  ])("selects only the current sidebar page at %s", async (initialEntry, label) => {
+    organizationContextState.organizations = [
+      {
+        canCreateRepository: true,
+        githubOwnerId: "456",
+        githubOwnerLogin: "samebase",
+        githubOwnerType: "organization",
+        organizationId: fakeOrganizationId("organization_samebase"),
+        role: "owner",
+      },
+    ];
+    organizationContextState.surface = readAppOrganizationSurface(initialEntry.split("?")[0]);
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const markup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_staff",
+            accessKeys: ["access_public", "access_provider_connections", "access_admin"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_staff",
+            accountPresentation: { kind: "email", label: "staff@example.test" },
+          },
+        ],
+      ]),
+      initialEntry,
+    );
+    const element = document.createElement("div");
+    element.innerHTML = markup;
+    const currentLinks = [...element.querySelectorAll('a[aria-current="page"]')];
+
+    expect(currentLinks.map((link) => link.textContent)).toEqual(label === null ? [] : [label]);
+    for (const link of currentLinks) {
+      expect(link.classList.contains("app-sidebar-current-label")).toBe(true);
+      expect(link.classList.contains("font-semibold")).toBe(false);
+    }
   });
 
   it("renders both admin routes for staff", async () => {

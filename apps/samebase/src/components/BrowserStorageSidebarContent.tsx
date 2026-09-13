@@ -1,27 +1,20 @@
 import { INDEXED_DB_ROUTE } from "@/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
+import { APP_SIDEBAR_NAVIGATION_LINK_PROPS } from "@/components/appSidebarNavigation";
 import { Link } from "@tanstack/react-router";
-
-type BrowserStorageView = "indexDB" | "localStorage";
 
 const browserStorageViews = [
   {
     path: LOCAL_STORAGE_ROUTE,
     testId: "local-storage-sidebar-file",
-    view: "localStorage",
   },
   {
     path: INDEXED_DB_ROUTE,
     testId: "indexed-db-sidebar-file",
-    view: "indexDB",
   },
-] as const satisfies readonly {
-  path: string;
-  testId: string;
-  view: BrowserStorageView;
-}[];
+] as const;
 
-export function BrowserStorageSidebarContent({ currentView }: { currentView: BrowserStorageView }) {
+export function BrowserStorageSidebarContent() {
   return (
     <nav
       aria-label="Storage views"
@@ -29,8 +22,8 @@ export function BrowserStorageSidebarContent({ currentView }: { currentView: Bro
     >
       {browserStorageViews.map((view) => (
         <Link
-          key={view.view}
-          aria-current={view.view === currentView ? "page" : undefined}
+          {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+          key={view.path}
           data-testid={view.testId}
           to={view.path}
         >

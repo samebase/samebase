@@ -9,6 +9,7 @@ import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
+import { APP_SIDEBAR_NAVIGATION_LINK_PROPS } from "@/components/appSidebarNavigation";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -105,10 +106,18 @@ export function AppSidebarMetaSection({
           /YouTube
         </a>
       </div>
-      <Link to="/terms">/terms</Link>
-      <Link to="/privacy">/privacy</Link>
-      <Link to="/pricing">/pricing</Link>
-      <Link to="/">/landing</Link>
+      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/terms">
+        /terms
+      </Link>
+      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/privacy">
+        /privacy
+      </Link>
+      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/pricing">
+        /pricing
+      </Link>
+      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/">
+        /landing
+      </Link>
 
       <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[linkAlignment]}>
         <span className="shrink-0" data-testid={APP_BUILD_VERSION_TEST_ID}>

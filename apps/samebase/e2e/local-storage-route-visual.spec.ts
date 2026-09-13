@@ -102,6 +102,10 @@ test("storage sidebar links navigate through the same styled link surface @opt-i
     .getByRole("link", { name: "/terms", exact: true });
 
   await expect(storageRouteLink).toBeVisible();
+  const localStorageLink = page.getByTestId("local-storage-sidebar-file");
+  await expect(localStorageLink).toHaveAttribute("aria-current", "page");
+  await expect(localStorageLink).toHaveCSS("padding", "2px 6px");
+  await expect(localStorageLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(rightSidebarLink).toBeVisible();
   await expect
     .poll(() => readPreviewLinkStyle(storageRouteLink))
@@ -112,6 +116,8 @@ test("storage sidebar links navigate through the same styled link surface @opt-i
   await storageRouteLink.click();
   await expect(page).toHaveURL(`${origin}${INDEXED_DB_ROUTE}`);
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute("aria-current", "page");
+  await expect(storageRouteLink).toHaveCSS("padding", "2px 6px");
+  await expect(localStorageLink).not.toHaveAttribute("aria-current", "page");
 });
 
 test("localStorage route reflects same-tab storage writes without manual refresh @opt-in", async ({

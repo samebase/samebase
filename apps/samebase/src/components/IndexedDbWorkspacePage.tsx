@@ -104,9 +104,7 @@ export function IndexedDbWorkspacePage() {
   const snapshot = useBrowserIndexedDbSnapshot();
 
   return (
-    <AppWorkspaceRouteChrome
-      left={{ content: <BrowserStorageSidebarContent currentView="indexDB" /> }}
-    >
+    <AppWorkspaceRouteChrome left={{ content: <BrowserStorageSidebarContent /> }}>
       <IndexedDbEntriesTable snapshot={snapshot} />
     </AppWorkspaceRouteChrome>
   );

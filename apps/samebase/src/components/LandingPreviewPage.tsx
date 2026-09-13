@@ -1,4 +1,5 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { APP_SIDEBAR_NAVIGATION_LINK_PROPS } from "@/components/appSidebarNavigation";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
@@ -107,13 +108,12 @@ function DocsSidebar() {
     <nav
       aria-label="Docs sections"
       data-testid={DOCS_SIDEBAR_TEST_ID}
-      className="flex min-h-full flex-col gap-1 px-4 py-4 text-sm"
+      className="flex min-h-full flex-col items-start gap-3 px-4 py-4 text-sm"
     >
       {DOCS_SIDEBAR_LINKS.map((link) => (
         <Link
-          activeProps={{ className: "font-semibold text-foreground" }}
-          className="py-1 no-underline"
-          inactiveProps={{ className: "text-muted-foreground hover:text-foreground" }}
+          {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+          className="max-w-full text-primary no-underline"
           key={link.to}
           to={link.to}
         >

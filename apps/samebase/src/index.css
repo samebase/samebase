@@ -181,6 +181,15 @@ a:any-link {
 }
 
 @layer utilities {
+  .app-sidebar-current-label {
+    max-width: calc(100% + 12px);
+    margin: -2px -6px;
+    padding: 2px 6px;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-weight: 400;
+  }
+
   .repository-dashboard-sidebar-content {
     container: repository-dashboard-sidebar / inline-size;
   }
