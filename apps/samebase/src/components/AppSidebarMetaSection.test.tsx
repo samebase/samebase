@@ -248,8 +248,9 @@ describe("AppSidebarMetaSection", () => {
 
     expect(currentLinks.map((link) => link.textContent)).toEqual(label === null ? [] : [label]);
     for (const link of currentLinks) {
-      expect(link.classList.contains("font-semibold")).toBe(true);
-      expect(link.classList.contains("text-foreground")).toBe(true);
+      expect(link.classList.contains("bg-accent")).toBe(true);
+      expect(link.classList.contains("text-accent-foreground")).toBe(true);
+      expect(link.classList.contains("font-semibold")).toBe(false);
     }
   });
 

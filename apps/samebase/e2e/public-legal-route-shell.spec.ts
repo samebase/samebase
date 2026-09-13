@@ -57,11 +57,13 @@ test("direct terms loads use the same routed app surface as client navigation", 
     .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
     .locator('a[aria-current="page"]');
   await expect(currentSidebarLink).toHaveText("/landing");
-  await expect(currentSidebarLink).toHaveCSS("font-weight", "600");
+  await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
+  await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await page.getByRole("link", { name: "/terms", exact: true }).first().click();
   await expect(page).toHaveURL(/\/terms$/);
   await expect(currentSidebarLink).toHaveText("/terms");
-  await expect(currentSidebarLink).toHaveCSS("font-weight", "600");
+  await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
+  await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const clientNavigationState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
   await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveScreenshot(

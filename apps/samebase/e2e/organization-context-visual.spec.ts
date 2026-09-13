@@ -135,7 +135,11 @@ test("groups the global inventory and exposes every organization context", async
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(rightPane).toBeVisible();
   await expect(rightPane.locator('a[aria-current="page"]')).toHaveText("All repositories");
-  await expect(rightPane.locator('a[aria-current="page"]')).toHaveCSS("font-weight", "600");
+  await expect(rightPane.locator('a[aria-current="page"]')).toHaveCSS("font-weight", "400");
+  await expect(rightPane.locator('a[aria-current="page"]')).not.toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
   await expect(contextMenu.getByRole("menuitem", { name: "All repositories" })).toHaveCount(0);
@@ -246,7 +250,8 @@ test("shows one organization context across global pages, settings, providers, a
   await rightPane.getByRole("link", { name: "Organization settings", exact: true }).click();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/settings$/u);
   await expect(currentSidebarLink).toHaveText("Organization settings");
-  await expect(currentSidebarLink).toHaveCSS("font-weight", "600");
+  await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
+  await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   const header = page.locator(MAIN_HEADER_SELECTOR);
   await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
