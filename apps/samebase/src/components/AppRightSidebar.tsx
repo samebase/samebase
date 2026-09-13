@@ -1,5 +1,8 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
+import {
+  APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME,
+  APP_SIDEBAR_NAVIGATION_LINK_PROPS,
+} from "@/components/appSidebarNavigation";
 import { OrganizationContextControl } from "@/organization/OrganizationContextControl";
 import {
   findViewerOrganization,
@@ -311,11 +314,19 @@ function GlobalAppRightSidebarLinks({
       aria-label="Account"
       className="repository-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
-      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        to={DASHBOARD_ROUTE}
+      >
         All repositories
       </Link>
       {showOrganizations ? (
-        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={ORGANIZATIONS_ROUTE}>
+        <Link
+          {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+          to={ORGANIZATIONS_ROUTE}
+        >
           Organizations
         </Link>
       ) : null}
@@ -329,10 +340,18 @@ function AdminAppRightSidebarLinks() {
       aria-label="Admin"
       className="repository-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
-      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/users">
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        to="/admin/users"
+      >
         Users
       </Link>
-      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/account-deletions">
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        to="/admin/account-deletions"
+      >
         Account deletions
       </Link>
     </nav>
@@ -347,6 +366,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
       className="repository-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
       <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_REPOSITORIES_ROUTE}
@@ -354,6 +374,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Repositories
       </Link>
       <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_PROVIDERS_ROUTE}
@@ -361,6 +382,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Providers
       </Link>
       <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_NEW_APP_ROUTE}
@@ -368,6 +390,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         New app
       </Link>
       <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_CONNECT_REPO_ROUTE}
@@ -375,6 +398,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Connect repository
       </Link>
       <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_MEMBERS_ROUTE}
@@ -382,6 +406,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Members
       </Link>
       <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_SETTINGS_ROUTE}

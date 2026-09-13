@@ -53,8 +53,15 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.goto("/", { waitUntil: "networkidle" });
+  const currentSidebarLink = page
+    .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
+    .getByRole("link", { current: "page" });
+  await expect(currentSidebarLink).toHaveText("/landing");
+  await expect(currentSidebarLink).toHaveCSS("font-weight", "600");
   await page.getByRole("link", { name: "/terms", exact: true }).first().click();
   await expect(page).toHaveURL(/\/terms$/);
+  await expect(currentSidebarLink).toHaveText("/terms");
+  await expect(currentSidebarLink).toHaveCSS("font-weight", "600");
   const clientNavigationState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
   await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveScreenshot(
@@ -63,6 +70,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   );
 
   await page.goto("/terms", { waitUntil: "networkidle" });
+  await expect(currentSidebarLink).toHaveText("/terms");
   const directLoadState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
   await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveScreenshot(
@@ -90,6 +98,11 @@ test("public legal routes share the public account right sidebar", async ({ page
   });
 
   await page.goto("/privacy", { waitUntil: "networkidle" });
+  await expect(
+    page
+      .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
+      .getByRole("link", { current: "page" }),
+  ).toHaveText("/privacy");
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
   await expect(
     page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),

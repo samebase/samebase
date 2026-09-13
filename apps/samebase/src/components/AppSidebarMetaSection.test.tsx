@@ -236,6 +236,23 @@ describe("AppSidebarMetaSection", () => {
     expect(romanianQueryLink).toBeNull();
   });
 
+  it.each([
+    ["/?dev#overview", "/landing"],
+    ["/terms?dev#operator", "/terms"],
+    ["/privacy?dev#data", "/privacy"],
+    ["/pricing?dev#plans", "/pricing"],
+    ["/repo", null],
+  ])("selects the current public page at %s", async (initialEntry, label) => {
+    const element = await renderSidebarMetaSection(initialEntry);
+    const currentLinks = [...element.querySelectorAll('a[aria-current="page"]')];
+
+    expect(currentLinks.map((link) => link.textContent)).toEqual(label === null ? [] : [label]);
+    for (const link of currentLinks) {
+      expect(link.classList.contains("font-semibold")).toBe(true);
+      expect(link.classList.contains("text-foreground")).toBe(true);
+    }
+  });
+
   it("navigates path links without hover preview state", async () => {
     const element = await renderSidebarMetaSection("/", {
       extra: <BackLink />,
@@ -266,14 +283,19 @@ describe("AppSidebarMetaSection", () => {
     });
 
     expect(readLocationHref()).toBe("/");
+    expect(landingLink.getAttribute("aria-current")).toBe("page");
 
     await clickLink(termsLink);
 
     expect(readLocationHref()).toBe("/terms");
+    expect(termsLink.getAttribute("aria-current")).toBe("page");
+    expect(landingLink.getAttribute("aria-current")).toBeNull();
 
     await clickLink(backLink);
 
     expect(readLocationHref()).toBe("/");
+    expect(landingLink.getAttribute("aria-current")).toBe("page");
+    expect(termsLink.getAttribute("aria-current")).toBeNull();
 
     await clickLink(termsLink);
     expect(readLocationHref()).toBe("/terms");

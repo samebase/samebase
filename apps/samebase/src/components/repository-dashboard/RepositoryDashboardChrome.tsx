@@ -1,5 +1,8 @@
 import { type ReactNode } from "react";
-import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
+import {
+  APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME,
+  APP_SIDEBAR_NAVIGATION_LINK_PROPS,
+} from "@/components/appSidebarNavigation";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
@@ -166,7 +169,11 @@ export function RepositoryDashboardStaticAccountPrehydrationPlaceholders() {
             </div>
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-            <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
+            <Link
+              {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+              className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+              to={SETTINGS_ROUTE}
+            >
               Account settings
             </Link>
           </div>
@@ -210,7 +217,11 @@ export function RepositoryDashboardAccountSection({
           </div>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
+          <Link
+            {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+            to={SETTINGS_ROUTE}
+          >
             Account settings
           </Link>
         </div>
@@ -243,7 +254,11 @@ export function RepositoryDashboardStaticAccountSection({
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
+          <Link
+            {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+            className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+            to={SETTINGS_ROUTE}
+          >
             Account settings
           </Link>
         </div>
