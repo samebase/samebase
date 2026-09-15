@@ -10114,7 +10114,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "observability.telemetry",
-        "x-fern-sdk-method-name": "liveTail",
+        "x-fern-sdk-method-name": "live-tail",
         "x-forge-hidden": true
       }
     },
