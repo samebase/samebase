@@ -345,6 +345,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/deployments/{deployment_name}/mint_ai_gateway_jwt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mint an AI gateway JWT
+     * @description Mints a short-lived AI gateway JWT for a local deployment.
+     */
+    post: operations["mint ai gateway jwt"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/deployments/{deployment_name}/create_deploy_key": {
     parameters: {
       query?: never;
@@ -694,7 +714,12 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Create a team */
+    /**
+     * Create a team
+     * @description This endpoint is not publicly accessible. It is reserved for specific
+     *     integrations that have been granted permission to create teams on behalf of
+     *     users. To request access, contact platforms@convex.dev.
+     */
     post: operations["create team"];
     delete?: never;
     options?: never;
@@ -957,6 +982,17 @@ export interface components {
     AccessTokenId: string;
     /** @description Encrypted admin key */
     AdminKey: string;
+    /**
+     * @description The wire format of the claims sent to the gateway.
+     *
+     *     All three are absent when we cannot identify the caller. A caller in the
+     *     root component has a `function_name` but no `component_path`.
+     */
+    AttributionClaims: {
+      componentPath?: string | null;
+      functionName?: string | null;
+      functionType?: string | null;
+    };
     /** @description The identity that executed an audit log action. */
     AuditLogActor:
       | {
@@ -1247,6 +1283,12 @@ export interface components {
         };
     /** Format: int64 */
     MemberId: string;
+    MintLocalAiGatewayJwtArgs: {
+      attribution: components["schemas"]["AttributionClaims"];
+    };
+    MintLocalAiGatewayJwtResponse: {
+      token: string;
+    };
     PaginatedDefaultEnvironmentVariablesResponse: {
       items: components["schemas"]["DefaultEnvironmentVariableResponse"][];
       pagination: components["schemas"]["PaginationMetadata"];
@@ -1974,6 +2016,7 @@ export interface components {
 }
 export type AccessTokenId = components["schemas"]["AccessTokenId"];
 export type AdminKey = components["schemas"]["AdminKey"];
+export type AttributionClaims = components["schemas"]["AttributionClaims"];
 export type AuditLogActor = components["schemas"]["AuditLogActor"];
 export type AuditLogEventResponse = components["schemas"]["AuditLogEventResponse"];
 export type CancelInvitationArgs = components["schemas"]["CancelInvitationArgs"];
@@ -2011,6 +2054,8 @@ export type ListLocalDeploymentsResponse = components["schemas"]["ListLocalDeplo
 export type ListTeamAccessTokensResponse = components["schemas"]["ListTeamAccessTokensResponse"];
 export type ManagedBy = components["schemas"]["ManagedBy"];
 export type MemberId = components["schemas"]["MemberId"];
+export type MintLocalAiGatewayJwtArgs = components["schemas"]["MintLocalAiGatewayJwtArgs"];
+export type MintLocalAiGatewayJwtResponse = components["schemas"]["MintLocalAiGatewayJwtResponse"];
 export type PaginatedDefaultEnvironmentVariablesResponse =
   components["schemas"]["PaginatedDefaultEnvironmentVariablesResponse"];
 export type PaginatedDeploymentsResponse = components["schemas"]["PaginatedDeploymentsResponse"];
@@ -2546,6 +2591,32 @@ export interface operations {
       };
     };
   };
+  "mint ai gateway jwt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Local deployment name */
+        deployment_name: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MintLocalAiGatewayJwtArgs"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MintLocalAiGatewayJwtResponse"];
+        };
+      };
+    };
+  };
   "create deploy key": {
     parameters: {
       query?: never;
@@ -2955,7 +3026,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Caller is not authorized to create teams */
+      /** @description This application is not authorized to create teams. This endpoint is reserved for specific integrations that are allowed to create users. If you need to create teams for your users, please contact us at platforms@convex.dev */
       403: {
         headers: {
           [name: string]: unknown;

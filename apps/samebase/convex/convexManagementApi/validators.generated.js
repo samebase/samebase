@@ -8995,25 +8995,102 @@ function validate46(
   return errors === 0;
 }
 validate46.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-export const ajvCreateDeployKeyResponse = validate50;
+export const ajvMintAiGatewayJwtResponse = validate50;
 const schema118 = {
-  $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1create_deploy_key/post/responses/200/content/application~1json/schema",
+  $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1mint_ai_gateway_jwt/post/responses/200/content/application~1json/schema",
 };
 const schema119 = {
+  type: "object",
+  required: ["token"],
+  properties: { token: { type: "string" } },
+};
+function validate50(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate50.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.token === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath:
+          "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1mint_ai_gateway_jwt/post/responses/200/content/application~1json/schema/required",
+        keyword: "required",
+        params: { missingProperty: "token" },
+        message: "must have required property '" + "token" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.token !== undefined) {
+      if (typeof data.token !== "string") {
+        const err1 = {
+          instancePath: instancePath + "/token",
+          schemaPath:
+            "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1mint_ai_gateway_jwt/post/responses/200/content/application~1json/schema/properties/token/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err2 = {
+      instancePath,
+      schemaPath:
+        "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1mint_ai_gateway_jwt/post/responses/200/content/application~1json/schema/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err2];
+    } else {
+      vErrors.push(err2);
+    }
+    errors++;
+  }
+  validate50.errors = vErrors;
+  return errors === 0;
+}
+validate50.evaluated = { props: { token: true }, dynamicProps: false, dynamicItems: false };
+export const ajvCreateDeployKeyResponse = validate51;
+const schema120 = {
+  $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1create_deploy_key/post/responses/200/content/application~1json/schema",
+};
+const schema121 = {
   type: "object",
   required: ["deployKey"],
   properties: {
     deployKey: { $ref: "#/components/schemas/AdminKey", description: "The generated deploy key." },
   },
 };
-const schema120 = { type: "string", description: "Encrypted admin key" };
-function validate51(
+const schema122 = { type: "string", description: "Encrypted admin key" };
+function validate52(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate51.evaluated;
+  const evaluated0 = validate52.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9068,17 +9145,17 @@ function validate51(
     }
     errors++;
   }
-  validate51.errors = vErrors;
+  validate52.errors = vErrors;
   return errors === 0;
 }
-validate51.evaluated = { props: { deployKey: true }, dynamicProps: false, dynamicItems: false };
-function validate50(
+validate52.evaluated = { props: { deployKey: true }, dynamicProps: false, dynamicItems: false };
+function validate51(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate50.evaluated;
+  const evaluated0 = validate51.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9086,24 +9163,24 @@ function validate50(
     evaluated0.items = undefined;
   }
   if (
-    !validate51(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate52(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate51.errors : vErrors.concat(validate51.errors);
+    vErrors = vErrors === null ? validate52.errors : vErrors.concat(validate52.errors);
     errors = vErrors.length;
   }
-  validate50.errors = vErrors;
+  validate51.errors = vErrors;
   return errors === 0;
 }
-validate50.evaluated = { props: { deployKey: true }, dynamicProps: false, dynamicItems: false };
-export const ajvListDeployKeysResponse = validate53;
-const schema121 = {
+validate51.evaluated = { props: { deployKey: true }, dynamicProps: false, dynamicItems: false };
+export const ajvListDeployKeysResponse = validate54;
+const schema123 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1list_deploy_keys/get/responses/200/content/application~1json/schema",
 };
-const schema122 = {
+const schema124 = {
   type: "array",
   items: { $ref: "#/components/schemas/PlatformDeployKeyResponse" },
 };
-const schema123 = {
+const schema125 = {
   type: "object",
   required: ["id", "name", "creationTime", "allowedActions"],
   properties: {
@@ -9181,20 +9258,20 @@ const schema123 = {
     },
   },
 };
-const schema124 = { pattern: "^[0-9]+$", type: "string" };
-const schema126 = {
+const schema126 = { pattern: "^[0-9]+$", type: "string" };
+const schema128 = {
   oneOf: [
     { type: "string", enum: ["vercel"] },
     { type: "object", required: ["oauthApp"], properties: { oauthApp: { type: "string" } } },
   ],
 };
-function validate55(
+function validate56(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate55.evaluated;
+  const evaluated0 = validate56.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9338,7 +9415,7 @@ function validate55(
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
           keyword: "type",
-          params: { type: schema123.properties.lastUsedTime.type },
+          params: { type: schema125.properties.lastUsedTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -9356,7 +9433,7 @@ function validate55(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema123.properties.expiresAt.type },
+          params: { type: schema125.properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -9511,7 +9588,7 @@ function validate55(
           instancePath: instancePath + "/managedBy",
           schemaPath: "#/components/schemas/ManagedBy/oneOf/0/enum",
           keyword: "enum",
-          params: { allowedValues: schema126.oneOf[0].enum },
+          params: { allowedValues: schema128.oneOf[0].enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -9701,7 +9778,7 @@ function validate55(
               instancePath: instancePath + "/allowedActions/" + i0,
               schemaPath: "#/properties/allowedActions/items/enum",
               keyword: "enum",
-              params: { allowedValues: schema123.properties.allowedActions.items.enum },
+              params: { allowedValues: schema125.properties.allowedActions.items.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -9743,10 +9820,10 @@ function validate55(
     }
     errors++;
   }
-  validate55.errors = vErrors;
+  validate56.errors = vErrors;
   return errors === 0;
 }
-validate55.evaluated = {
+validate56.evaluated = {
   props: {
     id: true,
     name: true,
@@ -9760,13 +9837,13 @@ validate55.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate54(
+function validate55(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate54.evaluated;
+  const evaluated0 = validate55.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9777,7 +9854,7 @@ function validate54(
     const len0 = data.length;
     for (let i0 = 0; i0 < len0; i0++) {
       if (
-        !validate55(data[i0], {
+        !validate56(data[i0], {
           instancePath: instancePath + "/" + i0,
           parentData: data,
           parentDataProperty: i0,
@@ -9785,7 +9862,7 @@ function validate54(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
+        vErrors = vErrors === null ? validate56.errors : vErrors.concat(validate56.errors);
         errors = vErrors.length;
       }
     }
@@ -9804,17 +9881,17 @@ function validate54(
     }
     errors++;
   }
-  validate54.errors = vErrors;
+  validate55.errors = vErrors;
   return errors === 0;
 }
-validate54.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
-function validate53(
+validate55.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
+function validate54(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate53.evaluated;
+  const evaluated0 = validate54.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9822,20 +9899,20 @@ function validate53(
     evaluated0.items = undefined;
   }
   if (
-    !validate54(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate55(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate54.errors : vErrors.concat(validate54.errors);
+    vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
     errors = vErrors.length;
   }
-  validate53.errors = vErrors;
+  validate54.errors = vErrors;
   return errors === 0;
 }
-validate53.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
-export const ajvCreatePreviewDeployKeyResponse = validate58;
-const schema127 = {
+validate54.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
+export const ajvCreatePreviewDeployKeyResponse = validate59;
+const schema129 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1create_preview_deploy_key/post/responses/200/content/application~1json/schema",
 };
-const schema128 = {
+const schema130 = {
   type: "object",
   required: ["previewDeployKey"],
   properties: {
@@ -9845,13 +9922,13 @@ const schema128 = {
     },
   },
 };
-function validate59(
+function validate60(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate59.evaluated;
+  const evaluated0 = validate60.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9906,6 +9983,33 @@ function validate59(
     }
     errors++;
   }
+  validate60.errors = vErrors;
+  return errors === 0;
+}
+validate60.evaluated = {
+  props: { previewDeployKey: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate59(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate59.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate60(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
+    errors = vErrors.length;
+  }
   validate59.errors = vErrors;
   return errors === 0;
 }
@@ -9914,38 +10018,11 @@ validate59.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate58(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate58.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate59(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate59.errors : vErrors.concat(validate59.errors);
-    errors = vErrors.length;
-  }
-  validate58.errors = vErrors;
-  return errors === 0;
-}
-validate58.evaluated = {
-  props: { previewDeployKey: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvListPreviewDeployKeysResponse = validate61;
-const schema130 = {
+export const ajvListPreviewDeployKeysResponse = validate62;
+const schema132 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1list_preview_deploy_keys/get/responses/200/content/application~1json/schema",
 };
-const schema131 = {
+const schema133 = {
   type: "object",
   required: ["items"],
   properties: {
@@ -9956,13 +10033,13 @@ const schema131 = {
     },
   },
 };
-function validate62(
+function validate63(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate62.evaluated;
+  const evaluated0 = validate63.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -9991,7 +10068,7 @@ function validate62(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate55(data0[i0], {
+            !validate56(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -9999,7 +10076,7 @@ function validate62(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
+            vErrors = vErrors === null ? validate56.errors : vErrors.concat(validate56.errors);
             errors = vErrors.length;
           }
         }
@@ -10034,17 +10111,17 @@ function validate62(
     }
     errors++;
   }
-  validate62.errors = vErrors;
+  validate63.errors = vErrors;
   return errors === 0;
 }
-validate62.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-function validate61(
+validate63.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
+function validate62(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate61.evaluated;
+  const evaluated0 = validate62.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -10052,20 +10129,20 @@ function validate61(
     evaluated0.items = undefined;
   }
   if (
-    !validate62(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate63(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate62.errors : vErrors.concat(validate62.errors);
+    vErrors = vErrors === null ? validate63.errors : vErrors.concat(validate63.errors);
     errors = vErrors.length;
   }
-  validate61.errors = vErrors;
+  validate62.errors = vErrors;
   return errors === 0;
 }
-validate61.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-export const ajvListPersonalAccessTokensResponse = validate65;
-const schema132 = {
+validate62.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
+export const ajvListPersonalAccessTokensResponse = validate66;
+const schema134 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1list_personal_access_tokens/get/responses/200/content/application~1json/schema",
 };
-const schema133 = {
+const schema135 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -10073,7 +10150,7 @@ const schema133 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema134 = {
+const schema136 = {
   type: "object",
   required: ["id", "name", "creationTime"],
   properties: {
@@ -10088,13 +10165,13 @@ const schema134 = {
     ssoTeamId: { oneOf: [{ type: "null" }, { $ref: "#/components/schemas/TeamId" }] },
   },
 };
-function validate67(
+function validate68(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate67.evaluated;
+  const evaluated0 = validate68.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -10223,7 +10300,7 @@ function validate67(
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
           keyword: "type",
-          params: { type: schema134.properties.lastUsedTime.type },
+          params: { type: schema136.properties.lastUsedTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10241,7 +10318,7 @@ function validate67(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema134.properties.expiresAt.type },
+          params: { type: schema136.properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10360,10 +10437,10 @@ function validate67(
     }
     errors++;
   }
-  validate67.errors = vErrors;
+  validate68.errors = vErrors;
   return errors === 0;
 }
-validate67.evaluated = {
+validate68.evaluated = {
   props: {
     id: true,
     name: true,
@@ -10375,13 +10452,13 @@ validate67.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate66(
+function validate67(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate66.evaluated;
+  const evaluated0 = validate67.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -10425,7 +10502,7 @@ function validate66(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate67(data0[i0], {
+            !validate68(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -10433,7 +10510,7 @@ function validate66(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
+            vErrors = vErrors === null ? validate68.errors : vErrors.concat(validate68.errors);
             errors = vErrors.length;
           }
         }
@@ -10537,6 +10614,33 @@ function validate66(
     }
     errors++;
   }
+  validate67.errors = vErrors;
+  return errors === 0;
+}
+validate67.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate66(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate66.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate67(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
+    errors = vErrors.length;
+  }
   validate66.errors = vErrors;
   return errors === 0;
 }
@@ -10545,51 +10649,24 @@ validate66.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate65(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate65.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate66(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate66.errors : vErrors.concat(validate66.errors);
-    errors = vErrors.length;
-  }
-  validate65.errors = vErrors;
-  return errors === 0;
-}
-validate65.evaluated = {
-  props: { items: true, pagination: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvCreatePersonalAccessTokenResponse = validate70;
-const schema139 = {
+export const ajvCreatePersonalAccessTokenResponse = validate71;
+const schema141 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1create_personal_access_token/post/responses/200/content/application~1json/schema",
 };
-const schema140 = {
+const schema142 = {
   type: "object",
   required: ["accessToken"],
   properties: {
     accessToken: { type: "string", description: "The generated personal access token." },
   },
 };
-function validate70(
+function validate71(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate70.evaluated;
+  const evaluated0 = validate71.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -10647,15 +10724,15 @@ function validate70(
     }
     errors++;
   }
-  validate70.errors = vErrors;
+  validate71.errors = vErrors;
   return errors === 0;
 }
-validate70.evaluated = { props: { accessToken: true }, dynamicProps: false, dynamicItems: false };
-export const ajvListTeamAccessTokensResponse = validate71;
-const schema141 = {
+validate71.evaluated = { props: { accessToken: true }, dynamicProps: false, dynamicItems: false };
+export const ajvListTeamAccessTokensResponse = validate72;
+const schema143 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_access_tokens/get/responses/200/content/application~1json/schema",
 };
-const schema142 = {
+const schema144 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -10667,7 +10744,7 @@ const schema142 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema143 = {
+const schema145 = {
   type: "object",
   required: ["id", "name", "creationTime"],
   properties: {
@@ -10696,13 +10773,13 @@ const schema143 = {
     },
   },
 };
-function validate73(
+function validate74(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate73.evaluated;
+  const evaluated0 = validate74.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -10831,7 +10908,7 @@ function validate73(
           instancePath: instancePath + "/lastUsedTime",
           schemaPath: "#/properties/lastUsedTime/type",
           keyword: "type",
-          params: { type: schema143.properties.lastUsedTime.type },
+          params: { type: schema145.properties.lastUsedTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10849,7 +10926,7 @@ function validate73(
           instancePath: instancePath + "/expiresAt",
           schemaPath: "#/properties/expiresAt/type",
           keyword: "type",
-          params: { type: schema143.properties.expiresAt.type },
+          params: { type: schema145.properties.expiresAt.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -10968,10 +11045,10 @@ function validate73(
     }
     errors++;
   }
-  validate73.errors = vErrors;
+  validate74.errors = vErrors;
   return errors === 0;
 }
-validate73.evaluated = {
+validate74.evaluated = {
   props: {
     id: true,
     name: true,
@@ -10983,13 +11060,13 @@ validate73.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate72(
+function validate73(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate72.evaluated;
+  const evaluated0 = validate73.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -11033,7 +11110,7 @@ function validate72(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate73(data0[i0], {
+            !validate74(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -11041,7 +11118,7 @@ function validate72(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate73.errors : vErrors.concat(validate73.errors);
+            vErrors = vErrors === null ? validate74.errors : vErrors.concat(validate74.errors);
             errors = vErrors.length;
           }
         }
@@ -11145,6 +11222,33 @@ function validate72(
     }
     errors++;
   }
+  validate73.errors = vErrors;
+  return errors === 0;
+}
+validate73.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate72(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate72.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate73(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate73.errors : vErrors.concat(validate73.errors);
+    errors = vErrors.length;
+  }
   validate72.errors = vErrors;
   return errors === 0;
 }
@@ -11153,38 +11257,11 @@ validate72.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate71(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate71.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate72(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate72.errors : vErrors.concat(validate72.errors);
-    errors = vErrors.length;
-  }
-  validate71.errors = vErrors;
-  return errors === 0;
-}
-validate71.evaluated = {
-  props: { items: true, pagination: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvGetTokenDetailsResponse = validate76;
-const schema147 = {
+export const ajvGetTokenDetailsResponse = validate77;
+const schema149 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1token_details/get/responses/200/content/application~1json/schema",
 };
-const schema148 = {
+const schema150 = {
   oneOf: [
     {
       type: "object",
@@ -11236,13 +11313,13 @@ const schema148 = {
     },
   ],
 };
-function validate77(
+function validate78(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate77.evaluated;
+  const evaluated0 = validate78.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -11454,7 +11531,7 @@ function validate77(
           instancePath: instancePath + "/type",
           schemaPath: "#/oneOf/0/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema148.oneOf[0].properties.type.enum },
+          params: { allowedValues: schema150.oneOf[0].properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -11693,7 +11770,7 @@ function validate77(
           instancePath: instancePath + "/type",
           schemaPath: "#/oneOf/1/properties/type/enum",
           keyword: "enum",
-          params: { allowedValues: schema148.oneOf[1].properties.type.enum },
+          params: { allowedValues: schema150.oneOf[1].properties.type.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -11761,18 +11838,18 @@ function validate77(
       }
     }
   }
-  validate77.errors = vErrors;
+  validate78.errors = vErrors;
   evaluated0.props = props0;
   return errors === 0;
 }
-validate77.evaluated = { dynamicProps: true, dynamicItems: false };
-function validate76(
+validate78.evaluated = { dynamicProps: true, dynamicItems: false };
+function validate77(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate76.evaluated;
+  const evaluated0 = validate77.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -11780,23 +11857,23 @@ function validate76(
     evaluated0.items = undefined;
   }
   if (
-    !validate77(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate78(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate77.errors : vErrors.concat(validate77.errors);
+    vErrors = vErrors === null ? validate78.errors : vErrors.concat(validate78.errors);
     errors = vErrors.length;
   } else {
-    var props0 = validate77.evaluated.props;
+    var props0 = validate78.evaluated.props;
   }
-  validate76.errors = vErrors;
+  validate77.errors = vErrors;
   evaluated0.props = props0;
   return errors === 0;
 }
-validate76.evaluated = { dynamicProps: true, dynamicItems: false };
-export const ajvListCustomDomainsResponse = validate79;
-const schema155 = {
+validate77.evaluated = { dynamicProps: true, dynamicItems: false };
+export const ajvListCustomDomainsResponse = validate80;
+const schema157 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1deployments~1{deployment_name}~1custom_domains/get/responses/200/content/application~1json/schema",
 };
-const schema156 = {
+const schema158 = {
   type: "object",
   required: ["domains"],
   properties: {
@@ -11807,7 +11884,7 @@ const schema156 = {
     },
   },
 };
-const schema157 = {
+const schema159 = {
   type: "object",
   required: ["creationTime", "deploymentName", "requestDestination", "domain"],
   properties: {
@@ -11833,14 +11910,14 @@ const schema157 = {
     },
   },
 };
-const schema158 = { type: "string", enum: ["convexCloud", "convexSite"] };
-function validate81(
+const schema160 = { type: "string", enum: ["convexCloud", "convexSite"] };
+function validate82(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate81.evaluated;
+  const evaluated0 = validate82.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -11965,7 +12042,7 @@ function validate81(
           instancePath: instancePath + "/requestDestination",
           schemaPath: "#/components/schemas/RequestDestination/enum",
           keyword: "enum",
-          params: { allowedValues: schema158.enum },
+          params: { allowedValues: schema160.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -12000,7 +12077,7 @@ function validate81(
           instancePath: instancePath + "/verificationTime",
           schemaPath: "#/properties/verificationTime/type",
           keyword: "type",
-          params: { type: schema157.properties.verificationTime.type },
+          params: { type: schema159.properties.verificationTime.type },
           message: "must be integer,null",
         };
         if (vErrors === null) {
@@ -12026,10 +12103,10 @@ function validate81(
     }
     errors++;
   }
-  validate81.errors = vErrors;
+  validate82.errors = vErrors;
   return errors === 0;
 }
-validate81.evaluated = {
+validate82.evaluated = {
   props: {
     creationTime: true,
     deploymentName: true,
@@ -12040,13 +12117,13 @@ validate81.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate80(
+function validate81(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate80.evaluated;
+  const evaluated0 = validate81.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -12075,7 +12152,7 @@ function validate80(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate81(data0[i0], {
+            !validate82(data0[i0], {
               instancePath: instancePath + "/domains/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -12083,7 +12160,7 @@ function validate80(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate81.errors : vErrors.concat(validate81.errors);
+            vErrors = vErrors === null ? validate82.errors : vErrors.concat(validate82.errors);
             errors = vErrors.length;
           }
         }
@@ -12118,17 +12195,17 @@ function validate80(
     }
     errors++;
   }
-  validate80.errors = vErrors;
+  validate81.errors = vErrors;
   return errors === 0;
 }
-validate80.evaluated = { props: { domains: true }, dynamicProps: false, dynamicItems: false };
-function validate79(
+validate81.evaluated = { props: { domains: true }, dynamicProps: false, dynamicItems: false };
+function validate80(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate79.evaluated;
+  const evaluated0 = validate80.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -12136,25 +12213,25 @@ function validate79(
     evaluated0.items = undefined;
   }
   if (
-    !validate80(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate81(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate80.errors : vErrors.concat(validate80.errors);
+    vErrors = vErrors === null ? validate81.errors : vErrors.concat(validate81.errors);
     errors = vErrors.length;
   }
-  validate79.errors = vErrors;
+  validate80.errors = vErrors;
   return errors === 0;
 }
-validate79.evaluated = { props: { domains: true }, dynamicProps: false, dynamicItems: false };
-export const ajvListTeamMembersResponse = validate84;
-const schema159 = {
+validate80.evaluated = { props: { domains: true }, dynamicProps: false, dynamicItems: false };
+export const ajvListTeamMembersResponse = validate85;
+const schema161 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_members/get/responses/200/content/application~1json/schema",
 };
-const schema160 = {
+const schema162 = {
   type: "object",
   required: ["items"],
   properties: { items: { type: "array", items: { $ref: "#/components/schemas/TeamMember" } } },
 };
-const schema161 = {
+const schema163 = {
   type: "object",
   required: ["id", "email", "role"],
   properties: {
@@ -12179,22 +12256,22 @@ const schema161 = {
     },
   },
 };
-const schema163 = { type: "string", enum: ["admin", "developer", "custom"] };
-const schema164 = {
+const schema165 = { type: "string", enum: ["admin", "developer", "custom"] };
+const schema166 = {
   type: "object",
   description:
     "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
   required: ["id", "name"],
   properties: { id: { $ref: "#/components/schemas/CustomRoleId" }, name: { type: "string" } },
 };
-const schema165 = { pattern: "^[0-9]+$", type: "string" };
-function validate87(
+const schema167 = { pattern: "^[0-9]+$", type: "string" };
+function validate88(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate87.evaluated;
+  const evaluated0 = validate88.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -12298,21 +12375,21 @@ function validate87(
     }
     errors++;
   }
-  validate87.errors = vErrors;
+  validate88.errors = vErrors;
   return errors === 0;
 }
-validate87.evaluated = {
+validate88.evaluated = {
   props: { id: true, name: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate86(
+function validate87(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate86.evaluated;
+  const evaluated0 = validate87.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -12406,7 +12483,7 @@ function validate86(
           instancePath: instancePath + "/name",
           schemaPath: "#/properties/name/type",
           keyword: "type",
-          params: { type: schema161.properties.name.type },
+          params: { type: schema163.properties.name.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -12456,7 +12533,7 @@ function validate86(
           instancePath: instancePath + "/role",
           schemaPath: "#/components/schemas/Role/enum",
           keyword: "enum",
-          params: { allowedValues: schema163.enum },
+          params: { allowedValues: schema165.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -12474,7 +12551,7 @@ function validate86(
           instancePath: instancePath + "/customRoles",
           schemaPath: "#/properties/customRoles/type",
           keyword: "type",
-          params: { type: schema161.properties.customRoles.type },
+          params: { type: schema163.properties.customRoles.type },
           message: "must be array,null",
         };
         if (vErrors === null) {
@@ -12488,7 +12565,7 @@ function validate86(
         const len0 = data4.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate87(data4[i0], {
+            !validate88(data4[i0], {
               instancePath: instancePath + "/customRoles/" + i0,
               parentData: data4,
               parentDataProperty: i0,
@@ -12496,7 +12573,7 @@ function validate86(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate87.errors : vErrors.concat(validate87.errors);
+            vErrors = vErrors === null ? validate88.errors : vErrors.concat(validate88.errors);
             errors = vErrors.length;
           }
         }
@@ -12509,7 +12586,7 @@ function validate86(
           instancePath: instancePath + "/dsyncSuspended",
           schemaPath: "#/properties/dsyncSuspended/type",
           keyword: "type",
-          params: { type: schema161.properties.dsyncSuspended.type },
+          params: { type: schema163.properties.dsyncSuspended.type },
           message: "must be boolean,null",
         };
         if (vErrors === null) {
@@ -12535,21 +12612,21 @@ function validate86(
     }
     errors++;
   }
-  validate86.errors = vErrors;
+  validate87.errors = vErrors;
   return errors === 0;
 }
-validate86.evaluated = {
+validate87.evaluated = {
   props: { id: true, name: true, email: true, role: true, customRoles: true, dsyncSuspended: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate85(
+function validate86(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate85.evaluated;
+  const evaluated0 = validate86.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -12578,7 +12655,7 @@ function validate85(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate86(data0[i0], {
+            !validate87(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -12586,7 +12663,7 @@ function validate85(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate86.errors : vErrors.concat(validate86.errors);
+            vErrors = vErrors === null ? validate87.errors : vErrors.concat(validate87.errors);
             errors = vErrors.length;
           }
         }
@@ -12621,17 +12698,17 @@ function validate85(
     }
     errors++;
   }
-  validate85.errors = vErrors;
+  validate86.errors = vErrors;
   return errors === 0;
 }
-validate85.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-function validate84(
+validate86.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
+function validate85(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate84.evaluated;
+  const evaluated0 = validate85.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -12639,20 +12716,20 @@ function validate84(
     evaluated0.items = undefined;
   }
   if (
-    !validate85(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate86(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate85.errors : vErrors.concat(validate85.errors);
+    vErrors = vErrors === null ? validate86.errors : vErrors.concat(validate86.errors);
     errors = vErrors.length;
   }
-  validate84.errors = vErrors;
+  validate85.errors = vErrors;
   return errors === 0;
 }
-validate84.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-export const ajvCreateTeamResponse = validate91;
-const schema166 = {
+validate85.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
+export const ajvCreateTeamResponse = validate92;
+const schema168 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1create_team/post/responses/201/content/application~1json/schema",
 };
-const schema167 = {
+const schema169 = {
   type: "object",
   required: ["id", "name", "slug", "suspended", "referralCode"],
   properties: {
@@ -12669,15 +12746,15 @@ const schema167 = {
     managedByUrl: { type: ["string", "null"] },
   },
 };
-const schema169 = { type: "string" };
-const schema172 = { type: "string" };
-function validate92(
+const schema171 = { type: "string" };
+const schema174 = { type: "string" };
+function validate93(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate92.evaluated;
+  const evaluated0 = validate93.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -13099,7 +13176,7 @@ function validate92(
           instancePath: instancePath + "/managedBy",
           schemaPath: "#/components/schemas/ManagedBy/oneOf/0/enum",
           keyword: "enum",
-          params: { allowedValues: schema126.oneOf[0].enum },
+          params: { allowedValues: schema128.oneOf[0].enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -13333,7 +13410,7 @@ function validate92(
           instancePath: instancePath + "/ssoLoginId",
           schemaPath: "#/properties/ssoLoginId/type",
           keyword: "type",
-          params: { type: schema167.properties.ssoLoginId.type },
+          params: { type: schema169.properties.ssoLoginId.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -13351,7 +13428,7 @@ function validate92(
           instancePath: instancePath + "/managedByUrl",
           schemaPath: "#/properties/managedByUrl/type",
           keyword: "type",
-          params: { type: schema167.properties.managedByUrl.type },
+          params: { type: schema169.properties.managedByUrl.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -13377,6 +13454,45 @@ function validate92(
     }
     errors++;
   }
+  validate93.errors = vErrors;
+  return errors === 0;
+}
+validate93.evaluated = {
+  props: {
+    id: true,
+    name: true,
+    slug: true,
+    creator: true,
+    suspended: true,
+    referralCode: true,
+    referredBy: true,
+    managedBy: true,
+    defaultRegion: true,
+    ssoLoginId: true,
+    managedByUrl: true,
+  },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate92(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate92.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate93(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate93.errors : vErrors.concat(validate93.errors);
+    errors = vErrors.length;
+  }
   validate92.errors = vErrors;
   return errors === 0;
 }
@@ -13397,61 +13513,22 @@ validate92.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate91(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate91.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate92(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate92.errors : vErrors.concat(validate92.errors);
-    errors = vErrors.length;
-  }
-  validate91.errors = vErrors;
-  return errors === 0;
-}
-validate91.evaluated = {
-  props: {
-    id: true,
-    name: true,
-    slug: true,
-    creator: true,
-    suspended: true,
-    referralCode: true,
-    referredBy: true,
-    managedBy: true,
-    defaultRegion: true,
-    ssoLoginId: true,
-    managedByUrl: true,
-  },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvCreateTeamAccessTokenResponse = validate94;
-const schema176 = {
+export const ajvCreateTeamAccessTokenResponse = validate95;
+const schema178 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1create_access_token/post/responses/201/content/application~1json/schema",
 };
-const schema177 = {
+const schema179 = {
   type: "object",
   required: ["accessToken", "tokenType"],
   properties: { accessToken: { type: "string" }, tokenType: { type: "string" } },
 };
-function validate94(
+function validate95(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate94.evaluated;
+  const evaluated0 = validate95.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -13543,19 +13620,19 @@ function validate94(
     }
     errors++;
   }
-  validate94.errors = vErrors;
+  validate95.errors = vErrors;
   return errors === 0;
 }
-validate94.evaluated = {
+validate95.evaluated = {
   props: { accessToken: true, tokenType: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvListAuditLogEventsResponse = validate95;
-const schema178 = {
+export const ajvListAuditLogEventsResponse = validate96;
+const schema180 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_audit_log_events/get/responses/200/content/application~1json/schema",
 };
-const schema179 = {
+const schema181 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -13563,7 +13640,7 @@ const schema179 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema180 = {
+const schema182 = {
   type: "object",
   required: ["teamId", "actor", "action", "createTime", "metadata"],
   properties: {
@@ -13671,8 +13748,8 @@ const schema180 = {
     },
   },
 };
-const schema186 = {};
-const schema182 = {
+const schema188 = {};
+const schema184 = {
   oneOf: [
     {
       type: "object",
@@ -13729,13 +13806,13 @@ const schema182 = {
   ],
   description: "The identity that executed an audit log action.",
 };
-function validate98(
+function validate99(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate98.evaluated;
+  const evaluated0 = validate99.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -13784,7 +13861,7 @@ function validate98(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/0/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema182.oneOf[0].properties.kind.enum },
+          params: { allowedValues: schema184.oneOf[0].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -13905,7 +13982,7 @@ function validate98(
           instancePath: instancePath + "/kind",
           schemaPath: "#/oneOf/1/properties/kind/enum",
           keyword: "enum",
-          params: { allowedValues: schema182.oneOf[1].properties.kind.enum },
+          params: { allowedValues: schema184.oneOf[1].properties.kind.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -14111,7 +14188,7 @@ function validate98(
             instancePath: instancePath + "/client_id",
             schemaPath: "#/oneOf/2/properties/client_id/type",
             keyword: "type",
-            params: { type: schema182.oneOf[2].properties.client_id.type },
+            params: { type: schema184.oneOf[2].properties.client_id.type },
             message: "must be string,null",
           };
           if (vErrors === null) {
@@ -14144,7 +14221,7 @@ function validate98(
             instancePath: instancePath + "/kind",
             schemaPath: "#/oneOf/2/properties/kind/enum",
             keyword: "enum",
-            params: { allowedValues: schema182.oneOf[2].properties.kind.enum },
+            params: { allowedValues: schema184.oneOf[2].properties.kind.enum },
             message: "must be equal to one of the allowed values",
           };
           if (vErrors === null) {
@@ -14257,7 +14334,7 @@ function validate98(
               instancePath: instancePath + "/kind",
               schemaPath: "#/oneOf/3/properties/kind/enum",
               keyword: "enum",
-              params: { allowedValues: schema182.oneOf[3].properties.kind.enum },
+              params: { allowedValues: schema184.oneOf[3].properties.kind.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -14324,18 +14401,18 @@ function validate98(
       }
     }
   }
-  validate98.errors = vErrors;
+  validate99.errors = vErrors;
   evaluated0.props = props0;
   return errors === 0;
 }
-validate98.evaluated = { dynamicProps: true, dynamicItems: false };
-function validate97(
+validate99.evaluated = { dynamicProps: true, dynamicItems: false };
+function validate98(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate97.evaluated;
+  const evaluated0 = validate98.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -14454,7 +14531,7 @@ function validate97(
     }
     if (data.actor !== undefined) {
       if (
-        !validate98(data.actor, {
+        !validate99(data.actor, {
           instancePath: instancePath + "/actor",
           parentData: data,
           parentDataProperty: "actor",
@@ -14462,7 +14539,7 @@ function validate97(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate98.errors : vErrors.concat(validate98.errors);
+        vErrors = vErrors === null ? validate99.errors : vErrors.concat(validate99.errors);
         errors = vErrors.length;
       }
     }
@@ -14566,7 +14643,7 @@ function validate97(
           instancePath: instancePath + "/action",
           schemaPath: "#/properties/action/enum",
           keyword: "enum",
-          params: { allowedValues: schema180.properties.action.enum },
+          params: { allowedValues: schema182.properties.action.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -14602,7 +14679,7 @@ function validate97(
           instancePath: instancePath + "/clientIp",
           schemaPath: "#/properties/clientIp/type",
           keyword: "type",
-          params: { type: schema180.properties.clientIp.type },
+          params: { type: schema182.properties.clientIp.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -14620,7 +14697,7 @@ function validate97(
           instancePath: instancePath + "/clientUserAgent",
           schemaPath: "#/properties/clientUserAgent/type",
           keyword: "type",
-          params: { type: schema180.properties.clientUserAgent.type },
+          params: { type: schema182.properties.clientUserAgent.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -14646,10 +14723,10 @@ function validate97(
     }
     errors++;
   }
-  validate97.errors = vErrors;
+  validate98.errors = vErrors;
   return errors === 0;
 }
-validate97.evaluated = {
+validate98.evaluated = {
   props: {
     teamId: true,
     actor: true,
@@ -14662,13 +14739,13 @@ validate97.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate96(
+function validate97(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate96.evaluated;
+  const evaluated0 = validate97.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -14712,7 +14789,7 @@ function validate96(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate97(data0[i0], {
+            !validate98(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -14720,7 +14797,7 @@ function validate96(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate97.errors : vErrors.concat(validate97.errors);
+            vErrors = vErrors === null ? validate98.errors : vErrors.concat(validate98.errors);
             errors = vErrors.length;
           }
         }
@@ -14824,6 +14901,33 @@ function validate96(
     }
     errors++;
   }
+  validate97.errors = vErrors;
+  return errors === 0;
+}
+validate97.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate96(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate96.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate97(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate97.errors : vErrors.concat(validate97.errors);
+    errors = vErrors.length;
+  }
   validate96.errors = vErrors;
   return errors === 0;
 }
@@ -14832,45 +14936,18 @@ validate96.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate95(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate95.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate96(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate96.errors : vErrors.concat(validate96.errors);
-    errors = vErrors.length;
-  }
-  validate95.errors = vErrors;
-  return errors === 0;
-}
-validate95.evaluated = {
-  props: { items: true, pagination: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvListPendingTeamInvitesResponse = validate102;
-const schema188 = {
+export const ajvListPendingTeamInvitesResponse = validate103;
+const schema190 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_pending_invites/get/responses/200/content/application~1json/schema",
 };
-const schema189 = {
+const schema191 = {
   type: "object",
   required: ["items"],
   properties: {
     items: { type: "array", items: { $ref: "#/components/schemas/InvitationResponse" } },
   },
 };
-const schema190 = {
+const schema192 = {
   type: "object",
   required: ["email", "expired", "role"],
   properties: {
@@ -14884,13 +14961,13 @@ const schema190 = {
     },
   },
 };
-function validate104(
+function validate105(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate104.evaluated;
+  const evaluated0 = validate105.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -14999,7 +15076,7 @@ function validate104(
           instancePath: instancePath + "/role",
           schemaPath: "#/components/schemas/Role/enum",
           keyword: "enum",
-          params: { allowedValues: schema163.enum },
+          params: { allowedValues: schema165.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -15017,7 +15094,7 @@ function validate104(
           instancePath: instancePath + "/customRoles",
           schemaPath: "#/properties/customRoles/type",
           keyword: "type",
-          params: { type: schema190.properties.customRoles.type },
+          params: { type: schema192.properties.customRoles.type },
           message: "must be array,null",
         };
         if (vErrors === null) {
@@ -15031,7 +15108,7 @@ function validate104(
         const len0 = data3.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate87(data3[i0], {
+            !validate88(data3[i0], {
               instancePath: instancePath + "/customRoles/" + i0,
               parentData: data3,
               parentDataProperty: i0,
@@ -15039,7 +15116,7 @@ function validate104(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate87.errors : vErrors.concat(validate87.errors);
+            vErrors = vErrors === null ? validate88.errors : vErrors.concat(validate88.errors);
             errors = vErrors.length;
           }
         }
@@ -15060,21 +15137,21 @@ function validate104(
     }
     errors++;
   }
-  validate104.errors = vErrors;
+  validate105.errors = vErrors;
   return errors === 0;
 }
-validate104.evaluated = {
+validate105.evaluated = {
   props: { email: true, expired: true, role: true, customRoles: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate103(
+function validate104(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate103.evaluated;
+  const evaluated0 = validate104.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -15103,7 +15180,7 @@ function validate103(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate104(data0[i0], {
+            !validate105(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -15111,7 +15188,7 @@ function validate103(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate104.errors : vErrors.concat(validate104.errors);
+            vErrors = vErrors === null ? validate105.errors : vErrors.concat(validate105.errors);
             errors = vErrors.length;
           }
         }
@@ -15146,17 +15223,17 @@ function validate103(
     }
     errors++;
   }
-  validate103.errors = vErrors;
+  validate104.errors = vErrors;
   return errors === 0;
 }
-validate103.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-function validate102(
+validate104.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
+function validate103(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate102.evaluated;
+  const evaluated0 = validate103.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -15164,20 +15241,20 @@ function validate102(
     evaluated0.items = undefined;
   }
   if (
-    !validate103(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate104(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate103.errors : vErrors.concat(validate103.errors);
+    vErrors = vErrors === null ? validate104.errors : vErrors.concat(validate104.errors);
     errors = vErrors.length;
   }
-  validate102.errors = vErrors;
+  validate103.errors = vErrors;
   return errors === 0;
 }
-validate102.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
-export const ajvListDefaultEnvironmentVariablesResponse = validate108;
-const schema192 = {
+validate103.evaluated = { props: { items: true }, dynamicProps: false, dynamicItems: false };
+export const ajvListDefaultEnvironmentVariablesResponse = validate109;
+const schema194 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1projects~1{project_id}~1list_default_environment_variables/get/responses/200/content/application~1json/schema",
 };
-const schema193 = {
+const schema195 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -15188,7 +15265,7 @@ const schema193 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-const schema194 = {
+const schema196 = {
   type: "object",
   required: ["name", "value", "deploymentTypes"],
   properties: {
@@ -15202,13 +15279,13 @@ const schema194 = {
     },
   },
 };
-function validate110(
+function validate111(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate110.evaluated;
+  const evaluated0 = validate111.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -15363,21 +15440,21 @@ function validate110(
     }
     errors++;
   }
-  validate110.errors = vErrors;
+  validate111.errors = vErrors;
   return errors === 0;
 }
-validate110.evaluated = {
+validate111.evaluated = {
   props: { name: true, value: true, deploymentTypes: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate109(
+function validate110(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate109.evaluated;
+  const evaluated0 = validate110.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -15421,7 +15498,7 @@ function validate109(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate110(data0[i0], {
+            !validate111(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -15429,7 +15506,7 @@ function validate109(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate110.errors : vErrors.concat(validate110.errors);
+            vErrors = vErrors === null ? validate111.errors : vErrors.concat(validate111.errors);
             errors = vErrors.length;
           }
         }
@@ -15533,6 +15610,33 @@ function validate109(
     }
     errors++;
   }
+  validate110.errors = vErrors;
+  return errors === 0;
+}
+validate110.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate109(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate109.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate110(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate110.errors : vErrors.concat(validate110.errors);
+    errors = vErrors.length;
+  }
   validate109.errors = vErrors;
   return errors === 0;
 }
@@ -15541,38 +15645,11 @@ validate109.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate108(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate108.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate109(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate109.errors : vErrors.concat(validate109.errors);
-    errors = vErrors.length;
-  }
-  validate108.errors = vErrors;
-  return errors === 0;
-}
-validate108.evaluated = {
-  props: { items: true, pagination: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvCreateCustomRoleResponse = validate113;
-const schema197 = {
+export const ajvCreateCustomRoleResponse = validate114;
+const schema199 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1create_custom_role/post/responses/201/content/application~1json/schema",
 };
-const schema198 = {
+const schema200 = {
   type: "object",
   required: ["id", "teamId", "name", "statements", "createTime"],
   properties: {
@@ -15585,7 +15662,7 @@ const schema198 = {
     createTime: { type: "integer", format: "int64" },
   },
 };
-const schema201 = {
+const schema203 = {
   type: "object",
   description: "A single permission rule within a custom role.",
   required: ["effect", "actions", "resource"],
@@ -15600,19 +15677,19 @@ const schema201 = {
     },
   },
 };
-const schema202 = {
+const schema204 = {
   type: "string",
   description: "Whether a rule grants or revokes access.",
   enum: ["allow", "deny"],
 };
-const schema203 = {
+const schema205 = {
   oneOf: [
     { $ref: "#/components/schemas/RoleStatementWildcardAction" },
     { type: "array", items: { $ref: "#/components/schemas/RoleStatementAction" } },
   ],
 };
-const schema204 = { type: "string", enum: ["*"] };
-const schema205 = {
+const schema206 = { type: "string", enum: ["*"] };
+const schema207 = {
   type: "string",
   description: "An action that can be allowed or denied by a custom role statement.",
   enum: [
@@ -15720,13 +15797,13 @@ const schema205 = {
     "deployment:aiGateway:use",
   ],
 };
-function validate116(
+function validate117(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate116.evaluated;
+  const evaluated0 = validate117.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -15757,7 +15834,7 @@ function validate116(
       instancePath,
       schemaPath: "#/components/schemas/RoleStatementWildcardAction/enum",
       keyword: "enum",
-      params: { allowedValues: schema204.enum },
+      params: { allowedValues: schema206.enum },
       message: "must be equal to one of the allowed values",
     };
     if (vErrors === null) {
@@ -15902,7 +15979,7 @@ function validate116(
           instancePath: instancePath + "/" + i0,
           schemaPath: "#/components/schemas/RoleStatementAction/enum",
           keyword: "enum",
-          params: { allowedValues: schema205.enum },
+          params: { allowedValues: schema207.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -15963,18 +16040,18 @@ function validate116(
       }
     }
   }
-  validate116.errors = vErrors;
+  validate117.errors = vErrors;
   evaluated0.items = items0;
   return errors === 0;
 }
-validate116.evaluated = { dynamicProps: false, dynamicItems: true };
-function validate115(
+validate117.evaluated = { dynamicProps: false, dynamicItems: true };
+function validate116(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate115.evaluated;
+  const evaluated0 = validate116.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -16049,7 +16126,7 @@ function validate115(
           instancePath: instancePath + "/effect",
           schemaPath: "#/components/schemas/RoleStatementEffect/enum",
           keyword: "enum",
-          params: { allowedValues: schema202.enum },
+          params: { allowedValues: schema204.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -16062,7 +16139,7 @@ function validate115(
     }
     if (data.actions !== undefined) {
       if (
-        !validate116(data.actions, {
+        !validate117(data.actions, {
           instancePath: instancePath + "/actions",
           parentData: data,
           parentDataProperty: "actions",
@@ -16070,7 +16147,7 @@ function validate115(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate116.errors : vErrors.concat(validate116.errors);
+        vErrors = vErrors === null ? validate117.errors : vErrors.concat(validate117.errors);
         errors = vErrors.length;
       }
     }
@@ -16106,21 +16183,21 @@ function validate115(
     }
     errors++;
   }
-  validate115.errors = vErrors;
+  validate116.errors = vErrors;
   return errors === 0;
 }
-validate115.evaluated = {
+validate116.evaluated = {
   props: { effect: true, actions: true, resource: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate114(
+function validate115(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate114.evaluated;
+  const evaluated0 = validate115.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -16295,7 +16372,7 @@ function validate114(
           instancePath: instancePath + "/description",
           schemaPath: "#/properties/description/type",
           keyword: "type",
-          params: { type: schema198.properties.description.type },
+          params: { type: schema200.properties.description.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -16312,7 +16389,7 @@ function validate114(
         const len0 = data4.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate115(data4[i0], {
+            !validate116(data4[i0], {
               instancePath: instancePath + "/statements/" + i0,
               parentData: data4,
               parentDataProperty: i0,
@@ -16320,7 +16397,7 @@ function validate114(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate115.errors : vErrors.concat(validate115.errors);
+            vErrors = vErrors === null ? validate116.errors : vErrors.concat(validate116.errors);
             errors = vErrors.length;
           }
         }
@@ -16465,6 +16542,41 @@ function validate114(
       vErrors.push(err17);
     }
     errors++;
+  }
+  validate115.errors = vErrors;
+  return errors === 0;
+}
+validate115.evaluated = {
+  props: {
+    id: true,
+    teamId: true,
+    name: true,
+    description: true,
+    statements: true,
+    creator: true,
+    createTime: true,
+  },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate114(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate114.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate115(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate115.errors : vErrors.concat(validate115.errors);
+    errors = vErrors.length;
   }
   validate114.errors = vErrors;
   return errors === 0;
@@ -16482,46 +16594,11 @@ validate114.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate113(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate113.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate114(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate114.errors : vErrors.concat(validate114.errors);
-    errors = vErrors.length;
-  }
-  validate113.errors = vErrors;
-  return errors === 0;
-}
-validate113.evaluated = {
-  props: {
-    id: true,
-    teamId: true,
-    name: true,
-    description: true,
-    statements: true,
-    creator: true,
-    createTime: true,
-  },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvListCustomRolesResponse = validate120;
-const schema207 = {
+export const ajvListCustomRolesResponse = validate121;
+const schema209 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1list_custom_roles/get/responses/200/content/application~1json/schema",
 };
-const schema208 = {
+const schema210 = {
   type: "object",
   required: ["items", "pagination"],
   properties: {
@@ -16529,13 +16606,13 @@ const schema208 = {
     pagination: { $ref: "#/components/schemas/PaginationMetadata" },
   },
 };
-function validate122(
+function validate123(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate122.evaluated;
+  const evaluated0 = validate123.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -16710,7 +16787,7 @@ function validate122(
           instancePath: instancePath + "/description",
           schemaPath: "#/properties/description/type",
           keyword: "type",
-          params: { type: schema198.properties.description.type },
+          params: { type: schema200.properties.description.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -16727,7 +16804,7 @@ function validate122(
         const len0 = data4.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate115(data4[i0], {
+            !validate116(data4[i0], {
               instancePath: instancePath + "/statements/" + i0,
               parentData: data4,
               parentDataProperty: i0,
@@ -16735,7 +16812,7 @@ function validate122(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate115.errors : vErrors.concat(validate115.errors);
+            vErrors = vErrors === null ? validate116.errors : vErrors.concat(validate116.errors);
             errors = vErrors.length;
           }
         }
@@ -16881,10 +16958,10 @@ function validate122(
     }
     errors++;
   }
-  validate122.errors = vErrors;
+  validate123.errors = vErrors;
   return errors === 0;
 }
-validate122.evaluated = {
+validate123.evaluated = {
   props: {
     id: true,
     teamId: true,
@@ -16897,13 +16974,13 @@ validate122.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate121(
+function validate122(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate121.evaluated;
+  const evaluated0 = validate122.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -16947,7 +17024,7 @@ function validate121(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate122(data0[i0], {
+            !validate123(data0[i0], {
               instancePath: instancePath + "/items/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -16955,7 +17032,7 @@ function validate121(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate122.errors : vErrors.concat(validate122.errors);
+            vErrors = vErrors === null ? validate123.errors : vErrors.concat(validate123.errors);
             errors = vErrors.length;
           }
         }
@@ -17059,6 +17136,33 @@ function validate121(
     }
     errors++;
   }
+  validate122.errors = vErrors;
+  return errors === 0;
+}
+validate122.evaluated = {
+  props: { items: true, pagination: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate121(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate121.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate122(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate122.errors : vErrors.concat(validate122.errors);
+    errors = vErrors.length;
+  }
   validate121.errors = vErrors;
   return errors === 0;
 }
@@ -17067,44 +17171,17 @@ validate121.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate120(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate120.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate121(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate121.errors : vErrors.concat(validate121.errors);
-    errors = vErrors.length;
-  }
-  validate120.errors = vErrors;
-  return errors === 0;
-}
-validate120.evaluated = {
-  props: { items: true, pagination: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvUpdateCustomRoleResponse = validate126;
-const schema214 = {
+export const ajvUpdateCustomRoleResponse = validate127;
+const schema216 = {
   $ref: "https://api.convex.dev/v1/openapi.json#/paths/~1teams~1{team_id}~1update_custom_role/post/responses/200/content/application~1json/schema",
 };
-function validate127(
+function validate128(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate127.evaluated;
+  const evaluated0 = validate128.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -17279,7 +17356,7 @@ function validate127(
           instancePath: instancePath + "/description",
           schemaPath: "#/properties/description/type",
           keyword: "type",
-          params: { type: schema198.properties.description.type },
+          params: { type: schema200.properties.description.type },
           message: "must be string,null",
         };
         if (vErrors === null) {
@@ -17296,7 +17373,7 @@ function validate127(
         const len0 = data4.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate115(data4[i0], {
+            !validate116(data4[i0], {
               instancePath: instancePath + "/statements/" + i0,
               parentData: data4,
               parentDataProperty: i0,
@@ -17304,7 +17381,7 @@ function validate127(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate115.errors : vErrors.concat(validate115.errors);
+            vErrors = vErrors === null ? validate116.errors : vErrors.concat(validate116.errors);
             errors = vErrors.length;
           }
         }
@@ -17450,10 +17527,10 @@ function validate127(
     }
     errors++;
   }
-  validate127.errors = vErrors;
+  validate128.errors = vErrors;
   return errors === 0;
 }
-validate127.evaluated = {
+validate128.evaluated = {
   props: {
     id: true,
     teamId: true,
@@ -17466,13 +17543,13 @@ validate127.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate126(
+function validate127(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate126.evaluated;
+  const evaluated0 = validate127.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -17480,15 +17557,15 @@ function validate126(
     evaluated0.items = undefined;
   }
   if (
-    !validate127(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate128(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate127.errors : vErrors.concat(validate127.errors);
+    vErrors = vErrors === null ? validate128.errors : vErrors.concat(validate128.errors);
     errors = vErrors.length;
   }
-  validate126.errors = vErrors;
+  validate127.errors = vErrors;
   return errors === 0;
 }
-validate126.evaluated = {
+validate127.evaluated = {
   props: {
     id: true,
     teamId: true,
@@ -17535,6 +17612,7 @@ export const convexManagementResponseValidators = {
     "/projects/{project_id}/create_deployment": ajvCreateDeploymentResponse,
     "/deployments/{deployment_name}/delete": null,
     "/deployments/{deployment_name}/transfer": null,
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": ajvMintAiGatewayJwtResponse,
     "/deployments/{deployment_name}/create_deploy_key": ajvCreateDeployKeyResponse,
     "/deployments/{deployment_name}/delete_deploy_key": null,
     "/projects/{project_id}/create_preview_deploy_key": ajvCreatePreviewDeployKeyResponse,
@@ -17630,6 +17708,7 @@ export const convexManagementResponseDecimalPaths = {
     "/projects/{project_id}/create_deployment": [["creator"], ["id"], ["projectId"]],
     "/deployments/{deployment_name}/delete": [],
     "/deployments/{deployment_name}/transfer": [],
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": [],
     "/deployments/{deployment_name}/create_deploy_key": [],
     "/deployments/{deployment_name}/delete_deploy_key": [],
     "/projects/{project_id}/create_preview_deploy_key": [],

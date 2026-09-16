@@ -98,6 +98,9 @@ export const convexManagementResponseValidators: {
     >;
     "/deployments/{deployment_name}/delete": null;
     "/deployments/{deployment_name}/transfer": null;
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["mint ai gateway jwt"]>
+    >;
     "/deployments/{deployment_name}/create_deploy_key": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["create deploy key"]>
     >;
@@ -165,6 +168,7 @@ export const convexManagementResponseDecimalPaths: {
     "/projects/{project_id}/create_deployment": readonly ConvexManagementResponseDecimalPath[];
     "/deployments/{deployment_name}/delete": readonly ConvexManagementResponseDecimalPath[];
     "/deployments/{deployment_name}/transfer": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": readonly ConvexManagementResponseDecimalPath[];
     "/deployments/{deployment_name}/create_deploy_key": readonly ConvexManagementResponseDecimalPath[];
     "/deployments/{deployment_name}/delete_deploy_key": readonly ConvexManagementResponseDecimalPath[];
     "/projects/{project_id}/create_preview_deploy_key": readonly ConvexManagementResponseDecimalPath[];

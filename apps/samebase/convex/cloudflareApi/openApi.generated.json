@@ -12621,7 +12621,7 @@
                       "additionalProperties": false,
                       "properties": {
                         "destinations": {
-                          "description": "OpenTelemetry destination identifiers that receive traces.",
+                          "description": "Up to 100 OpenTelemetry destination identifiers that receive traces.",
                           "type": "array",
                           "items": {
                             "maxLength": 256,
@@ -12897,7 +12897,7 @@
                 "type": "object",
                 "properties": {
                   "destinations": {
-                    "description": "OpenTelemetry destination identifiers that receive traces.",
+                    "description": "Up to 100 OpenTelemetry destination identifiers that receive traces.",
                     "type": "array",
                     "items": {
                       "maxLength": 256,
@@ -12974,7 +12974,7 @@
                       "additionalProperties": false,
                       "properties": {
                         "destinations": {
-                          "description": "OpenTelemetry destination identifiers that receive traces.",
+                          "description": "Up to 100 OpenTelemetry destination identifiers that receive traces.",
                           "type": "array",
                           "items": {
                             "maxLength": 256,
@@ -20644,6 +20644,19 @@
             "nullable": true,
             "x-auditable": true
           },
+          "issues": {
+            "description": "Real-time Issues settings for the Worker.",
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "enabled": {
+                "description": "Whether real-time Issues are enabled for the Worker.",
+                "type": "boolean",
+                "example": true,
+                "x-auditable": true
+              }
+            }
+          },
           "logs": {
             "description": "Log settings for the Worker.",
             "type": "object",
@@ -25927,6 +25940,19 @@
                 "example": 1,
                 "default": 1,
                 "x-auditable": true
+              },
+              "issues": {
+                "description": "Real-time Issues settings for the Worker.",
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "enabled": {
+                    "description": "Whether real-time Issues are enabled for the Worker.",
+                    "type": "boolean",
+                    "default": false,
+                    "x-auditable": true
+                  }
+                }
               },
               "logs": {
                 "description": "Log settings for the Worker.",
