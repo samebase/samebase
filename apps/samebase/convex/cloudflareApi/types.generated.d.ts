@@ -3433,6 +3433,14 @@ export interface components {
        * @example 0.1
        */
       head_sampling_rate?: number | null;
+      /** @description Real-time Issues settings for the Worker. */
+      issues?: {
+        /**
+         * @description Whether real-time Issues are enabled for the Worker.
+         * @example true
+         */
+        enabled?: boolean;
+      } | null;
       /** @description Log settings for the Worker. */
       logs?: {
         /**
@@ -6030,6 +6038,14 @@ export interface components {
          * @example 1
          */
         head_sampling_rate: number;
+        /** @description Real-time Issues settings for the Worker. */
+        issues?: {
+          /**
+           * @description Whether real-time Issues are enabled for the Worker.
+           * @default false
+           */
+          enabled: boolean;
+        } | null;
         /** @description Log settings for the Worker. */
         logs?: {
           /**
@@ -12966,7 +12982,7 @@ export interface operations {
               message: "Successful request";
             }[];
             result: {
-              /** @description OpenTelemetry destination identifiers that receive traces. */
+              /** @description Up to 100 OpenTelemetry destination identifiers that receive traces. */
               destinations: string[];
               /** @description Whether Cloudflare Traces is enabled for the zone. */
               enabled: boolean;
@@ -13085,7 +13101,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description OpenTelemetry destination identifiers that receive traces. */
+          /** @description Up to 100 OpenTelemetry destination identifiers that receive traces. */
           destinations?: string[];
           /** @description Whether Cloudflare Traces is enabled for the zone. */
           enabled?: boolean;
@@ -13119,7 +13135,7 @@ export interface operations {
               message: "Successful request";
             }[];
             result: {
-              /** @description OpenTelemetry destination identifiers that receive traces. */
+              /** @description Up to 100 OpenTelemetry destination identifiers that receive traces. */
               destinations: string[];
               /** @description Whether Cloudflare Traces is enabled for the zone. */
               enabled: boolean;
