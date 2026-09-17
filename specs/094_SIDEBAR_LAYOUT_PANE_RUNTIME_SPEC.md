@@ -81,11 +81,17 @@ a product shortcut toggles.
 
 ### Desktop Pane Widths
 
-Each visible desktop pane has a 160px minimum. A sidebar can use all space that remains after the
-other visible panes reach their minimum widths. A resize first reduces the main pane. After the main
-pane reaches its minimum, it reduces the opposite sidebar. Both sidebar widths are saved in one
-state update. Reversing the resize gives space back to main and keeps the opposite sidebar at its
-reduced width. Pointer and keyboard resizing use the same limits.
+Each visible desktop pane has a default 160px minimum. The package accepts a `minWidths`
+configuration for desktop main and sidebar minimums and mobile main, sidebar, and viewport-ratio
+minimums. Omitted fields use the package defaults. The consumer passes the same configuration to
+`SidebarLayout` and both prehydration builders. Resize handles, mobile merge behavior, and merge
+progress use these resolved values. Samebase keeps the default configuration.
+
+A sidebar can use all space that remains after the other visible panes reach their minimum widths. A
+resize first reduces the main pane. After the main pane reaches its minimum, it reduces the opposite
+sidebar. Both sidebar widths are saved in one state update. Reversing the resize gives space back to
+main and keeps the opposite sidebar at its reduced width. Pointer and keyboard resizing use the same
+limits.
 
 Closed or absent sidebars reserve no space and keep their saved widths. When the layout becomes
 narrower, it reduces the displayed sidebar widths in proportion to their space above the minimum.

@@ -130,14 +130,58 @@ This query-container contract covers the `PaneFrame` header and content. It does
 
 ## Desktop resizing
 
-Desktop sidebars have no fixed maximum width. Dragging a sidebar first reduces the main pane to
-160px, then reduces the opposite open sidebar to 160px. Closed or absent sidebars use no space.
-Keyboard resize controls use the same limits, and the controller saves both changed sidebar widths
-together.
+Desktop sidebars have no fixed maximum width. Dragging a sidebar first reduces the main pane to its
+minimum, then reduces the opposite open sidebar to its minimum. Both default to 160px. Closed or
+absent sidebars use no space. Keyboard resize controls use the same limits, and the controller saves
+both changed sidebar widths together.
 
 A smaller layout fits the saved widths without replacing them. Embedded layouts narrower than the
 combined pane minima scale those minima down to fit. The first paint uses the same width calculation
 as the live layout.
+
+## Configure minimum widths
+
+Pass `minWidths` to `SidebarLayout` and both prehydration builders. Use the same configuration
+variable for all three calls. Omitted fields use `SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS`, exported from
+`@samebase/sidebars/SidebarLayoutGeometry`.
+
+```tsx
+import type { SidebarLayoutMinWidths } from "@samebase/sidebars/SidebarLayoutGeometry";
+
+const minWidths = {
+  desktopMainMinWidthPx: 300,
+  desktopSidebarMinWidthPx: 96,
+  mobileMainMinWidthPx: 180,
+  mobileSidebarMinWidthPx: 180,
+  mobileSidebarMinWidthRatio: 1,
+} satisfies Partial<SidebarLayoutMinWidths>;
+
+const prehydrationArgs = { desktopStyleElementId: "sidebar-style", minWidths };
+const desktopScript = buildSidebarLayoutDesktopPrehydrationScript(prehydrationArgs, readState);
+const mobileScript = buildSidebarLayoutMobilePanePrehydrationScript(prehydrationArgs, readState);
+
+<SidebarLayout {...layoutProps} minWidths={minWidths} />;
+```
+
+| Field                        | Default |
+| ---------------------------- | ------- |
+| `desktopMainMinWidthPx`      | `160`   |
+| `desktopSidebarMinWidthPx`   | `160`   |
+| `mobileMainMinWidthPx`       | `214`   |
+| `mobileSidebarMinWidthPx`    | `175`   |
+| `mobileSidebarMinWidthRatio` | `1 / 3` |
+
+Pixel minimums must be finite and at least 1. The ratio must be finite and positive. On mobile, the
+sidebar minimum is the smaller of the pixel value and the layout width multiplied by the ratio,
+rounded to whole pixels and limited to the available space. Use a ratio of `1` to make the pixel
+value apply until the layout is too narrow. A mobile merge is available only when the side pane and
+main pane fit together at their configured minimums.
+
+The layout uses these values for pointer and keyboard resizing, merge progress, and restored pane
+geometry. Changing the prop updates the limits without replacing saved pane widths. The consumer
+owns any settings controls and their storage. A saved merge can come from another viewport or an
+earlier configuration. Its stored main width does not need to meet the current minimum; the layout
+calculates the displayed width again.
 
 ## Style parts and states
 

@@ -3,20 +3,42 @@ import type { MobilePane, MobileSurface, SidebarSide } from "./SidebarLayoutStat
 export type { MobilePane } from "./SidebarLayoutState.ts";
 
 export const SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX = 768;
-export const SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
-export const SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX = 160;
-export const SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
-export const SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO = 1 / 3;
 export const SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX = 40;
 export const SIDEBAR_LAYOUT_MOBILE_MERGE_INTENT_WIDTH_PX = 10;
-export const SIDEBAR_LAYOUT_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
+
+export type SidebarLayoutMinWidths = {
+  desktopMainMinWidthPx: number;
+  desktopSidebarMinWidthPx: number;
+  mobileMainMinWidthPx: number;
+  mobileSidebarMinWidthPx: number;
+  mobileSidebarMinWidthRatio: number;
+};
+
+export const SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS: Readonly<SidebarLayoutMinWidths> = Object.freeze({
+  desktopMainMinWidthPx: 160,
+  desktopSidebarMinWidthPx: 160,
+  // The default side and main panes fit together in a 320px viewport.
+  mobileMainMinWidthPx: 320 - Math.floor(320 / 3),
+  mobileSidebarMinWidthPx: 175,
+  mobileSidebarMinWidthRatio: 1 / 3,
+});
+
 export const SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX =
-  SIDEBAR_LAYOUT_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX -
-  Math.floor(
-    SIDEBAR_LAYOUT_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX *
-      SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
-  );
+  SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileMainMinWidthPx;
 export const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
+
+export function resolveSidebarLayoutMinWidths(minWidths: Partial<SidebarLayoutMinWidths> = {}) {
+  const resolved = { ...SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS, ...minWidths };
+
+  for (const [name, value] of Object.entries(resolved)) {
+    const validMinimum = name === "mobileSidebarMinWidthRatio" ? value > 0 : value >= 1;
+    if (!Number.isFinite(value) || !validMinimum) {
+      throw new RangeError(`Invalid sidebar minimum width: ${name}.`);
+    }
+  }
+
+  return resolved;
+}
 
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
 const MOBILE_PANE_ORDER_WITHOUT_MAIN = ["left", "right"] as const;
@@ -95,17 +117,18 @@ export function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
 
 export function getMobileSidebarMinWidthPx(args: {
   configuredMinWidthPx: number;
+  configuredMinWidthRatio: number;
   maxWidthPx: number;
   viewportWidthPx: number;
 }) {
-  const pageRelativeMinWidthPx = Math.floor(
-    args.viewportWidthPx * SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
-  );
-
-  return clampNumber(
-    Math.min(Math.round(args.configuredMinWidthPx), pageRelativeMinWidthPx),
+  // Serialized into the prehydration script; keep this calculation self-contained.
+  return Math.max(
     1,
-    args.maxWidthPx,
+    Math.min(
+      Math.round(args.configuredMinWidthPx),
+      Math.floor(args.viewportWidthPx * args.configuredMinWidthRatio),
+      args.maxWidthPx,
+    ),
   );
 }
 

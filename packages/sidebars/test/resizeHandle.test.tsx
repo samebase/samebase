@@ -84,6 +84,64 @@ afterEach(() => {
   }
 });
 
+describe("sidebar layout desktop resizing", () => {
+  it("uses custom desktop minimums for keyboard resizing and opposite-pane space", () => {
+    installDesktopMatchMedia();
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    act(() => {
+      root?.render(
+        <SidebarLayoutMemoryProvider initialState={{ ...TEST_STATE, rightDesktopOpen: true }}>
+          <SidebarLayout
+            addressChrome={null}
+            left={<div>left pane</div>}
+            main={<div>main pane</div>}
+            right={<div>right pane</div>}
+            minWidths={{ desktopMainMinWidthPx: 300, desktopSidebarMinWidthPx: 96 }}
+            resizeHandleLabels={{ left: "Resize left pane", right: "Resize right pane" }}
+          />
+        </SidebarLayoutMemoryProvider>,
+      );
+    });
+
+    const leftHandle = getRequiredElement(container, '[data-resize-side="left"]');
+    const rightHandle = getRequiredElement(container, '[data-resize-side="right"]');
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe("96");
+    expect(leftHandle.getAttribute("aria-valuemax")).toBe("628");
+
+    for (let step = 0; step < 5; step++) {
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowRight",
+            shiftKey: true,
+          }),
+        );
+      });
+    }
+
+    expect(leftHandle.getAttribute("aria-valuenow")).toBe("628");
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe("96");
+
+    for (let step = 0; step < 6; step++) {
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowLeft",
+            shiftKey: true,
+          }),
+        );
+      });
+    }
+
+    expect(leftHandle.getAttribute("aria-valuenow")).toBe("96");
+  });
+});
+
 describe("sidebar resize body style lock", () => {
   it("keeps the lock until every owner releases it, then restores exact inline styles", () => {
     document.body.style.setProperty("cursor", "wait", "important");

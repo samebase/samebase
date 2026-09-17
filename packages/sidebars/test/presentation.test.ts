@@ -34,43 +34,51 @@ const paneState = {
 const displayedMergedRightState = {
   mobileMergeAvailableSides: { left: true, right: true },
   mobilePane: "right",
+  mobileSidebarMinWidthPx: 130,
   mobileSurface: { kind: "merged", mainWidthPx: 260, side: "right" },
 } satisfies SidebarLayoutDisplayedMobileState;
 
 describe("sidebar layout presentation", () => {
-  it("reports merge progress while a mobile pane is resized", () => {
-    expect(
-      getSidebarLayoutPresentation({
-        displayedMobileState: {
-          ...displayedMergedRightState,
-          mobileSurface: { kind: "unmerged" },
-        },
-        localState: {
-          ...localState,
-          mobile: {
-            ...localState.mobile,
-            grip: {
-              kind: "dragging",
-              mergeTargetSide: "right",
-              previewSurface: displayedMergedRightState.mobileSurface,
-              shouldSettleMergedOnEnd: false,
-              side: "right",
-              slideOffsetPx: 0,
-              startSideWidthPx: 200,
+  it.each([
+    { mobileSidebarMinWidthPx: 130, progress: 0.5 },
+    { mobileSidebarMinWidthPx: 150, progress: 0.75 },
+  ])(
+    "reports merge progress for a $mobileSidebarMinWidthPx px minimum",
+    ({ mobileSidebarMinWidthPx, progress }) => {
+      expect(
+        getSidebarLayoutPresentation({
+          displayedMobileState: {
+            ...displayedMergedRightState,
+            mobileSidebarMinWidthPx,
+            mobileSurface: { kind: "unmerged" },
+          },
+          localState: {
+            ...localState,
+            mobile: {
+              ...localState.mobile,
+              grip: {
+                kind: "dragging",
+                mergeTargetSide: "right",
+                previewSurface: displayedMergedRightState.mobileSurface,
+                shouldSettleMergedOnEnd: false,
+                side: "right",
+                slideOffsetPx: 0,
+                startSideWidthPx: 200,
+              },
             },
           },
-        },
-        paneState,
-      }),
-    ).toEqual({
-      isMobile: true,
-      leftDesktopOpen: true,
-      mobileMergeProgress: { progress: 0.5, side: "right" },
-      mobilePane: "right",
-      mobilePaneScrollProgress: 0.25,
-      rightDesktopOpen: true,
-    });
-  });
+          paneState,
+        }),
+      ).toEqual({
+        isMobile: true,
+        leftDesktopOpen: true,
+        mobileMergeProgress: { progress, side: "right" },
+        mobilePane: "right",
+        mobilePaneScrollProgress: 0.25,
+        rightDesktopOpen: true,
+      });
+    },
+  );
 
   it("omits drag merge progress when the displayed viewport cannot merge", () => {
     expect(
@@ -78,6 +86,7 @@ describe("sidebar layout presentation", () => {
         displayedMobileState: {
           mobileMergeAvailableSides: { left: false, right: false },
           mobilePane: "right",
+          mobileSidebarMinWidthPx: 130,
           mobileSurface: { kind: "unmerged" },
         },
         localState: {

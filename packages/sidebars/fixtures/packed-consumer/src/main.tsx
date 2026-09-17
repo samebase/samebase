@@ -1,6 +1,8 @@
 import { SidebarLayout, type SidebarLayoutProps } from "@samebase/sidebars/SidebarLayout";
 import {
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+  SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS,
+  type SidebarLayoutMinWidths,
   type SidebarLayoutMobileMinResizeBehavior,
 } from "@samebase/sidebars/SidebarLayoutGeometry";
 import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
@@ -37,19 +39,24 @@ const initialState = {
 } satisfies SidebarLayoutState;
 
 const prehydrationState: SidebarLayoutPrehydrationState = initialState;
+const minWidths = {
+  desktopMainMinWidthPx: 300,
+  desktopSidebarMinWidthPx: 96,
+} satisfies Partial<SidebarLayoutMinWidths>;
 const readPrehydrationState = (): SidebarLayoutPrehydrationState | null => null;
 const desktopPrehydrationScript = buildSidebarLayoutDesktopPrehydrationScript(
-  { desktopStyleElementId: "packed-consumer-sidebar-style" },
+  { desktopStyleElementId: "packed-consumer-sidebar-style", minWidths },
   readPrehydrationState,
 );
 const mobilePrehydrationScript = buildSidebarLayoutMobilePanePrehydrationScript(
-  { desktopStyleElementId: "packed-consumer-sidebar-style" },
+  { desktopStyleElementId: "packed-consumer-sidebar-style", minWidths },
   readPrehydrationState,
 );
 
 const publicValues = [
   SidebarLayout,
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+  SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS,
   PaneFrame,
   prehydrationState,
   desktopPrehydrationScript,
@@ -89,6 +96,7 @@ function PackedConsumer() {
           addressChrome={<ConsumerChrome />}
           left={<PaneFrame content="Left pane" />}
           main={<PaneFrame {...paneFrameProps} />}
+          minWidths={minWidths}
           mobileMinResizeBehavior={mobileResizeBehavior}
           resizeHandleLabels={resizeHandleLabels}
         />

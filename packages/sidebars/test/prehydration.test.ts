@@ -7,6 +7,7 @@ import {
   buildSidebarLayoutDesktopPrehydrationScript,
   buildSidebarLayoutMobilePanePrehydrationScript,
   clearSidebarLayoutDesktopPrehydrationStyle,
+  type SidebarLayoutPrehydrationArgs,
   type SidebarLayoutPrehydrationState,
 } from "../src/SidebarLayoutPrehydration.ts";
 
@@ -113,16 +114,18 @@ function appendMobilePrehydrationLayout(
 }
 
 function runDesktopPrehydrationScript({
+  minWidths,
   readState = readDesktopPrehydrationState,
   scriptElement,
   styleElementId = TEST_DESKTOP_STYLE_ELEMENT_ID,
 }: {
+  minWidths?: SidebarLayoutPrehydrationArgs["minWidths"];
   readState?: () => SidebarLayoutPrehydrationState;
   scriptElement: HTMLScriptElement;
   styleElementId?: string;
 }) {
   const script = buildSidebarLayoutDesktopPrehydrationScript(
-    { desktopStyleElementId: styleElementId },
+    { desktopStyleElementId: styleElementId, minWidths },
     readState,
   );
   const currentScriptSpy = vi
@@ -144,9 +147,12 @@ function runDesktopPrehydrationScript({
   }
 }
 
-function runMobilePrehydrationScript(scriptElement: HTMLScriptElement) {
+function runMobilePrehydrationScript(
+  scriptElement: HTMLScriptElement,
+  minWidths?: SidebarLayoutPrehydrationArgs["minWidths"],
+) {
   const script = buildSidebarLayoutMobilePanePrehydrationScript(
-    { desktopStyleElementId: TEST_DESKTOP_STYLE_ELEMENT_ID },
+    { desktopStyleElementId: TEST_DESKTOP_STYLE_ELEMENT_ID, minWidths },
     readMergedMobilePrehydrationState,
   );
   const currentScriptSpy = vi
@@ -256,22 +262,76 @@ describe("sidebar layout prehydration", () => {
     expect(carousel.scrollLeft).toBe(390);
   });
 
-  it("uses the 600px layout width in a 1200px window", () => {
+  it.each([
+    { minWidths: undefined, expectedWidth: "440px" },
+    { minWidths: { desktopMainMinWidthPx: 300 }, expectedWidth: "300px" },
+    {
+      minWidths: { desktopMainMinWidthPx: 50, desktopSidebarMinWidthPx: 550 },
+      expectedWidth: "550px",
+    },
+  ])("fits a 600px layout with minimums $minWidths", ({ minWidths, expectedWidth }) => {
     const windowWidthPx = 1200;
     const layoutWidthPx = 600;
     installDesktopViewport(windowWidthPx);
     const { carousel, scriptElement } = appendDesktopPrehydrationLayout(layoutWidthPx);
 
-    runDesktopPrehydrationScript({ scriptElement });
+    runDesktopPrehydrationScript({ scriptElement, minWidths });
 
     const viewportSelector = getDesktopViewportSelector(carousel);
     const leftPaneRule = getRequiredDesktopStyleRule(
       TEST_DESKTOP_STYLE_ELEMENT_ID,
       `${viewportSelector} [data-sidebar-layout-part="pane"][data-pane-side="left"]`,
     );
-    expect(leftPaneRule.style.width).toBe("440px");
+    expect(leftPaneRule.style.width).toBe(expectedWidth);
     expect(leftPaneRule.style.getPropertyPriority("width")).toBe("important");
   });
+
+  it.each([
+    {
+      minWidths: {
+        mobileMainMinWidthPx: 180,
+        mobileSidebarMinWidthPx: 180,
+        mobileSidebarMinWidthRatio: 1,
+      },
+      sidebarWidth: 180,
+      mainWidth: 210,
+      mergedSide: "right",
+    },
+    {
+      minWidths: {
+        mobileMainMinWidthPx: 180,
+        mobileSidebarMinWidthPx: 200,
+        mobileSidebarMinWidthRatio: 0.4,
+      },
+      sidebarWidth: 156,
+      mainWidth: 234,
+      mergedSide: "right",
+    },
+    {
+      minWidths: { mobileMainMinWidthPx: 300 },
+      sidebarWidth: 130,
+      mainWidth: 390,
+      mergedSide: null,
+    },
+  ])(
+    "fits a saved mobile merge with minimums $minWidths",
+    ({ minWidths, sidebarWidth, mainWidth, mergedSide }) => {
+      installDesktopViewport(390);
+      const { carousel, layoutRoot, scriptElement } =
+        appendMobilePrehydrationLayout("min_resize_to_merge");
+
+      runMobilePrehydrationScript(scriptElement, minWidths);
+
+      expect(layoutRoot.style.getPropertyValue("--sidebar-layout-right-mobile-width")).toBe(
+        `${sidebarWidth}px`,
+      );
+      expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe(
+        `${mainWidth}px`,
+      );
+      expect(layoutRoot.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe(mergedSide);
+      expect(carousel.scrollLeft).toBe(260 + mainWidth + sidebarWidth - 390);
+    },
+  );
 
   it("overrides separator width when stored state differs from server markup", () => {
     installDesktopViewport(800);

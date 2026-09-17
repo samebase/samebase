@@ -1,7 +1,6 @@
 import { useEffect, useEffectEvent, useRef, type RefObject } from "react";
 import {
   MOBILE_PANE_SETTLED_TOLERANCE_PX,
-  SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_IDLE_MOBILE_GRIP,
   SIDEBAR_LAYOUT_UNMERGED_MOBILE_SURFACE,
   clampNumber,
@@ -34,6 +33,7 @@ export function useSidebarLayoutMobileGripResizeController({
   hasRightPane,
   isMobile,
   leftWidthPx,
+  mobileMainMinWidthPx,
   mobileMinResizeBehavior,
   rightWidthPx,
   viewportWidthPx,
@@ -44,6 +44,7 @@ export function useSidebarLayoutMobileGripResizeController({
   hasRightPane: boolean;
   isMobile: boolean;
   leftWidthPx: number;
+  mobileMainMinWidthPx: number;
   mobileMinResizeBehavior: SidebarLayoutMobileMinResizeBehavior;
   rightWidthPx: number;
   viewportWidthPx: number;
@@ -70,7 +71,7 @@ export function useSidebarLayoutMobileGripResizeController({
     mobileMinResizeBehavior === "min_resize_to_merge" && hasDurableMobileMergedPane
       ? getMergedMobileMainWidthPx({
           mainMaxWidthPx: mobileDefaultPaneWidthPx,
-          mainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+          mainMinWidthPx: mobileMainMinWidthPx,
           sideMinWidthPx: durableMobileMergedSideWidthPx,
           viewportWidthPx,
         })
@@ -99,7 +100,7 @@ export function useSidebarLayoutMobileGripResizeController({
   const isMobileMergedFit =
     hasMobileMergedPane &&
     mobileMergedMainWidthPx !== null &&
-    mobileMergedMainWidthPx >= SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX &&
+    mobileMergedMainWidthPx >= mobileMainMinWidthPx &&
     mobileMergedSideWidthPx + mobileMergedMainWidthPx <=
       viewportWidthPx + MOBILE_PANE_SETTLED_TOLERANCE_PX;
   const hasOppositePaneForMergedSide =
@@ -226,7 +227,7 @@ export function useSidebarLayoutMobileGripResizeController({
     ) {
       const settledMainWidthPx = getMergedMobileMainWidthPx({
         mainMaxWidthPx: mobileDefaultPaneWidthPx,
-        mainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+        mainMinWidthPx: mobileMainMinWidthPx,
         sideMinWidthPx: resizeHandle.minWidthPx,
         viewportWidthPx,
       });
@@ -299,7 +300,7 @@ export function useSidebarLayoutMobileGripResizeController({
     ) {
       const mergeResizeWidths = getMobileMinResizeMergeWidthsPx({
         mainMaxWidthPx: mobileDefaultPaneWidthPx,
-        mainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+        mainMinWidthPx: mobileMainMinWidthPx,
         rawSideWidthPx: rawWidthPx,
         sideMaxWidthPx: resizeHandle.maxWidthPx,
         sideMinWidthPx: resizeHandle.minWidthPx,
@@ -341,7 +342,7 @@ export function useSidebarLayoutMobileGripResizeController({
           const handoffSideWidthPx = handoffSide === "left" ? leftWidthPx : rightWidthPx;
           const handoffMainWidthPx = getMergedMobileMainWidthPx({
             mainMaxWidthPx: mobileDefaultPaneWidthPx,
-            mainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+            mainMinWidthPx: mobileMainMinWidthPx,
             sideMinWidthPx: handoffSideWidthPx,
             viewportWidthPx,
           });

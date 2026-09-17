@@ -3,10 +3,10 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { SidebarLayout } from "../src/SidebarLayout.tsx";
+import { SidebarLayout, type SidebarLayoutProps } from "../src/SidebarLayout.tsx";
 import {
   SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX,
-  SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobilePaneScrollProgress,
@@ -89,6 +89,7 @@ type RenderMobileLayoutArgs = {
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
+  minWidths?: SidebarLayoutProps["minWidths"];
   mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
   mobilePane?: SidebarLayoutState["mobilePane"];
   mobileSurface?: SidebarLayoutState["mobileSurface"];
@@ -119,6 +120,7 @@ function createMobileSidebarState({
 function renderMobileLayoutContent({
   includeLeftPane = true,
   includeRightPane = true,
+  minWidths,
   mobileMinResizeBehavior,
 }: Omit<
   RenderMobileLayoutArgs,
@@ -135,6 +137,7 @@ function renderMobileLayoutContent({
         </>
       }
       mobileMinResizeBehavior={mobileMinResizeBehavior}
+      minWidths={minWidths}
       resizeHandleLabels={{
         left: "Resize left pane",
         right: "Resize right pane",
@@ -346,7 +349,8 @@ describe("getMobileSidebarMinWidthPx", () => {
 
     expect(
       getMobileSidebarMinWidthPx({
-        configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        configuredMinWidthPx: SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileSidebarMinWidthPx,
+        configuredMinWidthRatio: SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileSidebarMinWidthRatio,
         maxWidthPx: getMobileSidebarMaxWidthPx(viewportWidthPx),
         viewportWidthPx,
       }),
@@ -356,14 +360,16 @@ describe("getMobileSidebarMinWidthPx", () => {
   it("uses one third of the page on narrow mobile viewports", () => {
     expect(
       getMobileSidebarMinWidthPx({
-        configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        configuredMinWidthPx: SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileSidebarMinWidthPx,
+        configuredMinWidthRatio: SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileSidebarMinWidthRatio,
         maxWidthPx: getMobileSidebarMaxWidthPx(VIEWPORT_WIDTH_PX),
         viewportWidthPx: VIEWPORT_WIDTH_PX,
       }),
     ).toBe(MOBILE_SIDEBAR_MIN_WIDTH_PX);
     expect(
       getMobileSidebarMinWidthPx({
-        configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        configuredMinWidthPx: SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileSidebarMinWidthPx,
+        configuredMinWidthRatio: SIDEBAR_LAYOUT_DEFAULT_MIN_WIDTHS.mobileSidebarMinWidthRatio,
         maxWidthPx: getMobileSidebarMaxWidthPx(NARROW_VIEWPORT_WIDTH_PX),
         viewportWidthPx: NARROW_VIEWPORT_WIDTH_PX,
       }),
@@ -965,7 +971,18 @@ describe("SidebarLayout mobile boot alignment", () => {
     expect(rightHandle.parentElement?.style.left).toBe("260px");
   });
 
-  it("lets default merge mode finish a below-min left resize into a fitted main pane", () => {
+  it.each([
+    { name: "default", minWidths: undefined, sidebarMinWidthPx: 130 },
+    {
+      name: "custom",
+      minWidths: {
+        mobileMainMinWidthPx: 180,
+        mobileSidebarMinWidthPx: 180,
+        mobileSidebarMinWidthRatio: 1,
+      },
+      sidebarMinWidthPx: 180,
+    },
+  ])("merges a below-min resize with $name minimum widths", ({ minWidths, sidebarMinWidthPx }) => {
     vi.useFakeTimers();
     try {
       const mountedRoot = root;
@@ -977,7 +994,8 @@ describe("SidebarLayout mobile boot alignment", () => {
       act(() => {
         mountedRoot.render(
           renderMobileLayout({
-            leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
+            leftMobileWidthPx: sidebarMinWidthPx,
+            minWidths,
             mobilePane: "left",
           }),
         );
@@ -994,6 +1012,7 @@ describe("SidebarLayout mobile boot alignment", () => {
         );
 
       expect(getMainPane().style.width).toBe("390px");
+      expect(leftHandle.getAttribute("aria-valuemin")).toBe(`${sidebarMinWidthPx}`);
 
       act(() => {
         leftHandle.dispatchEvent(
@@ -1004,7 +1023,7 @@ describe("SidebarLayout mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("260px");
+      expect(getMainPane().style.width).toBe(`${VIEWPORT_WIDTH_PX - sidebarMinWidthPx}px`);
       act(() => {
         leftHandle.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -1014,7 +1033,7 @@ describe("SidebarLayout mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("260px");
+      expect(getMainPane().style.width).toBe(`${VIEWPORT_WIDTH_PX - sidebarMinWidthPx}px`);
       expect(
         rootElement
           .querySelector('[data-sidebar-layout-part="viewport"]')
@@ -1025,8 +1044,8 @@ describe("SidebarLayout mobile boot alignment", () => {
         vi.advanceTimersByTime(121);
       });
 
-      expect(getMainPane().style.width).toBe("260px");
-      expect(leftHandle.getAttribute("aria-valuenow")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
+      expect(getMainPane().style.width).toBe(`${VIEWPORT_WIDTH_PX - sidebarMinWidthPx}px`);
+      expect(leftHandle.getAttribute("aria-valuenow")).toBe(`${sidebarMinWidthPx}`);
       expect(
         rootElement
           .querySelector('[data-sidebar-layout-part="viewport"]')
@@ -1046,8 +1065,8 @@ describe("SidebarLayout mobile boot alignment", () => {
       expect(
         getRequiredElement(rootElement, '[data-sidebar-layout-part="pane"][data-pane-side="left"]')
           .style.width,
-      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
-      expect(leftHandle.parentElement?.style.left).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
+      ).toBe(`${sidebarMinWidthPx + 24}px`);
+      expect(leftHandle.parentElement?.style.left).toBe(`${sidebarMinWidthPx + 24}px`);
 
       act(() => {
         vi.advanceTimersByTime(121);
@@ -1058,7 +1077,7 @@ describe("SidebarLayout mobile boot alignment", () => {
       expect(
         getRequiredElement(rootElement, '[data-sidebar-layout-part="pane"][data-pane-side="left"]')
           .style.width,
-      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
+      ).toBe(`${sidebarMinWidthPx + 24}px`);
     } finally {
       vi.useRealTimers();
     }

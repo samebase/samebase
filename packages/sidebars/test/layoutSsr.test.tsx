@@ -1,7 +1,11 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { SidebarLayout } from "../src/SidebarLayout.tsx";
+import { SidebarLayout, type SidebarLayoutProps } from "../src/SidebarLayout.tsx";
+import {
+  buildSidebarLayoutDesktopPrehydrationScript,
+  buildSidebarLayoutMobilePanePrehydrationScript,
+} from "../src/SidebarLayoutPrehydration.ts";
 import type { SidebarLayoutMobileMinResizeBehavior } from "../src/SidebarLayoutGeometryInternal.ts";
 import { PaneFrame } from "../src/PaneFrame.tsx";
 import type { SidebarLayoutState } from "../src/SidebarLayoutState.ts";
@@ -21,10 +25,12 @@ const TEST_STATE = {
 
 function renderLayoutMarkup({
   left = <div>left pane</div>,
+  minWidths,
   mobileMinResizeBehavior,
   right = <div>right pane</div>,
 }: {
   left?: ReactNode;
+  minWidths?: SidebarLayoutProps["minWidths"];
   mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
   right?: ReactNode;
 }) {
@@ -34,6 +40,7 @@ function renderLayoutMarkup({
         addressChrome={<div>/test</div>}
         left={left ? <div>{left}</div> : undefined}
         main={<div>main pane</div>}
+        minWidths={minWidths}
         mobileMinResizeBehavior={mobileMinResizeBehavior}
         resizeHandleLabels={{
           left: "Resize left pane",
@@ -46,6 +53,24 @@ function renderLayoutMarkup({
 }
 
 describe("SidebarLayout server markup", () => {
+  it.each([
+    { desktopMainMinWidthPx: -1 },
+    { desktopSidebarMinWidthPx: Number.POSITIVE_INFINITY },
+    { mobileMainMinWidthPx: Number.NaN },
+    { mobileSidebarMinWidthPx: 0.5 },
+    { mobileSidebarMinWidthRatio: 0 },
+  ])("rejects invalid minimums in the layout and startup scripts: %j", (minWidths) => {
+    expect(() => renderLayoutMarkup({ minWidths })).toThrow(RangeError);
+    for (const buildScript of [
+      buildSidebarLayoutDesktopPrehydrationScript,
+      buildSidebarLayoutMobilePanePrehydrationScript,
+    ]) {
+      expect(() =>
+        buildScript({ desktopStyleElementId: "invalid-minimums", minWidths }, () => null),
+      ).toThrow(RangeError);
+    }
+  });
+
   it("renders one responsive pane tree", () => {
     const markup = renderLayoutMarkup({});
 

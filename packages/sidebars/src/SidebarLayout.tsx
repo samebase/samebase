@@ -17,16 +17,14 @@ import {
   type SidebarRuntimeState,
 } from "./SidebarRuntimeInternal.tsx";
 import {
-  SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_UNMERGED_MOBILE_SURFACE,
   getDesktopPaneWidths,
   getMergedMobileMainWidthPx,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
+  resolveSidebarLayoutMinWidths,
+  type SidebarLayoutMinWidths,
   type SidebarLayoutMobileMinResizeBehavior,
 } from "./SidebarLayoutGeometryInternal.ts";
 import { SidebarLayoutDisplayedMobileStateContext } from "./SidebarLayoutPresentation.ts";
@@ -53,6 +51,7 @@ export type SidebarLayoutProps = {
   formatResizeHandleValueText?: SidebarLayoutResizeHandleValueTextFormatter;
   left?: ReactElement;
   main: ReactElement;
+  minWidths?: Partial<SidebarLayoutMinWidths>;
   mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
   resizeHandleLabels: SidebarLayoutResizeHandleLabels;
   right?: ReactElement;
@@ -89,10 +88,12 @@ export function SidebarLayout({
   formatResizeHandleValueText,
   left,
   main,
+  minWidths: configuredMinWidths,
   mobileMinResizeBehavior = "min_resize_to_merge",
   resizeHandleLabels,
   right,
 }: SidebarLayoutProps) {
+  const minWidths = resolveSidebarLayoutMinWidths(configuredMinWidths);
   const paneIdPrefix = useId();
   const leftPaneId = `${paneIdPrefix}-pane-left`;
   const rightPaneId = `${paneIdPrefix}-pane-right`;
@@ -136,15 +137,16 @@ export function SidebarLayout({
   const desktopWidths = getDesktopPaneWidths({
     leftOpen: hasLeftPane && leftDesktopOpen,
     leftWidthPx: leftDesktopWidthPx,
-    mainMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
+    mainMinWidthPx: minWidths.desktopMainMinWidthPx,
     rightOpen: hasRightPane && rightDesktopOpen,
     rightWidthPx: rightDesktopWidthPx,
-    sidebarMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    sidebarMinWidthPx: minWidths.desktopSidebarMinWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
   const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
-    configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    configuredMinWidthPx: minWidths.mobileSidebarMinWidthPx,
+    configuredMinWidthRatio: minWidths.mobileSidebarMinWidthRatio,
     maxWidthPx: mobileSidebarMaxWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
@@ -152,7 +154,7 @@ export function SidebarLayout({
     mobileMinResizeBehavior === "min_resize_to_merge" &&
     getMergedMobileMainWidthPx({
       mainMaxWidthPx: Math.max(1, viewportSize.widthPx),
-      mainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
+      mainMinWidthPx: minWidths.mobileMainMinWidthPx,
       sideMinWidthPx: mobileSidebarMinWidthPx,
       viewportWidthPx: viewportSize.widthPx,
     }) !== null;
@@ -178,6 +180,7 @@ export function SidebarLayout({
     hasRightPane,
     isMobile,
     leftWidthPx: mobileLeftWidthPx,
+    mobileMainMinWidthPx: minWidths.mobileMainMinWidthPx,
     mobileMinResizeBehavior,
     rightWidthPx: mobileRightWidthPx,
     viewportWidthPx: viewportSize.widthPx,
@@ -334,6 +337,7 @@ export function SidebarLayout({
           right: isMobile && hasRightPane && canDisplayMobileMerge,
         },
         mobilePane,
+        mobileSidebarMinWidthPx,
         mobileSurface: displayedMobileSurface,
       }}
     >

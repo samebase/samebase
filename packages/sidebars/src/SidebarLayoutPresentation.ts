@@ -1,10 +1,7 @@
 import { createContext, useContext } from "react";
 import {
   SIDEBAR_LAYOUT_MOBILE_MERGE_INTENT_WIDTH_PX,
-  SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   clampNumber,
-  getMobileSidebarMaxWidthPx,
-  getMobileSidebarMinWidthPx,
 } from "./SidebarLayoutGeometryInternal.ts";
 import type {
   SidebarLayoutLocalStoreState,
@@ -29,6 +26,7 @@ export type SidebarLayoutPresentation = {
 export type SidebarLayoutDisplayedMobileState = {
   mobileMergeAvailableSides: Record<SidebarSide, boolean>;
   mobilePane: MobilePane;
+  mobileSidebarMinWidthPx: number;
   mobileSurface: MobileSurface;
 };
 
@@ -68,13 +66,8 @@ function getMobileMergeProgress({
 
     const currentSideWidthPx =
       mobileGrip.side === "left" ? paneState.leftMobileWidthPx : paneState.rightMobileWidthPx;
-    const maxWidthPx = getMobileSidebarMaxWidthPx(localState.viewportSize.widthPx);
     const mergeCommitWidthPx =
-      getMobileSidebarMinWidthPx({
-        configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-        maxWidthPx,
-        viewportWidthPx: localState.viewportSize.widthPx,
-      }) + SIDEBAR_LAYOUT_MOBILE_MERGE_INTENT_WIDTH_PX;
+      displayedMobileState.mobileSidebarMinWidthPx + SIDEBAR_LAYOUT_MOBILE_MERGE_INTENT_WIDTH_PX;
 
     if (mobileGrip.startSideWidthPx > mergeCommitWidthPx) {
       return {

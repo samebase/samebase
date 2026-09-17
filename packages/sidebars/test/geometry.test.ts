@@ -94,6 +94,7 @@ describe("sidebar layout geometry", () => {
     const maxWidthPx = getMobileSidebarMaxWidthPx(viewportWidthPx);
     const minWidthPx = getMobileSidebarMinWidthPx({
       configuredMinWidthPx: 175,
+      configuredMinWidthRatio: 1 / 3,
       maxWidthPx,
       viewportWidthPx,
     });

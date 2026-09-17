@@ -24,7 +24,7 @@ Mobile pane minimum and maximum widths are independent from visual carousel affo
 reachable part of the adjacent main pane must not become the hidden source of truth for a pane
 minimum, maximum, or merge release width.
 
-The responsive side-pane minimum is:
+The default responsive side-pane minimum is:
 
 ```ts
 Math.min(175, Math.floor(viewportWidthPx / 3));
@@ -32,6 +32,11 @@ Math.min(175, Math.floor(viewportWidthPx / 3));
 
 The package resolves side and main widths from explicit constraints. It must not derive those
 constraints from consumer theme CSS.
+
+Consumers can override the pixel minimums and viewport ratio with the shared `minWidths`
+configuration from Spec 094. Initial page geometry and interactive resizing use the same
+configuration and responsive sidebar-minimum calculation. A saved merge is fitted to the current
+viewport and configuration; its previous main width does not reject an otherwise valid fit.
 
 ### Resize Behaviors
 

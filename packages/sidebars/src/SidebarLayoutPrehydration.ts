@@ -1,13 +1,11 @@
 import type { SidebarLayoutState } from "./SidebarLayoutState.ts";
 import {
   SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX,
-  SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-  SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
   getDesktopPaneWidths,
+  getMobileSidebarMinWidthPx,
+  resolveSidebarLayoutMinWidths,
+  type SidebarLayoutMinWidths,
 } from "./SidebarLayoutGeometryInternal.ts";
 
 export type SidebarLayoutPrehydrationState = Pick<
@@ -24,16 +22,13 @@ export type SidebarLayoutPrehydrationState = Pick<
 
 export type SidebarLayoutPrehydrationArgs = {
   desktopStyleElementId: string;
+  minWidths?: Partial<SidebarLayoutMinWidths>;
 };
 
-type SidebarLayoutPrehydrationInlineArgs = SidebarLayoutPrehydrationArgs & {
+type SidebarLayoutPrehydrationInlineArgs = SidebarLayoutMinWidths & {
+  desktopStyleElementId: string;
   desktopMinWidthPx: number;
-  desktopMainMinWidthPx: number;
-  desktopSidebarMinWidthPx: number;
   mobileMainReachableWidthPx: number;
-  mobileMainMinWidthPx: number;
-  mobileSidebarMinWidthPx: number;
-  mobileSidebarMinWidthRatio: number;
 };
 
 export type SidebarLayoutPrehydrationStateReader = () => SidebarLayoutPrehydrationState | null;
@@ -42,14 +37,10 @@ function getSidebarLayoutPrehydrationInlineArgs(
   args: SidebarLayoutPrehydrationArgs,
 ): SidebarLayoutPrehydrationInlineArgs {
   return {
-    ...args,
+    ...resolveSidebarLayoutMinWidths(args.minWidths),
+    desktopStyleElementId: args.desktopStyleElementId,
     desktopMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX,
-    desktopMainMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX,
-    desktopSidebarMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     mobileMainReachableWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX,
-    mobileMainMinWidthPx: SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
-    mobileSidebarMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-    mobileSidebarMinWidthRatio: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
   };
 }
 
@@ -215,6 +206,7 @@ temporary stylesheet or cleanup observer.
 function InlineScript_prehydrateSidebarLayoutMobilePane(
   args: SidebarLayoutPrehydrationInlineArgs,
   readState: SidebarLayoutPrehydrationStateReader,
+  getSidebarMinWidth: typeof getMobileSidebarMinWidthPx,
 ) {
   function clampNumber(value: number, min: number, max: number) {
     return Math.min(Math.max(value, min), max);
@@ -227,11 +219,14 @@ function InlineScript_prehydrateSidebarLayoutMobilePane(
   }
 
   function getSidebarWidth(storedWidthPx: number, maxWidthPx: number, viewportWidthPx: number) {
-    const pageRelativeMinWidthPx = Math.floor(viewportWidthPx * args.mobileSidebarMinWidthRatio);
-
     return clampNumber(
       Math.round(storedWidthPx),
-      Math.max(1, Math.min(args.mobileSidebarMinWidthPx, pageRelativeMinWidthPx, maxWidthPx)),
+      getSidebarMinWidth({
+        configuredMinWidthPx: args.mobileSidebarMinWidthPx,
+        configuredMinWidthRatio: args.mobileSidebarMinWidthRatio,
+        maxWidthPx,
+        viewportWidthPx,
+      }),
       maxWidthPx,
     );
   }
@@ -387,12 +382,6 @@ function InlineScript_prehydrateSidebarLayoutMobilePane(
 
     const state = readState();
     if (state === null) return;
-    if (
-      state.mobileSurface.kind === "merged" &&
-      state.mobileSurface.mainWidthPx < args.mobileMainMinWidthPx
-    ) {
-      return;
-    }
 
     const hasLeftPane =
       carouselNode.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="left"]') !==
@@ -460,7 +449,7 @@ export function buildSidebarLayoutMobilePanePrehydrationScript(
   args: SidebarLayoutPrehydrationArgs,
   readState: SidebarLayoutPrehydrationStateReader,
 ) {
-  return `(${InlineScript_prehydrateSidebarLayoutMobilePane.toString()})(${JSON.stringify(getSidebarLayoutPrehydrationInlineArgs(args))}, ${readState.toString()});`;
+  return `(${InlineScript_prehydrateSidebarLayoutMobilePane.toString()})(${JSON.stringify(getSidebarLayoutPrehydrationInlineArgs(args))}, ${readState.toString()}, ${getMobileSidebarMinWidthPx.toString()});`;
 }
 
 export function clearSidebarLayoutDesktopPrehydrationStyle(args: SidebarLayoutPrehydrationArgs) {
