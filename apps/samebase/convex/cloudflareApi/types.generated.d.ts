@@ -564,13 +564,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Fetch Worker Account Settings
-     * @description Fetches Worker account settings for an account.
+     * Fetch Workers Account Settings
+     * @description Fetches Workers account settings for an account.
      */
     get: operations["worker-account-settings-fetch-worker-account-settings"];
     /**
-     * Create Worker Account Settings
-     * @description Creates Worker account settings for an account.
+     * Configure Workers Account Settings
+     * @description Configure Workers account settings for an account.
      */
     put: operations["worker-account-settings-create-worker-account-settings"];
     post?: never;
@@ -590,8 +590,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Upload Assets
-     * @description Upload assets ahead of creating a Worker version.  To learn more about the direct uploads of assets, see https://developers.cloudflare.com/workers/static-assets/direct-upload/.
+     * Upload Worker Assets
+     * @description Upload Worker assets ahead of creating a Worker version. To learn more about the direct uploads of assets, see https://developers.cloudflare.com/workers/static-assets/direct-upload/.
      */
     post: operations["worker-assets-upload"];
     delete?: never;
@@ -608,14 +608,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List dispatch namespaces
-     * @description Fetch a list of Workers for Platforms namespaces.
+     * List Workers for Platforms Dispatch Namespaces
+     * @description Fetch a list of Workers for Platforms dispatch namespaces.
      */
     get: operations["namespace-worker-list"];
     put?: never;
     /**
-     * Create dispatch namespace
-     * @description Create a new Workers for Platforms namespace.
+     * Create Workers for Platforms Dispatch Namespace
+     * @description Create a new Workers for Platforms dispatch namespace.
      */
     post: operations["namespace-worker-create"];
     delete?: never;
@@ -632,26 +632,26 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get dispatch namespace
-     * @description Get a Workers for Platforms namespace.
+     * Get Workers for Platforms Dispatch Namespace
+     * @description Get a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-get-namespace"];
     /**
-     * Update dispatch namespace
-     * @description Update a Workers for Platforms namespace.
+     * Update Workers for Platforms Dispatch Namespace
+     * @description Update a Workers for Platforms dispatch namespace.
      */
     put: operations["namespace-worker-put-namespace"];
     post?: never;
     /**
-     * Delete dispatch namespace
-     * @description Delete a Workers for Platforms namespace.
+     * Delete Workers for Platforms Dispatch Namespace
+     * @description Delete a Workers for Platforms dispatch namespace.
      */
     delete: operations["namespace-worker-delete-namespace"];
     options?: never;
     head?: never;
     /**
-     * Patch dispatch namespace
-     * @description Patch a Workers for Platforms namespace. Omitted fields are left unchanged.
+     * Patch Workers for Platforms Dispatch Namespace
+     * @description Patch a Workers for Platforms dispatch namespace. Omitted fields are left unchanged.
      */
     patch: operations["namespace-worker-patch-namespace"];
     trace?: never;
@@ -664,15 +664,15 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Scripts in Namespace
-     * @description Fetch a list of scripts uploaded to a Workers for Platforms namespace.
+     * List Workers for Platforms Scripts
+     * @description Fetch a list of scripts uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-list-scripts"];
     put?: never;
     post?: never;
     /**
-     * Delete Scripts in Namespace
-     * @description Delete multiple scripts from a Workers for Platforms namespace based on optional tag filters.
+     * Delete Workers for Platforms Scripts
+     * @description Delete multiple scripts from a Workers for Platforms dispatch namespace based on optional tag filters.
      */
     delete: operations["namespace-worker-delete-scripts"];
     options?: never;
@@ -688,19 +688,19 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Worker Details
-     * @description Fetch information about a script uploaded to a Workers for Platforms namespace.
+     * Get Workers for Platforms Script details
+     * @description Fetch information about a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-script-worker-details"];
     /**
-     * Upload Worker Module
-     * @description Upload a worker module to a Workers for Platforms namespace. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.
+     * Upload Workers for Platforms Script Module
+     * @description Upload a Workers for Platforms script module to a dispatch namespace. You can find more about the multipart metadata on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.
      */
     put: operations["namespace-worker-script-upload-worker-module"];
     post?: never;
     /**
-     * Delete Worker
-     * @description Delete a worker from a Workers for Platforms namespace. This call has no response body on a successful delete.
+     * Delete Workers for Platforms Script
+     * @description Delete a script from a Workers for Platforms dispatch namespace. This call has no response body on a successful delete.
      */
     delete: operations["namespace-worker-script-delete-worker"];
     options?: never;
@@ -718,8 +718,8 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create Assets Upload Session
-     * @description Start uploading a collection of assets for use in a Worker version. To learn more about the direct uploads of assets, see https://developers.cloudflare.com/workers/static-assets/direct-upload/.
+     * Create Workers for Platforms Assets Upload Session
+     * @description Start uploading a collection of assets for use in a Workers for Platforms script version. To learn more about the direct uploads of assets, see https://developers.cloudflare.com/workers/static-assets/direct-upload/.
      */
     post: operations["namespace-worker-script-update-create-assets-upload-session"];
     delete?: never;
@@ -736,8 +736,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Script Bindings
-     * @description Fetch script bindings from a script uploaded to a Workers for Platforms namespace.
+     * Get Workers for Platforms Script Bindings
+     * @description Fetch bindings from a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-get-script-bindings"];
     put?: never;
@@ -756,13 +756,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Script Content
-     * @description Fetch script content from a script uploaded to a Workers for Platforms namespace.
+     * Get Workers for Platforms Script Content
+     * @description Fetch content from a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-get-script-content"];
     /**
-     * Put Script Content
-     * @description Put script content for a script uploaded to a Workers for Platforms namespace.
+     * Replace Workers for Platforms Script Content
+     * @description Replace content for a script uploaded to a Workers for Platforms dispatch namespace.
      */
     put: operations["namespace-worker-put-script-content"];
     post?: never;
@@ -780,13 +780,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Script Secrets
-     * @description List secrets bound to a script uploaded to a Workers for Platforms namespace.
+     * List Workers for Platforms Script Secrets
+     * @description List secrets bound to a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-list-script-secrets"];
     /**
-     * Add script secret
-     * @description Add a secret to a script by creating a new version with that secret.
+     * Add a secret to a Workers for Platforms script
+     * @description Add a secret to a Workers for Platforms script by creating a new version with that secret.
      *
      *     When changing more than one secret at a time, prefer the "Patch multiple
      *     script secrets" API instead of changing many secrets individually.
@@ -813,8 +813,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch multiple script secrets
-     * @description Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).
+     * Patch multiple Workers for Platforms script secrets
+     * @description Create, update, or delete multiple secrets on a Workers for Platforms script in a single operation using JSON Merge Patch (RFC 7396).
      *     This operation creates a single version with all changes included.
      *     Prefer this API instead of changing many secrets individually.
      *
@@ -835,15 +835,15 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get secret binding
-     * @description Get a given secret binding (value omitted) on a script uploaded to a Workers for Platforms namespace.
+     * Get Workers for Platforms Script Secret
+     * @description Get a given secret binding (value omitted) on a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-get-script-secrets"];
     put?: never;
     post?: never;
     /**
-     * Delete script secret
-     * @description Remove a secret from a script by creating a new version without that
+     * Delete Workers for Platforms script secret
+     * @description Remove a secret from a Workers for Platforms script by creating a new version without that
      *     secret.
      *
      *     When changing more than one secret at a time, prefer the "Patch multiple
@@ -863,8 +863,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Script Settings
-     * @description Get script settings from a script uploaded to a Workers for Platforms namespace.
+     * Get Workers for Platforms Script Settings
+     * @description Get settings for a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-get-script-settings"];
     put?: never;
@@ -873,8 +873,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch Script Settings
-     * @description Patch script metadata, such as bindings.
+     * Patch Workers for Platforms Script Settings
+     * @description Patch metadata for a script uploaded to a Workers for Platforms dispatch namespace, such as bindings.
      */
     patch: operations["namespace-worker-patch-script-settings"];
     trace?: never;
@@ -887,13 +887,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Script Tags
-     * @description Fetch tags from a script uploaded to a Workers for Platforms namespace.
+     * List Workers for Platforms Script Tags
+     * @description Fetch tags from a script uploaded to a Workers for Platforms dispatch namespace.
      */
     get: operations["namespace-worker-get-script-tags"];
     /**
-     * Put Script Tags
-     * @description Put script tags for a script uploaded to a Workers for Platforms namespace.
+     * Replace Workers for Platforms Script Tags
+     * @description Replace tags for a script uploaded to a Workers for Platforms dispatch namespace.
      */
     put: operations["namespace-worker-put-script-tags"];
     post?: never;
@@ -912,14 +912,14 @@ export interface paths {
     };
     get?: never;
     /**
-     * Put Script Tag
-     * @description Put a single tag on a script uploaded to a Workers for Platforms namespace.
+     * Create Workers for Platforms Script Tag
+     * @description Add a single tag to a script uploaded to a Workers for Platforms dispatch namespace.
      */
     put: operations["namespace-worker-put-script-tag"];
     post?: never;
     /**
-     * Delete Script Tag
-     * @description Delete script tag for a script uploaded to a Workers for Platforms namespace.
+     * Delete Workers for Platforms Script Tag
+     * @description Delete a tag from a script uploaded to a Workers for Platforms dispatch namespace.
      */
     delete: operations["namespace-worker-delete-script-tag"];
     options?: never;
@@ -935,12 +935,12 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Domains
-     * @description Lists all domains for an account.
+     * List Worker Domains
+     * @description Lists all Worker domains for an account.
      */
     get: operations["workers.domains.list"];
     /**
-     * Attach Domain
+     * Attach Worker Domain
      * @description Attaches a domain that routes traffic to a Worker.
      */
     put: operations["workers.domains.update"];
@@ -959,14 +959,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Domain
-     * @description Gets information about a domain.
+     * Get Worker Domain
+     * @description Gets information about a Worker domain.
      */
     get: operations["workers.domains.get"];
     put?: never;
     post?: never;
     /**
-     * Detach Domain
+     * Detach Worker Domain
      * @description Detaches a domain from a Worker. Both the Worker and all of its previews are no longer routable using this domain.
      */
     delete: operations["workers.domains.delete"];
@@ -983,7 +983,7 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Namespaces
+     * List Durable Object Namespaces
      * @description Returns the Durable Object namespaces owned by an account.
      */
     get: operations["durable-objects-namespace-list-namespaces"];
@@ -1003,8 +1003,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Objects
-     * @description Returns the Durable Objects in a given namespace.
+     * List Objects in a Durable Object namespace
+     * @description Returns the Durable Objects in a given Durable Object namespace.
      */
     get: operations["durable-objects-namespace-list-objects"];
     put?: never;
@@ -1400,7 +1400,7 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Placement Regions
+     * List Workers Smart Placement Regions
      * @description Returns a list of available placement regions organized by cloud provider. These regions can be used to configure Smart Placement for Workers.
      */
     get: operations["worker-placement-list-regions"];
@@ -1420,8 +1420,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Workers
-     * @description Fetch a list of uploaded workers.
+     * List Worker Scripts
+     * @description Fetch a list of uploaded Worker scripts.
      */
     get: operations["worker-script-list-workers"];
     put?: never;
@@ -1440,8 +1440,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Search Workers
-     * @description Search for Workers in an account.
+     * Search Worker Scripts
+     * @description Search for Worker scripts in an account.
      */
     get: operations["worker-script-search-workers"];
     put?: never;
@@ -1460,8 +1460,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Download Worker
-     * @description Fetch raw script content for your worker. Note this is the original script content, not JSON encoded.
+     * Download Worker Script
+     * @description Fetch raw content for a Worker script. Note this is the original script content, not JSON encoded.
      */
     get: operations["worker-script-download-worker"];
     /**
@@ -1490,7 +1490,7 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Create Assets Upload Session
+     * Create Worker Assets Upload Session
      * @description Start uploading a collection of assets for use in a Worker version. To learn more about the direct uploads of assets, see https://developers.cloudflare.com/workers/static-assets/direct-upload/.
      */
     post: operations["worker-script-update-create-assets-upload-session"];
@@ -1509,8 +1509,8 @@ export interface paths {
     };
     get?: never;
     /**
-     * Put script content
-     * @description Put script content without touching config or metadata.
+     * Replace Worker Script Content
+     * @description Replace Worker script content without touching config or metadata.
      */
     put: operations["worker-script-put-content"];
     post?: never;
@@ -1528,8 +1528,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get script content
-     * @description Fetch script content only.
+     * Get Worker Script Content
+     * @description Fetch Worker script content only.
      */
     get: operations["worker-script-get-content"];
     put?: never;
@@ -1548,14 +1548,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Deployments
-     * @description List of Worker Deployments. The first deployment in the list is the latest deployment actively serving traffic.
+     * List Worker Deployments
+     * @description List Worker deployments. The first deployment in the list is the latest deployment actively serving traffic.
      */
     get: operations["worker-deployments-list-deployments"];
     put?: never;
     /**
-     * Create Deployment
-     * @description Deployments configure how [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions) are deployed to traffic. A deployment can consist of one or two versions of a Worker.
+     * Create Worker Deployment
+     * @description Deployments configure how [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions) are deployed to traffic. A deployment can consist of multiple versions of a Worker.
      */
     post: operations["worker-deployments-create-deployment"];
     delete?: never;
@@ -1572,14 +1572,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Deployment
+     * Get Worker Deployment
      * @description Get information about a Worker Deployment.
      */
     get: operations["worker-deployments-get-deployment"];
     put?: never;
     post?: never;
     /**
-     * Delete Deployment
+     * Delete Worker Deployment
      * @description Delete a Worker Deployment. The latest deployment, which is actively serving traffic, cannot be deleted. All other deployments can be deleted.
      */
     delete: operations["worker-deployments-delete-deployment"];
@@ -1596,13 +1596,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Cron Triggers
-     * @description Fetches Cron Triggers for a Worker.
+     * Get Worker Script Schedules (Cron Triggers)
+     * @description Get the schedules (Cron Triggers) for a Worker script.
      */
     get: operations["worker-cron-trigger-get-cron-triggers"];
     /**
-     * Update Cron Triggers
-     * @description Updates Cron Triggers for a Worker.
+     * Update Worker Script Schedules (Cron Triggers)
+     * @description Update the schedules (Cron Triggers) for a Worker script.
      */
     put: operations["worker-cron-trigger-update-cron-triggers"];
     post?: never;
@@ -1620,8 +1620,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Script Settings
-     * @description Get script-level settings when using [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions). Includes Logpush and Tail Consumers.
+     * Get Worker Script Settings
+     * @description Get Worker script-level settings when using [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions). Includes Logpush and Tail Consumers.
      */
     get: operations["worker-script-settings-get-settings"];
     put?: never;
@@ -1630,8 +1630,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch Script Settings
-     * @description Patch script-level settings when using [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions). Including but not limited to Logpush and Tail Consumers.
+     * Patch Worker Script Settings
+     * @description Patch Worker script-level settings when using [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions). Including but not limited to Logpush and Tail Consumers.
      */
     patch: operations["worker-script-settings-patch-settings"];
     trace?: never;
@@ -1644,13 +1644,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List script secrets
-     * @description List secrets bound to a script.
+     * List secrets bound to a Worker script
+     * @description List the names of secrets bound to a Worker script.
      */
     get: operations["worker-list-script-secrets"];
     /**
-     * Add script secret
-     * @description Add a secret to a script by creating a new version with that secret.
+     * Add a secret to a Worker script
+     * @description Add a secret to a Worker script by creating a new version with that secret.
      *
      *     When changing more than one secret at a time, prefer the "Patch multiple
      *     script secrets" API instead of changing many secrets individually.
@@ -1677,8 +1677,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch multiple script secrets
-     * @description Create, update, or delete multiple secrets on a script in a single operation using JSON Merge Patch (RFC 7396).
+     * Patch multiple Worker script secrets
+     * @description Create, update, or delete multiple secrets on a Worker script in a single operation using JSON Merge Patch (RFC 7396).
      *     This operation creates a single version with all changes included.
      *     Prefer this API instead of changing many secrets individually.
      *
@@ -1699,15 +1699,15 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get secret binding
-     * @description Get a given secret binding (value omitted) on a script.
+     * Get a secret binding
+     * @description Get a given secret binding (value omitted) on a Worker script.
      */
     get: operations["worker-get-script-secret"];
     put?: never;
     post?: never;
     /**
-     * Delete script secret
-     * @description Remove a secret from a script by creating a new version without that
+     * Delete Worker script secret
+     * @description Remove a secret from a Worker script by creating a new version without that
      *     secret.
      *
      *     When changing more than one secret at a time, prefer the "Patch multiple
@@ -1727,8 +1727,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Settings
-     * @description Get metadata and config, such as bindings or usage model.
+     * Get Worker Script and Version Settings
+     * @description Get Worker script metadata and config, such as bindings or usage model.
      */
     get: operations["worker-script-get-settings"];
     put?: never;
@@ -1737,8 +1737,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch Settings
-     * @description Patch metadata or config, such as bindings or usage model.
+     * Patch Worker Script and Version Settings
+     * @description Patch Worker script metadata or config, such as bindings or usage model.
      */
     patch: operations["worker-script-patch-settings"];
     trace?: never;
@@ -1751,19 +1751,19 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Worker subdomain
-     * @description Get if the Worker is available on the workers.dev subdomain.
+     * Get Worker Script Subdomain
+     * @description Get whether a Worker script is available on the workers.dev subdomain.
      */
     get: operations["worker-script-get-subdomain"];
     put?: never;
     /**
-     * Post Worker subdomain
-     * @description Enable or disable the Worker on the workers.dev subdomain.
+     * Update Worker Script Subdomain
+     * @description Enable or disable a Worker script on the workers.dev subdomain.
      */
     post: operations["worker-script-post-subdomain"];
     /**
-     * Delete Worker subdomain
-     * @description Disable all workers.dev subdomains for a Worker.
+     * Delete Worker Script Subdomain
+     * @description Disable all workers.dev subdomains for a Worker script.
      */
     delete: operations["worker-script-delete-subdomain"];
     options?: never;
@@ -1779,14 +1779,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Tails
-     * @description Get list of tails currently deployed on a Worker.
+     * List Worker Tails
+     * @description Get a list of tails currently deployed on a Worker.
      */
     get: operations["worker-tail-logs-list-tails"];
     put?: never;
     /**
-     * Start Tail
-     * @description Starts a tail that receives logs and exception from a Worker.
+     * Start Worker Tail
+     * @description Starts a tail that receives logs and exceptions from a Worker.
      */
     post: operations["worker-tail-logs-start-tail"];
     delete?: never;
@@ -1806,7 +1806,7 @@ export interface paths {
     put?: never;
     post?: never;
     /**
-     * Delete Tail
+     * Delete Worker Tail
      * @description Deletes a tail from a Worker.
      */
     delete: operations["worker-tail-logs-delete-tail"];
@@ -1823,13 +1823,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Fetch Usage Model
-     * @description Fetches the Usage Model for a given Worker.
+     * Get Worker Script Usage Model
+     * @description Fetches the usage model for a Worker script.
      */
     get: operations["worker-script-fetch-usage-model"];
     /**
-     * Update Usage Model
-     * @description Updates the Usage Model for a given Worker. Requires a Workers Paid subscription.
+     * Replace Worker Script Usage Model
+     * @description Replaces the usage model for a Worker script. Requires a Workers Paid subscription.
      */
     put: operations["worker-script-update-usage-model"];
     post?: never;
@@ -1871,8 +1871,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Version Detail
-     * @description Retrieves detailed information about a specific version of a Workers script.
+     * Get Worker Script Version
+     * @description Retrieves detailed information about a specific version of a Worker script.
      */
     get: operations["worker-versions-get-version-detail"];
     put?: never;
@@ -1891,13 +1891,13 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get script content
-     * @description Get script content from a worker with an environment.
+     * Get Worker Environment Script Content
+     * @description Get Worker script content for an environment.
      */
     get: operations["worker-environment-get-script-content"];
     /**
-     * Put script content
-     * @description Put script content from a worker with an environment.
+     * Replace Worker Environment Script Content
+     * @description Replace Worker script content for an environment.
      */
     put: operations["worker-environment-put-script-content"];
     post?: never;
@@ -1915,8 +1915,8 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Script Settings
-     * @description Get script settings from a worker with an environment.
+     * Get Worker Environment Settings
+     * @description Get Worker script settings for an environment.
      */
     get: operations["worker-script-environment-get-settings"];
     put?: never;
@@ -1925,8 +1925,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch Script Settings
-     * @description Patch script metadata, such as bindings.
+     * Patch Worker Environment Settings
+     * @description Patch Worker script metadata for an environment, such as bindings.
      */
     patch: operations["worker-script-environment-patch-settings"];
     trace?: never;
@@ -1939,18 +1939,18 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Subdomain
+     * Get a Workers Subdomain
      * @description Returns a Workers subdomain for an account.
      */
     get: operations["worker-subdomain-get-subdomain"];
     /**
-     * Create Subdomain
+     * Create a Workers Subdomain
      * @description Creates a Workers subdomain for an account.
      */
     put: operations["worker-subdomain-create-subdomain"];
     post?: never;
     /**
-     * Delete Subdomain
+     * Delete Workers Subdomain
      * @description Deletes a Workers subdomain for an account.
      */
     delete: operations["worker-subdomain-delete-subdomain"];
@@ -2023,14 +2023,14 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * List Versions
+     * List Worker Versions
      * @description List all versions for a Worker.
      */
     get: operations["listWorkerVersions"];
     put?: never;
     /**
-     * Create Version
-     * @description Create a new version.
+     * Create Worker Version
+     * @description Create a new version for a Worker.
      */
     post: operations["createWorkerVersion"];
     delete?: never;
@@ -2047,15 +2047,15 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Get Version
-     * @description Get details about a specific version.
+     * Get Worker Version
+     * @description Get details about a specific Worker version.
      */
     get: operations["getWorkerVersion"];
     put?: never;
     post?: never;
     /**
-     * Delete Version
-     * @description Delete a version.
+     * Delete Worker Version
+     * @description Delete a Worker version.
      */
     delete: operations["deleteWorkerVersion"];
     options?: never;
@@ -2077,8 +2077,8 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Patch Latest Version
-     * @description Only `/versions/latest` is supported. Creates a new version by applying a JSON Merge Patch (RFC 7396) to the latest version. Patching a specific version ID is not supported. Omitted fields are inherited from the latest version.
+     * Patch Latest Worker Version
+     * @description Only `/versions/latest` is supported. Creates a new Worker version by applying a JSON Merge Patch (RFC 7396) to the latest version. Patching a specific version ID is not supported. Omitted fields are inherited from the latest version.
      */
     patch: operations["patchLatestWorkerVersion"];
     trace?: never;
@@ -8286,7 +8286,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Fetch Worker Account Settings response. */
+      /** @description Fetch Workers Account Settings response. */
       200: {
         headers: {
           [name: string]: unknown;
@@ -8297,7 +8297,7 @@ export interface operations {
           };
         };
       };
-      /** @description Fetch Worker Account Settings response failure. */
+      /** @description Fetch Workers Account Settings response failure. */
       "4XX": {
         headers: {
           [name: string]: unknown;
@@ -8323,7 +8323,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Create Worker Account Settings response. */
+      /** @description Create Workers Account Settings response. */
       200: {
         headers: {
           [name: string]: unknown;
@@ -8334,7 +8334,7 @@ export interface operations {
           };
         };
       };
-      /** @description Create Worker Account Settings response failure. */
+      /** @description Create Workers Account Settings response failure. */
       "4XX": {
         headers: {
           [name: string]: unknown;
