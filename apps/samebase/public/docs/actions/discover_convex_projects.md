@@ -2,7 +2,7 @@
 
 # Discover Convex projects (`discover_convex_projects`)
 
-MCP tool `repository_convex_discoverProjects` · scope `access_provider_connections` · write
+MCP tool `repository_convex_discoverProjects` · scope `access_provider_connections` · read_only
 
 Reads the repository's exact default-branch Git tree to find explicit convex.json files and default
 package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object SHAs

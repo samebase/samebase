@@ -2,7 +2,7 @@
 
 # Discover Cloudflare Workers (`discover_cloudflare_workers`)
 
-MCP tool `repository_cloudflare_discoverWorkers` · scope `access_provider_connections` · write
+MCP tool `repository_cloudflare_discoverWorkers` · scope `access_provider_connections` · read_only
 
 Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
 current GitHub repository, production and Previews Base Builds settings, root, and Convex marker.

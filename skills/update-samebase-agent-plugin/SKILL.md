@@ -23,6 +23,13 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Forward-test
 
+Planned tool calls check routing only. They do not prove that a submitted test passes in ChatGPT.
+Before resubmission, run every submitted case with the reviewer account in each client required by
+the review. Record web and mobile results separately. Leave an unavailable client marked untested.
+Do not mark a case passed from a successful HTTP request, an initial creation response, or a model's
+intended call sequence. Verify the result described in the test, including nested failure output and
+browser-link redemption.
+
 1. Take only the eight `user_prompt` values from `chatgpt-app-submission.json`.
 2. Start a fresh agent with no prior discussion. Give it the public skill, live tool descriptions,
    and one prompt at a time. Freeze one identical input bundle for every prompt. If the bundle uses
@@ -39,6 +46,18 @@ not copy tool schemas or general coding instructions into the skill.
 7. If a case fails, simplify the public skill and rerun the full suite on the smallest agent.
 8. Update the last-run record below. Include the date, tested artifact commit, models, and result.
    Also put this result in the pull request.
+
+## Last focused browser handoff check
+
+- Date: 2026-09-18
+- Candidate plugin version: `0.2.35`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Input: the same public skill and action docs, an authorized ChatGPT mobile account, no browser
+  action, and the submitted dashboard-opening prompt. Expected results were withheld.
+- Result: both subjects selected only `create_browser_handoff` with default arguments, then a
+  clickable returned URL. Neither claimed that a browser opened.
+- Public skill SHA-256: `990f15d44c702d911ab956950e20b42181e6c9738c026ea3c7614e8517d737c4`.
+- This was a planned-call check for one prompt. It did not run ChatGPT mobile or redeem a link.
 
 ## Last full run
 

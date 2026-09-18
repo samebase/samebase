@@ -34,14 +34,11 @@ JSON Schema for the tool's `structuredContent`:
     "repositoryId": {
       "type": "string"
     },
-    "runId": {
-      "type": "string"
-    },
     "githubRepositoryFullName": {
       "type": "string"
     }
   },
-  "required": ["repositoryId", "runId", "githubRepositoryFullName"],
+  "required": ["repositoryId", "githubRepositoryFullName"],
   "additionalProperties": false
 }
 ```

@@ -320,6 +320,8 @@ export const trackedFilePaths = [
   "apps/samebase/convex/mcp/oauthRedirect.test.ts",
   "apps/samebase/convex/mcp/protocol.test.ts",
   "apps/samebase/convex/mcp/protocol.ts",
+  "apps/samebase/convex/mcp/publicErrors.test.ts",
+  "apps/samebase/convex/mcp/publicErrors.ts",
   "apps/samebase/convex/mcp/scopes.ts",
   "apps/samebase/convex/mcp/tokens.test.ts",
   "apps/samebase/convex/mcp/tokens.ts",

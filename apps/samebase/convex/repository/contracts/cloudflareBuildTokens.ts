@@ -34,7 +34,7 @@ export const cloudflareListWorkersBuildTokensContract = {
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
-      openWorldHint: true,
+      openWorldHint: false,
       destructiveHint: false,
     },
     inputDescriptions: {

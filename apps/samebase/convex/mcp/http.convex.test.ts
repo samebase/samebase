@@ -298,7 +298,7 @@ describe("MCP tool listing access", () => {
       title: "List Cloudflare Workers Builds tokens",
       annotations: {
         readOnlyHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
         destructiveHint: false,
       },
       outputSchema: {
@@ -374,6 +374,7 @@ describe("MCP tool listing access", () => {
       ["repository_cloudflare_configureWorkersBuildsForGitHub", true],
       ["repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds", true],
       ["repository_actions_retryInfrastructureProvisioning", true],
+      ["samebase_feedback_submit", true],
     ] as const;
 
     for (const [name, destructiveHint] of expectedSafety) {
@@ -382,6 +383,28 @@ describe("MCP tool listing access", () => {
           readOnlyHint: false,
           openWorldHint: true,
           destructiveHint,
+        },
+      });
+    }
+  });
+
+  it("marks account reads and provider discovery as bounded read-only tools", () => {
+    const tools = listMcpToolsForAccess({
+      grantedScopes: [...ACCESS_KEYS],
+      currentAccessKeys: [...ACCESS_KEYS],
+    });
+    for (const name of [
+      "samebase_auth_getAuthenticationStatus",
+      "repository_dashboard_getUserRepositories",
+      "cloudflare_listWorkersBuildTokens",
+      "repository_convex_discoverProjects",
+      "repository_cloudflare_discoverWorkers",
+    ]) {
+      expect(tools.find((tool) => tool.name === name)).toMatchObject({
+        annotations: {
+          readOnlyHint: true,
+          openWorldHint: false,
+          destructiveHint: false,
         },
       });
     }

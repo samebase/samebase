@@ -66,12 +66,9 @@ JSON Schema for the tool's `structuredContent`:
   "properties": {
     "repositoryId": {
       "type": "string"
-    },
-    "runId": {
-      "type": "string"
     }
   },
-  "required": ["repositoryId", "runId"],
+  "required": ["repositoryId"],
   "additionalProperties": false
 }
 ```

@@ -40,9 +40,9 @@ export const getAuthenticationStatusContract = {
     name: "samebase_auth_getAuthenticationStatus",
     description:
       "Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.",
-    safety: "write",
+    safety: "read_only",
     annotations: {
-      readOnlyHint: false,
+      readOnlyHint: true,
       openWorldHint: false,
       destructiveHint: false,
     },

@@ -2,7 +2,7 @@
 
 # List Samebase repositories (`get_user_repositories`)
 
-MCP tool `repository_dashboard_getUserRepositories` · scope `access_dashboard` · write
+MCP tool `repository_dashboard_getUserRepositories` · scope `access_dashboard` · read_only
 
 Returns every repository the authenticated account can see in the web app. An MCP call returns
 repositories across all organizations where that account is a current member. Repository connection,
@@ -64,12 +64,6 @@ JSON Schema for the tool's `structuredContent`:
           "defaultBranch": {
             "type": "string"
           },
-          "fileCount": {
-            "type": "number"
-          },
-          "lastEditTime": {
-            "type": "number"
-          },
           "sourceSetup": {
             "anyOf": [
               {
@@ -98,9 +92,6 @@ JSON Schema for the tool's `structuredContent`:
                   "status": {
                     "const": "running"
                   },
-                  "runId": {
-                    "type": "string"
-                  },
                   "step": {
                     "anyOf": [
                       {
@@ -128,12 +119,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "sync_tree"
                       }
                     ]
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "runId", "step", "updatedAt"],
+                "required": ["status", "step"],
                 "additionalProperties": false
               },
               {
@@ -141,9 +129,6 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "status": {
                     "const": "failed"
-                  },
-                  "runId": {
-                    "type": "string"
                   },
                   "step": {
                     "anyOf": [
@@ -175,12 +160,9 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   "message": {
                     "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "runId", "step", "message", "updatedAt"],
+                "required": ["status", "step", "message"],
                 "additionalProperties": false
               }
             ]
@@ -223,9 +205,6 @@ JSON Schema for the tool's `structuredContent`:
                       }
                     ]
                   },
-                  "runId": {
-                    "type": "string"
-                  },
                   "step": {
                     "anyOf": [
                       {
@@ -247,12 +226,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "finish"
                       }
                     ]
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "provider", "runId", "step", "updatedAt"],
+                "required": ["status", "provider", "step"],
                 "additionalProperties": false
               },
               {
@@ -270,9 +246,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "cloudflare"
                       }
                     ]
-                  },
-                  "runId": {
-                    "type": "string"
                   },
                   "step": {
                     "anyOf": [
@@ -298,12 +271,9 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   "message": {
                     "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "provider", "runId", "step", "message", "updatedAt"],
+                "required": ["status", "provider", "step", "message"],
                 "additionalProperties": false
               }
             ]
@@ -540,21 +510,9 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "status": {
                     "const": "idle"
-                  },
-                  "lastWriteAt": {
-                    "type": "object",
-                    "properties": {
-                      "convex": {
-                        "type": "number"
-                      },
-                      "cloudflare": {
-                        "type": "number"
-                      }
-                    },
-                    "additionalProperties": false
                   }
                 },
-                "required": ["status", "lastWriteAt"],
+                "required": ["status"],
                 "additionalProperties": false
               },
               {
@@ -572,21 +530,9 @@ JSON Schema for the tool's `structuredContent`:
                     },
                     "required": ["kind"],
                     "additionalProperties": false
-                  },
-                  "lastWriteAt": {
-                    "type": "object",
-                    "properties": {
-                      "convex": {
-                        "type": "number"
-                      },
-                      "cloudflare": {
-                        "type": "number"
-                      }
-                    },
-                    "additionalProperties": false
                   }
                 },
-                "required": ["status", "owner", "lastWriteAt"],
+                "required": ["status", "owner"],
                 "additionalProperties": false
               },
               {
@@ -617,21 +563,9 @@ JSON Schema for the tool's `structuredContent`:
                         }
                       ]
                     }
-                  },
-                  "lastWriteAt": {
-                    "type": "object",
-                    "properties": {
-                      "convex": {
-                        "type": "number"
-                      },
-                      "cloudflare": {
-                        "type": "number"
-                      }
-                    },
-                    "additionalProperties": false
                   }
                 },
-                "required": ["status", "owner", "affectedProviders", "lastWriteAt"],
+                "required": ["status", "owner", "affectedProviders"],
                 "additionalProperties": false
               }
             ]
@@ -643,36 +577,9 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "state": {
                     "const": "not_deleting"
-                  },
-                  "deleteAction": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "available"
-                          }
-                        },
-                        "required": ["state"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "disabled"
-                          },
-                          "reason": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["state", "reason"],
-                        "additionalProperties": false
-                      }
-                    ]
                   }
                 },
-                "required": ["state", "deleteAction"],
+                "required": ["state"],
                 "additionalProperties": false
               },
               {
@@ -681,12 +588,6 @@ JSON Schema for the tool's `structuredContent`:
                   "state": {
                     "const": "deleting"
                   },
-                  "runId": {
-                    "type": "string"
-                  },
-                  "requestedAt": {
-                    "type": "number"
-                  },
                   "currentStep": {
                     "anyOf": [
                       {
@@ -723,22 +624,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "finish"
                       }
                     ]
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": [
-                  "state",
-                  "runId",
-                  "requestedAt",
-                  "currentStep",
-                  "message",
-                  "updatedAt"
-                ],
+                "required": ["state", "currentStep"],
                 "additionalProperties": false
               },
               {
@@ -747,12 +635,6 @@ JSON Schema for the tool's `structuredContent`:
                   "state": {
                     "const": "delete_failed"
                   },
-                  "runId": {
-                    "type": "string"
-                  },
-                  "failedAt": {
-                    "type": "number"
-                  },
                   "currentStep": {
                     "anyOf": [
                       {
@@ -789,15 +671,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "finish"
                       }
                     ]
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["state", "runId", "failedAt", "currentStep", "message", "updatedAt"],
+                "required": ["state", "currentStep"],
                 "additionalProperties": false
               }
             ]
@@ -806,18 +682,6 @@ JSON Schema for the tool's `structuredContent`:
             "type": "boolean"
           },
           "hasConnectedGitHubRepository": {
-            "type": "boolean"
-          },
-          "hasConvexProvision": {
-            "type": "boolean"
-          },
-          "hasCloudflareProvision": {
-            "type": "boolean"
-          },
-          "canRemoveConvexProvision": {
-            "type": "boolean"
-          },
-          "canRemoveCloudflareProvision": {
             "type": "boolean"
           },
           "cloudflareWorkers": {
@@ -900,7 +764,6 @@ JSON Schema for the tool's `structuredContent`:
           "githubOwnerLogin",
           "githubRepositoryName",
           "githubRepositoryFullName",
-          "fileCount",
           "sourceSetup",
           "providerSetup",
           "providerPlan",
@@ -908,10 +771,6 @@ JSON Schema for the tool's `structuredContent`:
           "deletion",
           "isSamebaseManaged",
           "hasConnectedGitHubRepository",
-          "hasConvexProvision",
-          "hasCloudflareProvision",
-          "canRemoveConvexProvision",
-          "canRemoveCloudflareProvision",
           "cloudflareWorkers",
           "convexProjects"
         ],
