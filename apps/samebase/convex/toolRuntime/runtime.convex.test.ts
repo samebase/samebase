@@ -121,8 +121,9 @@ describe("MCP tool runtime boundaries", () => {
         repositoryId: authorizedRepositoryId,
         githubRepositoryFullName: "tool-runtime-owner/authorized",
         trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
+        state: "failed",
+        currentStep: "seed_starter",
+        lastError: "private-diagnostic@example.com source failure",
         createdAt: 1,
         updatedAt: 1,
         completedAt: 1,
@@ -168,8 +169,9 @@ describe("MCP tool runtime boundaries", () => {
         repositoryId: otherRunRepositoryId,
         githubRepositoryFullName: "other-owner/hidden",
         trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
+        state: "failed",
+        currentStep: "attach_convex",
+        lastError: "private-diagnostic@example.com provider failure",
         createdAt: 1,
         updatedAt: 1,
         completedAt: 1,
@@ -188,6 +190,13 @@ describe("MCP tool runtime boundaries", () => {
         defaultBranch: "main",
         connectedAt: 1,
         createdAt: 1,
+      });
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId: otherRunRepositoryId,
+        owner: { kind: "managed_run", runId: otherRunId },
+        state: "failed",
+        lastWriteAt: { convex: 1 },
+        updatedAt: 1,
       });
       return { authorizedRepositoryId, otherRunRepositoryId };
     });
@@ -209,7 +218,86 @@ describe("MCP tool runtime boundaries", () => {
     );
     for (const repository of result.structuredContent.repositories) {
       expect(repository).not.toHaveProperty("organizationId");
+      expect(repository).not.toHaveProperty("fileCount");
+      expect(repository).not.toHaveProperty("lastEditTime");
+      expect(repository).not.toHaveProperty("canRemoveConvexProvision");
+      expect(repository).not.toHaveProperty("canRemoveCloudflareProvision");
     }
+    expect(result.structuredContent.repositories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          repositoryId: authorizedRepositoryId,
+          sourceSetup: {
+            status: "failed",
+            step: "seed_starter",
+            message: "Source setup failed. Check this app in Samebase for recovery steps.",
+          },
+        }),
+        expect.objectContaining({
+          repositoryId: otherRunRepositoryId,
+          providerSetup: {
+            status: "failed",
+            provider: "convex",
+            step: "attach_convex",
+            message: "Provider setup failed. Check this app in Samebase before retrying.",
+          },
+        }),
+      ]),
+    );
+    const output = JSON.stringify(result);
+    expect(output).not.toContain("private-diagnostic@example.com");
+    expect(output).not.toContain('"runId"');
+    expect(output).not.toContain('"updatedAt"');
+    expect(output).not.toContain('"lastWriteAt"');
+    const webRepositories = await t.query(
+      internal.repository.dashboard.getUserRepositoriesForUser,
+      {
+        userId,
+      },
+    );
+    expect(
+      webRepositories.find((repository) => repository.repositoryId === authorizedRepositoryId),
+    ).toMatchObject({
+      organizationId,
+      sourceSetup: {
+        runId: expect.any(String),
+        updatedAt: 1,
+        message: "private-diagnostic@example.com source failure",
+      },
+    });
+  });
+
+  it("does not expose provider response details from failed feedback", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:samebase");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              errors: [
+                { code: 1000, message: "private-diagnostic@example.com provider debug detail" },
+              ],
+            }),
+            { status: 500 },
+          ),
+      ),
+    );
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report: "The app failed to load.",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Samebase could not complete this request. Check the app in Samebase before retrying.",
+    });
   });
 
   it.each([
@@ -334,6 +422,16 @@ describe("MCP tool runtime boundaries", () => {
         userId,
       }),
     ).rejects.toThrow("Feedback rate limit reached. Try again later.");
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report: "The app failed to load.",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Feedback rate limit reached. Try again later.",
+    });
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {

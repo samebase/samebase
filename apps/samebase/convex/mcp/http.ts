@@ -77,6 +77,7 @@ import {
 } from "./protocol";
 import { isMcpOauthClientInactive } from "./client";
 import { parseScopeTokens } from "./scopes";
+import { publicMcpErrorMessage } from "./publicErrors";
 import codexPluginManifest from "../../../../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1048,14 +1049,13 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Tool execution failed.";
       return jsonRpcSuccessResponse({
         id: requestId,
         result: {
           content: [
             {
               type: "text",
-              text: message,
+              text: publicMcpErrorMessage(error),
             },
           ],
           isError: true,

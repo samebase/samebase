@@ -148,7 +148,7 @@ async function resolveCloudflareConnection(
   );
   const token = connection?.auth.credential.trim();
   if (!connection || !token) {
-    throw new Error("Cloudflare connection is required.");
+    throw new ConvexError("Cloudflare connection is required.");
   }
   return {
     organizationId: args.organizationId,
@@ -180,7 +180,7 @@ async function resolveCloudflareConnectionForManualProviderWrite(
   );
   const token = connection?.auth.credential.trim();
   if (!connection || !token) {
-    throw new Error("Cloudflare connection is required.");
+    throw new ConvexError("Cloudflare connection is required.");
   }
   return {
     organizationId: args.organizationId,
@@ -214,7 +214,7 @@ async function resolveCloudflareConnectionForProvisioningRun(
   );
   const token = connection?.auth.credential.trim();
   if (!connection || !token) {
-    throw new Error("Cloudflare connection is required.");
+    throw new ConvexError("Cloudflare connection is required.");
   }
   return {
     organizationId: args.organizationId,
@@ -312,7 +312,7 @@ function requireCloudflareAccountTarget(
   accountId: string,
 ): void {
   if (connection.account.accountId !== accountId) {
-    throw new Error("Cloudflare connection is required for this account.");
+    throw new ConvexError("Cloudflare connection is required for this account.");
   }
 }
 
@@ -332,8 +332,8 @@ async function resolveAccount(args: {
     (candidate) => candidate.accountId === args.accountId,
   );
   if (!account) {
-    throw new Error(
-      `The current Cloudflare credential cannot access Cloudflare account ${args.accountId}. Reconnect Cloudflare with access to this account, then retry.`,
+    throw new ConvexError(
+      "Cloudflare cannot access the repository's configured account. Reconnect Cloudflare, then retry.",
     );
   }
   return account;
@@ -415,7 +415,7 @@ async function resolveCloudflareRepositoryContext(
     userId: args.userId,
   });
   if (accountId !== context.cloudflareAccountId) {
-    throw new Error("Cloudflare account does not match the repository destination.");
+    throw new ConvexError("Cloudflare account does not match the repository destination.");
   }
   const [connection, githubAccess] = await Promise.all([
     args.actionId === undefined
@@ -466,7 +466,7 @@ export async function attachExistingCloudflareWorkersForUser(
   },
 ): Promise<Array<Id<"repositoryCloudflareWorkers">>> {
   if (args.workers.length === 0) {
-    throw new Error("Select at least one Cloudflare Worker.");
+    throw new ConvexError("Select at least one Cloudflare Worker.");
   }
   const workers = args.workers.map((worker) => ({
     workerName: worker.workerName.trim(),
@@ -477,7 +477,7 @@ export async function attachExistingCloudflareWorkersForUser(
     new Set(workers.map((worker) => worker.workerName)).size !== workers.length ||
     new Set(workers.map((worker) => worker.workerTag)).size !== workers.length
   ) {
-    throw new Error("Each selected Cloudflare Worker must have one unique identity.");
+    throw new ConvexError("Each selected Cloudflare Worker must have one unique identity.");
   }
   const resolved = await resolveCloudflareRepositoryContext(ctx, args);
   const verifiedWorkers = await Promise.all(
@@ -489,7 +489,9 @@ export async function attachExistingCloudflareWorkersForUser(
         workerTag: worker.workerTag,
       });
       if (!identity || identity.workerTag !== worker.workerTag) {
-        throw new Error(`Cloudflare Worker ${worker.workerName} changed after discovery.`);
+        throw new ConvexError(
+          "The selected Cloudflare Worker changed. Discover Workers again before attaching.",
+        );
       }
       const discovery = await readCloudflareWorkerRepositoryDiscoveryForIdentity({
         token: resolved.connection.token,
@@ -500,8 +502,8 @@ export async function attachExistingCloudflareWorkersForUser(
         defaultBranch: resolved.githubDefaultBranch,
       });
       if (discovery.state !== "ready") {
-        throw new Error(
-          `Cloudflare Worker ${worker.workerName} no longer has one verified root for this repository. Scan the account again.`,
+        throw new ConvexError(
+          "The selected Cloudflare Worker changed. Discover Workers again before attaching.",
         );
       }
       if (discovery.builds.state === "available") {
@@ -911,7 +913,7 @@ async function prepareConvexDeployKeyRotation(
     projectId: project.projectId,
   });
   if (!deployment) {
-    throw new Error("The selected Convex project has no production deployment.");
+    throw new ConvexError("The selected Convex project has no production deployment.");
   }
   const repository = await fetchGitHubRepoIdentity({
     octokit: githubAccess.octokit,
@@ -939,7 +941,7 @@ async function prepareConvexDeployKeyRotation(
       throw new Error(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
     }
     if (discovery.state !== "ready" || discovery.builds.state !== "available") {
-      throw new Error(
+      throw new ConvexError(
         "Configure this Worker's native GitHub Builds settings before rotating Convex deploy keys.",
       );
     }

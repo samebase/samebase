@@ -233,7 +233,58 @@ const vUserRepositoriesResult = array(
   }),
 );
 
-const vMcpUserRepositoriesResult = array(object(userRepositoryFields));
+const vMcpUserRepositoriesResult = array(
+  object({
+    repositoryId: userRepositoryFields.repositoryId,
+    convexTeamId: userRepositoryFields.convexTeamId,
+    cloudflareAccountId: userRepositoryFields.cloudflareAccountId,
+    githubOwnerLogin: userRepositoryFields.githubOwnerLogin,
+    githubRepositoryName: userRepositoryFields.githubRepositoryName,
+    githubRepositoryDatabaseId: userRepositoryFields.githubRepositoryDatabaseId,
+    githubRepositoryFullName: userRepositoryFields.githubRepositoryFullName,
+    defaultBranch: userRepositoryFields.defaultBranch,
+    sourceSetup: union(
+      object({ status: literal("not_applicable") }),
+      object({ status: literal("ready") }),
+      object({ status: literal("running"), step: vSourceSetupStep }),
+      object({ status: literal("failed"), step: vSourceSetupStep, message: string() }),
+    ),
+    providerSetup: union(
+      object({ status: literal("not_applicable") }),
+      object({ status: literal("ready") }),
+      object({
+        status: literal("running"),
+        provider: providerSetupProvider,
+        step: vProviderSetupStep,
+      }),
+      object({
+        status: literal("failed"),
+        provider: providerSetupProvider,
+        step: vProviderSetupStep,
+        message: string(),
+      }),
+    ),
+    providerPlan: userRepositoryFields.providerPlan,
+    providerWrite: union(
+      object({ status: literal("idle") }),
+      object({ status: literal("active"), owner: vManagedProviderWriteOwner }),
+      object({
+        status: literal("active"),
+        owner: vManualProviderWriteOwner,
+        affectedProviders: vProviderWriteProviders,
+      }),
+    ),
+    deletion: union(
+      object({ state: literal("not_deleting") }),
+      object({ state: literal("deleting"), currentStep: vRepositoryDeletionStep }),
+      object({ state: literal("delete_failed"), currentStep: vRepositoryDeletionStep }),
+    ),
+    isSamebaseManaged: userRepositoryFields.isSamebaseManaged,
+    hasConnectedGitHubRepository: userRepositoryFields.hasConnectedGitHubRepository,
+    cloudflareWorkers: userRepositoryFields.cloudflareWorkers,
+    convexProjects: userRepositoryFields.convexProjects,
+  }),
+);
 
 export const getUserRepositoriesContract = {
   id: "get_user_repositories",
@@ -246,9 +297,9 @@ export const getUserRepositoriesContract = {
     name: "repository_dashboard_getUserRepositories",
     description:
       "List the Samebase repositories available to the authenticated user, including attached provider resources.",
-    safety: "write",
+    safety: "read_only",
     annotations: {
-      readOnlyHint: false,
+      readOnlyHint: true,
       openWorldHint: false,
       destructiveHint: false,
     },

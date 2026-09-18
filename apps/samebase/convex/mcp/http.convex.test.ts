@@ -274,9 +274,8 @@ describe("MCP tool listing access", () => {
           type: "object",
           properties: {
             repositoryId: { type: "string" },
-            runId: { type: "string" },
           },
-          required: ["repositoryId", "runId"],
+          required: ["repositoryId"],
           additionalProperties: false,
         },
       },
@@ -288,10 +287,9 @@ describe("MCP tool listing access", () => {
         type: "object",
         properties: {
           repositoryId: { type: "string" },
-          runId: { type: "string" },
           githubRepositoryFullName: { type: "string" },
         },
-        required: ["repositoryId", "runId", "githubRepositoryFullName"],
+        required: ["repositoryId", "githubRepositoryFullName"],
         additionalProperties: false,
       },
     });
@@ -1280,6 +1278,30 @@ describe("MCP tools/call access enforcement", () => {
     expect(payload.result).not.toHaveProperty("resultType");
     expect(payload.result).not.toHaveProperty("_meta");
     expect(JSON.stringify(payload)).not.toContain("_creationTime");
+    expect(JSON.stringify(payload)).not.toContain("runId");
+    expect(JSON.stringify(payload)).not.toContain("updatedAt");
+  });
+
+  it("does not expose Convex validation diagnostics in tool errors", async () => {
+    const { callTool } = await seedMcpBearer({ isApproved: true });
+    const payload = await callTool("repository_actions_createRepository", {
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "test-app",
+      convexProjectName: "test-app",
+      cloudflareWorkerName: "test-app",
+      cloudflareBuildTokenUuid: null,
+      unexpectedDiagnostic: "private-diagnostic@example.com",
+    });
+
+    expect(payload.result).toEqual({
+      content: [
+        {
+          type: "text",
+          text: "Samebase could not complete this request. Check the app in Samebase before retrying.",
+        },
+      ],
+      isError: true,
+    });
   });
 
   it("creates a Worker with the repository account from inventory, then returns it in inventory", async () => {
@@ -1330,6 +1352,7 @@ describe("MCP tools/call access enforcement", () => {
       },
     };
     let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
+    let failWorkerDiscovery = false;
 
     function jsonResponse(result: unknown, status = 200): Response {
       return new Response(JSON.stringify(result), {
@@ -1420,7 +1443,23 @@ describe("MCP tools/call access enforcement", () => {
       if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
         return cloudflareResponse(workerDetails());
       }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers")) {
+        return cloudflareResponse([workerDetails()]);
+      }
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
+        if (failWorkerDiscovery) {
+          return jsonResponse(
+            {
+              success: false,
+              errors: [
+                { code: 1000, message: "private-diagnostic@example.com provider debug detail" },
+              ],
+              messages: [],
+              result: null,
+            },
+            500,
+          );
+        }
         return cloudflareResponse([
           {
             trigger_uuid: "created-trigger-1",
@@ -1602,8 +1641,6 @@ describe("MCP tools/call access enforcement", () => {
           repositories: [
             expect.objectContaining({
               repositoryId,
-              hasCloudflareProvision: true,
-              canRemoveCloudflareProvision: true,
               cloudflareWorkers: [
                 {
                   workerId: attachment._id,
@@ -1674,6 +1711,24 @@ describe("MCP tools/call access enforcement", () => {
       branch: "main",
       commit_hash: defaultBranchCommitSha,
     });
+
+    failWorkerDiscovery = true;
+    const discovery = await callTool("repository_cloudflare_discoverWorkers", {
+      repositoryId,
+      accountId: cloudflareAccountId,
+    });
+    expect(discovery.result.structuredContent.workers).toEqual([
+      {
+        workerName: "mcp-worker",
+        workerTag: "mcp-worker-tag",
+        repository: {
+          state: "failed",
+          message: "Could not read this Worker's repository connection. Check it in Cloudflare.",
+        },
+        convexBuildAccess: { state: "unavailable" },
+      },
+    ]);
+    expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {

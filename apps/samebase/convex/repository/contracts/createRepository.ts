@@ -33,7 +33,7 @@ export const createRepositoryContract = {
     ...createRepositoryFields,
   },
   returns: vCreateRepositoryResult,
-  structuredContent: vCreateRepositoryResult,
+  structuredContent: object({ repositoryId: id("repositories") }),
   mcp: {
     title: "Create Samebase app",
     name: "repository_actions_createRepository",

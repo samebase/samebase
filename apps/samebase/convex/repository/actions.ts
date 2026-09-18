@@ -108,9 +108,9 @@ function assertResourceNameAvailable(
     return;
   }
   if (availability.message) {
-    throw new Error(availability.message);
+    throw new ConvexError(availability.message);
   }
-  throw new Error(`Could not verify ${providerLabel}.`);
+  throw new ConvexError(`Could not verify ${providerLabel}.`);
 }
 
 function validateCreateResourceName(
@@ -337,7 +337,7 @@ async function resolveOrganizationConvexProvisioningConnection(
   const convexTeamId = configuration.convexTeam?.teamId.trim();
   const convexToken = credential?.auth.credential.trim();
   if (!credential || !convexToken || !convexTeamId) {
-    throw new Error(
+    throw new ConvexError(
       "Convex connection is required to provision infrastructure. Connect Convex and retry.",
     );
   }
@@ -366,20 +366,20 @@ async function resolveOrganizationCloudflareProvisioningConnection(
     forceRefresh: args.forceRefresh,
   });
   if (resolved === null) {
-    throw new Error(
+    throw new ConvexError(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
   }
 
   const cloudflareToken = resolved.auth.credential.trim();
   if (!cloudflareToken) {
-    throw new Error(
+    throw new ConvexError(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
   }
   const cloudflareAccountId = resolved.account.accountId.trim();
   if (!cloudflareAccountId) {
-    throw new Error(
+    throw new ConvexError(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
   }
@@ -707,7 +707,7 @@ export async function createAppForUser(
 
   const githubRepositoryName = toSafeGitHubRepositoryName(args.githubRepositoryName);
   if (!githubRepositoryName) {
-    throw new Error("Repository name is required.");
+    throw new ConvexError("Repository name is required.");
   }
   const githubAccess = await resolveGitHubAppAccess(ctx, {
     userId: args.userId,
@@ -722,14 +722,16 @@ export async function createAppForUser(
 
   const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
   if (!convexNameValidation.valid) {
-    throw new Error(convexNameValidation.availability.message ?? "Invalid Convex project name.");
+    throw new ConvexError(
+      convexNameValidation.availability.message ?? "Invalid Convex project name.",
+    );
   }
   const cloudflareNameValidation =
     args.cloudflareBuildTokenUuid === null
       ? null
       : validateCreateResourceName("cloudflare", args.cloudflareWorkerName);
   if (cloudflareNameValidation && !cloudflareNameValidation.valid) {
-    throw new Error(
+    throw new ConvexError(
       cloudflareNameValidation.availability.message ?? "Invalid Cloudflare Worker name.",
     );
   }
