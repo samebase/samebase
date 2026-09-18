@@ -21,6 +21,19 @@ not copy tool schemas or general coding instructions into the skill.
 4. For every change under `packages/plugin`, increase the version in both plugin manifests.
 5. Run `pnpm run check:plugin` and `pnpm --filter samebase verify:action-docs`.
 
+## Reviewer workspace capacity
+
+- Keep the designated reviewer workspace, currently `samebase-live-tests`, on Pro throughout the
+  review period. Billing capacity belongs to the workspace, not the reviewer login.
+- Before live creation tests and each submission, verify the effective connection limit and
+  remaining capacity for the workspace named in the submitted prompt. Include resources left by
+  earlier tests. One complete app uses three connections: its GitHub repository, Convex project, and
+  Cloudflare Worker. Leave room for repeated web and mobile review runs.
+- On September 18, 2026, both reviewer creation attempts failed with
+  `Organization connection limit reached (6)`. The two existing complete apps had filled the Free
+  pool. The failure occurred before a provisioning run was saved, so an empty run history did not
+  mean that the reviewer had skipped the creation tool.
+
 ## Forward-test
 
 1. Take only the eight `user_prompt` values from `chatgpt-app-submission.json`.
