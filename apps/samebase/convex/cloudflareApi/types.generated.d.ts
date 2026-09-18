@@ -54,8 +54,8 @@ export interface paths {
     get: operations["accounts-list-accounts"];
     put?: never;
     /**
-     * Create an account
-     * @description Create an account (only available for tenant admins at this time)
+     * Create an Account
+     * @description Create an Account. To create the Account within an Organization, provide `unit.id` and omit `standalone`. To create a standalone Free Account, provide `standalone: true` and omit `unit`. Providing both fields is invalid. If you omit both fields, Cloudflare can determine the destination only when the User is an administrator of exactly one Organization. Cloudflare creates the Account in that Organization; otherwise, the request returns an error.
      */
     post: operations["account-creation"];
     delete?: never;
@@ -2070,7 +2070,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * Get Latest Worker Version
+     * @description Get details about the most recently created Worker version.
+     */
+    get: operations["getLatestWorkerVersion"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2222,12 +2226,17 @@ export interface components {
        */
       success: false;
     };
-    /** Create account */
+    /** Create Account */
     "iam_create-account": {
       /** @description Account name */
       name: string;
+      /**
+       * @description Set to `true` and omit `unit` to create a standalone Free Account. If provided, this field must be `true`.
+       * @enum {boolean}
+       */
+      standalone?: true;
       type?: components["schemas"]["iam_account-type"];
-      /** @description information related to the tenant unit, and optionally, an id of the unit to create the account on. see https://developers.cloudflare.com/tenant/how-to/manage-accounts/ */
+      /** @description Information related to the tenant unit. Provide its ID and omit `standalone` to create the Account within an Organization. See https://developers.cloudflare.com/tenant/how-to/manage-accounts/. */
       unit?: {
         /**
          * @description Tenant unit ID
@@ -7356,7 +7365,10 @@ export interface operations {
   "account-creation": {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional key that identifies an Account-creation request. Free Account creation can require exactly one valid key, so API clients should send a key with every Account-creation request. Reuse the same key when retrying the same request. */
+        "Idempotency-Key"?: string;
+      };
       path?: never;
       cookie?: never;
     };
@@ -15348,6 +15360,42 @@ export interface operations {
         };
       };
       /** @description Delete version failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  getLatestWorkerVersion: {
+    parameters: {
+      query?: {
+        include?: "modules";
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Get latest version success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Version"];
+          };
+        };
+      };
+      /** @description Get latest version failure. */
       "4XX": {
         headers: {
           [name: string]: unknown;

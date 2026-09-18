@@ -252,6 +252,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/{version_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["getWorkerVersion"]>
     >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["getLatestWorkerVersion"]>
+    >;
     "/user/tokens/verify": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["user-api-tokens-verify-token"]>
     >;

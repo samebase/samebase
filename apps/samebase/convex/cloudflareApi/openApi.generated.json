@@ -96,8 +96,20 @@
       },
       "post": {
         "operationId": "account-creation",
-        "summary": "Create an account",
-        "description": "Create an account (only available for tenant admins at this time)",
+        "summary": "Create an Account",
+        "description": "Create an Account. To create the Account within an Organization, provide `unit.id` and omit `standalone`. To create a standalone Free Account, provide `standalone: true` and omit `unit`. Providing both fields is invalid. If you omit both fields, Cloudflare can determine the destination only when the User is an administrator of exactly one Organization. Cloudflare creates the Account in that Organization; otherwise, the request returns an error.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional key that identifies an Account-creation request. Free Account creation can require exactly one valid key, so API clients should send a key with every Account-creation request. Reuse the same key when retrying the same request.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          }
+        ],
         "requestBody": {
           "description": "Parameters for account creation",
           "required": true,
@@ -2187,7 +2199,7 @@
         ],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.accountSettings",
+        "x-fern-sdk-group-name": "workers.account-settings",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       },
@@ -2263,7 +2275,7 @@
         "x-api-token-group": ["Account Settings Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.accountSettings",
+        "x-fern-sdk-group-name": "workers.account-settings",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
       }
@@ -2406,7 +2418,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "list",
         "x-forge-hidden": true
       },
@@ -2476,7 +2488,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "create",
         "x-forge-hidden": true
       }
@@ -2538,7 +2550,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "delete",
         "x-forge-hidden": true,
         "x-forge-require-confirmation": "This will permanently delete the Workers for Platforms dispatch namespace."
@@ -2599,7 +2611,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       },
@@ -2680,7 +2692,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "edit",
         "x-forge-hidden": true
       },
@@ -2762,7 +2774,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
       }
@@ -2842,8 +2854,8 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts",
-        "x-fern-sdk-method-name": "bulkDelete",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
+        "x-fern-sdk-method-name": "bulk-delete",
         "x-forge-hidden": true,
         "x-forge-require-confirmation": "This will permanently delete matching scripts in the Workers for Platforms dispatch namespace."
       },
@@ -2928,7 +2940,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
         "x-fern-sdk-method-name": "list",
         "x-forge-hidden": true
       }
@@ -3006,7 +3018,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
         "x-fern-sdk-method-name": "delete",
         "x-forge-require-confirmation": "This will permanently delete the Workers for Platforms script."
       },
@@ -3074,7 +3086,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
         "x-fern-sdk-method-name": "get"
       },
       "put": {
@@ -3139,7 +3151,7 @@
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
         "x-fern-sdk-method-name": "update"
       }
     },
@@ -3218,8 +3230,8 @@
         "tags": ["Workers for Platforms"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.assets.upload",
-        "x-fern-sdk-method-name": "createSession",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.assets.upload",
+        "x-fern-sdk-method-name": "create-session",
         "x-forge-hidden": true
       }
     },
@@ -3302,7 +3314,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.bindings",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.bindings",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       }
@@ -3374,7 +3386,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.content",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.content",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       },
@@ -3505,7 +3517,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.content",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.content",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
       }
@@ -3592,7 +3604,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.secrets",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
         "x-fern-sdk-method-name": "list",
         "x-forge-hidden": true
       },
@@ -3694,7 +3706,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.secrets",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
       }
@@ -3802,8 +3814,8 @@
         "tags": ["Workers for Platforms"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.secrets",
-        "x-fern-sdk-method-name": "bulkEdit",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
+        "x-fern-sdk-method-name": "bulk-edit",
         "x-forge-hidden": true
       }
     },
@@ -3888,7 +3900,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.secrets",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
         "x-fern-sdk-method-name": "delete",
         "x-forge-require-confirmation": "This will permanently delete the Workers for Platforms script secret."
       },
@@ -3985,7 +3997,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.secrets",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       }
@@ -4068,7 +4080,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.settings",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.settings",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       },
@@ -4176,7 +4188,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.settings",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.settings",
         "x-fern-sdk-method-name": "edit",
         "x-forge-hidden": true
       }
@@ -4263,7 +4275,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.tags",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags",
         "x-fern-sdk-method-name": "list"
       },
       "put": {
@@ -4358,7 +4370,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.tags.bulk",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags.bulk",
         "x-fern-sdk-method-name": "update"
       }
     },
@@ -4436,7 +4448,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.tags",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags",
         "x-fern-sdk-method-name": "delete",
         "x-forge-require-confirmation": "This will delete the tag from the Workers for Platforms script."
       },
@@ -4513,7 +4525,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workersForPlatforms.dispatchNamespaces.scripts.tags",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags",
         "x-fern-sdk-method-name": "create"
       }
     },
@@ -4963,7 +4975,7 @@
         "tags": ["Durable Objects Namespace"],
         "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "durableObjects.namespaces",
+        "x-fern-sdk-group-name": "durable-objects.namespaces",
         "x-fern-sdk-method-name": "list"
       }
     },
@@ -5107,7 +5119,7 @@
         "tags": ["Durable Objects Namespace"],
         "x-api-token-group": ["Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "durableObjects.namespaces.objects",
+        "x-fern-sdk-group-name": "durable-objects.namespaces.objects",
         "x-fern-sdk-method-name": "list"
       }
     },
@@ -13836,7 +13848,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.assets.upload",
-        "x-fern-sdk-method-name": "createSession",
+        "x-fern-sdk-method-name": "create-session",
         "x-forge-hidden": true
       }
     },
@@ -13959,8 +13971,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.content",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.content",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
       }
@@ -14023,8 +14035,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.content",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.content",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       }
@@ -14590,8 +14602,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.settings",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.settings",
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
@@ -14667,8 +14679,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.settings",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.settings",
         "x-fern-sdk-method-name": "edit"
       }
     },
@@ -14942,7 +14954,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.secrets",
-        "x-fern-sdk-method-name": "bulkEdit",
+        "x-fern-sdk-method-name": "bulk-edit",
         "x-forge-hidden": true
       }
     },
@@ -15165,8 +15177,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.scriptAndVersionSettings",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.script-and-version-settings",
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
@@ -15252,8 +15264,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.scriptAndVersionSettings",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.script-and-version-settings",
         "x-fern-sdk-method-name": "edit"
       }
     },
@@ -15328,8 +15340,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.subdomain",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.subdomain",
         "x-fern-sdk-method-name": "delete",
         "x-forge-hidden": true,
         "x-forge-require-confirmation": "This will disable all workers.dev subdomains for the Worker script."
@@ -15404,8 +15416,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.subdomain",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.subdomain",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
       },
@@ -15505,8 +15517,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.subdomain",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.subdomain",
         "x-fern-sdk-method-name": "create",
         "x-forge-hidden": true
       }
@@ -15788,8 +15800,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.usageModel",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.usage-model",
         "x-fern-sdk-method-name": "get"
       },
       "put": {
@@ -15866,8 +15878,8 @@
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.scripts.usageModel",
+        "x-fern-availability": "deprecated",
+        "x-fern-sdk-group-name": "workers.legacy.scripts.usage-model",
         "x-fern-sdk-method-name": "update"
       }
     },
@@ -16195,7 +16207,7 @@
         "tags": ["Worker Environment"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
+        "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.services.environments.content",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
@@ -16326,7 +16338,7 @@
         "tags": ["Worker Environment"],
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
+        "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.services.environments.content",
         "x-fern-sdk-method-name": "update",
         "x-forge-hidden": true
@@ -16397,7 +16409,7 @@
         "tags": ["Worker Environment"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
+        "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.services.environments.settings",
         "x-fern-sdk-method-name": "get",
         "x-forge-hidden": true
@@ -16482,7 +16494,7 @@
         ],
         "tags": ["Worker Environment"],
         "x-fern-audiences": ["sdk"],
-        "x-fern-availability": "generally-available",
+        "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.services.environments.settings",
         "x-fern-sdk-method-name": "edit",
         "x-forge-hidden": true
@@ -18048,6 +18060,89 @@
       }
     },
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": {
+      "get": {
+        "operationId": "getLatestWorkerVersion",
+        "summary": "Get Latest Worker Version",
+        "description": "Get details about the most recently created Worker version.",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/workers_identifier"
+            }
+          },
+          {
+            "name": "worker_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "description": "Identifier for the Worker, which can be ID or name.",
+              "type": "string"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "schema": {
+              "description": "Whether to include the `modules` property of the version in the response, which contains code and sourcemap content and may add several megabytes to the response size.",
+              "type": "string",
+              "enum": ["modules"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get latest version success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/workers_api-response-common"
+                    },
+                    {
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/workers_Version"
+                        }
+                      },
+                      "required": ["result"],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Get latest version failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/workers_api-response-common-failure"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api_token": []
+          },
+          {
+            "api_email": [],
+            "api_key": []
+          }
+        ],
+        "tags": ["Versions"],
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-audiences": ["sdk"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.versions.latest",
+        "x-fern-sdk-method-name": "get"
+      },
       "patch": {
         "operationId": "patchLatestWorkerVersion",
         "summary": "Patch Latest Worker Version",
@@ -18162,8 +18257,8 @@
         "tags": ["Versions"],
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers.versions",
-        "x-fern-sdk-method-name": "editLatest"
+        "x-fern-sdk-group-name": "workers.versions.latest",
+        "x-fern-sdk-method-name": "edit"
       }
     },
     "/user/tokens/verify": {
@@ -18444,11 +18539,17 @@
             "description": "Account name",
             "type": "string"
           },
+          "standalone": {
+            "description": "Set to `true` and omit `unit` to create a standalone Free Account. If provided, this field must be `true`.",
+            "type": "boolean",
+            "enum": [true],
+            "x-stainless-terraform-configurability": "computed_optional"
+          },
           "type": {
             "$ref": "#/components/schemas/iam_account-type"
           },
           "unit": {
-            "description": "information related to the tenant unit, and optionally, an id of the unit to create the account on. see https://developers.cloudflare.com/tenant/how-to/manage-accounts/",
+            "description": "Information related to the tenant unit. Provide its ID and omit `standalone` to create the Account within an Organization. See https://developers.cloudflare.com/tenant/how-to/manage-accounts/.",
             "type": "object",
             "properties": {
               "id": {
@@ -18462,8 +18563,11 @@
             "x-stainless-terraform-configurability": "computed_optional"
           }
         },
+        "not": {
+          "required": ["unit", "standalone"]
+        },
         "required": ["name"],
-        "title": "Create account"
+        "title": "Create Account"
       },
       "iam_response_single_account": {
         "allOf": [
