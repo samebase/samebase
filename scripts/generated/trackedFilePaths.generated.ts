@@ -1933,6 +1933,7 @@ export const trackedFilePaths = [
   "research/2026-09-02-typegpu-redraw-menger.md",
   "research/2026-09-05-plugin-reviewer-live-tests.md",
   "research/2026-09-05-test-value-audit.md",
+  "research/2026-09-18-plugin-review-remediation.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",
