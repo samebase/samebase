@@ -13690,6 +13690,8 @@ const schema182 = {
         "deployment:token:update",
         "deployment:token:delete",
         "deployment:token:view",
+        "team:domain:create",
+        "team:domain:delete",
         "deployment:customDomain:create",
         "deployment:customDomain:delete",
         "deployment:backups:create",
@@ -14600,6 +14602,8 @@ function validate98(
           data2 === "deployment:token:update" ||
           data2 === "deployment:token:delete" ||
           data2 === "deployment:token:view" ||
+          data2 === "team:domain:create" ||
+          data2 === "team:domain:delete" ||
           data2 === "deployment:customDomain:create" ||
           data2 === "deployment:customDomain:delete" ||
           data2 === "deployment:backups:create" ||
@@ -15736,6 +15740,9 @@ const schema207 = {
     "billing:view",
     "billing:invoices:view",
     "team:auditLog:view",
+    "team:domain:create",
+    "team:domain:delete",
+    "team:domain:view",
     "team:token:create",
     "team:token:update",
     "team:token:delete",
@@ -15914,6 +15921,9 @@ function validate117(
           data0 === "billing:view" ||
           data0 === "billing:invoices:view" ||
           data0 === "team:auditLog:view" ||
+          data0 === "team:domain:create" ||
+          data0 === "team:domain:delete" ||
+          data0 === "team:domain:view" ||
           data0 === "team:token:create" ||
           data0 === "team:token:update" ||
           data0 === "team:token:delete" ||
