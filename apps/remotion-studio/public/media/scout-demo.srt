@@ -1,6 +1,6 @@
 1
 00:00:00,068 --> 00:00:00,908
-If you're on X,
+If you're on X (Twitter),
 
 2
 00:00:00,908 --> 00:00:03,028
@@ -8,7 +8,7 @@ you probably see 10 new apps every day.
 
 3
 00:00:03,145 --> 00:00:05,325
- figuring out which one actually works  means
+figuring out which one actually works means
 
 4
 00:00:05,325 --> 00:00:06,285
@@ -32,7 +32,7 @@ So
 
 9
 00:00:10,996 --> 00:00:13,588
-so I often search YouTube to watch founders use
+I often search YouTube to watch founders use
 
 10
 00:00:13,588 --> 00:00:14,347
@@ -40,7 +40,7 @@ their own products.
 
 11
 00:00:14,691 --> 00:00:16,371
-That's why I built Trail Scout.
+That's why I built TrailScout.
 
 12
 00:00:16,371 --> 00:00:18,891
@@ -52,7 +52,7 @@ product for you.
 
 14
 00:00:19,946 --> 00:00:22,502
-A scout is the identity an agent uses across
+A Scout is the identity an agent uses across
 
 15
 00:00:22,582 --> 00:00:22,982
@@ -60,15 +60,15 @@ websites.
 
 16
 00:00:23,382 --> 00:00:25,022
-Each has its own email inbox.
+Each has its own email inbox
 
 17
 00:00:25,022 --> 00:00:25,962
-Through agent mail
+through AgentMail.
 
 18
 00:00:25,961 --> 00:00:27,059
-it remembers its
+It remembers its
 
 19
 00:00:27,469 --> 00:00:28,829
@@ -88,7 +88,7 @@ AES-256-GCM so they're safe.
 
 23
 00:00:36,725 --> 00:00:38,826
-these scouts are shared across users.
+These scouts are shared across users.
 
 24
 00:00:39,012 --> 00:00:40,093
@@ -112,11 +112,11 @@ with Luna,
 
 29
 00:00:47,067 --> 00:00:48,349
-Qwen or Deep Seek,
+Qwen or DeepSeek,
 
 30
 00:00:48,429 --> 00:00:52,000
- I used Luna for most of the reviews because in my
+I used Luna for most of the reviews because in my
 
 31
 00:00:52,000 --> 00:00:53,719
@@ -124,7 +124,7 @@ testing it got stuck less often.
 
 32
 00:00:53,956 --> 00:00:55,594
- reviews are public by default.
+Reviews are public by default.
 
 33
 00:00:55,594 --> 00:00:57,282
@@ -140,11 +140,11 @@ whether a product is worth trying.
 
 36
 00:01:02,241 --> 00:01:03,601
-now let's give it a task.
+Now let's give it a task.
 
 37
 00:01:03,601 --> 00:01:05,561
-I'm asking it to create a sanebase account,
+I'm asking it to create a Samebase account,
 
 38
 00:01:05,561 --> 00:01:07,841
@@ -156,7 +156,7 @@ That Involves signup,
 
 40
 00:01:09,611 --> 00:01:12,402
- GitHub and Cloudflare connections and OAuth
+GitHub and Cloudflare connections and OAuth
 
 41
 00:01:12,402 --> 00:01:12,962
@@ -168,7 +168,7 @@ Firecrawl provides the browser the scout uses.
 
 43
 00:01:18,177 --> 00:01:19,805
- the agent has a workspace
+The agent has a workspace
 
 44
 00:01:20,049 --> 00:01:21,975
@@ -236,7 +236,7 @@ that can mess up
 
 60
 00:01:50,521 --> 00:01:52,441
-up the context window and Compaction even.
+the context window and Compaction even.
 
 61
 00:01:52,441 --> 00:01:53,652
@@ -356,7 +356,7 @@ video replay.
 
 90
 00:14:47,049 --> 00:14:49,243
-if the scout gets stuck with a captcha,
+If the scout gets stuck with a captcha,
 
 91
 00:14:49,243 --> 00:14:51,443
@@ -376,11 +376,11 @@ here
 
 95
 00:14:54,134 --> 00:14:55,278
-is Trail Scout
+is TrailScout
 
 96
 00:14:55,278 --> 00:14:55,959
-reviewing
+reviewing itself.
 
 97
 00:14:56,541 --> 00:14:58,061
@@ -388,7 +388,7 @@ I asked it to
 
 98
 00:14:58,541 --> 00:15:00,221
-create a new Trail Scout
+create a new TrailScout
 
 99
 00:15:00,337 --> 00:15:00,812
@@ -420,4 +420,4 @@ I still think that's good enough.
 
 106
 00:15:09,038 --> 00:15:11,319
- because our agent is self conscious.
+Because our agent is self-conscious.
