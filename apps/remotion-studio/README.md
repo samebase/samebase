@@ -27,7 +27,7 @@ appear in Studio immediately.
 - `OnboardingDemo` contains the complete onboarding walkthrough at 3344×2160 while preserving the
   source aspect ratio.
 - `ScoutDemo` contains the Trail Scout submission edit at the source size, 3840×2480. It combines
-  the screen, camera, and captions with a 32x wait and two-second speed ramps.
+  the screen, camera, and captions with a 48x wait and two-second speed ramps.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -122,7 +122,7 @@ boundaries as the captions rendered into each composition.
 ## Scout demo
 
 Use [the Scout edit notes](notes/scout-demo-edit.md) for input filenames, recording checks, and
-timestamp setup. The original 1:58–14:35 interval accelerates to 32x, with two seconds at each end
+timestamp setup. The original 1:58–14:35 interval accelerates to 48x, with two seconds at each end
 for acceleration and deceleration. Adjust the boundaries, maximum speed, and ramp duration together
 in `scoutDemoFastForward` in `src/compositions/scout-demo/scoutDemoEdit.ts`.
 
@@ -132,7 +132,7 @@ pnpm --filter @samebase/remotion-studio generate:scout-subtitles
 ```
 
 Both commands use the imported recordings and write the local master and retimed SRT to
-`apps/remotion-studio/out/`. The current edit lasts 3:00.5.
+`apps/remotion-studio/out/`. The current edit lasts about 2:52.6.
 
 ## Tic-Tac-Toe landing video
 

@@ -16,7 +16,7 @@ Both original videos are 3840×2480, 30 fps, and 15:11.9 long. The composition p
 size and uses 27,357 source frames. The camera audio is muted to avoid playing narration twice.
 Captions are rendered from the SRT and retimed with the edit. Captions inside the wait are omitted.
 
-The 24x copy is a playback source, not the maximum edit speed. It works with both 32x and 64x waits.
+The 24x copy is a playback source, not the maximum edit speed. It works with both 48x and 64x waits.
 Generate it from the app directory:
 
 ```console
@@ -31,17 +31,17 @@ Change `scoutDemoFastForward` near the top of `src/compositions/scout-demo/scout
 | ----------------------- | -------------- | -------------------------------------------- |
 | `startInSeconds`        | `1 * 60 + 58`  | Start of the wait in the original recording  |
 | `endInSeconds`          | `14 * 60 + 35` | End of the wait in the original recording    |
-| `maximumPlaybackRate`   | `32`           | Peak speed; use 64 only if needed            |
+| `maximumPlaybackRate`   | `48`           | Peak speed; use 64 only if needed            |
 | `rampDurationInSeconds` | `2`            | Time in the edited video for each speed ramp |
 
-Playback rises smoothly from 1x to 32x over two seconds, stays at 32x, then returns to 1x over two
+Playback rises smoothly from 1x to 48x over two seconds, stays at 48x, then returns to 1x over two
 seconds. The face camera fades out during the wait and returns for the conclusion. The existing
 founder and onboarding edits retain their four-second ramps.
 
-The wait becomes 25.6 seconds. With the introduction and conclusion unchanged, the edit lasts
-3:00.5. It still needs a small trim if the final submission must be strictly under three minutes.
-Changing the settings updates the composition duration, source clock, and rendered captions. Run the
-subtitle export command again to update the separate SRT file.
+The wait becomes about 17.7 seconds. With the introduction and conclusion unchanged, the edit lasts
+about 2:52.6, below the three-minute submission limit. Changing the settings updates the composition
+duration, source clock, and rendered captions. Run the subtitle export command again to update the
+separate SRT file.
 
 ## Preview and export
 

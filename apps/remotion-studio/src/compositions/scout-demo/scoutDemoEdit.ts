@@ -13,7 +13,7 @@ const sourceDurationInFrames = 27_357;
 export const scoutDemoFastForward = {
   startInSeconds: 1 * 60 + 58,
   endInSeconds: 14 * 60 + 35,
-  maximumPlaybackRate: 32,
+  maximumPlaybackRate: 48,
   rampDurationInSeconds: 2,
 };
 
