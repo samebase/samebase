@@ -22,6 +22,13 @@ import {
   onboardingDemoEditDurationInFrames,
   onboardingDemoFps,
 } from "./compositions/onboarding-demo/onboardingDemoEdit";
+import { ScoutDemo } from "./compositions/scout-demo/ScoutDemo";
+import {
+  scoutDemoEdit,
+  scoutDemoFps,
+  scoutDemoHeight,
+  scoutDemoWidth,
+} from "./compositions/scout-demo/scoutDemoEdit";
 import { TicTacToeRecording } from "./compositions/tic-tac-toe/TicTacToeRecording";
 import {
   ticTacToeEditDurationInFrames,
@@ -63,6 +70,14 @@ export function RemotionRoot() {
         fps={onboardingDemoFps}
         height={onboardingDemoHeight}
         width={onboardingDemoWidth}
+      />
+      <Composition
+        id="ScoutDemo"
+        component={ScoutDemo}
+        durationInFrames={scoutDemoEdit === null ? 1 : scoutDemoEdit.durationInFrames}
+        fps={scoutDemoFps}
+        height={scoutDemoHeight}
+        width={scoutDemoWidth}
       />
       <Composition
         id="LogoHype"
