@@ -17,6 +17,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 00:48",
     sourceEndInSeconds: 54.69,
@@ -30,6 +31,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 00:56",
     sourceEndInSeconds: 71.76,
@@ -43,6 +45,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 01:14",
     sourceEndInSeconds: 82.71,
@@ -56,6 +59,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 01:32",
     sourceEndInSeconds: 97.48,
@@ -69,6 +73,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 01:55",
     sourceEndInSeconds: 126.34,
@@ -82,6 +87,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 02:10",
     sourceEndInSeconds: 143.69,
@@ -95,6 +101,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 03:00",
     sourceEndInSeconds: 187.11,
@@ -108,6 +115,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 03:55",
     sourceEndInSeconds: 242.11,
@@ -121,6 +129,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 05:24",
     sourceEndInSeconds: 355.63,
@@ -134,6 +143,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 08:08",
     sourceEndInSeconds: 519.97,
@@ -147,6 +157,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 08:49",
     sourceEndInSeconds: 549.62,
@@ -160,6 +171,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 09:43",
     sourceEndInSeconds: 597.79,
@@ -173,6 +185,7 @@ const sourceSections = [
   },
   {
     kind: "wait",
+    rampDurationInSeconds: 4,
     maximumPlaybackRate: annotatedWaitMaximumPlaybackRate,
     name: "Wait 10:26",
     sourceEndInSeconds: 645.52,

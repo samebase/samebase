@@ -1,4 +1,3 @@
-const rampDurationInSeconds = 4;
 const minimumShortWaitDurationInSeconds = 4;
 
 type RecordedDemoSourceSectionBase = {
@@ -15,6 +14,7 @@ export type RecordedDemoSourceSection =
   | (RecordedDemoSourceSectionBase & {
       kind: "wait";
       maximumPlaybackRate: number;
+      rampDurationInSeconds: number;
     })
   | (RecordedDemoSourceSectionBase & {
       endingPlaybackRate: number;
@@ -60,17 +60,22 @@ export type RecordedDemoEdit = {
 export const createWaitPlaybackRates = ({
   fps,
   maximumPlaybackRate,
+  rampDurationInSeconds,
   sourceDurationInFrames,
 }: {
   fps: number;
   maximumPlaybackRate: number;
+  rampDurationInSeconds: number;
   sourceDurationInFrames: number;
 }) => {
-  if (maximumPlaybackRate <= 1) {
+  if (!Number.isFinite(maximumPlaybackRate) || maximumPlaybackRate <= 1) {
     throw new Error("A recorded demo wait maximum playback rate must be greater than 1");
   }
 
-  const rampDurationInFrames = rampDurationInSeconds * fps;
+  const rampDurationInFrames = Math.round(rampDurationInSeconds * fps);
+  if (!Number.isFinite(rampDurationInFrames) || rampDurationInFrames < 3) {
+    throw new Error("A recorded demo speed ramp must last at least three frames");
+  }
   const minimumShortWaitDurationInFrames = minimumShortWaitDurationInSeconds * fps;
   const baseRampPlaybackRates = Array.from({ length: rampDurationInFrames }, (_, index) => {
     const progress = index / (rampDurationInFrames - 1);
@@ -273,6 +278,7 @@ export const createRecordedDemoEdit = ({
         ? createWaitPlaybackRates({
             fps,
             maximumPlaybackRate: section.maximumPlaybackRate,
+            rampDurationInSeconds: section.rampDurationInSeconds,
             sourceDurationInFrames: sourceDuration,
           })
         : createSlowdownPlaybackRates({

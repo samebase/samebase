@@ -53,7 +53,7 @@ async function generateRecordedDemoSubtitles(): Promise<void> {
           {
             edit: scoutDemoEdit,
             outputName: "scout-demo.srt",
-            sourcePath: "apps/remotion-studio/public/media/scout-demo.srt",
+            sourcePath: trackedFilePath("apps/remotion-studio/public/media/scout-demo.srt"),
           },
         ]
       : demos;
@@ -62,10 +62,6 @@ async function generateRecordedDemoSubtitles(): Promise<void> {
   await mkdir(outputDirectory, { recursive: true });
 
   for (const demo of selectedDemos) {
-    if (demo.edit === null) {
-      throw new Error("ScoutDemo needs its source duration and edit points in scoutDemoEdit.ts.");
-    }
-
     const source = await readFile(path.join(repoRoot, demo.sourcePath), "utf8");
     const parsed = parseSrt({ input: source });
     const captions = createEditedCaptions(parsed.captions, demo.edit);

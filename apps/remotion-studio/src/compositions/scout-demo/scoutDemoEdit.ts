@@ -4,22 +4,44 @@ import {
 } from "../recorded-demo/recordedDemoEdit.ts";
 
 export const scoutDemoFps = 30;
-export const scoutDemoWidth = 1_920;
-export const scoutDemoHeight = 1_080;
+export const scoutDemoWidth = 3_840;
+export const scoutDemoHeight = 2_480;
 
-// Set the source duration and frame size from the recording before adding edit points.
-const sourceDurationInFrames: number | null = null;
+const sourceDurationInFrames = 27_357;
 
-// Use original recording times. Keep speech at 1x and set waits to a 32x maximum.
-// A specific long wait can use 64x after reviewing the footage.
-const sourceSections: readonly RecordedDemoSourceSection[] = [];
+// Boundaries use the original recording. Each ramp lasts this long in the edited video.
+export const scoutDemoFastForward = {
+  startInSeconds: 1 * 60 + 58,
+  endInSeconds: 14 * 60 + 35,
+  maximumPlaybackRate: 32,
+  rampDurationInSeconds: 2,
+};
 
-export const scoutDemoEdit =
-  // eslint-disable-next-line typescript/no-unnecessary-condition -- The editable null duration keeps this composition inactive until the source footage arrives.
-  sourceDurationInFrames === null
-    ? null
-    : createRecordedDemoEdit({
-        fps: scoutDemoFps,
-        sourceDurationInFrames,
-        sourceSections,
-      });
+const sourceSections: readonly RecordedDemoSourceSection[] = [
+  {
+    kind: "face",
+    name: "Introduction and task",
+    sourceStartInSeconds: 0,
+    sourceEndInSeconds: scoutDemoFastForward.startInSeconds,
+  },
+  {
+    kind: "wait",
+    name: "Scout at work",
+    sourceStartInSeconds: scoutDemoFastForward.startInSeconds,
+    sourceEndInSeconds: scoutDemoFastForward.endInSeconds,
+    maximumPlaybackRate: scoutDemoFastForward.maximumPlaybackRate,
+    rampDurationInSeconds: scoutDemoFastForward.rampDurationInSeconds,
+  },
+  {
+    kind: "face",
+    name: "Review and conclusion",
+    sourceStartInSeconds: scoutDemoFastForward.endInSeconds,
+    sourceEndInSeconds: sourceDurationInFrames / scoutDemoFps,
+  },
+];
+
+export const scoutDemoEdit = createRecordedDemoEdit({
+  fps: scoutDemoFps,
+  sourceDurationInFrames,
+  sourceSections,
+});

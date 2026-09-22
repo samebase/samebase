@@ -26,6 +26,7 @@ describe("createRecordedDemoCaptionCues", () => {
         },
         {
           kind: "wait",
+          rampDurationInSeconds: 4,
           maximumPlaybackRate: 4,
           name: "Wait",
           sourceEndInSeconds: 9,

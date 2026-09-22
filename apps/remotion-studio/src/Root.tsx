@@ -74,7 +74,7 @@ export function RemotionRoot() {
       <Composition
         id="ScoutDemo"
         component={ScoutDemo}
-        durationInFrames={scoutDemoEdit === null ? 1 : scoutDemoEdit.durationInFrames}
+        durationInFrames={scoutDemoEdit.durationInFrames}
         fps={scoutDemoFps}
         height={scoutDemoHeight}
         width={scoutDemoWidth}

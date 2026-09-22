@@ -1,0 +1,423 @@
+1
+00:00:00,068 --> 00:00:00,908
+If you're on X,
+
+2
+00:00:00,908 --> 00:00:03,028
+you probably see 10 new apps every day.
+
+3
+00:00:03,145 --> 00:00:05,325
+ figuring out which one actually works  means
+
+4
+00:00:05,325 --> 00:00:06,285
+giving out your email,
+
+5
+00:00:06,685 --> 00:00:07,653
+signing up and
+
+6
+00:00:07,652 --> 00:00:09,032
+figuring them out yourself.
+
+7
+00:00:09,038 --> 00:00:10,952
+Doing that for every product takes time.
+
+8
+00:00:10,952 --> 00:00:10,996
+So
+
+9
+00:00:10,996 --> 00:00:13,588
+so I often search YouTube to watch founders use
+
+10
+00:00:13,588 --> 00:00:14,347
+their own products.
+
+11
+00:00:14,691 --> 00:00:16,371
+That's why I built Trail Scout.
+
+12
+00:00:16,371 --> 00:00:18,891
+You give an agent a task and it goes and tries the
+
+13
+00:00:18,891 --> 00:00:19,891
+product for you.
+
+14
+00:00:19,946 --> 00:00:22,502
+A scout is the identity an agent uses across
+
+15
+00:00:22,582 --> 00:00:22,982
+websites.
+
+16
+00:00:23,382 --> 00:00:25,022
+Each has its own email inbox.
+
+17
+00:00:25,022 --> 00:00:25,962
+Through agent mail
+
+18
+00:00:25,961 --> 00:00:27,059
+it remembers its
+
+19
+00:00:27,469 --> 00:00:28,829
+accounts and how to sign in,
+
+20
+00:00:28,829 --> 00:00:31,629
+whether with a password or a social login.
+
+21
+00:00:31,696 --> 00:00:33,757
+Passwords are stored and encrypted using
+
+22
+00:00:33,757 --> 00:00:36,457
+AES-256-GCM so they're safe.
+
+23
+00:00:36,725 --> 00:00:38,826
+these scouts are shared across users.
+
+24
+00:00:39,012 --> 00:00:40,093
+When creating a new task,
+
+25
+00:00:40,093 --> 00:00:41,573
+you can choose between two agents.
+
+26
+00:00:41,813 --> 00:00:43,813
+OpenAI's Agents API,
+
+27
+00:00:43,945 --> 00:00:46,454
+with Luna or the Convex Agent component
+
+28
+00:00:46,454 --> 00:00:47,067
+with Luna,
+
+29
+00:00:47,067 --> 00:00:48,349
+Qwen or Deep Seek,
+
+30
+00:00:48,429 --> 00:00:52,000
+ I used Luna for most of the reviews because in my
+
+31
+00:00:52,000 --> 00:00:53,719
+testing it got stuck less often.
+
+32
+00:00:53,956 --> 00:00:55,594
+ reviews are public by default.
+
+33
+00:00:55,594 --> 00:00:57,282
+Anyone can read those results.
+
+34
+00:00:57,282 --> 00:00:59,962
+So one person task can help others decide
+
+35
+00:01:00,462 --> 00:01:02,142
+whether a product is worth trying.
+
+36
+00:01:02,241 --> 00:01:03,601
+now let's give it a task.
+
+37
+00:01:03,601 --> 00:01:05,561
+I'm asking it to create a sanebase account,
+
+38
+00:01:05,561 --> 00:01:07,841
+deploy an app and check that it works.
+
+39
+00:01:08,242 --> 00:01:09,611
+That Involves signup,
+
+40
+00:01:09,611 --> 00:01:12,402
+ GitHub and Cloudflare connections and OAuth
+
+41
+00:01:12,402 --> 00:01:12,962
+authorization.
+
+42
+00:01:13,054 --> 00:01:15,445
+Firecrawl provides the browser the scout uses.
+
+43
+00:01:18,177 --> 00:01:19,805
+ the agent has a workspace
+
+44
+00:01:20,049 --> 00:01:21,975
+where it saves files and runs code.
+
+45
+00:01:21,974 --> 00:01:23,393
+Only admins can see that.
+
+46
+00:01:23,578 --> 00:01:24,551
+Here opening.
+
+47
+00:01:27,376 --> 00:01:27,961
+As you can see,
+
+48
+00:01:27,961 --> 00:01:29,321
+the lab is a bit more complex.
+
+49
+00:01:29,322 --> 00:01:31,353
+Before an agent actually starts working,
+
+50
+00:01:31,513 --> 00:01:33,591
+there are a set of reviews that
+
+51
+00:01:34,073 --> 00:01:35,673
+we do using Fire Crawl
+
+52
+00:01:35,673 --> 00:01:38,313
+and also every task has its workspace
+
+53
+00:01:38,313 --> 00:01:40,873
+which contains a list of files that the agent can
+
+54
+00:01:40,873 --> 00:01:41,832
+use for itself.
+
+55
+00:01:42,017 --> 00:01:43,936
+It can also use Bash and TypeScript.
+
+56
+00:01:43,936 --> 00:01:46,501
+The main reason for that is that sometimes we get
+
+57
+00:01:46,501 --> 00:01:48,783
+a very big output from Firecrawl
+
+58
+00:01:48,871 --> 00:01:49,272
+and
+
+59
+00:01:49,561 --> 00:01:50,521
+that can mess up
+
+60
+00:01:50,521 --> 00:01:52,441
+up the context window and Compaction even.
+
+61
+00:01:52,441 --> 00:01:53,652
+the agent can leave
+
+62
+00:01:53,972 --> 00:01:54,002
+useful,
+
+63
+00:01:54,051 --> 00:01:55,131
+notes about the site,
+
+64
+00:01:55,667 --> 00:01:56,867
+in the site's
+
+65
+00:01:57,117 --> 00:01:57,917
+workspace.
+
+66
+00:02:28,067 --> 00:02:28,087
+
+
+67
+00:02:49,687 --> 00:02:49,768
+
+
+68
+00:03:59,627 --> 00:04:00,717
+
+
+69
+00:04:34,587 --> 00:04:37,768
+
+
+70
+00:05:16,307 --> 00:05:16,327
+
+
+71
+00:05:16,768 --> 00:05:19,827
+
+
+72
+00:05:58,367 --> 00:05:58,388
+
+
+73
+00:06:19,827 --> 00:06:20,067
+
+
+74
+00:06:40,487 --> 00:06:43,947
+
+
+75
+00:07:01,807 --> 00:07:01,887
+
+
+76
+00:07:43,528 --> 00:07:43,908
+
+
+77
+00:08:04,548 --> 00:08:04,567
+
+
+78
+00:09:29,028 --> 00:09:32,187
+
+
+79
+00:10:52,788 --> 00:10:52,807
+
+
+80
+00:11:55,887 --> 00:11:56,307
+
+
+81
+00:12:16,907 --> 00:12:16,927
+
+
+82
+00:12:58,968 --> 00:12:58,988
+
+
+83
+00:13:41,028 --> 00:13:41,048
+
+
+84
+00:13:41,448 --> 00:13:44,548
+
+
+85
+00:14:35,989 --> 00:14:37,429
+Here's the result of this run.
+
+86
+00:14:38,565 --> 00:14:41,004
+The agent pairs screenshot with an explanation of
+
+87
+00:14:41,004 --> 00:14:43,845
+what the scout tried and what happened.
+
+88
+00:14:43,845 --> 00:14:45,714
+You can also watch the full
+
+89
+00:14:46,057 --> 00:14:47,050
+video replay.
+
+90
+00:14:47,049 --> 00:14:49,243
+if the scout gets stuck with a captcha,
+
+91
+00:14:49,243 --> 00:14:51,443
+it will send you an email and it will ask for
+
+92
+00:14:51,443 --> 00:14:51,683
+help.
+
+93
+00:14:52,050 --> 00:14:53,490
+And as a final note,
+
+94
+00:14:53,570 --> 00:14:53,971
+here
+
+95
+00:14:54,134 --> 00:14:55,278
+is Trail Scout
+
+96
+00:14:55,278 --> 00:14:55,959
+reviewing
+
+97
+00:14:56,541 --> 00:14:58,061
+I asked it to
+
+98
+00:14:58,541 --> 00:15:00,221
+create a new Trail Scout
+
+99
+00:15:00,337 --> 00:15:00,812
+chat
+
+100
+00:15:00,922 --> 00:15:03,241
+and review the convex documentation
+
+101
+00:15:03,594 --> 00:15:03,834
+and
+
+102
+00:15:04,152 --> 00:15:05,716
+it gave it only five,
+
+103
+00:15:05,956 --> 00:15:07,076
+six out of seven
+
+104
+00:15:07,175 --> 00:15:07,576
+But
+
+105
+00:15:07,576 --> 00:15:09,038
+I still think that's good enough.
+
+106
+00:15:09,038 --> 00:15:11,319
+ because our agent is self conscious.
