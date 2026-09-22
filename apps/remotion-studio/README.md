@@ -134,6 +134,10 @@ pnpm --filter @samebase/remotion-studio generate:scout-subtitles
 Both commands use the imported recordings and write the local master and retimed SRT to
 `apps/remotion-studio/out/`. The current edit lasts about 2:52.6.
 
+Final exports use the original recordings at full size, PNG intermediate frames, H.264 CRF 16, and
+384 kbps AAC audio. Studio uses the 24x recording only to preview fast-forward playback. The shared
+render defaults apply to all compositions; keep Scale at 1 for the final upload.
+
 ## Tic-Tac-Toe landing video
 
 The source recording belongs at:

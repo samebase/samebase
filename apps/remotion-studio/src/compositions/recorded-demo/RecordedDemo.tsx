@@ -2,6 +2,7 @@ import { parseSrt, type Caption } from "@remotion/captions";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import {
   AbsoluteFill,
+  getRemotionEnvironment,
   Html5Audio,
   Interactive,
   OffthreadVideo,
@@ -159,7 +160,10 @@ const AcceleratedScreen: React.FC<{
   const frame = useCurrentFrame();
   const playbackRate = getRecordedDemoSegmentPlaybackRate(segment, frame);
   const sourceFrame = getRecordedDemoSegmentSourceFrame(segment, frame);
-  const isTimelapse = segment.kind === "wait" && playbackRate > maximumDirectPlaybackRate;
+  const isTimelapse =
+    !getRemotionEnvironment().isRendering &&
+    segment.kind === "wait" &&
+    playbackRate > maximumDirectPlaybackRate;
   const acceleratedScreenRecording = `${screenRecording}#disable`;
   const acceleratedTimelapseRecording = `${timelapseRecording}#disable`;
 

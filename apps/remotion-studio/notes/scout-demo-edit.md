@@ -16,8 +16,9 @@ Both original videos are 3840×2480, 30 fps, and 15:11.9 long. The composition p
 size and uses 27,357 source frames. The camera audio is muted to avoid playing narration twice.
 Captions are rendered from the SRT and retimed with the edit. Captions inside the wait are omitted.
 
-The 24x copy is a playback source, not the maximum edit speed. It works with both 48x and 64x waits.
-Generate it from the app directory:
+The 24x copy is a Studio playback source, not the maximum edit speed. It works with both 48x and 64x
+waits. Exports read the original recording directly, including during fast-forward, so the preview
+copy adds no compression to the final video. Generate it from the app directory:
 
 ```console
 ffmpeg -i public/media/scout-demo-screen.mp4 -map 0:v:0 -vf "setpts=PTS/24,fps=30" -an -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -movflags +faststart public/media/scout-demo-screen-24x.mp4
@@ -58,3 +59,10 @@ pnpm --filter @samebase/remotion-studio generate:scout-subtitles
 Select `ScoutDemo` in Studio. The preview is 1920×1240. The full-size master is
 `out/scout-demo-master.mp4`, and the retimed captions are `out/scout-demo.srt` inside the Remotion
 app. Source media uses Git LFS; rendered output stays local.
+
+The default export uses the original 3840×2480 size at 30 fps, PNG intermediate frames, H.264 at CRF
+16, and 384 kbps AAC audio. It preserves the recording's aspect ratio and BT.709 color space. PNG
+avoids intermediate JPEG compression; the final H.264 encoding is still lossy. These defaults apply
+in Studio and the CLI unless a render overrides them. Keep Scale at 1 for the final export. See
+[YouTube's upload settings](https://support.google.com/youtube/answer/1722171?hl=en) for format,
+frame-rate, color, and audio guidance.
