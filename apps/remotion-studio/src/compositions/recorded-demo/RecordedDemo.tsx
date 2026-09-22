@@ -376,6 +376,7 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontVariantNumeric: "tabular-nums",
           gap: 18 * layoutScale,
+          opacity: playbackRateLabel === "1.0" ? 0.6 : 1,
           padding: `${16 * layoutScale}px ${20 * layoutScale}px`,
           position: "absolute",
           right: 32 * layoutScale,
