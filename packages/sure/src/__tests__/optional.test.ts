@@ -4,7 +4,6 @@ import {
   InferGood,
   InferInput,
   InferMeta,
-  MetaNever,
   MetaObj,
   Sure,
   number,
@@ -101,7 +100,7 @@ assertEqual<
                     type: "string";
                   }>
                 >;
-                second: Sure<"not undefined", undefined, unknown, MetaNever | MetaObj>;
+                second: typeof undef;
               }>
             >;
           }>

@@ -245,10 +245,9 @@ describe("core", () => {
   });
 
   it("should have strong types for validators with multiple errors", () => {
-    assertEqual<
-      typeof sureMultipleErrors,
-      Sure<"not a string" | "too small" | "too big", string & {}, unknown, MetaNever>
-    >(true);
+    assertIs<Sure<"not a string" | "too small" | "too big", string & {}, unknown, MetaNever>>(
+      sureMultipleErrors,
+    );
 
     assertEqual<InferGood<typeof sureMultipleErrors>, string & {}>(true);
     assertEqual<InferBad<typeof sureMultipleErrors>, "not a string" | "too small" | "too big">(

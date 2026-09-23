@@ -111,17 +111,7 @@ const myTuple = tuple([
             number[],
             unknown,
             MetaObj<{
-              parent: <Arr extends Sure<unknown, unknown[], unknown>>(
-                schema: Arr,
-              ) => Sure<
-                InferBad<Arr>,
-                InferGood<Arr>,
-                unknown,
-                MetaObj<{
-                  parent: typeof spread_NOT_IMPLEMENTED;
-                  schema: Arr;
-                }>
-              >;
+              parent: typeof spread_NOT_IMPLEMENTED;
               schema: Sure<
                 ("not number" | undefined)[],
                 number[],
@@ -178,17 +168,7 @@ const smallSchema = tuple([
             string[],
             unknown,
             MetaObj<{
-              parent: <Arr extends Sure<unknown, unknown[], unknown>>(
-                schema: Arr,
-              ) => Sure<
-                InferBad<Arr>,
-                InferGood<Arr>,
-                unknown,
-                MetaObj<{
-                  parent: typeof spread_NOT_IMPLEMENTED;
-                  schema: Arr;
-                }>
-              >;
+              parent: typeof spread_NOT_IMPLEMENTED;
               schema: Sure<
                 ("not string" | undefined)[],
                 string[],

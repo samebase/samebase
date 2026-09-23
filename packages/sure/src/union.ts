@@ -1,43 +1,32 @@
-import { good, sure } from "./core.ts";
-import type { MetaNever, MetaObj, Sure } from "./core.ts";
+import { sure } from "./core.ts";
+import type { AnySure, InferBad, InferGood, InferInput, MayAsync, MetaObj, Sure } from "./core.ts";
+import { mapResult } from "./async.ts";
 
 export function union<
-  //
-  TFirstBad,
-  TFirstGood,
-  TFirstInput,
-  TFirstMeta extends MetaNever | MetaObj,
-  //
-  TSecondBad,
-  TSecondGood,
-  TSecondInput,
-  TSecondMeta extends MetaNever | MetaObj,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
+  TFirst extends AnySure<any>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
+  TSecond extends AnySure<any>,
 >(
-  first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
-  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
+  first: TFirst,
+  second: TSecond,
 ): Sure<
-  TFirstBad | TSecondBad,
-  TFirstGood | TSecondGood,
+  InferBad<TFirst> | InferBad<TSecond>,
+  InferGood<TFirst> | InferGood<TSecond>,
   // Variance
-  TFirstInput & TSecondInput,
+  InferInput<TFirst> & InferInput<TSecond>,
   MetaObj<{
     type: "union";
 
     first: typeof first;
     second: typeof second;
-  }>
+  }>,
+  MayAsync<TFirst | TSecond>
 > {
+  // @ts-expect-error Child results determine the conditional return and inferred tuple payloads.
   return sure(
-    // @ts-expect-error Should be fixed at the definition of sure, I think.
-    (value: TFirstInput & TSecondInput) => {
-      const [isGoodFirst, unsureFirst] = first(value);
-
-      if (isGoodFirst) {
-        return good(unsureFirst);
-      }
-
-      return second(value);
-    },
+    (value: InferInput<TFirst> & InferInput<TSecond>) =>
+      mapResult(first(value), (result) => (result[0] ? result : second(value))),
     {
       type: "union",
 

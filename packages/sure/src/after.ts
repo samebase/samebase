@@ -1,5 +1,6 @@
 import { sure, bad } from "./core.ts";
-import type { Sure, MetaObj, InferBad, InferGood, InferInput } from "./core.ts";
+import type { Sure, AnySure, MayAsync, MetaObj, InferBad, InferGood, InferInput } from "./core.ts";
+import { mapResult } from "./async.ts";
 
 /**
 A common use-case is to first validate that a value is a string.
@@ -13,8 +14,8 @@ If it returns a good value, then the new @see second function will be run.
 
 export function after<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-  TFirst extends Sure<unknown, unknown, any>,
-  TSecond extends Sure<unknown, unknown, InferGood<TFirst>>,
+  TFirst extends AnySure<any>,
+  TSecond extends AnySure<InferGood<TFirst>>,
 >(
   first: TFirst,
   second: TSecond,
@@ -26,22 +27,19 @@ export function after<
     type: "after";
     first: typeof first;
     second: typeof second;
-  }>
+  }>,
+  MayAsync<TFirst | TSecond>
 > {
-  // @ts-expect-error TODO: check
+  // @ts-expect-error Child results determine the conditional return and inferred tuple payloads.
   return sure(
-    (value) => {
-      const [good, out] = first(value);
+    (value) =>
+      mapResult(first(value), ([good, out]) => {
+        if (good) {
+          return second(out);
+        }
 
-      if (good) {
-        return second(
-          // @ts-expect-error TODO: check
-          out,
-        );
-      }
-
-      return bad(out);
-    },
+        return bad(out);
+      }),
     {
       type: "after",
       first,

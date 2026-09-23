@@ -78,17 +78,7 @@ describe("recursive", () => {
     assertEqual<
       InferredMeta,
       MetaObj<{
-        baseObj: Sure<
-          {
-            name?: "not string";
-            children?: typeof RecurseSymbol;
-          },
-          {
-            name: string;
-            children: typeof RecurseSymbol;
-          },
-          unknown
-        >;
+        baseObj: typeof baseObj;
         childParser: (
           surer: Sure<
             {
@@ -99,7 +89,9 @@ describe("recursive", () => {
               name: string;
               children: typeof RecurseSymbol;
             },
-            unknown
+            unknown,
+            MetaNever | MetaObj,
+            boolean
           >,
         ) => Sure<
           (
@@ -113,7 +105,18 @@ describe("recursive", () => {
             name: string;
             children: typeof RecurseSymbol;
           }[],
-          unknown
+          unknown,
+          MetaObj<{
+            type: "array";
+            schema: Sure<
+              InferBad<typeof baseObj>,
+              InferGood<typeof baseObj>,
+              unknown,
+              MetaNever | MetaObj,
+              boolean
+            >;
+          }>,
+          boolean
         >;
       }>
     >(true);
@@ -125,7 +128,8 @@ describe("recursive", () => {
         InferredBad,
         InferredGood,
         InferredInput,
-        InferredMeta
+        InferredMeta,
+        boolean
       >
     >(true);
 

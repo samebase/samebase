@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
 // Copied from Zod
 // TODO: review all the types
 export type Primitive =
@@ -34,7 +33,18 @@ export type Sure<
   TInput = unknown,
   //
   TMeta extends MetaNever | MetaObj = MetaNever | MetaObj,
-> = ((value: TInput) => Good<TGood> | Bad<TBad>) & TMeta;
+  TAsync extends boolean = false,
+> = ((value: TInput) => Resolve<Unsure<TBad, TGood>, TAsync>) & TMeta;
+
+export type Resolve<T, TAsync extends boolean> = TAsync extends true ? Promise<Awaited<T>> : T;
+export type MaybePromise<T> = T | Promise<T>;
+export type AnySure<TInput = never> = Sure<unknown, unknown, TInput, MetaNever | MetaObj, boolean>;
+
+type PromiseMode<T> = T extends Promise<unknown> ? true : false;
+export type InferAsync<T extends AnySure> = PromiseMode<ReturnType<T>>;
+
+/** A composite can skip its async children, so it can still return synchronously. */
+export type MayAsync<T extends AnySure> = true extends InferAsync<T> ? boolean : false;
 
 /**
 Returns the exact function back.
@@ -51,16 +61,16 @@ Check the `sure.ts` version to check the types
 @example Check playground.ts to hover over variables
  */
 
-export function sure<TGood, TBad, TInput, TMeta>(
-  insure: Sure<TBad, TGood, TInput>,
+export function sure<TInput, TResult extends MaybePromise<Unsure<unknown, unknown>>, TMeta>(
+  insure: (value: TInput) => TResult,
   meta: TMeta,
-): Sure<TBad, TGood, TInput, MetaObj<TMeta>> {
+): ((value: TInput) => TResult) & MetaObj<TMeta> {
   return Object.assign(insure, { meta });
 }
 
-export function pure<TGood, TBad, TInput>(
-  insure: Sure<TBad, TGood, TInput, MetaNever>,
-): Sure<TBad, TGood, TInput, MetaNever> {
+export function pure<TInput, TResult extends MaybePromise<Unsure<unknown, unknown>>>(
+  insure: ((value: TInput) => TResult) & MetaNever,
+): ((value: TInput) => TResult) & MetaNever {
   return insure;
 }
 
@@ -86,62 +96,15 @@ export type Unsure<
 export type Good<T> = readonly [true, T];
 export type Bad<T> = readonly [false, T];
 
-export type InferBad<
-  // Add the Sure constraint
-  T extends Sure<
-    unknown,
-    unknown,
-    // Input issue
-    any,
-    MetaObj | MetaNever
-  >,
-> = //
-  T extends (...args: any) => infer COutput //
-    ? COutput extends readonly [false, infer CGood] //
-      ? CGood
-      : never
-    : never;
+export type InferBad<T extends AnySure> = Extract<Awaited<ReturnType<T>>, Bad<unknown>>[1];
 
-export type InferGood<
-  // Add the Sure constraint
-  T extends Sure<
-    unknown,
-    unknown,
-    // Input issue
-    any,
-    MetaObj | MetaNever
-  >,
-> = //
-  T extends (...args: any) => infer COutput //
-    ? COutput extends readonly [true, infer CGood] //
-      ? CGood
-      : never
-    : never;
+export type InferGood<T extends AnySure> = Extract<Awaited<ReturnType<T>>, Good<unknown>>[1];
 
-export type InferInput<
-  T extends Sure<
-    unknown,
-    unknown,
-    // Input issue
-    any,
-    MetaObj | MetaNever
-  >,
-> = //
-  T extends Sure<
-    unknown,
-    unknown,
-    // Input issue
-    infer CFrom,
-    MetaObj | MetaNever
-  >
-    ? //
-      //
-      CFrom
-    : never;
+export type InferInput<T extends AnySure> = Parameters<T>[0];
 
-export type InferMeta<
-  T extends Sure<unknown, unknown, any, {}>,
-> = //
-  T extends Sure<unknown, unknown, any, infer CMeta> //
-    ? CMeta
-    : {};
+export type InferMeta<T extends AnySure> =
+  T extends MetaObj<infer TMeta>
+    ? MetaObj<TMeta>
+    : T extends MetaNever
+      ? MetaNever
+      : MetaNever | MetaObj;

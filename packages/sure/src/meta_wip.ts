@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions -- type-level scratch */
 /* eslint-disable @typescript-eslint/no-explicit-any -- type-level scratch */
-import type { Sure } from "./core.ts";
+import type { AnySure, MetaObj, Sure } from "./core.ts";
 import { object } from "./object.ts";
 import { objMapEntries } from "./utils.ts";
 import type { PrettifyRec } from "./utils.ts";
@@ -55,7 +55,7 @@ export type InferJustMetaOld<T
 export type InferJustMeta<
   T,
   // extends Sure<unknown, unknown, any, {}>
-> = T extends Sure<unknown, unknown, any, { meta: infer Meta }>
+> = T extends MetaObj<infer Meta>
   ? // for objects
     Meta extends {
       type: 'object'
@@ -89,7 +89,7 @@ export type InferJustMeta<
     // Both will be extracted as `undefined`
     undefined
 
-export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
+export function justMeta<TSchema extends AnySure>(
   insure: TSchema,
 ): PrettifyRec<InferJustMeta<TSchema>> {
   // object.getMeta(insure) -> if not object -> null

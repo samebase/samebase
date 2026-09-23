@@ -1,12 +1,8 @@
 import { sure, bad, good } from "./core.ts";
-import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
+import type { Sure, AnySure, MayAsync, InferBad, InferGood, MetaObj } from "./core.ts";
+import { forEach, mapResult } from "./async.ts";
 
-export function array<
-  //
-  TPropFail,
-  TPropGood,
-  TSchema extends Sure<TPropFail, TPropGood, unknown, MetaObj | MetaNever>,
->(
+export function array<TSchema extends AnySure<unknown>>(
   schema: TSchema,
 ): Sure<
   //
@@ -17,7 +13,8 @@ export function array<
     type: "array";
 
     schema: TSchema;
-  }>
+  }>,
+  MayAsync<TSchema>
 > {
   const struct = sure(
     (value) => {
@@ -26,30 +23,27 @@ export function array<
       }
 
       let atLeastOneBad = false;
-      let bads = [];
-      let goods = [];
+      const bads: unknown[] = [];
+      const goods: unknown[] = [];
 
-      for (const elem of value) {
-        const [good, unsure] = schema(elem);
+      return forEach(
+        value,
+        (elem) =>
+          mapResult(schema(elem), ([good, unsure]) => {
+            if (good) {
+              goods.push(unsure);
+              // This is necessary in order to maintain the same length
+              bads.push(undefined);
+            } else {
+              bads.push(unsure);
 
-        if (good) {
-          goods.push(unsure);
-          // This is necessary in order to maintain the same length
-          bads.push(undefined);
-        } else {
-          bads.push(unsure);
-
-          // Since the `bads` array can containe `undefined` values, it's more clear to
-          // have an imperative boolean to make the check
-          atLeastOneBad = true;
-        }
-      }
-
-      if (atLeastOneBad) {
-        return bad(bads);
-      }
-
-      return good(goods);
+              // Since the `bads` array can containe `undefined` values, it's more clear to
+              // have an imperative boolean to make the check
+              atLeastOneBad = true;
+            }
+          }),
+        () => (atLeastOneBad ? bad(bads) : good(goods)),
+      );
     },
     {
       type: "array",
@@ -58,6 +52,6 @@ export function array<
     },
   );
 
-  // @ts-expect-error Expected error
+  // @ts-expect-error Child results determine the conditional return and inferred array payloads.
   return struct;
 }
