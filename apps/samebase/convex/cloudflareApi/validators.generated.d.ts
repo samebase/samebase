@@ -49,6 +49,15 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/destinations/{slug}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destinations.delete"]>
     >;
+    "/accounts/{account_id}/workers/observability/issues/automations/{automationId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.automations.delete"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/groups/{groupId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.groups.delete"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/groups/{groupId}/members/{issueId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.groups.members.remove"]>
+    >;
     "/accounts/{account_id}/workers/observability/queries/{queryId}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.delete"]>
     >;
@@ -70,6 +79,12 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/subdomain": null;
     "/accounts/{account_id}/workers/workers/{worker_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["deleteWorker"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.delete"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments/{deployment_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.deployments.delete"]>
     >;
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/{version_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["deleteWorkerVersion"]>
@@ -119,6 +134,15 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/builds/workers/{script_tag}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["getWorkerBuild"]>
     >;
+    "/accounts/{account_id}/builds/workers/{script_tag}/previews": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["listWorkerPreviews"]>
+    >;
+    "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["getWorkerPreview"]>
+    >;
+    "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}/builds": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["listBuildsByPreview"]>
+    >;
     "/accounts/{account_id}/workers/account-settings": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-account-settings-fetch-worker-account-settings"]>
     >;
@@ -165,6 +189,24 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/destinations": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.list"]>
     >;
+    "/accounts/{account_id}/workers/observability/issues": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.list"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/{issueId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.get"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/{issueId}/occurrences": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.occurrences.list"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/automations": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.automations.list"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/automations/{automationId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.automations.get"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/summary": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.summary"]>
+    >;
     "/accounts/{account_id}/workers/observability/metricsexport": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["metricsExport.list"]>
     >;
@@ -179,12 +221,6 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/observability/usage": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["usage.get"]>
-    >;
-    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/rules": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["zone.observability.tracing.rules.get"]>
-    >;
-    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/settings": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["zone.observability.tracing.settings.get"]>
     >;
     "/accounts/{account_id}/workers/placement/regions": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-placement-list-regions"]>
@@ -246,11 +282,26 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/workers/{worker_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["getWorker"]>
     >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.list"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.get"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.deployments.list"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments/{deployment_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.deployments.get"]>
+    >;
     "/accounts/{account_id}/workers/workers/{worker_id}/versions": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["listWorkerVersions"]>
     >;
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/{version_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["getWorkerVersion"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["getLatestWorkerVersion"]>
     >;
     "/user/tokens/verify": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["user-api-tokens-verify-token"]>
@@ -267,6 +318,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/builds/workers/{script_tag}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["updateWorkerBuild"]>
     >;
+    "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["updateWorkerPreview"]>
+    >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-patch-namespace"]>
     >;
@@ -279,11 +333,11 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/destinations/{slug}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.update"]>
     >;
+    "/accounts/{account_id}/workers/observability/issues/{issueId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.patch"]>
+    >;
     "/accounts/{account_id}/workers/observability/queries/{queryId}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["queries.patch"]>
-    >;
-    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/settings": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["zone.observability.tracing.settings.update"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/script-settings": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-script-settings-patch-settings"]>
@@ -299,6 +353,12 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/workers/{worker_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["editWorker"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.edit"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments/latest": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.deployments.patchLatest"]>
     >;
     "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["patchLatestWorkerVersion"]>
@@ -323,6 +383,12 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["createDeployHook"]>
     >;
+    "/accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["migrateWorkerToPreviews"]>
+    >;
+    "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}/builds": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["createPreviewBuild"]>
+    >;
     "/accounts/{account_id}/workers/assets/upload": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-assets-upload"]>
     >;
@@ -332,8 +398,23 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/assets-upload-session": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-script-update-create-assets-upload-session"]>
     >;
+    "/accounts/{account_id}/workers/durable_objects/namespaces/{id}/query/v2": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["durable-objects-namespace-query"]>
+    >;
     "/accounts/{account_id}/workers/observability/destinations": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.create"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/{issueId}/notification-runs": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.notificationRuns.create"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/automations": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.automations.create"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/groups": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.groups.create"]>
+    >;
+    "/accounts/{account_id}/workers/observability/issues/groups/{groupId}/members": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.groups.members.add"]>
     >;
     "/accounts/{account_id}/workers/observability/metricsexport": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["metricsExport.upsert"]>
@@ -377,6 +458,12 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/workers": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["createWorker"]>
     >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.create"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.deployments.create"]>
+    >;
     "/accounts/{account_id}/workers/workers/{worker_id}/versions": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["createWorkerVersion"]>
     >;
@@ -414,8 +501,8 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/domains": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["workers.domains.update"]>
     >;
-    "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/rules": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<operations["zone.observability.tracing.rules.update"]>
+    "/accounts/{account_id}/workers/observability/issues/automations/{automationId}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["issues.automations.update"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-script-upload-worker-module"]>
@@ -440,6 +527,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/workers/workers/{worker_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["updateWorker"]>
+    >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["workers.previews.update"]>
     >;
   };
 };
