@@ -54,8 +54,8 @@ export interface paths {
     get: operations["accounts-list-accounts"];
     put?: never;
     /**
-     * Create an account
-     * @description Create an account (only available for tenant admins at this time)
+     * Create an Account
+     * @description Create an Account. To create the Account within an Organization, provide `unit.id` and omit `standalone`. To create a standalone Free Account, provide `standalone: true` and omit `unit`. Providing both fields is invalid. If you omit both fields, Cloudflare can determine the destination only when the User is an administrator of exactly one Organization. Cloudflare creates the Account in that Organization; otherwise, the request returns an error.
      */
     post: operations["account-creation"];
     delete?: never;
@@ -551,9 +551,97 @@ export interface paths {
     head?: never;
     /**
      * Update Worker build configuration
-     * @description Update the repository branch or production build settings associated with a Worker tag.
+     * @description Update the build configuration for a Worker script. Supports partial updates to git repository settings, production build settings, and Preview settings.
      */
     patch: operations["updateWorkerBuild"];
+    trace?: never;
+  };
+  "/accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Migrate worker to previews
+     * @description Migrate a Worker's legacy non-production trigger to Previews. The legacy build settings become the Previews base config and the legacy trigger is removed.
+     */
+    post: operations["migrateWorkerToPreviews"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/builds/workers/{script_tag}/previews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List previews
+     * @description List the Previews of a Worker with pagination.
+     */
+    get: operations["listWorkerPreviews"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get preview
+     * @description Retrieve a single Preview of a Worker, including the build settings it currently uses.
+     */
+    get: operations["getWorkerPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update preview
+     * @description Update a single Preview of a Worker. Supports partial updates to the tracked branch, the automation flags, and the build settings.
+     */
+    patch: operations["updateWorkerPreview"];
+    trace?: never;
+  };
+  "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}/builds": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List builds by preview
+     * @description List the builds of a single Preview with pagination.
+     */
+    get: operations["listBuildsByPreview"];
+    put?: never;
+    /**
+     * Create preview build
+     * @description Trigger a build for a single Preview.
+     */
+    post: operations["createPreviewBuild"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/accounts/{account_id}/workers/account-settings": {
@@ -1015,6 +1103,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/{account_id}/workers/durable_objects/namespaces/{id}/query/v2": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Query a Durable Object
+     * @description Executes one or more SQL queries against a Durable Object.
+     */
+    post: operations["durable-objects-namespace-query"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}/workers/observability/destinations": {
     parameters: {
       query?: never;
@@ -1067,6 +1175,275 @@ export interface paths {
      * @description Update an existing Workers Observability Telemetry Destination.
      */
     patch: operations["destination.update"];
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * List detected issues
+     * @description List detected issues.
+     */
+    get: operations["issues.list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/{issueId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * Get an issue
+     * @description Retrieve an issue.
+     */
+    get: operations["issues.get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Modify an issue
+     * @description Modify an issue status or group title.
+     */
+    patch: operations["issues.patch"];
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/{issueId}/notification-runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Notify about an issue
+     * @description Send the issue to one ANS policy, or every matching Real-Time Issue policy when no policy ID is provided.
+     */
+    post: operations["issues.notificationRuns.create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/{issueId}/occurrences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * List issue occurrences
+     * @description List the retained error occurrences grouped into an issue, newest first.
+     */
+    get: operations["issues.occurrences.list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/automations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * List issue automations
+     * @description List account and service issue automations.
+     */
+    get: operations["issues.automations.list"];
+    put?: never;
+    /**
+     * Create an issue automation
+     * @description Create an account or service issue automation.
+     */
+    post: operations["issues.automations.create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/automations/{automationId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * Get an issue automation
+     * @description Retrieve an issue automation.
+     */
+    get: operations["issues.automations.get"];
+    /**
+     * Update an issue automation
+     * @description Replace an issue automation configuration.
+     */
+    put: operations["issues.automations.update"];
+    post?: never;
+    /**
+     * Delete an issue automation
+     * @description Delete an issue automation while preserving its historical runs.
+     */
+    delete: operations["issues.automations.delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create an issue group
+     * @description Group two or more issues under a new customer-defined identity.
+     */
+    post: operations["issues.groups.create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/groups/{groupId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Dissolve an issue group
+     * @description Dissolve an issue group and restore its members as standalone issues.
+     */
+    delete: operations["issues.groups.delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/groups/{groupId}/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add issue group members
+     * @description Add one or more ungrouped issues to an existing issue group.
+     */
+    post: operations["issues.groups.members.add"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/groups/{groupId}/members/{issueId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove an issue group member
+     * @description Remove an issue from a group, dissolving the group when fewer than two members remain.
+     */
+    delete: operations["issues.groups.members.remove"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/observability/issues/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * Summarize detected issues
+     * @description Retrieve aggregate issue counts for the account.
+     */
+    get: operations["issues.summary"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/accounts/{account_id}/workers/observability/metricsexport": {
@@ -1336,60 +1713,6 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
-    trace?: never;
-  };
-  "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/rules": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-      };
-      cookie?: never;
-    };
-    /**
-     * View zone trace rules
-     * @description Retrieve the ordered sampling overrides for a zone's managed Cloudflare Traces ruleset.
-     */
-    get: operations["zone.observability.tracing.rules.get"];
-    /**
-     * Replace zone trace rules
-     * @description Replace all sampling overrides in a zone's managed Cloudflare Traces ruleset. Rules are evaluated in the supplied order.
-     */
-    put: operations["zone.observability.tracing.rules.update"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/accounts/{account_id}/workers/observability/zones/{zone_id}/observability/tracing/settings": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-      };
-      cookie?: never;
-    };
-    /**
-     * View zone tracing settings
-     * @description Retrieve the zone-level Cloudflare Traces settings.
-     */
-    get: operations["zone.observability.tracing.settings.get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update zone tracing settings
-     * @description Update the zone-level Cloudflare Traces settings.
-     */
-    patch: operations["zone.observability.tracing.settings.update"];
     trace?: never;
   };
   "/accounts/{account_id}/workers/placement/regions": {
@@ -2015,6 +2338,130 @@ export interface paths {
     patch: operations["editWorker"];
     trace?: never;
   };
+  "/accounts/{account_id}/workers/workers/{worker_id}/previews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Previews
+     * @description List all Previews for a Worker.
+     */
+    get: operations["workers.previews.list"];
+    put?: never;
+    /**
+     * Create Preview
+     * @description Create a new Preview for a Worker.
+     */
+    post: operations["workers.previews.create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Preview
+     * @description Get details about a specific Preview.
+     */
+    get: operations["workers.previews.get"];
+    /**
+     * Update Preview
+     * @description Perform a complete replacement of a Preview, where omitted properties are set to defaults.
+     */
+    put: operations["workers.previews.update"];
+    post?: never;
+    /**
+     * Delete Preview
+     * @description Delete a Preview.
+     */
+    delete: operations["workers.previews.delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Edit Preview
+     * @description Perform a partial update on a Preview, where omitted properties are left unchanged.
+     */
+    patch: operations["workers.previews.edit"];
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Preview Deployments
+     * @description List all deployments for a Preview.
+     */
+    get: operations["workers.previews.deployments.list"];
+    put?: never;
+    /**
+     * Create Preview Deployment
+     * @description Create a new deployment for a Preview.
+     */
+    post: operations["workers.previews.deployments.create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments/{deployment_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Preview Deployment
+     * @description Get details about a specific preview deployment.
+     */
+    get: operations["workers.previews.deployments.get"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete Preview Deployment
+     * @description Delete a preview deployment.
+     */
+    delete: operations["workers.previews.deployments.delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}/deployments/latest": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Patch Latest Preview Deployment
+     * @description Only `/deployments/latest` is supported. Creates a new preview deployment by applying a JSON Merge Patch (RFC 7396) to the latest deployment. Patching a specific deployment ID is not supported. Omitted fields are inherited from the latest deployment. Preview base config is used for the first deployment.
+     */
+    patch: operations["workers.previews.deployments.patchLatest"];
+    trace?: never;
+  };
   "/accounts/{account_id}/workers/workers/{worker_id}/versions": {
     parameters: {
       query?: never;
@@ -2070,7 +2517,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * Get Latest Worker Version
+     * @description Get details about the most recently created Worker version.
+     */
+    get: operations["getLatestWorkerVersion"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2222,12 +2673,17 @@ export interface components {
        */
       success: false;
     };
-    /** Create account */
+    /** Create Account */
     "iam_create-account": {
       /** @description Account name */
       name: string;
+      /**
+       * @description Set to `true` and omit `unit` to create a standalone Free Account. If provided, this field must be `true`.
+       * @enum {boolean}
+       */
+      standalone?: true;
       type?: components["schemas"]["iam_account-type"];
-      /** @description information related to the tenant unit, and optionally, an id of the unit to create the account on. see https://developers.cloudflare.com/tenant/how-to/manage-accounts/ */
+      /** @description Information related to the tenant unit. Provide its ID and omit `standalone` to create the Account within an Organization. See https://developers.cloudflare.com/tenant/how-to/manage-accounts/. */
       unit?: {
         /**
          * @description Tenant unit ID
@@ -2247,16 +2703,17 @@ export interface components {
      */
     builds_account_id: string;
     builds_APIResponse: {
-      errors: {
-        /** @example 12000 */
-        code?: number;
-        /** @example Not found */
-        message?: string;
-      }[];
+      errors: components["schemas"]["builds_ApiError"][];
       messages: string[];
       result_info?: components["schemas"]["builds_PaginationInfo"];
       /** @example true */
       success: boolean;
+    };
+    builds_ApiError: {
+      /** @example 12000 */
+      code?: number;
+      /** @example Not found */
+      message: string;
     };
     builds_PaginationInfo: {
       /** @example 25 */
@@ -2280,12 +2737,7 @@ export interface components {
       has_reached_build_minutes_limit?: boolean | null;
     };
     builds_ErrorResponse: {
-      errors: {
-        /** @example 12000 */
-        code?: number;
-        /** @example Not found */
-        message: string;
-      }[];
+      errors: components["schemas"]["builds_ApiError"][];
       messages: string[];
       result: Record<string, unknown> | null;
       /** @example false */
@@ -2306,10 +2758,21 @@ export interface components {
       build_trigger_metadata?: components["schemas"]["builds_BuildTriggerMetadataResponse"];
       build_uuid?: components["schemas"]["builds_build_uuid"];
       created_on?: components["schemas"]["builds_created_on"];
+      deploy_hook?: {
+        deploy_hook_name?: components["schemas"]["builds_deploy_hook_name"];
+      } | null;
       /** Format: date-time */
       initializing_on?: string | null;
       modified_on?: components["schemas"]["builds_modified_on"];
+      /**
+       * Format: uri
+       * @description URL serving the Worker version this build deployed. Only returned by Get build by UUID, and only once the build has produced a preview artifact.
+       * @example https://abc123-my-worker.my-subdomain.workers.dev
+       */
+      preview_url?: string;
       pull_request?: {
+        /** Format: date-time */
+        closed_on?: string | null;
         created_on?: components["schemas"]["builds_created_on"];
         /**
          * Format: uri
@@ -2423,6 +2886,11 @@ export interface components {
     builds_build_uuid: string;
     /** Format: date-time */
     builds_created_on: string;
+    /**
+     * @description Deploy hook name (1-58 characters).
+     * @example Production Deploy Hook
+     */
+    builds_deploy_hook_name: string;
     /** Format: date-time */
     builds_modified_on: string;
     /**
@@ -2693,10 +3161,6 @@ export interface components {
       /** @description Existing text in the target file to replace with content. */
       replace?: string;
     };
-    builds_InsertBuildResponse: {
-      build_uuid?: components["schemas"]["builds_build_uuid"];
-      created_on?: components["schemas"]["builds_created_on"];
-    };
     /**
      * @example {
      *       "API_KEY": {
@@ -2755,6 +3219,12 @@ export interface components {
     /** @description Request body for creating a Worker build configuration. */
     builds_CreateWorkerRequest: {
       git_repository: components["schemas"]["builds_CreateWorkerGitRepositoryInput"];
+      previews_base_config: components["schemas"]["builds_CreateWorkerBuildSettingsInput"];
+      /**
+       * @description Whether Previews are enabled for this Worker
+       * @example false
+       */
+      previews_enabled: boolean;
       production_settings: components["schemas"]["builds_CreateWorkerBuildSettingsInput"];
       script_tag: components["schemas"]["builds_external_script_id"];
     };
@@ -2813,9 +3283,15 @@ export interface components {
       /** @default / */
       root_directory: components["schemas"]["builds_root_directory"];
     };
-    /** @description Worker build configuration including git repository linkage and production settings */
+    /** @description Worker build configuration including git repository linkage, production settings, and Preview settings */
     builds_WorkerResponse: {
       git_repository?: components["schemas"]["builds_WorkerGitRepository"];
+      previews_base_config?: components["schemas"]["builds_WorkerBuildSettings"];
+      /**
+       * @description Whether Previews are enabled for this Worker
+       * @example false
+       */
+      previews_enabled?: boolean;
       production_settings?: components["schemas"]["builds_WorkerBuildSettings"];
       script_tag?: components["schemas"]["builds_external_script_id"];
     };
@@ -2843,6 +3319,11 @@ export interface components {
       environment_variables?: components["schemas"]["builds_EnvironmentVariablesResponse"];
       path_excludes?: components["schemas"]["builds_path_excludes"];
       path_includes?: components["schemas"]["builds_path_includes"];
+      /**
+       * @description Deploy command proposed for migrating this Worker to Previews. Only returned on previews_base_config, and only while the Worker still has a legacy non-production trigger to migrate. Null when the existing deploy command cannot be rewritten automatically, in which case migrate_to_previews needs an explicit deploy_command.
+       * @example npx wrangler preview
+       */
+      proposed_deploy_command?: string | null;
       root_directory?: components["schemas"]["builds_root_directory"];
     };
     /**
@@ -2861,11 +3342,6 @@ export interface components {
       } | null;
       modified_on?: components["schemas"]["builds_modified_on"];
     };
-    /**
-     * @description Deploy hook name (1-58 characters).
-     * @example Production Deploy Hook
-     */
-    builds_deploy_hook_name: string;
     /**
      * Format: uuid
      * @description Deploy hook UUID.
@@ -2893,6 +3369,12 @@ export interface components {
          */
         branch?: string;
       };
+      previews_base_config?: components["schemas"]["builds_UpdateWorkerBuildSettingsInput"];
+      /**
+       * @description Enable or disable Previews for this Worker. Enabling requires previews_base_config to already exist or to be sent in the same request.
+       * @example true
+       */
+      previews_enabled?: boolean;
       production_settings?: components["schemas"]["builds_UpdateWorkerBuildSettingsInput"];
     };
     /** @description Partial build settings for updating a Worker build configuration */
@@ -2912,6 +3394,50 @@ export interface components {
       path_excludes?: components["schemas"]["builds_path_excludes"];
       path_includes?: components["schemas"]["builds_path_includes"];
       root_directory?: components["schemas"]["builds_root_directory"];
+    };
+    /** @description Request body for migrating a Worker's legacy non-production trigger to Previews. */
+    builds_MigrateToPreviewsRequest: {
+      /**
+       * @description Deploy command for the migrated Preview settings. Omit it to have the existing 'wrangler versions upload' command rewritten to 'wrangler preview' automatically, which fails with 400 when the existing command cannot be rewritten.
+       * @example npx wrangler preview
+       */
+      deploy_command?: string;
+    };
+    /** @description A single Preview of a Worker, without its build settings. */
+    builds_PreviewSummary: {
+      auto_build?: components["schemas"]["builds_preview_auto_build"];
+      auto_delete?: components["schemas"]["builds_preview_auto_delete"];
+      branch?: components["schemas"]["builds_branch"];
+      preview_id?: components["schemas"]["builds_external_script_id"];
+    };
+    /**
+     * @description Whether pushes to the git branch build this Preview. Deploy hooks, manual builds, and retries run regardless of this setting.
+     * @example true
+     */
+    builds_preview_auto_build: boolean;
+    /**
+     * @description Whether deleting the git branch also deletes this Preview.
+     * @example true
+     */
+    builds_preview_auto_delete: boolean;
+    /** @description A single Preview of a Worker, with the build settings it currently uses. */
+    builds_PreviewResponse: {
+      auto_build?: components["schemas"]["builds_preview_auto_build"];
+      auto_delete?: components["schemas"]["builds_preview_auto_delete"];
+      branch?: components["schemas"]["builds_branch"];
+      preview_id?: components["schemas"]["builds_external_script_id"];
+      settings?: components["schemas"]["builds_WorkerBuildSettings"];
+    };
+    /** @description Request body for updating a Preview. At least one field must be provided, and omitted fields are left unchanged. */
+    builds_UpdatePreviewRequest: {
+      auto_build?: components["schemas"]["builds_preview_auto_build"];
+      auto_delete?: components["schemas"]["builds_preview_auto_delete"];
+      /**
+       * @description Git branch this Preview tracks
+       * @example feature-branch
+       */
+      branch?: string;
+      settings?: components["schemas"]["builds_UpdateWorkerBuildSettingsInput"];
     };
     /**
      * @description Identifier.
@@ -3097,7 +3623,7 @@ export interface components {
          */
         name?: string;
       }[];
-      observability?: components["schemas"]["workers_observability"];
+      observability?: components["schemas"]["workers_observability-2"];
       placement?: components["schemas"]["workers_placement_info"];
       placement_mode?: components["schemas"]["workers_placement_mode"] & string;
       placement_status?: components["schemas"]["workers_placement_status"] & string;
@@ -3422,7 +3948,7 @@ export interface components {
      */
     workers_logpush: boolean;
     /** @description Observability settings for the Worker. */
-    workers_observability: {
+    "workers_observability-2": {
       /**
        * @description Whether observability is enabled for the Worker.
        * @example true
@@ -3691,7 +4217,7 @@ export interface components {
       files?: string[];
       /** @description JSON-encoded metadata about the uploaded parts and Worker configuration. */
       metadata: {
-        assets?: components["schemas"]["workers_assets"];
+        assets?: components["schemas"]["workers_assets-2"];
         bindings?: components["schemas"]["workers_bindings"];
         /**
          * @description Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
@@ -3734,7 +4260,7 @@ export interface components {
           | components["schemas"]["workers_single_step_migrations"]
           | components["schemas"]["workers_multiple_step_migrations"]
         >;
-        observability?: components["schemas"]["workers_observability"];
+        observability?: components["schemas"]["workers_observability-2"];
         /**
          * @description The list of npm packages that were installed and used when this Worker
          *     version was built.
@@ -3764,7 +4290,7 @@ export interface components {
       };
     };
     /** @description Configuration for assets within a Worker. */
-    workers_assets: {
+    "workers_assets-2": {
       /** @description Configuration for assets within a Worker. */
       config?: {
         /**
@@ -3782,6 +4308,12 @@ export interface components {
          *     /news/* /blog/:splat
          */
         _redirects?: string;
+        /**
+         * @description The public URL path prefix under which assets are served. A null request value resets it to `/`; responses represent the root as `/`. All versions in a gradual deployment must use the same canonical value. To change it, first deploy the version containing the change at 100%.
+         * @default /
+         * @example /docs/
+         */
+        base_path: string | null;
         /**
          * @description Determines the redirects and rewrites of requests for HTML content.
          * @example auto-trailing-slash
@@ -3842,6 +4374,7 @@ export interface components {
       | components["schemas"]["workers_binding_kind_mtls_certificate"]
       | components["schemas"]["workers_binding_kind_plain_text"]
       | components["schemas"]["workers_binding_kind_pipelines"]
+      | components["schemas"]["workers_binding_kind_k2"]
       | components["schemas"]["workers_binding_kind_queue"]
       | components["schemas"]["workers_binding_kind_ratelimit"]
       | components["schemas"]["workers_binding_kind_r2_bucket"]
@@ -4152,6 +4685,20 @@ export interface components {
        * @enum {string}
        */
       type: "pipelines";
+    };
+    /** @description A K2 stream binding. Available only to accounts enabled for K2. */
+    workers_binding_kind_k2: {
+      name: components["schemas"]["workers_binding_name"];
+      /**
+       * @description ID of a K2 stream owned by the account deploying the Worker.
+       * @example 0123456789abcdef0123456789abcdef
+       */
+      stream: string;
+      /**
+       * @description The kind of resource that the binding provides. (enum property replaced by openapi-typescript)
+       * @enum {string}
+       */
+      type: "k2";
     };
     workers_binding_kind_queue: {
       name: components["schemas"]["workers_binding_name"];
@@ -4818,7 +5365,7 @@ export interface components {
         | components["schemas"]["workers_single_step_migrations"]
         | components["schemas"]["workers_multiple_step_migrations"]
       >;
-      observability?: components["schemas"]["workers_observability"];
+      observability?: components["schemas"]["workers_observability-2"];
       placement?: components["schemas"]["workers_placement_info_no_status"] &
         Record<string, unknown>;
       tags?: components["schemas"]["workers_tags"] & string[];
@@ -4998,6 +5545,103 @@ export interface components {
      * @example AAAAANuhDN7SjacTnSVsDu3WW1Lvst6dxJGTjRY5BhxPXdf6L6uTcpd_NVtjhn11OUYRsVEykxoUwF-JQU4dn6QylZSKTOJuG0indrdn_MlHpMRtsxgXjs-RPdHYIVm3odE_uvEQ_dTQGFm8oikZMohns34DLBgrQpc
      */
     workers_cursor: string;
+    "workers_query-by-id": {
+      durable_object_id: string;
+      queries: components["schemas"]["workers_query"][];
+    };
+    workers_query: {
+      params?: unknown[];
+      sql: string;
+    };
+    "workers_query-by-name": {
+      durable_object_name: string;
+      /** @enum {string} */
+      jurisdiction: "fedramp" | "eu" | "none";
+      queries: components["schemas"]["workers_query"][];
+    };
+    "workers-observability_issue_occurrence": {
+      context?: {
+        account?: string;
+        session?: string;
+        user?: string;
+      };
+      error: {
+        handled: boolean;
+        /** @enum {string} */
+        mechanism:
+          | "structured-log"
+          | "error-log"
+          | "stack-log"
+          | "http-status"
+          | "exception"
+          | "outcome";
+        message: string;
+        name: string;
+        signature: string;
+        stack?: string;
+      };
+      /** @description Unique occurrence ID. */
+      id: string;
+      invocation: {
+        batchSize?: number;
+        cron?: string;
+        /** @description Worker invocation request ID. */
+        id: string;
+        jsrpcMethod?: string;
+        mailFrom?: string;
+        method?: string;
+        path?: string;
+        queue?: string;
+        rawSize?: number;
+        rayId?: string;
+        rcptTo?: string;
+        scheduledTime?: number;
+        spanId?: string;
+        statusCode?: number;
+        traceId: string;
+        type: string;
+        /** @description Redacted request URL without query parameters. */
+        url?: string;
+        websocketCloseCode?: number;
+        websocketEvent?: string;
+      };
+      request?: {
+        headers: {
+          [key: string]: string;
+        };
+      };
+      /** @description Occurrence timestamp as Unix epoch milliseconds. */
+      timestamp: number;
+      trail: (
+        | {
+            level: string;
+            message: string;
+            timestamp: number;
+            /** @enum {string} */
+            type: "log";
+          }
+        | {
+            name: string;
+            ongoing: boolean;
+            parentSpanId?: string;
+            spanId: string;
+            timestamp: number;
+            /** @enum {string} */
+            type: "span";
+          }
+      )[];
+      worker: {
+        dispatchNamespace?: string;
+        entrypoint?: string;
+        executionModel: string;
+        scriptName: string;
+        scriptTags: string[];
+        scriptVersion?: {
+          id: string;
+          tag?: string;
+        };
+      };
+    };
     "workers-observability_query": {
       /** @description If the query wasn't explcitly saved */
       adhoc: boolean;
@@ -5462,7 +6106,7 @@ export interface components {
               name?: string;
               slug?: string;
             };
-            requestId: string;
+            requestId?: string;
             scriptName: string;
             scriptVersion?: {
               id?: string;
@@ -5508,7 +6152,7 @@ export interface components {
               name?: string;
               slug?: string;
             };
-            requestId: string;
+            requestId?: string;
             scriptName: string;
             scriptVersion?: {
               id?: string;
@@ -5649,10 +6293,25 @@ export interface components {
       source: $Read<string>;
       /** @enum {string} */
       strategy: "percentage";
+      /**
+       * @description Worker versions included in this deployment. Each object must contain a `version_id` UUID and a `percentage`; percentages across all objects must total 100. In the `cf` CLI, pass the entire array as one JSON value to `--versions`, either inline, for example `--versions '[{"version_id":"023e105f-2a42-4f8b-a1c1-73f6a2a30c0f","percentage":100}]'`, or from a JSON file with `--versions @versions.json`.
+       * @example [
+       *       {
+       *         "percentage": 100,
+       *         "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f"
+       *       }
+       *     ]
+       */
       versions: {
-        /** @example 100 */
+        /**
+         * @description Percentage of traffic served by this version.
+         * @example 100
+         */
         percentage: number;
-        /** Format: uuid */
+        /**
+         * Format: uuid
+         * @description Identifier of the Worker Version.
+         */
         version_id: string;
       }[];
     };
@@ -5667,7 +6326,7 @@ export interface components {
     };
     "workers_script-settings-item": {
       logpush?: components["schemas"]["workers_logpush"];
-      observability?: components["schemas"]["workers_observability"] &
+      observability?: components["schemas"]["workers_observability-2"] &
         (Record<string, unknown> | null);
       tags?: components["schemas"]["workers_tags"];
       /** @description List of Workers that will consume logs from the attached Worker. */
@@ -5718,7 +6377,7 @@ export interface components {
         | components["schemas"]["workers_single_step_migrations"]
         | components["schemas"]["workers_multiple_step_migrations"]
       >;
-      observability?: components["schemas"]["workers_observability"];
+      observability?: components["schemas"]["workers_observability-2"];
       placement?: components["schemas"]["workers_placement_info_no_status"] &
         Record<string, unknown>;
       tags?: components["schemas"]["workers_tags"] & string[];
@@ -6110,6 +6769,8 @@ export interface components {
           propagation_policy?: "authenticated" | "accept" | null;
         };
       };
+      /** @description Template configuration used when creating new Previews for this Worker. */
+      previews_base_config?: components["schemas"]["workers_PreviewsBaseConfig"];
       /** @description Other resources that reference the Worker and depend on it existing. */
       references: $Read<{
         /** @description Other Workers that reference the Worker as an outbound for a dispatch namespace. */
@@ -6262,6 +6923,142 @@ export interface components {
        */
       updated_on: $Read<string>;
     };
+    workers_PreviewsBaseConfig: {
+      /** @description Cache options used when creating new Previews. */
+      cache_options?: components["schemas"]["workers_cache_options"];
+      /** @description Bindings used when creating new Previews, keyed by binding name. */
+      env?: components["schemas"]["workers_env"];
+      /** @description Resource limits enforced at runtime for newly created Previews. */
+      limits?: components["schemas"]["workers_limits"];
+      /** @description Whether logpush is enabled when creating new Previews. */
+      logpush?: boolean;
+      /** @description Observability settings used when creating new Previews. */
+      observability?: components["schemas"]["workers_observability"];
+      /** @description Placement configuration used when creating new Previews. */
+      placement?: components["schemas"]["workers_placement_info_no_status"];
+      /** @description Other Workers that should consume logs from newly created Previews. */
+      tail_consumers?: {
+        /**
+         * @description Name of the consumer Worker.
+         * @example my-tail-consumer
+         */
+        name: string;
+      }[];
+    };
+    /**
+     * @description Bindings attached to a Worker, keyed by binding name. `bindings`
+     *     carries the same information as an array of objects that each
+     *     name themselves, and an upload can use one form or the other.
+     * @example {
+     *       "MY_ENV_VAR": {
+     *         "text": "my_data",
+     *         "type": "plain_text"
+     *       }
+     *     }
+     */
+    workers_env: {
+      [key: string]: components["schemas"]["workers_env_binding_item"];
+    };
+    /**
+     * @description A single entry in the `env` map. An entry holds the same payload
+     *     as an entry of `bindings` without the `name` property, because
+     *     the map key supplies the name. See `binding_item` for the payload
+     *     of each binding kind.
+     */
+    workers_env_binding_item: {
+      /**
+       * @description The kind of resource that the binding provides.
+       * @example plain_text
+       */
+      type: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** @description Observability settings for the Worker. */
+    workers_observability: {
+      /**
+       * @description Whether observability is enabled for the Worker.
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * @description The sampling rate for observability. From 0 to 1 (1 = 100%, 0.1 = 10%).
+       * @default 1
+       * @example 1
+       */
+      head_sampling_rate: number;
+      /** @description Real-time Issues settings for the Worker. */
+      issues?: {
+        /**
+         * @description Whether real-time Issues are enabled for the Worker.
+         * @default false
+         */
+        enabled: boolean;
+      } | null;
+      /** @description Log settings for the Worker. */
+      logs?: {
+        /**
+         * @description A list of destinations where logs will be exported to.
+         * @default []
+         */
+        destinations: string[];
+        /**
+         * @description Whether logs are enabled for the Worker.
+         * @default false
+         */
+        enabled: boolean;
+        /**
+         * @description The sampling rate for logs. From 0 to 1 (1 = 100%, 0.1 = 10%).
+         * @default 1
+         * @example 1
+         */
+        head_sampling_rate: number;
+        /**
+         * @description Whether [invocation logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/#invocation-logs) are enabled for the Worker.
+         * @default true
+         */
+        invocation_logs: boolean;
+        /**
+         * @description Whether log persistence is enabled for the Worker.
+         * @default true
+         */
+        persist: boolean;
+      };
+      /**
+       * @description Whether query strings are removed from request URLs in logs and traces.
+       * @default false
+       */
+      redact_query_string: boolean;
+      /** @description Trace settings for the Worker. */
+      traces?: {
+        /**
+         * @description A list of destinations where traces will be exported to.
+         * @default []
+         */
+        destinations: string[];
+        /**
+         * @description Whether traces are enabled for the Worker.
+         * @default false
+         */
+        enabled: boolean;
+        /**
+         * @description The sampling rate for traces. From 0 to 1 (1 = 100%, 0.1 = 10%).
+         * @default 1
+         * @example 1
+         */
+        head_sampling_rate: number;
+        /**
+         * @description Whether trace persistence is enabled for the Worker.
+         * @default true
+         */
+        persist: boolean;
+        /**
+         * @description Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.
+         * @enum {string|null}
+         */
+        propagation_policy?: "authenticated" | "accept" | null;
+      };
+    };
     workers_ErrorAuth: {
       /**
        * @description Code indicating that the user is not authorized to perform this action.
@@ -6388,6 +7185,371 @@ export interface components {
       /** @description Message explaining that the Worker was not found. */
       message: string;
     };
+    workers_Preview: {
+      /**
+       * Format: date-time
+       * @description When the Preview was created.
+       */
+      created_on: $Read<string>;
+      /**
+       * Format: date-time
+       * @description When the Preview's most recent deployment was created. `null` if the Preview has never been deployed.
+       */
+      deployed_on?: $Read<string | null>;
+      /**
+       * @description Immutable ID of the Preview.
+       * @example 63bafce9179948688866bb22268eb1c6
+       */
+      id: $Read<string>;
+      /**
+       * @description Whether logpush is enabled for the Preview.
+       * @default false
+       */
+      logpush: boolean;
+      /**
+       * @description Human-readable name of the Preview.
+       * @example feature/my-branch
+       */
+      name: string;
+      /** @description Observability settings for the Preview. */
+      observability: {
+        /**
+         * @description Whether observability is enabled for the Preview.
+         * @default false
+         */
+        enabled: boolean;
+        /**
+         * @description The sampling rate for observability. From 0 to 1 (1 = 100%, 0.1 = 10%).
+         * @default 1
+         * @example 1
+         */
+        head_sampling_rate: number;
+        /** @description Real-time Issues settings for the Preview. */
+        issues?: {
+          /**
+           * @description Whether real-time Issues are enabled for the Preview.
+           * @default false
+           */
+          enabled: boolean;
+        } | null;
+        /** @description Log settings for the Preview. */
+        logs?: {
+          /**
+           * @description A list of destinations where logs will be exported to.
+           * @default []
+           */
+          destinations: string[];
+          /**
+           * @description Whether logs are enabled for the Preview.
+           * @default false
+           */
+          enabled: boolean;
+          /**
+           * @description The sampling rate for logs. From 0 to 1 (1 = 100%, 0.1 = 10%).
+           * @default 1
+           * @example 1
+           */
+          head_sampling_rate: number;
+          /**
+           * @description Whether invocation logs are enabled for the Preview.
+           * @default true
+           */
+          invocation_logs: boolean;
+          /**
+           * @description Whether log persistence is enabled for the Preview.
+           * @default true
+           */
+          persist: boolean;
+        };
+        /**
+         * @description Whether query strings are removed from request URLs in logs and traces.
+         * @default false
+         */
+        redact_query_string: boolean;
+        /** @description Trace settings for the Preview. */
+        traces?: {
+          /**
+           * @description A list of destinations where traces will be exported to.
+           * @default []
+           */
+          destinations: string[];
+          /**
+           * @description Whether traces are enabled for the Preview.
+           * @default false
+           */
+          enabled: boolean;
+          /**
+           * @description The sampling rate for traces. From 0 to 1 (1 = 100%, 0.1 = 10%).
+           * @default 1
+           * @example 1
+           */
+          head_sampling_rate: number;
+          /**
+           * @description Whether trace persistence is enabled for the Preview.
+           * @default true
+           */
+          persist: boolean;
+        };
+      };
+      /**
+       * @description Immutable URL-safe identifier for the Preview.
+       * @example feature-my-branch
+       */
+      slug: $Read<string>;
+      /**
+       * @description Tags associated with the Preview.
+       * @default []
+       * @example [
+       *       "my-team",
+       *       "my-preview"
+       *     ]
+       */
+      tags: string[];
+      /**
+       * @description Other Workers that should consume logs from the Preview.
+       * @default []
+       */
+      tail_consumers: {
+        /**
+         * @description Name of the consumer Worker.
+         * @example my-tail-consumer
+         */
+        name: string;
+      }[];
+      /**
+       * Format: date-time
+       * @description When the Preview was most recently updated.
+       */
+      updated_on: $Read<string>;
+      /** @description Routable URLs for the Preview. */
+      urls: $Read<string[]>;
+    };
+    workers_PreviewDeployment: components["schemas"]["workers_PreviewDeploymentRequest"] & {
+      /** @description Email of the user who created the deployment. May be empty for deployments created using an API token. */
+      author_email: $Read<string>;
+      /** @description Identifier of the user who created the deployment. */
+      author_id: $Read<string>;
+      /**
+       * Format: date-time
+       * @description When the deployment was created.
+       */
+      created_on: $Read<string>;
+      /**
+       * @description Summary of the declarative exports reconciliation that ran on
+       *     this upload. Populated only when the uploaded metadata included
+       *     an `exports` block. Durable Object entries drive reconciliation;
+       *     `type: worker` entries do not contribute to this summary.
+       */
+      exports_reconciliation?: components["schemas"]["workers_exports_reconciliation_result"];
+      /**
+       * Format: uuid
+       * @description Deployment identifier.
+       */
+      id: $Read<string>;
+      /**
+       * @description Durable Object migration tag. Omitted if the Preview does not use Durable Objects.
+       * @example v1
+       */
+      migration_tag?: $Read<string>;
+      /** @description The integer deployment number, starting from one. */
+      number: $Read<number>;
+      /**
+       * @description The client used to create the deployment.
+       * @example wrangler
+       */
+      source?: $Read<string>;
+      /**
+       * @description Time in milliseconds spent on Worker startup.
+       * @example 10
+       */
+      startup_time_ms?: $Read<number>;
+      /**
+       * @description All routable URLs that always point to this deployment.
+       * @example [
+       *       "https://9387e76d-my-preview.my-subdomain.workers.dev"
+       *     ]
+       */
+      urls: $Read<string[]>;
+    };
+    /** @description Preview deployment configuration with base64-encoded modules. */
+    workers_PreviewDeploymentRequest: components["schemas"]["workers_PreviewDeploymentConfig"] & {
+      /** @description Code, sourcemaps, and other content used at runtime. */
+      modules?: {
+        /**
+         * Format: byte
+         * @description The base64-encoded module content.
+         * @example ZXhwb3J0IGRlZmF1bHQgewogIGFzeW5jIGZldGNoKHJlcXVlc3QsIGVudiwgY3R4KSB7CiAgICByZXR1cm4gbmV3IFJlc3BvbnNlKCdIZWxsbyBXb3JsZCEnKQogIH0KfQ==
+         */
+        content_base64: string;
+        /**
+         * @description The content type of the module.
+         * @example application/javascript+module
+         */
+        content_type: string;
+        /**
+         * @description The name of the module.
+         * @example index.js
+         */
+        name: string;
+      }[];
+    };
+    /** @description Configuration shared by JSON and multipart preview deployment uploads. */
+    workers_PreviewDeploymentConfig: {
+      /** @description Metadata about the deployment. */
+      annotations?: {
+        /**
+         * @description Full commit SHA associated with the deployment, detected from the CI environment. Maximum 64 bytes.
+         * @example 8b6aeb38455e2f92e170deb46313b90166ccc1e5
+         */
+        "workers/commit_sha"?: string;
+        /**
+         * @description Human-readable message about the deployment. Truncated to 1000 bytes if longer.
+         * @example Fixed bug.
+         */
+        "workers/message"?: string;
+        /**
+         * @description Number of the pull or merge request associated with the deployment, detected from the CI environment. Maximum 20 bytes.
+         * @example 14966
+         */
+        "workers/pull_request_number"?: string;
+        /**
+         * @description Title of the pull or merge request associated with the deployment, detected from the CI environment. Maximum 512 bytes.
+         * @example Add a cool new feature
+         */
+        "workers/pull_request_title"?: string;
+        /**
+         * @description URL of the pull or merge request associated with the deployment, detected from the CI environment. Maximum 512 bytes.
+         * @example https://github.com/cloudflare/workers-sdk/pull/14966
+         */
+        "workers/pull_request_url"?: string;
+        /**
+         * @description URL of the source repository the deployment was built from, detected from the CI environment. Maximum 512 bytes.
+         * @example https://github.com/cloudflare/workers-sdk
+         */
+        "workers/repository_url"?: string;
+        /**
+         * @description User-provided identifier for the deployment. Maximum 100 bytes.
+         * @example v1.0.1
+         */
+        "workers/tag"?: string;
+        /**
+         * @description Operation that triggered the creation of the deployment.
+         * @example create_preview_deployment_api
+         */
+        "workers/triggered_by"?: $Read<string>;
+      };
+      assets?: components["schemas"]["workers_assets"];
+      /**
+       * @description Bindings attached to the deployment, as an array of objects
+       *     that each name themselves. An upload can send `env` or
+       *     `bindings`, and a read returns both. Uploads to a Preview whose
+       *     parent Worker has a previews base config must use `env`.
+       */
+      bindings?: components["schemas"]["workers_bindings"];
+      cache_options?: components["schemas"]["workers_cache_options"];
+      compatibility_date?: components["schemas"]["workers_compatibility_date"];
+      compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
+      containers?: components["schemas"]["workers_containers"];
+      /**
+       * @description Bindings attached to the deployment, keyed by binding name. An
+       *     upload can send `env` or `bindings`, and a read returns both.
+       */
+      env?: components["schemas"]["workers_env"];
+      /**
+       * @description Declarative exports for the deployment, including Durable
+       *     Object classes (with their `storage` backend) and named Worker
+       *     entrypoints. On reads, tombstoned lifecycle entries are
+       *     omitted, so only live exports (`created` and
+       *     `expecting-transfer`) are returned. `exports` and `migrations`
+       *     are mutually exclusive on upload.
+       */
+      exports?: components["schemas"]["workers_exports_config_map"];
+      /** @description Resource limits enforced at runtime. */
+      limits?: {
+        /**
+         * @description CPU time limit in milliseconds.
+         * @example 50
+         */
+        cpu_ms?: number;
+        /**
+         * @description Subrequest limit per request.
+         * @example 1000
+         */
+        subrequests?: number;
+      };
+      /**
+       * @description The name of the module that exports a `fetch` handler. Multipart uploads reference the file part by filename.
+       * @example index.js
+       */
+      main_module?: string;
+      /** @description Migrations for Durable Objects associated with the deployment. Migrations are applied when the deployment is created. */
+      migrations?:
+        | components["schemas"]["workers_single_step_migrations"]
+        | components["schemas"]["workers_multiple_step_migrations"];
+      placement?: components["schemas"]["workers_placement_info_no_status"];
+      /**
+       * @deprecated
+       * @description Usage model for the deployment.
+       * @default standard
+       * @example standard
+       * @enum {string}
+       */
+      usage_model: "standard" | "bundled" | "unbound";
+    };
+    /**
+     * @description Configuration for assets within a Worker.
+     *
+     *     [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+     *     [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files should be
+     *     included as modules named `_headers` and `_redirects` with content type `text/plain`.
+     */
+    workers_assets: {
+      /** @description Configuration for assets within a Worker. */
+      config?: {
+        /**
+         * @description The public URL path prefix under which assets are served. A null request value resets it to `/`; responses represent the root as `/`. All versions in a gradual deployment must use the same canonical value. To change it, first deploy the version containing the change at 100%.
+         * @default /
+         * @example /docs/
+         */
+        base_path: string | null;
+        /**
+         * @description Determines the redirects and rewrites of requests for HTML content.
+         * @default auto-trailing-slash
+         * @example auto-trailing-slash
+         * @enum {string}
+         */
+        html_handling:
+          | "auto-trailing-slash"
+          | "force-trailing-slash"
+          | "drop-trailing-slash"
+          | "none";
+        /**
+         * @description Determines the response when a request does not match a static asset, and there is no Worker script.
+         * @default none
+         * @example 404-page
+         * @enum {string}
+         */
+        not_found_handling: "none" | "404-page" | "single-page-application";
+        /** @default false */
+        run_worker_first: string[] | boolean;
+      };
+      /** @description Token provided upon successful upload of all files from a registered manifest. */
+      jwt?: string;
+    };
+    /**
+     * @description List of containers attached to a Worker. Containers can only be attached to Durable Object classes of this Worker script.
+     * @example [
+     *       {
+     *         "class_name": "MyDurableObject"
+     *       }
+     *     ]
+     */
+    workers_containers: components["schemas"]["workers_container_item"][];
+    /** @description Container configuration for a Worker. */
+    workers_container_item: {
+      /** @description Select which Durable Object class should get this container attached. */
+      class_name: string;
+    };
     workers_Version: {
       /** @description Metadata about the version. */
       annotations?: {
@@ -6417,6 +7579,12 @@ export interface components {
       assets?: {
         /** @description Configuration for assets within a Worker. */
         config?: {
+          /**
+           * @description The public URL path prefix under which assets are served. A null request value resets it to `/`; responses represent the root as `/`. All versions in a gradual deployment must use the same canonical value. To change it, first deploy the version containing the change at 100%.
+           * @default /
+           * @example /docs/
+           */
+          base_path: string | null;
           /**
            * @description Determines the redirects and rewrites of requests for HTML content.
            * @default auto-trailing-slash
@@ -6585,20 +7753,6 @@ export interface components {
        * @enum {string}
        */
       usage_model: "standard" | "bundled" | "unbound";
-    };
-    /**
-     * @description List of containers attached to a Worker. Containers can only be attached to Durable Object classes of this Worker script.
-     * @example [
-     *       {
-     *         "class_name": "MyDurableObject"
-     *       }
-     *     ]
-     */
-    workers_containers: components["schemas"]["workers_container_item"][];
-    /** @description Container configuration for a Worker. */
-    workers_container_item: {
-      /** @description Select which Durable Object class should get this container attached. */
-      class_name: string;
     };
     iam_token_verify_response_single_segment: components["schemas"]["iam_api-response-single"] & {
       result?: {
@@ -6814,6 +7968,8 @@ export interface components {
     builds_DeployHookUuid: components["schemas"]["builds_deploy_hook_uuid"];
     /** @description The Worker script tag (external script ID) */
     builds_ScriptTag: components["schemas"]["builds_external_script_id"];
+    /** @description The script tag of the Preview, which is a Worker in its own right */
+    builds_PreviewId: components["schemas"]["builds_external_script_id"];
   };
   requestBodies: {
     workers_namespace_upload: {
@@ -6958,6 +8114,7 @@ export type IamResponseSingleAccount = components["schemas"]["iam_response_singl
 export type IamApiResponseSingle = components["schemas"]["iam_api-response-single"];
 export type BuildsAccountId = components["schemas"]["builds_account_id"];
 export type BuildsApiResponse = components["schemas"]["builds_APIResponse"];
+export type BuildsApiError = components["schemas"]["builds_ApiError"];
 export type BuildsPaginationInfo = components["schemas"]["builds_PaginationInfo"];
 export type BuildsGetAccountLimitResponse = components["schemas"]["builds_GetAccountLimitResponse"];
 export type BuildsErrorResponse = components["schemas"]["builds_ErrorResponse"];
@@ -6980,6 +8137,7 @@ export type BuildsRepoName = components["schemas"]["builds_repo_name"];
 export type BuildsRootDirectory = components["schemas"]["builds_root_directory"];
 export type BuildsBuildUuid = components["schemas"]["builds_build_uuid"];
 export type BuildsCreatedOn = components["schemas"]["builds_created_on"];
+export type BuildsDeployHookName = components["schemas"]["builds_deploy_hook_name"];
 export type BuildsModifiedOn = components["schemas"]["builds_modified_on"];
 export type BuildsBuildStatus = components["schemas"]["builds_BuildStatus"];
 export type BuildsStoppedOn = components["schemas"]["builds_stopped_on"];
@@ -7018,7 +8176,6 @@ export type BuildsUpdateTriggerRequest = components["schemas"]["builds_UpdateTri
 export type BuildsCreateBuildRequest = components["schemas"]["builds_CreateBuildRequest"];
 export type BuildsBuildSeedRepoInput = components["schemas"]["builds_BuildSeedRepoInput"];
 export type BuildsBuildSeedRepoInputFile = components["schemas"]["builds_BuildSeedRepoInputFile"];
-export type BuildsInsertBuildResponse = components["schemas"]["builds_InsertBuildResponse"];
 export type BuildsEnvironmentVariablesResponse =
   components["schemas"]["builds_EnvironmentVariablesResponse"];
 export type BuildsIsSecret = components["schemas"]["builds_is_secret"];
@@ -7040,13 +8197,19 @@ export type BuildsWorkerBuildSettings = components["schemas"]["builds_WorkerBuil
 export type BuildsScriptName = components["schemas"]["builds_script_name"];
 export type BuildsDetailedDeployHookResponse =
   components["schemas"]["builds_DetailedDeployHookResponse"];
-export type BuildsDeployHookName = components["schemas"]["builds_deploy_hook_name"];
 export type BuildsDeployHookUuid = components["schemas"]["builds_deploy_hook_uuid"];
 export type BuildsCreateDeployHookRequest = components["schemas"]["builds_CreateDeployHookRequest"];
 export type BuildsDeployHookResponse = components["schemas"]["builds_DeployHookResponse"];
 export type BuildsUpdateWorkerRequest = components["schemas"]["builds_UpdateWorkerRequest"];
 export type BuildsUpdateWorkerBuildSettingsInput =
   components["schemas"]["builds_UpdateWorkerBuildSettingsInput"];
+export type BuildsMigrateToPreviewsRequest =
+  components["schemas"]["builds_MigrateToPreviewsRequest"];
+export type BuildsPreviewSummary = components["schemas"]["builds_PreviewSummary"];
+export type BuildsPreviewAutoBuild = components["schemas"]["builds_preview_auto_build"];
+export type BuildsPreviewAutoDelete = components["schemas"]["builds_preview_auto_delete"];
+export type BuildsPreviewResponse = components["schemas"]["builds_PreviewResponse"];
+export type BuildsUpdatePreviewRequest = components["schemas"]["builds_UpdatePreviewRequest"];
 export type WorkersIdentifier = components["schemas"]["workers_identifier"];
 export type WorkersApiResponseCommon = components["schemas"]["workers_api-response-common"];
 export type WorkersMessages = components["schemas"]["workers_messages"];
@@ -7098,7 +8261,7 @@ export type WorkersDurableObjectExpectingTransferExport =
 export type WorkersHasAssets = components["schemas"]["workers_has_assets"];
 export type WorkersHasModules = components["schemas"]["workers_has_modules"];
 export type WorkersLogpush = components["schemas"]["workers_logpush"];
-export type WorkersObservability = components["schemas"]["workers_observability"];
+export type WorkersObservability_2 = components["schemas"]["workers_observability-2"];
 export type WorkersPlacementInfo = components["schemas"]["workers_placement_info"];
 export type WorkersPlacementTarget = components["schemas"]["workers_placement_target"];
 export type WorkersPlacementStatus = components["schemas"]["workers_placement_status"];
@@ -7112,7 +8275,7 @@ export type WorkersScriptName = components["schemas"]["workers_script_name"];
 export type WorkersNamespaceScriptResponseSingle =
   components["schemas"]["workers_namespace-script-response-single"];
 export type WorkersMultipartScript = components["schemas"]["workers_multipart-script"];
-export type WorkersAssets = components["schemas"]["workers_assets"];
+export type WorkersAssets_2 = components["schemas"]["workers_assets-2"];
 export type WorkersBindings = components["schemas"]["workers_bindings"];
 export type WorkersBindingItem = components["schemas"]["workers_binding_item"];
 export type WorkersBindingKindAi = components["schemas"]["workers_binding_kind_ai"];
@@ -7143,6 +8306,7 @@ export type WorkersBindingKindMtlsCertificate =
   components["schemas"]["workers_binding_kind_mtls_certificate"];
 export type WorkersBindingKindPlainText = components["schemas"]["workers_binding_kind_plain_text"];
 export type WorkersBindingKindPipelines = components["schemas"]["workers_binding_kind_pipelines"];
+export type WorkersBindingKindK2 = components["schemas"]["workers_binding_kind_k2"];
 export type WorkersBindingKindQueue = components["schemas"]["workers_binding_kind_queue"];
 export type WorkersBindingKindRatelimit = components["schemas"]["workers_binding_kind_ratelimit"];
 export type WorkersBindingKindR2Bucket = components["schemas"]["workers_binding_kind_r2_bucket"];
@@ -7215,6 +8379,11 @@ export type WorkersNamespace = components["schemas"]["workers_namespace"];
 export type WorkersSchemasId = components["schemas"]["workers_schemas-id"];
 export type WorkersObject = components["schemas"]["workers_object"];
 export type WorkersCursor = components["schemas"]["workers_cursor"];
+export type WorkersQueryById = components["schemas"]["workers_query-by-id"];
+export type WorkersQuery = components["schemas"]["workers_query"];
+export type WorkersQueryByName = components["schemas"]["workers_query-by-name"];
+export type WorkersObservabilityIssueOccurrence =
+  components["schemas"]["workers-observability_issue_occurrence"];
 export type WorkersObservabilityQuery = components["schemas"]["workers-observability_query"];
 export type WorkersObservabilityFilterNode =
   components["schemas"]["workers-observability_filter_node"];
@@ -7263,6 +8432,10 @@ export type WorkersService = components["schemas"]["workers_service"];
 export type WorkersEnvironment = components["schemas"]["workers_environment"];
 export type WorkersSubdomain_2 = components["schemas"]["workers_subdomain-2"];
 export type WorkersWorker = components["schemas"]["workers_Worker"];
+export type WorkersPreviewsBaseConfig = components["schemas"]["workers_PreviewsBaseConfig"];
+export type WorkersEnv = components["schemas"]["workers_env"];
+export type WorkersEnvBindingItem = components["schemas"]["workers_env_binding_item"];
+export type WorkersObservability = components["schemas"]["workers_observability"];
 export type WorkersErrorAuth = components["schemas"]["workers_ErrorAuth"];
 export type WorkersErrorInternalServer = components["schemas"]["workers_ErrorInternalServer"];
 export type WorkersErrorWorkerNameInvalid = components["schemas"]["workers_ErrorWorkerNameInvalid"];
@@ -7282,9 +8455,16 @@ export type WorkersErrorWorkerNameConflict =
   components["schemas"]["workers_ErrorWorkerNameConflict"];
 export type WorkersErrorMissingParam = components["schemas"]["workers_ErrorMissingParam"];
 export type WorkersErrorWorkerNotFound = components["schemas"]["workers_ErrorWorkerNotFound"];
-export type WorkersVersion = components["schemas"]["workers_Version"];
+export type WorkersPreview = components["schemas"]["workers_Preview"];
+export type WorkersPreviewDeployment = components["schemas"]["workers_PreviewDeployment"];
+export type WorkersPreviewDeploymentRequest =
+  components["schemas"]["workers_PreviewDeploymentRequest"];
+export type WorkersPreviewDeploymentConfig =
+  components["schemas"]["workers_PreviewDeploymentConfig"];
+export type WorkersAssets = components["schemas"]["workers_assets"];
 export type WorkersContainers = components["schemas"]["workers_containers"];
 export type WorkersContainerItem = components["schemas"]["workers_container_item"];
+export type WorkersVersion = components["schemas"]["workers_Version"];
 export type IamTokenVerifyResponseSingleSegment =
   components["schemas"]["iam_token_verify_response_single_segment"];
 export type IamExpiresOn = components["schemas"]["iam_expires_on"];
@@ -7313,6 +8493,7 @@ export type ParameterBuildsTriggerUuid = components["parameters"]["builds_Trigge
 export type ParameterBuildsScriptName = components["parameters"]["builds_ScriptName"];
 export type ParameterBuildsDeployHookUuid = components["parameters"]["builds_DeployHookUuid"];
 export type ParameterBuildsScriptTag = components["parameters"]["builds_ScriptTag"];
+export type ParameterBuildsPreviewId = components["parameters"]["builds_PreviewId"];
 export type RequestBodyWorkersNamespaceUpload =
   components["requestBodies"]["workers_namespace_upload"];
 export type RequestBodyWorkersScriptUpload = components["requestBodies"]["workers_script_upload"];
@@ -7356,7 +8537,10 @@ export interface operations {
   "account-creation": {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Optional key that identifies an Account-creation request. Free Account creation can require exactly one valid key, so API clients should send a key with every Account-creation request. Reuse the same key when retrying the same request. */
+        "Idempotency-Key"?: string;
+      };
       path?: never;
       cookie?: never;
     };
@@ -7804,7 +8988,7 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["builds_APIResponse"] & {
-            result?: components["schemas"]["builds_InsertBuildResponse"];
+            result?: components["schemas"]["builds_BuildResponse"];
           };
         };
       };
@@ -7924,6 +9108,21 @@ export interface operations {
          *         "repo_id": "workers-sdk",
          *         "repo_name": "workers-sdk"
          *       },
+         *       "previews_base_config": {
+         *         "build_caching_enabled": true,
+         *         "build_command": "npm run build",
+         *         "build_token_uuid": "4b1e4d0f-6f2a-4c9d-9a3b-7c5e2f8a1d64",
+         *         "deploy_command": "npx wrangler preview",
+         *         "environment_variables": {},
+         *         "path_excludes": [
+         *           "*.md"
+         *         ],
+         *         "path_includes": [
+         *           "*"
+         *         ],
+         *         "root_directory": "/"
+         *       },
+         *       "previews_enabled": true,
          *       "production_settings": {
          *         "build_caching_enabled": true,
          *         "build_command": "npm run build",
@@ -8236,7 +9435,10 @@ export interface operations {
   };
   updateWorkerBuild: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Apply a previews_base_config patch to every existing Preview of the Worker as well as to the base config. */
+        patch_existing_previews?: "true" | "false";
+      };
       header?: never;
       path: {
         account_id: components["parameters"]["builds_AccountId"];
@@ -8267,6 +9469,218 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["builds_APIResponse"] & {
             result?: components["schemas"]["builds_WorkerResponse"];
+          };
+        };
+      };
+      400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  migrateWorkerToPreviews: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /** @example {} */
+        "application/json": components["schemas"]["builds_MigrateToPreviewsRequest"];
+      };
+    };
+    responses: {
+      /** @description Worker migrated to Previews successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_WorkerResponse"];
+          };
+        };
+      };
+      400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  listWorkerPreviews: {
+    parameters: {
+      query?: {
+        /** @description Page number for pagination */
+        page?: components["parameters"]["builds_Page"];
+        /** @description Number of items per page */
+        per_page?: components["parameters"]["builds_PerPage"];
+      };
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Previews retrieved successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_PreviewSummary"][];
+            result_info?: components["schemas"]["builds_PaginationInfo"];
+          };
+        };
+      };
+      401: components["responses"]["builds_Unauthorized"];
+    };
+  };
+  getWorkerPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+        /** @description The script tag of the Preview, which is a Worker in its own right */
+        preview_id: components["parameters"]["builds_PreviewId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Preview retrieved successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_PreviewResponse"];
+          };
+        };
+      };
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  updateWorkerPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+        /** @description The script tag of the Preview, which is a Worker in its own right */
+        preview_id: components["parameters"]["builds_PreviewId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "auto_build": false,
+         *       "settings": {
+         *         "build_command": "npm run build:preview"
+         *       }
+         *     }
+         */
+        "application/json": components["schemas"]["builds_UpdatePreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description Preview updated successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_PreviewResponse"];
+          };
+        };
+      };
+      400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+      409: components["responses"]["builds_Conflict"];
+    };
+  };
+  listBuildsByPreview: {
+    parameters: {
+      query?: {
+        /** @description Page number for pagination */
+        page?: components["parameters"]["builds_Page"];
+        /** @description Number of items per page */
+        per_page?: components["parameters"]["builds_PerPage"];
+      };
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+        /** @description The script tag of the Preview, which is a Worker in its own right */
+        preview_id: components["parameters"]["builds_PreviewId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Builds retrieved successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_BuildResponse"][];
+            result_info?: components["schemas"]["builds_PaginationInfo"];
+          };
+        };
+      };
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  createPreviewBuild: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+        /** @description The script tag of the Preview, which is a Worker in its own right */
+        preview_id: components["parameters"]["builds_PreviewId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["builds_CreateBuildRequest"];
+      };
+    };
+    responses: {
+      /** @description Build created successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_BuildResponse"];
           };
         };
       };
@@ -9624,6 +11038,46 @@ export interface operations {
       };
     };
   };
+  "durable-objects-namespace-query": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        id: components["schemas"]["workers_schemas-id"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json":
+          | components["schemas"]["workers_query-by-id"]
+          | components["schemas"]["workers_query-by-name"];
+      };
+    };
+    responses: {
+      /** @description Query execution response. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result?: unknown;
+          };
+        };
+      };
+      /** @description Query execution failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
   "destination.list": {
     parameters: {
       query?: {
@@ -10118,6 +11572,2335 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.list": {
+    parameters: {
+      query?: {
+        page?: number;
+        perPage?: number;
+        order?: "asc" | "desc";
+        orderBy?:
+          | "id"
+          | "service"
+          | "title"
+          | "type"
+          | "status"
+          | "statusUpdated"
+          | "count"
+          | "firstObserved"
+          | "lastObserved"
+          | "created"
+          | "updated";
+        search?: string;
+        service?: string;
+        type?: string;
+        status?: "active" | "resolved" | "ignored";
+      };
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              activity: {
+                automationId?: string;
+                automationName?: string;
+                automationRevision?: number;
+                created: number;
+                id: string;
+                inactivitySeconds: number | null;
+                /** @enum {string} */
+                initiatedBy: "automatic" | "manual";
+                issueCount: number;
+                issueId: string;
+                lastError: string | null;
+                policyId: string;
+                /** @enum {string} */
+                scope?: "account" | "service";
+                /** @enum {string} */
+                status: "pending" | "succeeded" | "failed";
+                terminalAt: number | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType?: "occurrence_threshold" | "recurrence_after_inactivity";
+                /** @enum {string} */
+                type: "notification";
+              }[];
+              count: number;
+              created: number;
+              fingerprint?: string;
+              firstObserved: number;
+              id: string;
+              lastObserved: number;
+              members?: {
+                fingerprint: string;
+                issueId: string;
+                title: string;
+              }[];
+              service: string;
+              /** @enum {string} */
+              status: "active" | "resolved" | "ignored";
+              statusUpdated: number;
+              title: string;
+              type?: string;
+              updated: number;
+            }[];
+            result_info: {
+              count: number;
+              page: number;
+              per_page: number;
+              total_count: number;
+              total_pages: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.get": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        issueId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              issue: {
+                activity: {
+                  automationId?: string;
+                  automationName?: string;
+                  automationRevision?: number;
+                  created: number;
+                  id: string;
+                  inactivitySeconds: number | null;
+                  /** @enum {string} */
+                  initiatedBy: "automatic" | "manual";
+                  issueCount: number;
+                  issueId: string;
+                  lastError: string | null;
+                  policyId: string;
+                  /** @enum {string} */
+                  scope?: "account" | "service";
+                  /** @enum {string} */
+                  status: "pending" | "succeeded" | "failed";
+                  terminalAt: number | null;
+                  threshold: number | null;
+                  /** @enum {string} */
+                  triggerType?: "occurrence_threshold" | "recurrence_after_inactivity";
+                  /** @enum {string} */
+                  type: "notification";
+                }[];
+                count: number;
+                created: number;
+                fingerprint?: string;
+                firstObserved: number;
+                id: string;
+                lastObserved: number;
+                members?: {
+                  fingerprint: string;
+                  issueId: string;
+                  title: string;
+                }[];
+                service: string;
+                /** @enum {string} */
+                status: "active" | "resolved" | "ignored";
+                statusUpdated: number;
+                title: string;
+                type?: string;
+                updated: number;
+              };
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.patch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        issueId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Modify an issue status or group title. */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          status?: "active" | "resolved" | "ignored";
+          title?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              count: number;
+              created: number;
+              fingerprint?: string;
+              firstObserved: number;
+              id: string;
+              lastObserved: number;
+              members?: {
+                fingerprint: string;
+                issueId: string;
+                title: string;
+              }[];
+              service: string;
+              /** @enum {string} */
+              status: "active" | "resolved" | "ignored";
+              statusUpdated: number;
+              title: string;
+              type?: string;
+              updated: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.notificationRuns.create": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        issueId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          policyId?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              run: {
+                automationId?: string;
+                automationName?: string;
+                automationRevision?: number;
+                created: number;
+                id: string;
+                inactivitySeconds: number | null;
+                /** @enum {string} */
+                initiatedBy: "automatic" | "manual";
+                issueCount: number;
+                issueId: string;
+                lastError: string | null;
+                policyId: string;
+                /** @enum {string} */
+                scope?: "account" | "service";
+                /** @enum {string} */
+                status: "pending" | "succeeded" | "failed";
+                terminalAt: number | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType?: "occurrence_threshold" | "recurrence_after_inactivity";
+              };
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.occurrences.list": {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor returned in result_info.cursors.after. */
+        cursor?: string;
+        per_page?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        /** @description Issue ID returned by the issues API. */
+        issueId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: components["schemas"]["workers-observability_issue_occurrence"][];
+            result_info: {
+              count: number;
+              cursors: {
+                after: string | null;
+              };
+              per_page: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Too many requests */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Too many requests";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Gateway timeout */
+      504: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Gateway timeout";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.automations.list": {
+    parameters: {
+      query?: {
+        service?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              automations: {
+                ansPolicyId: string;
+                created: number;
+                createdByUserId: string | null;
+                enabled: boolean;
+                id: string;
+                inactivitySeconds: number | null;
+                name: string;
+                revision: number;
+                /** @enum {string} */
+                scope: "account" | "service";
+                service: string | null;
+                serviceType: string | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType: "occurrence_threshold" | "recurrence_after_inactivity";
+                updated: number;
+                updatedByUserId: string | null;
+              }[];
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.automations.create": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          afterInactivitySeconds?: number;
+          afterOccurrences?: number;
+          enabled?: boolean;
+          name?: string;
+          policyId: string;
+          service?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              automation: {
+                ansPolicyId: string;
+                created: number;
+                createdByUserId: string | null;
+                enabled: boolean;
+                id: string;
+                inactivitySeconds: number | null;
+                name: string;
+                revision: number;
+                /** @enum {string} */
+                scope: "account" | "service";
+                service: string | null;
+                serviceType: string | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType: "occurrence_threshold" | "recurrence_after_inactivity";
+                updated: number;
+                updatedByUserId: string | null;
+              };
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.automations.get": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        automationId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              automation: {
+                ansPolicyId: string;
+                created: number;
+                createdByUserId: string | null;
+                enabled: boolean;
+                id: string;
+                inactivitySeconds: number | null;
+                name: string;
+                revision: number;
+                /** @enum {string} */
+                scope: "account" | "service";
+                service: string | null;
+                serviceType: string | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType: "occurrence_threshold" | "recurrence_after_inactivity";
+                updated: number;
+                updatedByUserId: string | null;
+              };
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.automations.update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        automationId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          afterInactivitySeconds?: number;
+          afterOccurrences?: number;
+          enabled?: boolean;
+          name?: string;
+          policyId: string;
+          service?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              automation: {
+                ansPolicyId: string;
+                created: number;
+                createdByUserId: string | null;
+                enabled: boolean;
+                id: string;
+                inactivitySeconds: number | null;
+                name: string;
+                revision: number;
+                /** @enum {string} */
+                scope: "account" | "service";
+                service: string | null;
+                serviceType: string | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType: "occurrence_threshold" | "recurrence_after_inactivity";
+                updated: number;
+                updatedByUserId: string | null;
+              };
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.automations.delete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        automationId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              automation: {
+                ansPolicyId: string;
+                created: number;
+                createdByUserId: string | null;
+                enabled: boolean;
+                id: string;
+                inactivitySeconds: number | null;
+                name: string;
+                revision: number;
+                /** @enum {string} */
+                scope: "account" | "service";
+                service: string | null;
+                serviceType: string | null;
+                threshold: number | null;
+                /** @enum {string} */
+                triggerType: "occurrence_threshold" | "recurrence_after_inactivity";
+                updated: number;
+                updatedByUserId: string | null;
+              };
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.groups.create": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          issueIds: string[];
+          title: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              count: number;
+              created: number;
+              fingerprint?: string;
+              firstObserved: number;
+              id: string;
+              lastObserved: number;
+              members?: {
+                fingerprint: string;
+                issueId: string;
+                title: string;
+              }[];
+              service: string;
+              /** @enum {string} */
+              status: "active" | "resolved" | "ignored";
+              statusUpdated: number;
+              title: string;
+              type?: string;
+              updated: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Conflict";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.groups.delete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              /** @enum {boolean} */
+              deleted: true;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.groups.members.add": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        groupId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          issueIds: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              count: number;
+              created: number;
+              fingerprint?: string;
+              firstObserved: number;
+              id: string;
+              lastObserved: number;
+              members?: {
+                fingerprint: string;
+                issueId: string;
+                title: string;
+              }[];
+              service: string;
+              /** @enum {string} */
+              status: "active" | "resolved" | "ignored";
+              statusUpdated: number;
+              title: string;
+              type?: string;
+              updated: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Conflict";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.groups.members.remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+        groupId: string;
+        issueId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              count: number;
+              created: number;
+              fingerprint?: string;
+              firstObserved: number;
+              id: string;
+              lastObserved: number;
+              members?: {
+                fingerprint: string;
+                issueId: string;
+                title: string;
+              }[];
+              service: string;
+              /** @enum {string} */
+              status: "active" | "resolved" | "ignored";
+              statusUpdated: number;
+              title: string;
+              type?: string;
+              updated: number;
+            } | null;
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Not found";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Conflict";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "issues.summary": {
+    parameters: {
+      query?: {
+        service?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              activeIssues: number;
+              activeOccurrences: number;
+              lastIssue: number | null;
+              resolvedIssues: number;
+            };
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
             }[];
             messages: {
               message: string;
@@ -12674,570 +16457,6 @@ export interface operations {
       };
     };
   };
-  "zone.observability.tracing.rules.get": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-        /** @description Specify the zone ID. */
-        zone_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful request */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              message: string;
-            }[];
-            messages: {
-              /** @enum {string} */
-              message: "Successful request";
-            }[];
-            result: {
-              /** @description Trace rules in evaluation order. */
-              rules: {
-                /** @enum {string} */
-                action: "set_trace_settings";
-                action_parameters: {
-                  /** @description The ratio of requests sampled for tracing, from 0 to 1. */
-                  sampling_ratio: number;
-                };
-                description: string;
-                enabled: boolean;
-                /** @description A Rules language expression that selects requests. */
-                expression: string;
-              }[];
-            };
-            /** @enum {boolean} */
-            success: true;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Bad Request";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Unauthorized";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Forbidden";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Internal error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Internal error";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-    };
-  };
-  "zone.observability.tracing.rules.update": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-        /** @description Specify the zone ID. */
-        zone_id: string;
-      };
-      cookie?: never;
-    };
-    /** @description Replace the ordered trace rules */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description Trace rules in evaluation order. */
-          rules: {
-            /** @enum {string} */
-            action: "set_trace_settings";
-            action_parameters: {
-              /** @description The ratio of requests sampled for tracing, from 0 to 1. */
-              sampling_ratio: number;
-            };
-            description: string;
-            enabled: boolean;
-            /** @description A Rules language expression that selects requests. */
-            expression: string;
-          }[];
-        };
-      };
-    };
-    responses: {
-      /** @description Successful request */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              message: string;
-            }[];
-            messages: {
-              /** @enum {string} */
-              message: "Successful request";
-            }[];
-            result: {
-              /** @description Trace rules in evaluation order. */
-              rules: {
-                /** @enum {string} */
-                action: "set_trace_settings";
-                action_parameters: {
-                  /** @description The ratio of requests sampled for tracing, from 0 to 1. */
-                  sampling_ratio: number;
-                };
-                description: string;
-                enabled: boolean;
-                /** @description A Rules language expression that selects requests. */
-                expression: string;
-              }[];
-            };
-            /** @enum {boolean} */
-            success: true;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Bad Request";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Unauthorized";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Forbidden";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Internal error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Internal error";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-    };
-  };
-  "zone.observability.tracing.settings.get": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-        /** @description Specify the zone ID. */
-        zone_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful request */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              message: string;
-            }[];
-            messages: {
-              /** @enum {string} */
-              message: "Successful request";
-            }[];
-            result: {
-              /** @description Up to 100 OpenTelemetry destination identifiers that receive traces. */
-              destinations: string[];
-              /** @description Whether Cloudflare Traces is enabled for the zone. */
-              enabled: boolean;
-              /** @description Whether trace context is sent externally or across a zone boundary. */
-              forward_context: boolean;
-              /** @description Whether traces are persisted in Cloudflare. */
-              persist: boolean;
-              /**
-               * @description When inbound trace context may be continued.
-               * @enum {string}
-               */
-              propagation_policy: "authenticated" | "unauthenticated";
-              /** @description The ratio of requests sampled for tracing, from 0 to 1. */
-              sampling_ratio: number;
-            };
-            /** @enum {boolean} */
-            success: true;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Bad Request";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Unauthorized";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Forbidden";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Internal error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Internal error";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-    };
-  };
-  "zone.observability.tracing.settings.update": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Your Cloudflare account ID. */
-        account_id: string;
-        /** @description Specify the zone ID. */
-        zone_id: string;
-      };
-      cookie?: never;
-    };
-    /** @description Update zone tracing settings */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description Up to 100 OpenTelemetry destination identifiers that receive traces. */
-          destinations?: string[];
-          /** @description Whether Cloudflare Traces is enabled for the zone. */
-          enabled?: boolean;
-          /** @description Whether trace context is sent externally or across a zone boundary. */
-          forward_context?: boolean;
-          /** @description Whether traces are persisted in Cloudflare. */
-          persist?: boolean;
-          /**
-           * @description When inbound trace context may be continued.
-           * @enum {string}
-           */
-          propagation_policy?: "authenticated" | "unauthenticated";
-          /** @description The ratio of requests sampled for tracing, from 0 to 1. */
-          sampling_ratio?: number;
-        };
-      };
-    };
-    responses: {
-      /** @description Successful request */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              message: string;
-            }[];
-            messages: {
-              /** @enum {string} */
-              message: "Successful request";
-            }[];
-            result: {
-              /** @description Up to 100 OpenTelemetry destination identifiers that receive traces. */
-              destinations: string[];
-              /** @description Whether Cloudflare Traces is enabled for the zone. */
-              enabled: boolean;
-              /** @description Whether trace context is sent externally or across a zone boundary. */
-              forward_context: boolean;
-              /** @description Whether traces are persisted in Cloudflare. */
-              persist: boolean;
-              /**
-               * @description When inbound trace context may be continued.
-               * @enum {string}
-               */
-              propagation_policy: "authenticated" | "unauthenticated";
-              /** @description The ratio of requests sampled for tracing, from 0 to 1. */
-              sampling_ratio: number;
-            };
-            /** @enum {boolean} */
-            success: true;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Bad Request";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Unauthorized */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Unauthorized";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Forbidden";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-      /** @description Internal error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            errors: {
-              detail?: string;
-              /** @enum {string} */
-              message: "Internal error";
-            }[];
-            messages: {
-              message: string;
-            }[];
-            /** @enum {boolean} */
-            success: false;
-          };
-        };
-      };
-    };
-  };
   "worker-placement-list-regions": {
     parameters: {
       query?: never;
@@ -13608,7 +16827,16 @@ export interface operations {
   };
   "worker-deployments-list-deployments": {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Start of the deployment creation time range, inclusive. */
+        since?: string;
+        /** @description End of the deployment creation time range, inclusive. */
+        until?: string;
+        /** @description Current page. */
+        page?: number;
+        /** @description Items per page. */
+        per_page?: number;
+      };
       header?: never;
       path: {
         account_id: components["schemas"]["workers_identifier"];
@@ -13624,7 +16852,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-common"] & {
+          "application/json": components["schemas"]["workers_api-response-collection"] & {
             result: {
               deployments: components["schemas"]["workers_deployment"][];
             };
@@ -15200,6 +18428,473 @@ export interface operations {
       500: components["responses"]["workers_ErrorInternalServer"];
     };
   };
+  "workers.previews.list": {
+    parameters: {
+      query?: {
+        /** @description Current page. */
+        page?: number;
+        /** @description Items per-page. */
+        per_page?: number;
+        /** @description Property to sort results by. */
+        order_by?: "deployed_on" | "updated_on" | "created_on" | "slug" | "name";
+        /** @description Sort direction. */
+        order?: "asc" | "desc";
+        /** @description Partial-match filter on preview slug. */
+        slug?: string;
+        /** @description Partial-match filter on preview name. */
+        name?: string;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description List Previews success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-collection"] & {
+            result: components["schemas"]["workers_Preview"][];
+          };
+        };
+      };
+      /** @description List Previews failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.create": {
+    parameters: {
+      query?: {
+        ignore_defaults?: boolean;
+        ignore_base_config?: boolean;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Preview creation parameters. */
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["workers_Preview"] & Record<string, unknown>;
+      };
+    };
+    responses: {
+      /** @description Create Preview success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Preview"];
+          };
+        };
+      };
+      /** @description Create Preview failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.get": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Get Preview success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Preview"];
+          };
+        };
+      };
+      /** @description Get Preview failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.update": {
+    parameters: {
+      query?: {
+        ignore_defaults?: boolean;
+        ignore_base_config?: boolean;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Preview update parameters. */
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["workers_Preview"] & Record<string, unknown>;
+      };
+    };
+    responses: {
+      /** @description Update Preview success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Preview"];
+          };
+        };
+      };
+      /** @description Update Preview failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.delete": {
+    parameters: {
+      query?: {
+        /** @description If true, delete the Preview even when a service binding, Durable Object, or other binding still references it. The delete also removes those bindings and Durable Objects. */
+        force?: boolean;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Delete Preview success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"];
+        };
+      };
+      /** @description Delete Preview failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.edit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Preview partial update parameters. */
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["workers_Preview"] & Record<string, unknown>;
+        "application/merge-patch+json": components["schemas"]["workers_Preview"] &
+          Record<string, unknown>;
+      };
+    };
+    responses: {
+      /** @description Edit Preview success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Preview"];
+          };
+        };
+      };
+      /** @description Edit Preview failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.deployments.list": {
+    parameters: {
+      query?: {
+        /** @description Current page. */
+        page?: number;
+        /** @description Items per-page. */
+        per_page?: number;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description List Preview Deployments success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-collection"] & {
+            result: components["schemas"]["workers_PreviewDeployment"][];
+          };
+        };
+      };
+      /** @description List Preview Deployments failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.deployments.create": {
+    parameters: {
+      query?: {
+        ignore_defaults?: boolean;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Preview deployment creation parameters. */
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["workers_PreviewDeploymentRequest"];
+        "multipart/form-data": {
+          /**
+           * @description Code, sourcemaps, and other content used at runtime. Each
+           *     part's filename is the module name. Sourcemaps use
+           *     `application/source-map`.
+           */
+          files?: string[];
+          metadata: components["schemas"]["workers_PreviewDeploymentConfig"];
+        };
+      };
+    };
+    responses: {
+      /** @description Create Preview Deployment success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_PreviewDeployment"];
+          };
+        };
+      };
+      /**
+       * @description Create Preview Deployment failure. When the upload uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
+        };
+      };
+    };
+  };
+  "workers.previews.deployments.get": {
+    parameters: {
+      query?: {
+        include?: "modules";
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+        deployment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Get Preview Deployment success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_PreviewDeployment"];
+          };
+        };
+      };
+      /** @description Get Preview Deployment failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.deployments.delete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+        deployment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Delete Preview Deployment success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"];
+        };
+      };
+      /** @description Delete Preview Deployment failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "workers.previews.deployments.patchLatest": {
+    parameters: {
+      query?: {
+        ignore_defaults?: boolean;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+        preview_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description JSON Merge Patch to apply to the latest preview deployment. An empty object creates a new deployment with no changes. */
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["workers_PreviewDeploymentRequest"];
+        "application/merge-patch+json": components["schemas"]["workers_PreviewDeploymentRequest"];
+      };
+    };
+    responses: {
+      /** @description Patch Preview Deployment success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_PreviewDeployment"];
+          };
+        };
+      };
+      /**
+       * @description Patch Preview Deployment failure. When the patch uses the
+       *     declarative `exports` field and one or more entries fail
+       *     reconciliation, the response is the exports reconciliation
+       *     error envelope (error code 100402) with per-class detail in
+       *     `errors[].meta.details`.
+       */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["workers_api-response-common-failure"]
+            | components["schemas"]["workers_exports_reconciliation_error_response"];
+        };
+      };
+    };
+  };
   listWorkerVersions: {
     parameters: {
       query?: {
@@ -15348,6 +19043,42 @@ export interface operations {
         };
       };
       /** @description Delete version failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  getLatestWorkerVersion: {
+    parameters: {
+      query?: {
+        include?: "modules";
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Get latest version success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Version"];
+          };
+        };
+      };
+      /** @description Get latest version failure. */
       "4XX": {
         headers: {
           [name: string]: unknown;
