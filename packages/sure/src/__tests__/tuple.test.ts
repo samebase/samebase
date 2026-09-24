@@ -1,3 +1,4 @@
+import type { Issue } from "../index.ts";
 // eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { describe, it, expect, assert } from "vite-plus/test";
 import {
@@ -24,8 +25,6 @@ import type {
   Good,
   Bad,
   TupleInferGoods,
-  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
-  TupleInferBads,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
 
@@ -42,7 +41,7 @@ const someTuple = tuple([number, string, boolean]);
   assertEqual<InferredGood, [number, string, boolean]>(true);
   assertEqual<
     InferredBad,
-    ["not number" | undefined, "not string" | undefined, "not boolean" | undefined]
+    readonly Issue<"not number" | "not string" | "not boolean" | "not tuple">[]
   >(true);
   assertEqual<
     InferredMeta,
@@ -51,7 +50,7 @@ const someTuple = tuple([number, string, boolean]);
         type: "tuple";
         schema: [
           Sure<
-            "not number",
+            readonly Issue<"not number">[],
             number,
             unknown,
             MetaObj<{
@@ -59,14 +58,14 @@ const someTuple = tuple([number, string, boolean]);
             }>
           >,
           Sure<
-            "not string",
+            readonly Issue<"not string">[],
             string,
             unknown,
             MetaObj<{
               type: "string";
             }>
           >,
-          (x: unknown) => Good<boolean> | Bad<"not boolean">,
+          (x: unknown) => Good<boolean> | Bad<readonly Issue<"not boolean">[]>,
         ];
       };
     }
@@ -91,12 +90,7 @@ const myTuple = tuple([
   assertEqual<InferredGood, [string, ...number[], string]>(true);
   assertEqual<
     InferredBad,
-    [
-      //
-      "not string" | undefined,
-      ...("not number" | undefined)[],
-      "not string" | undefined,
-    ]
+    readonly Issue<"not number" | "not string" | "not array" | "not tuple">[]
   >(true);
 
   assertEqual<
@@ -107,13 +101,13 @@ const myTuple = tuple([
         schema: [
           typeof string,
           Sure<
-            ("not number" | undefined)[],
+            readonly Issue<"not number" | "not array">[],
             number[],
             unknown,
             MetaObj<{
               parent: typeof spread_NOT_IMPLEMENTED;
               schema: Sure<
-                ("not number" | undefined)[],
+                readonly Issue<"not number" | "not array">[],
                 number[],
                 unknown,
                 MetaObj<{
@@ -148,12 +142,7 @@ const smallSchema = tuple([
   assertEqual<InferredGood, [undefined, ...string[], number]>(true);
   assertEqual<
     InferredBad,
-    [
-      //
-      "not undefined" | undefined,
-      ...("not string" | undefined)[],
-      "not number" | undefined,
-    ]
+    readonly Issue<"not number" | "not string" | "not undefined" | "not array" | "not tuple">[]
   >(true);
 
   assertEqual<
@@ -162,21 +151,21 @@ const smallSchema = tuple([
       meta: {
         type: "tuple";
         schema: [
-          (value: unknown) => Good<undefined> | Bad<"not undefined">,
+          (value: unknown) => Good<undefined> | Bad<readonly Issue<"not undefined">[]>,
           Sure<
-            ("not string" | undefined)[],
+            readonly Issue<"not string" | "not array">[],
             string[],
             unknown,
             MetaObj<{
               parent: typeof spread_NOT_IMPLEMENTED;
               schema: Sure<
-                ("not string" | undefined)[],
+                readonly Issue<"not string" | "not array">[],
                 string[],
                 unknown,
                 MetaObj<{
                   type: "array";
                   schema: Sure<
-                    "not string",
+                    readonly Issue<"not string">[],
                     string,
                     unknown,
                     MetaObj<{
@@ -188,7 +177,7 @@ const smallSchema = tuple([
             }>
           >,
           Sure<
-            "not number",
+            readonly Issue<"not number">[],
             number,
             unknown,
             MetaObj<{
@@ -213,7 +202,7 @@ describe("tuple", () => {
   it("should return bad value", () => {
     const value = someTuple([1, "two", 3]);
 
-    const expected: InferBad<typeof someTuple> = [undefined, undefined, "not boolean"];
+    const expected: InferBad<typeof someTuple> = [{ path: [2], error: "not boolean" }];
 
     expect(value).toStrictEqual(bad(expected));
   });

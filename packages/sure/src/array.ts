@@ -1,12 +1,13 @@
 import { sure, bad, good } from "./core.ts";
-import type { Sure, AnySure, MayAsync, InferBad, InferGood, MetaObj } from "./core.ts";
+import type { Sure, MayAsync, InferBad, InferGood, MetaObj } from "./core.ts";
 import { forEach, mapResult } from "./async.ts";
+import { fail, type AnyValidation, type Issue } from "./issue.ts";
 
-export function array<TSchema extends AnySure<unknown>>(
+export function array<TSchema extends AnyValidation>(
   schema: TSchema,
 ): Sure<
   //
-  Array<InferBad<TSchema> | undefined>,
+  readonly Issue<InferBad<TSchema>[number]["error"] | "not array">[],
   Array<InferGood<TSchema>>,
   unknown,
   MetaObj<{
@@ -19,30 +20,30 @@ export function array<TSchema extends AnySure<unknown>>(
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        return fail("not array");
       }
 
-      let atLeastOneBad = false;
-      const bads: unknown[] = [];
+      let failed = false;
+      const issues: Issue[] = [];
       const goods: unknown[] = [];
+      let index = 0;
 
       return forEach(
         value,
-        (elem) =>
-          mapResult(schema(elem), ([good, unsure]) => {
+        (elem) => {
+          const key = index++;
+          return mapResult(schema(elem), ([good, unsure]) => {
             if (good) {
               goods.push(unsure);
-              // This is necessary in order to maintain the same length
-              bads.push(undefined);
             } else {
-              bads.push(unsure);
-
-              // Since the `bads` array can containe `undefined` values, it's more clear to
-              // have an imperative boolean to make the check
-              atLeastOneBad = true;
+              failed = true;
+              for (const issue of unsure) {
+                issues.push({ path: [key, ...issue.path], error: issue.error });
+              }
             }
-          }),
-        () => (atLeastOneBad ? bad(bads) : good(goods)),
+          });
+        },
+        () => (failed ? bad(issues) : good(goods)),
       );
     },
     {

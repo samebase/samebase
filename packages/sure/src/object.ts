@@ -2,6 +2,7 @@ import { sure, good, bad } from "./core.ts";
 import type { Sure, AnySure, InferAsync, MayAsync, InferGood, InferBad, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 import { forEach, mapResult } from "./async.ts";
+import { fail, type AnyValidation, type Issue } from "./issue.ts";
 
 type PickOptionalsGood<T extends KVPair<AnySure>> = T extends {
   v: MetaObj<{
@@ -62,10 +63,10 @@ export function optional<TSchema extends AnySure<any>>(
   });
 }
 
-export function object<TSchema extends Record<string, AnySure<unknown>>>(
+export function object<TSchema extends Record<string, AnyValidation>>(
   schema: TSchema,
 ): Sure<
-  { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
+  readonly Issue<InferBad<TSchema[keyof TSchema]>[number]["error"] | "not object">[],
   InferSchemaGood<TSchema>,
   unknown,
   MetaObj<{
@@ -79,10 +80,11 @@ export function object<TSchema extends Record<string, AnySure<unknown>>>(
   return sure(
     (value) => {
       if (!isObject(value)) {
-        return bad({});
+        return fail("not object");
       }
 
-      const groupFail: Record<string, unknown> = {};
+      let failed = false;
+      const issues: Issue[] = [];
       const groupGood: Record<string, unknown> = {};
 
       return forEach(
@@ -99,11 +101,14 @@ export function object<TSchema extends Record<string, AnySure<unknown>>>(
             if (good) {
               groupGood[key] = unsure;
             } else {
-              groupFail[key] = unsure;
+              failed = true;
+              for (const issue of unsure) {
+                issues.push({ path: [key, ...issue.path], error: issue.error });
+              }
             }
           });
         },
-        () => (Object.keys(groupFail).length ? bad(groupFail) : good(groupGood)),
+        () => (failed ? bad(issues) : good(groupGood)),
       );
     },
     {

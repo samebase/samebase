@@ -1,6 +1,5 @@
 import { bad, good, pure, sure } from "./core.ts";
 import type {
-  AnySure,
   InferBad,
   InferGood,
   MayAsync,
@@ -11,15 +10,13 @@ import type {
   Unsure,
 } from "./core.ts";
 import { forEach, mapResult } from "./async.ts";
+import type { AnyValidation, Issue } from "./issue.ts";
 
 export const RecurseSymbol = Symbol("recurse");
 
-export const recursiveElem: Sure<
-  // The `bad` type is used by the type system to replace the symbol
-  typeof RecurseSymbol,
-  typeof RecurseSymbol,
-  unknown
-> = pure(() => good(RecurseSymbol));
+export const recursiveElem: Sure<never, typeof RecurseSymbol, unknown> = pure(() =>
+  good(RecurseSymbol),
+);
 
 export type ReplaceSymbolWithObj<Obj extends Record<string, unknown>, With> = {
   [K in keyof Obj]: typeof RecurseSymbol extends Obj[K] //
@@ -30,13 +27,13 @@ export type ReplaceSymbolWithObj<Obj extends Record<string, unknown>, With> = {
 
 export function recurse<
   TBase extends Sure<
-    Record<string, unknown>,
+    readonly Issue[],
     Record<string, unknown>,
     unknown,
     MetaNever | MetaObj,
     boolean
   >,
-  TChild extends AnySure<unknown>,
+  TChild extends AnyValidation,
 >(
   baseObj: TBase,
   // The recursive call includes child validation, which can be async even when baseObj is sync.
@@ -45,7 +42,7 @@ export function recurse<
   ) => TChild,
 ): Sure<
   //
-  ReplaceSymbolWithObj<InferBad<TBase>, InferBad<TChild>>,
+  readonly Issue<InferBad<TBase>[number]["error"] | InferBad<TChild>[number]["error"]>[],
   ReplaceSymbolWithObj<InferGood<TBase>, InferGood<TChild>>,
   unknown,
   MetaObj<{
@@ -54,9 +51,7 @@ export function recurse<
   }>,
   MayAsync<TBase | TChild>
 > {
-  const rec = (
-    value: unknown,
-  ): MaybePromise<Unsure<Record<string, unknown>, Record<string, unknown>>> =>
+  const rec = (value: unknown): MaybePromise<Unsure<readonly Issue[], Record<string, unknown>>> =>
     mapResult(baseObj(value), ([isGoodObj, unsureObj]) => {
       if (!isGoodObj) {
         return bad(unsureObj);
@@ -65,7 +60,8 @@ export function recurse<
       //
 
       const newChildrenGood: Record<string, unknown> = {};
-      const newChildrenBad: Record<string, unknown> = {};
+      let failed = false;
+      const issues: Issue[] = [];
 
       return forEach(
         Object.entries(unsureObj),
@@ -82,16 +78,16 @@ export function recurse<
 
           return mapResult(child, ([isGood, unsure]) => {
             if (!isGood) {
-              newChildrenBad[key] = unsure;
+              failed = true;
+              for (const issue of unsure) {
+                issues.push({ path: [key, ...issue.path], error: issue.error });
+              }
             } else {
               newChildrenGood[key] = unsure;
             }
           });
         },
-        () =>
-          Object.keys(newChildrenBad).length
-            ? bad(newChildrenBad)
-            : good({ ...unsureObj, ...newChildrenGood }),
+        () => (failed ? bad(issues) : good({ ...unsureObj, ...newChildrenGood })),
       );
     });
 

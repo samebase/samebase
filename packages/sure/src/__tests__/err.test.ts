@@ -23,7 +23,12 @@ assertEqual<
 
 describe("err", () => {
   it("throws an error", () => {
-    expect(() => err(string)(1)).toThrow("not string");
+    try {
+      err(string)(1);
+      expect.unreachable("Expected validation to throw");
+    } catch (error) {
+      expect(error).toStrictEqual([{ path: [], error: "not string" }]);
+    }
   });
 
   it("returns the value", () => {

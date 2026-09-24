@@ -1,3 +1,4 @@
+import type { Issue } from "../index.ts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   InferBad,
@@ -41,73 +42,39 @@ assertEqual<
 
 assertEqual<
   InferredBad,
-  {
-    name?: "not string";
-    age?: "not number";
-    lastName?: "not string" | "not undefined";
-  }
+  readonly Issue<"not string" | "not number" | "not undefined" | "not object">[]
 >(true);
 
 assertEqual<InferredInput, unknown>(true);
 
 assertEqual<
   InferredMeta,
-  {
-    meta: {
-      type: "object";
-      schema: {
-        name: Sure<
-          "not string",
-          string,
-          unknown,
-          MetaObj<{
-            type: "string";
-          }>
-        >;
-        age: Sure<
-          "not number",
-          number,
-          unknown,
-          MetaObj<{
-            type: "optional";
-            schema: Sure<
-              "not number",
-              number,
-              unknown,
-              MetaObj<{
-                type: "number";
-              }>
-            >;
-          }>
-        >;
-        lastName: Sure<
-          "not string" | "not undefined",
-          string | undefined,
-          unknown,
-          MetaObj<{
-            type: "optional";
-            schema: Sure<
-              "not string" | "not undefined",
-              string | undefined,
-              unknown,
-              MetaObj<{
-                type: "union";
-                first: Sure<
-                  "not string",
-                  string,
-                  unknown,
-                  MetaObj<{
-                    type: "string";
-                  }>
-                >;
-                second: typeof undef;
-              }>
-            >;
-          }>
-        >;
-      };
+  MetaObj<{
+    type: "object";
+    schema: {
+      name: typeof string;
+      age: Sure<
+        InferBad<typeof number>,
+        number,
+        unknown,
+        MetaObj<{ type: "optional"; schema: typeof number }>
+      >;
+      lastName: Sure<
+        InferBad<typeof string> | InferBad<typeof undef>,
+        string | undefined,
+        unknown,
+        MetaObj<{
+          type: "optional";
+          schema: Sure<
+            InferBad<typeof string> | InferBad<typeof undef>,
+            string | undefined,
+            unknown,
+            MetaObj<{ type: "union"; first: typeof string; second: typeof undef }>
+          >;
+        }>
+      >;
     };
-  }
+  }>
 >(true);
 
 assertEqual<
@@ -154,7 +121,7 @@ describe("optional", () => {
         lastName: "Doe",
       }),
     ) //
-      .toStrictEqual([false, { age: "not number" }]);
+      .toStrictEqual([false, [{ path: ["age"], error: "not number" }]]);
   });
 
   it("bad: age is string", () => {
@@ -165,7 +132,7 @@ describe("optional", () => {
         lastName: "Doe",
       }),
     ) //
-      .toStrictEqual([false, { age: "not number" }]);
+      .toStrictEqual([false, [{ path: ["age"], error: "not number" }]]);
   });
 
   it("ok: lastName is not present", () => {

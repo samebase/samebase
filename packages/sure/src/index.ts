@@ -1,4 +1,5 @@
 export * from "./core.ts";
+export { fail, type Issue } from "./issue.ts";
 
 export * from "./after.ts";
 

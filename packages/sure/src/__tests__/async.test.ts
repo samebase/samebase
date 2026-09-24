@@ -1,8 +1,10 @@
+import type { Issue } from "../index.ts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   after,
   array,
   bad,
+  fail,
   err,
   good,
   intersection,
@@ -37,19 +39,22 @@ describe("async composition", () => {
   it("infers leaf promises without widening synchronous schemas", async () => {
     assertEqual<InferInput<typeof asyncNumber>, unknown>(true);
     assertEqual<InferGood<typeof asyncNumber>, number>(true);
-    assertEqual<InferBad<typeof asyncNumber>, "not number">(true);
-    assertEqual<ReturnType<typeof asyncNumber>, Promise<Unsure<"not number", number>>>(true);
-    assertIs<Sure<"not number", number, unknown, MetaNever, true>>(asyncNumber);
+    assertEqual<InferBad<typeof asyncNumber>, readonly Issue<"not number">[]>(true);
+    assertEqual<
+      ReturnType<typeof asyncNumber>,
+      Promise<Unsure<readonly Issue<"not number">[], number>>
+    >(true);
+    assertIs<Sure<readonly Issue<"not number">[], number, unknown, MetaNever, true>>(asyncNumber);
     // @ts-expect-error A promise-returning validator cannot satisfy a synchronous Sure.
-    assertIs<Sure<"not number", number>>(asyncNumber);
+    assertIs<Sure<readonly Issue<"not number">[], number>>(asyncNumber);
 
     const narrow = pure((value: string) => Promise.resolve(good(value.length)));
     assertEqual<InferInput<typeof narrow>, string>(true);
     const withMeta = sure((value) => asyncNumber(value), { type: "remote-number" as const });
     expect(justMeta(withMeta)).toEqual({ type: "remote-number" });
-    assertEqual<ReturnType<typeof number>, Unsure<"not number", number>>(true);
+    assertEqual<ReturnType<typeof number>, Unsure<readonly Issue<"not number">[], number>>(true);
     await expect(asyncNumber(2)).resolves.toEqual(good(2));
-    await expect(asyncNumber("2")).resolves.toEqual(bad("not number"));
+    await expect(asyncNumber("2")).resolves.toEqual(fail("not number"));
   });
 
   it("lifts a nested object and preserves field and error inference", async () => {
@@ -60,12 +65,9 @@ describe("async composition", () => {
       location: optional(tuple([string, asyncNumber])),
     });
     type Value = { name: string; age: number; tags: string[]; location?: [string, number] };
-    type Error = {
-      name?: "not string";
-      age?: "not number";
-      tags?: ("not string" | undefined)[];
-      location?: ["not string" | undefined, "not number" | undefined];
-    };
+    type Error = readonly Issue<
+      "not string" | "not number" | "not array" | "not tuple" | "not object"
+    >[];
     assertEqual<InferGood<typeof schema>, Value>(true);
     assertEqual<InferBad<typeof schema>, Error>(true);
     assertEqual<ReturnType<typeof schema>, MaybePromise<Unsure<Error, Value>>>(true);
@@ -75,25 +77,26 @@ describe("async composition", () => {
       good({ name: "Ada", age: 2, tags: [], location: ["home", 4] }),
     );
     await expect(schema({ name: 1, age: "2", tags: [3], location: [2, "3"] })).resolves.toEqual(
-      bad({
-        name: "not string",
-        age: "not number",
-        tags: ["not string"],
-        location: ["not string", "not number"],
-      }),
+      bad([
+        { path: ["name"], error: "not string" },
+        { path: ["age"], error: "not number" },
+        { path: ["tags", 0], error: "not string" },
+        { path: ["location", 0], error: "not string" },
+        { path: ["location", 1], error: "not number" },
+      ]),
     );
   });
 
   it("keeps skipped async children synchronous", () => {
     expect(array(asyncNumber)([])).toEqual(good([]));
-    expect(array(asyncNumber)(null)).toEqual(bad([]));
-    expect(tuple([asyncNumber])(null)).toEqual(bad([]));
-    expect(object({ age: asyncNumber })(null)).toEqual(bad({}));
+    expect(array(asyncNumber)(null)).toEqual(fail("not array"));
+    expect(tuple([asyncNumber])(null)).toEqual(fail("not tuple"));
+    expect(object({ age: asyncNumber })(null)).toEqual(fail("not object"));
     expect(object({ age: optional(asyncNumber) })({})).toEqual(good({}));
     expect(union(number, asyncNumber)(1)).toEqual(good(1));
-    expect(after(number, asyncNumber)("bad")).toEqual(bad("not number"));
+    expect(after(number, asyncNumber)("bad")).toEqual(fail("not number"));
     expect(intersection(object({ name: string }), object({ age: asyncNumber }))(null)).toEqual(
-      bad({}),
+      fail("not object"),
     );
   });
 
@@ -102,7 +105,7 @@ describe("async composition", () => {
     const schema = object({
       first: pure(() => {
         calls.push("first");
-        return Promise.resolve(bad("unavailable"));
+        return Promise.resolve(fail("unavailable"));
       }),
       second: pure((value) => {
         calls.push("second");
@@ -111,7 +114,12 @@ describe("async composition", () => {
     });
     const result = schema({ first: 1, second: "bad" });
     expect(calls).toEqual(["first"]);
-    await expect(result).resolves.toEqual(bad({ first: "unavailable", second: "not number" }));
+    await expect(result).resolves.toEqual(
+      bad([
+        { path: ["first"], error: "unavailable" },
+        { path: ["second"], error: "not number" },
+      ]),
+    );
     expect(calls).toEqual(["first", "second"]);
   });
 
@@ -146,22 +154,24 @@ describe("async composition", () => {
 
   it("keeps array and tuple errors at their original positions", async () => {
     await expect(array(asyncNumber)([1, "bad", 3])).resolves.toEqual(
-      bad([undefined, "not number", undefined]),
+      bad([{ path: [1], error: "not number" }]),
     );
     await expect(tuple([asyncNumber, string])([1, 2])).resolves.toEqual(
-      bad([undefined, "not string"]),
+      bad([{ path: [1], error: "not string" }]),
     );
-    const undefinedError = pure(() => Promise.resolve(bad(undefined)));
-    await expect(array(undefinedError)([1])).resolves.toEqual(bad([undefined]));
+    const undefinedError = pure(() => Promise.resolve(fail(undefined)));
+    await expect(array(undefinedError)([1])).resolves.toEqual(
+      bad([{ path: [0], error: undefined }]),
+    );
   });
 
   it("waits before applying after, union, and intersection branches", async () => {
     const positive = after(asyncNumber, (value) => {
       assertEqual<typeof value, number>(true);
-      return value > 0 ? good(value) : bad("not positive");
+      return value > 0 ? good(value) : fail("not positive");
     });
     await expect(positive(2)).resolves.toEqual(good(2));
-    await expect(positive(-1)).resolves.toEqual(bad("not positive"));
+    await expect(positive(-1)).resolves.toEqual(fail("not positive"));
     await expect(union(asyncNumber, string)("hello")).resolves.toEqual(good("hello"));
     await expect(
       intersection(object({ age: asyncNumber }), object({ name: string }))({ age: 2, name: "Ada" }),
@@ -172,10 +182,10 @@ describe("async composition", () => {
       return good({});
     });
     await expect(union(asyncNumber, second)(2)).resolves.toEqual(good(2));
-    await expect(after(asyncNumber, second)("bad")).resolves.toEqual(bad("not number"));
+    await expect(after(asyncNumber, second)("bad")).resolves.toEqual(fail("not number"));
     await expect(
       intersection(object({ age: asyncNumber }), second)({ age: "bad" }),
-    ).resolves.toEqual(bad({ age: "not number" }));
+    ).resolves.toEqual(bad([{ path: ["age"], error: "not number" }]));
     expect(called).toBe(false);
   });
 
@@ -208,9 +218,9 @@ describe("async composition", () => {
     assertEqual<InferAsync<typeof schema>, boolean>(true);
     const value = { name: "root", children: [{ name: "child", children: [] }] };
     await expect(schema(value)).resolves.toEqual(good(value));
-    expect(schema(null)).toEqual(bad({}));
+    expect(schema(null)).toEqual(fail("not object"));
     expect(schema({ name: "root", children: [{ name: 2, children: [] }] })).toEqual(
-      bad({ children: [{ name: "not string" }] }),
+      bad([{ path: ["children", 0, "name"], error: "not string" }]),
     );
   });
 
@@ -218,7 +228,7 @@ describe("async composition", () => {
     const parse = err(asyncNumber);
     assertEqual<ReturnType<typeof parse>, Promise<number>>(true);
     await expect(parse(2)).resolves.toBe(2);
-    await expect(parse("2")).rejects.toBe("not number");
+    await expect(parse("2")).rejects.toEqual([{ path: [], error: "not number" }]);
     const nested = err(pure(() => Promise.resolve(good(Promise.resolve(3)))));
     assertEqual<ReturnType<typeof nested>, Promise<number>>(true);
     await expect(nested(null)).resolves.toBe(3);
@@ -226,11 +236,14 @@ describe("async composition", () => {
 
   it("does not treat a promise inside a good payload as async validation", async () => {
     const schema = object({ value: pure(() => good(Promise.resolve(2))) });
-    assertEqual<ReturnType<typeof schema>, Unsure<{ value?: never }, { value: Promise<number> }>>(
-      true,
-    );
+    assertEqual<
+      ReturnType<typeof schema>,
+      Unsure<readonly Issue<"not object">[], { value: Promise<number> }>
+    >(true);
     const result = schema({ value: 1 });
-    assertIs<Good<{ value: Promise<number> }> | readonly [false, { value?: never }]>(result);
+    assertIs<Good<{ value: Promise<number> }> | readonly [false, readonly Issue<"not object">[]]>(
+      result,
+    );
     expect(result[0]).toBe(true);
     if (result[0]) await expect(result[1].value).resolves.toBe(2);
   });
@@ -244,17 +257,21 @@ describe("async composition", () => {
     const payloads = [undefined, null, false, 0, "", Promise.resolve(1), thenable];
     for (const payload of payloads) {
       const success = pure(() => Promise.resolve(good(payload)));
-      const failure = pure(() => Promise.resolve(bad(payload)));
+      const failure = pure(() => Promise.resolve(fail(payload)));
       await expect(object({ value: success })({ value: 1 })).resolves.toStrictEqual(
         good({ value: payload }),
       );
       await expect(object({ value: failure })({ value: 1 })).resolves.toStrictEqual(
-        bad({ value: payload }),
+        bad([{ path: ["value"], error: payload }]),
       );
       await expect(array(success)([1])).resolves.toStrictEqual(good([payload]));
-      await expect(array(failure)([1])).resolves.toStrictEqual(bad([payload]));
+      await expect(array(failure)([1])).resolves.toStrictEqual(
+        bad([{ path: [0], error: payload }]),
+      );
       await expect(tuple([success])([1])).resolves.toStrictEqual(good([payload]));
-      await expect(tuple([failure])([1])).resolves.toStrictEqual(bad([payload]));
+      await expect(tuple([failure])([1])).resolves.toStrictEqual(
+        bad([{ path: [0], error: payload }]),
+      );
       await expect(after(success, good)(1)).resolves.toStrictEqual(good(payload));
       await expect(union(failure, success)(1)).resolves.toStrictEqual(good(payload));
     }
