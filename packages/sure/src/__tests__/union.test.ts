@@ -5,6 +5,7 @@ import type {
   InferGood,
   InferInput,
   InferMeta,
+  Issues,
   // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaNever,
   MetaObj,
@@ -21,7 +22,7 @@ type InferredInput = InferInput<typeof simple>;
 type InferredMeta = InferMeta<typeof simple>;
 
 assertEqual<InferredGood, number | string>(true);
-assertEqual<InferredBad, "not number" | "not string">(true);
+assertEqual<InferredBad, Issues<"not number" | "not string">>(true);
 assertEqual<InferredInput, unknown>(true);
 assertEqual<
   InferredMeta,
@@ -29,7 +30,7 @@ assertEqual<
     meta: {
       type: "union";
       first: Sure<
-        "not number",
+        Issues<"not number">,
         number,
         unknown,
         MetaObj<{
@@ -37,7 +38,7 @@ assertEqual<
         }>
       >;
       second: Sure<
-        "not string",
+        Issues<"not string">,
         string,
         unknown,
         MetaObj<{
@@ -76,17 +77,17 @@ describe("or", () => {
   it("should return bad value", () => {
     const value = simple(true);
 
-    expect(value).toStrictEqual([false, "not string"]);
+    expect(value).toStrictEqual([false, [{ message: "not number" }, { message: "not string" }]]);
 
     // TypeChecks
     if (value[0] === false) {
-      assertEqual<(typeof value)[1], "not number" | "not string">(true);
+      assertEqual<(typeof value)[1], Issues<"not number" | "not string">>(true);
     }
   });
 
-  it("if first value bad, return second", () => {
+  it("if both values are bad, return the issues of both", () => {
     const value = simple({});
 
-    expect(value).toStrictEqual([false, "not string"]);
+    expect(value).toStrictEqual([false, [{ message: "not number" }, { message: "not string" }]]);
   });
 });

@@ -1,22 +1,22 @@
-import { good, sure } from "./core.ts";
-import type { MetaNever, MetaObj, Sure } from "./core.ts";
+import { bad, good, sure } from "./core.ts";
+import type { Issues, MetaNever, MetaObj, Sure } from "./core.ts";
 
 export function union<
   //
-  TFirstBad,
+  TFirstMessage extends string,
   TFirstGood,
   TFirstInput,
   TFirstMeta extends MetaNever | MetaObj,
   //
-  TSecondBad,
+  TSecondMessage extends string,
   TSecondGood,
   TSecondInput,
   TSecondMeta extends MetaNever | MetaObj,
 >(
-  first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
-  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
+  first: Sure<Issues<TFirstMessage>, TFirstGood, TFirstInput, TFirstMeta>,
+  second: Sure<Issues<TSecondMessage>, TSecondGood, TSecondInput, TSecondMeta>,
 ): Sure<
-  TFirstBad | TSecondBad,
+  Issues<TFirstMessage | TSecondMessage>,
   TFirstGood | TSecondGood,
   // Variance
   TFirstInput & TSecondInput,
@@ -36,7 +36,14 @@ export function union<
         return good(unsureFirst);
       }
 
-      return second(value);
+      const [isGoodSecond, unsureSecond] = second(value);
+
+      if (isGoodSecond) {
+        return good(unsureSecond);
+      }
+
+      // Neither matched, so the issues of both explain why
+      return bad([...unsureFirst, ...unsureSecond]);
     },
     {
       type: "union",

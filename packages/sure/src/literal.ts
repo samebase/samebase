@@ -16,7 +16,7 @@ export const literal = <
         );
       }
 
-      return bad(`not literal ${typeof value} (${String(value)})` as const);
+      return bad([{ message: `not literal ${typeof value} (${String(value)})` as const }]);
     },
     {
       type: "literal",

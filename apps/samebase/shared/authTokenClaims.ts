@@ -22,10 +22,10 @@ export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 const authTokenProfileClaimValueSchema = after(string, (value) => {
   const trimmedValue = value.trim();
   if (trimmedValue.length === 0) {
-    return bad("blank-string");
+    return bad([{ message: "blank-string" }]);
   }
   if (value.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
-    return bad("too-long-string");
+    return bad([{ message: "too-long-string" }]);
   }
   return good(value);
 });
@@ -46,7 +46,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
       claims.githubUsername !== undefined ||
       claims.name !== undefined
     ) {
-      return bad("legacy-account-presentation");
+      return bad([{ message: "legacy-account-presentation" }]);
     }
 
     let accountPresentation: AccountPresentation;
@@ -58,7 +58,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
     } else {
       const normalizedEmail = normalizeAccountEmail(claims.accountLabel);
       if (normalizedEmail !== claims.accountLabel) {
-        return bad("noncanonical-account-email");
+        return bad([{ message: "noncanonical-account-email" }]);
       }
       accountPresentation = {
         kind: "email",
@@ -69,7 +69,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
       accountPresentation,
     });
   } catch {
-    return bad("invalid-account-presentation");
+    return bad([{ message: "invalid-account-presentation" }]);
   }
 });
 

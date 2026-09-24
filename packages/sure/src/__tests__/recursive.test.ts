@@ -23,6 +23,7 @@ import type {
   InferGood,
   InferInput,
   InferMeta,
+  Issues,
   MetaNever,
   MetaObj,
   RecurseSymbol,
@@ -61,28 +62,13 @@ describe("recursive", () => {
     >(true);
     //////
 
-    assertEqual<
-      InferredBad,
-      {
-        name?: "not string";
-        children?: (
-          | {
-              name?: "not string";
-              children?: typeof RecurseSymbol;
-            }
-          | undefined
-        )[];
-      }
-    >(true);
+    assertEqual<InferredBad, Issues<"not object" | "not string" | "not array">>(true);
 
     assertEqual<
       InferredMeta,
       MetaObj<{
         baseObj: Sure<
-          {
-            name?: "not string";
-            children?: typeof RecurseSymbol;
-          },
+          Issues<"not object" | "not string">,
           {
             name: string;
             children: typeof RecurseSymbol;
@@ -91,10 +77,7 @@ describe("recursive", () => {
         >;
         childParser: (
           surer: Sure<
-            {
-              name?: "not string";
-              children?: typeof RecurseSymbol;
-            },
+            Issues<"not object" | "not string">,
             {
               name: string;
               children: typeof RecurseSymbol;
@@ -102,13 +85,7 @@ describe("recursive", () => {
             unknown
           >,
         ) => Sure<
-          (
-            | {
-                name?: "not string";
-                children?: typeof RecurseSymbol;
-              }
-            | undefined
-          )[],
+          Issues<"not array" | "not object" | "not string">,
           {
             name: string;
             children: typeof RecurseSymbol;
@@ -151,6 +128,23 @@ describe("recursive", () => {
             },
           ],
         },
+      ]);
+    });
+
+    it("should point to the bad value at any depth", () => {
+      const value = recurseSure({
+        name: "hello",
+        children: [
+          {
+            name: "world",
+            children: [{ name: 1, children: [] }],
+          },
+        ],
+      });
+
+      expect(value).toStrictEqual([
+        false,
+        [{ message: "not string", path: ["children", 0, "children", 0, "name"] }],
       ]);
     });
   });
@@ -215,44 +209,18 @@ describe("recursive", () => {
 
     assertEqual<
       InferredBad,
-      {
-        value?: "not number";
-        left?:
-          | {
-              value?: "not number";
-              left?: typeof RecurseSymbol;
-              right?: typeof RecurseSymbol;
-            }
-          | {
-              parent?: "not number";
-            }
-          | `not literal string (${string})`
-          | `not literal number (${string})`
-          | `not literal bigint (${string})`
-          | `not literal boolean (${string})`
-          | `not literal symbol (${string})`
-          | `not literal undefined (${string})`
-          | `not literal object (${string})`
-          | `not literal function (${string})`;
-
-        right?:
-          | {
-              value?: "not number";
-              left?: typeof RecurseSymbol;
-              right?: typeof RecurseSymbol;
-            }
-          | {
-              parent?: "not number";
-            }
-          | `not literal string (${string})`
-          | `not literal number (${string})`
-          | `not literal bigint (${string})`
-          | `not literal boolean (${string})`
-          | `not literal symbol (${string})`
-          | `not literal undefined (${string})`
-          | `not literal object (${string})`
-          | `not literal function (${string})`;
-      }
+      Issues<
+        | "not object"
+        | "not number"
+        | `not literal string (${string})`
+        | `not literal number (${string})`
+        | `not literal bigint (${string})`
+        | `not literal boolean (${string})`
+        | `not literal symbol (${string})`
+        | `not literal undefined (${string})`
+        | `not literal object (${string})`
+        | `not literal function (${string})`
+      >
     >(true);
 
     it("should work for complex things", () => {
@@ -291,7 +259,7 @@ describe("recursive", () => {
         },
       ]);
     });
-    it("should fail for complex things (TODO: improve bad response)", () => {
+    it("should fail for complex things", () => {
       const value = recurseComplexSure({
         value: 4,
 
@@ -312,10 +280,11 @@ describe("recursive", () => {
 
       expect(value).toStrictEqual([
         false,
-        {
-          // TODO: improve bad response
-          left: "not literal string (end)",
-        },
+        [
+          // The `left` is neither an object with a `parent`, nor "end"
+          { message: "not number", path: ["left", "parent"] },
+          { message: "not literal string (end)", path: ["left"] },
+        ],
       ]);
     });
   });

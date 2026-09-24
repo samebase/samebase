@@ -1,6 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
-import { bad, good, sure } from "./core.ts";
-import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
+import { bad, good, sure, under } from "./core.ts";
+import type {
+  InferBad,
+  InferGood,
+  InferMessage,
+  Issue,
+  Issues,
+  MetaNever,
+  MetaObj,
+  Sure,
+} from "./core.ts";
 
 // TODO: add tests, also implement tuple spread
 export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer InferRest]
@@ -24,24 +33,6 @@ export type TupleInferGoods<
         : [Good, ...TupleInferGoods<InferRest>]
       : []
     : [];
-
-export type TupleInferBads_old<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<infer Bad, unknown, any, MetaObj | MetaNever>
-    ? [Bad | undefined, ...TupleInferBads<InferRest>]
-    : []
-  : [];
-
-export type TupleInferBads<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<infer Bad, unknown, any, infer Meta>
-    ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
-      ? // try spreading the rest if it's an array
-        Bad extends readonly unknown[]
-        ? [...Bad, ...TupleInferBads<InferRest>]
-        : // otherwise just return the bad
-          [Bad | undefined, ...TupleInferBads<InferRest>]
-      : [Bad | undefined, ...TupleInferBads<InferRest>]
-    : []
-  : [];
 
 /**
  * @deprecated
@@ -76,12 +67,12 @@ export function spread_NOT_IMPLEMENTED<Arr extends Sure<unknown, unknown[], unkn
 }
 
 export function tuple<
-  Arr extends [Sure<unknown, unknown, any>, ...Sure<unknown, unknown, any>[]] | [],
+  Arr extends [Sure<Issues, unknown, any>, ...Sure<Issues, unknown, any>[]] | [],
 >(
   arr: Arr,
 ): Sure<
   //
-  TupleInferBads<Arr>,
+  Issues<"not tuple" | InferMessage<Arr[number]>>,
   TupleInferGoods<Arr>,
   unknown,
   MetaObj<{
@@ -93,31 +84,24 @@ export function tuple<
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        return bad([{ message: "not tuple" }]);
       }
 
-      let atLeastOneBad = false;
-      let bads = [];
-      let goods = [];
+      const issues: Issue[] = [];
+      const goods = [];
 
-      for (const [i, elem] of arr.entries()) {
-        const [good, unsure] = elem(value[i]);
+      for (const [index, elem] of arr.entries()) {
+        const [good, unsure] = elem(value[index]);
 
         if (good) {
           goods.push(unsure);
-          // This is necessary in order to maintain the same length
-          bads.push(undefined);
         } else {
-          bads.push(unsure);
-
-          // Since the `bads` array can containe `undefined` values, it's more clear to
-          // have an imperative boolean to make the check
-          atLeastOneBad = true;
+          issues.push(...under(index, unsure));
         }
       }
 
-      if (atLeastOneBad) {
-        return bad(bads);
+      if (issues.length) {
+        return bad(issues);
       }
 
       return good(goods);

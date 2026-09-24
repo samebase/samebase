@@ -1,5 +1,5 @@
-import { sure, good, bad } from "./core.ts";
-import type { Sure, InferGood, InferBad, MetaObj } from "./core.ts";
+import { sure, good, bad, under } from "./core.ts";
+import type { Sure, InferGood, InferBad, InferMessage, Issue, Issues, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
@@ -74,13 +74,11 @@ export function optional<TSchema extends Sure<unknown, unknown, any>>(
 
 export function object<
   //
-  TPropFail,
-  TPropGood,
-  TSchema extends Record<string, Sure<TPropFail, TPropGood, unknown>>,
+  TSchema extends Record<string, Sure<Issues, unknown, unknown>>,
 >(
   schema: TSchema,
 ): Sure<
-  { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
+  Issues<"not object" | InferMessage<TSchema[keyof TSchema]>>,
   InferSchemaGood<TSchema>,
   unknown,
   MetaObj<{
@@ -93,10 +91,10 @@ export function object<
   return sure(
     (value) => {
       if (!isObject(value)) {
-        return bad({});
+        return bad([{ message: "not object" }]);
       }
 
-      const groupFail = {};
+      const issues: Issue[] = [];
       const groupGood = {};
 
       for (const [key, sureFunction] of Object.entries(schema)) {
@@ -112,13 +110,12 @@ export function object<
           // @ts-expect-error
           groupGood[key] = unsure;
         } else {
-          // @ts-expect-error
-          groupFail[key] = unsure;
+          issues.push(...under(key, unsure));
         }
       }
 
-      if (Object.keys(groupFail).length) {
-        return bad(groupFail);
+      if (issues.length) {
+        return bad(issues);
       }
 
       return good(groupGood);

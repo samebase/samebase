@@ -1,16 +1,14 @@
-import { sure, bad, good } from "./core.ts";
-import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
+import { sure, bad, good, under } from "./core.ts";
+import type { Sure, InferGood, InferMessage, Issue, Issues, MetaNever, MetaObj } from "./core.ts";
 
 export function array<
   //
-  TPropFail,
-  TPropGood,
-  TSchema extends Sure<TPropFail, TPropGood, unknown, MetaObj | MetaNever>,
+  TSchema extends Sure<Issues, unknown, unknown, MetaObj | MetaNever>,
 >(
   schema: TSchema,
 ): Sure<
   //
-  Array<InferBad<TSchema> | undefined>,
+  Issues<"not array" | InferMessage<TSchema>>,
   Array<InferGood<TSchema>>,
   unknown,
   MetaObj<{
@@ -22,31 +20,24 @@ export function array<
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        return bad([{ message: "not array" }]);
       }
 
-      let atLeastOneBad = false;
-      let bads = [];
-      let goods = [];
+      const issues: Issue[] = [];
+      const goods = [];
 
-      for (const elem of value) {
+      for (const [index, elem] of value.entries()) {
         const [good, unsure] = schema(elem);
 
         if (good) {
           goods.push(unsure);
-          // This is necessary in order to maintain the same length
-          bads.push(undefined);
         } else {
-          bads.push(unsure);
-
-          // Since the `bads` array can containe `undefined` values, it's more clear to
-          // have an imperative boolean to make the check
-          atLeastOneBad = true;
+          issues.push(...under(index, unsure));
         }
       }
 
-      if (atLeastOneBad) {
-        return bad(bads);
+      if (issues.length) {
+        return bad(issues);
       }
 
       return good(goods);

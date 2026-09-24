@@ -7,6 +7,7 @@ import type {
   InferMeta,
   // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   InferSchemaGood,
+  Issues,
   // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaNever,
   MetaObj,
@@ -32,7 +33,9 @@ type InferredInput = InferInput<typeof simple>;
 type InferredMeta = InferMeta<typeof simple>;
 
 assertEqual<InferredGood, { name: string } & { age: number }>(true);
-assertEqual<InferredBad, { name?: "not string" } | { age?: "not number" }>(true);
+assertEqual<InferredBad, Issues<"not object" | "not string"> | Issues<"not object" | "not number">>(
+  true,
+);
 assertEqual<InferredInput, unknown>(true); // The input needs more tests
 assertEqual<
   InferredMeta,
@@ -40,9 +43,7 @@ assertEqual<
     meta: {
       type: "intersection";
       first: Sure<
-        {
-          name?: "not string";
-        },
+        Issues<"not object" | "not string">,
         {
           name: string;
         },
@@ -51,7 +52,7 @@ assertEqual<
           type: "object";
           schema: {
             name: Sure<
-              "not string",
+              Issues<"not string">,
               string,
               unknown,
               MetaObj<{
@@ -62,9 +63,7 @@ assertEqual<
         }>
       >;
       second: Sure<
-        {
-          age?: "not number";
-        },
+        Issues<"not object" | "not number">,
         {
           age: number;
         },
@@ -73,7 +72,7 @@ assertEqual<
           type: "object";
           schema: {
             age: Sure<
-              "not number",
+              Issues<"not number">,
               number,
               unknown,
               MetaObj<{
@@ -110,18 +109,13 @@ describe("and", () => {
       age: 1,
     });
 
-    expect(value).toStrictEqual([false, { name: "not string" }]);
+    expect(value).toStrictEqual([false, [{ message: "not string", path: ["name"] }]]);
 
     // TypeChecks
     if (value[0] === false) {
       assertEqual<
         (typeof value)[1],
-        | {
-            name?: "not string";
-          }
-        | {
-            age?: "not number";
-          }
+        Issues<"not object" | "not string"> | Issues<"not object" | "not number">
       >(true);
     }
   });
@@ -132,6 +126,6 @@ describe("and", () => {
       age: "1",
     });
 
-    expect(value).toStrictEqual([false, { age: "not number" }]);
+    expect(value).toStrictEqual([false, [{ message: "not number", path: ["age"] }]]);
   });
 });

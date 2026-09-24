@@ -20,6 +20,7 @@ import type {
   InferInput,
   InferMeta,
   InferSchemaGood,
+  Issues,
   MetaNever,
   MetaObj,
   Sure,
@@ -32,14 +33,20 @@ const someObj = object({
   age: number,
 
   // with inner sure
-  firstName: pure((value) => (typeof value === "string" ? good(value) : bad("not string (sure)"))),
+  firstName: pure((value) =>
+    typeof value === "string" ? good(value) : bad([{ message: "not string (sure)" }]),
+  ),
 
   // with inner pure
-  middleName: pure((value) => (typeof value === "string" ? good(value) : bad("not string (pure)"))),
+  middleName: pure((value) =>
+    typeof value === "string" ? good(value) : bad([{ message: "not string (pure)" }]),
+  ),
 
   // with inner raw
   lastName: (value: unknown) =>
-    typeof value === "string" ? ([true, value] as const) : ([false, "not string (raw)"] as const),
+    typeof value === "string"
+      ? ([true, value] as const)
+      : ([false, [{ message: "not string (raw)" }]] as const),
 
   address: object({
     country: string,
@@ -67,15 +74,14 @@ assertEqual<
 
 assertEqual<
   InferredBad,
-  {
-    age?: "not number";
-    firstName?: "not string (sure)";
-    middleName?: "not string (pure)";
-    lastName?: "not string (raw)";
-    address?: {
-      country?: "not string";
-    };
-  }
+  Issues<
+    | "not object"
+    | "not number"
+    | "not string (sure)"
+    | "not string (pure)"
+    | "not string (raw)"
+    | "not string"
+  >
 >(true);
 
 assertEqual<InferredInput, unknown>(true);
@@ -87,22 +93,22 @@ assertEqual<
       type: "object";
       schema: {
         age: Sure<
-          "not number",
+          Issues<"not number">,
           number,
           unknown,
           MetaObj<{
             type: "number";
           }>
         >;
-        firstName: Sure<"not string (sure)", string, unknown, MetaNever>;
-        middleName: Sure<"not string (pure)", string, unknown, MetaNever>;
+        firstName: Sure<Issues<"not string (sure)">, string, unknown, MetaNever>;
+        middleName: Sure<Issues<"not string (pure)">, string, unknown, MetaNever>;
         lastName: (
           value: unknown,
-        ) => readonly [true, string] | readonly [false, "not string (raw)"];
+        ) =>
+          | readonly [true, string]
+          | readonly [false, readonly [{ readonly message: "not string (raw)" }]];
         address: Sure<
-          {
-            country?: "not string";
-          },
+          Issues<"not object" | "not string">,
           {
             country: string;
           },
@@ -111,7 +117,7 @@ assertEqual<
             type: "object";
             schema: {
               country: Sure<
-                "not string",
+                Issues<"not string">,
                 string,
                 unknown,
                 MetaObj<{
@@ -164,26 +170,27 @@ describe("object", () => {
 
     expect(value).toEqual([
       false,
-      {
-        address: {
-          country: "not string",
-        },
-        firstName: "not string (sure)",
-        lastName: "not string (raw)",
-        middleName: "not string (pure)",
-      },
+      [
+        { message: "not string (sure)", path: ["firstName"] },
+        { message: "not string (pure)", path: ["middleName"] },
+        { message: "not string (raw)", path: ["lastName"] },
+        { message: "not string", path: ["address", "country"] },
+      ],
     ]);
 
     expect(value).toEqual(
-      bad({
-        address: {
-          country: "not string",
-        },
-        firstName: "not string (sure)",
-        lastName: "not string (raw)",
-        middleName: "not string (pure)",
-      }),
+      bad([
+        { message: "not string (sure)", path: ["firstName"] },
+        { message: "not string (pure)", path: ["middleName"] },
+        { message: "not string (raw)", path: ["lastName"] },
+        { message: "not string", path: ["address", "country"] },
+      ]),
     );
+  });
+
+  it("should return a bad value for non objects", () => {
+    expect(someObj("John")).toStrictEqual([false, [{ message: "not object" }]]);
+    expect(someObj(null)).toStrictEqual([false, [{ message: "not object" }]]);
   });
 
   describe("optionals", () => {
@@ -199,7 +206,7 @@ describe("object", () => {
 
       // Not allow when age is undefined
       expect(schema({ name: "John", age: undefined })) //
-        .toStrictEqual([false, { age: "not number" }]);
+        .toStrictEqual([false, [{ message: "not number", path: ["age"] }]]);
 
       // Allow when age is not present !!
       expect(schema({ name: "John" })) //
@@ -219,8 +226,13 @@ describe("object", () => {
         .toStrictEqual([true, { name: "John", age: undefined }]);
 
       expect(schema({ name: "John", age: null })) //
-        // TODO: The error seems meh
-        .toStrictEqual([false, { age: "not literal undefined (undefined)" }]);
+        .toStrictEqual([
+          false,
+          [
+            { message: "not number", path: ["age"] },
+            { message: "not literal undefined (undefined)", path: ["age"] },
+          ],
+        ]);
 
       expect(schema({ name: "John" })) //
         .toStrictEqual([true, { name: "John" }]);

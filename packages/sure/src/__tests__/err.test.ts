@@ -22,8 +22,8 @@ assertEqual<
 >(true);
 
 describe("err", () => {
-  it("throws an error", () => {
-    expect(() => err(string)(1)).toThrow("not string");
+  it("throws the issues", () => {
+    expect(() => err(string)(1)).toThrow(expect.arrayContaining([{ message: "not string" }]));
   });
 
   it("returns the value", () => {

@@ -4,6 +4,7 @@ import {
   InferGood,
   InferInput,
   InferMeta,
+  Issues,
   MetaNever,
   MetaObj,
   Sure,
@@ -40,14 +41,9 @@ assertEqual<
   }
 >(true);
 
-assertEqual<
-  InferredBad,
-  {
-    name?: "not string";
-    age?: "not number";
-    lastName?: "not string" | "not undefined";
-  }
->(true);
+assertEqual<InferredBad, Issues<"not object" | "not string" | "not number" | "not undefined">>(
+  true,
+);
 
 assertEqual<InferredInput, unknown>(true);
 
@@ -58,7 +54,7 @@ assertEqual<
       type: "object";
       schema: {
         name: Sure<
-          "not string",
+          Issues<"not string">,
           string,
           unknown,
           MetaObj<{
@@ -66,13 +62,13 @@ assertEqual<
           }>
         >;
         age: Sure<
-          "not number",
+          Issues<"not number">,
           number,
           unknown,
           MetaObj<{
             type: "optional";
             schema: Sure<
-              "not number",
+              Issues<"not number">,
               number,
               unknown,
               MetaObj<{
@@ -82,26 +78,26 @@ assertEqual<
           }>
         >;
         lastName: Sure<
-          "not string" | "not undefined",
+          Issues<"not string" | "not undefined">,
           string | undefined,
           unknown,
           MetaObj<{
             type: "optional";
             schema: Sure<
-              "not string" | "not undefined",
+              Issues<"not string" | "not undefined">,
               string | undefined,
               unknown,
               MetaObj<{
                 type: "union";
                 first: Sure<
-                  "not string",
+                  Issues<"not string">,
                   string,
                   unknown,
                   MetaObj<{
                     type: "string";
                   }>
                 >;
-                second: Sure<"not undefined", undefined, unknown, MetaNever | MetaObj>;
+                second: Sure<Issues<"not undefined">, undefined, unknown, MetaNever | MetaObj>;
               }>
             >;
           }>
@@ -155,7 +151,7 @@ describe("optional", () => {
         lastName: "Doe",
       }),
     ) //
-      .toStrictEqual([false, { age: "not number" }]);
+      .toStrictEqual([false, [{ message: "not number", path: ["age"] }]]);
   });
 
   it("bad: age is string", () => {
@@ -166,7 +162,7 @@ describe("optional", () => {
         lastName: "Doe",
       }),
     ) //
-      .toStrictEqual([false, { age: "not number" }]);
+      .toStrictEqual([false, [{ message: "not number", path: ["age"] }]]);
   });
 
   it("ok: lastName is not present", () => {

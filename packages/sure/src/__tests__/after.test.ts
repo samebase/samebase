@@ -10,10 +10,12 @@ import {
   InferInput,
   InferMeta,
   object,
+  number,
   string,
   Sure,
   Good,
   Bad,
+  Issues,
 } from "../index.ts";
 import { assertEqual, assertIs } from "./typeTestUtils.ts";
 
@@ -74,10 +76,10 @@ Big Object
 
 const sureBig = after(
   object({
-    age: after(sureNumber, (val) => {
-      if (val % 1 !== 0) return bad("not integer");
-      if (val < 0) return bad("not positive");
-      if (val > 200) return bad("too old, sorry");
+    age: after(number, (val) => {
+      if (val % 1 !== 0) return bad([{ message: "not integer" }]);
+      if (val < 0) return bad([{ message: "not positive" }]);
+      if (val > 200) return bad([{ message: "too old, sorry" }]);
 
       return good(val);
     }),
@@ -85,7 +87,7 @@ const sureBig = after(
   }),
   (val) => {
     if (val.name === "john" && val.age < 30) {
-      return bad({ name: `john's below 30 are too young` as const });
+      return bad([{ message: `john's below 30 are too young`, path: ["name"] }]);
     }
 
     return good(val);
@@ -109,13 +111,15 @@ const sureBig = after(
 
   assertEqual<
     InferredBad,
-    | {
-        age?: "not number" | "not positive" | "not integer" | "too old, sorry";
-        name?: "not string";
-      }
-    | {
-        name: "john's below 30 are too young";
-      }
+    | Issues<
+        | "not object"
+        | "not number"
+        | "not positive"
+        | "not integer"
+        | "too old, sorry"
+        | "not string"
+      >
+    | Issues<"john's below 30 are too young">
   >(true);
 
   assertEqual<
@@ -124,10 +128,14 @@ const sureBig = after(
       meta: {
         type: "after";
         first: Sure<
-          {
-            age?: "not number" | "not positive" | "not integer" | "too old, sorry";
-            name?: "not string";
-          },
+          Issues<
+            | "not object"
+            | "not number"
+            | "not positive"
+            | "not integer"
+            | "too old, sorry"
+            | "not string"
+          >,
           {
             age: number;
             name: string;
@@ -137,19 +145,22 @@ const sureBig = after(
             type: "object";
             schema: {
               age: Sure<
-                "not number" | "not positive" | "not integer" | "too old, sorry",
+                | Issues<"not number">
+                | Issues<"not integer">
+                | Issues<"not positive">
+                | Issues<"too old, sorry">,
                 number,
                 unknown,
                 MetaObj<{
                   type: "after";
-                  first: (value: unknown) => Good<number> | Bad<"not number">;
+                  first: typeof number;
                   second: (
                     val: number,
                   ) =>
                     | Good<number>
-                    | Bad<"not integer">
-                    | Bad<"not positive">
-                    | Bad<"too old, sorry">;
+                    | Bad<Issues<"not integer">>
+                    | Bad<Issues<"not positive">>
+                    | Bad<Issues<"too old, sorry">>;
                 }>
               >;
               name: typeof string;
@@ -161,9 +172,7 @@ const sureBig = after(
               age: number;
               name: string;
             }>
-          | Bad<{
-              name: "john's below 30 are too young";
-            }>;
+          | Bad<Issues<"john's below 30 are too young">>;
       };
     }
   >(true);
@@ -187,5 +196,24 @@ describe("after", () => {
         assertIs<"not number" | "not positive">(out);
       }
     }
+  });
+
+  it("reports the issues of the first validator", () => {
+    expect(sureBig({ age: "12", name: "john" })).toStrictEqual([
+      false,
+      [{ message: "not number", path: ["age"] }],
+    ]);
+  });
+
+  it("reports the issues of the second validator", () => {
+    expect(sureBig({ age: -1, name: "jane" })).toStrictEqual([
+      false,
+      [{ message: "not positive", path: ["age"] }],
+    ]);
+
+    expect(sureBig({ age: 12, name: "john" })).toStrictEqual([
+      false,
+      [{ message: "john's below 30 are too young", path: ["name"] }],
+    ]);
   });
 });

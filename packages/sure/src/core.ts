@@ -66,6 +66,8 @@ export function pure<TGood, TBad, TInput>(
 
 // So that `as const` is not needed for literals
 export function bad<TBad extends Primitive>(val: TBad): Bad<TBad>;
+// So that `as const` is not needed for the messages of issues
+export function bad<const TMessage extends string>(val: Issues<TMessage>): Bad<Issues<TMessage>>;
 export function bad<TBad>(val: TBad): Bad<TBad>;
 export function bad<TBad>(val: TBad): Bad<TBad> {
   return [false, val];
@@ -85,6 +87,44 @@ export type Unsure<
 
 export type Good<T> = readonly [true, T];
 export type Bad<T> = readonly [false, T];
+
+/**
+One reason why a value is bad.
+
+It has the shape of a Standard Schema issue, so a list of them can be
+given to anything that understands Standard Schema.
+@see https://standardschema.dev
+
+@typeparam TMessage - Kept literal, so the possible messages are part of the type.
+
+`path` points to the part of the value that is bad.
+It is missing when the value itself is bad.
+ */
+export type Issue<TMessage extends string = string> = {
+  readonly message: TMessage;
+  readonly path?: ReadonlyArray<PropertyKey>;
+};
+
+/**
+The bad value of the validators in this package.
+
+A flat list: nested values add to the `path` of an issue,
+not to the shape of the list.
+ */
+export type Issues<TMessage extends string = string> = ReadonlyArray<Issue<TMessage>>;
+
+/**
+Moves the issues of a part of a value under the `key` of that part.
+
+Used by the validators of collections (`object`, `array`, `tuple`),
+so that each issue keeps pointing to where it happened.
+ */
+export function under<TMessage extends string>(
+  key: PropertyKey,
+  issues: Issues<TMessage>,
+): Issues<TMessage> {
+  return issues.map((issue) => ({ ...issue, path: [key, ...(issue.path ?? [])] }));
+}
 
 export type InferBad<
   // Add the Sure constraint
@@ -117,6 +157,17 @@ export type InferGood<
       ? CGood
       : never
     : never;
+
+export type InferMessage<
+  T extends Sure<
+    Issues,
+    unknown,
+    // Input issue
+    any,
+    MetaObj | MetaNever
+  >,
+> = //
+  Extract<InferBad<T>, Issues>[number]["message"];
 
 export type InferInput<
   T extends Sure<

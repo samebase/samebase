@@ -1,4 +1,5 @@
-import { good, sure, bad, pure } from "./core.ts";
+import { good, sure, bad } from "./core.ts";
+import type { Issues, MetaNever, Sure } from "./core.ts";
 
 /**
  * Defined using the `sure` function
@@ -9,7 +10,7 @@ export const string = sure(
   (x) => {
     return typeof x === "string" //
       ? good(x)
-      : bad("not string" as const);
+      : bad([{ message: "not string" }]);
   },
   {
     type: "string" as const,
@@ -25,7 +26,7 @@ export const number = sure(
   (x) => {
     return typeof x === "number" //
       ? good(x)
-      : bad("not number" as const);
+      : bad([{ message: "not number" }]);
   },
   {
     type: "number" as const,
@@ -40,19 +41,22 @@ export const number = sure(
 export const boolean = (x: unknown) => {
   return typeof x === "boolean" //
     ? good(x)
-    : bad("not boolean" as const);
+    : bad([{ message: "not boolean" }]);
 };
 
 export const undef = (value: unknown) => {
   return value === undefined //
     ? good(value)
-    : bad("not undefined" as const);
+    : bad([{ message: "not undefined" }]);
 };
 
 export const nil = (value: unknown) => {
   return value === null //
     ? good(value)
-    : bad("not null" as const);
+    : bad([{ message: "not null" }]);
 };
 
-export const unknown = pure((x) => good(x));
+/**
+ * Never bad, so it can be used wherever issues are expected
+ */
+export const unknown: Sure<Issues<never>, unknown, unknown, MetaNever> = (x) => good(x);

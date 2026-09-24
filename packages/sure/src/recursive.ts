@@ -1,14 +1,14 @@
-import { bad, good, pure, sure } from "./core.ts";
-import type { MetaObj, Sure } from "./core.ts";
+import { bad, good, sure, under } from "./core.ts";
+import type { Issue, Issues, MetaObj, Sure } from "./core.ts";
 
 export const RecurseSymbol = Symbol("recurse");
 
 export const recursiveElem: Sure<
-  // The `bad` type is used by the type system to replace the symbol
-  typeof RecurseSymbol,
+  // Never bad, the value in its place is validated by `recurse`
+  Issues<never>,
   typeof RecurseSymbol,
   unknown
-> = pure(() => good(RecurseSymbol));
+> = () => good(RecurseSymbol);
 
 export type ReplaceSymbolWithObj<Obj extends Record<string, unknown>, With> = {
   [K in keyof Obj]: typeof RecurseSymbol extends Obj[K] //
@@ -21,19 +21,18 @@ export function recurse<
   //
   // TKey extends keyof TGood,
   // TKey extends string,
-  // TODO: TBad is very specific
-  TBad extends Record<string, unknown>,
+  TMessage extends string,
   TGood extends Record<string, unknown>,
-  TChildBad,
+  TChildMessage extends string,
   TChildGood,
 >(
   //
-  baseObj: Sure<TBad, TGood, unknown>, //
+  baseObj: Sure<Issues<TMessage>, TGood, unknown>, //
   // key: TKey,
-  childParser: (surer: typeof baseObj) => Sure<TChildBad, TChildGood, unknown>,
+  childParser: (surer: typeof baseObj) => Sure<Issues<TChildMessage>, TChildGood, unknown>,
 ): Sure<
   //
-  ReplaceSymbolWithObj<TBad, TChildBad>,
+  Issues<TMessage | TChildMessage>,
   ReplaceSymbolWithObj<TGood, TChildGood>,
   unknown,
   MetaObj<{
@@ -50,8 +49,8 @@ export function recurse<
 
     //
 
+    const issues: Issue[] = [];
     let newChildrenGood = {};
-    let newChildrenBad = {};
 
     for (const [key, elem] of Object.entries(unsureObj)) {
       if (elem !== RecurseSymbol) continue;
@@ -65,16 +64,15 @@ export function recurse<
       );
 
       if (!isGood) {
-        // @ts-expect-error
-        newChildrenBad[key] = unsure;
+        issues.push(...under(key, unsure));
       } else {
         // @ts-expect-error
         newChildrenGood[key] = unsure;
       }
     }
 
-    if (Object.keys(newChildrenBad).length) {
-      return bad(newChildrenBad);
+    if (issues.length) {
+      return bad(issues);
     }
 
     return good({ ...unsureObj, ...newChildrenGood });
