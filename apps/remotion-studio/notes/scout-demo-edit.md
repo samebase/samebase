@@ -1,7 +1,7 @@
 # Scout demo edit
 
 The Trail Scout submission edit uses the shared recorded-demo composition: screen recording, face
-camera at the bottom left, spoken captions, and smooth acceleration through the long wait.
+camera inset from the right edge, spoken captions, and smooth acceleration through the long wait.
 
 ## Recording inputs
 
