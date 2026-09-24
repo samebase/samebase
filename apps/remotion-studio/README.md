@@ -26,6 +26,8 @@ appear in Studio immediately.
 - `FounderDemoYouTube` renders the same edit at 3344×2160 while preserving the source aspect ratio.
 - `OnboardingDemo` contains the complete onboarding walkthrough at 3344×2160 while preserving the
   source aspect ratio.
+- `ScoutDemo` contains the Trail Scout submission edit at the source size, 3840×2480. It combines
+  the screen, camera, and captions with a 48x wait and two-second speed ramps.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -116,6 +118,25 @@ pnpm --filter @samebase/remotion-studio generate:subtitles
 The command writes `founder-demo-youtube.srt` and `onboarding-demo-youtube.srt` to
 `apps/remotion-studio/out/`. It omits captions from accelerated waits and uses the same frame
 boundaries as the captions rendered into each composition.
+
+## Scout demo
+
+Use [the Scout edit notes](notes/scout-demo-edit.md) for input filenames, recording checks, and
+timestamp setup. The original 1:58–14:35 interval accelerates to 48x, with two seconds at each end
+for acceleration and deceleration. Adjust the boundaries, maximum speed, and ramp duration together
+in `scoutDemoFastForward` in `src/compositions/scout-demo/scoutDemoEdit.ts`.
+
+```console
+pnpm --filter @samebase/remotion-studio render:scout-demo
+pnpm --filter @samebase/remotion-studio generate:scout-subtitles
+```
+
+Both commands use the imported recordings and write the local master and retimed SRT to
+`apps/remotion-studio/out/`. The current edit lasts about 2:52.6.
+
+Final exports use the original recordings at full size, PNG intermediate frames, H.264 CRF 16, and
+384 kbps AAC audio. Studio uses the 24x recording only to preview fast-forward playback. The shared
+render defaults apply to all compositions; keep Scale at 1 for the final upload.
 
 ## Tic-Tac-Toe landing video
 

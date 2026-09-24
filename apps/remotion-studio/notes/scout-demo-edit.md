@@ -1,0 +1,68 @@
+# Scout demo edit
+
+The Trail Scout submission edit uses the shared recorded-demo composition: screen recording, face
+camera inset from the right edge, spoken captions, and smooth acceleration through the long wait.
+
+## Recording inputs
+
+The September 22 Tella exports are imported in `apps/remotion-studio/public/media/`:
+
+- `scout-demo-screen.mp4`: `Introducing Trail Scout_screen_only.mp4`, with narration audio.
+- `scout-demo-face.mp4`: `Introducing Trail Scout_face_only.mp4`, on the same timeline.
+- `scout-demo.srt`: `introducing-trail-scout-5vgx_subtitles.srt`, on the original timeline.
+- `scout-demo-screen-24x.mp4`: a generated silent 24x screen copy for fast playback.
+
+Both original videos are 3840×2480, 30 fps, and 15:11.9 long. The composition preserves that frame
+size and uses 27,357 source frames. The camera audio is muted to avoid playing narration twice.
+Captions are rendered from the SRT and retimed with the edit. Captions inside the wait are omitted.
+
+The 24x copy is a Studio playback source, not the maximum edit speed. It works with both 48x and 64x
+waits. Exports read the original recording directly, including during fast-forward, so the preview
+copy adds no compression to the final video. Generate it from the app directory:
+
+```console
+ffmpeg -i public/media/scout-demo-screen.mp4 -map 0:v:0 -vf "setpts=PTS/24,fps=30" -an -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -movflags +faststart public/media/scout-demo-screen-24x.mp4
+```
+
+## Adjust the edit
+
+Change `scoutDemoFastForward` near the top of `src/compositions/scout-demo/scoutDemoEdit.ts`:
+
+| Setting                 | Current value  | Meaning                                      |
+| ----------------------- | -------------- | -------------------------------------------- |
+| `startInSeconds`        | `1 * 60 + 58`  | Start of the wait in the original recording  |
+| `endInSeconds`          | `14 * 60 + 35` | End of the wait in the original recording    |
+| `maximumPlaybackRate`   | `48`           | Peak speed; use 64 only if needed            |
+| `rampDurationInSeconds` | `2`            | Time in the edited video for each speed ramp |
+
+Playback rises smoothly from 1x to 48x over two seconds, stays at 48x, then returns to 1x over two
+seconds. The face camera fades out during the wait and returns for the conclusion. The existing
+founder and onboarding edits retain their four-second ramps.
+
+The wait becomes about 17.7 seconds. With the introduction and conclusion unchanged, the edit lasts
+about 2:52.6, below the three-minute submission limit. Changing the settings updates the composition
+duration, source clock, and rendered captions. Run the subtitle export command again to update the
+separate SRT file.
+
+## Preview and export
+
+From the repository root:
+
+```console
+pnpm --filter @samebase/remotion-studio dev
+pnpm check:remotion-studio
+pnpm --filter @samebase/remotion-studio exec remotion render ScoutDemo out/scout-demo-preview.mp4 --scale=0.5
+pnpm --filter @samebase/remotion-studio render:scout-demo
+pnpm --filter @samebase/remotion-studio generate:scout-subtitles
+```
+
+Select `ScoutDemo` in Studio. The preview is 1920×1240. The full-size master is
+`out/scout-demo-master.mp4`, and the retimed captions are `out/scout-demo.srt` inside the Remotion
+app. Source media uses Git LFS; rendered output stays local.
+
+The default export uses the original 3840×2480 size at 30 fps, PNG intermediate frames, H.264 at CRF
+16, and 384 kbps AAC audio. It preserves the recording's aspect ratio and BT.709 color space. PNG
+avoids intermediate JPEG compression; the final H.264 encoding is still lossy. These defaults apply
+in Studio and the CLI unless a render overrides them. Keep Scale at 1 for the final export. See
+[YouTube's upload settings](https://support.google.com/youtube/answer/1722171?hl=en) for format,
+frame-rate, color, and audio guidance.

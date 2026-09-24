@@ -10,6 +10,7 @@ import { founderDemoEdit } from "../compositions/founder-demo/founderDemoEdit.ts
 import { onboardingDemoEdit } from "../compositions/onboarding-demo/onboardingDemoEdit.ts";
 import { createRecordedDemoCaptionCues } from "../compositions/recorded-demo/recordedDemoCaptions.ts";
 import type { RecordedDemoEdit } from "../compositions/recorded-demo/recordedDemoEdit.ts";
+import { scoutDemoEdit } from "../compositions/scout-demo/scoutDemoEdit.ts";
 
 const demos = [
   {
@@ -41,11 +42,26 @@ function createEditedCaptions(captions: readonly Caption[], edit: RecordedDemoEd
 }
 
 async function generateRecordedDemoSubtitles(): Promise<void> {
+  const target = process.argv[2];
+  if (process.argv.length > 3 || (target !== undefined && target !== "scout")) {
+    throw new Error("Usage: generateRecordedDemoSubtitles.ts [scout]");
+  }
+
+  const selectedDemos =
+    target === "scout"
+      ? [
+          {
+            edit: scoutDemoEdit,
+            outputName: "scout-demo.srt",
+            sourcePath: trackedFilePath("apps/remotion-studio/public/media/scout-demo.srt"),
+          },
+        ]
+      : demos;
   const repoRoot = resolveRepoRoot();
   const outputDirectory = path.join(repoRoot, "apps/remotion-studio/out");
   await mkdir(outputDirectory, { recursive: true });
 
-  for (const demo of demos) {
+  for (const demo of selectedDemos) {
     const source = await readFile(path.join(repoRoot, demo.sourcePath), "utf8");
     const parsed = parseSrt({ input: source });
     const captions = createEditedCaptions(parsed.captions, demo.edit);

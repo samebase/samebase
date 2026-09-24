@@ -2,6 +2,7 @@ import { parseSrt, type Caption } from "@remotion/captions";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import {
   AbsoluteFill,
+  getRemotionEnvironment,
   Html5Audio,
   Interactive,
   OffthreadVideo,
@@ -35,7 +36,7 @@ type RecordedDemoProps = {
   captionsSource: string;
   edit: RecordedDemoEdit;
   faceCrop: "center" | "lower";
-  facePlacement: "bottom-left" | "top-right";
+  facePlacement: "bottom-left" | "top-right" | "right-inset";
   faceRecording: string;
   screenRecording: string;
   timelapseRecording: string;
@@ -96,16 +97,21 @@ const FaceBubble: React.FC<{
       name="Face camera"
       style={{
         borderRadius: "50%",
-        bottom: facePlacement === "bottom-left" ? 44 * layoutScale : undefined,
+        bottom: facePlacement !== "top-right" ? 44 * layoutScale : undefined,
         boxShadow: `0 ${18 * layoutScale}px ${44 * layoutScale}px rgba(0, 0, 0, 0.28)`,
         height: 330 * layoutScale,
-        left: facePlacement === "bottom-left" ? 40 * layoutScale : undefined,
+        left: facePlacement !== "top-right" ? 40 * layoutScale : undefined,
         opacity,
         overflow: "hidden",
         position: "absolute",
         right: facePlacement === "top-right" ? 40 * layoutScale : undefined,
         top: facePlacement === "top-right" ? 44 * layoutScale : undefined,
         width: 330 * layoutScale,
+        scale: facePlacement === "right-inset" ? 0.65 : undefined,
+        translate:
+          facePlacement === "right-inset"
+            ? `${1_585 * layoutScale}px ${-691.8 * layoutScale}px`
+            : undefined,
       }}
     >
       {segment.kind === "face" ? (
@@ -159,7 +165,10 @@ const AcceleratedScreen: React.FC<{
   const frame = useCurrentFrame();
   const playbackRate = getRecordedDemoSegmentPlaybackRate(segment, frame);
   const sourceFrame = getRecordedDemoSegmentSourceFrame(segment, frame);
-  const isTimelapse = segment.kind === "wait" && playbackRate > maximumDirectPlaybackRate;
+  const isTimelapse =
+    !getRemotionEnvironment().isRendering &&
+    segment.kind === "wait" &&
+    playbackRate > maximumDirectPlaybackRate;
   const acceleratedScreenRecording = `${screenRecording}#disable`;
   const acceleratedTimelapseRecording = `${timelapseRecording}#disable`;
 
@@ -376,6 +385,7 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontVariantNumeric: "tabular-nums",
           gap: 18 * layoutScale,
+          opacity: playbackRateLabel === "1.0" ? 0.6 : 1,
           padding: `${16 * layoutScale}px ${20 * layoutScale}px`,
           position: "absolute",
           right: 32 * layoutScale,
