@@ -8,7 +8,7 @@ export const ScoutDemo = () => (
     captionsSource={staticFile("media/scout-demo.srt")}
     edit={scoutDemoEdit}
     faceCrop="center"
-    facePlacement="bottom-left"
+    facePlacement="right-inset"
     faceRecording={staticFile("media/scout-demo-face.mp4")}
     screenRecording={staticFile("media/scout-demo-screen.mp4")}
     timelapseRecording={staticFile("media/scout-demo-screen-24x.mp4")}
