@@ -13,3 +13,5 @@ export * from "./intersection.ts";
 export * from "./recursive.ts";
 
 export * from "./err.ts";
+
+export * from "./standard.ts";
