@@ -2738,6 +2738,7 @@ export interface components {
     };
     builds_ErrorResponse: {
       errors: components["schemas"]["builds_ApiError"][];
+      /** @example [] */
       messages: string[];
       result: Record<string, unknown> | null;
       /** @example false */
@@ -10159,7 +10160,7 @@ export interface operations {
   "namespace-worker-script-delete-worker": {
     parameters: {
       query?: {
-        /** @description If set to true, delete will not be stopped by associated service binding, durable object, or other binding. Any of these associated bindings/durable objects will be deleted along with the script. */
+        /** @description If true, delete the script even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted script are deleted even if other Workers reference them. */
         force?: boolean;
       };
       header?: never;
@@ -16667,7 +16668,7 @@ export interface operations {
   "worker-script-delete-worker": {
     parameters: {
       query?: {
-        /** @description If set to true, delete will not be stopped by associated service binding, durable object, or other binding. Any of these associated bindings/durable objects will be deleted along with the script. */
+        /** @description If true, delete the Worker even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted Worker are deleted even if other Workers reference them. */
         force?: boolean;
       };
       header?: never;
@@ -18313,7 +18314,10 @@ export interface operations {
   };
   deleteWorker: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description If true, delete the Worker even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted Worker are deleted even if other Workers reference them. */
+        force?: boolean;
+      };
       header?: never;
       path: {
         account_id: components["schemas"]["workers_identifier"];
@@ -18598,7 +18602,7 @@ export interface operations {
   "workers.previews.delete": {
     parameters: {
       query?: {
-        /** @description If true, delete the Preview even when a service binding, Durable Object, or other binding still references it. The delete also removes those bindings and Durable Objects. */
+        /** @description If true, delete the Preview even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted Preview are deleted even if other Workers reference them. */
         force?: boolean;
       };
       header?: never;

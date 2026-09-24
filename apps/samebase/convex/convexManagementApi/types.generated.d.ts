@@ -1071,6 +1071,7 @@ export interface components {
         | "deployment:token:update"
         | "deployment:token:delete"
         | "deployment:token:view"
+        | "member:token:createWithSsoAccess"
         | "team:domain:create"
         | "team:domain:delete"
         | "deployment:customDomain:create"
@@ -1963,11 +1964,6 @@ export interface components {
        *     `role` is `custom`.
        */
       customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
-      /**
-       * @description Present only on directory-sync teams. `true` means the member's IdP
-       *     account is suspended.
-       */
-      dsyncSuspended?: boolean | null;
     };
     /**
      * @description A custom role attached to a team member, denormalized with the
@@ -3122,6 +3118,7 @@ export interface operations {
           | "deployment:token:update"
           | "deployment:token:delete"
           | "deployment:token:view"
+          | "member:token:createWithSsoAccess"
           | "team:domain:create"
           | "team:domain:delete"
           | "deployment:customDomain:create"
