@@ -1,3 +1,4 @@
+import type { Issue } from "../index.ts";
 import { describe, it, expect } from "vite-plus/test";
 import { number, intersection, string, object } from "../index.ts";
 import type {
@@ -32,59 +33,23 @@ type InferredInput = InferInput<typeof simple>;
 type InferredMeta = InferMeta<typeof simple>;
 
 assertEqual<InferredGood, { name: string } & { age: number }>(true);
-assertEqual<InferredBad, { name?: "not string" } | { age?: "not number" }>(true);
+assertEqual<
+  InferredBad,
+  readonly Issue<"not string" | "not object">[] | readonly Issue<"not number" | "not object">[]
+>(true);
 assertEqual<InferredInput, unknown>(true); // The input needs more tests
 assertEqual<
   InferredMeta,
-  {
-    meta: {
-      type: "intersection";
-      first: Sure<
-        {
-          name?: "not string";
-        },
-        {
-          name: string;
-        },
-        unknown,
-        MetaObj<{
-          type: "object";
-          schema: {
-            name: Sure<
-              "not string",
-              string,
-              unknown,
-              MetaObj<{
-                type: "string";
-              }>
-            >;
-          };
-        }>
-      >;
-      second: Sure<
-        {
-          age?: "not number";
-        },
-        {
-          age: number;
-        },
-        unknown,
-        MetaObj<{
-          type: "object";
-          schema: {
-            age: Sure<
-              "not number",
-              number,
-              unknown,
-              MetaObj<{
-                type: "number";
-              }>
-            >;
-          };
-        }>
-      >;
-    };
-  }
+  MetaObj<{
+    type: "intersection";
+    first: typeof option1;
+    second: Sure<
+      readonly Issue<"not number" | "not object">[],
+      { age: number },
+      unknown,
+      MetaObj<{ type: "object"; schema: { age: typeof number } }>
+    >;
+  }>
 >(true);
 
 //
@@ -110,19 +75,11 @@ describe("and", () => {
       age: 1,
     });
 
-    expect(value).toStrictEqual([false, { name: "not string" }]);
+    expect(value).toStrictEqual([false, [{ path: ["name"], error: "not string" }]]);
 
     // TypeChecks
     if (value[0] === false) {
-      assertEqual<
-        (typeof value)[1],
-        | {
-            name?: "not string";
-          }
-        | {
-            age?: "not number";
-          }
-      >(true);
+      assertEqual<(typeof value)[1], InferredBad>(true);
     }
   });
 
@@ -132,6 +89,6 @@ describe("and", () => {
       age: "1",
     });
 
-    expect(value).toStrictEqual([false, { age: "not number" }]);
+    expect(value).toStrictEqual([false, [{ path: ["age"], error: "not number" }]]);
   });
 });

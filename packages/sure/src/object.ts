@@ -1,6 +1,7 @@
 import { sure, good, bad } from "./core.ts";
 import type { Sure, InferGood, InferBad, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
+import { fail, type AnyValidation, type Issue } from "./issue.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
   v: Sure<
@@ -72,15 +73,10 @@ export function optional<TSchema extends Sure<unknown, unknown, any>>(
   });
 }
 
-export function object<
-  //
-  TPropFail,
-  TPropGood,
-  TSchema extends Record<string, Sure<TPropFail, TPropGood, unknown>>,
->(
+export function object<TSchema extends Record<string, AnyValidation>>(
   schema: TSchema,
 ): Sure<
-  { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
+  readonly Issue<InferBad<TSchema[keyof TSchema]>[number]["error"] | "not object">[],
   InferSchemaGood<TSchema>,
   unknown,
   MetaObj<{
@@ -89,15 +85,16 @@ export function object<
     schema: TSchema;
   }>
 > {
-  // @ts-expect-error - TODO: expected
+  // @ts-expect-error Schema keys determine the output shape and issue payloads.
   return sure(
     (value) => {
       if (!isObject(value)) {
-        return bad({});
+        return fail("not object");
       }
 
-      const groupFail = {};
-      const groupGood = {};
+      let failed = false;
+      const issues: Issue[] = [];
+      const groupGood: Record<string, unknown> = {};
 
       for (const [key, sureFunction] of Object.entries(schema)) {
         const isOptional = isObject(sureFunction.meta) && sureFunction.meta["type"] === "optional";
@@ -109,16 +106,17 @@ export function object<
         const [good, unsure] = sureFunction(value[key]);
 
         if (good) {
-          // @ts-expect-error
           groupGood[key] = unsure;
         } else {
-          // @ts-expect-error
-          groupFail[key] = unsure;
+          failed = true;
+          for (const issue of unsure) {
+            issues.push({ path: [key, ...issue.path], error: issue.error });
+          }
         }
       }
 
-      if (Object.keys(groupFail).length) {
-        return bad(groupFail);
+      if (failed) {
+        return bad(issues);
       }
 
       return good(groupGood);

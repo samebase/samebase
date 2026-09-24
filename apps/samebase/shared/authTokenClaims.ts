@@ -1,6 +1,7 @@
 import {
   after,
   bad,
+  fail,
   good,
   literal,
   object,
@@ -22,10 +23,10 @@ export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 const authTokenProfileClaimValueSchema = after(string, (value) => {
   const trimmedValue = value.trim();
   if (trimmedValue.length === 0) {
-    return bad("blank-string");
+    return fail("blank-string");
   }
   if (value.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
-    return bad("too-long-string");
+    return fail("too-long-string");
   }
   return good(value);
 });

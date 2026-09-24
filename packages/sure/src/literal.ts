@@ -1,4 +1,5 @@
-import { bad, good, sure } from "./core.ts";
+import { good, sure } from "./core.ts";
+import { fail } from "./issue.ts";
 import type { Primitive } from "./core.ts";
 
 export const literal = <
@@ -16,7 +17,7 @@ export const literal = <
         );
       }
 
-      return bad(`not literal ${typeof value} (${String(value)})` as const);
+      return fail(`not literal ${typeof value} (${String(value)})` as const);
     },
     {
       type: "literal",

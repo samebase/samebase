@@ -1,14 +1,12 @@
 import { bad, good, pure, sure } from "./core.ts";
 import type { MetaObj, Sure } from "./core.ts";
+import type { Issue } from "./issue.ts";
 
 export const RecurseSymbol = Symbol("recurse");
 
-export const recursiveElem: Sure<
-  // The `bad` type is used by the type system to replace the symbol
-  typeof RecurseSymbol,
-  typeof RecurseSymbol,
-  unknown
-> = pure(() => good(RecurseSymbol));
+export const recursiveElem: Sure<never, typeof RecurseSymbol, unknown> = pure(() =>
+  good(RecurseSymbol),
+);
 
 export type ReplaceSymbolWithObj<Obj extends Record<string, unknown>, With> = {
   [K in keyof Obj]: typeof RecurseSymbol extends Obj[K] //
@@ -21,10 +19,9 @@ export function recurse<
   //
   // TKey extends keyof TGood,
   // TKey extends string,
-  // TODO: TBad is very specific
-  TBad extends Record<string, unknown>,
+  TBad extends readonly Issue[],
   TGood extends Record<string, unknown>,
-  TChildBad,
+  TChildBad extends readonly Issue[],
   TChildGood,
 >(
   //
@@ -33,7 +30,7 @@ export function recurse<
   childParser: (surer: typeof baseObj) => Sure<TChildBad, TChildGood, unknown>,
 ): Sure<
   //
-  ReplaceSymbolWithObj<TBad, TChildBad>,
+  readonly Issue<TBad[number]["error"] | TChildBad[number]["error"]>[],
   ReplaceSymbolWithObj<TGood, TChildGood>,
   unknown,
   MetaObj<{
@@ -50,13 +47,14 @@ export function recurse<
 
     //
 
-    let newChildrenGood = {};
-    let newChildrenBad = {};
+    const newChildrenGood: Record<string, unknown> = {};
+    let failed = false;
+    const issues: Issue[] = [];
 
     for (const [key, elem] of Object.entries(unsureObj)) {
       if (elem !== RecurseSymbol) continue;
 
-      // @ts-expect-error
+      // @ts-expect-error The recursive callback still uses base placeholders for replaced fields.
       const [isGood, unsure] = childParser(rec)(
         // here we send the value from the original object
         // Seems dangerous, maybe other implementation is better
@@ -65,16 +63,17 @@ export function recurse<
       );
 
       if (!isGood) {
-        // @ts-expect-error
-        newChildrenBad[key] = unsure;
+        failed = true;
+        for (const issue of unsure) {
+          issues.push({ path: [key, ...issue.path], error: issue.error });
+        }
       } else {
-        // @ts-expect-error
         newChildrenGood[key] = unsure;
       }
     }
 
-    if (Object.keys(newChildrenBad).length) {
-      return bad(newChildrenBad);
+    if (failed) {
+      return bad(issues);
     }
 
     return good({ ...unsureObj, ...newChildrenGood });

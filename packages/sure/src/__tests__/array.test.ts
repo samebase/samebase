@@ -1,3 +1,4 @@
+import type { Issue } from "../index.ts";
 import { describe, it, expect } from "vite-plus/test";
 import { array, number } from "../index.ts";
 import type {
@@ -23,7 +24,7 @@ type InferredInput = InferInput<typeof someArray>;
 type InferredMeta = InferMeta<typeof someArray>;
 
 assertEqual<InferredGood, number[]>(true);
-assertEqual<InferredBad, ("not number" | undefined)[]>(true);
+assertEqual<InferredBad, readonly Issue<"not number" | "not array">[]>(true);
 assertEqual<InferredInput, unknown>(true);
 assertEqual<
   InferredMeta,
@@ -31,7 +32,7 @@ assertEqual<
     meta: {
       type: "array";
       schema: Sure<
-        "not number",
+        readonly Issue<"not number">[],
         number,
         unknown,
         MetaObj<{
@@ -52,6 +53,6 @@ describe("array", () => {
   it("should return bad value", () => {
     const value = someArray([1, "two", 3]);
 
-    expect(value).toStrictEqual([false, [undefined, "not number", undefined]]);
+    expect(value).toStrictEqual([false, [{ path: [1], error: "not number" }]]);
   });
 });

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
 import { bad, good, sure } from "./core.ts";
 import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
+import { fail, type AnyValidation, type Issue } from "./issue.ts";
 
 // TODO: add tests, also implement tuple spread
 export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer InferRest]
@@ -24,24 +25,6 @@ export type TupleInferGoods<
         : [Good, ...TupleInferGoods<InferRest>]
       : []
     : [];
-
-export type TupleInferBads_old<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<infer Bad, unknown, any, MetaObj | MetaNever>
-    ? [Bad | undefined, ...TupleInferBads<InferRest>]
-    : []
-  : [];
-
-export type TupleInferBads<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<infer Bad, unknown, any, infer Meta>
-    ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
-      ? // try spreading the rest if it's an array
-        Bad extends readonly unknown[]
-        ? [...Bad, ...TupleInferBads<InferRest>]
-        : // otherwise just return the bad
-          [Bad | undefined, ...TupleInferBads<InferRest>]
-      : [Bad | undefined, ...TupleInferBads<InferRest>]
-    : []
-  : [];
 
 /**
  * @deprecated
@@ -75,13 +58,11 @@ export function spread_NOT_IMPLEMENTED<Arr extends Sure<unknown, unknown[], unkn
   return val;
 }
 
-export function tuple<
-  Arr extends [Sure<unknown, unknown, any>, ...Sure<unknown, unknown, any>[]] | [],
->(
+export function tuple<Arr extends [AnyValidation<any>, ...AnyValidation<any>[]] | []>(
   arr: Arr,
 ): Sure<
   //
-  TupleInferBads<Arr>,
+  readonly Issue<InferBad<Arr[number]>[number]["error"] | "not tuple">[],
   TupleInferGoods<Arr>,
   unknown,
   MetaObj<{
@@ -93,31 +74,28 @@ export function tuple<
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        return fail("not tuple");
       }
 
-      let atLeastOneBad = false;
-      let bads = [];
-      let goods = [];
+      let failed = false;
+      const issues: Issue[] = [];
+      const goods: unknown[] = [];
 
       for (const [i, elem] of arr.entries()) {
         const [good, unsure] = elem(value[i]);
 
         if (good) {
           goods.push(unsure);
-          // This is necessary in order to maintain the same length
-          bads.push(undefined);
         } else {
-          bads.push(unsure);
-
-          // Since the `bads` array can containe `undefined` values, it's more clear to
-          // have an imperative boolean to make the check
-          atLeastOneBad = true;
+          failed = true;
+          for (const issue of unsure) {
+            issues.push({ path: [i, ...issue.path], error: issue.error });
+          }
         }
       }
 
-      if (atLeastOneBad) {
-        return bad(bads);
+      if (failed) {
+        return bad(issues);
       }
 
       return good(goods);
@@ -129,6 +107,6 @@ export function tuple<
     },
   );
 
-  // @ts-expect-error
+  // @ts-expect-error Schema positions determine the output tuple and issue payloads.
   return struct;
 }

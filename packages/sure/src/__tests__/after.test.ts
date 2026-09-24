@@ -1,7 +1,9 @@
+import type { Issue } from "../index.ts";
 import { describe, it, expect } from "vite-plus/test";
 import {
   good,
   bad,
+  fail,
   after,
   MetaObj,
   MetaNever,
@@ -60,11 +62,7 @@ const combined = after(sureNumber, positiveNum);
   assertEqual<InferredInput, unknown>(true);
   assertEqual<
     InferredMeta,
-    MetaObj<{
-      type: "after";
-      first: typeof sureNumber;
-      second: typeof positiveNum;
-    }>
+    MetaObj<{ type: "after"; first: typeof sureNumber; second: typeof positiveNum }>
   >(true);
 }
 
@@ -74,13 +72,16 @@ Big Object
 
 const sureBig = after(
   object({
-    age: after(sureNumber, (val) => {
-      if (val % 1 !== 0) return bad("not integer");
-      if (val < 0) return bad("not positive");
-      if (val > 200) return bad("too old, sorry");
+    age: after(
+      (value: unknown) => (typeof value === "number" ? good(value) : fail("not number")),
+      (val) => {
+        if (val % 1 !== 0) return fail("not integer");
+        if (val < 0) return fail("not positive");
+        if (val > 200) return fail("too old, sorry");
 
-      return good(val);
-    }),
+        return good(val);
+      },
+    ),
     name: string,
   }),
   (val) => {
@@ -109,63 +110,63 @@ const sureBig = after(
 
   assertEqual<
     InferredBad,
-    | {
-        age?: "not number" | "not positive" | "not integer" | "too old, sorry";
-        name?: "not string";
-      }
-    | {
-        name: "john's below 30 are too young";
-      }
+    | readonly Issue<
+        | "not number"
+        | "not positive"
+        | "not integer"
+        | "too old, sorry"
+        | "not string"
+        | "not object"
+      >[]
+    | { name: "john's below 30 are too young" }
   >(true);
 
   assertEqual<
     InferredMeta,
-    {
-      meta: {
-        type: "after";
-        first: Sure<
-          {
-            age?: "not number" | "not positive" | "not integer" | "too old, sorry";
-            name?: "not string";
-          },
-          {
-            age: number;
-            name: string;
-          },
-          unknown,
-          MetaObj<{
-            type: "object";
-            schema: {
-              age: Sure<
-                "not number" | "not positive" | "not integer" | "too old, sorry",
-                number,
-                unknown,
-                MetaObj<{
-                  type: "after";
-                  first: (value: unknown) => Good<number> | Bad<"not number">;
-                  second: (
-                    val: number,
-                  ) =>
-                    | Good<number>
-                    | Bad<"not integer">
-                    | Bad<"not positive">
-                    | Bad<"too old, sorry">;
-                }>
-              >;
-              name: typeof string;
-            };
-          }>
-        >;
-        second: (val: { age: number; name: string }) =>
-          | Good<{
-              age: number;
-              name: string;
-            }>
-          | Bad<{
-              name: "john's below 30 are too young";
-            }>;
-      };
-    }
+    MetaObj<{
+      type: "after";
+      first: Sure<
+        readonly Issue<
+          | "not number"
+          | "not positive"
+          | "not integer"
+          | "too old, sorry"
+          | "not string"
+          | "not object"
+        >[],
+        { age: number; name: string },
+        unknown,
+        MetaObj<{
+          type: "object";
+          schema: {
+            age: Sure<
+              | readonly Issue<"not number">[]
+              | readonly Issue<"not positive">[]
+              | readonly Issue<"not integer">[]
+              | readonly Issue<"too old, sorry">[],
+              number,
+              unknown,
+              MetaObj<{
+                type: "after";
+                first: (value: unknown) => Good<number> | Bad<readonly Issue<"not number">[]>;
+                second: (
+                  val: number,
+                ) =>
+                  | Good<number>
+                  | Bad<readonly Issue<"not positive">[]>
+                  | Bad<readonly Issue<"not integer">[]>
+                  | Bad<readonly Issue<"too old, sorry">[]>;
+              }>
+            >;
+            name: typeof string;
+          };
+        }>
+      >;
+      second: (val: {
+        age: number;
+        name: string;
+      }) => Good<{ age: number; name: string }> | Bad<{ name: "john's below 30 are too young" }>;
+    }>
   >(true);
 }
 

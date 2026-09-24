@@ -1,4 +1,5 @@
-import { good, sure, bad, pure } from "./core.ts";
+import { good, sure, pure } from "./core.ts";
+import { fail } from "./issue.ts";
 
 /**
  * Defined using the `sure` function
@@ -9,7 +10,7 @@ export const string = sure(
   (x) => {
     return typeof x === "string" //
       ? good(x)
-      : bad("not string" as const);
+      : fail("not string" as const);
   },
   {
     type: "string" as const,
@@ -25,7 +26,7 @@ export const number = sure(
   (x) => {
     return typeof x === "number" //
       ? good(x)
-      : bad("not number" as const);
+      : fail("not number" as const);
   },
   {
     type: "number" as const,
@@ -40,19 +41,19 @@ export const number = sure(
 export const boolean = (x: unknown) => {
   return typeof x === "boolean" //
     ? good(x)
-    : bad("not boolean" as const);
+    : fail("not boolean" as const);
 };
 
 export const undef = (value: unknown) => {
   return value === undefined //
     ? good(value)
-    : bad("not undefined" as const);
+    : fail("not undefined" as const);
 };
 
 export const nil = (value: unknown) => {
   return value === null //
     ? good(value)
-    : bad("not null" as const);
+    : fail("not null" as const);
 };
 
 export const unknown = pure((x) => good(x));

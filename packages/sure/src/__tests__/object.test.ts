@@ -1,8 +1,10 @@
+import type { Issue } from "../index.ts";
 /* eslint-disable no-unused-vars -- type-test scaffolding */
 import { describe, it, expect } from "vite-plus/test";
 import {
   object,
   bad,
+  fail,
   number,
   string,
   good,
@@ -32,14 +34,18 @@ const someObj = object({
   age: number,
 
   // with inner sure
-  firstName: pure((value) => (typeof value === "string" ? good(value) : bad("not string (sure)"))),
+  firstName: pure((value) => (typeof value === "string" ? good(value) : fail("not string (sure)"))),
 
   // with inner pure
-  middleName: pure((value) => (typeof value === "string" ? good(value) : bad("not string (pure)"))),
+  middleName: pure((value) =>
+    typeof value === "string" ? good(value) : fail("not string (pure)"),
+  ),
 
   // with inner raw
   lastName: (value: unknown) =>
-    typeof value === "string" ? ([true, value] as const) : ([false, "not string (raw)"] as const),
+    typeof value === "string"
+      ? ([true, value] as const)
+      : ([false, [{ path: [], error: "not string (raw)" }]] as const),
 
   address: object({
     country: string,
@@ -67,63 +73,42 @@ assertEqual<
 
 assertEqual<
   InferredBad,
-  {
-    age?: "not number";
-    firstName?: "not string (sure)";
-    middleName?: "not string (pure)";
-    lastName?: "not string (raw)";
-    address?: {
-      country?: "not string";
-    };
-  }
+  readonly Issue<
+    | "not number"
+    | "not string (sure)"
+    | "not string (pure)"
+    | "not string (raw)"
+    | "not string"
+    | "not object"
+  >[]
 >(true);
 
 assertEqual<InferredInput, unknown>(true);
 
 assertEqual<
   InferredMeta,
-  {
-    meta: {
-      type: "object";
-      schema: {
-        age: Sure<
-          "not number",
-          number,
-          unknown,
-          MetaObj<{
-            type: "number";
-          }>
-        >;
-        firstName: Sure<"not string (sure)", string, unknown, MetaNever>;
-        middleName: Sure<"not string (pure)", string, unknown, MetaNever>;
-        lastName: (
-          value: unknown,
-        ) => readonly [true, string] | readonly [false, "not string (raw)"];
-        address: Sure<
-          {
-            country?: "not string";
-          },
-          {
-            country: string;
-          },
-          unknown,
-          MetaObj<{
-            type: "object";
-            schema: {
-              country: Sure<
-                "not string",
-                string,
-                unknown,
-                MetaObj<{
-                  type: "string";
-                }>
-              >;
-            };
-          }>
-        >;
-      };
+  MetaObj<{
+    type: "object";
+    schema: {
+      age: typeof number;
+      firstName: Sure<readonly Issue<"not string (sure)">[], string, unknown, MetaNever>;
+      middleName: Sure<readonly Issue<"not string (pure)">[], string, unknown, MetaNever>;
+      lastName: (
+        value: unknown,
+      ) =>
+        | readonly [true, string]
+        | readonly [
+            false,
+            readonly [{ readonly path: readonly []; readonly error: "not string (raw)" }],
+          ];
+      address: Sure<
+        readonly Issue<"not string" | "not object">[],
+        { country: string },
+        unknown,
+        MetaObj<{ type: "object"; schema: { country: typeof string } }>
+      >;
     };
-  }
+  }>
 >(true);
 
 assertEqual<typeof someObj, Sure<InferredBad, InferredGood, InferredInput, InferredMeta>>(true);
@@ -164,25 +149,21 @@ describe("object", () => {
 
     expect(value).toEqual([
       false,
-      {
-        address: {
-          country: "not string",
-        },
-        firstName: "not string (sure)",
-        lastName: "not string (raw)",
-        middleName: "not string (pure)",
-      },
+      [
+        { path: ["firstName"], error: "not string (sure)" },
+        { path: ["middleName"], error: "not string (pure)" },
+        { path: ["lastName"], error: "not string (raw)" },
+        { path: ["address", "country"], error: "not string" },
+      ],
     ]);
 
     expect(value).toEqual(
-      bad({
-        address: {
-          country: "not string",
-        },
-        firstName: "not string (sure)",
-        lastName: "not string (raw)",
-        middleName: "not string (pure)",
-      }),
+      bad([
+        { path: ["firstName"], error: "not string (sure)" },
+        { path: ["middleName"], error: "not string (pure)" },
+        { path: ["lastName"], error: "not string (raw)" },
+        { path: ["address", "country"], error: "not string" },
+      ]),
     );
   });
 
@@ -199,7 +180,7 @@ describe("object", () => {
 
       // Not allow when age is undefined
       expect(schema({ name: "John", age: undefined })) //
-        .toStrictEqual([false, { age: "not number" }]);
+        .toStrictEqual([false, [{ path: ["age"], error: "not number" }]]);
 
       // Allow when age is not present !!
       expect(schema({ name: "John" })) //
@@ -220,7 +201,7 @@ describe("object", () => {
 
       expect(schema({ name: "John", age: null })) //
         // TODO: The error seems meh
-        .toStrictEqual([false, { age: "not literal undefined (undefined)" }]);
+        .toStrictEqual([false, [{ path: ["age"], error: "not literal undefined (undefined)" }]]);
 
       expect(schema({ name: "John" })) //
         .toStrictEqual([true, { name: "John" }]);

@@ -1,35 +1,29 @@
 import { good, sure } from "./core.ts";
-import type { MetaNever, MetaObj, Sure } from "./core.ts";
+import type { InferBad, InferGood, InferInput, MetaObj, Sure } from "./core.ts";
 
 export function union<
-  //
-  TFirstBad,
-  TFirstGood,
   TFirstInput,
-  TFirstMeta extends MetaNever | MetaObj,
-  //
-  TSecondBad,
-  TSecondGood,
   TSecondInput,
-  TSecondMeta extends MetaNever | MetaObj,
+  TFirst extends Sure<unknown, unknown, TFirstInput>,
+  TSecond extends Sure<unknown, unknown, TSecondInput>,
 >(
-  first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
-  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
+  first: TFirst & Sure<unknown, unknown, TFirstInput>,
+  second: TSecond & Sure<unknown, unknown, TSecondInput>,
 ): Sure<
-  TFirstBad | TSecondBad,
-  TFirstGood | TSecondGood,
+  InferBad<TFirst> | InferBad<TSecond>,
+  InferGood<TFirst> | InferGood<TSecond>,
   // Variance
-  TFirstInput & TSecondInput,
+  InferInput<TFirst> & InferInput<TSecond>,
   MetaObj<{
     type: "union";
 
-    first: typeof first;
-    second: typeof second;
+    first: TFirst;
+    second: TSecond;
   }>
 > {
+  // @ts-expect-error The child callbacks determine the result payloads.
   return sure(
-    // @ts-expect-error Should be fixed at the definition of sure, I think.
-    (value: TFirstInput & TSecondInput) => {
+    (value: InferInput<TFirst> & InferInput<TSecond>) => {
       const [isGoodFirst, unsureFirst] = first(value);
 
       if (isGoodFirst) {

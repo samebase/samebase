@@ -1,3 +1,4 @@
+import type { Issue } from "../index.ts";
 import { describe, it, expect } from "vite-plus/test";
 import { number, union, string } from "../index.ts";
 import type {
@@ -21,7 +22,7 @@ type InferredInput = InferInput<typeof simple>;
 type InferredMeta = InferMeta<typeof simple>;
 
 assertEqual<InferredGood, number | string>(true);
-assertEqual<InferredBad, "not number" | "not string">(true);
+assertEqual<InferredBad, readonly Issue<"not number">[] | readonly Issue<"not string">[]>(true);
 assertEqual<InferredInput, unknown>(true);
 assertEqual<
   InferredMeta,
@@ -29,7 +30,7 @@ assertEqual<
     meta: {
       type: "union";
       first: Sure<
-        "not number",
+        readonly Issue<"not number">[],
         number,
         unknown,
         MetaObj<{
@@ -37,7 +38,7 @@ assertEqual<
         }>
       >;
       second: Sure<
-        "not string",
+        readonly Issue<"not string">[],
         string,
         unknown,
         MetaObj<{
@@ -76,17 +77,20 @@ describe("or", () => {
   it("should return bad value", () => {
     const value = simple(true);
 
-    expect(value).toStrictEqual([false, "not string"]);
+    expect(value).toStrictEqual([false, [{ path: [], error: "not string" }]]);
 
     // TypeChecks
     if (value[0] === false) {
-      assertEqual<(typeof value)[1], "not number" | "not string">(true);
+      assertEqual<
+        (typeof value)[1],
+        readonly Issue<"not number">[] | readonly Issue<"not string">[]
+      >(true);
     }
   });
 
   it("if first value bad, return second", () => {
     const value = simple({});
 
-    expect(value).toStrictEqual([false, "not string"]);
+    expect(value).toStrictEqual([false, [{ path: [], error: "not string" }]]);
   });
 });

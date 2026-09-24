@@ -1,16 +1,12 @@
 import { sure, bad, good } from "./core.ts";
-import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
+import type { Sure, InferBad, InferGood, MetaObj } from "./core.ts";
+import { fail, type AnyValidation, type Issue } from "./issue.ts";
 
-export function array<
-  //
-  TPropFail,
-  TPropGood,
-  TSchema extends Sure<TPropFail, TPropGood, unknown, MetaObj | MetaNever>,
->(
+export function array<TSchema extends AnyValidation>(
   schema: TSchema,
 ): Sure<
   //
-  Array<InferBad<TSchema> | undefined>,
+  readonly Issue<InferBad<TSchema>[number]["error"] | "not array">[],
   Array<InferGood<TSchema>>,
   unknown,
   MetaObj<{
@@ -22,31 +18,30 @@ export function array<
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        return fail("not array");
       }
 
-      let atLeastOneBad = false;
-      let bads = [];
-      let goods = [];
+      let failed = false;
+      const issues: Issue[] = [];
+      const goods: unknown[] = [];
+      let index = 0;
 
       for (const elem of value) {
+        const key = index++;
         const [good, unsure] = schema(elem);
 
         if (good) {
           goods.push(unsure);
-          // This is necessary in order to maintain the same length
-          bads.push(undefined);
         } else {
-          bads.push(unsure);
-
-          // Since the `bads` array can containe `undefined` values, it's more clear to
-          // have an imperative boolean to make the check
-          atLeastOneBad = true;
+          failed = true;
+          for (const issue of unsure) {
+            issues.push({ path: [key, ...issue.path], error: issue.error });
+          }
         }
       }
 
-      if (atLeastOneBad) {
-        return bad(bads);
+      if (failed) {
+        return bad(issues);
       }
 
       return good(goods);
@@ -58,6 +53,6 @@ export function array<
     },
   );
 
-  // @ts-expect-error Expected error
+  // @ts-expect-error The child schema determines the array output and issue payloads.
   return struct;
 }

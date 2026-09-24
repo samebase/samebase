@@ -51,16 +51,16 @@ Check the `sure.ts` version to check the types
 @example Check playground.ts to hover over variables
  */
 
-export function sure<TGood, TBad, TInput, TMeta>(
-  insure: Sure<TBad, TGood, TInput>,
+export function sure<TInput, TResult extends Unsure<unknown, unknown>, TMeta>(
+  insure: (value: TInput) => TResult,
   meta: TMeta,
-): Sure<TBad, TGood, TInput, MetaObj<TMeta>> {
+): ((value: TInput) => TResult) & MetaObj<TMeta> {
   return Object.assign(insure, { meta });
 }
 
-export function pure<TGood, TBad, TInput>(
-  insure: Sure<TBad, TGood, TInput, MetaNever>,
-): Sure<TBad, TGood, TInput, MetaNever> {
+export function pure<TInput, TResult extends Unsure<unknown, unknown>>(
+  insure: ((value: TInput) => TResult) & MetaNever,
+): ((value: TInput) => TResult) & MetaNever {
   return insure;
 }
 
@@ -86,6 +86,15 @@ export type Unsure<
 export type Good<T> = readonly [true, T];
 export type Bad<T> = readonly [false, T];
 
+type InferPayload<TResult, TGood extends boolean> = TResult extends readonly [
+  infer Tag,
+  infer Payload,
+]
+  ? TGood extends Tag
+    ? Payload
+    : never
+  : never;
+
 export type InferBad<
   // Add the Sure constraint
   T extends Sure<
@@ -95,12 +104,7 @@ export type InferBad<
     any,
     MetaObj | MetaNever
   >,
-> = //
-  T extends (...args: any) => infer COutput //
-    ? COutput extends readonly [false, infer CGood] //
-      ? CGood
-      : never
-    : never;
+> = InferPayload<ReturnType<T>, false>;
 
 export type InferGood<
   // Add the Sure constraint
@@ -111,12 +115,7 @@ export type InferGood<
     any,
     MetaObj | MetaNever
   >,
-> = //
-  T extends (...args: any) => infer COutput //
-    ? COutput extends readonly [true, infer CGood] //
-      ? CGood
-      : never
-    : never;
+> = InferPayload<ReturnType<T>, true>;
 
 export type InferInput<
   T extends Sure<
@@ -142,6 +141,8 @@ export type InferInput<
 export type InferMeta<
   T extends Sure<unknown, unknown, any, {}>,
 > = //
-  T extends Sure<unknown, unknown, any, infer CMeta> //
-    ? CMeta
-    : {};
+  T extends MetaObj<infer TMeta>
+    ? MetaObj<TMeta>
+    : T extends MetaNever
+      ? MetaNever
+      : MetaNever | MetaObj;

@@ -71,6 +71,14 @@ const sureMultipleErrors = pure((value) => {
 });
 
 describe("core", () => {
+  it("infers both payloads when a result tag is boolean", () => {
+    const schema = pure((value) => [typeof value === "number", value] as const);
+    assertEqual<InferGood<typeof schema>, unknown>(true);
+    assertEqual<InferBad<typeof schema>, unknown>(true);
+    expect(schema(1)).toStrictEqual(good(1));
+    expect(schema(null)).toStrictEqual(bad(null));
+  });
+
   it("should return good value (sure)", () => {
     const [isNumber, unsure] = sureNumber(1);
 
@@ -245,10 +253,9 @@ describe("core", () => {
   });
 
   it("should have strong types for validators with multiple errors", () => {
-    assertEqual<
-      typeof sureMultipleErrors,
-      Sure<"not a string" | "too small" | "too big", string & {}, unknown, MetaNever>
-    >(true);
+    assertIs<Sure<"not a string" | "too small" | "too big", string & {}, unknown, MetaNever>>(
+      sureMultipleErrors,
+    );
 
     assertEqual<InferGood<typeof sureMultipleErrors>, string & {}>(true);
     assertEqual<InferBad<typeof sureMultipleErrors>, "not a string" | "too small" | "too big">(
