@@ -35,6 +35,7 @@ export function after<
     (value) =>
       mapResult(first(value), ([good, out]) => {
         if (good) {
+          // @ts-expect-error This is the first validator's successful payload, InferGood<TFirst>.
           return second(out);
         }
 

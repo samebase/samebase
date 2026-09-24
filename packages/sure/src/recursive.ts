@@ -72,6 +72,7 @@ export function recurse<
         ([key, elem]) => {
           if (elem !== RecurseSymbol) return;
 
+          // @ts-expect-error Recursive callback types still use the base placeholders for replaced fields.
           const child = childParser(rec)(
             // here we send the value from the original object
             // Seems dangerous, maybe other implementation is better

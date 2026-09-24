@@ -71,6 +71,20 @@ const sureMultipleErrors = pure((value) => {
 });
 
 describe("core", () => {
+  it("infers both payloads when a result tag is boolean", () => {
+    const schema = pure((value) => [typeof value === "number", value] as const);
+    assertEqual<InferGood<typeof schema>, unknown>(true);
+    assertEqual<InferBad<typeof schema>, unknown>(true);
+    expect(schema(1)).toStrictEqual(good(1));
+    expect(schema(null)).toStrictEqual(bad(null));
+  });
+
+  it("infers unknown input for a function that ignores its argument", () => {
+    const schema = () => good(undefined);
+    assertEqual<InferInput<typeof schema>, unknown>(true);
+    assertEqual<InferInput<() => Promise<ReturnType<typeof schema>>>, unknown>(true);
+  });
+
   it("should return good value (sure)", () => {
     const [isNumber, unsure] = sureNumber(1);
 

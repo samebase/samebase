@@ -21,6 +21,7 @@ export type MetaObj<TMeta = unknown> = { meta: TMeta };
 @typeparam TBad  - Each struct can returns some kinds of issues (not throwing)
 @typeparam TGood  - The type which is guaranteed to be the output of the validator
 @typeparam TInput - The type of the input value.
+@typeparam TAsync - false for sync, true for a Promise, boolean for either.
 
 @example a numeric string can be based on the definition of a string.
          so you can base a numeric string on a string struct (if you want).
@@ -40,7 +41,8 @@ export type Resolve<T, TAsync extends boolean> = TAsync extends true ? Promise<A
 export type MaybePromise<T> = T | Promise<T>;
 export type AnySure<TInput = never> = Sure<unknown, unknown, TInput, MetaNever | MetaObj, boolean>;
 
-type PromiseMode<T> = T extends Promise<unknown> ? true : false;
+type PromiseMode<T> =
+  T extends Unsure<unknown, unknown> ? false : T extends Promise<unknown> ? true : false;
 export type InferAsync<T extends AnySure> = PromiseMode<ReturnType<T>>;
 
 /** A composite can skip its async children, so it can still return synchronously. */
@@ -54,6 +56,8 @@ Expects you to pass a function that gets an `unknown` value
 and returns either:
   [true, <anything you want>]
   [false, <an failure you might want to return, also anything you want>]
+
+The function can also return a Promise of either tuple.
 
 Check the `sure.ts` version to check the types
 
@@ -96,11 +100,24 @@ export type Unsure<
 export type Good<T> = readonly [true, T];
 export type Bad<T> = readonly [false, T];
 
-export type InferBad<T extends AnySure> = Extract<Awaited<ReturnType<T>>, Bad<unknown>>[1];
+type InferPayload<TResult, TGood extends boolean> = TResult extends readonly [
+  infer Tag,
+  infer Payload,
+]
+  ? TGood extends Tag
+    ? Payload
+    : never
+  : TResult extends Promise<infer Result>
+    ? InferPayload<Result, TGood>
+    : never;
 
-export type InferGood<T extends AnySure> = Extract<Awaited<ReturnType<T>>, Good<unknown>>[1];
+export type InferBad<T extends AnySure> = InferPayload<ReturnType<T>, false>;
 
-export type InferInput<T extends AnySure> = Parameters<T>[0];
+export type InferGood<T extends AnySure> = InferPayload<ReturnType<T>, true>;
+
+export type InferInput<T extends AnySure> = T extends (value: infer Input) => unknown
+  ? Input
+  : never;
 
 export type InferMeta<T extends AnySure> =
   T extends MetaObj<infer TMeta>

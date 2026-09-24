@@ -235,9 +235,44 @@ describe("async composition", () => {
     if (result[0]) await expect(result[1].value).resolves.toBe(2);
   });
 
-  it("accepts a tuple with an extra then property", () => {
-    const schema = pure(() => Object.assign(good(1), { then: 1 }));
+  it("preserves unrestricted payloads in both async outcomes", async () => {
+    const thenable = {
+      then: () => {
+        throw new Error("A payload must not be awaited");
+      },
+    };
+    const payloads = [undefined, null, false, 0, "", Promise.resolve(1), thenable];
+    for (const payload of payloads) {
+      const success = pure(() => Promise.resolve(good(payload)));
+      const failure = pure(() => Promise.resolve(bad(payload)));
+      await expect(object({ value: success })({ value: 1 })).resolves.toStrictEqual(
+        good({ value: payload }),
+      );
+      await expect(object({ value: failure })({ value: 1 })).resolves.toStrictEqual(
+        bad({ value: payload }),
+      );
+      await expect(array(success)([1])).resolves.toStrictEqual(good([payload]));
+      await expect(array(failure)([1])).resolves.toStrictEqual(bad([payload]));
+      await expect(tuple([success])([1])).resolves.toStrictEqual(good([payload]));
+      await expect(tuple([failure])([1])).resolves.toStrictEqual(bad([payload]));
+      await expect(after(success, good)(1)).resolves.toStrictEqual(good(payload));
+      await expect(union(failure, success)(1)).resolves.toStrictEqual(good(payload));
+    }
+  });
+
+  it("accepts a tuple with an extra then property without interpreting it", () => {
+    const schema = pure(() =>
+      Object.assign(good(1), {
+        then: () => {
+          throw new Error("A result tuple must not be awaited");
+        },
+      }),
+    );
+    assertEqual<InferGood<typeof schema>, 1>(true);
+    assertEqual<InferBad<typeof schema>, never>(true);
+    assertEqual<InferAsync<typeof schema>, false>(true);
     expect(array(schema)([0])).toEqual(good([1]));
+    expect(err(schema)(0)).toBe(1);
   });
 
   it("closes array iterators when a validator throws or rejects", async () => {

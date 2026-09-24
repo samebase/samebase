@@ -11,13 +11,19 @@ import type {
 import { mapResult } from "./async.ts";
 
 export function intersection<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-  TFirst extends Sure<unknown, Record<string, unknown>, any, MetaNever | MetaObj, boolean>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-  TSecond extends Sure<unknown, Record<string, unknown>, any, MetaNever | MetaObj, boolean>,
+  TFirstInput,
+  TSecondInput,
+  TFirst extends Sure<unknown, Record<string, unknown>, TFirstInput, MetaNever | MetaObj, boolean>,
+  TSecond extends Sure<
+    unknown,
+    Record<string, unknown>,
+    TSecondInput,
+    MetaNever | MetaObj,
+    boolean
+  >,
 >(
-  first: TFirst,
-  second: TSecond,
+  first: TFirst & ((value: TFirstInput) => unknown),
+  second: TSecond & ((value: TSecondInput) => unknown),
 ): Sure<
   InferBad<TFirst> | InferBad<TSecond>,
   InferGood<TFirst> & InferGood<TSecond>,
@@ -25,8 +31,8 @@ export function intersection<
   InferInput<TFirst> & InferInput<TSecond>,
   MetaObj<{
     type: "intersection";
-    first: typeof first;
-    second: typeof second;
+    first: TFirst;
+    second: TSecond;
   }>,
   MayAsync<TFirst | TSecond>
 > {

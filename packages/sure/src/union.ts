@@ -3,13 +3,13 @@ import type { AnySure, InferBad, InferGood, InferInput, MayAsync, MetaObj, Sure 
 import { mapResult } from "./async.ts";
 
 export function union<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-  TFirst extends AnySure<any>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-  TSecond extends AnySure<any>,
+  TFirstInput,
+  TSecondInput,
+  TFirst extends AnySure<TFirstInput>,
+  TSecond extends AnySure<TSecondInput>,
 >(
-  first: TFirst,
-  second: TSecond,
+  first: TFirst & AnySure<TFirstInput>,
+  second: TSecond & AnySure<TSecondInput>,
 ): Sure<
   InferBad<TFirst> | InferBad<TSecond>,
   InferGood<TFirst> | InferGood<TSecond>,
@@ -18,8 +18,8 @@ export function union<
   MetaObj<{
     type: "union";
 
-    first: typeof first;
-    second: typeof second;
+    first: TFirst;
+    second: TSecond;
   }>,
   MayAsync<TFirst | TSecond>
 > {

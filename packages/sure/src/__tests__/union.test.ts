@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { number, union, string } from "../index.ts";
+import { bad, good, number, union, string } from "../index.ts";
 import type {
   InferBad,
   InferGood,
@@ -51,6 +51,28 @@ assertEqual<
 //
 
 describe("or", () => {
+  it("infers inline inputs as unknown and preserves explicit input types", async () => {
+    const inline = union(
+      (value) => {
+        assertEqual<typeof value, unknown>(true);
+        return bad(value);
+      },
+      (value) => {
+        assertEqual<typeof value, unknown>(true);
+        return good(value);
+      },
+    );
+    expect(inline(1)).toStrictEqual(good(1));
+
+    const first = () => bad(undefined);
+    const second = (value: string) => Promise.resolve(good(value.length));
+    const narrow = union(first, second);
+    assertEqual<InferInput<typeof narrow>, string>(true);
+    assertEqual<typeof narrow.meta.first, typeof first>(true);
+    assertEqual<typeof narrow.meta.second, typeof second>(true);
+    await expect(narrow("hello")).resolves.toStrictEqual(good(5));
+  });
+
   it("should return good value", () => {
     const value = simple(1);
 
