@@ -369,47 +369,16 @@ function LandingPreviewOverview() {
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 The correct way to build web apps.
               </h1>
-              <div className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/convex-mark.svg"
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Convex
-                  </span>
-                  <strong className="text-foreground"> + </strong>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-7 object-cover align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/cloudflare.svg"
-                      width="28"
-                    />
-                    {"\u00a0"}
-                    Cloudflare Workers
-                  </span>{" "}
-                  is all you need to ship a production app.
+              <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+                Samebase gives you one place to manage GitHub, Convex, and Cloudflare across all
+                your apps.
+              </p>
+              <p className="mt-7 text-lg font-semibold">Don't trust us, ask your agent.</p>
+              <div className="mt-3 border border-border @2xl:flex @2xl:items-stretch">
+                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
+                  {LANDING_AGENT_PROMPT}
                 </p>
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em] dark:invert"
-                      height="20"
-                      src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Samebase
-                  </span>{" "}
-                  gives you one place to manage that stack across all your apps.
-                </p>
+                <LandingCopyPromptButton />
               </div>
               <div className="mt-9">
                 <PublicLandingPrimaryAction />
@@ -482,32 +451,7 @@ function LandingPreviewOverview() {
         </section>
 
         <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
-            <div>
-              <LandingSectionIntro
-                heading="Don't trust us, ask your agent."
-                sub={
-                  <>
-                    Paste this into the agent you already run. Every claim on this page links a{" "}
-                    <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink>,
-                    so it can verify us instead of trusting us.
-                  </>
-                }
-              />
-            </div>
-            <div className="mt-8 @5xl:mt-1.5">
-              <div className="border border-border @2xl:flex @2xl:items-stretch">
-                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
-                  {LANDING_AGENT_PROMPT}
-                </p>
-                <LandingCopyPromptButton />
-              </div>
-            </div>
-          </div>
-          <div
-            className="mt-8 border-t border-border py-6"
-            data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
-          >
+          <div data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}>
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
               local workflow
             </p>

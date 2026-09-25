@@ -112,21 +112,25 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
-    // Hero: the stack opinion stated directly.
+    // Hero: the stack opinion, one plain product sentence, and the agent prompt.
     expect(markup).toContain("The correct way to build web apps.");
-    expect(markup).toContain(" Convex</span>");
     expect(markup).toContain(
-      'src="/landing-preview/logos/cloudflare.svg" width="28"/> Cloudflare Workers</span> is all you need to ship a production app.</p>',
+      "Samebase gives you one place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
+    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
     expect(markup).toContain(
-      `src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>`,
+      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
     );
+    expect(markup).toContain("Copy</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
     // The founder demo plays in a YouTube embed below the hero copy.
     expect(markup).toContain(
       'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
+    );
+    expect(markup.indexOf("Don&#x27;t trust us, ask your agent.")).toBeLessThan(
+      markup.indexOf("youtube-nocookie.com/embed/UfxE8rvprqc"),
     );
 
     // The opinion and provider roles stay concise.
@@ -169,17 +173,8 @@ describe("LandingPage", () => {
     expect(markup).toContain("apps/admin");
     expect(markup).toContain("services/events");
 
-    // Ask your agent.
-    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
-    expect(markup).toContain(
-      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
-    );
-    expect(markup).toContain("Copy</button>");
-
-    const askAgentIndex = markup.indexOf("Don&#x27;t trust us, ask your agent.");
     const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
-    expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
 
     // The four claims.
