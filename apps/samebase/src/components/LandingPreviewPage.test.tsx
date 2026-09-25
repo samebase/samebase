@@ -114,11 +114,6 @@ describe("LandingPage", () => {
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
     // Hero: the stack opinion stated directly.
     expect(markup).toContain("The correct way to build web apps.");
-    expect(markup).toContain(">BETA</span>");
-    expect(markup).toContain("-rotate-3");
-    expect(markup).toContain("border-0");
-    expect(markup).toContain("bg-blue-600");
-    expect(markup).toContain("rounded-none");
     expect(markup).toContain(" Convex</span>");
     expect(markup).toContain(
       'src="/landing-preview/logos/cloudflare.svg" width="28"/> Cloudflare Workers</span> is all you need to ship a production app.</p>',

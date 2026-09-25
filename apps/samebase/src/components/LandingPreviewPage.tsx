@@ -20,7 +20,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import {
   useSidebarLayoutPresentation,
   useSidebarActions,
@@ -357,20 +356,15 @@ function LandingPreviewOverview() {
         <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div className="pb-4 @3xl:pt-4">
-              <p className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-9 w-9 dark:invert"
-                    height="36"
-                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                    width="36"
-                  />
-                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-                </span>
-                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-                  BETA
-                </Badge>
+              <p className="flex items-center gap-1.5">
+                <img
+                  alt=""
+                  className="h-9 w-9 dark:invert"
+                  height="36"
+                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                  width="36"
+                />
+                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
               </p>
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 The correct way to build web apps.
