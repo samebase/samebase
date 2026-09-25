@@ -12249,11 +12249,6 @@ const schema163 = {
       description:
         "The custom roles attached to this team member. Present iff\n`role` is `custom`.",
     },
-    dsyncSuspended: {
-      type: ["boolean", "null"],
-      description:
-        "Present only on directory-sync teams. `true` means the member's IdP\naccount is suspended.",
-    },
   },
 };
 const schema165 = { type: "string", enum: ["admin", "developer", "custom"] };
@@ -12579,26 +12574,8 @@ function validate87(
         }
       }
     }
-    if (data.dsyncSuspended !== undefined) {
-      let data6 = data.dsyncSuspended;
-      if (typeof data6 !== "boolean" && data6 !== null) {
-        const err10 = {
-          instancePath: instancePath + "/dsyncSuspended",
-          schemaPath: "#/properties/dsyncSuspended/type",
-          keyword: "type",
-          params: { type: schema163.properties.dsyncSuspended.type },
-          message: "must be boolean,null",
-        };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
   } else {
-    const err11 = {
+    const err10 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -12606,9 +12583,9 @@ function validate87(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err11];
+      vErrors = [err10];
     } else {
-      vErrors.push(err11);
+      vErrors.push(err10);
     }
     errors++;
   }
@@ -12616,7 +12593,7 @@ function validate87(
   return errors === 0;
 }
 validate87.evaluated = {
-  props: { id: true, name: true, email: true, role: true, customRoles: true, dsyncSuspended: true },
+  props: { id: true, name: true, email: true, role: true, customRoles: true },
   dynamicProps: false,
   dynamicItems: false,
 };
@@ -13690,6 +13667,7 @@ const schema182 = {
         "deployment:token:update",
         "deployment:token:delete",
         "deployment:token:view",
+        "member:token:createWithSsoAccess",
         "team:domain:create",
         "team:domain:delete",
         "deployment:customDomain:create",
@@ -14602,6 +14580,7 @@ function validate98(
           data2 === "deployment:token:update" ||
           data2 === "deployment:token:delete" ||
           data2 === "deployment:token:view" ||
+          data2 === "member:token:createWithSsoAccess" ||
           data2 === "team:domain:create" ||
           data2 === "team:domain:delete" ||
           data2 === "deployment:customDomain:create" ||
