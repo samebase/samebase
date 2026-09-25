@@ -46,7 +46,6 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
-import { publicMediaManifest } from "../../shared/publicMediaManifest";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -425,16 +424,6 @@ function LandingPreviewOverview() {
             <LandingHeroMenger placement="preview" />
           </div>
           <div className="relative" style={{ containerType: "inline-size" }}>
-            <p className="mb-3 flex justify-end text-lg">
-              <a
-                className="group font-semibold text-foreground underline decoration-red-600 underline-offset-4 hover:decoration-red-700"
-                href="https://youtu.be/UfxE8rvprqc"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Watch on <span className="text-red-600 group-hover:text-red-700">YouTube</span>
-              </a>
-            </p>
             <div
               className="overflow-hidden"
               data-testid="landing-preview-hero-video-frame"
@@ -444,17 +433,14 @@ function LandingPreviewOverview() {
                   "0 0.11cqw 0.44cqw rgb(0 0 0 / 22%), 0 1.325cqw 3.31cqw rgb(0 0 0 / 30%)",
               }}
             >
-              <video
-                aria-label="Founder demo: Building an app with Samebase and Codex"
-                className="block w-full"
-                controls
+              <iframe
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="block aspect-[48/31] w-full border-0"
                 data-testid="landing-preview-hero-video"
-                height={930}
-                playsInline
-                poster={publicMediaManifest.landingFounderDemoPoster.publicUrl}
-                preload="none"
-                src={publicMediaManifest.landingFounderDemo.publicUrl}
-                width={1440}
+                referrerPolicy="strict-origin-when-cross-origin"
+                src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc"
+                title="Founder demo: Building an app with Samebase and Codex"
               />
             </div>
           </div>

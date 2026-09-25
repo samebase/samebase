@@ -11,14 +11,12 @@ import {
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
 } from "../src/routeSearch/landingPreview";
-import { publicMediaManifest } from "../shared/publicMediaManifest";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
   devices["iPhone 13"];
 
 test.setTimeout(120_000);
 
-const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingFounderDemo.publicUrl;
 const LANDING_PAGE_PROD_UI_ROUTE = `${LANDING_PAGE_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
@@ -64,15 +62,16 @@ async function readMainPaneScrollTop(page: Page) {
     .evaluate((element) => element.scrollTop);
 }
 
-async function showLandingHeroPoster(page: Page) {
-  await page.route(LANDING_HERO_VIDEO_URL, (route) => route.abort());
+/** The landing YouTube embeds render as blank frames so screenshots do not depend on YouTube. */
+async function blankLandingYouTubeEmbeds(page: Page) {
+  await page.route("https://www.youtube-nocookie.com/**", (route) =>
+    route.fulfill({ body: "", contentType: "text/html" }),
+  );
 }
 
-test("landing overview preserves its unloaded video frame and wide desktop layout", async ({
-  page,
-}) => {
+test("landing overview preserves its video frame and wide desktop layout", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await showLandingHeroPoster(page);
+  await blankLandingYouTubeEmbeds(page);
 
   await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -80,13 +79,11 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
 
   const heroVideo = page.getByTestId("landing-preview-hero-video");
   await expect(heroVideo).toBeVisible();
-  const initialVideoLayout = await heroVideo.evaluate((element) => ({
+  const videoLayout = await heroVideo.evaluate((element) => ({
     height: element.clientHeight,
-    readyState: element.readyState,
     width: element.clientWidth,
   }));
-  expect(initialVideoLayout.readyState).toBe(0);
-  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1440 / 930, 2);
+  expect(videoLayout.width / videoLayout.height).toBeCloseTo(48 / 31, 2);
 
   await page.waitForLoadState("networkidle");
 
@@ -97,8 +94,7 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
 
-  // The interactive logo canvases render nondeterministically across GPUs. The
-  // video request stays aborted so its real frame-zero poster remains visible.
+  // The interactive logo canvases render nondeterministically across GPUs.
   await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -123,7 +119,7 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
 test("landing preview FAQ answers the direct-agent questions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await showLandingHeroPoster(page);
+  await blankLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
@@ -182,7 +178,7 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await showLandingHeroPoster(page);
+  await blankLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
@@ -226,7 +222,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   // than the viewport md breakpoint. The overview must render its stacked
   // container layout instead of forcing the two-column hero grid.
   await page.setViewportSize({ width: 800, height: 900 });
-  await showLandingHeroPoster(page);
+  await blankLandingYouTubeEmbeds(page);
 
   await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -298,7 +294,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
       return Reflect.apply(originalGetContext, this, [contextId, ...args]);
     };
   });
-  await showLandingHeroPoster(page);
+  await blankLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
@@ -377,7 +373,7 @@ test.describe("mobile landing preview", () => {
 
   test("renders the mobile overview", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
-    await showLandingHeroPoster(page);
+    await blankLandingYouTubeEmbeds(page);
     await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
       waitUntil: "domcontentloaded",
     });
@@ -414,7 +410,7 @@ test.describe("mobile landing preview", () => {
   test("renders the FAQ for a mobile pane", async ({ page }) => {
     await page.setViewportSize({ height: 1200, width: 390 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await showLandingHeroPoster(page);
+    await blankLandingYouTubeEmbeds(page);
     await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
       waitUntil: "domcontentloaded",
     });

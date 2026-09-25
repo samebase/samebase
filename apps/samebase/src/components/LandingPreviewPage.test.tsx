@@ -10,7 +10,6 @@ import {
   LandingPage,
 } from "@/components/LandingPreviewPage";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
-import { publicMediaManifest } from "../../shared/publicMediaManifest";
 
 const authPresentation = vi.hoisted(() => ({ kind: "signedOut" }));
 
@@ -127,25 +126,15 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       `src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>`,
     );
-    expect(markup).toContain('class="mb-3 flex justify-end text-lg"');
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
-    // The real founder demo stays unloaded until the visitor presses Play.
-    expect(markup).toContain(`src="${publicMediaManifest.landingFounderDemo.publicUrl}"`);
-    expect(markup).toContain(`poster="${publicMediaManifest.landingFounderDemoPoster.publicUrl}"`);
-    expect(markup).toContain("Founder demo: Building an app with Samebase and Codex");
-    expect(markup).toContain('controls=""');
-    expect(markup).toContain('width="1440"');
-    expect(markup).toContain('height="930"');
-    expect(markup).toContain('preload="none"');
+    // The founder demo plays in a YouTube embed inside the framed hero slot.
+    expect(markup).toContain(
+      'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
+    );
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
-    expect(markup).toContain(
-      'href="https://youtu.be/UfxE8rvprqc" rel="noreferrer" target="_blank"',
-    );
-    expect(markup).toContain(">Watch on <span");
-    expect(markup).toContain(">YouTube</span></a>");
 
     // The opinion and provider roles stay concise.
     expect(markup).toContain(
