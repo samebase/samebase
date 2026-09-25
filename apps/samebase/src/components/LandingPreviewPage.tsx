@@ -423,27 +423,15 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <div className="relative" style={{ containerType: "inline-size" }}>
-            <div
-              className="overflow-hidden"
-              data-testid="landing-preview-hero-video-frame"
-              style={{
-                borderRadius: "1.104% / 1.664%",
-                boxShadow:
-                  "0 0.11cqw 0.44cqw rgb(0 0 0 / 22%), 0 1.325cqw 3.31cqw rgb(0 0 0 / 30%)",
-              }}
-            >
-              <iframe
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="block aspect-[48/31] w-full border-0"
-                data-testid="landing-preview-hero-video"
-                referrerPolicy="strict-origin-when-cross-origin"
-                src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc"
-                title="Founder demo: Building an app with Samebase and Codex"
-              />
-            </div>
-          </div>
+          <iframe
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="mt-8 block aspect-[48/31] w-full border-0"
+            data-testid="landing-preview-hero-video"
+            referrerPolicy="strict-origin-when-cross-origin"
+            src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc"
+            title="Founder demo: Building an app with Samebase and Codex"
+          />
         </section>
 
         <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
