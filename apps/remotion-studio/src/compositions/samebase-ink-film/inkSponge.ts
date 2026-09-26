@@ -1,0 +1,87 @@
+/**
+The giant sponge's axonometric projection, shared by the CPU (probe placement) and the shader.
+
+The sponge fills the unit cube [0, 1]^3 with z up. It is drawn like style frame B: an orthographic
+view from azimuth `azimuth` and elevation `elevation`, in frame B coordinates, where the near top
+corner (1, 1, 1) sits at `SPONGE_FRONT_TOP` and one unit spans `SPONGE_SPAN` px along each axis
+before foreshortening. Rays run along -view.
+*/
+import { deg, type Point } from "./inkMath";
+import {
+  layerCamera,
+  project,
+  readCamera,
+  readMarkWalkPosition,
+  SCREEN_CENTER,
+  type Camera,
+} from "./inkTimeline";
+
+export const SPONGE_SPAN = 1242;
+export const SPONGE_FRONT_TOP: Point = [1560, 340];
+export const SPONGE_DEPTH = 0.45;
+export const MIST_DEPTH = 0.6;
+
+type Vector3 = readonly [number, number, number];
+
+export function readSpongeBasis(azimuth: number, elevation: number) {
+  const a = deg(azimuth);
+  const e = deg(elevation);
+  const right: Vector3 = [Math.sin(a), -Math.cos(a), 0];
+  const down: Vector3 = [Math.cos(a) * Math.sin(e), Math.sin(a) * Math.sin(e), -Math.cos(e)];
+  const view: Vector3 = [Math.cos(a) * Math.cos(e), Math.sin(a) * Math.cos(e), Math.sin(e)];
+  // The projection of (1, 1, 1) is the sum of the three columns.
+  const corner: Point = [right[0] + right[1] + right[2], down[0] + down[1] + down[2]];
+  const origin: Point = [
+    SPONGE_FRONT_TOP[0] - SPONGE_SPAN * corner[0],
+    SPONGE_FRONT_TOP[1] - SPONGE_SPAN * corner[1],
+  ];
+  return { down, origin, right, view };
+}
+
+/** Frame B coordinates of the sponge layer for a screen point. */
+export function unproject(camera: Camera, screen: Point): Point {
+  const dx = screen[0] - SCREEN_CENTER[0];
+  const dy = screen[1] - SCREEN_CENTER[1];
+  const cos = Math.cos(-camera.angle);
+  const sin = Math.sin(-camera.angle);
+  return [
+    camera.center[0] + (dx * cos - dy * sin) / camera.zoom,
+    camera.center[1] + (dx * sin + dy * cos) / camera.zoom,
+  ];
+}
+
+/** Where a layer point's ray first meets the sponge's bounding cube, or null when it misses. */
+function entryPoint(layerPoint: Point, azimuth: number, elevation: number): Vector3 | null {
+  const { down, origin, right, view } = readSpongeBasis(azimuth, elevation);
+  const a = (layerPoint[0] - origin[0]) / SPONGE_SPAN;
+  const b = (layerPoint[1] - origin[1]) / SPONGE_SPAN;
+  const base: Vector3 = [
+    a * right[0] + b * down[0],
+    a * right[1] + b * down[1],
+    a * right[2] + b * down[2],
+  ];
+  // P(t) = base + t * view, marching from large t toward small t.
+  let enter = -Infinity;
+  let exit = Infinity;
+  for (let axis = 0; axis < 3; axis += 1) {
+    const start = base[axis] ?? 0;
+    const direction = view[axis] ?? 0;
+    const t0 = (0 - start) / direction;
+    const t1 = (1 - start) / direction;
+    enter = Math.max(enter, Math.min(t0, t1));
+    exit = Math.min(exit, Math.max(t0, t1));
+  }
+  if (enter > exit) {
+    return null;
+  }
+  return [base[0] + exit * view[0], base[1] + exit * view[1], base[2] + exit * view[2]];
+}
+
+/** The probe sits on the sponge surface above the walking mark, where the mist is thin. */
+export function readProbe(time: number, azimuth: number, elevation: number): Vector3 {
+  const camera = readCamera(time);
+  const mark = readMarkWalkPosition(time);
+  const screen = project(camera, [mark[0] + 60, mark[1] - 230]);
+  const layerPoint = unproject(layerCamera(camera, SPONGE_DEPTH), screen);
+  return entryPoint(layerPoint, azimuth, elevation) ?? [0.02, 0.5, 0.3];
+}

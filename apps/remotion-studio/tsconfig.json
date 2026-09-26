@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["node", "react", "react-dom"]
+    "types": ["node", "react", "react-dom", "@webgpu/types"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "remotion.config.ts"],
   "exclude": ["../../node_modules"]

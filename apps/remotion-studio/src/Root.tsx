@@ -42,6 +42,8 @@ import {
   onboardingDemoEditDurationInFrames,
   onboardingDemoFps,
 } from "./compositions/onboarding-demo/onboardingDemoEdit";
+import { SamebaseInkFilm } from "./compositions/samebase-ink-film/SamebaseInkFilm";
+import { FILM_FPS, FILM_FRAMES } from "./compositions/samebase-ink-film/inkTimeline";
 import { SamebaseRisoFilm } from "./compositions/samebase-riso-film/SamebaseRisoFilm";
 import { SamebaseRisoLoop } from "./compositions/samebase-riso-film/SamebaseRisoLoop";
 import { filmDurationInFrames, filmFps } from "./compositions/samebase-riso-film/filmMotion";
@@ -142,6 +144,14 @@ export function RemotionRoot() {
         component={SamebaseRisoLoop}
         durationInFrames={loopDurationInSeconds * filmFps}
         fps={filmFps}
+        height={1080}
+        width={1920}
+      />
+      <Composition
+        id="SamebaseInkFilm"
+        component={SamebaseInkFilm}
+        durationInFrames={FILM_FRAMES}
+        fps={FILM_FPS}
         height={1080}
         width={1920}
       />
