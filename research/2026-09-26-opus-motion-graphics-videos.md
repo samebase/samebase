@@ -167,6 +167,25 @@ The mark stays the main character. The fractal appears only in the last break, a
 follows the breaks: the meter changes from 3/4 to 4/4 at the cut, and a near silence comes before
 the scale reveal.
 
+### Draft script
+
+Each break carries one product claim. Every line comes from the landing page, the FAQ, or
+`llms.txt`, so the receipts already cover it.
+
+| Break           | Picture                                                                                                            | Words                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 1. Flat logo    | The mark changes color and proportion on the beat.                                                                 | None.                                                                                          |
+| 2. Cube         | The mark is the face of a cube. Its three visible sides are GitHub, Convex, and Cloudflare, each in its own color. | "GitHub. Convex. Cloudflare." Then "We set them up. You own them."                             |
+| 3. Flat reshape | The box turns out to be a flat image. The provider colors merge into the mark, and the sides multiply.             | "It looks like a box. It isn't." Then "Delete your Samebase account. Your app doesn't notice." |
+| 4. Scale        | The pull-back shows one small piece of a huge Menger sponge, seen from outside.                                    | "Every app on the same base. Samebase too." Then "One place to see, check, and fix them."      |
+| 5. End          | The flat mark and the wordmark.                                                                                    | "Same base. Your accounts. No magic." Then samebase.com and the agent prompt.                  |
+
+Sources: "Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare
+accounts" and "Samebase runs on the same base it gives users" (`llms.txt`); "Delete your Samebase
+account. Your app doesn't notice.", the FAQ answer "one place to see them, check their setup, and
+fix problems", and "Same base. Your accounts. No magic." (landing page). The break 3 picture carries
+the anti-lock-in claim: the box that seemed to hold the app was never there.
+
 Scale cues for a huge object seen from outside: slow movement, haze that grows with distance, detail
 at many scales at the same time, and a small object in the foreground for comparison. The current
 mark at normal size, in front of the giant sponge, can be that small object. The sponge can seem
