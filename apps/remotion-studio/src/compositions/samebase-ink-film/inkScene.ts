@@ -35,6 +35,7 @@ import {
   rng,
   rotate,
   scale,
+  smoothstep,
   sub,
   vnoise,
   wobble,
@@ -160,24 +161,6 @@ function drawMark(
       });
       front.restore();
     }
-    // A second darker glaze on the lower half gives the body some weight.
-    wash(
-      front,
-      [
-        mix(outer[3] ?? centroid, outer[0] ?? centroid, 0.45),
-        mix(outer[2] ?? centroid, outer[1] ?? centroid, 0.45),
-        outer[2] ?? centroid,
-        outer[3] ?? centroid,
-      ],
-      pose.recolor < 1 ? pose.previousColor : pose.color,
-      {
-        body: 0.18,
-        holes: [inner],
-        mottle: 0,
-        seed: washSeed + 5,
-        wobbleAmplitude: 2 * lineScale,
-      },
-    );
     front.restore();
   }
   const lineSeed = 61 + boil * 3;
@@ -256,6 +239,70 @@ function drawMark(
       );
     });
   }
+}
+
+/** Droplets flicked from the brush with each new colour. They stay on the paper. */
+const DROPLETS = (() => {
+  const random = rng(808);
+  const flicks: readonly [number, string][] = [
+    [3.05, PALETTE.slateMid],
+    [4.55, PALETTE.teal],
+    [7.05, PALETTE.ochre],
+    [9.05, PALETTE.ochre],
+    [10.05, PALETTE.teal],
+    [16.15, PALETTE.clay],
+    [17.05, PALETTE.rose],
+  ];
+  return flicks.flatMap(([start, color]) =>
+    Array.from({ length: 4 }, () => {
+      const angle = random() * Math.PI * 2;
+      const distance = 40 + random() * 30;
+      const at: Point = [
+        MARK_HOME[0] + Math.cos(angle) * distance * 1.6,
+        MARK_HOME[1] + Math.sin(angle) * distance * 0.9,
+      ];
+      return { at, color, r: 0.45 + random() * 1.3, start: start + random() * 0.12 };
+    }),
+  );
+})();
+
+function drawDroplets(layers: SceneLayers, camera: Camera, time: number): void {
+  const front = layers.front.context;
+  const fade = 1 - ramp(time, TIMES.walk, 0.8);
+  front.save();
+  front.globalCompositeOperation = "multiply";
+  for (const droplet of DROPLETS) {
+    if (time < droplet.start) {
+      continue;
+    }
+    const center = project(camera, droplet.at);
+    const radius =
+      droplet.r * camera.zoom * clamp(easeOut(ramp(time, droplet.start, 0.12)) * 1.15, 0, 1);
+    if (radius < 0.5) {
+      continue;
+    }
+    const red = parseInt(droplet.color.slice(1, 3), 16);
+    const green = parseInt(droplet.color.slice(3, 5), 16);
+    const blue = parseInt(droplet.color.slice(5, 7), 16);
+    const tone = (alpha: number) => `rgba(${red},${green},${blue},${alpha * fade})`;
+    const gradient = front.createRadialGradient(
+      center[0],
+      center[1],
+      0,
+      center[0],
+      center[1],
+      radius,
+    );
+    gradient.addColorStop(0, tone(0.45));
+    gradient.addColorStop(0.72, tone(0.6));
+    gradient.addColorStop(0.92, tone(0.95));
+    gradient.addColorStop(1, tone(0));
+    front.fillStyle = gradient;
+    front.beginPath();
+    front.ellipse(center[0], center[1], radius, radius * 0.9, droplet.r, 0, Math.PI * 2);
+    front.fill();
+  }
+  front.restore();
 }
 
 // ----- the cube and the flat picture -----
@@ -554,7 +601,7 @@ function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: n
     return { ...quads, color: pose.colors[index] ?? PALETTE.slateMid, index, width };
   });
   // The clay side becomes the mark: it turns upright and moves onto the mark's place.
-  const clay = sides[3];
+  const clay = sides[4];
   if (clay && pose.settle > 0) {
     const middle = scale(add(clay.outer[0] ?? center, clay.outer[2] ?? center), 0.5);
     const edge = sub(clay.outer[1] ?? center, clay.outer[0] ?? center);
@@ -609,100 +656,101 @@ function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: n
       inkPolygon(ink, inner, { ...line, seed: lineSeed + index * 11 + 1, width: 2 * lineScale });
     }
   };
-  const peeled = sides.find((side) => side.index === pose.peelSide && pose.peel > 0.002);
-  sides.forEach((side) => {
-    if (side.width < 5 || side === peeled) {
-      return;
-    }
-    // A side that folds away fades as it gets thin, so no sliver is left behind.
-    front.save();
-    front.globalAlpha = clamp((side.width - 5) / 25);
-    drawSide(
-      side.outer,
-      side.inner,
-      side.color,
-      side.index,
-      pose.widths.length > 3,
-      clamp((side.width - 5) / 25),
-    );
-    front.restore();
-    if (side.color === PALETTE.slateMid && side.index === 3 && pose.hatch > 0) {
-      hatchPolygon(ink, side.outer, {
-        alpha: 0.5,
-        angle: 58,
-        color: INK_LINE,
-        gap: 7.5 * lineScale,
-        holes: [side.inner],
-        reveal: pose.hatch,
-        seed: 91 + (boil % 3),
-        width: 1.3 * lineScale,
-      });
-    }
-  });
-  if (!peeled) {
-    return;
-  }
-  // The sticker peel: a fold line crosses the side from its outer tip toward the center.
-  const tip = peeled.outer[2] ?? center;
-  const reach = length(sub(tip, center)) || 1;
-  const direction = scale(sub(tip, center), 1 / reach);
-  const fold = reach * (1 - pose.peel);
+  // The whole picture is one sticker: a fold line crosses it from the tip of the right side.
+  const folding = pose.peel > 0.002;
+  const direction = ray(330);
+  const fold = radius * (1 - 1.3 * pose.peel);
   const reflect = (point: Point): Point => {
     const distance =
       (point[0] - center[0]) * direction[0] + (point[1] - center[1]) * direction[1] - fold;
     return sub(point, scale(direction, 2 * distance));
   };
-  const base = clipHalfPlane(peeled.outer, center, direction, fold, true);
-  const baseHole = clipHalfPlane(peeled.inner, center, direction, fold, true);
-  const flap = clipHalfPlane(peeled.outer, center, direction, fold, false).map(reflect);
-  const flapHole = clipHalfPlane(peeled.inner, center, direction, fold, false).map(reflect);
-  pencil(ink, wobble(closedPath(peeled.outer), false, { amplitude: 1.2, seed: 97 }), {
-    alpha: 0.32 * clamp(pose.peel * 3),
-    seed: 98,
-    width: 1.3,
-  });
-  if (base.length >= 3) {
-    drawSide(base, baseHole, peeled.color, peeled.index, false);
-    if (pose.hatch > 0) {
-      hatchPolygon(ink, base, {
-        alpha: 0.5,
+  const flat = (polygon: Point[]) =>
+    folding ? clipHalfPlane(polygon, center, direction, fold, true) : polygon;
+  sides.forEach((side) => {
+    if (side.width < 12) {
+      return;
+    }
+    const outer = flat(side.outer);
+    const inner = flat(side.inner);
+    // A side that folds away fades as it gets thin, so no sliver is left behind.
+    const alpha = clamp((side.width - 12) / 30);
+    front.save();
+    front.globalAlpha = alpha;
+    drawSide(outer, inner, side.color, side.index, (pose.widths[4] ?? 0) > 1, alpha);
+    front.restore();
+    if (side.index === 3 && pose.hatch > 0 && outer.length >= 3) {
+      hatchPolygon(ink, outer, {
+        alpha: 0.5 * alpha,
         angle: 58,
         color: INK_LINE,
         gap: 7.5 * lineScale,
-        holes: baseHole.length >= 3 ? [baseHole] : [],
+        holes: inner.length >= 3 ? [inner] : [],
         reveal: pose.hatch,
         seed: 91 + (boil % 3),
         width: 1.3 * lineScale,
       });
     }
+  });
+  if (!folding) {
+    return;
   }
-  if (flap.length >= 3) {
-    const shadowShift: Point = [6 * lineScale, 9 * lineScale];
-    wash(
-      front,
-      flap.map((point) => add(point, shadowShift)),
-      "#6E6A8C",
-      {
-        body: 0.2,
-        holes: flapHole.length >= 3 ? [flapHole.map((point) => add(point, shadowShift))] : [],
-        mottle: 0,
-        seed: 99,
-        wobbleAmplitude: 4,
-      },
-    );
-    // The sticker is opaque paper, and its back is clay: the colour the little mark will have.
-    front.save();
-    front.fillStyle = "#F6EEDF";
-    polygonPath(front, flap, flapHole.length >= 3 ? [flapHole] : []);
-    front.fill("evenodd");
-    front.restore();
-    ink.save();
-    ink.globalCompositeOperation = "destination-out";
-    polygonPath(ink, flap, flapHole.length >= 3 ? [flapHole] : []);
-    ink.fill("evenodd");
-    ink.restore();
-    drawSide(flap, flapHole, PALETTE.clay, 7, false);
+  const outline = sides
+    .filter((side) => side.width >= 1)
+    .flatMap((side) => [side.outer[1] ?? center, side.outer[2] ?? center]);
+  // Under the sticker there is only paper, and the pencil ghost of where it was.
+  pencil(ink, wobble(closedPath(outline), false, { amplitude: 1.2, seed: 97 }), {
+    alpha: 0.34 * clamp(pose.peel * 3),
+    seed: 98,
+    width: 1.3,
+  });
+  const flap = clipHalfPlane(outline, center, direction, fold, false).map(reflect);
+  const flapHoles = sides
+    .map((side) => clipHalfPlane(side.inner, center, direction, fold, false).map(reflect))
+    .filter((hole) => hole.length >= 3);
+  if (flap.length < 3) {
+    return;
   }
+  const shadowShift: Point = [7 * lineScale, 11 * lineScale];
+  wash(
+    front,
+    flap.map((point) => add(point, shadowShift)),
+    "#6E6A8C",
+    {
+      body: 0.22,
+      holes: flapHoles.map((hole) => hole.map((point) => add(point, shadowShift))),
+      mottle: 0,
+      seed: 99,
+      wobbleAmplitude: 4,
+    },
+  );
+  // The sticker is opaque paper, and its back is clay: the colour the little mark will have.
+  front.save();
+  front.fillStyle = "#F6EEDF";
+  polygonPath(front, flap, flapHoles);
+  front.fill("evenodd");
+  front.restore();
+  ink.save();
+  ink.globalCompositeOperation = "destination-out";
+  polygonPath(ink, flap, flapHoles);
+  ink.fill("evenodd");
+  ink.restore();
+  const flapCenter = scale(
+    flap.reduce((sum, point) => add(sum, point), [0, 0]),
+    1 / flap.length,
+  );
+  wash(front, flap, PALETTE.clay, {
+    body: 0.84,
+    holes: flapHoles,
+    mottle: 0.6,
+    origin: flapCenter,
+    seed: 77 + (boil % 4),
+    wobbleAmplitude: 1.3 * lineScale,
+  });
+  inkPolygon(ink, flap, { ...baseLine, seed: lineSeed + 90 });
+  flapHoles.forEach((hole, index) =>
+    inkPolygon(ink, hole, { ...baseLine, seed: lineSeed + 91 + index, width: 2 * lineScale }),
+  );
 }
 
 function drawCubeLabels(layers: SceneLayers, camera: Camera, time: number, boil: number): void {
@@ -782,21 +830,27 @@ function makePuffs(
 }
 
 const SHOULDER_PUFFS = makePuffs(3, 1010, 2150, 322, 20, 54, [1430, 1600]);
-const BANK_PUFFS: Puff[] = (() => {
-  const random = rng(44);
-  const puffs: Puff[] = [];
-  for (let row = 0; row < 6; row += 1) {
-    for (let column = 0; column < 12; column += 1) {
-      puffs.push({
-        r: 70 + random() * 70,
-        x: 760 + column * 120 + random() * 60,
-        y: 150 + row * 100 + random() * 40,
-      });
-    }
-  }
-  return puffs;
-})();
-
+/** A cumulus in front of the giant, in two halves that part on 24.0. */
+const BANK_BASE = 660;
+const BANK_HALVES: readonly (readonly Puff[])[] = [
+  [
+    { r: 115, x: 900, y: 575 },
+    { r: 150, x: 1000, y: 480 },
+    { r: 190, x: 1140, y: 390 },
+    { r: 165, x: 1280, y: 290 },
+    { r: 165, x: 1190, y: 540 },
+    { r: 175, x: 1340, y: 500 },
+  ],
+  [
+    { r: 160, x: 1480, y: 250 },
+    { r: 210, x: 1610, y: 390 },
+    { r: 170, x: 1500, y: 540 },
+    { r: 150, x: 1770, y: 320 },
+    { r: 190, x: 1860, y: 470 },
+    { r: 150, x: 1690, y: 575 },
+    { r: 140, x: 2010, y: 540 },
+  ],
+];
 /** A cloud: cream puffs over a flat base, with ink only on the puffy outline. */
 function drawCloud(
   layers: SceneLayers,
@@ -805,6 +859,8 @@ function drawCloud(
   alpha: number,
   seed: number,
   eraseInk: boolean,
+  /** Puffs of a neighbouring cloud that hide this cloud's outline where they overlap. */
+  occluders: readonly { center: Point; r: number }[] = [],
 ): void {
   if (alpha <= 0.01 || puffs.length === 0) {
     return;
@@ -833,20 +889,26 @@ function drawCloud(
   shade.addColorStop(1, "rgba(206,202,214,0.4)");
   front.fillStyle = shade;
   front.fill();
-  // Each puff is a shade cooler at its lower edge, so the bank has volume.
+  // Big puffs get a soft cool shadow under their bellies, so a bank has volume.
+  shape(front);
+  front.clip();
   front.globalCompositeOperation = "multiply";
-  for (const puff of [...puffs].sort((a, b) => a.center[1] - b.center[1])) {
-    const glaze = front.createLinearGradient(
-      0,
-      puff.center[1] - puff.r * 0.2,
-      0,
-      puff.center[1] + puff.r,
-    );
-    glaze.addColorStop(0, "rgba(214,212,230,0)");
-    glaze.addColorStop(1, "rgba(214,212,230,0.55)");
-    front.fillStyle = glaze;
+  front.filter = `blur(${Math.max(4, Math.min(...puffs.map((puff) => puff.r)) * 0.18)}px)`;
+  front.fillStyle = "rgba(206,204,226,0.42)";
+  for (const puff of puffs) {
+    if (puff.r < 60) {
+      continue;
+    }
     front.beginPath();
-    front.arc(puff.center[0], puff.center[1], puff.r, 0, Math.PI * 2);
+    front.ellipse(
+      puff.center[0],
+      puff.center[1] + puff.r * 0.62,
+      puff.r * 0.85,
+      puff.r * 0.4,
+      0,
+      0,
+      Math.PI * 2,
+    );
     front.fill();
   }
   front.restore();
@@ -876,11 +938,12 @@ function drawCloud(
         puff.center[0] + Math.cos(angle) * puff.r,
         puff.center[1] + Math.sin(angle) * puff.r,
       ];
-      const covered = puffs.some(
-        (other, otherIndex) =>
-          otherIndex !== index && length(sub(point, other.center)) < other.r - 1.5,
-      );
-      const upper = Math.sin(angle) < -0.35 && Math.abs(Math.cos(angle)) < 0.8;
+      const covered =
+        puffs.some(
+          (other, otherIndex) =>
+            otherIndex !== index && length(sub(point, other.center)) < other.r - 1.5,
+        ) || occluders.some((other) => length(sub(point, other.center)) < other.r - 1.5);
+      const upper = puff.r > 140 && Math.sin(angle) < -0.5 && Math.abs(Math.cos(angle)) < 0.6;
       const state = point[1] > baseY - 2 ? null : !covered ? false : upper ? true : null;
       if (state === null || (run.length > 0 && state !== inner)) {
         flush();
@@ -1070,19 +1133,24 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
       center: project(cloudCamera, [puff.x + 8 * Math.sin(time * 0.3), puff.y]),
       r: puff.r * cloudCamera.zoom * easeOut(reveal.clouds),
     }));
-    // Parting: every puff drifts away from the middle of the bank and evaporates.
-    const bank = BANK_PUFFS.map((puff) => {
-      const away = sub([puff.x, puff.y], [1420, 440]);
-      const distance = length(away) || 1;
-      const drift = scale(away, (760 * parting) / distance);
-      const shrink = 1 - 0.55 * parting;
-      return {
-        center: project(cloudCamera, [puff.x + drift[0], puff.y + drift[1] - 120 * parting]),
-        r: puff.r * shrink * cloudCamera.zoom * easeOut(reveal.clouds),
-      };
+    // Parting: the cumulus splits in two masses that slide apart and thin out.
+    const fade = 1 - smoothstep(0.55, 1, parting);
+    const halves = BANK_HALVES.map((half, index) => {
+      const drift: Point =
+        index === 0 ? [-950 * parting, -420 * parting] : [1000 * parting, -180 * parting];
+      const puffs = half.map((puff) => ({
+        center: project(cloudCamera, [puff.x + drift[0], puff.y + drift[1]]),
+        r: puff.r * cloudCamera.zoom * easeOut(reveal.clouds),
+      }));
+      return { base: project(cloudCamera, [0, BANK_BASE + drift[1]])[1], puffs };
     });
-    drawCloud(layers, bank, 5000, 1 - easeInOut(ramp(time, TIMES.giant + 0.2, 1.6)), 300, false);
-    drawCloud(layers, shoulder, project(cloudCamera, [0, 330])[1], 1, 320, false);
+    halves.forEach((half, index) => {
+      const other = halves[1 - index]?.puffs ?? [];
+      drawCloud(layers, half.puffs, half.base, fade, 300 + index * 40, false, other);
+    });
+    // The band at the giant's shoulder shows as the cumulus goes.
+    const band = smoothstep(0.15, 0.7, parting);
+    drawCloud(layers, shoulder, project(cloudCamera, [0, 330])[1], band, 320, false);
   }
 
   // The ridge: it spreads from under the mark's feet.
@@ -1344,6 +1412,9 @@ export function paintScene(time: number, layers: SceneLayers): void {
   if (time < TIMES.end) {
     const camera = readCamera(time);
     paintLandscape(layers, camera, time, boil);
+    if (time < TIMES.walk + 0.8) {
+      drawDroplets(layers, camera, time);
+    }
     const cube = readCubePose(time);
     if (cube?.kind === "cube") {
       drawCube(layers, camera, cube, boil, time);

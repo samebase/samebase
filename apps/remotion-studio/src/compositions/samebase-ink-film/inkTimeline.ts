@@ -294,13 +294,17 @@ export function readMarkPose(time: number): MarkPose | null {
     time >= TIMES.fold ? 0.16 * pulse(time, 18.9, 2.8, 5) + 0.2 * pulse(time, 19.36, 3.5, 6) : 0;
   return {
     angle,
-    bloom: easeOut(ramp(time, 2, 0.8)),
+    bloom: easeOut(ramp(time, 3, 0.7)),
     center,
     color,
     hole,
-    holeOutline: easeInOut(ramp(time, 1.5, 0.45)),
+    holeOutline: easeInOut(ramp(time, 2.5, 0.3)),
     legs,
-    outline: ramp(time, 0.5, 1),
+    // The pen draws one side of the square on each beat.
+    outline: [0.5, 1, 1.5, 2].reduce(
+      (sum, start) => sum + 0.25 * easeOut(ramp(time, start, 0.24)),
+      0,
+    ),
     previousColor,
     recolor,
     size: MARK_SIZE,
@@ -329,9 +333,8 @@ export type SidesPose = {
   /** Side widths in degrees, counterclockwise from `start`. */
   widths: readonly number[];
   start: number;
-  /** Fold of the side at `peelSide`: 0 flat, 1 folded over its own center corner. */
+  /** The whole picture is one sticker: 0 flat on the paper, 1 mostly peeled back from its right tip. */
   peel: number;
-  peelSide: number;
   hatch: number;
   circle: number;
   /** 0 keeps the sides at the hexagon, 1 moves the last side onto the mark pose. */
@@ -365,22 +368,23 @@ export function readCubePose(time: number): CubePose | SidesPose | null {
     };
   }
   // The flat picture: top, left, and right (the front face) as sides, starting at 30 degrees.
+  // The corner at the right tip lifts and flutters, then the whole sticker peels on the hit.
   const flutter =
-    0.06 *
-    Math.max(0, Math.sin(Math.PI * 2 * 5 * (time - 15))) *
+    0.07 *
+    Math.max(0, Math.sin(Math.PI * 2 * 4 * (time - 15))) *
     (1 - ramp(time, TIMES.peel, 0.01));
-  const peelOut = easeOutBack(ramp(time, TIMES.peel, 0.32), 1.1);
-  const peelBack = easeInOut(ramp(time, TIMES.fourSides, 0.26));
+  const peelOut = easeOutBack(ramp(time, TIMES.peel, 0.3), 1.2);
+  const peelBack = easeInOut(ramp(time, TIMES.fourSides - 0.05, 0.28));
   const peel = clamp(
-    0.04 * ramp(time, 15, 0.15) + flutter + 0.96 * peelOut * (1 - peelBack),
+    (0.07 * ramp(time, 14.9, 0.15) + flutter) * (1 - peelOut) + peelOut * (1 - peelBack),
     0,
-    1.08,
+    1.1,
   );
   const four = easeOutBack(ramp(time, TIMES.fourSides + 0.1, 0.45), 1.4);
   const five = easeOutBack(ramp(time, TIMES.fiveSides, 0.45), 1.4);
   const breathe =
     Math.sin(Math.PI * 2 * (time - 17.5)) * ramp(time, 17.5, 0.2) * (1 - ramp(time, 17.9, 0.1));
-  // Order: top, rose (new), left, right (the peeled sticker, now its clay back), slate (new).
+  // Order: top, rose (the fifth side), left, right, clay (the fourth side, cut open at 30 degrees).
   let widths = [
     lerp(lerp(120, 102, four), 80, five),
     lerp(0, 58, five),
@@ -391,22 +395,14 @@ export function readCubePose(time: number): CubePose | SidesPose | null {
   // The fan fold: each side but the clay one folds away, and the clay side opens to a square.
   const fold = (index: number) => easeInOut(ramp(time, TIMES.fold + 0.07 * index, 0.3));
   widths = widths.map((width, index) =>
-    index === 3 ? lerp(width, 90, fold(2)) : width * (1 - fold(index)),
+    index === 4 ? lerp(width, 90, fold(2)) : width * (1 - fold(index)),
   );
-  const clayBack = time >= TIMES.fourSides + 0.13;
   return {
     circle,
-    colors: [
-      PALETTE.ochre,
-      PALETTE.rose,
-      PALETTE.teal,
-      clayBack ? PALETTE.clay : PALETTE.slateMid,
-      PALETTE.slateMid,
-    ],
-    hatch: clayBack ? 0 : hatch,
+    colors: [PALETTE.ochre, PALETTE.rose, PALETTE.teal, PALETTE.slateMid, PALETTE.clay],
+    hatch,
     kind: "sides",
-    peel: clayBack ? 0 : peel,
-    peelSide: 3,
+    peel,
     settle: easeInOut(ramp(time, TIMES.fold + 0.32, 0.3)),
     start: 30,
     widths,
