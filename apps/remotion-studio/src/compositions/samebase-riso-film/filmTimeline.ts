@@ -14,6 +14,7 @@ import {
   pulse,
   ring,
 } from "./filmMotion";
+import { type FilmLayout, landscapeLayout } from "./filmLayout";
 
 export type Vector3 = readonly [number, number, number];
 /** Ink coverage of the pink, blue, and slate plates, each from 0 to 1. */
@@ -90,6 +91,7 @@ export type PlateRegistration = { dx: number; dy: number; rotation: number };
 
 export type FilmFrame = {
   kind: "film" | "loop";
+  layout: FilmLayout;
   /** Page box (left, top, right, bottom) where a paper sticker hides the scene ink. */
   knockout: readonly [number, number, number, number];
   /** The camera over the paper page. */
@@ -396,12 +398,15 @@ function readSpin(time: number): number {
 
 // ---------- cameras ----------
 
-/** Iso framing: the cube hexagon radius is about 300 page pixels. */
-const isoHalfHeight = 2.9;
-const isoCenter: readonly [number, number] = [1130, 540];
-const netCenter: readonly [number, number] = [810, 540];
+function mixPoint(
+  from: readonly [number, number],
+  to: readonly [number, number],
+  amount: number,
+): readonly [number, number] {
+  return [mix(from[0], to[0], amount), mix(from[1], to[1], amount)];
+}
 
-function readNetCamera(time: number): FilmCamera {
+function readNetCamera(time: number, layout: FilmLayout): FilmCamera {
   const orbit =
     0.7 * easeInOutCubic(progress(time, 7.7, 9)) + 0.3 * easeInOutSine(progress(time, 9, 11.4));
   const toIso = easeInOutCubic(progress(time, 11.6, times.iso));
@@ -410,13 +415,16 @@ function readNetCamera(time: number): FilmCamera {
   const roll = mix(-5 * degrees * orbit, 0, toIso);
   const perspective = easeInOutCubic(progress(time, 7.7, 9)) * (1 - toIso);
   const lift = easeInOutCubic(progress(time, 8.3, 10.8));
-  const center: readonly [number, number] = [
-    mix(mix(netCenter[0], 1060, lift), isoCenter[0], toIso),
-    mix(mix(netCenter[1], 560, lift), isoCenter[1], toIso),
-  ];
+  const center = mixPoint(
+    mixPoint(layout.netOrigin, layout.liftCenter, lift),
+    layout.iso.center,
+    toIso,
+  );
+  // On the flat page, one face half size is `faceSize` page pixels.
+  const netHalfHeight = 540 / layout.faceSize;
   return orbitCamera(yaw, elevation, roll, {
     center,
-    halfHeight: mix(mix(3.6, 3.3, lift), isoHalfHeight, toIso),
+    halfHeight: mix(mix(netHalfHeight, 0.917 * netHalfHeight, lift), layout.iso.halfHeight, toIso),
     tanHalfFieldOfView: 0.36 * perspective,
     target: [0, 0, mix(1, 0, lift)],
   });
@@ -427,10 +435,10 @@ const spongeLevels = 5;
 const spongeHalfSize = 3 ** spongeLevels;
 const spongeCenter: Vector3 = scale([1, -1, -1], spongeHalfSize - 1);
 
-function readSpongeCamera(time: number): FilmCamera {
+function readSpongeCamera(time: number, layout: FilmLayout): FilmCamera {
   // Near silence: pull back 27 times in the isometric view.
   const pull = easeInOutCubic(progress(time, 28.9, times.hit));
-  const halfHeight = isoHalfHeight * 27 ** pull;
+  const halfHeight = layout.iso.halfHeight * 27 ** pull;
   // The hit: a dolly zoom from the isometric view into deep perspective, then a slow drift.
   const dolly = easeOutCubic(progress(time, times.hit, times.hit + 1.7));
   const settle = easeInOutSine(progress(time, times.hit + 0.6, 38.4));
@@ -438,10 +446,11 @@ function readSpongeCamera(time: number): FilmCamera {
   const elevation = mix(isometricElevation, 11 * degrees, dolly) - 3 * degrees * settle;
   // The giant's corner nearest the camera, where the paper cube sits.
   const target: Vector3 = mixVector([0, 0, 0], [-1, 1, 1], dolly);
-  const center: readonly [number, number] = [
-    mix(mix(isoCenter[0], 960, pull), 1060, dolly),
-    mix(isoCenter[1], 400, dolly),
-  ];
+  const center = mixPoint(
+    mixPoint(layout.iso.center, layout.pullBackCenter, pull),
+    layout.giant.center,
+    dolly,
+  );
   return orbitCamera(yaw, elevation, 0, {
     center,
     halfHeight: mix(halfHeight, 78, dolly) * (1 - 0.12 * settle),
@@ -469,22 +478,37 @@ export function readProbe(time: number): Vector3 {
 The small mark rides the probe with a "Samebase too." label on a paper sticker. The timeline owns
 the geometry, because the sticker is also the knockout box of the print pass.
 */
-export function readProbeLabel(time: number, camera: FilmCamera) {
+export function readProbeLabel(time: number, camera: FilmCamera, layout: FilmLayout) {
   if (time < probeTravel.start - 0.3 || time >= times.turnEnd) {
     return undefined;
   }
+  const label = layout.probeLabel;
   const probe = projectToPage(camera, readProbe(time));
-  const elbow = [probe[0] - 90, probe[1] - 150] as const;
+  const at = (offset: readonly [number, number]) =>
+    [probe[0] + offset[0], probe[1] + offset[1]] as const;
+  const elbow = at(label.elbow);
   const reach = easeOutCubic(progress(time, probeTravel.start, probeTravel.start + 0.4));
+  const [left, top, right, bottom] = label.box;
   const box =
-    reach >= 1 ? ([elbow[0] - 350, elbow[1] - 74, elbow[0], elbow[1]] as const) : undefined;
+    reach >= 1
+      ? ([elbow[0] + left, elbow[1] + top, elbow[0] + right, elbow[1] + bottom] as const)
+      : undefined;
   const size = 30 * easeOutBack(progress(time, probeTravel.start - 0.3, probeTravel.start), 2);
-  return { box, elbow, probe, reach, size };
+  return {
+    align: label.align,
+    box,
+    elbow,
+    lineStart: at(label.lineStart),
+    probe,
+    reach,
+    size,
+    text: [elbow[0] + label.text[0], elbow[1] + label.text[1]] as const,
+  };
 }
 
 // ---------- scene ----------
 
-function readScene(time: number): FilmScene {
+function readScene(time: number, layout: FilmLayout): FilmScene {
   const faces = readFaces(time);
   const light = (camera: FilmCamera) =>
     normalize(
@@ -517,7 +541,7 @@ function readScene(time: number): FilmScene {
   } satisfies Partial<FilmScene>;
 
   if (time < times.netDraw) {
-    const camera = readNetCamera(time);
+    const camera = readNetCamera(time, layout);
     return {
       ...baseScene,
       camera,
@@ -536,7 +560,7 @@ function readScene(time: number): FilmScene {
   }
 
   if (time < times.silence) {
-    const camera = readNetCamera(time);
+    const camera = readNetCamera(time, layout);
     const litIn = easeInOutCubic(progress(time, times.lift, 9.2));
     // The lighting, the shading, and the shadow all go in the single frame of the drop.
     const flatSnap = time >= times.drop ? 1 : 0;
@@ -572,7 +596,7 @@ function readScene(time: number): FilmScene {
     };
   }
 
-  const camera = readSpongeCamera(time);
+  const camera = readSpongeCamera(time, layout);
   if (time >= times.turnEnd) {
     // The end page has no scene.
     return {
@@ -656,7 +680,7 @@ function isTense(time: number): boolean {
   return time >= tension.start && time < tension.end;
 }
 
-function readPageCamera(time: number): FilmFrame["page"] {
+function readPageCamera(time: number, layout: FilmLayout): FilmFrame["page"] {
   let kick = 0;
   for (const hit of kicks) {
     kick += ring(time, hit, 2.2, 6);
@@ -686,13 +710,20 @@ function readPageCamera(time: number): FilmFrame["page"] {
   );
   const driftTime = isTense(time) ? tension.start : time;
   const scale = zoom + 0.012 * kick + 0.005 * readBeatPump(time);
-  const halfWidth = 960 / scale;
-  const halfHeight = 540 / scale;
-  const focusX = Math.min(Math.max(960 + 5 * drift(driftTime, 1), halfWidth), 1920 - halfWidth);
-  const focusY = Math.min(Math.max(540 + 4 * drift(driftTime, 2), halfHeight), 1080 - halfHeight);
+  const { height, width } = layout;
+  const halfWidth = width / 2 / scale;
+  const halfHeight = height / 2 / scale;
+  const focusX = Math.min(
+    Math.max(width / 2 + 5 * drift(driftTime, 1), halfWidth),
+    width - halfWidth,
+  );
+  const focusY = Math.min(
+    Math.max(height / 2 + 4 * drift(driftTime, 2), halfHeight),
+    height - halfHeight,
+  );
   return {
-    panX: focusX - 960 + 3 * kick,
-    panY: focusY - 540,
+    panX: focusX - width / 2 + 3 * kick,
+    panY: focusY - height / 2,
     rotation: (0.16 * drift(driftTime, 3) + 0.35 * kick) * degrees,
     scale,
   };
@@ -759,15 +790,16 @@ function readLastPrintSpread(time: number): number {
   return apart * (1 - easeOutBack(progress(time, times.lastPrint, times.lastPrint + 0.3), 1.2));
 }
 
-export function readFilmFrame(timeInSeconds: number): FilmFrame {
+export function readFilmFrame(timeInSeconds: number, layout: FilmLayout): FilmFrame {
   const time = timeInSeconds;
   const printIndex = Math.floor((isTense(time) ? tension.start : time) * printsPerSecond);
   const turn = easeInOutCubic(progress(time, times.turnStart, times.turnEnd));
-  const scene = readScene(time);
+  const scene = readScene(time, layout);
   return {
     kind: "film",
-    knockout: readProbeLabel(time, scene.camera)?.box ?? [-1, -1, -1, -1],
-    page: readPageCamera(time),
+    knockout: readProbeLabel(time, scene.camera, layout)?.box ?? [-1, -1, -1, -1],
+    layout,
+    page: readPageCamera(time, layout),
     pageTurn: turn < 1 ? Math.PI * turn : 0,
     printIndex,
     registration: readRegistration(time, printIndex),
@@ -791,13 +823,14 @@ export function readLoopFrame(timeInSeconds: number): FilmFrame {
   const time = timeInSeconds;
   const printIndex = Math.floor(time * printsPerSecond);
   const cycle = (2 * Math.PI * time) / loopDurationInSeconds;
-  const base = readScene(times.hit - 0.01);
+  const layout = landscapeLayout;
+  const base = readScene(times.hit - 0.01, layout);
   // Seven levels keep every loop frame filled with the corner and its detail down to 2 pixels.
   const levels = 7;
   const halfSize = 3 ** levels;
   const camera = orbitCamera(isometricYaw, isometricElevation, 0, {
     center: [1210, 560],
-    halfHeight: isoHalfHeight * 27 * 9 ** (time / loopDurationInSeconds),
+    halfHeight: layout.iso.halfHeight * 27 * 9 ** (time / loopDurationInSeconds),
     tanHalfFieldOfView: 0,
     target: [0, 0, 0],
   });
@@ -808,6 +841,7 @@ export function readLoopFrame(timeInSeconds: number): FilmFrame {
   return {
     kind: "loop",
     knockout: loopSticker,
+    layout,
     page: {
       panX: 4 * Math.sin(cycle) + 3 * kick,
       panY: 3 * Math.sin(2 * cycle),

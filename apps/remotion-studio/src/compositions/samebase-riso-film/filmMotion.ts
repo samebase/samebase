@@ -6,9 +6,6 @@ export const beat = 0.5;
 /** The riso "boil": every print holds for 1/12 s, so misregistration and grain change 12 times per second. */
 export const printsPerSecond = 12;
 
-export const pageWidth = 1920;
-export const pageHeight = 1080;
-
 export function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }

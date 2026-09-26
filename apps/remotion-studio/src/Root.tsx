@@ -132,10 +132,20 @@ export function RemotionRoot() {
       <Composition
         id="SamebaseRisoFilm"
         component={SamebaseRisoFilm}
+        defaultProps={{ format: "landscape" }}
         durationInFrames={filmDurationInFrames}
         fps={filmFps}
         height={1080}
         width={1920}
+      />
+      <Composition
+        id="SamebaseRisoFilmPortrait"
+        component={SamebaseRisoFilm}
+        defaultProps={{ format: "portrait" }}
+        durationInFrames={filmDurationInFrames}
+        fps={filmFps}
+        height={1350}
+        width={1080}
       />
       <Composition
         id="SamebaseRisoLoop"

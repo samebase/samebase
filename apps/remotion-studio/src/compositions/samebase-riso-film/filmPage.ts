@@ -9,13 +9,12 @@ import {
   easeOutCubic,
   keyed,
   mix,
-  pageHeight,
-  pageWidth,
   progress,
   pulse,
   ring,
 } from "./filmMotion";
 import { type FilmFrame, type Inks, loopSticker, readProbeLabel, times } from "./filmTimeline";
+import type { FilmLayout } from "./filmLayout";
 
 const display = loadAnton("normal", { subsets: ["latin"], weights: ["400"] }).fontFamily;
 const mono = loadSpaceMono("normal", { subsets: ["latin"], weights: ["400", "700"] }).fontFamily;
@@ -29,10 +28,6 @@ export async function waitForFilmFonts(): Promise<void> {
 }
 
 type Context = CanvasRenderingContext2D;
-
-/** Type stays inside these margins, clear of the page camera crop. */
-const marginLeft = 104;
-const marginRight = 1816;
 
 const pink: Inks = [1, 0, 0];
 const blue: Inks = [0, 1, 0];
@@ -185,7 +180,7 @@ function registrationMark(context: Context, x: number, y: number, radius: number
   context.stroke();
 }
 
-function cropMarks(context: Context): void {
+function cropMarks(context: Context, { height, width }: FilmLayout): void {
   const inset = 52;
   const length = 30;
   context.strokeStyle = ink(allPlates);
@@ -193,9 +188,9 @@ function cropMarks(context: Context): void {
   context.beginPath();
   for (const [x, y, sx, sy] of [
     [inset, inset, -1, -1],
-    [pageWidth - inset, inset, 1, -1],
-    [inset, pageHeight - inset, -1, 1],
-    [pageWidth - inset, pageHeight - inset, 1, 1],
+    [width - inset, inset, 1, -1],
+    [inset, height - inset, -1, 1],
+    [width - inset, height - inset, 1, 1],
   ] as const) {
     context.moveTo(x + sx * 6, y);
     context.lineTo(x + sx * (6 + length), y);
@@ -205,9 +200,9 @@ function cropMarks(context: Context): void {
   context.stroke();
 }
 
-function colorBar(context: Context): void {
-  const x0 = 1698;
-  const y0 = 1034;
+function colorBar(context: Context, { height, width }: FilmLayout): void {
+  const x0 = width - 222;
+  const y0 = height - 46;
   const size = 16;
   const cells: readonly Inks[] = [
     pink,
@@ -225,31 +220,37 @@ function colorBar(context: Context): void {
   });
 }
 
-function ephemera(context: Context, figure: string, pages: readonly [string, string]): void {
+function ephemera(
+  context: Context,
+  layout: FilmLayout,
+  figure: string,
+  pages: readonly [string, string],
+): void {
+  const { height, margin, width } = layout;
   for (const [x, y, radius] of [
-    [30, 540, 16],
-    [pageWidth - 30, 540, 16],
-    [960, 26, 11],
+    [30, height / 2, 16],
+    [width - 30, height / 2, 16],
+    [width / 2, 26, 11],
   ] as const) {
     registrationMark(context, x, y, radius);
   }
-  cropMarks(context);
-  colorBar(context);
-  text(context, "SAMEBASE ZINE", marginLeft, 66, monoFont(18, 700), slate, {
+  cropMarks(context, layout);
+  colorBar(context, layout);
+  text(context, "SAMEBASE ZINE", margin.left, margin.top, monoFont(18, 700), slate, {
     baseline: "top",
     tracking: 3,
   });
-  text(context, `NO.01   ${figure}`, marginLeft + 260, 66, monoFont(18), slate, {
+  text(context, `NO.01   ${figure}`, margin.left + 260, margin.top, monoFont(18), slate, {
     baseline: "top",
     tracking: 3,
   });
-  text(context, "samebase.com", marginRight, 66, monoFont(18, 700), slate, {
+  text(context, "samebase.com", margin.right, margin.top, monoFont(18, 700), slate, {
     align: "right",
     baseline: "top",
     tracking: 3,
   });
-  text(context, pages[0], marginLeft, 1026, monoFont(16, 700), slate, { tracking: 2 });
-  text(context, pages[1], marginRight - 150, 1026, monoFont(16, 700), slate, {
+  text(context, pages[0], margin.left, margin.bottom, monoFont(16, 700), slate, { tracking: 2 });
+  text(context, pages[1], margin.right - 150, margin.bottom, monoFont(16, 700), slate, {
     align: "right",
     tracking: 2,
   });
@@ -296,10 +297,8 @@ const netCells = [
   [-2, 2, "FOLD"],
   [4, -2, "FOLD"],
 ] as const;
-const netOrigin = [810, 540] as const;
-const faceSize = 150;
-
-function drawNetGuides(context: Context, time: number): void {
+function drawNetGuides(context: Context, time: number, layout: FilmLayout): void {
+  const { faceSize, netOrigin } = layout;
   const draw =
     easeOutCubic(progress(time, times.netDraw, times.netDraw + 0.6)) *
     (1 - easeInCubic(progress(time, 11, 11.5)));
@@ -351,7 +350,8 @@ function sideCount(time: number): number {
 }
 
 function drawFront(context: Context, frame: FilmFrame): void {
-  const { time } = frame;
+  const { layout, time } = frame;
+  const { margin } = layout;
   const figure =
     time < times.lift
       ? "FIG. 1"
@@ -368,13 +368,15 @@ function drawFront(context: Context, frame: FilmFrame): void {
         : time < times.silence
           ? ["06", "07"]
           : ["08", "09"];
-  ephemera(context, figure, pages);
+  ephemera(context, layout, figure, pages);
 
   // Break 1: the flat mark, moulded on the beat.
   if (time < times.netDraw) {
-    drawMark(context, netOrigin[0], netOrigin[1], readMouldedMark(time));
+    const mark = readMouldedMark(time);
+    const [x, y] = layout.netOrigin;
+    drawMark(context, x, y, { ...mark, size: (mark.size * layout.faceSize) / restMark.size });
   }
-  drawNetGuides(context, time);
+  drawNetGuides(context, time, layout);
   if (time < 12) {
     // The opening spread: SAME and BASE are on the page from frame 0. They re-slam and trade inks
     // on every bar downbeat.
@@ -390,12 +392,18 @@ function drawFront(context: Context, frame: FilmFrame): void {
           at: -0.25,
           inks: swapped ? blue : pink,
           text: "SAME",
-          x: marginRight + 6,
-          y: 390,
+          x: layout.opening.same[0],
+          y: layout.opening.same[1],
         },
-        { at: -0.15, inks: swapped ? pink : blue, text: "BASE", x: marginLeft - 8, y: 1010 },
+        {
+          at: -0.15,
+          inks: swapped ? pink : blue,
+          text: "BASE",
+          x: layout.opening.base[0],
+          y: layout.opening.base[1],
+        },
       ],
-      340 * (1 + 0.08 * slam),
+      layout.opening.cap * (1 + 0.08 * slam),
       11.2,
     );
   }
@@ -406,11 +414,11 @@ function drawFront(context: Context, frame: FilmFrame): void {
       context,
       time,
       [
-        { at: 12, inks: slate, text: "GitHub.", x: marginLeft, y: 330 },
-        { at: 13, inks: pink, text: "Convex.", x: marginLeft, y: 560 },
-        { at: 14, inks: blue, text: "Cloudflare.", x: marginLeft, y: 790 },
+        { at: 12, inks: slate, text: "GitHub.", x: margin.left, y: layout.accounts.ys[0] },
+        { at: 13, inks: pink, text: "Convex.", x: margin.left, y: layout.accounts.ys[1] },
+        { at: 14, inks: blue, text: "Cloudflare.", x: margin.left, y: layout.accounts.ys[2] },
       ],
-      170,
+      layout.accounts.cap,
       // The words leave one beat early, so the lit cube holds alone before the drop.
       times.drop - 0.55,
     );
@@ -419,21 +427,22 @@ function drawFront(context: Context, frame: FilmFrame): void {
   // Break 3: the flat reshape.
   if (time >= times.drop && time < times.close + 0.6) {
     const first = time < 20;
+    const { reshape } = layout;
     slamLines(
       context,
       time,
       first
         ? [
-            { at: 16.5, inks: blue, text: "Delete your", x: marginLeft, y: 300 },
-            { at: 17, inks: blue, text: "Samebase", x: marginLeft, y: 510 },
-            { at: 17.5, inks: blue, text: "account.", x: marginLeft, y: 720 },
+            { at: 16.5, inks: blue, text: "Delete your", x: margin.left, y: reshape.ys[0] },
+            { at: 17, inks: blue, text: "Samebase", x: margin.left, y: reshape.ys[1] },
+            { at: 17.5, inks: blue, text: "account.", x: margin.left, y: reshape.ys[2] },
           ]
         : [
-            { at: 20, inks: pink, text: "Your app", x: marginLeft, y: 300 },
-            { at: 20.5, inks: pink, text: "doesn't", x: marginLeft, y: 510 },
-            { at: 21, inks: pink, text: "notice.", x: marginLeft, y: 720 },
+            { at: 20, inks: pink, text: "Your app", x: margin.left, y: reshape.ys[0] },
+            { at: 20.5, inks: pink, text: "doesn't", x: margin.left, y: reshape.ys[1] },
+            { at: 21, inks: pink, text: "notice.", x: margin.left, y: reshape.ys[2] },
           ],
-      160,
+      reshape.cap,
       first ? 19.75 : times.close,
     );
     const count = sideCount(time);
@@ -448,8 +457,8 @@ function drawFront(context: Context, frame: FilmFrame): void {
     text(
       context,
       `SIDES: ${count}`,
-      1500,
-      930,
+      layout.sidesLabel[0],
+      layout.sidesLabel[1],
       monoFont(Math.round(24 * mix(1.4, 1, pop)), 700),
       slate,
       { tracking: 3 },
@@ -461,12 +470,13 @@ function drawFront(context: Context, frame: FilmFrame): void {
 }
 
 function drawGiantWords(context: Context, frame: FilmFrame): void {
-  const { time } = frame;
+  const { layout, time } = frame;
+  const { giant, margin } = layout;
   const scaleText =
     time < times.hit
       ? `SCALE 1:${Math.round(27 ** easeInOutCubic(progress(time, 28.9, times.hit)))}`
       : "SCALE 1:243";
-  text(context, scaleText, marginRight, 990, monoFont(16, 700), slate, {
+  text(context, scaleText, layout.scaleLabel[0], layout.scaleLabel[1], monoFont(16, 700), slate, {
     align: "right",
     tracking: 3,
   });
@@ -474,62 +484,61 @@ function drawGiantWords(context: Context, frame: FilmFrame): void {
     context,
     time,
     [
-      { at: 32.5, inks: pink, text: "Every app", x: marginLeft, y: 296 },
-      { at: 33, inks: pink, text: "on the same", x: marginLeft, y: 486 },
-      { at: 33.5, inks: pink, text: "base.", x: marginLeft, y: 676 },
+      { at: 32.5, inks: pink, text: "Every app", x: margin.left, y: giant.ys[0] },
+      { at: 33, inks: pink, text: "on the same", x: margin.left, y: giant.ys[1] },
+      { at: 33.5, inks: pink, text: "base.", x: margin.left, y: giant.ys[2] },
     ],
-    142,
+    giant.cap,
     40,
   );
   // The small mark rides the probe over the giant: Samebase is on the same base too.
-  const label = readProbeLabel(time, frame.scene.camera);
+  const label = readProbeLabel(time, frame.scene.camera, layout);
   if (!label) {
     return;
   }
-  const { box, elbow, probe, reach, size } = label;
+  const { align, box, elbow, lineStart, probe, reach, size } = label;
   drawMark(context, probe[0], probe[1] - 34, { ...restMark, inks: slate, size });
-  const lineStart = [probe[0] - 24, probe[1] - 70] as const;
   context.strokeStyle = ink(slate);
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(...lineStart);
   context.lineTo(mix(lineStart[0], elbow[0], reach), mix(lineStart[1], elbow[1], reach));
-  context.lineTo(elbow[0] - 330 * reach, elbow[1]);
   context.stroke();
   if (box) {
     // The label is a paper sticker: the knockout hides the scene inside this border.
     const [left, top, right, bottom] = box;
     context.strokeRect(left + 4, top + 4, right - left - 8, bottom - top - 8);
-    text(context, "Samebase too.", elbow[0] - 16, elbow[1] - 22, monoFont(40, 700), slate, {
-      align: "right",
+    text(context, "Samebase too.", label.text[0], label.text[1], monoFont(40, 700), slate, {
+      align,
     });
   }
 }
 
 // ---------- the end page ----------
 
-function drawEnd(context: Context, time: number): void {
-  ephemera(context, "FIG. 5", ["10", "11"]);
+function drawEnd(context: Context, time: number, layout: FilmLayout): void {
+  const { end, margin } = layout;
+  ephemera(context, layout, "FIG. 5", ["10", "11"]);
   const land = easeOutBack(progress(time, times.turnEnd - 0.1, times.turnEnd + 0.3), 1.6);
   const squash = 0.08 * ring(time, times.lastPrint, 2.4, 6);
-  drawMark(context, 1560, 470, {
+  drawMark(context, end.mark[0], end.mark[1], {
     ...restMark,
-    size: 205 * mix(0.8, 1, land),
+    size: end.markSize * mix(0.8, 1, land),
     stretch: [1 + squash, 1 - squash],
   });
   const lines: readonly Line[] = [
-    { at: 38.5, inks: pink, text: "Same base.", x: marginLeft, y: 330 },
-    { at: 39, inks: blue, text: "Your accounts.", x: marginLeft, y: 540 },
-    { at: 39.5, inks: pink, text: "No magic.", x: marginLeft, y: 750 },
+    { at: 38.5, inks: pink, text: "Same base.", x: margin.left, y: end.ys[0] },
+    { at: 39, inks: blue, text: "Your accounts.", x: margin.left, y: end.ys[1] },
+    { at: 39.5, inks: pink, text: "No magic.", x: margin.left, y: end.ys[2] },
   ];
-  slamLines(context, time, lines, 160, 1_000);
+  slamLines(context, time, lines, end.cap, 1_000);
   if (time >= 40) {
     const arrive = easeOutBack(progress(time, 40, 40.3), 1.8);
     text(
       context,
       "samebase.com",
-      marginLeft + 6 + 400 * (1 - arrive),
-      912,
+      margin.left + 6 + 400 * (1 - arrive),
+      end.url,
       monoFont(54, 700),
       slate,
       { tracking: 2 },
@@ -538,8 +547,8 @@ function drawEnd(context: Context, time: number): void {
 }
 
 /** The loop page: the words sit on a paper sticker over the endless pull back. */
-function drawLoop(context: Context): void {
-  ephemera(context, "FIG. 4", ["08", "09"]);
+function drawLoop(context: Context, layout: FilmLayout): void {
+  ephemera(context, layout, "FIG. 4", ["08", "09"]);
   const [left, top, right, bottom] = loopSticker;
   context.strokeStyle = ink(slate);
   context.lineWidth = 2;
@@ -556,12 +565,12 @@ function drawLoop(context: Context): void {
 export function drawFilmPage(context: Context, frame: FilmFrame, page: "current" | "next"): void {
   context.globalCompositeOperation = "source-over";
   context.fillStyle = "#000";
-  context.fillRect(0, 0, pageWidth, pageHeight);
+  context.fillRect(0, 0, frame.layout.width, frame.layout.height);
   context.globalCompositeOperation = "lighten";
   if (frame.kind === "loop") {
-    drawLoop(context);
+    drawLoop(context, frame.layout);
   } else if (page === "next" || frame.time >= times.turnEnd) {
-    drawEnd(context, frame.time);
+    drawEnd(context, frame.time, frame.layout);
   } else {
     drawFront(context, frame);
   }
