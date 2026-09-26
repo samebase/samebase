@@ -118,7 +118,7 @@ describe("LandingPage", () => {
       "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
     expect(markup).toContain(
-      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
+      "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?",
     );
     expect(markup).toContain("Copy prompt</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
@@ -128,7 +128,7 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
     );
-    expect(markup.indexOf("Research https://samebase.com.")).toBeLessThan(
+    expect(markup.indexOf("Research https://samebase.com and check")).toBeLessThan(
       markup.indexOf("youtube-nocookie.com/embed/UfxE8rvprqc"),
     );
 
