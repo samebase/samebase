@@ -14,7 +14,14 @@ import {
   progress,
   ring,
 } from "./filmMotion";
-import { type FilmFrame, type Inks, projectToPage, readProbe, times } from "./filmTimeline";
+import {
+  type FilmFrame,
+  type Inks,
+  loopSticker,
+  projectToPage,
+  readProbe,
+  times,
+} from "./filmTimeline";
 
 const display = loadAnton("normal", { subsets: ["latin"], weights: ["400"] }).fontFamily;
 const mono = loadSpaceMono("normal", { subsets: ["latin"], weights: ["400", "700"] }).fontFamily;
@@ -263,7 +270,8 @@ function ephemera(context: Context, figure: string, pages: readonly [string, str
 
 // ---------- big type ----------
 
-type Line = { at: number; inks: Inks; text: string; x: number; y: number };
+/** A right-aligned line ends at `x` and arrives from the right. */
+type Line = { align?: "right"; at: number; inks: Inks; text: string; x: number; y: number };
 
 /**
 Big words slam in on their beat: they arrive from the left with an overshoot. `leave` sends the
@@ -276,14 +284,17 @@ function slamLines(
   cap: number,
   leave: number,
 ): void {
-  const exit = easeInCubic(progress(time, leave, leave + 0.35));
+  const exit = easeInCubic(progress(time, leave, leave + 0.25));
   for (const line of lines) {
     if (time < line.at) {
       continue;
     }
     const arrive = easeOutBack(progress(time, line.at, line.at + 0.3), 1.8);
-    const x = line.x - 700 * (1 - arrive) - 2400 * exit;
-    text(context, line.text, x, line.y, displayFont(context, cap), line.inks);
+    const side = line.align === "right" ? 1 : -1;
+    const x = line.x + side * 700 * (1 - arrive) - 2400 * exit;
+    text(context, line.text, x, line.y, displayFont(context, cap), line.inks, {
+      align: line.align ?? "left",
+    });
   }
 }
 
@@ -382,8 +393,8 @@ function drawFront(context: Context, frame: FilmFrame): void {
       context,
       time,
       [
-        { at: 4, inks: pink, text: "SAME", x: marginLeft - 8, y: 440 },
-        { at: 5, inks: pink, text: "BASE", x: 1040, y: 1000 },
+        { align: "right", at: 4, inks: pink, text: "SAME", x: marginRight + 6, y: 390 },
+        { at: 5, inks: pink, text: "BASE", x: marginLeft - 8, y: 1010 },
       ],
       340,
       11.2,
@@ -497,9 +508,9 @@ function drawEnd(context: Context, time: number): void {
   ephemera(context, "FIG. 5", ["10", "11"]);
   const land = easeOutBack(progress(time, times.turnEnd - 0.1, times.turnEnd + 0.3), 1.6);
   const squash = 0.08 * ring(time, times.lastPrint, 2.4, 6);
-  drawMark(context, 1440, 470, {
+  drawMark(context, 1560, 470, {
     ...restMark,
-    size: 230 * mix(0.8, 1, land),
+    size: 205 * mix(0.8, 1, land),
     stretch: [1 + squash, 1 - squash],
   });
   const lines: readonly Line[] = [
@@ -522,13 +533,30 @@ function drawEnd(context: Context, time: number): void {
   }
 }
 
+/** The loop page: the words sit on a paper sticker over the endless pull back. */
+function drawLoop(context: Context): void {
+  ephemera(context, "FIG. 4", ["08", "09"]);
+  const [left, top, right, bottom] = loopSticker;
+  context.strokeStyle = ink(slate);
+  context.lineWidth = 2;
+  context.strokeRect(left + 8, top + 8, right - left - 16, bottom - top - 16);
+  const cap = 132;
+  const font = displayFont(context, cap);
+  text(context, "Every app", left + 40, top + 200, font, pink);
+  text(context, "on the same", left + 40, top + 380, font, pink);
+  text(context, "base.", left + 40, top + 560, font, pink);
+  text(context, "Samebase too.", left + 44, bottom - 44, monoFont(34, 700), slate);
+}
+
 /** Draws the ink plates of the front spread, or of the end page after the page turn. */
 export function drawFilmPage(context: Context, frame: FilmFrame, page: "current" | "next"): void {
   context.globalCompositeOperation = "source-over";
   context.fillStyle = "#000";
   context.fillRect(0, 0, pageWidth, pageHeight);
   context.globalCompositeOperation = "lighten";
-  if (page === "next" || frame.time >= times.turnEnd) {
+  if (frame.kind === "loop") {
+    drawLoop(context);
+  } else if (page === "next" || frame.time >= times.turnEnd) {
     drawEnd(context, frame.time);
   } else {
     drawFront(context, frame);

@@ -54,6 +54,8 @@ export type FilmScene = {
     hazeDistance: number;
     hazeStart: number;
     levels: number;
+    /** Hollow paper cells with a hole in each wall. Otherwise the cells are one more solid level. */
+    paperCells: boolean;
     /** Plate by plate, the sponge prints in within these distances from the paper cube. */
     printRadius: Vector3;
     probe: Vector3;
@@ -83,6 +85,9 @@ export type FilmScene = {
 export type PlateRegistration = { dx: number; dy: number; rotation: number };
 
 export type FilmFrame = {
+  kind: "film" | "loop";
+  /** Page box (left, top, right, bottom) where a paper sticker hides the scene ink. */
+  knockout: readonly [number, number, number, number];
   /** The camera over the paper page. */
   page: { panX: number; panY: number; rotation: number; scale: number };
   /** 0 to pi: the right half page turns over the center fold. */
@@ -378,12 +383,13 @@ const isoCenter: readonly [number, number] = [1130, 540];
 const netCenter: readonly [number, number] = [810, 540];
 
 function readNetCamera(time: number): FilmCamera {
-  const orbit = easeInOutCubic(progress(time, times.lift, 11));
+  const orbit =
+    0.7 * easeInOutCubic(progress(time, 7.7, 9)) + 0.3 * easeInOutSine(progress(time, 9, 11.4));
   const toIso = easeInOutCubic(progress(time, 11.6, times.iso));
   const yaw = mix(mix(0, -30 * degrees, orbit), isometricYaw, toIso);
   const elevation = mix(mix(0, 20 * degrees, orbit), isometricElevation, toIso);
   const roll = mix(-5 * degrees * orbit, 0, toIso);
-  const perspective = easeInOutCubic(progress(time, times.lift, 9.5)) * (1 - toIso);
+  const perspective = easeInOutCubic(progress(time, 7.7, 9)) * (1 - toIso);
   const lift = easeInOutCubic(progress(time, 8.3, 10.8));
   const center: readonly [number, number] = [
     mix(mix(netCenter[0], 1060, lift), isoCenter[0], toIso),
@@ -409,27 +415,28 @@ function readSpongeCamera(time: number): FilmCamera {
   // The hit: a dolly zoom from the isometric view into deep perspective, then a slow drift.
   const dolly = easeOutCubic(progress(time, times.hit, times.hit + 1.7));
   const settle = easeInOutSine(progress(time, times.hit + 0.6, 38.4));
-  const yaw = mix(isometricYaw, -32 * degrees, dolly) + 5 * degrees * settle;
-  const elevation = mix(isometricElevation, 20 * degrees, dolly) - 4 * degrees * settle;
+  const yaw = mix(isometricYaw, -30 * degrees, dolly) + 6 * degrees * settle;
+  const elevation = mix(isometricElevation, 11 * degrees, dolly) - 3 * degrees * settle;
   // The giant's corner nearest the camera, where the paper cube sits.
   const target: Vector3 = mixVector([0, 0, 0], [-1, 1, 1], dolly);
   const center: readonly [number, number] = [
     mix(mix(isoCenter[0], 960, pull), 1060, dolly),
-    mix(isoCenter[1], 430, dolly),
+    mix(isoCenter[1], 400, dolly),
   ];
   return orbitCamera(yaw, elevation, 0, {
     center,
-    halfHeight: mix(halfHeight, 84, dolly) * (1 - 0.14 * settle),
-    tanHalfFieldOfView: mix(0.001, 0.47, dolly),
+    halfHeight: mix(halfHeight, 78, dolly) * (1 - 0.12 * settle),
+    tanHalfFieldOfView: mix(0.001, 0.62, dolly),
     target,
   });
 }
 
 const probeStart: Vector3 = [0, 0, 0];
-const probeEnd: Vector3 = [72, 2, -38];
+const probeEnd: Vector3 = [48, -26, 2.4];
 
 /**
-The probe that wakes the giant: first the paper cube itself, then a straight path over the top face.
+The probe that wakes the giant: first the paper cube itself, then a straight path down and across
+the front face, which faces the camera.
 Deeper levels open along the whole path so far, so the giant stays awake where the probe passed.
 */
 export function readProbe(time: number): Vector3 {
@@ -455,6 +462,7 @@ function readScene(time: number): FilmScene {
       hazeDistance: 400,
       hazeStart: 0,
       levels: spongeLevels,
+      paperCells: true,
       printRadius: [1000, 1000, 1000],
       probe: probeStart,
       probeStart,
@@ -516,8 +524,19 @@ function readScene(time: number): FilmScene {
   }
 
   const camera = readSpongeCamera(time);
+  if (time >= times.turnEnd) {
+    // The end page has no scene.
+    return {
+      ...baseScene,
+      camera,
+      light: light(camera),
+      lit: 0,
+      mode: "none",
+      tones: { inner: innerTone, reveal: none, shade: none, shadow: none, ...flatTones },
+    };
+  }
   const printIn = (delay: number) =>
-    3.5 + 900 * easeInCubic(progress(time, times.silence + 0.4 + delay, times.hit - 0.2 + delay));
+    1.2 + 900 * easeInCubic(progress(time, times.silence + 0.4 + delay, times.hit - 0.2 + delay));
   const hazeIn = easeOutCubic(progress(time, times.hit, times.hit + 1.2));
   return {
     ...baseScene,
@@ -527,11 +546,11 @@ function readScene(time: number): FilmScene {
     mode: "sponge",
     sponge: {
       ...baseScene.sponge,
-      hazeDistance: mix(4000, 420, hazeIn),
-      hazeStart: mix(0, 30, hazeIn),
+      hazeDistance: mix(4000, 520, hazeIn),
+      hazeStart: mix(0, 50, hazeIn),
       printRadius: [printIn(0.5), printIn(0.25), printIn(0)],
       probe: readProbe(time),
-      restDepth: 2,
+      restDepth: 3,
       revealRadius: mix(44, 30, progress(time, times.hit, times.hit + 1)),
     },
     tones: {
@@ -576,14 +595,41 @@ function readPageCamera(time: number): FilmFrame["page"] {
   for (const hit of kicks) {
     kick += ring(time, hit, 2.2, 6);
   }
-  const push =
-    0.02 * easeInOutSine(progress(time, 0, times.drop)) + 0.02 * pulse(time, times.drop, 3);
-  const settleIn = 1 - 0.06 * easeOutCubic(1 - progress(time, 0, 1.2));
+  const back = (value: number) => easeOutBack(value, 1.4);
+  // Camera words: push in on the mark, punch out when SAME lands, slow pushes, punch on the drop.
+  const zoom = keyed(
+    time,
+    [
+      { duration: 0, ease: easeInOutSine, time: 0, value: 1 },
+      { duration: 3.9, ease: easeInOutSine, time: 0.1, value: 1.13 },
+      { duration: 0.45, ease: back, time: 4, value: 1.005 },
+      { duration: 3.8, ease: easeInOutSine, time: 4.2, value: 1.04 },
+      { duration: 3.5, ease: easeInOutSine, time: times.lift, value: 1.02 },
+      { duration: 3.9, ease: easeInOutSine, time: 12, value: 1.07 },
+      { duration: 0.4, ease: back, time: times.drop, value: 1.02 },
+      { duration: 12, ease: easeInOutSine, time: 16.4, value: 1.06 },
+      { duration: 3, ease: easeInOutSine, time: times.silence, value: 1.01 },
+      { duration: 0.5, ease: back, time: times.hit, value: 1.03 },
+      { duration: 5, ease: easeInOutSine, time: 32.6, value: 1.06 },
+      { duration: 0.5, ease: easeInOutSine, time: times.turnStart, value: 1.005 },
+      { duration: 3.5, ease: easeInOutSine, time: 38.4, value: 1.04 },
+    ],
+    mix,
+  );
+  const focusOnMark = easeInOutSine(progress(time, 0.1, 4)) * (1 - back(progress(time, 4, 4.45)));
+  const scale = zoom + 0.012 * kick;
+  const halfWidth = 960 / scale;
+  const halfHeight = 540 / scale;
+  const focusX = Math.min(
+    Math.max(mix(960, 810, focusOnMark) + 5 * drift(time, 1), halfWidth),
+    1920 - halfWidth,
+  );
+  const focusY = Math.min(Math.max(540 + 4 * drift(time, 2), halfHeight), 1080 - halfHeight);
   return {
-    panX: 5 * drift(time, 1) + 3 * kick,
-    panY: 4 * drift(time, 2),
-    rotation: (0.18 * drift(time, 3) + 0.35 * kick) * degrees,
-    scale: (1.012 + push + 0.012 * kick) / settleIn,
+    panX: focusX - 960 + 3 * kick,
+    panY: focusY - 540,
+    rotation: (0.16 * drift(time, 3) + 0.35 * kick) * degrees,
+    scale,
   };
 }
 
@@ -638,11 +684,72 @@ export function readFilmFrame(timeInSeconds: number): FilmFrame {
   const printIndex = Math.floor(time * printsPerSecond);
   const turn = easeInOutCubic(progress(time, times.turnStart, times.turnEnd));
   return {
+    kind: "film",
+    knockout: [-1, -1, -1, -1],
     page: readPageCamera(time),
-    pageTurn: Math.PI * turn,
+    pageTurn: turn < 1 ? Math.PI * turn : 0,
     printIndex,
     registration: readRegistration(time, printIndex),
     scene: readScene(time),
+    time,
+  };
+}
+
+export const loopDurationInSeconds = 8;
+/** The loop plays the music of the finale: four bars from the hit. */
+export const loopMusicStart = times.hit;
+/** The paper sticker that carries the words of the loop, in page pixels. */
+export const loopSticker = [92, 150, 850, 800] as const;
+
+/**
+The social loop: an endless isometric pull back from the giant's corner. The sponge is self-similar
+about its corner, so a 9 times zoom over the loop ends on the same picture it starts with. Solid cells
+keep the self-similarity exact.
+*/
+export function readLoopFrame(timeInSeconds: number): FilmFrame {
+  const time = timeInSeconds;
+  const printIndex = Math.floor(time * printsPerSecond);
+  const cycle = (2 * Math.PI * time) / loopDurationInSeconds;
+  const base = readScene(times.hit - 0.01);
+  // Seven levels keep every loop frame filled with the corner and its detail down to 2 pixels.
+  const levels = 7;
+  const halfSize = 3 ** levels;
+  const camera = orbitCamera(isometricYaw, isometricElevation, 0, {
+    center: [1210, 560],
+    halfHeight: isoHalfHeight * 27 * 9 ** (time / loopDurationInSeconds),
+    tanHalfFieldOfView: 0,
+    target: [0, 0, 0],
+  });
+  let kick = 0;
+  for (let hit = 0; hit < loopDurationInSeconds; hit += 2) {
+    kick += ring(time, hit, 2.2, 6);
+  }
+  return {
+    kind: "loop",
+    knockout: loopSticker,
+    page: {
+      panX: 4 * Math.sin(cycle) + 3 * kick,
+      panY: 3 * Math.sin(2 * cycle),
+      rotation: (0.15 * Math.sin(cycle + 1) + 0.3 * kick) * degrees,
+      scale: 1.02 + 0.01 * kick,
+    },
+    pageTurn: 0,
+    printIndex,
+    registration: readRegistration(time + 100, printIndex),
+    scene: {
+      ...base,
+      camera,
+      light: base.light,
+      sponge: {
+        ...base.sponge,
+        center: scale([1, -1, -1], halfSize - 1),
+        halfSize,
+        levels,
+        paperCells: false,
+        printRadius: [1e6, 1e6, 1e6],
+        restDepth: levels + 1,
+      },
+    },
     time,
   };
 }
