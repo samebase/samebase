@@ -178,10 +178,10 @@ describe("LandingPage", () => {
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");
+    expect(markup).toContain("No client-facing database to leave open.");
     expect(markup).toContain(
-      "The &quot;builder left my database open&quot; breach class can&#x27;t be expressed here.",
+      "Access checks live in those functions, where you can read and test them.",
     );
-    expect(markup).toContain("no rules you have to configure perfectly, forever");
     expect(markup).toContain(
       "Run agents in parallel. Every PR gets its own preview, with its own database.",
     );
@@ -210,11 +210,12 @@ describe("LandingPage", () => {
     expect(markup).toContain("Ok, but can&#x27;t I just get your template and not use Samebase?");
     expect(markup).toContain("Existing apps do not change unless you update them.");
     expect(markup).toContain("I can just ask Codex to update my own apps. Why do I need Samebase?");
-    expect(markup).toContain("The bet is that you will build tens of apps.");
+    expect(markup).toContain("Even for one app, Samebase does the do-it-yourself setup for you");
     expect(markup).toContain("Wait, so all Samebase is, is a template and a list?");
+    expect(markup).toContain("Is Samebase open source?");
     expect(markup).toContain("Kinda.");
-    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(4);
-    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(4);
+    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(5);
+    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(5);
 
     const costIndex = markup.indexOf("cost follows real usage");
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
@@ -267,13 +268,12 @@ describe("LandingPage", () => {
     ).toBe(2);
   });
 
-  it("renders the landing page without the docs sidebar", () => {
+  it("renders the landing page with the docs sidebar", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
-    expect(sidebarMarkup).not.toContain("Overview");
-    expect(sidebarMarkup).not.toContain('href="/landing-preview"');
-    expect(sidebarMarkup).not.toContain('href="/docs/do-it-yourself"');
+    expect(sidebarMarkup).toContain('data-testid="docs-sidebar"');
+    expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
   });
 
   it("keeps the docs sidebar as flat links instead of linking every heading", () => {

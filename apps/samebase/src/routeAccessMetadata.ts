@@ -14,7 +14,7 @@ export type RoutePath = keyof FileRoutesByFullPath;
  * should still stay on metadata-only modules instead of the full route tree.
  */
 export const ROUTE_ACCESS_METADATA_BY_PATH = {
-  "/": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
+  "/": { access: "access_public" },
   "/agents/connect": {
     access: "access_public",
     appWorkspaceRouteChrome: { leftPane: "none" },

@@ -179,6 +179,14 @@ misconfigure (see the Convex section above).
   [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting),
   checked 2026-07-23.
 
+## Dogfooding: Samebase runs on its own base
+
+samebase.com runs on GitHub, Convex, and Cloudflare Workers, built from the same base as the public
+template. The template is published automatically from the Samebase monorepo, so every improvement
+we make to the base while building Samebase reaches new apps. Check it: each commit in
+[samebase/base](https://github.com/samebase/base/commits/main) names the Samebase build and pull
+request it came from, checked 2026-09-26.
+
 ## Ownership: the leaving test
 
 This one is checkable without citations. An app created through Samebase lives in your GitHub

@@ -487,7 +487,6 @@ describe("AppWorkspaceShell", () => {
 
   it("server-renders static no-left routes without the default left pane", () => {
     for (const route of [
-      "/",
       "/account-deletion",
       "/admin/account-deletions",
       "/admin/users",
@@ -1100,7 +1099,7 @@ describe("AppWorkspaceShell", () => {
     ).toBe("pane");
   });
 
-  it("uses default sidebar width fallbacks in server markup", () => {
+  it("starts with the left sidebar closed and the right sidebar open in server markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/logo"]}>
         <AppWorkspaceShell>
@@ -1109,7 +1108,7 @@ describe("AppWorkspaceShell", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("--sidebar-layout-left-desktop-width:240px");
+    expect(markup).toContain("--sidebar-layout-left-desktop-width:0px");
     expect(markup).toContain("--sidebar-layout-right-desktop-width:288px");
   });
 });

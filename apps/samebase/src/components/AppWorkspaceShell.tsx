@@ -86,8 +86,12 @@ type AppWorkspaceRouteWithStaticData = {
 
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 
+/**
+ * A first visit starts with the left sidebar closed. The right sidebar starts open because it holds
+ * sign-in for protected routes and invite links. A saved state takes over after a toggle.
+ */
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: true,
+  leftDesktopOpen: false,
   leftDesktopWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
   leftMobileWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
   mobilePane: "main",

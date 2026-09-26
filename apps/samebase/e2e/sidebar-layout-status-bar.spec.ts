@@ -1,4 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+
+/** This fixture was designed with both sidebars open, so it does not follow the first-visit default. */
+test.beforeEach(async ({ page }) => {
+  await seedVisualFixtureWorkspaceSidebarState(page, {
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
+});
 
 async function gotoSidebarLayoutStatusBarFixture(page: Page) {
   await page.goto("/visual-fixture?mode=sidebar-layout-status-bar", {
