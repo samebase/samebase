@@ -792,7 +792,6 @@ export const trackedFilePaths = [
   "apps/samebase/public/install-icon.svg",
   "apps/samebase/public/landing-preview/logos/cloudflare.jpg",
   "apps/samebase/public/landing-preview/logos/cloudflare.svg",
-  "apps/samebase/public/landing-preview/logos/convex-mark.svg",
   "apps/samebase/public/landing-preview/logos/convex.svg",
   "apps/samebase/public/landing-preview/logos/github.svg",
   "apps/samebase/public/landing-preview/logos/tailwindcss.svg",

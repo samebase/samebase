@@ -10,7 +10,6 @@ import {
   LandingPage,
 } from "@/components/LandingPreviewPage";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
-import { publicMediaManifest } from "../../shared/publicMediaManifest";
 
 const authPresentation = vi.hoisted(() => ({ kind: "signedOut" }));
 
@@ -113,39 +112,25 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
-    // Hero: the stack opinion stated directly.
+    // Hero: the stack opinion, one plain product sentence, and the agent prompt.
     expect(markup).toContain("The correct way to build web apps.");
-    expect(markup).toContain(">BETA</span>");
-    expect(markup).toContain("-rotate-3");
-    expect(markup).toContain("border-0");
-    expect(markup).toContain("bg-blue-600");
-    expect(markup).toContain("rounded-none");
-    expect(markup).toContain(" Convex</span>");
     expect(markup).toContain(
-      'src="/landing-preview/logos/cloudflare.svg" width="28"/> Cloudflare Workers</span> is all you need to ship a production app.</p>',
+      "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
     expect(markup).toContain(
-      `src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>`,
+      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
     );
-    expect(markup).toContain('class="mb-3 flex justify-end text-lg"');
+    expect(markup).toContain("Copy prompt</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
-    // The real founder demo stays unloaded until the visitor presses Play.
-    expect(markup).toContain(`src="${publicMediaManifest.landingFounderDemo.publicUrl}"`);
-    expect(markup).toContain(`poster="${publicMediaManifest.landingFounderDemoPoster.publicUrl}"`);
-    expect(markup).toContain("Founder demo: Building an app with Samebase and Codex");
-    expect(markup).toContain('controls=""');
-    expect(markup).toContain('width="1440"');
-    expect(markup).toContain('height="930"');
-    expect(markup).toContain('preload="none"');
-    expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
-    expect(markup).toContain("border-radius:1.104% / 1.664%");
+    // The founder demo plays in a YouTube embed below the hero copy.
     expect(markup).toContain(
-      'href="https://youtu.be/UfxE8rvprqc" rel="noreferrer" target="_blank"',
+      'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
     );
-    expect(markup).toContain(">Watch on <span");
-    expect(markup).toContain(">YouTube</span></a>");
+    expect(markup.indexOf("Research https://samebase.com.")).toBeLessThan(
+      markup.indexOf("youtube-nocookie.com/embed/UfxE8rvprqc"),
+    );
 
     // The opinion and provider roles stay concise.
     expect(markup).toContain(
@@ -187,17 +172,8 @@ describe("LandingPage", () => {
     expect(markup).toContain("apps/admin");
     expect(markup).toContain("services/events");
 
-    // Ask your agent.
-    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
-    expect(markup).toContain(
-      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
-    );
-    expect(markup).toContain("Copy</button>");
-
-    const askAgentIndex = markup.indexOf("Don&#x27;t trust us, ask your agent.");
     const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
-    expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
 
     // The four claims.

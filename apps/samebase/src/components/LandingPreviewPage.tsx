@@ -20,7 +20,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import {
   useSidebarLayoutPresentation,
   useSidebarActions,
@@ -46,7 +45,6 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
-import { publicMediaManifest } from "../../shared/publicMediaManifest";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -255,7 +253,7 @@ function LandingCopyPromptButton() {
 
   return (
     <button
-      className="w-full border-t border-border px-5 py-3 text-left font-mono text-xs font-semibold hover:bg-muted @2xl:w-auto @2xl:border-l @2xl:border-t-0 @2xl:text-center"
+      className="w-full border-t border-border px-5 py-3 text-left font-mono text-[13px] font-semibold hover:bg-muted @2xl:w-auto @2xl:border-l @2xl:border-t-0 @2xl:text-center"
       onClick={() => {
         // The label only flips on a successful write; a denied clipboard
         // permission leaves the prompt selectable and the button unchanged.
@@ -274,7 +272,7 @@ function LandingCopyPromptButton() {
       }}
       type="button"
     >
-      {copied ? "Copied" : "Copy"}
+      {copied ? "Copied" : "Copy prompt"}
     </button>
   );
 }
@@ -358,65 +356,27 @@ function LandingPreviewOverview() {
         <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div className="pb-4 @3xl:pt-4">
-              <p className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-9 w-9 dark:invert"
-                    height="36"
-                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                    width="36"
-                  />
-                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-                </span>
-                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-                  BETA
-                </Badge>
+              <p className="flex items-center gap-1.5">
+                <img
+                  alt=""
+                  className="h-9 w-9 dark:invert"
+                  height="36"
+                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                  width="36"
+                />
+                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
               </p>
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 The correct way to build web apps.
               </h1>
-              <div className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/convex-mark.svg"
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Convex
-                  </span>
-                  <strong className="text-foreground"> + </strong>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-7 object-cover align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/cloudflare.svg"
-                      width="28"
-                    />
-                    {"\u00a0"}
-                    Cloudflare Workers
-                  </span>{" "}
-                  is all you need to ship a production app.
+              <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+                One place to manage GitHub, Convex, and Cloudflare across all your apps.
+              </p>
+              <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
+                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
+                  {LANDING_AGENT_PROMPT}
                 </p>
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em] dark:invert"
-                      height="20"
-                      src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Samebase
-                  </span>{" "}
-                  gives you one place to manage that stack across all your apps.
-                </p>
+                <LandingCopyPromptButton />
               </div>
               <div className="mt-9">
                 <PublicLandingPrimaryAction />
@@ -424,40 +384,15 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <div className="relative" style={{ containerType: "inline-size" }}>
-            <p className="mb-3 flex justify-end text-lg">
-              <a
-                className="group font-semibold text-foreground underline decoration-red-600 underline-offset-4 hover:decoration-red-700"
-                href="https://youtu.be/UfxE8rvprqc"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Watch on <span className="text-red-600 group-hover:text-red-700">YouTube</span>
-              </a>
-            </p>
-            <div
-              className="overflow-hidden"
-              data-testid="landing-preview-hero-video-frame"
-              style={{
-                borderRadius: "1.104% / 1.664%",
-                boxShadow:
-                  "0 0.11cqw 0.44cqw rgb(0 0 0 / 22%), 0 1.325cqw 3.31cqw rgb(0 0 0 / 30%)",
-              }}
-            >
-              <video
-                aria-label="Founder demo: Building an app with Samebase and Codex"
-                className="block w-full"
-                controls
-                data-testid="landing-preview-hero-video"
-                height={930}
-                playsInline
-                poster={publicMediaManifest.landingFounderDemoPoster.publicUrl}
-                preload="none"
-                src={publicMediaManifest.landingFounderDemo.publicUrl}
-                width={1440}
-              />
-            </div>
-          </div>
+          <iframe
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="mt-8 block aspect-[48/31] w-full border-0"
+            data-testid="landing-preview-hero-video"
+            referrerPolicy="strict-origin-when-cross-origin"
+            src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc"
+            title="Founder demo: Building an app with Samebase and Codex"
+          />
         </section>
 
         <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
@@ -514,32 +449,7 @@ function LandingPreviewOverview() {
         </section>
 
         <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
-            <div>
-              <LandingSectionIntro
-                heading="Don't trust us, ask your agent."
-                sub={
-                  <>
-                    Paste this into the agent you already run. Every claim on this page links a{" "}
-                    <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink>,
-                    so it can verify us instead of trusting us.
-                  </>
-                }
-              />
-            </div>
-            <div className="mt-8 @5xl:mt-1.5">
-              <div className="border border-border @2xl:flex @2xl:items-stretch">
-                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
-                  {LANDING_AGENT_PROMPT}
-                </p>
-                <LandingCopyPromptButton />
-              </div>
-            </div>
-          </div>
-          <div
-            className="mt-8 border-t border-border py-6"
-            data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
-          >
+          <div data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}>
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
               local workflow
             </p>
