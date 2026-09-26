@@ -32,7 +32,7 @@ const SPINE_X = 960;
 /** Half thickness of the paper. Each wall lies on the inner side of its face plane. */
 const PAPER_HALF_THICKNESS = 0.012;
 const HOLE_HALF_SIZE = 1 / 3;
-const MAXIMUM_LEVELS = 6;
+const MAXIMUM_LEVELS = 8;
 
 const Face = d.struct({ n: d.vec3f, origin: d.vec3f, tint: d.f32, u: d.vec3f, v: d.vec3f });
 
@@ -53,6 +53,7 @@ const SceneState = d.struct({
   lit: d.f32,
   mode: d.i32,
   pageDepth: d.f32,
+  paperCells: d.i32,
   printRadius: d.vec3f,
   probe: d.vec3f,
   probeStart: d.vec3f,
@@ -94,6 +95,8 @@ const WarpState = d.struct({
 
 const PrintState = d.struct({
   blueRegistration: d.vec3f,
+  /** Page box (left, top, right, bottom) where a paper sticker hides the scene. */
+  knockout: d.vec4f,
   pageTurn: d.f32,
   pan: d.vec2f,
   pinkRegistration: d.vec3f,
@@ -325,6 +328,7 @@ export async function createFilmRenderer(
     lit: 0,
     mode: 0,
     pageDepth: 0,
+    paperCells: 1,
     printRadius: d.vec3f(1000),
     probe: d.vec3f(0),
     probeStart: d.vec3f(0),
@@ -364,6 +368,7 @@ export async function createFilmRenderer(
   });
   const printState = root.createUniform(PrintState, {
     blueRegistration: d.vec3f(0),
+    knockout: d.vec4f(0),
     pageTurn: 0,
     pan: d.vec2f(0),
     pinkRegistration: d.vec3f(0),
@@ -501,6 +506,15 @@ export async function createFilmRenderer(
     return std.sub(std.mul(std.fract(std.mul(fromCorner, 0.5)), 2), d.vec3f(1));
   };
 
+  /** Paper walls thicken with the pixel footprint until far cells are solid. */
+  const wallThickness = (footprint: number): number => {
+    "use gpu";
+    if (sceneState.$.paperCells === 0) {
+      return 1;
+    }
+    return std.clamp(2 * PAPER_HALF_THICKNESS + 3 * footprint, 2 * PAPER_HALF_THICKNESS, 1);
+  };
+
   /**
   The sponge of hollow paper cells. Each level opens only when its tunnels are wider than two
   pixels, and levels at and below `restDepth` open only near the probe. Walls thicken with the
@@ -550,7 +564,7 @@ export async function createFilmRenderer(
     }
     // Paper cells of half size 1: a wall on the inner side of each cell face, with a hole.
     const cell = cellPoint(point);
-    const wall = std.clamp(2 * PAPER_HALF_THICKNESS + 3 * footprint, 2 * PAPER_HALF_THICKNESS, 1);
+    const wall = wallThickness(footprint);
     let cellDistance = boxDistance(cell, d.vec3f(1));
     if (wall < 0.999) {
       cellDistance = std.max(cellDistance, -boxDistance(cell, d.vec3f(1 - wall)));
@@ -681,7 +695,7 @@ export async function createFilmRenderer(
       const origin = std.sub(focal, std.mul(direction, start));
       const cameraToPlane = state.halfHeight / std.max(state.tanHalfFieldOfView, 0.0001);
       let distance = enter;
-      for (let step = 0; step < 320; step += 1) {
+      for (let step = 0; step < 520; step += 1) {
         const point = std.add(origin, std.mul(direction, distance));
         const depthBeyondPlane = -std.dot(std.sub(point, state.lookAt), state.back);
         const footprint = pixelWorld * std.max(0.02, 1 + depthBeyondPlane / cameraToPlane);
@@ -691,11 +705,7 @@ export async function createFilmRenderer(
           const normal = spongeNormal(point, footprint, std.max(threshold, 0.0005));
           const axes = std.mul(normal, normal);
           const cell = cellPoint(point);
-          const wall = std.clamp(
-            2 * PAPER_HALF_THICKNESS + 3 * footprint,
-            2 * PAPER_HALF_THICKNESS,
-            1,
-          );
+          const wall = wallThickness(footprint);
           const inner =
             wall < 0.9 &&
             std.max(std.abs(cell.x), std.max(std.abs(cell.y), std.abs(cell.z))) < 1 - 0.5 * wall;
@@ -713,12 +723,15 @@ export async function createFilmRenderer(
           }
           const haze =
             1 - std.exp(-std.max(depthBeyondPlane - state.hazeStart, 0) / state.hazeDistance);
-          const reach = std.length(point);
+          // Whole cells print in, plate by plate, in rings around the paper cube.
+          // Outer walls lie on the cell boundary, so step inside the wall to find its cell.
+          const inside = std.sub(point, std.mul(normal, 0.5 * wall));
+          const reach = std.length(std.sub(inside, cellPoint(inside)));
           const radius = state.printRadius;
           const printed = d.vec3f(
-            1 - std.smoothstep(radius.x * 0.8 - 1, radius.x, reach),
-            1 - std.smoothstep(radius.y * 0.8 - 1, radius.y, reach),
-            1 - std.smoothstep(radius.z * 0.8 - 1, radius.z, reach),
+            1 - std.smoothstep(radius.x - 0.5, radius.x, reach),
+            1 - std.smoothstep(radius.y - 0.5, radius.y, reach),
+            1 - std.smoothstep(radius.z - 0.5, radius.z, reach),
           );
           return Hit({ axes: axesOut, ink: std.mul(std.mul(ink, 1 - haze), printed) });
         }
@@ -949,10 +962,20 @@ export async function createFilmRenderer(
       return next.z;
     }
     const vector = std.textureSampleLevel(vectorView.$, clampSampler.$, uv, 0);
-    const scene = std.clamp(
-      std.textureSampleLevel(warpedInkView.$, clampSampler.$, uv, 0),
-      d.vec4f(0),
-      d.vec4f(1),
+    // A paper sticker covers the scene inside the knockout box.
+    const box = printState.$.knockout;
+    const covered =
+      std.step(box.x, point.x) *
+      std.step(point.x, box.z) *
+      std.step(box.y, point.y) *
+      std.step(point.y, box.w);
+    const scene = std.mul(
+      std.clamp(
+        std.textureSampleLevel(warpedInkView.$, clampSampler.$, uv, 0),
+        d.vec4f(0),
+        d.vec4f(1),
+      ),
+      1 - covered,
     );
     if (plate === 0) {
       return 1 - (1 - vector.x) * (1 - scene.x);
@@ -980,22 +1003,20 @@ export async function createFilmRenderer(
     if (coverage < 0.008) {
       return 0;
     }
-    const grain = hash21(std.add(std.floor(point), d.vec2f(print * 7.1 + d.f32(plate) * 131, 0)));
+    // Grain, blotches, and pinholes belong to the plate master, so they stay between prints. Only
+    // the registration and the roller bands change from print to print, which keeps the boil
+    // compressible.
+    const grain = hash21(std.add(std.floor(point), d.vec2f(d.f32(plate) * 131, 0)));
     coverage = coverage + (grain - 0.5) * 0.05;
     const dots = halftone(point, angle, cell, coverage, footprint);
     const blotch = fractalNoise(
-      std.add(
-        std.div(point, 260),
-        d.vec2f(d.f32(plate) * 17.3 + print * 0.013, d.f32(plate) * 5.1),
-      ),
+      std.add(std.div(point, 260), d.vec2f(d.f32(plate) * 17.3, d.f32(plate) * 5.1)),
     );
-    const bandNoise = valueNoise(d.vec2f(point.y / 57 + d.f32(plate) * 11.7, print * 0.21));
+    const bandNoise = valueNoise(d.vec2f(point.y / 57 + d.f32(plate) * 11.7, print * 0.04));
     const band = std.max(bandNoise - 0.55, 0) * 0.3;
     let density = 0.8 + 0.22 * blotch + 0.08 * (grain - 0.5) - band;
-    const pinhole = hash21(
-      std.add(std.floor(std.mul(point, 0.5)), d.vec2f(print * 3.7, d.f32(plate) * 91)),
-    );
-    if (pinhole > 0.9935) {
+    const pinhole = hash21(std.add(std.floor(std.mul(point, 0.5)), d.vec2f(0, d.f32(plate) * 91)));
+    if (pinhole > 0.9975) {
       density *= 0.25;
     }
     return dots * std.min(density, 1);
@@ -1023,17 +1044,13 @@ export async function createFilmRenderer(
   const printPage = (pagePoint: d.v2f, page: number, footprint: number): d.v3f => {
     "use gpu";
     const state = printState.$;
-    const paperShift = d.vec2f(
-      hash21(d.vec2f(state.printIndex, 3)) * PAPER_TILE,
-      hash21(d.vec2f(state.printIndex, 9)) * PAPER_TILE,
-    );
     const paper = std.textureSampleLevel(
       paperView.$,
       repeatSampler.$,
-      std.div(std.add(pagePoint, paperShift), PAPER_TILE),
+      std.div(pagePoint, PAPER_TILE),
       0,
     );
-    const grain = hash21(std.add(std.floor(pagePoint), d.vec2f(state.printIndex * 13.1, 5)));
+    const grain = hash21(std.add(std.floor(pagePoint), d.vec2f(13.1, 5)));
     const tone = 1 + (grain - 0.5) * 0.05 + (paper.y - 0.5) * 0.07 + (paper.x - 0.5) * 0.09;
     let color = std.mul(PAPER, tone * foldShade(pagePoint.x));
     const pink = plateInk(
@@ -1116,7 +1133,7 @@ export async function createFilmRenderer(
       const through = printPage(d.vec2f(SPINE_X + sheetX, sheetY), 0, footprint);
       const color = std.mul(
         printPage(d.vec2f(SPINE_X - sheetX, sheetY), 1, footprint),
-        std.mix(d.vec3f(1), std.div(through, PAPER), 0.16),
+        std.mix(d.vec3f(1), std.div(through, PAPER), 0.12 * sin),
       );
       return d.vec4f(std.mul(color, 0.82 + 0.18 * std.abs(cos)), 1);
     }
@@ -1186,6 +1203,7 @@ export async function createFilmRenderer(
         lit: scene.lit,
         mode: scene.mode === "net" ? 1 : scene.mode === "sponge" ? 2 : 0,
         pageDepth: scene.pageDepth,
+        paperCells: sponge.paperCells ? 1 : 0,
         printRadius: vec3(sponge.printRadius),
         probe: vec3(sponge.probe),
         probeStart: vec3(sponge.probeStart),
@@ -1230,6 +1248,7 @@ export async function createFilmRenderer(
         d.vec3f(dx, dy, rotation);
       printState.write({
         blueRegistration: registration(blueRegistration),
+        knockout: d.vec4f(...frame.knockout),
         pageTurn: frame.pageTurn,
         pan: d.vec2f(frame.page.panX, frame.page.panY),
         pinkRegistration: registration(pinkRegistration),
