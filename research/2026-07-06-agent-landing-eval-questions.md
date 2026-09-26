@@ -7,10 +7,6 @@ meaningful corpus change.
 
 ## How To Run A Round
 
-`node ./scripts/agent-landing-eval.ts --url <EVAL_URL>` runs the landing page prompt through fresh
-Claude Code and Codex sessions with these isolation rules, then grades each answer against the
-evaluated site's `/llms.txt`. The panel below still runs by hand.
-
 - Set `[EVAL_URL]` to the exact public page under evaluation. For a PR, use its preview origin and
   `?prod-ui`; do not mix a preview overview with production `/llms.txt`.
 - Run fresh `claude -p` and `codex exec` sessions with web access enabled, one prompt per session.

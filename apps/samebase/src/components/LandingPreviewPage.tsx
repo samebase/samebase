@@ -14,7 +14,6 @@ import {
 import { PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID } from "@/lib/publicLanding";
 import { cn } from "@/lib/utils";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import { LANDING_AGENT_PROMPT } from "../../shared/landingAgentPrompt";
 import {
   Accordion,
   AccordionContent,
@@ -122,6 +121,9 @@ function DocsSidebar() {
     </nav>
   );
 }
+
+const LANDING_AGENT_PROMPT =
+  "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you for my next app, or an alternative?";
 
 const LANDING_MONOREPO_PATHS = [
   { path: "apps/storefront", resources: ["Convex", "Worker"] },
