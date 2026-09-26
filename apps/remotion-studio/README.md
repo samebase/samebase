@@ -43,6 +43,8 @@ appear in Studio immediately.
   times: flat mark, paper cube, flat reshape, and one cell of a huge sponge. One WebGPU pass prints
   the page plates and the ray-marched scene with halftone screens and misregistration. The
   storyboard and music notes are in `notes/samebase-riso-film.md`.
+- `SamebaseRisoFilmPortrait` is the 1080x1350 feed cut of the same film. It has its own page layout,
+  with the type above the object, and the page turns on its left binding.
 - `SamebaseRisoLoop` is an 8-second seamless loop: an endless isometric pull back from the sponge
   corner under the finale music.
 - `ContactSheetLabel` draws the time labels for the contact sheet command.
@@ -208,6 +210,8 @@ Do not commit:
   stills.
 - `pnpm --filter @samebase/remotion-studio render:samebase-riso-film`: render the riso brand film.
   It needs the local music file `public/media/samebase-riso-film.mp3`.
+- `pnpm --filter @samebase/remotion-studio render:samebase-riso-film-portrait`: render the 4:5 feed
+  cut.
 - `pnpm --filter @samebase/remotion-studio render:samebase-riso-loop`: render the seamless loop.
 - `node src/scripts/analyzeMusicBeats.ts <audio> [section starts]`: print the tempo, beat grid, bar
   loudness, and strongest onsets of a music file. It needs `ffmpeg` on the `PATH`.
