@@ -15,13 +15,16 @@ const PAPER = hexColor(0xf3eee3);
 const PINK = hexColor(0xff48b0);
 const BLUE = hexColor(0x3255a4);
 const SLATE = hexColor(0x394447);
-/** Screen angles in radians and cell sizes in page pixels, as on the approved style frames. */
+/**
+Screen angles in radians and cell sizes in page pixels. The cells are coarser than on the style
+frames, so the dots survive the re-encode of social platforms.
+*/
 const PINK_ANGLE = (15 * Math.PI) / 180;
 const BLUE_ANGLE = (75 * Math.PI) / 180;
 const SLATE_ANGLE = (45 * Math.PI) / 180;
-const PINK_CELL = 6.5;
-const BLUE_CELL = 6.5;
-const SLATE_CELL = 5.6;
+const PINK_CELL = 10;
+const BLUE_CELL = 10;
+const SLATE_CELL = 9;
 const PAPER_TILE = 2048;
 /** Page turn: distance from the eye to the page, in page pixels, for the perspective of the sheet. */
 const EYE_DISTANCE = 2600;
@@ -70,6 +73,7 @@ const SceneState = d.struct({
   tanHalfFieldOfView: d.f32,
   lookAt: d.vec3f,
   up: d.vec3f,
+  wakeTone: d.vec3f,
   xTone: d.vec3f,
   yTone: d.vec3f,
   zTone: d.vec3f,
@@ -81,6 +85,7 @@ const WarpState = d.struct({
   hexagonRadius: d.f32,
   lastSideInk: d.vec3f,
   lastSideWidth: d.f32,
+  scale: d.vec2f,
   sideInk0: d.vec3f,
   sideInk1: d.vec3f,
   sideInk2: d.vec3f,
@@ -345,6 +350,7 @@ export async function createFilmRenderer(
     tanHalfFieldOfView: 0,
     lookAt: d.vec3f(0),
     up: d.vec3f(0, 1, 0),
+    wakeTone: d.vec3f(0),
     xTone: d.vec3f(0),
     yTone: d.vec3f(0),
     zTone: d.vec3f(0),
@@ -356,6 +362,7 @@ export async function createFilmRenderer(
     innerTone: d.vec3f(0),
     lastSideInk: d.vec3f(0),
     lastSideWidth: 120,
+    scale: d.vec2f(1, 1),
     sideInk0: d.vec3f(0),
     sideInk1: d.vec3f(0),
     sideInk2: d.vec3f(0),
@@ -506,6 +513,19 @@ export async function createFilmRenderer(
     return std.sub(std.mul(std.fract(std.mul(fromCorner, 0.5)), 2), d.vec3f(1));
   };
 
+  /** Distance to the probe path so far: the giant stays awake where the probe passed. */
+  const probePathDistance = (point: d.v3f): number => {
+    "use gpu";
+    const state = sceneState.$;
+    const path = std.sub(state.probe, state.probeStart);
+    const along = std.clamp(
+      std.dot(std.sub(point, state.probeStart), path) / std.max(std.dot(path, path), 0.000001),
+      0,
+      1,
+    );
+    return std.length(std.sub(point, std.add(state.probeStart, std.mul(path, along))));
+  };
+
   /** Paper walls thicken with the pixel footprint until far cells are solid. */
   const wallThickness = (footprint: number): number => {
     "use gpu";
@@ -527,16 +547,7 @@ export async function createFilmRenderer(
     const local = std.div(std.sub(point, state.spongeCenter), halfSize);
     let distance = boxDistance(local, d.vec3f(1)) * halfSize;
     const closedWidth = 2 * footprint;
-    // Distance to the probe path so far: the giant stays awake where the probe passed.
-    const path = std.sub(state.probe, state.probeStart);
-    const along = std.clamp(
-      std.dot(std.sub(point, state.probeStart), path) / std.max(std.dot(path, path), 0.000001),
-      0,
-      1,
-    );
-    const probeDistance = std.length(
-      std.sub(point, std.add(state.probeStart, std.mul(path, along))),
-    );
+    const probeDistance = probePathDistance(point);
     let period = d.f32(2);
     for (let level = 0; level < MAXIMUM_LEVELS; level += 1) {
       if (level >= state.spongeLevels) {
@@ -718,8 +729,12 @@ export async function createFilmRenderer(
           const occlusion = spongeOcclusion(point, normal, footprint, std.max(4 * footprint, 0.05));
           ink = std.add(ink, std.mul(state.shadeTone, occlusion));
           const restDistance = spongeDistance(point, footprint, 0);
+          const awake =
+            1 -
+            std.smoothstep(0.45 * state.revealRadius, state.revealRadius, probePathDistance(point));
+          ink = std.add(ink, std.mul(state.wakeTone, awake));
           if (restDistance > 4 * threshold) {
-            ink = std.add(ink, state.revealTone);
+            ink = d.vec3f(state.revealTone);
           }
           const haze =
             1 - std.exp(-std.max(depthBeyondPlane - state.hazeStart, 0) / state.hazeDistance);
@@ -909,7 +924,10 @@ export async function createFilmRenderer(
       return std.textureSampleLevel(sceneInkView.$, clampSampler.$, uv, 0);
     }
     const page = std.mul(uv, d.vec2f(pageWidth, pageHeight));
-    const pixel = rotate2(d.vec2f(page.x - state.center.x, state.center.y - page.y), -state.spin);
+    const pixel = std.div(
+      rotate2(d.vec2f(page.x - state.center.x, state.center.y - page.y), -state.spin),
+      state.scale,
+    );
     const angle = (std.atan2(pixel.y, pixel.x) * 180) / Math.PI;
     const relative = std.fract((angle - sideStartDegrees(0)) / 360 + 2) * 360;
     let sideIndex = 4;
@@ -1220,6 +1238,7 @@ export async function createFilmRenderer(
         tanHalfFieldOfView: camera.tanHalfFieldOfView,
         lookAt: vec3(camera.target),
         up: vec3(camera.up),
+        wakeTone: vec3(tones.wake),
         xTone: vec3(tones.x),
         yTone: vec3(tones.y),
         zTone: vec3(tones.z),
@@ -1233,6 +1252,7 @@ export async function createFilmRenderer(
         innerTone: vec3(tones.inner),
         lastSideInk: vec3(ink4),
         lastSideWidth: rightSide,
+        scale: d.vec2f(...warp.scale),
         sideInk0: vec3(ink0),
         sideInk1: vec3(ink1),
         sideInk2: vec3(ink2),

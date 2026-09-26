@@ -12,16 +12,10 @@ import {
   pageHeight,
   pageWidth,
   progress,
+  pulse,
   ring,
 } from "./filmMotion";
-import {
-  type FilmFrame,
-  type Inks,
-  loopSticker,
-  projectToPage,
-  readProbe,
-  times,
-} from "./filmTimeline";
+import { type FilmFrame, type Inks, loopSticker, readProbeLabel, times } from "./filmTimeline";
 
 const display = loadAnton("normal", { subsets: ["latin"], weights: ["400"] }).fontFamily;
 const mono = loadSpaceMono("normal", { subsets: ["latin"], weights: ["400", "700"] }).fontFamily;
@@ -140,44 +134,37 @@ function mixMark(from: MarkState, to: MarkState, amount: number): MarkState {
   };
 }
 
-/** One change on every beat: ink, proportion, opening, and a quarter turn. */
+/** One change on every beat from the first one: ink, proportion, opening, and turns. */
 function readMouldedMark(time: number): MarkState {
   const back = (value: number) => easeOutBack(value, 2.2);
-  const snap = 0.22;
+  const snap = 0.2;
+  const at = (beatTime: number, value: Partial<MarkState>) => ({
+    duration: snap,
+    ease: back,
+    time: beatTime,
+    value: { ...restMark, ...value },
+  });
   const mark = keyed(
     time,
     [
-      { duration: 0, ease: back, time: 0, value: restMark },
-      { duration: snap, ease: back, time: 1, value: { ...restMark, inks: pink } },
-      { duration: snap, ease: back, time: 1.5, value: { ...restMark, inks: blue } },
-      {
-        duration: snap,
-        ease: back,
-        time: 2,
-        value: { ...restMark, inks: [1, 1, 0], stretch: [1.75, 0.72] },
-      },
-      { duration: snap, ease: back, time: 2.5, value: { ...restMark, stretch: [0.7, 1.5] } },
-      { duration: snap, ease: back, time: 3, value: { ...restMark, inks: pink, opening: 0.74 } },
-      { duration: snap, ease: back, time: 3.5, value: { ...restMark, inks: blue, opening: 0.1 } },
-      { duration: snap, ease: back, time: 4, value: { ...restMark, size: 170 } },
-      {
-        duration: 0.4,
-        ease: back,
-        time: 5,
-        value: { ...restMark, rotation: Math.PI / 2, size: 170 },
-      },
-      {
-        duration: 0.4,
-        ease: easeInOutCubic,
-        time: 5.5,
-        value: { ...restMark, rotation: Math.PI / 2 },
-      },
+      { duration: 0, ease: back, time: 0, value: { ...restMark, size: 190 } },
+      at(0.5, { inks: pink, size: 170 }),
+      at(1, { inks: blue, stretch: [1.7, 0.72] }),
+      at(1.5, { stretch: [0.68, 1.5] }),
+      at(2, { inks: [1, 1, 0], opening: 0.72, size: 200 }),
+      at(2.5, { inks: pink, opening: 0.1 }),
+      at(3, { rotation: Math.PI / 4, size: 170 }),
+      at(3.5, { inks: blue, rotation: Math.PI / 2, size: 200 }),
+      at(4, { inks: pink, stretch: [1.45, 0.8] }),
+      at(4.5, { stretch: [0.8, 1.3] }),
+      at(5, { inks: blue, opening: 0.55 }),
+      at(5.5, {}),
     ],
     mixMark,
   );
-  let squash = 0;
-  for (let hit = 1; hit <= 5.5; hit += 0.5) {
-    squash += 0.07 * ring(time, hit, 2.6, 8);
+  let squash = 0.1 * ring(time, 0, 2.6, 6);
+  for (let hit = 0.5; hit <= 5.5; hit += 0.5) {
+    squash += 0.08 * ring(time, hit, 2.6, 8);
   }
   return { ...mark, stretch: [mark.stretch[0] * (1 + squash), mark.stretch[1] * (1 - squash)] };
 }
@@ -388,21 +375,33 @@ function drawFront(context: Context, frame: FilmFrame): void {
     drawMark(context, netOrigin[0], netOrigin[1], readMouldedMark(time));
   }
   drawNetGuides(context, time);
-  if (time >= 4 && time < 12) {
+  if (time < 12) {
+    // The opening spread: SAME and BASE are on the page from frame 0. They re-slam and trade inks
+    // on every bar downbeat.
+    const bar = Math.min(Math.floor(time / 2), 3);
+    const swapped = bar % 2 === 1;
+    const slam = pulse(time, 2 * bar, 7);
     slamLines(
       context,
       time,
       [
-        { align: "right", at: 4, inks: pink, text: "SAME", x: marginRight + 6, y: 390 },
-        { at: 5, inks: pink, text: "BASE", x: marginLeft - 8, y: 1010 },
+        {
+          align: "right",
+          at: -0.25,
+          inks: swapped ? blue : pink,
+          text: "SAME",
+          x: marginRight + 6,
+          y: 390,
+        },
+        { at: -0.15, inks: swapped ? pink : blue, text: "BASE", x: marginLeft - 8, y: 1010 },
       ],
-      340,
+      340 * (1 + 0.08 * slam),
       11.2,
     );
   }
 
   // Break 2: the three accounts, one word per beat.
-  if (time >= 12 && time < times.drop + 0.4) {
+  if (time >= 12 && time < times.drop) {
     slamLines(
       context,
       time,
@@ -412,7 +411,8 @@ function drawFront(context: Context, frame: FilmFrame): void {
         { at: 14, inks: blue, text: "Cloudflare.", x: marginLeft, y: 790 },
       ],
       170,
-      times.drop - 0.05,
+      // The words leave one beat early, so the lit cube holds alone before the drop.
+      times.drop - 0.55,
     );
   }
 
@@ -424,9 +424,9 @@ function drawFront(context: Context, frame: FilmFrame): void {
       time,
       first
         ? [
-            { at: 16.05, inks: blue, text: "Delete your", x: marginLeft, y: 300 },
-            { at: 16.5, inks: blue, text: "Samebase", x: marginLeft, y: 510 },
-            { at: 17, inks: blue, text: "account.", x: marginLeft, y: 720 },
+            { at: 16.5, inks: blue, text: "Delete your", x: marginLeft, y: 300 },
+            { at: 17, inks: blue, text: "Samebase", x: marginLeft, y: 510 },
+            { at: 17.5, inks: blue, text: "account.", x: marginLeft, y: 720 },
           ]
         : [
             { at: 20, inks: pink, text: "Your app", x: marginLeft, y: 300 },
@@ -482,23 +482,27 @@ function drawGiantWords(context: Context, frame: FilmFrame): void {
     40,
   );
   // The small mark rides the probe over the giant: Samebase is on the same base too.
-  const [probeX, probeY] = projectToPage(frame.scene.camera, readProbe(time));
-  const markArrive = easeOutBack(progress(time, 34.5, 34.8), 2);
-  if (time >= 34.5) {
-    drawMark(context, probeX, probeY - 34, { ...restMark, inks: slate, size: 30 * markArrive });
-    const lineStart = [probeX + 24, probeY - 70] as const;
-    const elbow = [probeX + 90, probeY - 150] as const;
-    const reach = easeOutCubic(progress(time, 35, 35.4));
-    context.strokeStyle = ink(slate);
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(...lineStart);
-    context.lineTo(mix(lineStart[0], elbow[0], reach), mix(lineStart[1], elbow[1], reach));
-    context.lineTo(elbow[0] + 330 * reach, elbow[1]);
-    context.stroke();
-    if (reach >= 1) {
-      text(context, "Samebase too.", elbow[0] + 4, elbow[1] - 16, monoFont(40, 700), slate);
-    }
+  const label = readProbeLabel(time, frame.scene.camera);
+  if (!label) {
+    return;
+  }
+  const { box, elbow, probe, reach, size } = label;
+  drawMark(context, probe[0], probe[1] - 34, { ...restMark, inks: slate, size });
+  const lineStart = [probe[0] - 24, probe[1] - 70] as const;
+  context.strokeStyle = ink(slate);
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(...lineStart);
+  context.lineTo(mix(lineStart[0], elbow[0], reach), mix(lineStart[1], elbow[1], reach));
+  context.lineTo(elbow[0] - 330 * reach, elbow[1]);
+  context.stroke();
+  if (box) {
+    // The label is a paper sticker: the knockout hides the scene inside this border.
+    const [left, top, right, bottom] = box;
+    context.strokeRect(left + 4, top + 4, right - left - 8, bottom - top - 8);
+    text(context, "Samebase too.", elbow[0] - 16, elbow[1] - 22, monoFont(40, 700), slate, {
+      align: "right",
+    });
   }
 }
 
