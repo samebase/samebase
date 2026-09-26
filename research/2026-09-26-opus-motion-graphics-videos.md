@@ -22,10 +22,9 @@ agent run, two full generations, or "a few rounds of tweaking".
 
 Samebase already has the two engines it needs: Remotion 4 in `apps/remotion-studio` for the timeline
 and render, and the TypeGPU ray-marched Menger sponge from the landing hero for the fractal. The
-Samebase video focuses on the mark and breaks the viewer's expectations: the mark reads as a 3D cube
-and then reshapes like a flat image. The Menger sponge is a huge presence at the edge of the frame,
-not a tunnel to fly through. The video needs one account (ElevenLabs Starter), a short script, and
-the same verification loop.
+recommended concept breaks the viewer's reading of the mark four times: flat logo, then 3D cube,
+then an impossible flat reshape, then one small piece of a huge Menger sponge. The video needs one
+account (ElevenLabs Starter), a short script, and the same verification loop.
 
 ## Videos examined
 
@@ -130,19 +129,43 @@ Tool decisions:
 - **Missing piece: a contact sheet command.** Remotion Studio previews one frame at a time. The
   agent needs one command that renders a list of times into one image, as PDoomVideo does.
 
-## Operator direction
+## Operator ideas
 
-The operator's direction on 2026-09-26, after the first proposals:
+The operator shared these ideas from the logo work on 2026-09-26. They are inputs, not decisions:
 
-- **The film is about the mark, not about the fractal.** The goal is to break the viewer's
-  expectations. The main device is the [mark reshape](2026-09-26-mark-reshape.md): the viewer is
-  sure that the mark is a 3D cube, and then it changes like a flat image and gets more sides than a
-  cube can have.
-- **No flight through the fractal.** Most fractal videos fly through tunnels. Here the Menger sponge
-  is a huge presence at the edge of the frame, seen from outside. Only a part of it is visible, and
-  that part fills a large part of the screen, so the viewer feels its size.
+- **A simple shape that can be moulded.** The mark is a square with an opening. It can change color,
+  proportion, and shape.
+- **Another angle shows 3D.** The first logo looked like the mark from the front and showed a
+  checker pattern in isometric view. It was not used because it was hard to show in 3D and looked
+  bad when small.
+- **A flat reshape.** Give each isometric side its own color, treat the image as flat, cut it, and
+  add a fourth direction. This should read as an optical illusion that breaks the viewer's
+  expectation. See the [mark reshape](2026-09-26-mark-reshape.md).
+- **The fractal as a presence, not a tunnel.** Most fractal videos fly through tunnels. The Menger
+  sponge can be a huge thing at the edge of the frame, seen from outside, where only a part of it
+  fills a large part of the screen.
 - **The mental model.** The fractal holds all of your projects inside one bigger project, so that
-  you can manage them in one place. Every part of it is the same base.
+  you can manage them in one place.
+
+## Recommended concept: four broken assumptions
+
+The film makes the viewer settle on a reading of the mark, then breaks it, four times. Each break
+widens the frame.
+
+1. **"It is a flat logo."** The mark on an empty field. It is moulded on the beat: color,
+   proportion, a small squash.
+2. **"No, it is a cube."** The camera turns, and the mark is the front face of a lit 3D cube with
+   real perspective.
+3. **"No, it is flat."** The camera settles at the isometric angle. The sides become flat colors, a
+   cut opens, and a fourth side grows. A cube cannot do this.
+4. **"No, it is tiny."** The camera pulls back. The reshaped mark is one small piece on the surface
+   of a huge Menger sponge, of which only an edge fits in the frame. Every piece has the same base,
+   and all of them are part of one structure.
+5. **Resolve.** Back to the flat mark, the wordmark, the tagline, and the agent prompt.
+
+The mark stays the main character. The fractal appears only in the last break, as scale. The music
+follows the breaks: the meter changes from 3/4 to 4/4 at the cut, and a near silence comes before
+the scale reveal.
 
 Scale cues for a huge object seen from outside: slow movement, haze that grows with distance, detail
 at many scales at the same time, and a small object in the foreground for comparison. The current
@@ -168,8 +191,9 @@ and existing apps update only when their owners choose.
    - TypeGPU runs through the `unplugin-typegpu` webpack plug-in. It is imported as the named
      `webpackPlugin` export in `overrideWebpackConfig`.
    - A contact sheet command renders a list of times into one image.
-2. **Next: an illusion test.** A short clip in which the 3D mark eases to the isometric view and
-   then reshapes as a flat image, with the two-pass method from the reshape note.
+2. **Next: two look tests.** A short clip of breaks 1 to 3 (flat mark, lit cube, isometric hold,
+   flat reshape) with the two-pass method from the reshape note, and three stills of break 4 (a huge
+   sponge seen from outside, partly in frame, with haze and the small mark for scale).
 3. **Then:** storyboard, music, build and review, and master, as in the plan above.
 
 Open input for the operator: the draft words.
