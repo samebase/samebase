@@ -22,8 +22,10 @@ agent run, two full generations, or "a few rounds of tweaking".
 
 Samebase already has the two engines it needs: Remotion 4 in `apps/remotion-studio` for the timeline
 and render, and the TypeGPU ray-marched Menger sponge from the landing hero for the fractal. The
-recommended Samebase video is a fractal dive into the Menger sponge, with music that rises without
-end. It needs one account (ElevenLabs Starter), a short script, and the same verification loop.
+Samebase video focuses on the mark and breaks the viewer's expectations: the mark reads as a 3D cube
+and then reshapes like a flat image. The Menger sponge is a huge presence at the edge of the frame,
+not a tunnel to fly through. The video needs one account (ElevenLabs Starter), a short script, and
+the same verification loop.
 
 ## Videos examined
 
@@ -128,60 +130,46 @@ Tool decisions:
 - **Missing piece: a contact sheet command.** Remotion Studio previews one frame at a time. The
   agent needs one command that renders a list of times into one image, as PDoomVideo does.
 
-## Recommended direction: the fractal dive
+## Operator direction
 
-The idea: a small thing becomes so large and so detailed that it is almost too much. The Menger
-sponge is the exact picture of the Samebase claim, because every part of it is the whole again. The
-words carry the literal claim. The fractal carries the feeling.
+The operator's direction on 2026-09-26, after the first proposals:
 
-The sponge is self-similar at a scale of 3. A camera that zooms 3x toward a self-similar point sees
-the same frame again, so the dive can loop without a seam and go deeper for as long as the music
-lasts. The distance function stops at the pixel size, as the landing renderer does, so each frame
-costs about the same at any depth.
+- **The film is about the mark, not about the fractal.** The goal is to break the viewer's
+  expectations. The main device is the [mark reshape](2026-09-26-mark-reshape.md): the viewer is
+  sure that the mark is a 3D cube, and then it changes like a flat image and gets more sides than a
+  cube can have.
+- **No flight through the fractal.** Most fractal videos fly through tunnels. Here the Menger sponge
+  is a huge presence at the edge of the frame, seen from outside. Only a part of it is visible, and
+  that part fills a large part of the screen, so the viewer feels its size.
+- **The mental model.** The fractal holds all of your projects inside one bigger project, so that
+  you can manage them in one place. Every part of it is the same base.
 
-The music uses the same idea. A Shepard-Risset glissando sounds like it rises forever, but its pitch
-stays in one range. A Risset rhythm sounds like it speeds up forever, but its tempo stays in one
-range. One 3x zoom cycle equals one octave of the rise. The rise and rhythm layers are synthesized
-in code from the frame clock, so they stay in exact sync. An Eleven Music bed with the same key and
-section lengths gives the texture and the low end.
+Scale cues for a huge object seen from outside: slow movement, haze that grows with distance, detail
+at many scales at the same time, and a small object in the foreground for comparison. The current
+mark at normal size, in front of the giant sponge, can be that small object. The sponge can seem
+alive: the landing hero already opens holes locally near the pointer, and the film can let such
+openings move slowly across the giant surface.
 
-Film, about 50 s, 1920x1080, 30 fps:
+The earlier fractal dive proposal is replaced. Two parts of it remain useful. The rendering method
+works for the outside view too. And the music can still use self-similar ideas.
 
-1. **Seed, 0 to 6 s.** Silence, then one low tone. The flat compact mark on an empty field.
-2. **Depth, 6 to 20 s.** The camera turns and the flat mark becomes the front face of the 3D sponge.
-   Each bar adds one depth level: 20, 400, 8,000, 160,000 cells. Each level adds one musical layer.
-3. **Dive, 20 to 42 s.** The camera enters one opening and does not stop. Light falls through the
-   tunnels. The rise and the rhythm accelerate. Grain, halation, and color intensify toward the
-   peak.
-4. **Cut, 42 to 50 s.** A hard cut to silence and the flat mark again. Then the wordmark, the
-   tagline, and samebase.com.
+Draft words stay open. Any line about the base must stay accurate: new apps get the current base,
+and existing apps update only when their owners choose.
 
-Draft words, for the operator to approve (few lines, large type, placed at the calm points before
-each musical lift):
+## Production status
 
-- "Every app starts from the same base."
-- "Samebase is built on it too."
-- "What we learn goes back into the base."
-- "Every new app starts from a better one."
-- "The correct way to build web apps."
+1. **Render test: done** on branch
+   [claude/menger-dive-spike](https://github.com/samebase/samebase/tree/claude/menger-dive-spike).
+   - Remotion renders the TypeGPU Menger sponge on the Metal GPU at about 170 ms per 1920x1080 frame
+     with 4x4 antialiasing.
+   - The same frame renders to identical bytes twice.
+   - A 3x zoom loop has no visible seam.
+   - Remotion already enables WebGPU, and `gl: "angle"` selects the Metal adapter.
+   - TypeGPU runs through the `unplugin-typegpu` webpack plug-in. It is imported as the named
+     `webpackPlugin` export in `overrideWebpackConfig`.
+   - A contact sheet command renders a list of times into one image.
+2. **Next: an illusion test.** A short clip in which the 3D mark eases to the isometric view and
+   then reshapes as a flat image, with the two-pass method from the reshape note.
+3. **Then:** storyboard, music, build and review, and master, as in the plan above.
 
-The fourth line must stay accurate: new apps get the current base, and existing apps update only
-when their owners choose.
-
-## Production plan
-
-1. **Spike, no account needed.** A Remotion composition renders the TypeGPU Menger sponge on the
-   Metal GPU at a given frame. Output: a 5 s seamless zoom test, a contact sheet command, the time
-   per frame, and proof that the same frame renders identically twice.
-2. **Music.** Generate three Eleven Music beds from one composition plan with exact section lengths.
-   Synthesize the Shepard-Risset layers in a Node TypeScript script. Mix with ffmpeg and pick one.
-3. **Storyboard.** Write three variants of the shot table in `apps/remotion-studio/notes/`. Render
-   one still per shot and review them as one contact sheet before any motion.
-4. **Build and review.** Build the film, check contact sheets around every hit and cut, then take
-   director notes in camera words.
-5. **Master.** Render to `apps/remotion-studio/out/`, mix the audio, and post.
-
-Open inputs for the operator:
-
-- An ElevenLabs Starter account and its API key in `apps/remotion-studio/.env.local`.
-- Approval of the draft words, or replacement lines.
+Open input for the operator: the draft words.
