@@ -210,9 +210,29 @@ and existing apps update only when their owners choose.
    - TypeGPU runs through the `unplugin-typegpu` webpack plug-in. It is imported as the named
      `webpackPlugin` export in `overrideWebpackConfig`.
    - A contact sheet command renders a list of times into one image.
-2. **Next: two look tests.** A short clip of breaks 1 to 3 (flat mark, lit cube, isometric hold,
-   flat reshape) with the two-pass method from the reshape note, and three stills of break 4 (a huge
-   sponge seen from outside, partly in frame, with haze and the small mark for scale).
-3. **Then:** storyboard, music, build and review, and master, as in the plan above.
+2. **Look tests: done** on the same branch. `MarkIllusionTest` renders the flat mark, a lit cube, an
+   isometric hold, and a flat reshape to 4 and 5 sides. The change from 3D to flat changes 3 of
+   2,073,600 pixels by at most 1/255, at about 30 ms per frame. `MengerScaleStill` renders a depth 7
+   sponge from outside with haze.
+3. **Style directions.** Four were compared as style frames with music sketches: riso zine, ink and
+   paper, editorial type, and monolith. The operator chose riso zine first and ink and paper second,
+   and ruled out six-pointed stars and hexagrams because of their religious meaning. The reshape
+   therefore uses 4 and 5 sides with uneven widths.
+4. **Films: two finished drafts, each with a v2 polish pass.**
+   - Riso zine, 42 s, `SamebaseRisoFilm`, on branch
+     [claude/samebase-riso-film](https://github.com/samebase/samebase/tree/claude/samebase-riso-film):
+     a printed zine where a net folds into the cube, the cube snaps flat on the drop, uneven sides
+     open, and a huge halftone sponge prints in, with a probe reveal borrowed from the landing hero.
+     16:9 and 4:5 cuts, and an 8 s loop. The halftone dots were made coarser so that they survive
+     re-encoding on X.
+   - Ink and paper, 38.5 s, `SamebaseInkFilm`, on branch
+     [claude/samebase-ink-film](https://github.com/samebase/samebase/tree/claude/samebase-ink-film):
+     a pen draws the mark, the painted cube peels off like a sticker, the mark walks over a hill,
+     and a giant sponge in the clouds opens its channels where the mark walks. 16:9 and 4:5 cuts.
+   - Both tracks came from Eleven Music with a composition plan, and a beat analysis placed the
+     hits. No one has checked the music by ear yet. Music generation used about 4,400 credits in
+     total.
+   - A full render takes about 1 to 1.5 minutes per film on the Metal GPU. Masters and web copies
+     are in each worktree's gitignored `apps/remotion-studio/out/`.
 
-Open input for the operator: the draft words.
+Open input for the operator: listen to both films, choose one, and approve the words on screen.
