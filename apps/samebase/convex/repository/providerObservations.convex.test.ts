@@ -305,7 +305,7 @@ describe("repository provider observations", () => {
       name: "samebase-prod",
       projectId: "convex-project",
       reference: "prod",
-      region: "aws-eu-west-1",
+      region: "aws-ca-central-1",
     });
     const viewer = t.withIdentity({
       subject: `${ids.userId}|test-session`,
@@ -363,7 +363,7 @@ describe("repository provider observations", () => {
         convexProjectId: ids.convexProjectId,
         provider: {
           state: "current",
-          productionDeployment: { state: "available", region: "aws-eu-west-1" },
+          productionDeployment: { state: "available", region: "aws-ca-central-1" },
         },
       },
     ]);

@@ -5,7 +5,7 @@ import type {
   PullRequestWorkerResource,
 } from "../../../convex/repository/pullRequestResources";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
-import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
+import type { ConvexProviderDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import { buildRepositoryDatabaseRoute, buildRepositorySchemaRoute } from "@/lib/repositoryRoutes";
 import type {
   RepositoryCloudflareProviderObservationState,
@@ -65,7 +65,7 @@ export type RepositoryEnvironmentResource =
       label: string;
       provider: "convex";
       provenance: "production" | "pull_request_branch";
-      region?: ConvexDeploymentRegion;
+      region?: ConvexProviderDeploymentRegion;
       title: string;
     }
   | {

@@ -1,7 +1,10 @@
 import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
-import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
+import {
+  vConvexDeploymentRegion,
+  vConvexProviderDeploymentRegion,
+} from "../../convexDeploymentRegionModel";
 
 const { array, id, literal, object, string, union } = v;
 const providerConnectionAccess = "access_provider_connections" as const;
@@ -64,7 +67,7 @@ export const vConvexAttachmentProject = object({
   projectSlug: string(),
   teamSlug: string(),
   productionDeployment: union(
-    object({ state: literal("available"), region: vConvexDeploymentRegion }),
+    object({ state: literal("available"), region: vConvexProviderDeploymentRegion }),
     object({ state: literal("missing") }),
   ),
   workerReferences: array(vConvexWorkerReference),

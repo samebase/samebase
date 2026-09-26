@@ -1343,7 +1343,10 @@ const schema25 = { pattern: "^[0-9]+$", type: "string" };
 const schema26 = { type: "string", enum: ["dev", "prod", "preview", "custom"] };
 const schema28 = { pattern: "^[0-9]+$", type: "string" };
 const schema29 = { type: "string" };
-const schema30 = { type: "string", enum: ["aws-us-east-1", "aws-eu-west-1"] };
+const schema30 = {
+  type: "string",
+  enum: ["aws-us-east-1", "aws-eu-west-1", "aws-ca-central-1", "aws-ap-southeast-2"],
+};
 const schema31 = {
   type: "boolean",
   description:
@@ -1878,7 +1881,14 @@ function validate14(
         }
         errors++;
       }
-      if (!(data8 === "aws-us-east-1" || data8 === "aws-eu-west-1")) {
+      if (
+        !(
+          data8 === "aws-us-east-1" ||
+          data8 === "aws-eu-west-1" ||
+          data8 === "aws-ca-central-1" ||
+          data8 === "aws-ap-southeast-2"
+        )
+      ) {
         const err28 = {
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
@@ -3205,7 +3215,14 @@ function validate18(
         }
         errors++;
       }
-      if (!(data8 === "aws-us-east-1" || data8 === "aws-eu-west-1")) {
+      if (
+        !(
+          data8 === "aws-us-east-1" ||
+          data8 === "aws-eu-west-1" ||
+          data8 === "aws-ca-central-1" ||
+          data8 === "aws-ap-southeast-2"
+        )
+      ) {
         const err28 = {
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
@@ -4487,7 +4504,14 @@ function validate21(
         }
         errors++;
       }
-      if (!(data8 === "aws-us-east-1" || data8 === "aws-eu-west-1")) {
+      if (
+        !(
+          data8 === "aws-us-east-1" ||
+          data8 === "aws-eu-west-1" ||
+          data8 === "aws-ca-central-1" ||
+          data8 === "aws-ap-southeast-2"
+        )
+      ) {
         const err28 = {
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
@@ -6118,7 +6142,14 @@ function validate27(
         }
         errors++;
       }
-      if (!(data8 === "aws-us-east-1" || data8 === "aws-eu-west-1")) {
+      if (
+        !(
+          data8 === "aws-us-east-1" ||
+          data8 === "aws-eu-west-1" ||
+          data8 === "aws-ca-central-1" ||
+          data8 === "aws-ap-southeast-2"
+        )
+      ) {
         const err28 = {
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
@@ -7400,7 +7431,14 @@ function validate30(
         }
         errors++;
       }
-      if (!(data8 === "aws-us-east-1" || data8 === "aws-eu-west-1")) {
+      if (
+        !(
+          data8 === "aws-us-east-1" ||
+          data8 === "aws-eu-west-1" ||
+          data8 === "aws-ca-central-1" ||
+          data8 === "aws-ap-southeast-2"
+        )
+      ) {
         const err28 = {
           instancePath: instancePath + "/region",
           schemaPath: "#/components/schemas/RegionName/enum",
@@ -8492,7 +8530,14 @@ function validate39(
         }
         errors++;
       }
-      if (!(data0 === "aws-us-east-1" || data0 === "aws-eu-west-1")) {
+      if (
+        !(
+          data0 === "aws-us-east-1" ||
+          data0 === "aws-eu-west-1" ||
+          data0 === "aws-ca-central-1" ||
+          data0 === "aws-ap-southeast-2"
+        )
+      ) {
         const err4 = {
           instancePath: instancePath + "/name",
           schemaPath: "#/components/schemas/RegionName/enum",
@@ -13330,7 +13375,14 @@ function validate93(
         }
         errors++;
       }
-      if (!(data9 === "aws-us-east-1" || data9 === "aws-eu-west-1")) {
+      if (
+        !(
+          data9 === "aws-us-east-1" ||
+          data9 === "aws-eu-west-1" ||
+          data9 === "aws-ca-central-1" ||
+          data9 === "aws-ap-southeast-2"
+        )
+      ) {
         const err29 = {
           instancePath: instancePath + "/defaultRegion",
           schemaPath: "#/components/schemas/RegionName/enum",
