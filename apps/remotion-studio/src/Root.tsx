@@ -1,6 +1,11 @@
 import { Composition } from "remotion";
 
 import {
+  ContactSheetLabel,
+  contactSheetLabelHeight,
+  contactSheetLabelWidth,
+} from "./compositions/contact-sheet-label/ContactSheetLabel";
+import {
   FounderDemo,
   FounderDemoAudio,
   founderDemoHeight,
@@ -108,6 +113,15 @@ export function RemotionRoot() {
         fps={ticTacToeRecordingFps}
         height={ticTacToeRecordingCrop.height}
         width={ticTacToeRecordingCrop.width}
+      />
+      <Composition
+        id="ContactSheetLabel"
+        component={ContactSheetLabel}
+        defaultProps={{ text: "" }}
+        durationInFrames={1}
+        fps={30}
+        height={contactSheetLabelHeight}
+        width={contactSheetLabelWidth}
       />
     </>
   );
