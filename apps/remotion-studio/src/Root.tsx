@@ -13,6 +13,11 @@ import {
   founderDemoFps,
 } from "./compositions/founder-demo/founderDemoEdit";
 import { LogoHype, logoHypeDurationInFrames, logoHypeFps } from "./compositions/logo-hype/LogoHype";
+import { MengerDiveSpike } from "./compositions/menger-dive-spike/MengerDiveSpike";
+import {
+  mengerDiveDurationInFrames,
+  mengerDiveFps,
+} from "./compositions/menger-dive-spike/mengerDiveCamera";
 import {
   OnboardingDemo,
   onboardingDemoHeight,
@@ -84,6 +89,15 @@ export function RemotionRoot() {
         component={LogoHype}
         durationInFrames={logoHypeDurationInFrames}
         fps={logoHypeFps}
+        height={1080}
+        width={1920}
+      />
+      <Composition
+        id="MengerDiveSpike"
+        component={MengerDiveSpike}
+        defaultProps={{ antialiasingGridSize: 4, timeOffsetInFrames: 0 }}
+        durationInFrames={mengerDiveDurationInFrames}
+        fps={mengerDiveFps}
         height={1080}
         width={1920}
       />

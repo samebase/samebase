@@ -117,12 +117,18 @@ importers:
       '@react-three/fiber':
         specifier: 9.6.1
         version: 9.6.1(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(three@0.183.2)
+      '@remotion/bundler':
+        specifier: 4.0.489
+        version: 4.0.489(lightningcss@1.33.0)(postcss@8.5.23)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@remotion/captions':
         specifier: 4.0.489
         version: 4.0.489
       '@remotion/cli':
         specifier: 4.0.489
         version: 4.0.489(lightningcss@1.33.0)(postcss@8.5.23)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@remotion/renderer':
+        specifier: 4.0.489
+        version: 4.0.489(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@remotion/three':
         specifier: 4.0.489
         version: 4.0.489(@react-three/fiber@9.6.1(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(three@0.183.2))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(remotion@4.0.489(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(three@0.183.2)
@@ -141,6 +147,9 @@ importers:
       three:
         specifier: ^0.183.2
         version: 0.183.2
+      typegpu:
+        specifier: 0.12.0
+        version: 0.12.0
     devDependencies:
       '@types/node':
         specifier: ^20.14.9
@@ -157,6 +166,9 @@ importers:
       '@types/web':
         specifier: 0.0.166
         version: 0.0.166
+      unplugin-typegpu:
+        specifier: 0.12.1
+        version: 0.12.1(supports-color@10.2.2)(typegpu@0.12.0)
 
   apps/samebase:
     dependencies:
