@@ -30,7 +30,7 @@ the camera moves.
 
 | Time       | Beat                  | Picture                                                                                                                                                                                                      | Words                                                  | Out                    |
 | ---------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ---------------------- |
-| 0 to 4     | Intro bars 1 to 2     | Pages 02 and 03. The three plates of the slate mark fly in out of register and snap into register on beat 1. Each beat moulds the mark: pink, blue, wide, tall, big opening, small opening, squash.          | None                                                   | Continuous             |
+| 0 to 4     | Intro bars 1 to 2     | Pages 02 and 03. SAME, BASE, and the mark are on the page from frame 0, far out of register, and snap into register. Each beat moulds the mark: ink, proportion, opening, turn, squash.                      | SAME, BASE                                             | Continuous             |
 | 4 to 8     | Intro bars 3 to 4     | SAME and BASE slam in from the frame edges on bar downbeats and overprint the mark. On beat 6.0 dashed cut lines draw the cube net around the mark, with tint flaps and FOLD labels.                         | SAME, BASE                                             | The cut-out lifts      |
 | 8 to 12    | Build bars 1 to 2     | The net lifts off the page with a shadow. The object tilts to a three-quarter view. Flaps fold back one per beat, with anticipation and overshoot, until the cube closes.                                    | None                                                   | Continuous             |
 | 12 to 16   | Build bars 3 to 4     | Lit 3D cube in perspective. It turns to the isometric corner view. The three visible faces take pink, blue, and slate. The perspective eases out and the cube holds for the last beat.                       | GitHub. Convex. Cloudflare. (one word per beat)        | Continuous             |
@@ -56,14 +56,31 @@ the camera moves.
 sponge corner. The sponge is self-similar about its corner, so a 9 times zoom ends on the picture it
 starts with. The loop uses solid cells and no haze, because both would break the self-similarity.
 
+## Version 2 changes
+
+- Frame 0 already shows SAME, BASE, and the mark, with the plates far out of register. They snap
+  into register by 0.35 s. The mark changes on every beat from 0.5 s, and the words re-slam and
+  trade inks on every bar.
+- The words of break 2 leave at 15.45 s. From 15.5 s to the drop, the lit cube holds dead still: no
+  camera drift and no registration boil. On the drop, the lighting, the shading, and the shadow go
+  in one frame. The pink and blue plates jump out of register, and the flat picture lands a little
+  large and settles. The fourth side opens at 16.5 s after a 0.3 s pinch, with a large overshoot.
+- The probe crosses the near face of the giant from 34 s to 37.2 s. Levels from the third down stay
+  closed away from the probe path, the woken surface gets a pink overprint, and the opened walls
+  print in solid pink. The "Samebase too." label is a paper sticker that knocks out the scene.
+- The halftone cells are 10, 10, and 9 page pixels (were 6.5, 6.5, and 5.6), so the dots survive the
+  re-encode of social platforms.
+- `SamebaseRisoFilmPortrait` is a 1080x1350 cut with its own layout in `filmLayout.ts`.
+
 ## Delivery
 
-The master (CRF 16) is about 200 MB, because the halftone and the registration boil are hard to
+The master (CRF 16) is about 190 MB, because the halftone and the registration boil are hard to
 compress. Grain, blotches, and pinholes belong to the plate master and stay between prints, so only
-the registration and the roller bands change 12 times per second. The web copy is a two-pass encode:
+the registration and the roller bands change 12 times per second. The web copy is a two-pass encode
+with grain tuning, at 4400 kbit/s for about 24 MB:
 
 ```console
-ffmpeg -i out/samebase-riso-film.mp4 -c:v libx264 -preset slow -b:v 4300k -pass 1 -an -f mp4 /dev/null
-ffmpeg -i out/samebase-riso-film.mp4 -c:v libx264 -preset slow -b:v 4300k -pass 2 \
+ffmpeg -i out/samebase-riso-film.mp4 -c:v libx264 -preset slower -tune grain -b:v 4400k -pass 1 -an -f mp4 /dev/null
+ffmpeg -i out/samebase-riso-film.mp4 -c:v libx264 -preset slower -tune grain -b:v 4400k -pass 2 \
   -pix_fmt yuv420p -c:a aac -b:a 160k -movflags +faststart out/samebase-riso-film-web.mp4
 ```
