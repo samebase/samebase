@@ -105,7 +105,7 @@ const LANDSCAPE_ZOOM = 1.24;
 export function readCamera(time: number): Camera {
   const stageCenter: Point = [MARK_HOME[0], MARK_HOME[1] - 2];
   if (time < TIMES.walk) {
-    let zoom = lerp(5.5, 6.25, easeInOut(ramp(time, 0, 4)));
+    let zoom = lerp(5.5, 6.25, easeInOut(ramp(time, 0, 4))) + 0.12 * pulse(time, 0, 3, 6);
     zoom += 0.25 * easeInOut(ramp(time, 4, 4));
     zoom -= 1.35 * easeInOut(ramp(time, 8, 1.5));
     zoom += 0.55 * easeIn(ramp(time, 12, 3.45));
@@ -137,21 +137,21 @@ export function readCamera(time: number): Camera {
   const pull = easeInOut(ramp(time, TIMES.giant, 3.2));
   const follow = easeInOut(ramp(time, 26.4, 6.2));
   const rise = easeIn(ramp(time, TIMES.wipe - 0.3, 1.3));
+  const truck = -120 * easeInOut(ramp(time, TIMES.giant, 9.5));
   const zoom = lerp(LANDSCAPE_ZOOM - 0.03, 1, pull) + 0.12 * follow;
   const center: Point = [
-    lerp(620, 960, pull) + 50 * follow,
+    lerp(620, 960, pull) + 50 * follow + truck,
     lerp(640, 540, pull) + 85 * follow - 260 * rise,
   ];
   return { angle: 0, center, zoom };
 }
 
 /** The end card camera: a slow push in. */
-export function readEndCamera(time: number): Camera {
-  return {
-    angle: 0,
-    center: [SCREEN_CENTER[0] + 40, SCREEN_CENTER[1] + 20],
-    zoom: 1.1 + 0.055 * easeOut(ramp(time, TIMES.end, 5)),
-  };
+export function readEndCamera(time: number, format: InkFormat): Camera {
+  const push = 0.055 * easeOut(ramp(time, TIMES.end, 5));
+  return format === "portrait"
+    ? { angle: 0, center: SCREEN_CENTER, zoom: 1 + push }
+    : { angle: 0, center: [SCREEN_CENTER[0] + 40, SCREEN_CENTER[1] + 20], zoom: 1.1 + push };
 }
 
 export type MarkPose = {
@@ -232,9 +232,12 @@ export function readMarkWalkPosition(time: number): Point {
 
 const COLOR_KEYS: readonly [number, string][] = [
   [0, PALETTE.slateMid],
-  [4.5, PALETTE.teal],
-  [7, PALETTE.ochre],
+  [2.5, PALETTE.teal],
+  [5, PALETTE.ochre],
 ];
+
+/** The pen lands with a splash, then draws the whole mark in the first half second. */
+export const INTRO = { splash: 0, outline: 0.03, hole: 0.31, bloom: 0.22, shake: 2 } as const;
 
 /** The mark as a character, or null while it is a cube or a flat many-sided picture. */
 export function readMarkPose(time: number): MarkPose | null {
@@ -258,28 +261,38 @@ export function readMarkPose(time: number): MarkPose | null {
   }
   const sx = springTrack(time, [
     [0, 1],
-    [5, 1.38],
-    [5.5, 0.8],
-    [6, 1],
+    [3, 1.38],
+    [3.5, 0.8],
+    [4, 1],
+    [5.5, 1.3],
+    [6, 0.84],
+    [6.5, 1],
     [7.5, 1.22],
     [7.92, 0.86],
     [8.3, 1],
   ]);
   const sy = springTrack(time, [
     [0, 1],
-    [5, 0.78],
-    [5.5, 1.32],
-    [6, 1],
+    [3, 0.78],
+    [3.5, 1.32],
+    [4, 1],
+    [5.5, 0.8],
+    [6, 1.25],
+    [6.5, 1],
     [7.5, 0.72],
     [7.92, 1.2],
     [8.3, 1],
   ]);
-  const hop = pulse(time, 4, 2.2, 5) + 0.6 * pulse(time, 3.5, 6, 8);
+  const hop =
+    pulse(time, 1, 2.2, 5) +
+    pulse(time, 4, 2.2, 5) +
+    0.5 * pulse(time, 7, 2.6, 6) +
+    0.35 * pulse(time, 0.52, 4, 7);
   // The opening is the mark's only feature: it gasps and it blinks.
   const hole = springTrack(time, [
     [0, 1 / 3],
-    [6, 0.56],
-    [6.5, 1 / 3],
+    [4.5, 0.56],
+    [5, 1 / 3],
     [24.05, 0.5],
     [24.9, 1 / 3],
   ]);
@@ -287,7 +300,15 @@ export function readMarkPose(time: number): MarkPose | null {
   const legs = time < TIMES.legs ? 0 : spring(time, TIMES.legs, 2.4, 5);
   const landed = time >= TIMES.fold && time < TIMES.walk;
   let center: Point = [MARK_HOME[0], MARK_HOME[1] - 18 * hop];
-  let angle = 0.05 * pulse(time, 7, 3, 4) - 0.04 * pulse(time, 3.5, 7, 7);
+  // Who drew me? It looks left and right, then shakes off the wet paint like a puppy.
+  let angle =
+    0.05 * pulse(time, 7, 3, 4) -
+    0.04 * pulse(time, 3.5, 7, 7) +
+    0.13 * Math.sin(Math.PI * 2 * ramp(time, 1.5, 0.45)) +
+    0.11 *
+      Math.sin(Math.PI * 2 * 6 * (time - INTRO.shake)) *
+      Math.exp(-5 * Math.max(0, time - INTRO.shake)) *
+      (time >= INTRO.shake ? 1 : 0);
   if (time >= TIMES.fold) {
     const stand = readMarkWalkPosition(time);
     const rise = LEG_LENGTH * legs;
@@ -311,18 +332,14 @@ export function readMarkPose(time: number): MarkPose | null {
     time >= TIMES.fold ? 0.16 * pulse(time, 18.9, 2.8, 5) + 0.2 * pulse(time, 19.36, 3.5, 6) : 0;
   return {
     angle,
-    bloom: easeOut(ramp(time, 3, 0.7)),
-    blink: readBlink(time, [6.5, 7.6, 19.3, 23.1, 30.2]),
+    bloom: easeOut(ramp(time, INTRO.bloom, 0.32)),
+    blink: readBlink(time, [0.5, 2.9, 4.05, 6.5, 19.3, 23.1, 30.2]),
     center,
     color,
     hole,
-    holeOutline: easeInOut(ramp(time, 2.5, 0.3)),
+    holeOutline: easeOut(ramp(time, INTRO.hole, 0.12)),
     legs,
-    // The pen draws one side of the square on each beat.
-    outline: [0.5, 1, 1.5, 2].reduce(
-      (sum, start) => sum + 0.25 * easeOut(ramp(time, start, 0.24)),
-      0,
-    ),
+    outline: easeOut(ramp(time, INTRO.outline, 0.27)),
     previousColor,
     recolor,
     size: MARK_SIZE,
@@ -458,6 +475,8 @@ export type SpongeState = {
   elevation: number;
   mist: number;
   on: boolean;
+  /** Sideways offset of the eye in sponge units: the slow perspective drift. */
+  drift: number;
   probe: readonly [number, number, number];
   probeStart: readonly [number, number, number];
   restLevels: number;
@@ -471,6 +490,7 @@ export function readSpongeState(time: number): SpongeState {
   return {
     awaken: easeInOut(ramp(time, TIMES.awaken, 1.7)),
     azimuth: lerp(52, 47.5, easeInOut(ramp(time, 21, 12))),
+    drift: lerp(0.18, -0.18, easeInOut(ramp(time, 22.5, 11))),
     elevation: 26,
     mist: ramp(time, 20.4, 1) * (1 + 0.28 * (1 - easeInOut(ramp(time, TIMES.giant, 2.5)))),
     on,
@@ -493,6 +513,32 @@ export function readEndCard(time: number) {
     underline: easeInOut(ramp(time, 34.7, 0.3)),
     finalHop: pulse(time, TIMES.finalHit, 2.2, 4.5),
   };
+}
+
+/** The film renders at 1920 x 1080; the 4:5 cut shows a window of this width, scaled by 1.25. */
+export type InkFormat = "landscape" | "portrait";
+export const PORTRAIT_WIDTH = 864;
+
+/**
+Left edge of the 4:5 window in the landscape frame. It stays centered on the page, follows the
+walking mark in the landscape, and leaves room on the right for the giant.
+*/
+export function readPortraitWindow(time: number): number {
+  const centered = 960 - PORTRAIT_WIDTH / 2;
+  if (time < TIMES.walk || time >= TIMES.end) {
+    return centered;
+  }
+  // Once the words arrive, the window holds still: the words stay on the open sky, and the mark
+  // walks across the frame toward the giant.
+  const held = Math.min(time, TIMES.words + 0.5);
+  const markX = project(readCamera(held), readMarkWalkPosition(held))[0];
+  const share = lerp(
+    lerp(0.5, 0.3, easeInOut(ramp(time, TIMES.walk, 1.5))),
+    0.16,
+    easeInOut(ramp(held, TIMES.giant - 0.5, 2)),
+  );
+  const follow = clamp(markX - share * PORTRAIT_WIDTH, 0, 1920 - PORTRAIT_WIDTH);
+  return lerp(follow, centered, easeInOut(ramp(time, TIMES.wipe + 0.3, 0.8)));
 }
 
 /** A cloud wipe carries the cut to the end card: 0 before, 1 fully past. */

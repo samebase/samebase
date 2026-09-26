@@ -42,7 +42,10 @@ import {
   onboardingDemoEditDurationInFrames,
   onboardingDemoFps,
 } from "./compositions/onboarding-demo/onboardingDemoEdit";
-import { SamebaseInkFilm } from "./compositions/samebase-ink-film/SamebaseInkFilm";
+import {
+  SamebaseInkFilm,
+  SamebaseInkFilmPortrait,
+} from "./compositions/samebase-ink-film/SamebaseInkFilm";
 import { FILM_FPS, FILM_FRAMES } from "./compositions/samebase-ink-film/inkTimeline";
 import { SamebaseRisoFilm } from "./compositions/samebase-riso-film/SamebaseRisoFilm";
 import { SamebaseRisoLoop } from "./compositions/samebase-riso-film/SamebaseRisoLoop";
@@ -154,6 +157,14 @@ export function RemotionRoot() {
         fps={FILM_FPS}
         height={1080}
         width={1920}
+      />
+      <Composition
+        id="SamebaseInkFilmPortrait"
+        component={SamebaseInkFilmPortrait}
+        durationInFrames={FILM_FRAMES}
+        fps={FILM_FPS}
+        height={1350}
+        width={1080}
       />
       {([1, 2, 3] as const).map((shot) => (
         <Composition

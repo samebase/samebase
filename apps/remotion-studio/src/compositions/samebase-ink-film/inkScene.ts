@@ -26,6 +26,8 @@ import {
   clamp,
   easeInOut,
   easeOut,
+  easeOutBack,
+  fbm1,
   length,
   lerp,
   mix,
@@ -41,9 +43,10 @@ import {
   wobble,
   type Point,
 } from "./inkMath";
-import { MIST_DEPTH } from "./inkSponge";
+import { HILL_DEPTH } from "./inkSponge";
 import {
   boilIndex,
+  INTRO,
   layerCamera,
   LEG_LENGTH,
   MARK_HOME,
@@ -58,6 +61,7 @@ import {
   readLandscapeReveal,
   readMarkPose,
   readMarkWalkPosition,
+  readPortraitWindow,
   readBlink,
   readWipe,
   RIDGE,
@@ -65,6 +69,7 @@ import {
   TIMES,
   type Camera,
   type CubePose,
+  type InkFormat,
   type MarkPose,
   type SidesPose,
 } from "./inkTimeline";
@@ -253,20 +258,21 @@ function drawMark(
   }
 }
 
-/** Droplets flicked from the brush with each new colour. They stay on the paper. */
+/** Droplets flicked from the brush with each new colour. They fly out and stay on the paper. */
 const DROPLETS = (() => {
   const random = rng(808);
-  const flicks: readonly [number, string][] = [
-    [3.05, PALETTE.slateMid],
-    [4.55, PALETTE.teal],
-    [7.05, PALETTE.ochre],
-    [9.05, PALETTE.ochre],
-    [10.05, PALETTE.teal],
-    [16.15, PALETTE.clay],
-    [17.05, PALETTE.rose],
+  const flicks: readonly [start: number, color: string, count: number][] = [
+    [INTRO.bloom + 0.05, PALETTE.slateMid, 4],
+    [INTRO.shake + 0.02, PALETTE.slateMid, 9],
+    [2.55, PALETTE.teal, 4],
+    [5.05, PALETTE.ochre, 4],
+    [9.05, PALETTE.ochre, 4],
+    [10.05, PALETTE.teal, 4],
+    [16.15, PALETTE.clay, 4],
+    [17.05, PALETTE.rose, 4],
   ];
-  return flicks.flatMap(([start, color]) =>
-    Array.from({ length: 4 }, () => {
+  return flicks.flatMap(([start, color, count]) =>
+    Array.from({ length: count }, () => {
       const angle = random() * Math.PI * 2;
       const distance = 40 + random() * 30;
       const at: Point = [
@@ -278,6 +284,60 @@ const DROPLETS = (() => {
   );
 })();
 
+/** The pen lands hard on the first beat: a blot and a spray of ink at the mark's corner. */
+const SPLASH = (() => {
+  const random = rng(515);
+  const corner: Point = [MARK_HOME[0] - MARK_SIZE / 2, MARK_HOME[1] - MARK_SIZE / 2];
+  return {
+    corner,
+    specks: Array.from({ length: 14 }, (_, index) => {
+      const angle = Math.PI * (0.55 + 1.1 * random()) + (index % 3 === 0 ? Math.PI : 0);
+      const distance = 3 + random() * 16;
+      return {
+        angle,
+        at: add(corner, [Math.cos(angle) * distance, Math.sin(angle) * distance * 0.8]),
+        r: 0.25 + random() * 0.7 * (1 - distance / 24),
+        start: INTRO.splash + random() * 0.08,
+        stretch: 1 + random() * 1.4,
+      };
+    }),
+  };
+})();
+
+function drawSplash(layers: SceneLayers, camera: Camera, time: number): void {
+  const ink = layers.ink.context;
+  const fade = 1 - ramp(time, TIMES.walk, 0.8);
+  if (time < INTRO.splash || fade <= 0) {
+    return;
+  }
+  ink.save();
+  ink.globalAlpha = 0.9 * fade;
+  ink.fillStyle = INK_LINE;
+  const blot = project(camera, SPLASH.corner);
+  const grow = easeOutBack(ramp(time, INTRO.splash, 0.12), 2);
+  polygonPath(
+    ink,
+    wobble(circlePoints(blot, Math.max(0.5, 1.7 * camera.zoom * grow), 40, 0.3, 5), true, {
+      amplitude: 0.8,
+      seed: 6,
+      step: 3,
+    }),
+  );
+  ink.fill();
+  for (const speck of SPLASH.specks) {
+    const shown = easeOut(ramp(time, speck.start, 0.1));
+    if (shown <= 0) {
+      continue;
+    }
+    const center = project(camera, mix(SPLASH.corner, speck.at, shown));
+    const radius = speck.r * camera.zoom;
+    ink.beginPath();
+    ink.ellipse(center[0], center[1], radius * speck.stretch, radius, speck.angle, 0, Math.PI * 2);
+    ink.fill();
+  }
+  ink.restore();
+}
+
 function drawDroplets(layers: SceneLayers, camera: Camera, time: number): void {
   const front = layers.front.context;
   const fade = 1 - ramp(time, TIMES.walk, 0.8);
@@ -287,9 +347,9 @@ function drawDroplets(layers: SceneLayers, camera: Camera, time: number): void {
     if (time < droplet.start) {
       continue;
     }
-    const center = project(camera, droplet.at);
-    const radius =
-      droplet.r * camera.zoom * clamp(easeOut(ramp(time, droplet.start, 0.12)) * 1.15, 0, 1);
+    const flight = easeOut(ramp(time, droplet.start, 0.16));
+    const center = project(camera, mix(MARK_HOME, droplet.at, flight));
+    const radius = droplet.r * camera.zoom * clamp(0.5 + flight, 0, 1);
     if (radius < 0.5) {
       continue;
     }
@@ -311,7 +371,15 @@ function drawDroplets(layers: SceneLayers, camera: Camera, time: number): void {
     gradient.addColorStop(1, tone(0));
     front.fillStyle = gradient;
     front.beginPath();
-    front.ellipse(center[0], center[1], radius, radius * 0.9, droplet.r, 0, Math.PI * 2);
+    front.ellipse(
+      center[0],
+      center[1],
+      radius * (2 - flight),
+      radius * 0.9,
+      droplet.r,
+      0,
+      Math.PI * 2,
+    );
     front.fill();
   }
   front.restore();
@@ -670,7 +738,7 @@ function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: n
   // The whole picture is one sticker: a fold line crosses it from the tip of the right side.
   const folding = pose.peel > 0.002;
   const direction = ray(330);
-  const fold = radius * (1 - 1.3 * pose.peel);
+  const fold = radius * (1 - 0.85 * pose.peel);
   const reflect = (point: Point): Point => {
     const distance =
       (point[0] - center[0]) * direction[0] + (point[1] - center[1]) * direction[1] - fold;
@@ -722,54 +790,110 @@ function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: n
   if (flap.length < 3) {
     return;
   }
-  const shadowShift: Point = [7 * lineScale, 11 * lineScale];
-  wash(
+  const lift = clamp(pose.peel * 1.4);
+  // A soft shadow falls on the paper and the paint under the lifted sticker.
+  front.save();
+  front.globalCompositeOperation = "multiply";
+  front.filter = `blur(${(5 + 9 * lift) * lineScale}px)`;
+  front.fillStyle = `rgba(84,76,108,${0.26 + 0.16 * lift})`;
+  const shadowShift: Point = [(4 + 8 * lift) * lineScale, (6 + 12 * lift) * lineScale];
+  polygonPath(
     front,
     flap.map((point) => add(point, shadowShift)),
-    "#6E6A8C",
-    {
-      body: 0.22,
-      holes: flapHoles.map((hole) => hole.map((point) => add(point, shadowShift))),
-      mottle: 0,
-      seed: 99,
-      wobbleAmplitude: 4,
-    },
   );
-  // The sticker is opaque paper, and its back is clay: the colour the little mark will have.
+  front.fill();
+  front.restore();
+  // The back of the sticker is plain paper, with the paint showing faintly through it.
   front.save();
-  front.fillStyle = "#F6EEDF";
+  front.fillStyle = "#FBF7EC";
   polygonPath(front, flap, flapHoles);
   front.fill("evenodd");
+  polygonPath(front, flap, flapHoles);
+  front.clip("evenodd");
+  front.globalCompositeOperation = "multiply";
+  sides.forEach((side) => {
+    const ghost = clipHalfPlane(side.outer, center, direction, fold, false).map(reflect);
+    if (side.width >= 12 && ghost.length >= 3) {
+      front.globalAlpha = 0.13;
+      front.fillStyle = side.color;
+      polygonPath(front, ghost);
+      front.fill();
+    }
+  });
+  // The curl: a dark crease at the fold, a bright rim where the paper rolls, then a soft shade.
+  front.globalAlpha = 1;
+  front.globalCompositeOperation = "source-over";
+  const foldPoint = add(center, scale(direction, fold));
+  const inward = add(foldPoint, scale(direction, -60 * lineScale));
+  const curl = front.createLinearGradient(foldPoint[0], foldPoint[1], inward[0], inward[1]);
+  curl.addColorStop(0, "rgba(70,62,86,0.5)");
+  curl.addColorStop(0.07, "rgba(255,255,252,0.95)");
+  curl.addColorStop(0.2, "rgba(255,255,252,0.35)");
+  curl.addColorStop(0.55, "rgba(186,178,196,0.18)");
+  curl.addColorStop(1, "rgba(186,178,196,0)");
+  front.fillStyle = curl;
+  front.fillRect(0, 0, 1920, 1080);
   front.restore();
   ink.save();
   ink.globalCompositeOperation = "destination-out";
   polygonPath(ink, flap, flapHoles);
   ink.fill("evenodd");
   ink.restore();
-  const flapCenter = scale(
-    flap.reduce((sum, point) => add(sum, point), [0, 0]),
-    1 / flap.length,
-  );
-  wash(front, flap, PALETTE.clay, {
-    body: 0.74,
-    holes: flapHoles,
-    mottle: 0.6,
-    origin: flapCenter,
-    seed: 77 + (boil % 4),
-    wobbleAmplitude: 1.3 * lineScale,
-  });
-  inkPolygon(ink, flap, { ...baseLine, seed: lineSeed + 90 });
+  const paperEdge = { ...baseLine, alpha: 0.8, width: 1.8 * lineScale };
+  inkPolygon(ink, flap, { ...paperEdge, seed: lineSeed + 90 });
   flapHoles.forEach((hole, index) =>
-    inkPolygon(ink, hole, { ...baseLine, seed: lineSeed + 91 + index, width: 2 * lineScale }),
+    inkPolygon(ink, hole, { ...paperEdge, seed: lineSeed + 91 + index, width: 1.3 * lineScale }),
   );
+  const crease = flap.filter(
+    (point) =>
+      Math.abs(
+        (point[0] - center[0]) * direction[0] + (point[1] - center[1]) * direction[1] - fold,
+      ) < 0.75,
+  );
+  const creaseStart = crease[0];
+  const creaseEnd = crease[crease.length - 1];
+  if (creaseStart && creaseEnd && crease.length >= 2) {
+    inkLine(ink, [creaseStart, creaseEnd], {
+      alpha: 0.9,
+      amplitude: 0.6,
+      color: INK_LINE,
+      seed: lineSeed + 99,
+      taper: 0.2,
+      width: 2.6 * lineScale,
+    });
+  }
 }
 
-function drawCubeLabels(layers: SceneLayers, camera: Camera, time: number, boil: number): void {
+function drawCubeLabels(
+  layers: SceneLayers,
+  camera: Camera,
+  time: number,
+  boil: number,
+  format: InkFormat,
+): void {
   const ink = layers.ink.context;
   const center = project(camera, MARK_HOME);
   const radius = 0.816 * MARK_SIZE * camera.zoom;
-  const size = clamp(radius * 0.36, 44, 72);
-  const places: readonly { anchor: Point; label: Point; align: "center" | "left" }[] = [
+  const size = clamp(radius * 0.36, 44, format === "portrait" ? 60 : 72);
+  // The 4:5 window is narrow: the two lower labels sit under the cube there.
+  const portraitPlaces: readonly { anchor: Point; label: Point; align: "center" | "left" }[] = [
+    {
+      align: "center",
+      anchor: add(center, [0, -radius * 0.6]),
+      label: add(center, [0, -radius * 1.52]),
+    },
+    {
+      align: "center",
+      anchor: add(center, [-radius * 0.5, radius * 0.7]),
+      label: add(center, [-radius * 0.95, radius * 1.62]),
+    },
+    {
+      align: "center",
+      anchor: add(center, [radius * 0.5, radius * 0.7]),
+      label: add(center, [radius * 0.95, radius * 1.62]),
+    },
+  ];
+  const landscapePlaces: readonly { anchor: Point; label: Point; align: "center" | "left" }[] = [
     {
       align: "center",
       anchor: add(center, [0, -radius * 0.6]),
@@ -786,6 +910,7 @@ function drawCubeLabels(layers: SceneLayers, camera: Camera, time: number, boil:
       label: add(center, [radius * 1.95, radius * 0.5]),
     },
   ];
+  const places = format === "portrait" ? portraitPlaces : landscapePlaces;
   readCubeLabels(time).forEach((label, index) => {
     const place = places[index];
     if (!place || label.progress <= 0 || label.fade <= 0) {
@@ -863,6 +988,13 @@ const BANK_HALVES: readonly (readonly Puff[])[] = [
   ],
 ];
 /** A cloud: cream puffs over a flat base, with ink only on the puffy outline. */
+let cloudSheet: Canvas2D | null = null;
+
+function readCloudSheet(): Canvas2D {
+  cloudSheet ??= createCanvas();
+  return cloudSheet;
+}
+
 function drawCloud(
   layers: SceneLayers,
   puffs: readonly { center: Point; r: number }[],
@@ -888,34 +1020,35 @@ function drawCloud(
     }
   };
   const top = Math.min(...puffs.map((puff) => puff.center[1] - puff.r));
-  front.save();
-  front.beginPath();
-  front.rect(-4000, -4000, 12000, baseY + 4000);
-  front.clip();
-  front.globalAlpha = alpha;
-  shape(front);
-  front.fillStyle = CLOUD_FILL;
-  front.fill();
-  const shade = front.createLinearGradient(0, top, 0, Math.min(baseY, top + 600));
+  // Each cloud is painted on its own sheet first, so its lower edge can dry into a soft,
+  // wobbly wash edge instead of a cut line.
+  const sheet = readCloudSheet();
+  const paint = sheet.context;
+  paint.clearRect(0, 0, 1920, 1080);
+  paint.save();
+  shape(paint);
+  paint.fillStyle = CLOUD_FILL;
+  paint.fill();
+  const shade = paint.createLinearGradient(0, top, 0, Math.min(baseY, top + 600));
   shade.addColorStop(0, "rgba(255,248,236,0)");
   shade.addColorStop(0.55, "rgba(236,226,222,0.2)");
   shade.addColorStop(1, "rgba(206,202,214,0.4)");
-  front.fillStyle = shade;
+  paint.fillStyle = shade;
   if (shaded) {
-    front.fill();
+    paint.fill();
   }
   // Big puffs get a soft cool shadow under their bellies, so a bank has volume.
-  shape(front);
-  front.clip();
-  front.globalCompositeOperation = "multiply";
-  front.filter = `blur(${Math.max(4, Math.min(...puffs.map((puff) => puff.r)) * 0.18)}px)`;
-  front.fillStyle = "rgba(206,204,226,0.42)";
+  shape(paint);
+  paint.clip();
+  paint.globalCompositeOperation = "source-atop";
+  paint.filter = `blur(${Math.max(4, Math.min(...puffs.map((puff) => puff.r)) * 0.18)}px)`;
+  paint.fillStyle = "rgba(196,194,220,0.4)";
   for (const puff of puffs) {
     if (puff.r < 60 || !shaded) {
       continue;
     }
-    front.beginPath();
-    front.ellipse(
+    paint.beginPath();
+    paint.ellipse(
       puff.center[0],
       puff.center[1] + puff.r * 0.62,
       puff.r * 0.85,
@@ -924,8 +1057,54 @@ function drawCloud(
       0,
       Math.PI * 2,
     );
-    front.fill();
+    paint.fill();
   }
+  paint.restore();
+  if (baseY < 3000) {
+    const left = Math.min(...puffs.map((puff) => puff.center[0] - puff.r)) - 40;
+    const right = Math.max(...puffs.map((puff) => puff.center[0] + puff.r)) + 40;
+    const edge: Point[] = [];
+    // Small clouds get a smaller soft edge, in proportion to their puffs.
+    const soft = clamp(Math.max(...puffs.map((puff) => puff.r)) / 130, 0.3, 1);
+    // Scalloped, uneven, and wet: the wash thins out over the last 60 px and ends in soft lobes.
+    for (let x = left; x <= right; x += 6) {
+      edge.push([
+        x,
+        baseY +
+          soft * (-6 + 16 * fbm1(x / 150, seed) + 7 * Math.abs(Math.sin(x / 47 + seed))) +
+          3 * vnoise(x / 13, seed + 3),
+      ]);
+    }
+    paint.save();
+    paint.globalCompositeOperation = "destination-out";
+    const thin = paint.createLinearGradient(0, baseY - 70 * soft, 0, baseY + 10);
+    thin.addColorStop(0, "rgba(0,0,0,0)");
+    thin.addColorStop(1, "rgba(0,0,0,0.45)");
+    paint.fillStyle = thin;
+    paint.fillRect(left, baseY - 70 * soft, right - left, 400);
+    paint.filter = `blur(${12 * soft}px)`;
+    paint.fillStyle = "#000";
+    polygonPath(paint, [...edge, [right, baseY + 400], [left, baseY + 400]]);
+    paint.fill();
+    paint.restore();
+    // The dried rim of the wash, a little above the soft edge.
+    paint.save();
+    paint.globalCompositeOperation = "source-atop";
+    paint.filter = "blur(2px)";
+    paint.strokeStyle = "rgba(150,146,178,0.34)";
+    paint.lineWidth = 3;
+    paint.beginPath();
+    edge.forEach((point, index) =>
+      index === 0
+        ? paint.moveTo(point[0], point[1] - 14 * soft)
+        : paint.lineTo(point[0], point[1] - 14 * soft),
+    );
+    paint.stroke();
+    paint.restore();
+  }
+  front.save();
+  front.globalAlpha = alpha;
+  front.drawImage(sheet.canvas, 0, 0);
   front.restore();
   if (eraseInk) {
     ink.save();
@@ -959,7 +1138,7 @@ function drawCloud(
             otherIndex !== index && length(sub(point, other.center)) < other.r - 1.5,
         ) || occluders.some((other) => length(sub(point, other.center)) < other.r - 1.5);
       const upper = puff.r > 140 && Math.sin(angle) < -0.5 && Math.abs(Math.cos(angle)) < 0.6;
-      const state = point[1] > baseY - 2 ? null : !covered ? false : upper ? true : null;
+      const state = point[1] > baseY - 14 ? null : !covered ? false : upper ? true : null;
       if (state === null || (run.length > 0 && state !== inner)) {
         flush();
       }
@@ -1041,7 +1220,13 @@ const TUFTS = (() => {
   });
 })();
 
-function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil: number): void {
+function paintLandscape(
+  layers: SceneLayers,
+  camera: Camera,
+  time: number,
+  boil: number,
+  format: InkFormat,
+): void {
   const reveal = readLandscapeReveal(time);
   if (reveal.sky <= 0 && reveal.ridge <= 0) {
     return;
@@ -1050,7 +1235,7 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
   const front = layers.front.context;
   const ink = layers.ink.context;
   const skyCamera = layerCamera(camera, 0.12);
-  const hillCamera = layerCamera(camera, MIST_DEPTH);
+  const hillCamera = layerCamera(camera, HILL_DEPTH);
   const cloudCamera = layerCamera(camera, 0.5);
   const markFeet = project(camera, [
     lerp(MARK_HOME[0], 292, clamp((time - TIMES.walk) / 2.5)),
@@ -1309,17 +1494,19 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
     const lineOne = ramp(time, TIMES.words, 0.55);
     const lineTwo = ramp(time, TIMES.words + 0.5, 0.6);
     const lineThree = ramp(time, TIMES.stroll, 0.5);
-    handLetter(ink, "Every app on", 86, 150 + drift, {
+    // Title safe: at least 6 percent in from every edge, and clear of the contact sheet label.
+    const left = format === "portrait" ? readPortraitWindow(time) + 64 : 132;
+    handLetter(ink, "Every app on", left, 206 + drift, {
       progress: lineOne,
       seed: 7 + (boil % 3),
       size: 72,
     });
-    handLetter(ink, "the same base.", 86, 226 + drift, {
+    handLetter(ink, "the same base.", left, 282 + drift, {
       progress: lineTwo,
       seed: 8 + (boil % 3),
       size: 72,
     });
-    handLetter(ink, "Samebase too.", 90, 298 + drift, {
+    handLetter(ink, "Samebase too.", left + 4, 352 + drift, {
       color: PALETTE.inkSoft,
       progress: lineThree,
       seed: 9 + (boil % 3),
@@ -1330,17 +1517,61 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
 
 // ----- the end card -----
 
-function paintEndCard(layers: SceneLayers, time: number, boil: number): void {
-  const camera = readEndCamera(time);
+const END_LAYOUTS = {
+  landscape: {
+    align: "left",
+    circle: [560, 600],
+    circleRadius: 250,
+    from: 260,
+    groundY: 752,
+    lineOne: [830, 560],
+    lineTwo: [838, 680],
+    markX: 560,
+    site: [840, 772],
+    size: 185,
+    sizes: [170, 74, 60],
+    underline: [
+      [836, 592],
+      [1440, 584],
+    ],
+  },
+  portrait: {
+    align: "center",
+    circle: [960, 400],
+    circleRadius: 215,
+    from: 700,
+    groundY: 545,
+    lineOne: [960, 745],
+    lineTwo: [960, 842],
+    markX: 960,
+    site: [960, 922],
+    size: 150,
+    sizes: [150, 58, 50],
+    underline: [
+      [690, 776],
+      [1230, 768],
+    ],
+  },
+} as const;
+
+function paintEndCard(layers: SceneLayers, time: number, boil: number, format: InkFormat): void {
+  const camera = readEndCamera(time, format);
+  const layout = END_LAYOUTS[format];
   const card = readEndCard(time);
   const ink = layers.ink.context;
-  const at = (point: Point) => project(camera, point);
-  const size = 185;
-  const groundY = 752;
+  const at = (point: readonly [number, number]) => project(camera, [point[0], point[1]]);
+  const size = layout.size;
+  const groundY = layout.groundY;
   const restY = groundY - size / 2 - (LEG_LENGTH / MARK_SIZE) * size;
-  drawConstructionCircle(ink, at([560, 600]), 250 * camera.zoom, card.circle, 23);
+  drawConstructionCircle(
+    ink,
+    at(layout.circle),
+    layout.circleRadius * camera.zoom,
+    card.circle,
+    23,
+  );
   const hop = card.hop;
-  const x = lerp(260, 560, easeOut(hop));
+  const x = lerp(layout.from, layout.markX, easeOut(hop));
   const jump = 170 * Math.sin(Math.PI * clamp(hop)) + 60 * Math.max(0, card.finalHop);
   const land =
     pulse(time, TIMES.end + 0.5, 2.4, 5) + 0.6 * pulse(time, TIMES.finalHit + 0.45, 2.6, 5);
@@ -1375,16 +1606,16 @@ function paintEndCard(layers: SceneLayers, time: number, boil: number): void {
     { body: 0.3 * clamp(hop * 2), mottle: 0, seed: 31, wobbleAmplitude: 2 },
   );
   drawMark(layers, camera, pose, boil, false);
-  const textX = 830;
-  const lineOne = at([textX, 560]);
+  const lineOne = at(layout.lineOne);
   handLetter(ink, "Same base.", lineOne[0], lineOne[1], {
+    align: layout.align,
     progress: card.lineOne,
     seed: 501 + (boil % 3),
-    size: 170 * camera.zoom,
+    size: layout.sizes[0] * camera.zoom,
   });
   if (card.underline > 0) {
-    const from = at([textX + 6, 592]);
-    const to = at([textX + 610, 584]);
+    const from = at(layout.underline[0]);
+    const to = at(layout.underline[1]);
     inkLine(ink, partialPath([from, mix(from, to, 0.5), to], card.underline), {
       amplitude: 2,
       color: PALETTE.clayDeep,
@@ -1393,18 +1624,20 @@ function paintEndCard(layers: SceneLayers, time: number, boil: number): void {
       width: 9 * camera.zoom,
     });
   }
-  const lineTwo = at([textX + 8, 680]);
+  const lineTwo = at(layout.lineTwo);
   handLetter(ink, "Your accounts. No magic.", lineTwo[0], lineTwo[1], {
+    align: layout.align,
     progress: card.lineTwo,
     seed: 503 + (boil % 3),
-    size: 74 * camera.zoom,
+    size: layout.sizes[1] * camera.zoom,
   });
-  const site = at([textX + 10, 772]);
+  const site = at(layout.site);
   handLetter(ink, "samebase.com", site[0], site[1], {
+    align: layout.align,
     color: PALETTE.inkSoft,
     progress: card.site,
     seed: 504 + (boil % 3),
-    size: 60 * camera.zoom,
+    size: layout.sizes[2] * camera.zoom,
   });
 }
 
@@ -1446,7 +1679,7 @@ function paintWipe(layers: SceneLayers, time: number): void {
   drawCloud(layers, puffs, 5000, 1, 600, true, body, false);
 }
 
-export function paintScene(time: number, layers: SceneLayers): void {
+export function paintScene(time: number, layers: SceneLayers, format: InkFormat): void {
   const boil = boilIndex(time);
   const back = layers.back.context;
   back.save();
@@ -1459,9 +1692,10 @@ export function paintScene(time: number, layers: SceneLayers): void {
   layers.ink.context.clearRect(0, 0, 1920, 1080);
   if (time < TIMES.end) {
     const camera = readCamera(time);
-    paintLandscape(layers, camera, time, boil);
+    paintLandscape(layers, camera, time, boil, format);
     if (time < TIMES.walk + 0.8) {
       drawDroplets(layers, camera, time);
+      drawSplash(layers, camera, time);
     }
     const cube = readCubePose(time);
     if (cube?.kind === "cube") {
@@ -1470,14 +1704,14 @@ export function paintScene(time: number, layers: SceneLayers): void {
       drawSides(layers, camera, cube, boil);
     }
     if (time > TIMES.cube && time < TIMES.fourSides + 0.5) {
-      drawCubeLabels(layers, camera, time, boil);
+      drawCubeLabels(layers, camera, time, boil, format);
     }
     const mark = readMarkPose(time);
     if (mark) {
       drawMark(layers, camera, mark, boil, time >= TIMES.walk);
     }
   } else {
-    paintEndCard(layers, time, boil);
+    paintEndCard(layers, time, boil, format);
   }
   paintWipe(layers, time);
 }
