@@ -30,7 +30,7 @@ the camera moves.
 
 | Time       | Beat                  | Picture                                                                                                                                                                                                      | Words                                                  | Out                    |
 | ---------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ---------------------- |
-| 0 to 4     | Intro bars 1 to 2     | Page 01. The three plates of the slate mark fly in out of register and snap into register on beat 1. Each beat moulds the mark: pink, blue, wide, tall, big opening, small opening, squash.                  | None                                                   | Continuous             |
+| 0 to 4     | Intro bars 1 to 2     | Pages 02 and 03. The three plates of the slate mark fly in out of register and snap into register on beat 1. Each beat moulds the mark: pink, blue, wide, tall, big opening, small opening, squash.          | None                                                   | Continuous             |
 | 4 to 8     | Intro bars 3 to 4     | SAME and BASE slam in from the frame edges on bar downbeats and overprint the mark. On beat 6.0 dashed cut lines draw the cube net around the mark, with tint flaps and FOLD labels.                         | SAME, BASE                                             | The cut-out lifts      |
 | 8 to 12    | Build bars 1 to 2     | The net lifts off the page with a shadow. The object tilts to a three-quarter view. Flaps fold back one per beat, with anticipation and overshoot, until the cube closes.                                    | None                                                   | Continuous             |
 | 12 to 16   | Build bars 3 to 4     | Lit 3D cube in perspective. It turns to the isometric corner view. The three visible faces take pink, blue, and slate. The perspective eases out and the cube holds for the last beat.                       | GitHub. Convex. Cloudflare. (one word per beat)        | Continuous             |
@@ -49,3 +49,21 @@ the camera moves.
 - Only the product lines above. Small labels (FIG., FOLD, SIDES) are zine ephemera.
 - Every frame is a pure function of time. Randomness comes from seeded hashes of the print index (12
   prints per second).
+
+## Loop
+
+`SamebaseRisoLoop` (8 s) plays the finale music from 32 to 40 s over an isometric pull back from the
+sponge corner. The sponge is self-similar about its corner, so a 9 times zoom ends on the picture it
+starts with. The loop uses solid cells and no haze, because both would break the self-similarity.
+
+## Delivery
+
+The master (CRF 16) is about 200 MB, because the halftone and the registration boil are hard to
+compress. Grain, blotches, and pinholes belong to the plate master and stay between prints, so only
+the registration and the roller bands change 12 times per second. The web copy is a two-pass encode:
+
+```console
+ffmpeg -i out/samebase-riso-film.mp4 -c:v libx264 -preset slow -b:v 4300k -pass 1 -an -f mp4 /dev/null
+ffmpeg -i out/samebase-riso-film.mp4 -c:v libx264 -preset slow -b:v 4300k -pass 2 \
+  -pix_fmt yuv420p -c:a aac -b:a 160k -movflags +faststart out/samebase-riso-film-web.mp4
+```

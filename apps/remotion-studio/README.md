@@ -39,6 +39,12 @@ appear in Studio immediately.
 - `MengerScaleStill-1` to `MengerScaleStill-3` are look tests of a huge depth-7 sponge in haze: a
   low angle up one edge, one corner out of the haze, and a near face to the horizon with the flat
   mark for scale. Frame 0 is the still.
+- `SamebaseRisoFilm` is the 42-second riso zine brand film. It breaks the reading of the mark four
+  times: flat mark, paper cube, flat reshape, and one cell of a huge sponge. One WebGPU pass prints
+  the page plates and the ray-marched scene with halftone screens and misregistration. The
+  storyboard and music notes are in `notes/samebase-riso-film.md`.
+- `SamebaseRisoLoop` is an 8-second seamless loop: an endless isometric pull back from the sponge
+  corner under the finale music.
 - `ContactSheetLabel` draws the time labels for the contact sheet command.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -200,6 +206,11 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio render:mark-illusion-test`: render the mark illusion.
 - `pnpm --filter @samebase/remotion-studio render:menger-scale-stills`: render the three scale
   stills.
+- `pnpm --filter @samebase/remotion-studio render:samebase-riso-film`: render the riso brand film.
+  It needs the local music file `public/media/samebase-riso-film.mp3`.
+- `pnpm --filter @samebase/remotion-studio render:samebase-riso-loop`: render the seamless loop.
+- `node src/scripts/analyzeMusicBeats.ts <audio> [section starts]`: print the tempo, beat grid, bar
+  loudness, and strongest onsets of a music file. It needs `ffmpeg` on the `PATH`.
 - `pnpm --filter @samebase/remotion-studio render:contact-sheet <composition-id> <frames> <columns> <output.jpg>`:
   render frames (`75`) or seconds (`2.5s`) from a comma-separated list into one labeled JPEG. It
   needs `ffmpeg` on the `PATH`. Example:
