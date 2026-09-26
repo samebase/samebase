@@ -1,4 +1,5 @@
 import {
+  beat,
   drift,
   easeInCubic,
   easeInOutCubic,
@@ -617,7 +618,7 @@ function readPageCamera(time: number): FilmFrame["page"] {
     mix,
   );
   const focusOnMark = easeInOutSine(progress(time, 0.1, 4)) * (1 - back(progress(time, 4, 4.45)));
-  const scale = zoom + 0.012 * kick;
+  const scale = zoom + 0.012 * kick + 0.005 * readBeatPump(time);
   const halfWidth = 960 / scale;
   const halfHeight = 540 / scale;
   const focusX = Math.min(
@@ -631,6 +632,15 @@ function readPageCamera(time: number): FilmFrame["page"] {
     rotation: (0.16 * drift(time, 3) + 0.35 * kick) * degrees,
     scale,
   };
+}
+
+/** A small pulse on every beat of the moulding, the drop, and the finale, so the print pumps. */
+function readBeatPump(time: number): number {
+  const pumping =
+    (time >= 1 && time < 4) ||
+    (time >= times.drop && time < times.silence) ||
+    (time >= times.hit && time < 38);
+  return pumping ? pulse(time, Math.floor(time / beat) * beat, 12) : 0;
 }
 
 /** Constant plate offsets, like a real riso print, in page pixels. */
@@ -648,7 +658,7 @@ const flyIn = [
 ] as const;
 
 function readRegistration(time: number, printIndex: number): FilmFrame["registration"] {
-  let shock = 0;
+  let shock = 0.4 * readBeatPump(time);
   for (const hit of kicks) {
     shock += pulse(time, hit, 9);
   }
@@ -699,7 +709,7 @@ export const loopDurationInSeconds = 8;
 /** The loop plays the music of the finale: four bars from the hit. */
 export const loopMusicStart = times.hit;
 /** The paper sticker that carries the words of the loop, in page pixels. */
-export const loopSticker = [92, 150, 850, 800] as const;
+export const loopSticker = [92, 150, 930, 800] as const;
 
 /**
 The social loop: an endless isometric pull back from the giant's corner. The sponge is self-similar
@@ -744,6 +754,8 @@ export function readLoopFrame(timeInSeconds: number): FilmFrame {
         ...base.sponge,
         center: scale([1, -1, -1], halfSize - 1),
         halfSize,
+        // Haze grows with depth, which is not self-similar, so the loop has none.
+        hazeDistance: 1e9,
         levels,
         paperCells: false,
         printRadius: [1e6, 1e6, 1e6],
