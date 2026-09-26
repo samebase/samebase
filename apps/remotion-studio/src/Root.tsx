@@ -18,7 +18,17 @@ import {
   founderDemoFps,
 } from "./compositions/founder-demo/founderDemoEdit";
 import { LogoHype, logoHypeDurationInFrames, logoHypeFps } from "./compositions/logo-hype/LogoHype";
+import { MarkIllusionTest } from "./compositions/mark-illusion-test/MarkIllusionTest";
+import {
+  markIllusionDurationInFrames,
+  markIllusionFps,
+} from "./compositions/mark-illusion-test/markIllusionTimeline";
 import { MengerDiveSpike } from "./compositions/menger-dive-spike/MengerDiveSpike";
+import { MengerScaleStill } from "./compositions/menger-scale-still/MengerScaleStill";
+import {
+  mengerScaleStillDurationInFrames,
+  mengerScaleStillFps,
+} from "./compositions/menger-scale-still/mengerScaleShots";
 import {
   mengerDiveDurationInFrames,
   mengerDiveFps,
@@ -106,6 +116,27 @@ export function RemotionRoot() {
         height={1080}
         width={1920}
       />
+      <Composition
+        id="MarkIllusionTest"
+        component={MarkIllusionTest}
+        defaultProps={{ forceWarp: false }}
+        durationInFrames={markIllusionDurationInFrames}
+        fps={markIllusionFps}
+        height={1080}
+        width={1920}
+      />
+      {([1, 2, 3] as const).map((shot) => (
+        <Composition
+          id={`MengerScaleStill-${shot}`}
+          component={MengerScaleStill}
+          defaultProps={{ shot }}
+          durationInFrames={mengerScaleStillDurationInFrames}
+          fps={mengerScaleStillFps}
+          height={1080}
+          key={shot}
+          width={1920}
+        />
+      ))}
       <Composition
         id="TicTacToeRecording"
         component={TicTacToeRecording}

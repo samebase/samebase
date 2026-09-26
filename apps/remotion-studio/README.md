@@ -32,6 +32,13 @@ appear in Studio immediately.
 - `MengerDiveSpike` is a 5-second WebGPU ray-marched dive into an unbounded Menger sponge. It zooms
   3x in each clip length, so it loops without a seam. It needs a WebGPU adapter. On an Apple silicon
   Mac, the Remotion headless shell uses the Metal GPU.
+- `MarkIllusionTest` is a 10-second look test for the brand film. The flat mark turns into a lit 3D
+  cube, becomes flat at the isometric view, and then opens a fourth and fifth side with a 2D warp
+  that is the identity at three sides. `forceWarp` renders the warp in every frame for the swap
+  check.
+- `MengerScaleStill-1` to `MengerScaleStill-3` are look tests of a huge depth-7 sponge in haze: a
+  low angle up one edge, one corner out of the haze, and a near face to the horizon with the flat
+  mark for scale. Frame 0 is the still.
 - `ContactSheetLabel` draws the time labels for the contact sheet command.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -190,6 +197,9 @@ Do not commit:
   demo while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
 - `pnpm --filter @samebase/remotion-studio render:menger-dive-spike`: render the Menger dive loop.
+- `pnpm --filter @samebase/remotion-studio render:mark-illusion-test`: render the mark illusion.
+- `pnpm --filter @samebase/remotion-studio render:menger-scale-stills`: render the three scale
+  stills.
 - `pnpm --filter @samebase/remotion-studio render:contact-sheet <composition-id> <frames> <columns> <output.jpg>`:
   render frames (`75`) or seconds (`2.5s`) from a comma-separated list into one labeled JPEG. It
   needs `ffmpeg` on the `PATH`. Example:

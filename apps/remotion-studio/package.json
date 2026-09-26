@@ -14,7 +14,9 @@
     "render:founder-demo-youtube": "remotion render FounderDemoYouTube out/founder-demo-youtube.mp4",
     "render:contact-sheet": "node src/scripts/renderContactSheet.ts",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
+    "render:mark-illusion-test": "remotion render MarkIllusionTest out/mark-illusion-test.mp4",
     "render:menger-dive-spike": "remotion render MengerDiveSpike out/menger-dive-spike.mp4",
+    "render:menger-scale-stills": "remotion still MengerScaleStill-1 out/menger-scale-still-1.png && remotion still MengerScaleStill-2 out/menger-scale-still-2.png && remotion still MengerScaleStill-3 out/menger-scale-still-3.png",
     "render:onboarding-demo": "remotion render OnboardingDemo out/onboarding-demo-youtube.mp4",
     "render:scout-demo": "remotion render ScoutDemo out/scout-demo-master.mp4",
     "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4"
