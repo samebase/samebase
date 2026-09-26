@@ -115,13 +115,12 @@ describe("LandingPage", () => {
     // Hero: the stack opinion, one plain product sentence, and the agent prompt.
     expect(markup).toContain("The correct way to build web apps.");
     expect(markup).toContain(
-      "Samebase gives you one place to manage GitHub, Convex, and Cloudflare across all your apps.",
+      "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
-    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
     expect(markup).toContain(
       "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
     );
-    expect(markup).toContain("Copy</button>");
+    expect(markup).toContain("Copy prompt</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
@@ -129,7 +128,7 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
     );
-    expect(markup.indexOf("Don&#x27;t trust us, ask your agent.")).toBeLessThan(
+    expect(markup.indexOf("Research https://samebase.com.")).toBeLessThan(
       markup.indexOf("youtube-nocookie.com/embed/UfxE8rvprqc"),
     );
 

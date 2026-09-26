@@ -253,7 +253,7 @@ function LandingCopyPromptButton() {
 
   return (
     <button
-      className="w-full border-t border-border px-5 py-3 text-left font-mono text-xs font-semibold hover:bg-muted @2xl:w-auto @2xl:border-l @2xl:border-t-0 @2xl:text-center"
+      className="w-full border-t border-border px-5 py-3 text-left font-mono text-[13px] font-semibold hover:bg-muted @2xl:w-auto @2xl:border-l @2xl:border-t-0 @2xl:text-center"
       onClick={() => {
         // The label only flips on a successful write; a denied clipboard
         // permission leaves the prompt selectable and the button unchanged.
@@ -272,7 +272,7 @@ function LandingCopyPromptButton() {
       }}
       type="button"
     >
-      {copied ? "Copied" : "Copy"}
+      {copied ? "Copied" : "Copy prompt"}
     </button>
   );
 }
@@ -370,11 +370,9 @@ function LandingPreviewOverview() {
                 The correct way to build web apps.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                Samebase gives you one place to manage GitHub, Convex, and Cloudflare across all
-                your apps.
+                One place to manage GitHub, Convex, and Cloudflare across all your apps.
               </p>
-              <p className="mt-7 text-lg font-semibold">Don't trust us, ask your agent.</p>
-              <div className="mt-3 border border-border @2xl:flex @2xl:items-stretch">
+              <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
                 <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
                   {LANDING_AGENT_PROMPT}
                 </p>
