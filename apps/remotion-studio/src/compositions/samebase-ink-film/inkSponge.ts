@@ -12,6 +12,7 @@ import {
   project,
   readCamera,
   readMarkWalkPosition,
+  readSpongeState,
   SCREEN_CENTER,
   type Camera,
 } from "./inkTimeline";
@@ -19,7 +20,12 @@ import {
 export const SPONGE_SPAN = 1242;
 export const SPONGE_FRONT_TOP: Point = [1560, 340];
 export const SPONGE_DEPTH = 0.45;
-export const MIST_DEPTH = 0.6;
+export const MIST_DEPTH = 0.62;
+export const HILL_DEPTH = 0.72;
+/** Eye distance from the pivot plane, in sponge units. Smaller is stronger perspective. */
+export const SPONGE_FOCAL = 4.2;
+/** The pivot plane passes through the near vertical edge, so that edge keeps its place. */
+const PIVOT: Vector3 = [1, 1, 0.45];
 
 type Vector3 = readonly [number, number, number];
 
@@ -38,6 +44,29 @@ export function readSpongeBasis(azimuth: number, elevation: number) {
   return { down, origin, right, view };
 }
 
+/**
+The eye of the sponge camera and the depth of the pivot plane along `view`. The frame center of
+the sponge layer is the principal point.
+*/
+export function readSpongeEye(
+  layerCamera: Camera,
+  azimuth: number,
+  elevation: number,
+  drift: number,
+) {
+  const { origin, right, down, view } = readSpongeBasis(azimuth, elevation);
+  const a = (layerCamera.center[0] - origin[0]) / SPONGE_SPAN;
+  const b = (layerCamera.center[1] - origin[1]) / SPONGE_SPAN;
+  const pivotDepth = PIVOT[0] * view[0] + PIVOT[1] * view[1] + PIVOT[2] * view[2];
+  const reach = pivotDepth + SPONGE_FOCAL;
+  const eye: Vector3 = [
+    (a + drift) * right[0] + b * down[0] + reach * view[0],
+    (a + drift) * right[1] + b * down[1] + reach * view[1],
+    (a + drift) * right[2] + b * down[2] + reach * view[2],
+  ];
+  return { eye, pivotDepth };
+}
+
 /** Frame B coordinates of the sponge layer for a screen point. */
 export function unproject(camera: Camera, screen: Point): Point {
   const dx = screen[0] - SCREEN_CENTER[0];
@@ -51,38 +80,51 @@ export function unproject(camera: Camera, screen: Point): Point {
 }
 
 /** Where a layer point's ray first meets the sponge's bounding cube, or null when it misses. */
-function entryPoint(layerPoint: Point, azimuth: number, elevation: number): Vector3 | null {
+function entryPoint(
+  layerPoint: Point,
+  camera: Camera,
+  azimuth: number,
+  elevation: number,
+  drift: number,
+): Vector3 | null {
   const { down, origin, right, view } = readSpongeBasis(azimuth, elevation);
+  const { eye, pivotDepth } = readSpongeEye(camera, azimuth, elevation, drift);
   const a = (layerPoint[0] - origin[0]) / SPONGE_SPAN;
   const b = (layerPoint[1] - origin[1]) / SPONGE_SPAN;
-  const base: Vector3 = [
-    a * right[0] + b * down[0],
-    a * right[1] + b * down[1],
-    a * right[2] + b * down[2],
+  const target: Vector3 = [
+    a * right[0] + b * down[0] + pivotDepth * view[0],
+    a * right[1] + b * down[1] + pivotDepth * view[1],
+    a * right[2] + b * down[2] + pivotDepth * view[2],
   ];
-  // P(t) = base + t * view, marching from large t toward small t.
-  let enter = -Infinity;
+  const direction: Vector3 = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
+  let enter = 0;
   let exit = Infinity;
   for (let axis = 0; axis < 3; axis += 1) {
-    const start = base[axis] ?? 0;
-    const direction = view[axis] ?? 0;
-    const t0 = (0 - start) / direction;
-    const t1 = (1 - start) / direction;
+    const start = eye[axis] ?? 0;
+    const step = direction[axis] ?? 0;
+    const t0 = (0 - start) / step;
+    const t1 = (1 - start) / step;
     enter = Math.max(enter, Math.min(t0, t1));
     exit = Math.min(exit, Math.max(t0, t1));
   }
   if (enter > exit) {
     return null;
   }
-  return [base[0] + exit * view[0], base[1] + exit * view[1], base[2] + exit * view[2]];
+  return [
+    eye[0] + enter * direction[0],
+    eye[1] + enter * direction[1],
+    eye[2] + enter * direction[2],
+  ];
 }
 
 /** The point on the sponge surface just above the walking mark, or null while the mark is not in front of it. */
 function probeAt(time: number, azimuth: number, elevation: number): Vector3 | null {
   const camera = readCamera(time);
+  const spongeCamera = layerCamera(camera, SPONGE_DEPTH);
   const mark = readMarkWalkPosition(time);
-  const screen = project(camera, [mark[0] + 40, mark[1] - 190]);
-  return entryPoint(unproject(layerCamera(camera, SPONGE_DEPTH), screen), azimuth, elevation);
+  const screen = project(camera, [mark[0] + 120, mark[1] - 200]);
+  const { drift } = readSpongeState(time);
+  return entryPoint(unproject(spongeCamera, screen), spongeCamera, azimuth, elevation, drift);
 }
 
 /**

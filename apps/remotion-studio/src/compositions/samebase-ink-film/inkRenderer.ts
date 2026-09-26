@@ -11,17 +11,27 @@ import {
   MIST_DEPTH,
   readProbePath,
   readSpongeBasis,
+  readSpongeEye,
   SPONGE_DEPTH,
   SPONGE_FRONT_TOP,
   SPONGE_SPAN,
 } from "./inkSponge";
-import { boilIndex, layerCamera, readCamera, readSpongeState, TIMES } from "./inkTimeline";
+import {
+  boilIndex,
+  layerCamera,
+  PORTRAIT_WIDTH,
+  readCamera,
+  readPortraitWindow,
+  readSpongeState,
+  TIMES,
+  type InkFormat,
+} from "./inkTimeline";
 
 export type InkFrameInput = { time: number };
 
 /** The G-buffer is rendered at twice the frame size, so the ink edges can be anti-aliased. */
 const SUPERSAMPLE = 2;
-const UNIFORM_VECTORS = 10;
+const UNIFORM_VECTORS = 11;
 
 const SHARED_WGSL = /* wgsl */ `
 struct Uniforms {
@@ -32,9 +42,10 @@ struct Uniforms {
   probe: vec4f,      // probe xyz, reveal radius
   probeStart: vec4f, // probe start xyz, awaken
   mist: vec4f,       // mist layer center x, y, zoom, amount
-  finish: vec4f,     // whiteout, vignette, grain, unused
-  sun: vec4f,        // sun direction
+  finish: vec4f,     // whiteout, vignette, grain, shown frame center x
+  sun: vec4f,        // sun direction, shown frame half width
   basis: vec4f,      // projected origin x, y, unused, unused
+  eye: vec4f,        // eye xyz in sponge units, pivot plane depth along view
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -120,33 +131,35 @@ ${SHARED_WGSL}
   let right = vec3f(sin(az), -cos(az), 0.0);
   let down = vec3f(cos(az) * sin(el), sin(az) * sin(el), -cos(el));
   let view = vec3f(cos(az) * cos(el), sin(az) * cos(el), sin(el));
+  // A pinhole camera: the pivot plane keeps the axonometric layout, deeper parts recede.
   let ab = (q - u.basis.xy) / u.geometry.z;
-  let base = ab.x * right + ab.y * down;
-  let t0 = (vec3f(0.0) - base) / view;
-  let t1 = (vec3f(1.0) - base) / view;
-  let tNear = min(min(max(t0.x, t1.x), max(t0.y, t1.y)), max(t0.z, t1.z));
-  let tFar = max(max(min(t0.x, t1.x), min(t0.y, t1.y)), min(t0.z, t1.z));
-  if (tFar > tNear) {
+  let origin = u.eye.xyz;
+  let dir = normalize(ab.x * right + ab.y * down + u.eye.w * view - origin);
+  let t0 = (vec3f(0.0) - origin) / dir;
+  let t1 = (vec3f(1.0) - origin) / dir;
+  let tEnter = max(max(max(min(t0.x, t1.x), min(t0.y, t1.y)), min(t0.z, t1.z)), 0.0);
+  let tExit = min(min(max(t0.x, t1.x), max(t0.y, t1.y)), max(t0.z, t1.z));
+  if (tExit < tEnter) {
     return vec4f(-1.0, 0.0, 0.0, 0.0);
   }
   let footprint = 1.0 / (u.geometry.z * u.sponge.z * ${SUPERSAMPLE}.0);
-  var t = tNear;
+  var t = tEnter;
   var hit = false;
   for (var step = 0; step < 260; step++) {
-    let d = sponge(base + t * view);
+    let d = sponge(origin + t * dir);
     if (d < footprint * 0.4) {
       hit = true;
       break;
     }
-    t -= max(d * 0.92, footprint * 0.3);
-    if (t < tFar) {
+    t += max(d * 0.92, footprint * 0.3);
+    if (t > tExit) {
       break;
     }
   }
   if (!hit) {
     return vec4f(-1.0, 0.0, 0.0, 0.0);
   }
-  let p = base + t * view;
+  let p = origin + t * dir;
   let e = footprint * 0.6;
   let g = vec3f(
     sponge(p + vec3f(e, 0.0, 0.0)) - sponge(p - vec3f(e, 0.0, 0.0)),
@@ -163,7 +176,7 @@ ${SHARED_WGSL}
     id = 2.0;
     n = vec3f(0.0, 0.0, 1.0);
   }
-  let depthInside = tNear - t;
+  let depthInside = t - tEnter;
   var occlusion = 0.0;
   for (var k = 1; k <= 4; k++) {
     let h = 0.0045 * pow(2.7, f32(k));
@@ -324,17 +337,20 @@ fn mistAt(p: vec2f) -> f32 {
       var e = 0.0;
       let directions = array(vec2i(2, 0), vec2i(0, 2), vec2i(2, 2), vec2i(2, -2));
       for (var j = 0; j < 4; j++) {
+        // Depth jumps use the second difference, so a flat face seen in perspective, where depth
+        // changes steadily, never reads as an edge.
         let dir = directions[j];
-        for (var side = -1; side <= 1; side += 2) {
-          let n = loadG(lp + dir * side);
-          let jump = abs(n.y - c.y);
-          if (abs(n.x - c.x) > 0.5 || (c.x > -0.5 && jump > footprint * 5.0)) {
-            e = 1.0;
-          }
-          let far = loadG(lp + dir * side * 2);
-          if (abs(far.y - c.y) > 0.035 && far.x > -0.5 && c.x > -0.5) {
-            e = max(e, 0.85);
-          }
+        let a = loadG(lp + dir);
+        let b = loadG(lp - dir);
+        if (abs(a.x - c.x) > 0.5 || abs(b.x - c.x) > 0.5) {
+          e = 1.0;
+        } else if (c.x > -0.5 && abs(a.y + b.y - 2.0 * c.y) > footprint * 6.0) {
+          e = 1.0;
+        }
+        let farA = loadG(lp + dir * 2);
+        let farB = loadG(lp - dir * 2);
+        if (c.x > -0.5 && farA.x > -0.5 && farB.x > -0.5 && abs(farA.y + farB.y - 2.0 * c.y) > 0.03) {
+          e = max(e, 0.85);
         }
       }
       line += e;
@@ -392,7 +408,7 @@ fn mistAt(p: vec2f) -> f32 {
     color *= (1.0 - inkAlpha) + inkAlpha * inkColor;
   }
 
-  let d = (p - vec2f(960.0, 540.0)) / vec2f(960.0, 540.0);
+  let d = (p - vec2f(u.finish.w, 540.0)) / vec2f(u.sun.w, 540.0);
   let r = sqrt(d.x * d.x * 0.82 + d.y * d.y * 1.1);
   let vignette = smoothstep(0.62, 1.45, r);
   color *= 1.0 - u.finish.y * vignette;
@@ -416,6 +432,7 @@ function createLayerTexture(device: GPUDevice, width = WIDTH, height = HEIGHT): 
 
 export async function createInkRenderer(
   canvas: HTMLCanvasElement,
+  inkFormat: InkFormat,
 ): Promise<WebGpuFrameRenderer<InkFrameInput>> {
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) {
@@ -520,7 +537,10 @@ export async function createInkRenderer(
   return {
     destroy: () => device.destroy(),
     render: async ({ time }) => {
-      paintScene(time, layers);
+      paintScene(time, layers, inkFormat);
+      // The vignette follows the frame that is shown: the whole landscape or the 4:5 window.
+      const windowLeft = inkFormat === "portrait" ? readPortraitWindow(time) : 0;
+      const windowWidth = inkFormat === "portrait" ? PORTRAIT_WIDTH : WIDTH;
       for (const [layer, texture] of [
         [layers.back, backTexture],
         [layers.front, frontTexture],
@@ -544,6 +564,12 @@ export async function createInkRenderer(
         spongeState.elevation,
       );
       const basis = readSpongeBasis(spongeState.azimuth, spongeState.elevation);
+      const spongeEye = readSpongeEye(
+        spongeCamera,
+        spongeState.azimuth,
+        spongeState.elevation,
+        spongeState.drift,
+      );
       const values = new Float32Array(UNIFORM_VECTORS * 4);
       values.set([
         WIDTH,
@@ -577,15 +603,19 @@ export async function createInkRenderer(
         0,
         0.2,
         0.045,
-        0,
+        windowLeft + windowWidth / 2,
         (sun[0] ?? 0) / sunLength,
         (sun[1] ?? 0) / sunLength,
         (sun[2] ?? 0) / sunLength,
-        0,
+        windowWidth / 2,
         basis.origin[0],
         basis.origin[1],
         0,
         0,
+        spongeEye.eye[0],
+        spongeEye.eye[1],
+        spongeEye.eye[2],
+        spongeEye.pivotDepth,
       ]);
       device.queue.writeBuffer(uniformBuffer, 0, values);
       const encoder = device.createCommandEncoder();
