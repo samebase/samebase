@@ -1,15 +1,9 @@
-import { useLayoutEffect, useRef } from "react";
-import {
-  AbsoluteFill,
-  cancelRender,
-  continueRender,
-  delayRender,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
+import { useCallback, useMemo } from "react";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 
+import { useWebGpuFrame } from "../../webgpu/useWebGpuFrame";
 import { readMengerDiveCamera } from "./mengerDiveCamera";
-import { createMengerDiveRenderer, type MengerDiveRenderer } from "./mengerDiveRenderer";
+import { createMengerDiveRenderer } from "./mengerDiveRenderer";
 
 export type MengerDiveSpikeProps = {
   antialiasingGridSize: number;
@@ -23,43 +17,15 @@ export function MengerDiveSpike({
 }: MengerDiveSpikeProps) {
   const frame = useCurrentFrame();
   const { fps, height, width } = useVideoConfig();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<Promise<MengerDiveRenderer> | null>(null);
-
-  // Layout effects run in order during the commit, so the frame effect below always finds the
-  // renderer promise and registers its delayRender handle before Remotion can capture the frame.
-  useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-    const renderer = createMengerDiveRenderer({ antialiasingGridSize, canvas });
-    rendererRef.current = renderer;
-    return () => {
-      rendererRef.current = null;
-      renderer.then(
-        (createdRenderer) => createdRenderer.destroy(),
-        () => {},
-      );
-    };
-  }, [antialiasingGridSize]);
-
-  useLayoutEffect(() => {
-    const renderer = rendererRef.current;
-    if (!renderer) {
-      return;
-    }
-    // Every frame is a pure function of its time. Remotion captures it after the GPU finishes.
-    const handle = delayRender(`Rendering Menger dive frame ${frame}`);
-    renderer
-      .then((createdRenderer) =>
-        createdRenderer.render(readMengerDiveCamera((frame + timeOffsetInFrames) / fps)),
-      )
-      .then(
-        () => continueRender(handle),
-        (error: unknown) => cancelRender(error),
-      );
-  }, [antialiasingGridSize, fps, frame, timeOffsetInFrames]);
+  const createRenderer = useCallback(
+    (canvas: HTMLCanvasElement) => createMengerDiveRenderer({ antialiasingGridSize, canvas }),
+    [antialiasingGridSize],
+  );
+  const camera = useMemo(
+    () => readMengerDiveCamera((frame + timeOffsetInFrames) / fps),
+    [fps, frame, timeOffsetInFrames],
+  );
+  const canvasRef = useWebGpuFrame(createRenderer, camera);
 
   return (
     <AbsoluteFill>
