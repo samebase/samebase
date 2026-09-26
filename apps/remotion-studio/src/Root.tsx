@@ -42,6 +42,8 @@ import {
   onboardingDemoEditDurationInFrames,
   onboardingDemoFps,
 } from "./compositions/onboarding-demo/onboardingDemoEdit";
+import { SamebaseRisoFilm } from "./compositions/samebase-riso-film/SamebaseRisoFilm";
+import { filmDurationInFrames, filmFps } from "./compositions/samebase-riso-film/filmMotion";
 import { ScoutDemo } from "./compositions/scout-demo/ScoutDemo";
 import {
   scoutDemoEdit,
@@ -122,6 +124,14 @@ export function RemotionRoot() {
         defaultProps={{ forceWarp: false }}
         durationInFrames={markIllusionDurationInFrames}
         fps={markIllusionFps}
+        height={1080}
+        width={1920}
+      />
+      <Composition
+        id="SamebaseRisoFilm"
+        component={SamebaseRisoFilm}
+        durationInFrames={filmDurationInFrames}
+        fps={filmFps}
         height={1080}
         width={1920}
       />

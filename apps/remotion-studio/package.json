@@ -26,6 +26,7 @@
     "@remotion/bundler": "4.0.489",
     "@remotion/captions": "4.0.489",
     "@remotion/cli": "4.0.489",
+    "@remotion/google-fonts": "4.0.489",
     "@remotion/renderer": "4.0.489",
     "@remotion/three": "4.0.489",
     "@samebase/logo-model": "workspace:*",
