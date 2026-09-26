@@ -247,7 +247,7 @@ export function readMarkPose(time: number): MarkPose | null {
   let color: string = PALETTE.clay;
   let previousColor: string = PALETTE.clay;
   let recolor = 1;
-  if (time < TIMES.cube) {
+  if (time < TIMES.cube + 0.05) {
     COLOR_KEYS.forEach(([start, key], index) => {
       if (time >= start) {
         previousColor = COLOR_KEYS[index - 1]?.[1] ?? key;

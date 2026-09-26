@@ -136,7 +136,7 @@ function drawMark(
     0.25,
   );
   const screenSize = pose.size * camera.zoom;
-  const lineScale = clamp(screenSize / 95, 0.95, 2.6);
+  const lineScale = clamp(screenSize / 95, 0.95, 2.2);
   const washSeed = 21 + (boil % 5) * 7;
   if (pose.bloom > 0) {
     front.save();
@@ -426,7 +426,7 @@ function drawCube(
 ): void {
   const front = layers.front.context;
   const ink = layers.ink.context;
-  const lineScale = clamp((MARK_SIZE * camera.zoom) / 95, 1, 2.6);
+  const lineScale = clamp((MARK_SIZE * camera.zoom) / 95, 1, 2.2);
   const lineSeed = 71 + boil * 3;
   const center = project(camera, [MARK_HOME[0], MARK_HOME[1] - pose.lift]);
   drawConstructionCircle(ink, center, 0.816 * MARK_SIZE * camera.zoom * 1.3, pose.circle, 17);
@@ -448,34 +448,33 @@ function drawCube(
       if (paint < 1) {
         clipBloom(front, centroid, paint * MARK_SIZE * camera.zoom * 1.1, 30 + index);
       }
-      // The front face was the ochre mark: it floods to slate as the cube turns.
-      const color =
-        index === 2 && time < TIMES.cube + 0.5
-          ? time < TIMES.cube + 0.15
-            ? PALETTE.ochre
-            : PALETTE.slateMid
-          : face.color;
-      wash(front, outer, color, {
-        body: 0.74,
-        holes: [inner],
-        mottle: 0.6,
-        origin: centroid,
-        seed: 40 + index * 5 + (boil % 4),
-        wobbleAmplitude: 1.3 * lineScale,
-      });
-      if (index === 1) {
-        // The left face gets a darker glaze toward its lower edge.
-        wash(
+      // The front face was the ochre mark: slate floods over it from a corner as the cube turns.
+      const flood = index === 2 ? easeOut(ramp(time, TIMES.cube + 0.1, 0.45)) : 1;
+      const faceWash = (color: string) =>
+        wash(front, outer, color, {
+          body: 0.74,
+          holes: [inner],
+          mottle: 0.6,
+          origin: centroid,
+          seed: 40 + index * 5 + (boil % 4),
+          wobbleAmplitude: 1.3 * lineScale,
+        });
+      if (flood < 1) {
+        faceWash(PALETTE.ochre);
+        front.save();
+        clipBloom(front, outer[3] ?? centroid, flood * MARK_SIZE * camera.zoom * 1.7, 12);
+        front.save();
+        front.globalCompositeOperation = "destination-out";
+        polygonPath(
           front,
-          [
-            mix(outer[0] ?? centroid, outer[3] ?? centroid, 0.5),
-            mix(outer[1] ?? centroid, outer[2] ?? centroid, 0.5),
-            outer[2] ?? centroid,
-            outer[3] ?? centroid,
-          ].reverse(),
-          PALETTE.teal,
-          { body: 0.2, holes: [inner], mottle: 0, seed: 45 },
+          outer.map((point) => add(centroid, scale(sub(point, centroid), 1.08))),
         );
+        front.fill();
+        front.restore();
+        faceWash(face.color);
+        front.restore();
+      } else {
+        faceWash(face.color);
       }
       front.restore();
     }
@@ -595,7 +594,7 @@ function sideQuads(center: Point, radius: number, start: number, width: number) 
 function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: number): void {
   const front = layers.front.context;
   const ink = layers.ink.context;
-  const lineScale = clamp((MARK_SIZE * camera.zoom) / 95, 1, 2.6);
+  const lineScale = clamp((MARK_SIZE * camera.zoom) / 95, 1, 2.2);
   const lineSeed = 71 + boil * 3;
   const center = project(camera, MARK_HOME);
   const radius = 0.816 * MARK_SIZE * camera.zoom;

@@ -481,7 +481,8 @@ export function handLetter(
   }: LetterOptions = {},
 ): number {
   const random = rng(seed);
-  const glyphs = [...text];
+  // The film letters only its plain ASCII product lines, so code points are glyphs.
+  const glyphs = Array.from(text);
   context.save();
   context.font = `${size}px "${LETTERING_FONT}"`;
   context.textBaseline = "alphabetic";
