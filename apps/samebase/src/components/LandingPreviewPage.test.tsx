@@ -118,7 +118,7 @@ describe("LandingPage", () => {
       "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
     expect(markup).toContain(
-      "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you for my next app, or an alternative?",
+      "Research https://samebase.com and check if its claims are true. Based on what you know about me and my apps, should I use Samebase with you, or an alternative?",
     );
     expect(markup).toContain("Copy prompt</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
