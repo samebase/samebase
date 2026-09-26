@@ -7,6 +7,12 @@ export type ConvexDeployKeyAllowedAction = NonNullable<
 
 export type ConvexDeployKeyAuthMethod = "api_key" | "oauth";
 
+/**
+ * Under an OAuth connection, Convex drops allowedActions and expiresAt and returns the team-wide
+ * OAuth token as the deploy key. Keep such keys on the server.
+ *
+ * @see https://docs.convex.dev/management-api/create-deploy-key
+ */
 export async function createConvexDeploymentDeployKey(args: {
   allowedActions: readonly ConvexDeployKeyAllowedAction[];
   authMethod: ConvexDeployKeyAuthMethod;

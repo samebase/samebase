@@ -140,13 +140,12 @@ afterEach(() => {
 });
 
 describe("createEmbeddedDashboardCredentials", () => {
-  it("mints and revokes OAuth-backed deploy keys without request-scoped options", async () => {
+  it("refuses OAuth-backed Convex connections without minting a browser key", async () => {
     const t = makeConvexTest();
     const { convexProjectId, user } = await seedDatabaseEditorRepository(t, {
       method: "oauth",
       credential: "convex-oauth-token",
     });
-    vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: Request[] = [];
     vi.stubGlobal(
       "fetch",
@@ -155,12 +154,6 @@ describe("createEmbeddedDashboardCredentials", () => {
 
         if (input.url.endsWith("/projects/1001/deployment?defaultProd=true")) {
           return productionDeploymentResponse();
-        }
-        if (input.url.endsWith("/create_deploy_key")) {
-          return jsonResponse(`{"deployKey":"prod:demo-prod|oauth-embedded-secret"}`);
-        }
-        if (input.url.endsWith("/delete_deploy_key")) {
-          return new Response(null, { status: 200 });
         }
 
         throw new Error(`Unexpected Convex request: ${input.url}`);
@@ -172,39 +165,20 @@ describe("createEmbeddedDashboardCredentials", () => {
       databaseRouteArgs(convexProjectId),
     );
 
-    expect(result).toEqual({
-      kind: "ready",
-      deploymentUrl: "https://demo.convex.cloud",
-      deploymentName: "demo-prod",
-      deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
-      adminKey: "prod:demo-prod|oauth-embedded-secret",
-    });
-    expect(requests).toHaveLength(2);
-    expect(requests[1]?.url).toBe(
-      "https://api.convex.dev/v1/deployments/demo-prod/create_deploy_key",
-    );
-    expect(requests[1]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
-    await expect(requests[1]?.json()).resolves.toEqual({
-      name: "samebase-embedded-data-demo-prod-1710003600000",
-    });
-
-    if (result.kind !== "ready") {
-      throw new Error("Expected ready embedded dashboard credentials.");
-    }
+    expect(result).toEqual({ kind: "oauth_connection" });
+    expect(requests.map((request) => request.url)).toEqual([
+      "https://api.convex.dev/v1/projects/1001/deployment?defaultProd=true",
+    ]);
 
     await user.action(api.repository.database.revokeEmbeddedDashboardCredentials, {
       ...databaseRouteArgs(convexProjectId),
-      deployKeyName: result.deployKeyName,
+      deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
     });
 
-    expect(requests).toHaveLength(4);
-    expect(requests[3]?.url).toBe(
-      "https://api.convex.dev/v1/deployments/demo-prod/delete_deploy_key",
-    );
-    expect(requests[3]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
-    await expect(requests[3]?.json()).resolves.toEqual({
-      id: "samebase-embedded-data-demo-prod-1710003600000",
-    });
+    expect(requests.map((request) => request.url)).toEqual([
+      "https://api.convex.dev/v1/projects/1001/deployment?defaultProd=true",
+      "https://api.convex.dev/v1/projects/1001/deployment?defaultProd=true",
+    ]);
   });
 
   it("mints and revokes data editor deploy keys from API-key Convex connections", async () => {

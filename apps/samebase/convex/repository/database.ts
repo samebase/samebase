@@ -42,6 +42,9 @@ const embeddedDashboardCredentialsResult = union(
   object({
     kind: literal("missing_connection"),
   }),
+  object({
+    kind: literal("oauth_connection"),
+  }),
 );
 type EmbeddedDashboardCredentialsResult = Infer<typeof embeddedDashboardCredentialsResult>;
 type RepositoryDatabaseLookup = {
@@ -202,6 +205,11 @@ export const createEmbeddedDashboardCredentials = action({
     if (context.kind !== "ready") {
       return context;
     }
+    // Convex ignores allowedActions and expiresAt for OAuth connections and returns the team-wide
+    // OAuth token as the deploy key. This action sends the key to the browser, so OAuth stops here.
+    if (context.convexCredential.auth.method === "oauth") {
+      return { kind: "oauth_connection" };
+    }
 
     const expiresAt = Date.now() + EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS;
     const deployKeyName = buildEmbeddedDashboardDeployKeyName({
@@ -239,8 +247,10 @@ export const revokeEmbeddedDashboardCredentials = action({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const context = await readRepositoryDatabaseDeploymentContext(ctx, args);
+    // OAuth connections never mint embedded keys, so there is nothing to revoke.
     if (
       context.kind !== "ready" ||
+      context.convexCredential.auth.method !== "api_key" ||
       !isEmbeddedDashboardDeployKeyName({
         deploymentName: context.deployment.name,
         deployKeyName: args.deployKeyName,

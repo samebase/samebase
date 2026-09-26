@@ -32,6 +32,8 @@ function formatRepositoryDatabaseNotice(
       return "This Convex project has no production deployment.";
     case "missing_connection":
       return "Connect Convex to open deployment data.";
+    case "oauth_connection":
+      return "Convex is connected with OAuth, which cannot grant a limited key for this view. Open this data in the Convex dashboard.";
   }
 }
 
