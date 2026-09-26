@@ -458,6 +458,7 @@ test.describe("mobile landing preview", () => {
   });
 
   test("opens linked documents at the top of the main pane", async ({ page }) => {
+    await blockLandingYouTubeEmbeds(page);
     await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
