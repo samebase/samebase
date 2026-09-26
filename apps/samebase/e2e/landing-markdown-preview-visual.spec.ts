@@ -1,4 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
@@ -63,6 +64,14 @@ async function readMainPaneScrollTop(page: Page) {
 }
 
 /** Landing YouTube embeds stay offline; screenshots mask the hero embed. */
+/** A first visit starts with the docs sidebar closed; docs navigation tests open it. */
+async function openDocsSidebar(page: Page) {
+  await seedVisualFixtureWorkspaceSidebarState(page, {
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
+}
+
 async function blockLandingYouTubeEmbeds(page: Page) {
   await page.route("https://www.youtube-nocookie.com/**", (route) => route.abort());
 }
@@ -296,6 +305,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
       return Reflect.apply(originalGetContext, this, [contextId, ...args]);
     };
   });
+  await openDocsSidebar(page);
   await blockLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -439,7 +449,9 @@ test.describe("mobile landing preview", () => {
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(
-      faq.getByText("The bet is that you will build tens of apps.", { exact: false }),
+      faq.getByText("Even for one app, Samebase does the do-it-yourself setup for you", {
+        exact: false,
+      }),
     ).toBeVisible();
     const fourthQuestion = faq.getByRole("button", {
       name: "Wait, so all Samebase is, is a template and a list?",
@@ -494,6 +506,7 @@ test.describe("mobile landing preview", () => {
 
 test("docs receipts route renders the claims ledger", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await openDocsSidebar(page);
 
   await page.goto(DOCS_RECEIPTS_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -562,6 +575,7 @@ test("Cloudflare setup loads the onboarding video only after Play", async ({ pag
 
 test("pricing route renders the public pricing page", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await openDocsSidebar(page);
 
   await page.goto(DOCS_PRICING_ROUTE, {
     waitUntil: "domcontentloaded",

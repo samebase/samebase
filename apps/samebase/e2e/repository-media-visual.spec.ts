@@ -1,4 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+
+/** This fixture was designed with both sidebars open, so it does not follow the first-visit default. */
+test.beforeEach(async ({ page }) => {
+  await seedVisualFixtureWorkspaceSidebarState(page, {
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
+});
 
 const SCENARIOS = [
   {

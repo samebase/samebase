@@ -1,4 +1,13 @@
 import { devices, expect, test, type Page } from "@playwright/test";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+
+/** These tests exercise the file-view sidebars, so they start with both sidebars open. */
+test.beforeEach(async ({ page }) => {
+  await seedVisualFixtureWorkspaceSidebarState(page, {
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
+});
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
 

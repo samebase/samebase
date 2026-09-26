@@ -1,4 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+
+/** This fixture was designed with both sidebars open, so it does not follow the first-visit default. */
+test.beforeEach(async ({ page }) => {
+  await seedVisualFixtureWorkspaceSidebarState(page, {
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
+});
 
 test("Monaco keeps visible lines in the file-view flex-height layout", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

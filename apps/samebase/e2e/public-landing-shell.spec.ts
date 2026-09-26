@@ -342,7 +342,7 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
 
   await expect(
     page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(rightPane).toBeVisible();
   const statusBar = rightPane.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
@@ -424,10 +424,6 @@ test.describe("iPhone SE landing sidebar", () => {
     page,
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
-
-    await expect(
-      page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
-    ).toHaveCount(0);
 
     const beforeSlideMetrics = await readLandingRightSidebarCopyMetrics(page);
 

@@ -158,13 +158,18 @@ const LANDING_FAQS = [
   },
   {
     answer:
-      "You can. The template and skills are public. We update them as we learn from building Samebase. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
+      "You can. The template and skills are public. Samebase itself runs on the same base, and the public template is published automatically as we improve it while building Samebase. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
     question: "Ok, but can't I just get your template and not use Samebase?",
   },
   {
     answer:
-      "For one or two apps, you may not need Samebase. The bet is that you will build tens of apps. Samebase gives you one place to see them, check their setup, and fix problems.",
+      "Even for one app, Samebase does the do-it-yourself setup for you: the GitHub repository, the Convex project and deploy keys, and the Cloudflare Worker and builds. With more apps, it gives you one place to see them, check their setup, and fix problems.",
     question: "I can just ask Codex to update my own apps. Why do I need Samebase?",
+  },
+  {
+    answer:
+      "The parts your app is made of are: the base template, the agent skills, and the plugin, all under Apache 2.0. The samebase.com control plane, which creates, connects, and tracks your apps, is not.",
+    question: "Is Samebase open source?",
   },
   {
     answer: "Kinda.",
@@ -488,7 +493,7 @@ function LandingPreviewOverview() {
             <LandingClaim
               heading={
                 <>
-                  The "builder left my database open" breach class can't be expressed here.
+                  No client-facing database to leave open.
                   <LandingFootnoteMark
                     fragment="landing-note-risk"
                     label="footnote: not hypothetical"
@@ -497,8 +502,9 @@ function LandingPreviewOverview() {
                 </>
               }
             >
-              Convex is only reachable through TypeScript functions you wrote. No client-facing
-              database, no rules you have to configure perfectly, forever.
+              Convex is only reachable through TypeScript functions you wrote, so there are no
+              database rules to configure perfectly, forever. Access checks live in those functions,
+              where you can read and test them.
             </LandingClaim>
             <LandingClaim heading="Run agents in parallel. Every PR gets its own preview, with its own database.">
               Local folder, worktrees, pull requests: each lane gets isolated code, data, and
@@ -874,15 +880,9 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
   return <DocsDoItYourselfDocument />;
 }
 
-function LandingPreviewChromePage({
-  documentKey,
-  showDocsSidebar,
-}: {
-  documentKey: LandingPreviewDocumentKey;
-  showDocsSidebar: boolean;
-}) {
+function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   return (
-    <AppWorkspaceRouteChrome left={showDocsSidebar ? { content: <DocsSidebar /> } : null}>
+    <AppWorkspaceRouteChrome left={{ content: <DocsSidebar /> }}>
       <LandingPreviewPaneUrlSync />
       <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingPreviewDocument documentKey={documentKey} />
@@ -892,7 +892,7 @@ function LandingPreviewChromePage({
 }
 
 export function LandingPage() {
-  return <LandingPreviewChromePage documentKey="overview" showDocsSidebar={false} />;
+  return <LandingPreviewChromePage documentKey="overview" />;
 }
 
 export function DocsIndexPage() {
@@ -906,21 +906,21 @@ export function DocsIndexPage() {
 }
 
 export function DocsDoItYourselfPage() {
-  return <LandingPreviewChromePage documentKey="doItYourself" showDocsSidebar />;
+  return <LandingPreviewChromePage documentKey="doItYourself" />;
 }
 
 export function DocsCloudflareSetupPage() {
-  return <LandingPreviewChromePage documentKey="cloudflareSetup" showDocsSidebar />;
+  return <LandingPreviewChromePage documentKey="cloudflareSetup" />;
 }
 
 export function DocsTheStackPage() {
-  return <LandingPreviewChromePage documentKey="theStack" showDocsSidebar />;
+  return <LandingPreviewChromePage documentKey="theStack" />;
 }
 
 export function DocsReceiptsPage() {
-  return <LandingPreviewChromePage documentKey="receipts" showDocsSidebar />;
+  return <LandingPreviewChromePage documentKey="receipts" />;
 }
 
 export function DocsPricingPage() {
-  return <LandingPreviewChromePage documentKey="pricing" showDocsSidebar />;
+  return <LandingPreviewChromePage documentKey="pricing" />;
 }
