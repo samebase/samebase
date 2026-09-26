@@ -15,7 +15,7 @@ export const PALETTE = {
   rose: "#DE8598",
   sap: "#80A35F",
   slate: "#394447",
-  slateMid: "#5F7176",
+  slateMid: "#6E8186",
   teal: "#3E948D",
   violet: "#7D69A7",
 } as const;

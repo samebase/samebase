@@ -9,7 +9,7 @@ import { deg } from "./inkMath";
 import { createSceneLayers, paintScene } from "./inkScene";
 import {
   MIST_DEPTH,
-  readProbe,
+  readProbePath,
   readSpongeBasis,
   SPONGE_DEPTH,
   SPONGE_FRONT_TOP,
@@ -236,7 +236,11 @@ fn faceColor(g: vec4f, q: vec2f) -> vec3f {
     c = mix(vec3f(0.95, 0.79, 0.63), vec3f(0.76, 0.79, 0.77), smoothstep(250.0, 900.0, q.y) * 0.45);
   }
   let m = fbm2(q / 170.0 + vec2f(f32(id) * 7.1, 0.0)) * 0.55 + fbm2(q / 42.0 + vec2f(0.0, f32(id) * 3.7)) * 0.3;
-  c = pow(c, vec3f(1.0 + 0.32 * m));
+  // Uneven washes: slow mottling, blooms with dried rims, as in the style frame.
+  let blot = fbm2(q / 95.0 + vec2f(f32(id) * 2.3, 1.7));
+  let stain = smoothstep(0.05, 0.3, blot);
+  let dried = exp(-pow((blot - 0.08) / 0.035, 2.0));
+  c = pow(c, vec3f(1.0 + 0.5 * m + 0.16 * stain + 0.3 * dried));
   c = c * pow(vec3f(0.62, 0.63, 0.83), vec3f(g.z * 2.1));
   c = mix(c, c * vec3f(1.04, 0.97, 0.88), g.w * 0.25);
   let haze = 0.05 + 0.3 * smoothstep(250.0, 950.0, q.y);
@@ -338,6 +342,7 @@ fn mistAt(p: vec2f) -> f32 {
     let visibility = u.sponge.w;
     if (coverage > 0.0) {
       fill /= coverage;
+      fill *= 1.0 - 0.3 * (1.0 - luminance(fill)) * (tooth - 0.35) * 1.6;
       shade /= coverage;
       let alpha = coverage / 4.0 * visibility;
       color = mix(color, fill, alpha);
@@ -531,12 +536,13 @@ export async function createInkRenderer(
       const spongeState = readSpongeState(time);
       const spongeCamera = layerCamera(camera, SPONGE_DEPTH);
       const mistCamera = layerCamera(camera, MIST_DEPTH);
-      const probe = readProbe(
-        Math.min(time, TIMES.stroll + 4),
+      const { probe, start: probeStart } = readProbePath(
+        time,
+        TIMES.stroll,
+        TIMES.stroll + 4,
         spongeState.azimuth,
         spongeState.elevation,
       );
-      const probeStart = readProbe(TIMES.stroll + 0.3, spongeState.azimuth, spongeState.elevation);
       const basis = readSpongeBasis(spongeState.azimuth, spongeState.elevation);
       const values = new Float32Array(UNIFORM_VECTORS * 4);
       values.set([

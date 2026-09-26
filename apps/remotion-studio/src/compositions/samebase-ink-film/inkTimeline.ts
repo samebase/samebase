@@ -133,20 +133,25 @@ export function readCamera(time: number): Camera {
       zoom: zoom - 0.03 * lookUp,
     };
   }
-  const pull = easeInOut(ramp(time, TIMES.giant, 3.6));
-  const follow = easeInOut(ramp(time, TIMES.stroll, 4.5));
+  // Pull back to see the giant, then drift after the walking mark, then tilt up into the clouds.
+  const pull = easeInOut(ramp(time, TIMES.giant, 3.2));
+  const follow = easeInOut(ramp(time, 26.4, 6.2));
   const rise = easeIn(ramp(time, TIMES.wipe - 0.3, 1.3));
-  const zoom = lerp(LANDSCAPE_ZOOM - 0.03, 1, pull) + 0.09 * follow;
+  const zoom = lerp(LANDSCAPE_ZOOM - 0.03, 1, pull) + 0.12 * follow;
   const center: Point = [
-    lerp(620, 960, pull) + 30 * follow,
-    lerp(640, 540, pull) + 75 * follow - 260 * rise,
+    lerp(620, 960, pull) + 50 * follow,
+    lerp(640, 540, pull) + 85 * follow - 260 * rise,
   ];
   return { angle: 0, center, zoom };
 }
 
 /** The end card camera: a slow push in. */
 export function readEndCamera(time: number): Camera {
-  return { angle: 0, center: SCREEN_CENTER, zoom: 1 + 0.045 * easeOut(ramp(time, TIMES.end, 5)) };
+  return {
+    angle: 0,
+    center: [SCREEN_CENTER[0] + 40, SCREEN_CENTER[1] + 20],
+    zoom: 1.1 + 0.055 * easeOut(ramp(time, TIMES.end, 5)),
+  };
 }
 
 export type MarkPose = {
@@ -155,6 +160,8 @@ export type MarkPose = {
   color: string;
   /** Wash bloom radius in [0, 1] while the first wash spreads. */
   bloom: number;
+  /** Height of the opening: 1 open, 0 shut in a blink. */
+  blink: number;
   hole: number;
   /** Leg extension in [0, 1]. */
   legs: number;
@@ -169,6 +176,12 @@ export type MarkPose = {
 };
 
 type Keyframe = readonly [time: number, value: number];
+
+/** A quick blink at each start time: the opening shuts and opens in 0.18 s. */
+export function readBlink(time: number, starts: readonly number[]): number {
+  const shut = Math.max(0, ...starts.map((start) => 1 - Math.abs((time - start) / 0.09 - 1)));
+  return 1 - 0.9 * clamp(shut);
+}
 
 /** Springs from each keyframe value to the next, so every change overshoots and settles. */
 function springTrack(
@@ -262,11 +275,13 @@ export function readMarkPose(time: number): MarkPose | null {
     [8.3, 1],
   ]);
   const hop = pulse(time, 4, 2.2, 5) + 0.6 * pulse(time, 3.5, 6, 8);
+  // The opening is the mark's only feature: it gasps and it blinks.
   const hole = springTrack(time, [
     [0, 1 / 3],
     [6, 0.56],
-    [6.5, 0.18],
-    [7, 1 / 3],
+    [6.5, 1 / 3],
+    [24.05, 0.5],
+    [24.9, 1 / 3],
   ]);
   const walk = readMarkWalk(time);
   const legs = time < TIMES.legs ? 0 : spring(time, TIMES.legs, 2.4, 5);
@@ -289,12 +304,15 @@ export function readMarkPose(time: number): MarkPose | null {
     }
     const lookUp = easeInOut(ramp(time, 22.35, 0.9)) * (1 - easeInOut(ramp(time, 27.4, 0.6)));
     angle -= 0.2 * lookUp + 0.06 * pulse(time, TIMES.giant, 1.5, 3);
+    // A startled little hop when the giant appears.
+    center = [center[0], center[1] - 9 * Math.max(0, pulse(time, TIMES.giant + 0.05, 1.4, 3.5))];
   }
   const crouch =
     time >= TIMES.fold ? 0.16 * pulse(time, 18.9, 2.8, 5) + 0.2 * pulse(time, 19.36, 3.5, 6) : 0;
   return {
     angle,
     bloom: easeOut(ramp(time, 3, 0.7)),
+    blink: readBlink(time, [6.5, 7.6, 19.3, 23.1, 30.2]),
     center,
     color,
     hole,
@@ -449,7 +467,7 @@ export type SpongeState = {
 
 export function readSpongeState(time: number): SpongeState {
   const on = time > 20.4 && time < TIMES.end + 0.1;
-  const visibility = easeInOut(ramp(time, TIMES.giant - 0.3, 2));
+  const visibility = easeInOut(ramp(time, TIMES.giant + 0.3, 1.1));
   return {
     awaken: easeInOut(ramp(time, TIMES.awaken, 1.7)),
     azimuth: lerp(52, 47.5, easeInOut(ramp(time, 21, 12))),

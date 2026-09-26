@@ -58,6 +58,7 @@ import {
   readLandscapeReveal,
   readMarkPose,
   readMarkWalkPosition,
+  readBlink,
   readWipe,
   RIDGE,
   ridgeY,
@@ -103,12 +104,12 @@ function markPoint(pose: MarkPose, u: number, v: number): Point {
   return [pose.center[0] + turned[0], pose.center[1] + pose.size / 2 + turned[1]];
 }
 
-function markSquare(pose: MarkPose, half: number): Point[] {
+function markSquare(pose: MarkPose, half: number, halfHeight = half): Point[] {
   return [
-    markPoint(pose, -half, -half),
-    markPoint(pose, half, -half),
-    markPoint(pose, half, half),
-    markPoint(pose, -half, half),
+    markPoint(pose, -half, -halfHeight),
+    markPoint(pose, half, -halfHeight),
+    markPoint(pose, half, halfHeight),
+    markPoint(pose, -half, halfHeight),
   ];
 }
 
@@ -127,7 +128,9 @@ function drawMark(
   const front = layers.front.context;
   const ink = layers.ink.context;
   const outer = markSquare(pose, 0.5).map((point) => project(camera, point));
-  const inner = markSquare(pose, pose.hole / 2).map((point) => project(camera, point));
+  const inner = markSquare(pose, pose.hole / 2, (pose.hole / 2) * pose.blink).map((point) =>
+    project(camera, point),
+  );
   const centroid = scale(
     outer.reduce((sum, point) => add(sum, point), [0, 0]),
     0.25,
@@ -141,7 +144,7 @@ function drawMark(
       clipBloom(front, centroid, pose.bloom * screenSize * 0.9, 5);
     }
     wash(front, outer, pose.recolor < 1 ? pose.previousColor : pose.color, {
-      body: 0.86,
+      body: 0.76,
       holes: [inner],
       mottle: 0.6,
       origin: centroid,
@@ -149,10 +152,19 @@ function drawMark(
       wobbleAmplitude: 1.2 * lineScale,
     });
     if (pose.recolor < 1) {
+      // The new colour floods in from a corner and replaces the old one.
       front.save();
       clipBloom(front, outer[0] ?? centroid, pose.recolor * screenSize * 1.6, 9);
+      front.save();
+      front.globalCompositeOperation = "destination-out";
+      polygonPath(
+        front,
+        outer.map((point) => add(centroid, scale(sub(point, centroid), 1.08))),
+      );
+      front.fill();
+      front.restore();
       wash(front, outer, pose.color, {
-        body: 0.9,
+        body: 0.8,
         holes: [inner],
         mottle: 0.6,
         origin: centroid,
@@ -444,7 +456,7 @@ function drawCube(
             : PALETTE.slateMid
           : face.color;
       wash(front, outer, color, {
-        body: 0.84,
+        body: 0.74,
         holes: [inner],
         mottle: 0.6,
         origin: centroid,
@@ -635,7 +647,7 @@ function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: n
       1 / outer.length,
     );
     wash(front, outer, color, {
-      body: 0.84,
+      body: 0.74,
       holes: inner.length >= 3 ? [inner] : [],
       mottle: 0.6,
       origin: centroid,
@@ -740,7 +752,7 @@ function drawSides(layers: SceneLayers, camera: Camera, pose: SidesPose, boil: n
     1 / flap.length,
   );
   wash(front, flap, PALETTE.clay, {
-    body: 0.84,
+    body: 0.74,
     holes: flapHoles,
     mottle: 0.6,
     origin: flapCenter,
@@ -861,6 +873,8 @@ function drawCloud(
   eraseInk: boolean,
   /** Puffs of a neighbouring cloud that hide this cloud's outline where they overlap. */
   occluders: readonly { center: Point; r: number }[] = [],
+  /** A wipe cloud stays paper white: no shading. */
+  shaded = true,
 ): void {
   if (alpha <= 0.01 || puffs.length === 0) {
     return;
@@ -888,7 +902,9 @@ function drawCloud(
   shade.addColorStop(0.55, "rgba(236,226,222,0.2)");
   shade.addColorStop(1, "rgba(206,202,214,0.4)");
   front.fillStyle = shade;
-  front.fill();
+  if (shaded) {
+    front.fill();
+  }
   // Big puffs get a soft cool shadow under their bellies, so a bank has volume.
   shape(front);
   front.clip();
@@ -896,7 +912,7 @@ function drawCloud(
   front.filter = `blur(${Math.max(4, Math.min(...puffs.map((puff) => puff.r)) * 0.18)}px)`;
   front.fillStyle = "rgba(206,204,226,0.42)";
   for (const puff of puffs) {
-    if (puff.r < 60) {
+    if (puff.r < 60 || !shaded) {
       continue;
     }
     front.beginPath();
@@ -1000,6 +1016,19 @@ function blade(
   context.restore();
 }
 
+/** Birds that lift off the giant's face as it wakes, in the cloud layer's coordinates. */
+const FLOCK = (() => {
+  const random = rng(31);
+  return Array.from({ length: 8 }, (_, index) => ({
+    size: 7 + random() * 5,
+    start: TIMES.awaken + 0.1 + index * 0.11,
+    vx: -60 - random() * 50,
+    vy: -40 - random() * 40,
+    x: 900 + random() * 260,
+    y: 560 + random() * 120,
+  }));
+})();
+
 const TUFTS = (() => {
   const random = rng(12);
   return Array.from({ length: 46 }, () => {
@@ -1097,7 +1126,8 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
       [660, 800],
       [900, 824],
       [1300, 850],
-      [1300, 1300],
+      [2600, 880],
+      [2600, 1300],
       [-700, 1300],
     ];
     const near: Point[] = [
@@ -1108,7 +1138,8 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
       [660, 846],
       [1000, 880],
       [1300, 900],
-      [1300, 1300],
+      [2600, 930],
+      [2600, 1300],
       [-700, 1300],
     ];
     wash(
@@ -1160,16 +1191,16 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
     );
     front.save();
     clipBloom(front, markFeet, reveal.ridge * 2400, 21);
-    wash(front, polygon, "#6F8350", {
-      body: 0.95,
-      mottle: 0.55,
+    wash(front, polygon, "#7C9159", {
+      body: 0.92,
+      mottle: 0.5,
       origin: project(camera, [0, 0]),
       seed: 22,
-      textureScale: 1.2,
+      textureScale: 2.2,
     });
-    wash(front, polygon, "#556B45", {
-      body: 0.3,
-      mottle: 0.3,
+    wash(front, polygon, "#5F7549", {
+      body: 0.12,
+      mottle: 0.35,
       origin: project(camera, [300, 100]),
       seed: 23,
     });
@@ -1183,7 +1214,7 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
       crest + 220 * camera.zoom,
     );
     low.addColorStop(0, "rgba(40,52,32,0)");
-    low.addColorStop(1, "rgba(40,52,32,0.45)");
+    low.addColorStop(1, "rgba(40,52,32,0.32)");
     front.fillStyle = low;
     front.fillRect(0, 0, 1920, 1080);
     front.filter = `blur(${5 * camera.zoom}px)`;
@@ -1235,30 +1266,45 @@ function paintLandscape(layers: SceneLayers, camera: Camera, time: number, boil:
       }
     });
   }
-  if (reveal.birds > 0) {
-    for (const [index, [x0, y0, size]] of (
+  // Three birds cross the sky; when the giant wakes, a flock lifts off its face.
+  const birds = [
+    ...(
       [
         [548, 452, 14],
         [596, 426, 10],
         [640, 466, 12],
       ] as const
-    ).entries()) {
-      const x = x0 + 40 * (time - 24) + 6 * index;
-      const y = y0 - 6 * (time - 24) + 3 * Math.sin(time * 1.3 + index);
-      const flap = Math.sin(time * 2 * Math.PI * 2.4 + index * 1.7);
-      const wing = size * (0.35 + 0.25 * flap);
-      const at = (dx: number, dy: number) => project(cloudCamera, [x + dx, y + dy]);
-      const options = { alpha: easeOut(reveal.birds), amplitude: 0.3, taper: 0.3, width: 1.9 };
-      inkLine(ink, [at(-size, -wing), at(-size * 0.35, -wing * 1.2), at(0, 0)], {
-        ...options,
-        seed: 400 + index * 2 + (boil % 2),
-      });
-      inkLine(ink, [at(0, 0), at(size * 0.35, -wing * 1.3), at(size, -wing * 0.8)], {
-        ...options,
-        seed: 401 + index * 2 + (boil % 2),
-      });
-    }
-  }
+    ).map(([x0, y0, size], index) => ({
+      alpha: easeOut(reveal.birds),
+      size,
+      x: x0 + 40 * (time - 24) + 6 * index,
+      y: y0 - 6 * (time - 24) + 3 * Math.sin(time * 1.3 + index),
+    })),
+    ...FLOCK.map((bird) => {
+      const age = time - bird.start;
+      return {
+        alpha: clamp(age * 3),
+        size: bird.size * clamp(0.4 + age),
+        x: bird.x + bird.vx * age,
+        y: bird.y + bird.vy * age - 12 * age * age,
+      };
+    }).filter((bird) => bird.alpha > 0),
+  ];
+  birds.forEach((bird, index) => {
+    const flap = Math.sin(time * 2 * Math.PI * 2.4 + index * 1.7);
+    const wing = bird.size * (0.35 + 0.25 * flap);
+    const at = (dx: number, dy: number) => project(cloudCamera, [bird.x + dx, bird.y + dy]);
+    const options = { alpha: bird.alpha, amplitude: 0.3, taper: 0.3, width: 1.9 };
+    const size = bird.size;
+    inkLine(ink, [at(-size, -wing), at(-size * 0.35, -wing * 1.2), at(0, 0)], {
+      ...options,
+      seed: 400 + index * 2 + (boil % 2),
+    });
+    inkLine(ink, [at(0, 0), at(size * 0.35, -wing * 1.3), at(size, -wing * 0.8)], {
+      ...options,
+      seed: 401 + index * 2 + (boil % 2),
+    });
+  });
   if (time >= TIMES.words) {
     const drift = 4 * Math.sin(time * 0.5);
     const lineOne = ramp(time, TIMES.words, 0.55);
@@ -1304,6 +1350,7 @@ function paintEndCard(layers: SceneLayers, time: number, boil: number): void {
     bloom: 1,
     center: [x, restY - jump],
     color: PALETTE.clay,
+    blink: readBlink(time, [34.9, 37.4]),
     hole: 1 / 3,
     holeOutline: 1,
     legs: 1,
@@ -1395,7 +1442,9 @@ function paintWipe(layers: SceneLayers, time: number): void {
   ink.globalCompositeOperation = "destination-out";
   ink.fillRect(lead + 60, -200, 2480, 1500);
   ink.restore();
-  drawCloud(layers, puffs, 5000, 1, 600, true);
+  // One big circle stands for the body, so only the puffy leading and trailing edges get ink.
+  const body = [{ center: [lead + 1300, 540] satisfies Point, r: 1240 }];
+  drawCloud(layers, puffs, 5000, 1, 600, true, body, false);
 }
 
 export function paintScene(time: number, layers: SceneLayers): void {

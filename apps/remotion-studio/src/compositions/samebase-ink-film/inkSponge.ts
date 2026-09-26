@@ -77,11 +77,33 @@ function entryPoint(layerPoint: Point, azimuth: number, elevation: number): Vect
   return [base[0] + exit * view[0], base[1] + exit * view[1], base[2] + exit * view[2]];
 }
 
-/** The probe sits on the sponge surface above the walking mark, where the mist is thin. */
-export function readProbe(time: number, azimuth: number, elevation: number): Vector3 {
+/** The point on the sponge surface just above the walking mark, or null while the mark is not in front of it. */
+function probeAt(time: number, azimuth: number, elevation: number): Vector3 | null {
   const camera = readCamera(time);
   const mark = readMarkWalkPosition(time);
-  const screen = project(camera, [mark[0] + 60, mark[1] - 230]);
-  const layerPoint = unproject(layerCamera(camera, SPONGE_DEPTH), screen);
-  return entryPoint(layerPoint, azimuth, elevation) ?? [0.02, 0.5, 0.3];
+  const screen = project(camera, [mark[0] + 40, mark[1] - 190]);
+  return entryPoint(unproject(layerCamera(camera, SPONGE_DEPTH), screen), azimuth, elevation);
+}
+
+/**
+The probe path: from the first point where the walking mark stands in front of the giant to where
+it stands now. The giant stays awake along the whole path.
+*/
+export function readProbePath(
+  time: number,
+  start: number,
+  end: number,
+  azimuth: number,
+  elevation: number,
+): { probe: Vector3; start: Vector3 } {
+  const hits: Vector3[] = [];
+  for (let sample = start; sample <= Math.min(time, end) + 1e-6; sample += 0.1) {
+    const hit = probeAt(sample, azimuth, elevation);
+    if (hit) {
+      hits.push(hit);
+    }
+  }
+  // Far outside the sponge, so nothing opens before the mark reaches the giant's foot.
+  const first = hits[0] ?? [-5, -5, -5];
+  return { probe: hits[hits.length - 1] ?? first, start: first };
 }
