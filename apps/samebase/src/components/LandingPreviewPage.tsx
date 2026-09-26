@@ -123,7 +123,7 @@ function DocsSidebar() {
 }
 
 const LANDING_AGENT_PROMPT =
-  "Research https://samebase.com and check if its claims are true. Based on what you know about me and my apps, should I use Samebase with you, or an alternative?";
+  "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or an alternative?";
 
 const LANDING_MONOREPO_PATHS = [
   { path: "apps/storefront", resources: ["Convex", "Worker"] },
