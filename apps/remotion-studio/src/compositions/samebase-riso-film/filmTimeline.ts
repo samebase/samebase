@@ -70,6 +70,7 @@ export type FilmScene = {
     reveal: Inks;
     shade: Inks;
     shadow: Inks;
+    wake: Inks;
     x: Inks;
     y: Inks;
     z: Inks;
@@ -77,6 +78,8 @@ export type FilmScene = {
   warp: {
     enabled: boolean;
     sideInks: SideInks;
+    /** Horizontal and vertical scale of the flat shape about its center. */
+    scale: readonly [number, number];
     sides: SideWidths;
     /** Rotation of the flat shape in the page plane, in radians. */
     spin: number;
@@ -100,7 +103,7 @@ export type FilmFrame = {
 };
 
 export const times = {
-  markLand: 0.5,
+  markLand: 0.35,
   netDraw: 6,
   lift: 8,
   folds: [8.5, 9, 9.5, 10, 10.5] as const,
@@ -282,7 +285,7 @@ const spongeTones = {
 // ---------- the warp ----------
 
 const cubeSides: SideWidths = [120, 120, 0, 0, 120];
-const anticipationSides: SideWidths = [112, 128, 0, 0, 120];
+const anticipationSides: SideWidths = [138, 111, 0, 0, 111];
 const fourSides: SideWidths = [118, 112, 0, 52, 78];
 const fiveSides: SideWidths = [100, 90, 44, 60, 66];
 const fiveSidesWide: SideWidths = [86, 104, 58, 40, 72];
@@ -305,12 +308,17 @@ function readSides(time: number): SideWidths {
     [
       { duration: 0, ease: back, time: 0, value: cubeSides },
       {
-        duration: 0.18,
+        duration: 0.28,
         ease: easeInOutSine,
-        time: times.fourSides - 0.18,
+        time: times.fourSides - 0.3,
         value: anticipationSides,
       },
-      { duration: 0.45, ease: back, time: times.fourSides, value: fourSides },
+      {
+        duration: 0.5,
+        ease: (value) => easeOutBack(value, 2.4),
+        time: times.fourSides,
+        value: fourSides,
+      },
       { duration: 0.45, ease: back, time: times.fiveSides, value: fiveSides },
       { duration: 0.4, ease: back, time: 20, value: fiveSidesWide },
       { duration: 0.4, ease: back, time: 21, value: fiveSides },
@@ -368,6 +376,16 @@ function readSideInks(time: number): SideInks {
     ],
     mixSideInks,
   );
+}
+
+/**
+The paper slaps down flat on the drop: the flat picture lands a little large, settles with a damped
+bounce, and flexes once.
+*/
+function readPaperSettle(time: number): readonly [number, number] {
+  const land = 1 + 0.045 * pulse(time, times.drop, 9) - 0.012 * ring(time, times.drop, 2.5, 7);
+  const flex = 0.035 * ring(time, times.drop + 0.03, 3.2, 8);
+  return [land * (1 + flex), land * (1 - flex)];
 }
 
 function readSpin(time: number): number {
@@ -433,7 +451,9 @@ function readSpongeCamera(time: number): FilmCamera {
 }
 
 const probeStart: Vector3 = [0, 0, 0];
-const probeEnd: Vector3 = [48, -26, 2.4];
+const probeEnd: Vector3 = [100, -80, 3];
+/** The probe crosses the near face in about 3 s, after the words land. */
+export const probeTravel = { end: 37.2, start: 34 } as const;
 
 /**
 The probe that wakes the giant: first the paper cube itself, then a straight path down and across
@@ -441,8 +461,25 @@ the front face, which faces the camera.
 Deeper levels open along the whole path so far, so the giant stays awake where the probe passed.
 */
 export function readProbe(time: number): Vector3 {
-  const travel = easeInOutSine(progress(time, times.hit + 0.4, 38.4));
+  const travel = easeInOutSine(progress(time, probeTravel.start, probeTravel.end));
   return mixVector(probeStart, probeEnd, travel);
+}
+
+/**
+The small mark rides the probe with a "Samebase too." label on a paper sticker. The timeline owns
+the geometry, because the sticker is also the knockout box of the print pass.
+*/
+export function readProbeLabel(time: number, camera: FilmCamera) {
+  if (time < probeTravel.start - 0.3 || time >= times.turnEnd) {
+    return undefined;
+  }
+  const probe = projectToPage(camera, readProbe(time));
+  const elbow = [probe[0] - 90, probe[1] - 150] as const;
+  const reach = easeOutCubic(progress(time, probeTravel.start, probeTravel.start + 0.4));
+  const box =
+    reach >= 1 ? ([elbow[0] - 350, elbow[1] - 74, elbow[0], elbow[1]] as const) : undefined;
+  const size = 30 * easeOutBack(progress(time, probeTravel.start - 0.3, probeTravel.start), 2);
+  return { box, elbow, probe, reach, size };
 }
 
 // ---------- scene ----------
@@ -472,6 +509,7 @@ function readScene(time: number): FilmScene {
     },
     warp: {
       enabled: false,
+      scale: [1, 1],
       sideInks: sideInksA,
       sides: cubeSides,
       spin: 0,
@@ -486,14 +524,22 @@ function readScene(time: number): FilmScene {
       light: light(camera),
       lit: 0,
       mode: "none",
-      tones: { inner: innerTone, reveal: none, shade: none, shadow: none, ...flatTones },
+      tones: {
+        inner: innerTone,
+        reveal: none,
+        shade: none,
+        shadow: none,
+        wake: none,
+        ...flatTones,
+      },
     };
   }
 
   if (time < times.silence) {
     const camera = readNetCamera(time);
     const litIn = easeInOutCubic(progress(time, times.lift, 9.2));
-    const flatSnap = progress(time, times.drop, times.drop + 0.12);
+    // The lighting, the shading, and the shadow all go in the single frame of the drop.
+    const flatSnap = time >= times.drop ? 1 : 0;
     const lit = litIn * (1 - flatSnap);
     const tones = {
       x: mixInks(litTones.x, flatTones.x, flatSnap),
@@ -513,10 +559,12 @@ function readScene(time: number): FilmScene {
         reveal: none,
         shade: [0, 0.2, 0.62],
         shadow: [0, 0.1, 0.3],
+        wake: none,
         ...tones,
       },
       warp: {
-        enabled: time >= times.fourSides - 0.2 && time < times.close + 0.9,
+        enabled: time >= times.drop && time < times.close + 0.9,
+        scale: readPaperSettle(time),
         sideInks: readSideInks(time),
         sides: readSides(time),
         spin: readSpin(time),
@@ -533,7 +581,14 @@ function readScene(time: number): FilmScene {
       light: light(camera),
       lit: 0,
       mode: "none",
-      tones: { inner: innerTone, reveal: none, shade: none, shadow: none, ...flatTones },
+      tones: {
+        inner: innerTone,
+        reveal: none,
+        shade: none,
+        shadow: none,
+        wake: none,
+        ...flatTones,
+      },
     };
   }
   const printIn = (delay: number) =>
@@ -551,12 +606,15 @@ function readScene(time: number): FilmScene {
       hazeStart: mix(0, 50, hazeIn),
       printRadius: [printIn(0.5), printIn(0.25), printIn(0)],
       probe: readProbe(time),
-      restDepth: 3,
-      revealRadius: mix(44, 30, progress(time, times.hit, times.hit + 1)),
+      restDepth: 2,
+      revealRadius: mix(40, 34, easeInOutSine(progress(time, times.hit, probeTravel.start))),
     },
     tones: {
       inner: [0.2, 0.35, 0.8],
-      reveal: [0.9, 0, 0],
+      // The opened depth prints in solid pink, which no face of the giant uses, and the woken
+      // surface gets a pink overprint.
+      reveal: [1, 0, 0.12],
+      wake: [0.5, 0, 0],
       shade: [0, 0.15, 0.55],
       shadow: none,
       x: mixInks(flatTones.x, spongeTones.x, hazeIn),
@@ -569,9 +627,9 @@ function readScene(time: number): FilmScene {
 // ---------- page camera and registration ----------
 
 const kicks = [
-  times.markLand,
+  0,
+  2,
   4,
-  5,
   times.lift,
   12,
   13,
@@ -591,23 +649,32 @@ const kicks = [
   times.lastPrint,
 ] as const;
 
+/** The lit cube holds dead still for the beat before the drop: no drift, no boil. */
+const tension = { end: 16, start: 15.5 } as const;
+
+function isTense(time: number): boolean {
+  return time >= tension.start && time < tension.end;
+}
+
 function readPageCamera(time: number): FilmFrame["page"] {
   let kick = 0;
   for (const hit of kicks) {
     kick += ring(time, hit, 2.2, 6);
   }
   const back = (value: number) => easeOutBack(value, 1.4);
-  // Camera words: push in on the mark, punch out when SAME lands, slow pushes, punch on the drop.
+  // Camera words: slam out on frame 0, slow pushes between bar hits, a dead still beat before the
+  // drop, and a punch on the drop.
   const zoom = keyed(
     time,
     [
-      { duration: 0, ease: easeInOutSine, time: 0, value: 1 },
-      { duration: 3.9, ease: easeInOutSine, time: 0.1, value: 1.13 },
-      { duration: 0.45, ease: back, time: 4, value: 1.005 },
-      { duration: 3.8, ease: easeInOutSine, time: 4.2, value: 1.04 },
+      { duration: 0, ease: easeInOutSine, time: 0, value: 1.1 },
+      { duration: 0.3, ease: back, time: 0, value: 1 },
+      { duration: 3.6, ease: easeInOutSine, time: 0.35, value: 1.035 },
+      { duration: 0.4, ease: back, time: 4, value: 1 },
+      { duration: 3.6, ease: easeInOutSine, time: 4.4, value: 1.04 },
       { duration: 3.5, ease: easeInOutSine, time: times.lift, value: 1.02 },
-      { duration: 3.9, ease: easeInOutSine, time: 12, value: 1.07 },
-      { duration: 0.4, ease: back, time: times.drop, value: 1.02 },
+      { duration: 3.4, ease: easeInOutSine, time: 12, value: 1.07 },
+      { duration: 0.3, ease: back, time: times.drop, value: 1.015 },
       { duration: 12, ease: easeInOutSine, time: 16.4, value: 1.06 },
       { duration: 3, ease: easeInOutSine, time: times.silence, value: 1.01 },
       { duration: 0.5, ease: back, time: times.hit, value: 1.03 },
@@ -617,19 +684,16 @@ function readPageCamera(time: number): FilmFrame["page"] {
     ],
     mix,
   );
-  const focusOnMark = easeInOutSine(progress(time, 0.1, 4)) * (1 - back(progress(time, 4, 4.45)));
+  const driftTime = isTense(time) ? tension.start : time;
   const scale = zoom + 0.012 * kick + 0.005 * readBeatPump(time);
   const halfWidth = 960 / scale;
   const halfHeight = 540 / scale;
-  const focusX = Math.min(
-    Math.max(mix(960, 810, focusOnMark) + 5 * drift(time, 1), halfWidth),
-    1920 - halfWidth,
-  );
-  const focusY = Math.min(Math.max(540 + 4 * drift(time, 2), halfHeight), 1080 - halfHeight);
+  const focusX = Math.min(Math.max(960 + 5 * drift(driftTime, 1), halfWidth), 1920 - halfWidth);
+  const focusY = Math.min(Math.max(540 + 4 * drift(driftTime, 2), halfHeight), 1080 - halfHeight);
   return {
     panX: focusX - 960 + 3 * kick,
     panY: focusY - 540,
-    rotation: (0.16 * drift(time, 3) + 0.35 * kick) * degrees,
+    rotation: (0.16 * drift(driftTime, 3) + 0.35 * kick) * degrees,
     scale,
   };
 }
@@ -637,9 +701,7 @@ function readPageCamera(time: number): FilmFrame["page"] {
 /** A small pulse on every beat of the moulding, the drop, and the finale, so the print pumps. */
 function readBeatPump(time: number): number {
   const pumping =
-    (time >= 1 && time < 4) ||
-    (time >= times.drop && time < times.silence) ||
-    (time >= times.hit && time < 38);
+    time < 6 || (time >= times.drop && time < times.silence) || (time >= times.hit && time < 38);
   return pumping ? pulse(time, Math.floor(time / beat) * beat, 12) : 0;
 }
 
@@ -652,9 +714,16 @@ const baseRegistration = [
 
 /** Where each plate flies in from on the first beat. */
 const flyIn = [
-  { dx: -520, dy: -260, rotation: -9 * degrees },
-  { dx: 560, dy: 300, rotation: 7 * degrees },
-  { dx: 30, dy: -420, rotation: 3 * degrees },
+  { dx: -70, dy: -40, rotation: -3 * degrees },
+  { dx: 80, dy: 46, rotation: 2.5 * degrees },
+  { dx: 8, dy: -60, rotation: 1 * degrees },
+] as const;
+
+/** On the drop the pink and blue plates jump out of register, as the paper slaps down flat. */
+const dropSlap = [
+  { dx: -16, dy: 9 },
+  { dx: 14, dy: -11 },
+  { dx: 0, dy: 0 },
 ] as const;
 
 function readRegistration(time: number, printIndex: number): FilmFrame["registration"] {
@@ -663,6 +732,7 @@ function readRegistration(time: number, printIndex: number): FilmFrame["registra
     shock += pulse(time, hit, 9);
   }
   const landing = 1 - easeOutBack(progress(time, 0, times.markLand), 1.3);
+  const slap = ring(time, times.drop, 1.6, 7) + pulse(time, times.drop, 10);
   const lastPrint = readLastPrintSpread(time);
   const plate = (index: 0 | 1 | 2): PlateRegistration => {
     const base = baseRegistration[index];
@@ -672,8 +742,8 @@ function readRegistration(time: number, printIndex: number): FilmFrame["registra
     const jitterY = (hash(printIndex, index, 2) - 0.5) * 2 * jitter;
     const flyAmount = landing + 0.18 * lastPrint;
     return {
-      dx: base.dx + jitterX + fly.dx * flyAmount,
-      dy: base.dy + jitterY + fly.dy * flyAmount,
+      dx: base.dx + jitterX + fly.dx * flyAmount + dropSlap[index].dx * slap,
+      dy: base.dy + jitterY + fly.dy * flyAmount + dropSlap[index].dy * slap,
       rotation:
         base.rotation +
         (hash(printIndex, index, 3) - 0.5) * 0.08 * degrees * (1 + 4 * shock) +
@@ -691,16 +761,17 @@ function readLastPrintSpread(time: number): number {
 
 export function readFilmFrame(timeInSeconds: number): FilmFrame {
   const time = timeInSeconds;
-  const printIndex = Math.floor(time * printsPerSecond);
+  const printIndex = Math.floor((isTense(time) ? tension.start : time) * printsPerSecond);
   const turn = easeInOutCubic(progress(time, times.turnStart, times.turnEnd));
+  const scene = readScene(time);
   return {
     kind: "film",
-    knockout: [-1, -1, -1, -1],
+    knockout: readProbeLabel(time, scene.camera)?.box ?? [-1, -1, -1, -1],
     page: readPageCamera(time),
     pageTurn: turn < 1 ? Math.PI * turn : 0,
     printIndex,
     registration: readRegistration(time, printIndex),
-    scene: readScene(time),
+    scene,
     time,
   };
 }
