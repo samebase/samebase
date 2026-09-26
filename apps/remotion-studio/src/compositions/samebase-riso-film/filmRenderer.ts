@@ -2,7 +2,7 @@ import { common, d, std, tgpu } from "typegpu";
 
 import type { WebGpuFrameRenderer } from "../../webgpu/useWebGpuFrame";
 import { drawFilmPage, waitForFilmFonts } from "./filmPage";
-import { hash, pageHeight, pageWidth } from "./filmMotion";
+import { hash } from "./filmMotion";
 import type { FilmFrame, Inks } from "./filmTimeline";
 
 // ---------- print constants ----------
@@ -28,7 +28,6 @@ const SLATE_CELL = 9;
 const PAPER_TILE = 2048;
 /** Page turn: distance from the eye to the page, in page pixels, for the perspective of the sheet. */
 const EYE_DISTANCE = 2600;
-const SPINE_X = 960;
 
 // ---------- scene constants ----------
 
@@ -109,6 +108,8 @@ const PrintState = d.struct({
   rotation: d.f32,
   scale: d.f32,
   slateRegistration: d.vec3f,
+  /** The page turns over this vertical line. */
+  spineX: d.f32,
 });
 
 const SceneOutput = { axes: d.vec4f, ink: d.vec4f };
@@ -269,6 +270,9 @@ export async function createFilmRenderer(
   const { architecture, vendor } = root.device.adapterInfo;
   console.info(`Riso film WebGPU adapter: ${vendor} ${architecture}`);
   const context = root.configureContext({ canvas, alphaMode: "opaque" });
+  // The page is the canvas: 1920x1080 for the film and 1080x1350 for the feed cut.
+  const pageWidth = canvas.width;
+  const pageHeight = canvas.height;
   const size = [pageWidth, pageHeight] as const;
 
   const makeTarget = () =>
@@ -318,7 +322,7 @@ export async function createFilmRenderer(
   };
   const sceneState = root.createUniform(SceneState, {
     back: d.vec3f(0, 0, 1),
-    center: d.vec2f(960, 540),
+    center: d.vec2f(pageWidth / 2, pageHeight / 2),
     face0: zeroFace,
     face1: zeroFace,
     face2: zeroFace,
@@ -356,7 +360,7 @@ export async function createFilmRenderer(
     zTone: d.vec3f(0),
   });
   const warpState = root.createUniform(WarpState, {
-    center: d.vec2f(960, 540),
+    center: d.vec2f(pageWidth / 2, pageHeight / 2),
     enabled: 0,
     hexagonRadius: 300,
     innerTone: d.vec3f(0),
@@ -383,6 +387,7 @@ export async function createFilmRenderer(
     rotation: 0,
     scale: 1,
     slateRegistration: d.vec3f(0),
+    spineX: pageWidth / 2,
   });
 
   // ---------- the paper cube ----------
@@ -1042,7 +1047,7 @@ export async function createFilmRenderer(
 
   const foldShade = (x: number): number => {
     "use gpu";
-    const offset = x - SPINE_X;
+    const offset = x - printState.$.spineX;
     let side = d.f32(0.55);
     let lift = d.f32(0);
     if (offset > 0) {
@@ -1123,7 +1128,7 @@ export async function createFilmRenderer(
     }
     // The right half page turns over the spine. A point at distance r from the spine lifts
     // toward the eye by r sin(turn) and projects with a simple perspective.
-    const offset = pagePoint.x - SPINE_X;
+    const offset = pagePoint.x - printState.$.spineX;
     const cos = std.cos(turn);
     const sin = std.sin(turn);
     const denominator = cos * EYE_DISTANCE + offset * sin;
@@ -1137,32 +1142,32 @@ export async function createFilmRenderer(
       sheetX = reach;
       onSheet =
         reach >= 0 &&
-        reach <= pageWidth - SPINE_X &&
+        reach <= pageWidth - printState.$.spineX &&
         sheetY >= 0 &&
         sheetY <= pageHeight &&
         depthScale > 0;
     }
     if (onSheet) {
       if (turn < Math.PI / 2) {
-        const color = printPage(d.vec2f(SPINE_X + sheetX, sheetY), 0, footprint);
+        const color = printPage(d.vec2f(printState.$.spineX + sheetX, sheetY), 0, footprint);
         return d.vec4f(std.mul(color, 0.82 + 0.18 * cos), 1);
       }
       // Thin riso paper: the front print shows through the back, mirrored.
-      const through = printPage(d.vec2f(SPINE_X + sheetX, sheetY), 0, footprint);
+      const through = printPage(d.vec2f(printState.$.spineX + sheetX, sheetY), 0, footprint);
       const color = std.mul(
-        printPage(d.vec2f(SPINE_X - sheetX, sheetY), 1, footprint),
+        printPage(d.vec2f(printState.$.spineX - sheetX, sheetY), 1, footprint),
         std.mix(d.vec3f(1), std.div(through, PAPER), 0.12 * sin),
       );
       return d.vec4f(std.mul(color, 0.82 + 0.18 * std.abs(cos)), 1);
     }
     let under = d.vec3f(0);
-    if (pagePoint.x >= SPINE_X) {
+    if (pagePoint.x >= printState.$.spineX) {
       under = printPage(pagePoint, 1, footprint);
     } else {
       under = printPage(pagePoint, 0, footprint);
     }
     // Soft shadow of the lifted sheet on the page below it.
-    const edge = SPINE_X + (pageWidth - SPINE_X) * cos;
+    const edge = printState.$.spineX + (pageWidth - printState.$.spineX) * cos;
     const shadow = 0.22 * sin * std.exp(-std.abs(pagePoint.x - edge) / 140);
     return d.vec4f(std.mul(under, 1 - shadow), 1);
   });
@@ -1276,6 +1281,7 @@ export async function createFilmRenderer(
         rotation: frame.page.rotation,
         scale: frame.page.scale,
         slateRegistration: registration(slateRegistration),
+        spineX: frame.layout.spineX,
       });
 
       scenePipeline
