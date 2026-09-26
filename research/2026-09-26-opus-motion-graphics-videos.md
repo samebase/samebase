@@ -20,9 +20,10 @@ Everyone has the same model. The quality difference comes from five inputs:
 "One prompt" is a marketing claim. The strongest examples used a 5-minute voice prompt and a 12-hour
 agent run, two full generations, or "a few rounds of tweaking".
 
-Samebase already has the right engine: Remotion 4 in `apps/remotion-studio`, with `@remotion/three`
-and `@samebase/logo-model`. A Samebase video needs no new framework. It needs a reference, a music
-decision, real screens, a storyboard, and the same verification loop.
+Samebase already has the two engines it needs: Remotion 4 in `apps/remotion-studio` for the timeline
+and render, and the TypeGPU ray-marched Menger sponge from the landing hero for the fractal. The
+recommended Samebase video is a fractal dive into the Menger sponge, with music that rises without
+end. It needs one account (ElevenLabs Starter), a short script, and the same verification loop.
 
 ## Videos examined
 
@@ -82,68 +83,105 @@ files.
 
 ## Fit for Samebase
 
+The current identity is the Menger sponge. The `LogoHype` composition and the voxel shuffle
+vocabulary in `apps/remotion-studio/notes/logo-motion-directions.md` show the previous logo. Do not
+use them for a new video.
+
 Assets that already exist:
 
-- `apps/remotion-studio`: Remotion 4.0.489, `@remotion/captions`, `@remotion/three`, the 12-second
-  `LogoHype` identity sequence, recorded-demo speed ramps, and render scripts
+- The compact mark is a dark `#394447` square with a centered opening of one third
+  ([compactIdentitySvgAsset.ts](../apps/samebase/src/components/compactIdentitySvgAsset.ts)). That
+  is the face of a Menger sponge at depth 1, so a dive can start from the exact logo.
+- The landing hero draws the Menger sponge with a TypeGPU ray marcher
+  ([MengerTypeGpuScene.tsx](../apps/samebase/src/components/logo/MengerTypeGpuScene.tsx),
+  [research](2026-09-02-typegpu-redraw-menger.md)). It draws one full-screen triangle and computes
+  the sponge per pixel from a distance function. Depth 8 describes 25,600,000,000 cells with no
+  extra geometry.
+- `apps/remotion-studio`: Remotion 4.0.489 and the render scripts
   ([README](../apps/remotion-studio/README.md)).
-- `packages/logo-model`: the voxel mark, isometric views, cube shuffle, and Menger depth transition
-  ([motion vocabulary](../apps/remotion-studio/notes/logo-motion-directions.md)). No other product
-  has this mark. It is the strongest visual asset for a Samebase video.
-- `packages/onboarding-video-tools`: real Chrome capture on macOS for true product footage.
-- Brand tokens: 0 px radius everywhere, Liberation Sans, and a teal-gray primary
-  ([index.css](../apps/samebase/src/index.css)).
-- Hero copy: "The correct way to build web apps." and "One place to manage GitHub, Convex, and
-  Cloudflare across all your apps." The hero also shows the agent prompt
-  ([LandingPreviewPage.tsx:125](../apps/samebase/src/components/LandingPreviewPage.tsx)).
+- The dogfooding claim, as the landing FAQ states it: Samebase runs on the same base that it gives
+  users. The public template [samebase/base](https://github.com/samebase/base) is published from the
+  Samebase monorepo as the base improves. New apps get the current versions. Existing apps do not
+  change unless their owners update them.
+
+Render check, 2026-09-26: headless Chrome on this Mac returns a hardware WebGPU adapter (`apple`,
+`metal-3`) with `--enable-unsafe-webgpu --use-angle=metal`, and a software adapter (`swiftshader`)
+with the flags in `apps/samebase/playwright.webgpu.config.ts`. The video can render on the real GPU.
+Remotion with TypeGPU is not yet tested.
 
 Tool decisions:
 
-- **Remotion, not HyperFrames.** Both give deterministic frames. Remotion already runs here and
-  imports `logo-model` directly. HyperFrames would add a second render stack for no gain.
-- **No 21st.dev components.** Samebase has its own sharp-cornered UI. Borrowed components would look
-  off-brand. Use real Samebase screens and tokens.
-- **No generated video base.** Seedance helped with characters and physics in the music videos. A
-  product video needs exact UI.
+- **Remotion for the timeline, TypeGPU for the fractal.** Each Remotion frame passes its time to the
+  shader as a uniform and waits for the GPU work before the frame capture. HyperFrames would add a
+  second render stack for no gain.
+- **No `shaders` package from [shaders.com](https://shaders.com/presets).** Its presets are a good
+  look reference, and it runs on TypeGPU 0.12. But its license allows only personal, non-commercial
+  use for free; a public promo video needs Pro ($199 a year) or Lifetime ($399). It has no Menger
+  fractal, so the core of the video is our own shader anyway. The post effects that the video needs
+  (film grain, halation, chromatic aberration, dither) are small TypeGPU passes.
+- **ElevenLabs for music.** Eleven Music sets the exact track length, takes a composition plan with
+  named sections and durations, returns stems, and allows commercial use on all paid plans. Starter
+  ($6 a month, 30,000 credits, about 900 credits per generated minute) is enough for many takes of a
+  one-minute track. The API key goes in `apps/remotion-studio/.env.local`, which `.env*` in
+  `apps/remotion-studio/.gitignore` keeps out of Git.
+- **No fal, Seedance, or 21st.dev.** The video has no characters and no product UI.
 - **Missing piece: a contact sheet command.** Remotion Studio previews one frame at a time. The
   agent needs one command that renders a list of times into one image, as PDoomVideo does.
 
-## Recommended direction
+## Recommended direction: the fractal dive
 
-Reference: [opencode 2](https://x.com/kitlangton/status/2103884479710523586) for the terminal-native
-pacing and mono captions, with the restraint of the
-[mexicat](https://x.com/_mexicat/status/2103108369569726802) type system. Samebase colors: black,
-white, and one brand accent. Avoid Claude orange, so that the video does not read as an Anthropic
-ad.
+The idea: a small thing becomes so large and so detailed that it is almost too much. The Menger
+sponge is the exact picture of the Samebase claim, because every part of it is the whole again. The
+words carry the literal claim. The fractal carries the feeling.
 
-Story, about 45 s, 1920x1080, 30 fps:
+The sponge is self-similar at a scale of 3. A camera that zooms 3x toward a self-similar point sees
+the same frame again, so the dive can loop without a seam and go deeper for as long as the music
+lasts. The distance function stops at the pixel size, as the landing renderer does, so each frame
+costs about the same at any depth.
 
-1. **Hook, 0 to 4 s.** A dark terminal. An agent prompt types itself. Big kinetic mono words.
-2. **Setup, 4 to 18 s.** Samebase MCP calls fire on the beat. GitHub, Convex, and Cloudflare nodes
-   light up and connect. Real dashboard rows appear.
-3. **Proof, 18 to 30 s.** The live URL opens and the real app plays (the existing tic-tac-toe
-   recording).
-4. **Same base, 30 to 40 s.** The voxel mark shuffles and goes to Menger depth, one control per
-   beat: many apps, one base.
-5. **End card, 40 to 45 s.** The isometric mark, "The correct way to build web apps.", and
-   samebase.com.
+The music uses the same idea. A Shepard-Risset glissando sounds like it rises forever, but its pitch
+stays in one range. A Risset rhythm sounds like it speeds up forever, but its tempo stays in one
+range. One 3x zoom cycle equals one octave of the rise. The rise and rhythm layers are synthesized
+in code from the frame clock, so they stay in exact sync. An Eleven Music bed with the same key and
+section lengths gives the texture and the low end.
+
+Film, about 50 s, 1920x1080, 30 fps:
+
+1. **Seed, 0 to 6 s.** Silence, then one low tone. The flat compact mark on an empty field.
+2. **Depth, 6 to 20 s.** The camera turns and the flat mark becomes the front face of the 3D sponge.
+   Each bar adds one depth level: 20, 400, 8,000, 160,000 cells. Each level adds one musical layer.
+3. **Dive, 20 to 42 s.** The camera enters one opening and does not stop. Light falls through the
+   tunnels. The rise and the rhythm accelerate. Grain, halation, and color intensify toward the
+   peak.
+4. **Cut, 42 to 50 s.** A hard cut to silence and the flat mark again. Then the wordmark, the
+   tagline, and samebase.com.
+
+Draft words, for the operator to approve (few lines, large type, placed at the calm points before
+each musical lift):
+
+- "Every app starts from the same base."
+- "Samebase is built on it too."
+- "What we learn goes back into the base."
+- "Every new app starts from a better one."
+- "The correct way to build web apps."
+
+The fourth line must stay accurate: new apps get the current base, and existing apps update only
+when their owners choose.
 
 ## Production plan
 
-1. Decide the inputs below.
-2. Capture real screens: landing, organization dashboard, repository dashboard, and the new app
-   flow.
-3. Write a storyboard in `apps/remotion-studio/notes/` with three variants of the recommended
-   direction. Pick one.
-4. Render one still per scene and review them as one contact sheet before any motion.
-5. Build a `LaunchFilm` composition: music first, beat-grid constants, a shared texture layer, and a
-   camera helper.
-6. Iterate with contact sheets, then give director notes in camera words.
-7. Render the master to `apps/remotion-studio/out/` and post it.
+1. **Spike, no account needed.** A Remotion composition renders the TypeGPU Menger sponge on the
+   Metal GPU at a given frame. Output: a 5 s seamless zoom test, a contact sheet command, the time
+   per frame, and proof that the same frame renders identically twice.
+2. **Music.** Generate three Eleven Music beds from one composition plan with exact section lengths.
+   Synthesize the Shepard-Risset layers in a Node TypeScript script. Mix with ffmpeg and pick one.
+3. **Storyboard.** Write three variants of the shot table in `apps/remotion-studio/notes/`. Render
+   one still per shot and review them as one contact sheet before any motion.
+4. **Build and review.** Build the film, check contact sheets around every hit and cut, then take
+   director notes in camera words.
+5. **Master.** Render to `apps/remotion-studio/out/`, mix the audio, and post.
 
 Open inputs for the operator:
 
-- Music: a licensed track, or a generated track (for example ElevenLabs Music) at the exact length
-  and tempo.
-- The claims the video must show, in order.
-- Voiceover or no voiceover. All the examples above use music and on-screen text only.
+- An ElevenLabs Starter account and its API key in `apps/remotion-studio/.env.local`.
+- Approval of the draft words, or replacement lines.
