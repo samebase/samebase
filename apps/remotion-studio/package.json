@@ -12,6 +12,7 @@
     "generate:scout-subtitles": "node src/scripts/generateRecordedDemoSubtitles.ts scout",
     "render:founder-demo": "remotion render FounderDemo out/founder-demo-master.mp4",
     "render:founder-demo-youtube": "remotion render FounderDemoYouTube out/founder-demo-youtube.mp4",
+    "render:contact-sheet": "node src/scripts/renderContactSheet.ts",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
     "render:menger-dive-spike": "remotion render MengerDiveSpike out/menger-dive-spike.mp4",
     "render:onboarding-demo": "remotion render OnboardingDemo out/onboarding-demo-youtube.mp4",
