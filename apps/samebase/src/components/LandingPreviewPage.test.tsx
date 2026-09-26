@@ -10,6 +10,7 @@ import {
   LandingPage,
 } from "@/components/LandingPreviewPage";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
+import { LANDING_AGENT_PROMPT } from "../../shared/landingAgentPrompt";
 
 const authPresentation = vi.hoisted(() => ({ kind: "signedOut" }));
 
@@ -117,9 +118,7 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
-    expect(markup).toContain(
-      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
-    );
+    expect(markup).toContain(LANDING_AGENT_PROMPT);
     expect(markup).toContain("Copy prompt</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
@@ -128,7 +127,7 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
     );
-    expect(markup.indexOf("Research https://samebase.com.")).toBeLessThan(
+    expect(markup.indexOf(LANDING_AGENT_PROMPT)).toBeLessThan(
       markup.indexOf("youtube-nocookie.com/embed/UfxE8rvprqc"),
     );
 
