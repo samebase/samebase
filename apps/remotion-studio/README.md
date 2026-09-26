@@ -29,6 +29,10 @@ appear in Studio immediately.
 - `ScoutDemo` contains the Trail Scout submission edit at the source size, 3840×2480. It combines
   the screen, camera, and captions with a 48x wait and two-second speed ramps.
 - `TicTacToeRecording` contains the production edit used by the landing page.
+- `MengerDiveSpike` is a 5-second WebGPU ray-marched dive into an unbounded Menger sponge. It zooms
+  3x in each clip length, so it loops without a seam. It needs a WebGPU adapter. On an Apple silicon
+  Mac, the Remotion headless shell uses the Metal GPU.
+- `ContactSheetLabel` draws the time labels for the contact sheet command.
 
 Each production composition owns its component, timing model, and supporting edit data under
 `src/compositions/<name>/`. Editorial reasoning lives under `notes/`.
@@ -185,6 +189,11 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the 2160p founder
   demo while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
+- `pnpm --filter @samebase/remotion-studio render:menger-dive-spike`: render the Menger dive loop.
+- `pnpm --filter @samebase/remotion-studio render:contact-sheet <composition-id> <frames> <columns> <output.jpg>`:
+  render frames (`75`) or seconds (`2.5s`) from a comma-separated list into one labeled JPEG. It
+  needs `ffmpeg` on the `PATH`. Example:
+  `render:contact-sheet MengerDiveSpike 0,0.5s,1s,1.5s,2s,2.5s,3s,4s,149 3 out/menger-dive-spike-sheet.jpg`.
 - `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the 2160p onboarding demo
   for YouTube while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
