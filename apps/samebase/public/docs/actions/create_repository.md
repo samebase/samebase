@@ -46,8 +46,9 @@ costs $0/month.
 - `githubOwnerLogin` (string, required): GitHub owner login that will own the new repository.
 - `githubRepositoryName` (string, required): Name for the new GitHub repository and Samebase app.
 - `convexProjectName` (string, required): Convex project name to provision for the app.
-- `convexDeploymentRegion` (value, optional): Optional production region override: aws-us-east-1 or
-  aws-eu-west-1. Omit it to use the organization default, which is US East when no default is saved.
+- `convexDeploymentRegion` (value, optional): Optional production region override: aws-us-east-1,
+  aws-eu-west-1, aws-ca-central-1, or aws-ap-southeast-2. Omit it to use the organization default,
+  which is US East when no default is saved.
 - `cloudflareWorkerName` (string, required): Cloudflare Worker name for automatic Cloudflare
   provisioning. This required field is ignored when cloudflareBuildTokenUuid is null.
 - `cloudflareBuildTokenUuid` (value, required): Exact Workers Builds token UUID returned by
