@@ -42,6 +42,12 @@ import {
   onboardingDemoEditDurationInFrames,
   onboardingDemoFps,
 } from "./compositions/onboarding-demo/onboardingDemoEdit";
+import { SamebaseFilmV3 } from "./compositions/samebase-film-v3/SamebaseFilmV3";
+import {
+  beatClipDurationInSeconds,
+  filmV3DurationInSeconds,
+  filmV3Fps,
+} from "./compositions/samebase-film-v3/filmV3Timeline";
 import { SamebaseRisoFilm } from "./compositions/samebase-riso-film/SamebaseRisoFilm";
 import { SamebaseRisoLoop } from "./compositions/samebase-riso-film/SamebaseRisoLoop";
 import { filmDurationInFrames, filmFps } from "./compositions/samebase-riso-film/filmMotion";
@@ -155,6 +161,27 @@ export function RemotionRoot() {
         height={1080}
         width={1920}
       />
+      <Composition
+        id="SamebaseFilmV3"
+        component={SamebaseFilmV3}
+        defaultProps={{ cut: "film", fourthDirection: "tesseract", sampleGrid: 4 }}
+        durationInFrames={filmV3DurationInSeconds * filmV3Fps}
+        fps={filmV3Fps}
+        height={1080}
+        width={1920}
+      />
+      {(["fan", "tesseract"] as const).map((fourthDirection) => (
+        <Composition
+          id={`FilmV3Beat-${fourthDirection}`}
+          key={fourthDirection}
+          component={SamebaseFilmV3}
+          defaultProps={{ cut: "beat", fourthDirection, sampleGrid: 4 }}
+          durationInFrames={beatClipDurationInSeconds * filmV3Fps}
+          fps={filmV3Fps}
+          height={1080}
+          width={1920}
+        />
+      ))}
       {([1, 2, 3] as const).map((shot) => (
         <Composition
           id={`MengerScaleStill-${shot}`}
