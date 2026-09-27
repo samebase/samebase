@@ -12,11 +12,11 @@ import { fail, resolveRepoRoot, runMain } from "../../../../scripts/lib/scriptRu
 import { trackedFilePath } from "../../../../scripts/lib/trackedFilePath.ts";
 import { chromiumOptions, webpackOverride } from "../renderSettings.ts";
 
-const usage = `Usage: renderContactSheet.ts <composition-id> <frames> <columns> <output.jpg>
+const usage = `Usage: renderContactSheet.ts <composition-id> <frames> <columns> <output.jpg> [cell width]
 
 <frames> is a comma-separated list of frame numbers (75) or seconds (2.5s).
-Example: renderContactSheet.ts MengerDiveSpike 0,1s,2s,149 3 out/sheet.jpg`;
-const cellWidth = 640;
+The cell width defaults to 640 pixels.
+Example: renderContactSheet.ts MengerDiveSpike 0,1s,2s,149 3 out/sheet.jpg 480`;
 const cellPadding = 8;
 const labelInset = 12;
 
@@ -33,7 +33,8 @@ function parseTimePoint(token: string): TimePoint {
 }
 
 function readArguments() {
-  const [compositionId, timeList, columnText, outputPath, ...rest] = process.argv.slice(2);
+  const [compositionId, timeList, columnText, outputPath, cellWidthText = "640", ...rest] =
+    process.argv.slice(2);
   if (!compositionId || !timeList || !columnText || !outputPath || rest.length > 0) {
     return fail(usage);
   }
@@ -41,7 +42,12 @@ function readArguments() {
   if (!Number.isInteger(columns) || columns < 1) {
     return fail(`Invalid column count "${columnText}".\n\n${usage}`);
   }
+  const cellWidth = Number(cellWidthText);
+  if (!Number.isInteger(cellWidth) || cellWidth < 64) {
+    return fail(`Invalid cell width "${cellWidthText}".\n\n${usage}`);
+  }
   return {
+    cellWidth,
     columns,
     compositionId,
     outputPath: path.resolve(outputPath),
@@ -60,7 +66,7 @@ function runFfmpeg(args: string[]): void {
 }
 
 async function renderContactSheet(): Promise<void> {
-  const { columns, compositionId, outputPath, timePoints } = readArguments();
+  const { cellWidth, columns, compositionId, outputPath, timePoints } = readArguments();
   const entryPoint = path.join(
     resolveRepoRoot(),
     trackedFilePath("apps/remotion-studio/src/index.ts"),
