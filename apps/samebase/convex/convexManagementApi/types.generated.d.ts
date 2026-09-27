@@ -1101,6 +1101,7 @@ export interface components {
         | "sso:enable"
         | "sso:disable"
         | "sso:update"
+        | "member:loginWithSso"
         | "directorySync:enable"
         | "directorySync:disable"
         | "directorySync:updateGroupMapping"
@@ -1788,7 +1789,7 @@ export interface components {
     ProposedTeamName: string;
     ReferralCode: string;
     /** @enum {string} */
-    RegionName: "aws-us-east-1" | "aws-eu-west-1";
+    RegionName: "aws-us-east-1" | "aws-eu-west-1" | "aws-ca-central-1" | "aws-ap-southeast-2";
     /** @enum {string} */
     RequestDestination: "convexCloud" | "convexSite";
     /** @enum {string} */
@@ -3148,6 +3149,7 @@ export interface operations {
           | "sso:enable"
           | "sso:disable"
           | "sso:update"
+          | "member:loginWithSso"
           | "directorySync:enable"
           | "directorySync:disable"
           | "directorySync:updateGroupMapping"

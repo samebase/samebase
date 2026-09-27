@@ -50,7 +50,7 @@ export const createRepositoryContract = {
       githubRepositoryName: "Name for the new GitHub repository and Samebase app.",
       convexProjectName: "Convex project name to provision for the app.",
       convexDeploymentRegion:
-        "Optional production region override: aws-us-east-1 or aws-eu-west-1. Omit it to use the organization default, which is US East when no default is saved.",
+        "Optional production region override: aws-us-east-1, aws-eu-west-1, aws-ca-central-1, or aws-ap-southeast-2. Omit it to use the organization default, which is US East when no default is saved.",
       cloudflareWorkerName:
         "Cloudflare Worker name for automatic Cloudflare provisioning. This required field is ignored when cloudflareBuildTokenUuid is null.",
       cloudflareBuildTokenUuid:

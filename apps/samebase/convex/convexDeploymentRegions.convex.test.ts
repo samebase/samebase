@@ -79,6 +79,16 @@ describe("organization Convex deployment region defaults", () => {
     ).resolves.toBe("aws-eu-west-1");
 
     await expect(
+      asOwner.mutation(api.convexDeploymentRegions.setDefault, {
+        organizationId,
+        deploymentRegion: "aws-ca-central-1",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      asMember.query(api.convexDeploymentRegions.getDefault, { organizationId }),
+    ).resolves.toBe("aws-ca-central-1");
+
+    await expect(
       asMember.mutation(api.convexDeploymentRegions.setDefault, {
         organizationId,
         deploymentRegion: "aws-us-east-1",

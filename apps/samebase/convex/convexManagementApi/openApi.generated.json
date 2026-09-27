@@ -870,7 +870,18 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_deployments": {
@@ -2024,6 +2035,7 @@
                 "sso:enable",
                 "sso:disable",
                 "sso:update",
+                "member:loginWithSso",
                 "directorySync:enable",
                 "directorySync:disable",
                 "directorySync:updateGroupMapping",
@@ -2730,6 +2742,7 @@
               "sso:enable",
               "sso:disable",
               "sso:update",
+              "member:loginWithSso",
               "directorySync:enable",
               "directorySync:disable",
               "directorySync:updateGroupMapping",
@@ -4045,7 +4058,7 @@
       },
       "RegionName": {
         "type": "string",
-        "enum": ["aws-us-east-1", "aws-eu-west-1"]
+        "enum": ["aws-us-east-1", "aws-eu-west-1", "aws-ca-central-1", "aws-ap-southeast-2"]
       },
       "RequestDestination": {
         "type": "string",
