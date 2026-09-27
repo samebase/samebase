@@ -10,15 +10,6 @@ export type Rgb = Vector3;
 /** Which fourth-direction beat a cut shows. */
 export type FourthDirection = "fan" | "tesseract";
 
-export type FanCard = {
-  angle: number;
-  brightness: number;
-  /** 0 top, 1 left, 2 right (the mark face). */
-  face: 0 | 1 | 2;
-  /** A new tone for the source face direction, or null to keep the rendered face. */
-  tone: Rgb | null;
-};
-
 export type FilmV3Camera = {
   back: Vector3;
   halfHeight: number;
@@ -32,12 +23,23 @@ export type FilmV3Camera = {
 
 export type FilmV3Scene = {
   camera: FilmV3Camera;
-  fan: {
-    cards: readonly [FanCard, FanCard, FanCard, FanCard];
+  faces: {
+    /**
+    Top face start, top face end (left face start), left face end (new face start), and new face
+    visible end (right face start), in degrees counterclockwise. The right face ends at the top face
+    start plus 360.
+    */
+    boundaries: readonly [number, number, number, number];
     center: readonly [number, number];
     enabled: boolean;
+    /** End ray of the whole new face. Past the visible end it runs on under the right face. */
+    newEnd: number;
     radius: number;
+    /** Right face edge on its start ray, in hexagon radii: it ends where the new face outline ends. */
+    rightStartLength: number;
+    /** Darkness of the thin shadow that the right face casts on the new face. */
     shadow: number;
+    turn: number;
   };
   floor: { height: number; strength: number };
   haze: { color: Rgb; density: number; start: number };
@@ -104,6 +106,9 @@ function hex(value: number): Rgb {
 
 export const inks = {
   blue: hex(0x3255a4),
+  /** Words on the pink field: a dense ink that stays readable at phone size. */
+  navy: hex(0x171b4f),
+  newFace: hex(0x4068cc),
   cyan: hex(0x00b8db),
   pink: hex(0xff48b0),
   slate: hex(0x394447),
@@ -133,6 +138,11 @@ function easeInOutCubic(value: number): number {
 
 function easeInOutSine(value: number): number {
   return -(Math.cos(Math.PI * value) - 1) / 2;
+}
+
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const amount = clamp01((value - edge0) / (edge1 - edge0));
+  return amount * amount * (3 - 2 * amount);
 }
 
 function easeOutCubic(value: number): number {
@@ -332,8 +342,8 @@ export const beats = {
   settle: 12.5,
   still: 14.5,
   lift: 17.5,
-  collapse: 21.6,
-  resume: 22.6,
+  collapse: 20,
+  resume: 21,
   scale: 25.5,
   end: 32.5,
   url: 36.75,
@@ -477,7 +487,7 @@ function readTexts(time: number, format: FilmV3Format) {
     backdrop.push({
       align: "left",
       cap: pick(300, 250),
-      color: inks.blue,
+      color: inks.navy,
       words: [{ rise: 1, text: "SAME" }],
       x: pick(110, 60) + drift + slide * width,
       y: pick(470, 400),
@@ -485,7 +495,7 @@ function readTexts(time: number, format: FilmV3Format) {
     backdrop.push({
       align: "right",
       cap: pick(300, 250),
-      color: inks.blue,
+      color: inks.navy,
       words: [{ rise: 1, text: "BASE" }],
       x: pick(1810, 1020) - drift + slide * width * 1.25,
       y: pick(910, 1210),
@@ -506,7 +516,7 @@ function readTexts(time: number, format: FilmV3Format) {
       {
         align: "center",
         cap: pick(80, 56),
-        color: inks.blue,
+        color: inks.navy,
         leading: 0,
         x: pick(960, 540),
         y: pick(1000, 1240),
@@ -514,31 +524,26 @@ function readTexts(time: number, format: FilmV3Format) {
     ),
   );
 
+  // Two lines at the lower left keep clear of the four-face diamond.
   const lower: Placement = {
     align: "left",
-    cap: pick(76, 70),
-    color: inks.blue,
-    leading: 96,
+    cap: pick(56, 64),
+    color: inks.navy,
+    leading: pick(80, 88),
     x: pick(110, 70),
-    y: pick(1000, 1160),
+    y: pick(940, 1215),
   };
   backdrop.push(
     ...stack(
-      pick(
-        [[{ at: 20.4, text: "Delete your Samebase account." }]],
-        [[{ at: 20.4, text: "Delete your" }], [{ at: 20.55, text: "Samebase account." }]],
-      ),
-      22.35,
+      [[{ at: 19, text: "Delete your" }], [{ at: 19.15, text: "Samebase account." }]],
+      20.95,
       time,
       lower,
     ),
   );
   backdrop.push(
     ...stack(
-      pick(
-        [[{ at: 22.6, text: "Your app doesn't notice." }]],
-        [[{ at: 22.6, text: "Your app" }], [{ at: 22.75, text: "doesn't notice." }]],
-      ),
+      [[{ at: 21.25, text: "Your app" }], [{ at: 21.4, text: "doesn't notice." }]],
       25.2,
       time,
       lower,
@@ -548,7 +553,7 @@ function readTexts(time: number, format: FilmV3Format) {
   const skyPlacement: Placement = {
     align: "left",
     cap: pick(82, 80),
-    color: inks.pink,
+    color: inks.white,
     leading: pick(130, 106),
     x: pick(110, 70),
     y: pick(190, 170),
@@ -578,7 +583,7 @@ function readTexts(time: number, format: FilmV3Format) {
       {
         align: pick("left", "center"),
         cap: pick(112, 96),
-        color: inks.blue,
+        color: inks.navy,
         leading: pick(175, 150),
         x: pick(150, 540),
         y: pick(330, 720),
@@ -589,7 +594,7 @@ function readTexts(time: number, format: FilmV3Format) {
     ...stack([[{ at: beats.url, text: "samebase.com" }]], 99, time, {
       align: pick("left", "center"),
       cap: pick(58, 56),
-      color: inks.slate,
+      color: inks.navy,
       leading: 0,
       x: pick(152, 540),
       y: pick(930, 1210),
@@ -599,48 +604,84 @@ function readTexts(time: number, format: FilmV3Format) {
   return { backdrop, overlay };
 }
 
-const restFan = {
-  cards: [
-    { angle: 0, brightness: 1, face: 2, tone: null },
-    { angle: 0, brightness: 1, face: 0, tone: null },
-    { angle: 0, brightness: 1, face: 1, tone: null },
-    { angle: 0, brightness: 1, face: 2, tone: inks.pink },
-  ],
+const restFaces = {
+  boundaries: [30, 150, 270, 270],
   center: [0, 0],
   enabled: false,
+  newEnd: 390,
   radius: 0,
+  rightStartLength: 1,
   shadow: 0,
-} as const satisfies FilmV3Scene["fan"];
+  turn: 0,
+} as const satisfies FilmV3Scene["faces"];
 
 /**
-The card fan: the face bisectors go from 90, 210, and 330 degrees to an even X at 135, 225, and 315,
-and a fourth card slides out from under the right card to 45. The spacing goes from 120 to 90
-degrees. Card 0 is on top, and the new card is under its two neighbors.
+The end state of the four faces: the widths of the top, left, new, and right faces, counterclockwise
+from the top. They add up to 360 degrees, and the top face stays centered on 90 degrees.
 */
-function readFan(
-  time: number,
-  halfHeight: number,
-  width: number,
-  height: number,
-): FilmV3Scene["fan"] {
-  const open = easeOutBack(progress(time, beats.lift, beats.lift + 1.1), 1.1);
-  const close = easeInOutCubic(progress(time, beats.collapse, beats.collapse + 0.8));
-  const amount = open * (1 - close);
-  // While open, the whole fan turns a little in the picture plane, which no cube can do.
-  const spin = -12 * Math.sin(Math.PI * progress(time, beats.lift + 1.1, beats.collapse));
-  const enabled = time >= beats.lift && time < beats.collapse + 0.8;
-  return {
-    cards: [
-      { angle: -15 * amount + spin, brightness: 1, face: 2, tone: null },
-      { angle: 45 * amount + spin, brightness: 1, face: 0, tone: null },
-      { angle: 15 * amount + spin, brightness: 1, face: 1, tone: null },
-      { angle: 75 * amount + spin, brightness: 1, face: 2, tone: inks.blue },
-    ],
+const fourFaceWidths: readonly [number, number, number, number] = [90, 90, 90, 90];
+
+/**
+Extent of the new face along the ray `visible` degrees past its start edge, in hexagon radii. The new
+face is the parallelogram with two edges of one radius on its rays, `width` degrees apart.
+*/
+function newFaceExtent(width: number, visible: number): number {
+  const sine = (value: number) => Math.sin(value * degrees);
+  return visible <= width / 2 ? sine(width) / sine(width - visible) : sine(width) / sine(visible);
+}
+
+/**
+The fourth face. The isometric frame is split along the three lines from the center into the top,
+left, and right faces; each face is an affine map of its rendered region, including the depth seen
+through its opening. A copy of the right face lies exactly under it, slides out from under it, and
+the visible faces re-shear so that they always tile the full turn.
+
+The new face never narrows to a wedge. It keeps at least 120 degrees while the right face uncovers
+it: a 120 degree face lies inside the hexagon circle, so the edge where the right face meets it never
+passes the circle, and the right face edge takes exactly that length. Only when the new face is
+almost uncovered does it take its end width.
+*/
+function readFaces(time: number, halfHeight: number, width: number, height: number) {
+  const [topWidth, leftWidth, newWidth] = fourFaceWidths;
+  const endStart = 90 - topWidth / 2;
+  const end = [
+    endStart,
+    endStart + topWidth,
+    endStart + topWidth + leftWidth,
+    endStart + topWidth + leftWidth + newWidth,
+  ] as const;
+  // A small anticipation: the left face first takes 5 degrees from the right face.
+  const anticipation =
+    Math.sin(Math.PI * progress(time, beats.lift - 0.35, beats.lift + 0.15)) *
+    (1 - progress(time, beats.lift, beats.lift + 0.15));
+  const split = 270 + 5 * anticipation;
+  const open =
+    easeInOutCubic(progress(time, beats.lift, beats.lift + 1.1)) *
+    (1 - easeInOutCubic(progress(time, beats.collapse, beats.collapse + 1)));
+  const boundaries = [
+    mix(30, end[0], open),
+    mix(150, end[1], open),
+    mix(split, end[2], open),
+    mix(split, end[3], open),
+  ] as const;
+  const visible = boundaries[3] - boundaries[2];
+  const newFaceWidth =
+    newWidth < 120
+      ? mix(120, newWidth, smoothstep(50, newWidth, visible))
+      : mix(120, newWidth, smoothstep(0, newWidth, visible));
+  // During the hold the whole figure turns a little in the picture plane, which no cube can do.
+  const turn = -5 * Math.sin(Math.PI * progress(time, beats.lift + 1.1, beats.collapse + 1));
+  const faces = {
+    boundaries,
     center: [width / 2, height / 2],
-    enabled,
+    enabled: time >= beats.lift - 0.35 && time < beats.collapse + 1,
+    newEnd: boundaries[2] + newFaceWidth,
     radius: (hexagonRadius * height) / (2 * halfHeight),
-    shadow: 0.3 * clamp01(amount),
-  };
+    rightStartLength: newFaceExtent(newFaceWidth, visible),
+    shadow: 0.42 * smoothstep(0, 12, visible),
+    turn,
+  } satisfies FilmV3Scene["faces"];
+  return { faces, open };
 }
 
 /** The fourth axis: the shell grows on the lift, turns inside out, and collapses. */
@@ -699,7 +740,12 @@ function readGiant(time: number, format: FilmV3Format) {
 export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Frame {
   const { format, fourthDirection, height, sampleGrid, width } = options;
   const frameIndex = Math.round(time * filmV3Fps);
-  const orbit = readOrbit(time);
+  // The feed cut is narrower, so its orbit frames the cube a little smaller.
+  const baseOrbit = readOrbit(time);
+  const orbit = {
+    ...baseOrbit,
+    halfHeight: baseOrbit.halfHeight * (format === "portrait" ? 1.2 : 1),
+  };
   const cursor = readCursor(time, orbit, width, height);
   const texts = readTexts(time, format);
   const inScale = time >= beats.scale && time < beats.end;
@@ -720,7 +766,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
   let floor = { height: -1, strength: floorStrengthAt(orbit.elevation) };
   let aoScale = 0.045;
   let mode: FilmV3Scene["mode"] = "sponge";
-  let fan: FilmV3Scene["fan"] = restFan;
+  let faces: FilmV3Scene["faces"] = restFaces;
   let tesseract: FilmV3Scene["tesseract"] = {
     halfExtent: [1, 1, 1],
     joints: tesseractJoints(0, 0).joints,
@@ -738,7 +784,10 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
 
   if (time >= beats.lift && time < beats.scale) {
     if (fourthDirection === "fan") {
-      fan = readFan(time, orbit.halfHeight, width, height);
+      const fourFaces = readFaces(time, orbit.halfHeight, width, height);
+      faces = fourFaces.faces;
+      // Only the faces exist while they are open, so the floor shadow of the cube fades with them.
+      floor = { ...floor, strength: floor.strength * (1 - fourFaces.open) };
     } else {
       const shape = readTesseract(time);
       const { view } = shape;
@@ -810,7 +859,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     sampleGrid,
     scene: {
       camera,
-      fan,
+      faces,
       floor,
       haze,
       light: keyLight(camera, aoScale),
