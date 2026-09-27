@@ -2,8 +2,8 @@
 
 `SamebaseFilmV3`: 1920x1080, 30 fps, 42 s. The object is a solid Menger cube from the first frame.
 Only the view changes: a drag orbit as on the landing hero, a hover that opens deeper channels, a
-turn into a fourth direction, and a pull back to a huge sponge. The earlier drafts built the cube
-from paper and warped a flat image. This film never does either.
+fourth direction, and a pull back to a huge sponge. The earlier drafts built the cube from paper and
+warped a flat image. This film never does either.
 
 ## Why this order
 
@@ -14,41 +14,92 @@ open under the cursor. Only after that belief does the fourth direction break it
 
 ## Look
 
-- The object uses the landing hero colors per face direction: the mark face `#394447`, the side
-  faces `#00B8DB`, and the top faces `#FFFFFF`. A camera-fixed key light from the upper left adds
-  real shading, a soft shadow, and ambient occlusion on top of these tones. At frame 0 the front
-  face is exactly `#394447`.
-- The fields are vivid riso inks: pink `#FF48B0` and blue `#3255A4`. The object stands on an
-  invisible floor that receives its shadow, so the shadow falls across the printed type.
-- Type is Inter Tight 800, large and flat. Only the approved lines appear.
-- A light film grain covers the frame. It never replaces the 3D shading.
+- The object uses the landing hero tones per face direction: the mark face `#394447`, the side faces
+  `#00B8DB`, and the top faces `#FFFFFF`. A camera-fixed key light from the upper left adds real
+  shading, a soft shadow, and ambient occlusion on top of these tones. A face that looks at the
+  camera gets exactly its tone, so frame 0 is exactly the `#394447` mark.
+- The fields are riso inks: pink `#FF48B0` and blue `#3255A4`. The object stands on an invisible
+  floor that receives its shadow, so the shadow falls across the type on the field.
+- Type is Inter Tight 800, large and flat. Only the approved lines appear. Each word rises into
+  place from its baseline.
+- A light grain covers the frame. It never replaces the 3D shading.
+
+## Music and sound
+
+`public/media/samebase-film-v3.mp3` (not committed) is an ElevenLabs `music_v2_5` composition plan
+from `src/scripts/generateFilmV3Audio.ts`: hook, hover, held breath, lift, scale, and resolve at 120
+BPM. The model moved the sections, so the measured track is the source of truth:
+
+- The groove plays from 0 to 14 s. It falls away from 14 s and is near silent from 15 to 17.2 s.
+- The lift lands at 17.52 s, with the strongest onset of the track.
+- The music is full until 38 s and rings out to silence at 41.5 s.
+
+The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come from the same script.
+`SamebaseFilmV3.tsx` places each one so that its peak lands on its picture hit.
 
 ## Shots
 
-| Time       | Music       | Picture                                                                                                                                                                      | Words                                                  |
-| ---------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 0 to 2     | Hook        | Pink field. SAME and BASE fill the frame in blue. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.              | SAME, BASE                                             |
-| 2 to 9     | Hook        | The cursor drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion appear because they were always there. The words slide off in parallax. | None                                                   |
-| 9 to 12.5  | Hover       | The cursor glides over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                 | None                                                   |
-| 12.5 to 14 | Held breath | The cursor leaves. The camera eases to the exact isometric view and back to orthographic. One word per beat beside its face.                                                 | GitHub. Convex. Cloudflare.                            |
-| 14 to 16   | Held breath | Stillness. Nothing moves.                                                                                                                                                    | (the words hold)                                       |
-| 16 to 24   | Lift        | The fourth direction (see the beat prototypes). It opens on the downbeat at 16.0, holds, and closes. The camera then keeps orbiting as if nothing happened.                  | Delete your Samebase account. Your app doesn't notice. |
-| 24 to 32   | Scale       | Match cut on the downbeat: the cube is the corner cell of a huge Menger sponge. The camera pulls back and drifts outside it, in haze. The cursor wakes its surface.          | Every app on the same base. Samebase too.              |
-| 32 to 42   | Resolve     | End card on a blue field: the mark, the line word by word, then samebase.com. The last hit rings out.                                                                        | Same base. Your accounts. No magic. samebase.com       |
+| Time         | Picture                                                                                                                                                                                                                        | Words                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| 0 to 2       | Pink field. SAME and BASE fill the frame in blue. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.                                                                | SAME, BASE                                       |
+| 2 to 9.5     | Three drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion were always there. The words slide off in parallax.                                                                            | None                                             |
+| 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                                         | None                                             |
+| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic.                                                                                                                                      | None                                             |
+| 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                                               | GitHub. Convex. Cloudflare.                      |
+| 17.5 to 22.4 | The fourth direction on the lift: the card fan (below). It opens, turns a little in the picture plane, and closes at 22.4 on the close sound.                                                                                  | Delete your Samebase account.                    |
+| 22.4 to 25.5 | The camera keeps orbiting as if nothing happened.                                                                                                                                                                              | Your app doesn't notice.                         |
+| 25.5 to 32.5 | Match cut: the cube is the corner cell of a depth 5 Menger sponge. The camera backs away from the corner to a wide low view, outside the sponge, in blue haze. The woken region grows from the corner cell across the surface. | Every app on the same base. Samebase too.        |
+| 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                                       | Same base. Your accounts. No magic. samebase.com |
 
-## Fourth direction: two prototypes
+## Fourth direction: the two prototypes
 
-- A, card fan: the isometric frame is three rigid rhombi. A fourth rhombus slides out from behind
-  one face, and the four faces fan from 120 degree spacing to 90 degree spacing, like a hand of
-  cards. Each card is a rigid rotation of its rendered face, so the opening stays at one third and
-  no texture stretches.
-- B, real fourth axis: the level 1 Menger cube is the three-dimensional frame of cubes with
-  one-third beams. The tesseract frame with the same beams collapses to exactly this cube when its
-  fourth extent is zero. The film grows the fourth extent, projects from 4D with perspective, turns
-  the tesseract in the xw plane until it is inside out, and collapses it back.
+`FilmV3Beat-fan` and `FilmV3Beat-tesseract` replay the film from 13 s to 23 s with each option.
+
+- A, card fan (in the film): the isometric frame is three rigid rhombi. A fourth rhombus slides out
+  from under the mark face, and the face bisectors fan from 120 degree spacing to an even X at 90
+  degree spacing. Each card is a rigid rotation of its rendered face, so the opening stays at one
+  third, the tunnel walls inside it keep their pixels, and no texture stretches. The edges are
+  analytic, the cards cast soft shadows on the cards below, and the new card takes the blue ink. At
+  rest the composite equals the 3D frame, so the change in and out has no seam.
+- B, real fourth axis: the level 1 Menger cube is the frame of cubes with one-third beams around its
+  edges. The tesseract frame with the same beams collapses to exactly this cube when its fourth
+  extent is zero. The clip grows a shell along w, projects from 4D with perspective, turns it 180
+  degrees in the xw plane until it is inside out, and collapses it back.
+
+The fan is in the film. With one-third beams, each tesseract cell is nearly solid, so the outer cell
+hides the inner cube and the frustum cells from most views. Mid-turn, the solid reads as a bent box,
+which looks like a rendering bug on a still frame. The fan keeps every frame a clean composition of
+rigid marks, and it is the operator's own reshape idea without the warp that failed.
 
 ## Rules
 
 - No six-pointed stars, no regular eight-pointed stars, no diagonal Menger cross-sections, no flight
   through tunnels, no numbers that read as an app count, and no dates.
 - Every frame is a pure function of time.
+
+## Cuts
+
+- `SamebaseFilmV3`: the 16:9 film.
+- `SamebaseFilmV3Portrait`: a 1080x1350 feed cut. The type is authored per format in `readTexts`,
+  long lines break in two, and the end card puts the mark above the words.
+- `FilmV3Beat-fan` and `FilmV3Beat-tesseract`: the two 10 s beat prototypes.
+
+The floor shadow fades out below 9 degrees of camera elevation: the floor has the field color, so
+near a level camera its shadow collapses into a thin line with nothing under it. The giant shot
+starts with every level open near the corner cell, so the match cut shows the cube as one mark among
+identical marks, and the woken region then grows across the surface.
+
+## Delivery
+
+The master (CRF 16) is about 130 MB because of the grain. The grain changes every second frame. The
+web copy is a two-pass encode with grain tuning at 4300 kbit/s, for about 23.5 MB:
+
+```console
+pnpm exec remotion render SamebaseFilmV3 out/samebase-film-v3.mp4
+ffmpeg -i out/samebase-film-v3.mp4 -c:v libx264 -preset slower -tune grain -b:v 4300k -pass 1 -an -f mp4 /dev/null
+ffmpeg -i out/samebase-film-v3.mp4 -c:v libx264 -preset slower -tune grain -b:v 4300k -pass 2 \
+  -pix_fmt yuv420p -c:a aac -b:a 160k -movflags +faststart out/samebase-film-v3-web.mp4
+```
+
+The tesseract clip renders with `--concurrency=3 --timeout=180000`: its 32 beams cost about 1.5 s
+per frame, and 12 parallel tabs exceed the default frame timeout.
