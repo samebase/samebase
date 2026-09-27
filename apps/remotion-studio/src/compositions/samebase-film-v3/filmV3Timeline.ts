@@ -39,7 +39,7 @@ export type FilmV3Scene = {
     radius: number;
     shadow: number;
   };
-  floor: { enabled: boolean; height: number };
+  floor: { height: number; strength: number };
   haze: { color: Rgb; density: number; start: number };
   light: { ambient: number; aoScale: number; direction: Vector3; key: number };
   mode: "sponge" | "tesseract";
@@ -85,7 +85,11 @@ export type FilmV3Frame = {
   shadowTint: Rgb;
 };
 
+/** `landscape` is the 1920x1080 film and `portrait` the 1080x1350 feed cut. */
+export type FilmV3Format = "landscape" | "portrait";
+
 export type FilmV3Options = {
+  format: FilmV3Format;
   fourthDirection: FourthDirection;
   height: number;
   sampleGrid: number;
@@ -211,6 +215,15 @@ function orbitCamera({ elevation, halfHeight, tan, target, yaw }: Orbit, rayLimi
   } satisfies FilmV3Camera;
 }
 
+/**
+The invisible floor has the color of the field, so near a level camera its shadow collapses into a
+thin line with no visible floor under it. The shadow fades out below 9 degrees of elevation.
+*/
+function floorStrengthAt(elevation: number): number {
+  const amount = clamp01((elevation - 1.5) / 7.5);
+  return amount * amount * (3 - 2 * amount);
+}
+
 /** The camera-fixed key light: upper left and toward the viewer. */
 function keyLight(camera: FilmV3Camera, aoScale: number) {
   const local: Vector3 = normalize([-0.5, 0.78, 0.58]);
@@ -260,10 +273,11 @@ function probeAt(
 // ---------- the tesseract ----------
 
 /**
-4D eye distance: the cells at w = 4/3 project at 1.7 times the size of the cells at w = 0, and no
-cell comes nearer than 1.6 to the 4D eye during the turn, so the projection never blows up.
+4D eye distance: the cells at w = 4/3 project at 2.25 times the size of the cells at w = 0, so the
+opening of the outer mark frames the inner cube. No cell comes nearer than 0.79 to the 4D eye
+during the turn, so the projection stays below 3.1 times.
 */
-const eyeW = 3.2;
+const eyeW = 2.4;
 
 /**
 The level 1 Menger cube is the frame of cubes with one-third beams around the cube edges. The
@@ -355,7 +369,7 @@ function readOrbit(time: number): Orbit {
     { at: 12.5, ease: easeInOutCubic, to: 0, until: 14.3 },
     { at: beats.resume, ease: easeInOutCubic, to: 0.36, until: 24.6 },
   ]);
-  const halfHeight = keyed(time, 3.27, [
+  const halfHeight = keyed(time, 2.8, [
     { at: 2, ease: easeInOutCubic, to: 2.35, until: 3.6 },
     { at: 12.5, ease: easeInOutCubic, to: 2.9, until: 14.3 },
     { at: beats.resume, ease: easeInOutCubic, to: 2.6, until: 24.6 },
@@ -430,119 +444,155 @@ function riseOf(time: number, at: number, until: number): number {
   );
 }
 
-function line(
-  words: readonly { at: number; text: string }[],
+type Timed = { at: number; text: string };
+type Placement = Omit<FilmV3Text, "words"> & { leading: number };
+
+/** One text row per entry of `rows`, `leading` pixels apart. Every word rises at its own time. */
+function stack(
+  rows: readonly (readonly Timed[])[],
   until: number,
   time: number,
-  layout: Omit<FilmV3Text, "words">,
-): FilmV3Text {
-  return {
-    ...layout,
+  { leading, ...placement }: Placement,
+): FilmV3Text[] {
+  return rows.map((words, index) => ({
+    ...placement,
     words: words.map(({ at, text }) => ({ rise: riseOf(time, at, until), text })),
-  };
+    y: placement.y + index * leading,
+  }));
 }
 
-function readTexts(time: number, width: number, height: number) {
+/** Pixel positions are authored per format: 1920x1080 for the film and 1080x1350 for the feed cut. */
+function readTexts(time: number, format: FilmV3Format) {
+  const portrait = format === "portrait";
+  const pick = <Value>(landscape: Value, portraitValue: Value) =>
+    portrait ? portraitValue : landscape;
   const backdrop: FilmV3Text[] = [];
   const overlay: FilmV3Text[] = [];
-  const x = (value: number) => (value * width) / 1920;
-  const y = (value: number) => (value * height) / 1080;
 
   // Hook: SAME and BASE fill the frame from frame 0 and slide off with the drag.
   const slide = easeInOutSine(progress(time, 2, 4.4));
   const drift = time * 6;
+  const width = pick(1920, 1080);
   if (time < 4.6) {
     backdrop.push({
       align: "left",
-      cap: y(300),
+      cap: pick(300, 250),
       color: inks.blue,
       words: [{ rise: 1, text: "SAME" }],
-      x: x(110 + drift + slide * 1900),
-      y: y(470),
+      x: pick(110, 60) + drift + slide * width,
+      y: pick(470, 400),
     });
     backdrop.push({
       align: "right",
-      cap: y(300),
+      cap: pick(300, 250),
       color: inks.blue,
       words: [{ rise: 1, text: "BASE" }],
-      x: x(1810 - drift + slide * 2350),
-      y: y(910),
+      x: pick(1810, 1020) - drift + slide * width * 1.25,
+      y: pick(910, 1210),
     });
   }
 
   backdrop.push(
-    line(
+    ...stack(
       [
-        { at: 14.75, text: "GitHub." },
-        { at: 15.5, text: "Convex." },
-        { at: 16.25, text: "Cloudflare." },
+        [
+          { at: 14.75, text: "GitHub." },
+          { at: 15.5, text: "Convex." },
+          { at: 16.25, text: "Cloudflare." },
+        ],
       ],
       17.2,
       time,
-      { align: "center", cap: y(64), color: inks.blue, x: x(960), y: y(1000) },
+      {
+        align: "center",
+        cap: pick(80, 56),
+        color: inks.blue,
+        leading: 0,
+        x: pick(960, 540),
+        y: pick(1000, 1240),
+      },
+    ),
+  );
+
+  const lower: Placement = {
+    align: "left",
+    cap: pick(76, 70),
+    color: inks.blue,
+    leading: 96,
+    x: pick(110, 70),
+    y: pick(1000, 1160),
+  };
+  backdrop.push(
+    ...stack(
+      pick(
+        [[{ at: 20.4, text: "Delete your Samebase account." }]],
+        [[{ at: 20.4, text: "Delete your" }], [{ at: 20.55, text: "Samebase account." }]],
+      ),
+      22.35,
+      time,
+      lower,
     ),
   );
   backdrop.push(
-    line([{ at: 20.4, text: "Delete your Samebase account." }], 22.35, time, {
-      align: "left",
-      cap: y(66),
-      color: inks.blue,
-      x: x(110),
-      y: y(1000),
-    }),
-  );
-  backdrop.push(
-    line([{ at: 22.6, text: "Your app doesn't notice." }], 25.2, time, {
-      align: "left",
-      cap: y(66),
-      color: inks.blue,
-      x: x(110),
-      y: y(1000),
-    }),
+    ...stack(
+      pick(
+        [[{ at: 22.6, text: "Your app doesn't notice." }]],
+        [[{ at: 22.6, text: "Your app" }], [{ at: 22.75, text: "doesn't notice." }]],
+      ),
+      25.2,
+      time,
+      lower,
+    ),
   );
 
-  overlay.push(
-    line([{ at: 27, text: "Every app on the same base." }], 32.1, time, {
-      align: "left",
-      cap: y(82),
-      color: inks.pink,
-      x: x(110),
-      y: y(190),
-    }),
+  const skyPlacement: Placement = {
+    align: "left",
+    cap: pick(82, 80),
+    color: inks.pink,
+    leading: pick(130, 106),
+    x: pick(110, 70),
+    y: pick(190, 170),
+  };
+  const everyApp = pick(
+    [[{ at: 27, text: "Every app on the same base." }]],
+    [[{ at: 27, text: "Every app on" }], [{ at: 27.15, text: "the same base." }]],
   );
+  overlay.push(...stack(everyApp, 32.1, time, skyPlacement));
   overlay.push(
-    line([{ at: 29.25, text: "Samebase too." }], 32.1, time, {
-      align: "left",
-      cap: y(82),
+    ...stack([[{ at: 29.25, text: "Samebase too." }]], 32.1, time, {
+      ...skyPlacement,
       color: inks.white,
-      x: x(110),
-      y: y(320),
+      y: skyPlacement.y + everyApp.length * skyPlacement.leading,
     }),
   );
 
-  const endLines = [
-    { at: 32.75, text: "Same base." },
-    { at: 33.5, text: "Your accounts." },
-    { at: 34.25, text: "No magic." },
-  ] as const;
-  endLines.forEach((endLine, index) => {
-    backdrop.push(
-      line([endLine], 99, time, {
-        align: "left",
-        cap: y(112),
-        color: inks.blue,
-        x: x(150),
-        y: y(330 + index * 175),
-      }),
-    );
-  });
   backdrop.push(
-    line([{ at: beats.url, text: "samebase.com" }], 99, time, {
-      align: "left",
-      cap: y(46),
+    ...stack(
+      [
+        [{ at: 32.75, text: "Same base." }],
+        [{ at: 33.5, text: "Your accounts." }],
+        [{ at: 34.25, text: "No magic." }],
+      ],
+      99,
+      time,
+      {
+        align: pick("left", "center"),
+        cap: pick(112, 96),
+        color: inks.blue,
+        leading: pick(175, 150),
+        x: pick(150, 540),
+        y: pick(330, 720),
+      },
+    ),
+  );
+  backdrop.push(
+    ...stack([[{ at: beats.url, text: "samebase.com" }]], 99, time, {
+      align: pick("left", "center"),
+      cap: pick(58, 56),
       color: inks.slate,
-      x: x(152),
-      y: y(930),
+      leading: 0,
+      x: pick(152, 540),
+      y: pick(930, 1210),
     }),
   );
 
@@ -618,7 +668,7 @@ const giantLevels = 5;
 const giantHalfSize = 3 ** (giantLevels - 1);
 const giantCenter: Vector3 = [giantHalfSize - 1, -(giantHalfSize - 1), giantHalfSize - 1];
 
-function readGiant(time: number) {
+function readGiant(time: number, format: FilmV3Format) {
   const local = time - beats.scale;
   // The camera backs straight away from the corner cell, so it never nears the surface.
   const pull = easeInOutCubic(progress(local, 0, 2.8));
@@ -634,20 +684,24 @@ function readGiant(time: number) {
     elevation,
     halfHeight,
     tan: mix(0.36, 0.74, pull),
-    target: add(scale(right, 0.58 * offset), [0, 0.2 * offset, 0]),
+    target: add(scale(right, (format === "portrait" ? 0.22 : 0.58) * offset), [
+      0,
+      (format === "portrait" ? -0.1 : 0.2) * offset,
+      0,
+    ]),
     yaw,
   };
   // The woken region grows from the cube's corner cell across the giant surface.
-  const revealRadius = mix(0.035, 0.62, easeInOutSine(progress(local, 0.6, 6.8)));
+  const revealRadius = mix(0.3, 0.95, easeInOutSine(progress(local, 1.2, 6.8)));
   return { camera: orbitCamera(orbit, giantHalfSize * 5), revealRadius };
 }
 
 export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Frame {
-  const { fourthDirection, height, sampleGrid, width } = options;
+  const { format, fourthDirection, height, sampleGrid, width } = options;
   const frameIndex = Math.round(time * filmV3Fps);
   const orbit = readOrbit(time);
   const cursor = readCursor(time, orbit, width, height);
-  const texts = readTexts(time, width, height);
+  const texts = readTexts(time, format);
   const inScale = time >= beats.scale && time < beats.end;
   const inEnd = time >= beats.end;
 
@@ -663,7 +717,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     revealRadius: 0.62,
   };
   let haze: FilmV3Scene["haze"] = { color: field, density: 0, start: 0 };
-  let floor = { enabled: true, height: -1 };
+  let floor = { height: -1, strength: floorStrengthAt(orbit.elevation) };
   let aoScale = 0.045;
   let mode: FilmV3Scene["mode"] = "sponge";
   let fan: FilmV3Scene["fan"] = restFan;
@@ -688,26 +742,29 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     } else {
       const shape = readTesseract(time);
       const { view } = shape;
+      // Nearly head on, the opening of the outer mark frames the inner cube.
+      const elevation = orbit.elevation - 29 * view;
       camera = orbitCamera(
         {
-          elevation: orbit.elevation - 12 * view,
-          halfHeight: orbit.halfHeight + 1.9 * view,
-          tan: orbit.tan + 0.3 * view,
-          target: [0, -0.35 * view, 0],
-          yaw: orbit.yaw + 14 * view,
+          elevation,
+          halfHeight: orbit.halfHeight + 1.6 * view,
+          tan: orbit.tan + 0.22 * view,
+          target: [0, -0.2 * view, 0],
+          yaw: orbit.yaw + 37 * view,
         },
         12,
       );
+      floor = { height: -1, strength: floorStrengthAt(elevation) };
       if (shape.active) {
         mode = "tesseract";
         tesseract = { halfExtent: shape.halfExtent, joints: shape.joints };
-        floor = { enabled: true, height: Math.min(-1, shape.lowest) };
+        floor = { height: Math.min(-1, shape.lowest), strength: floorStrengthAt(elevation) };
       }
     }
   }
 
   if (inScale) {
-    const giant = readGiant(time);
+    const giant = readGiant(time, format);
     camera = giant.camera;
     field = inks.blue;
     sponge = {
@@ -720,19 +777,25 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
       revealRadius: giant.revealRadius,
     };
     haze = { color: field, density: 0.009, start: camera.rayStart + 12 };
-    floor = { enabled: false, height: -1 };
+    floor = { height: -1, strength: 0 };
     aoScale = 0.045 * (camera.halfHeight / 2.6);
   }
 
   if (inEnd) {
     field = inks.pink;
-    camera = orbitCamera(
-      { elevation: 0, halfHeight: 3.6, tan: 0, target: [-4.27, -0.6, 0], yaw: 0 },
-      6,
-    );
+    // The solid turns in and settles head on, flat as the mark, when the address lands.
+    const turn = 1 - easeInOutCubic(progress(time, beats.end, beats.url));
+    const view = { elevation: 10 * turn, halfHeight: 3.6, tan: 0.34 * turn, yaw: -32 * turn };
+    const aligned = orbitCamera({ ...view, target: [0, 0, 0] }, 6);
+    // Keep the cube center on the focal plane: right of the words, or above them in portrait.
+    const target =
+      format === "portrait"
+        ? scale(aligned.up, -1.75)
+        : add(scale(aligned.right, -4.27), scale(aligned.up, -0.6));
+    camera = orbitCamera({ ...view, target }, 6);
     sponge = { ...sponge, center: [0, 0, 0], depth: 1, halfSize: 1, openness: 0, restDepth: 1 };
     haze = { color: field, density: 0, start: 0 };
-    floor = { enabled: true, height: -1 };
+    floor = { height: -1, strength: floorStrengthAt(view.elevation) };
     aoScale = 0.045;
   }
 
@@ -742,7 +805,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     cursor: inScale || inEnd ? { pressed: 0, visible: 0, x: 0, y: 0 } : cursor,
     field,
     frameIndex,
-    grain: 0.035,
+    grain: 0.024,
     overlayTexts: texts.overlay,
     sampleGrid,
     scene: {

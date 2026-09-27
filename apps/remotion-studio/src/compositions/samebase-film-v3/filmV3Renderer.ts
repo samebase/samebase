@@ -45,7 +45,8 @@ const SceneState = d.struct({
   openness: d.f32,
   tesseractHalfExtent: d.vec3f,
   floorHeight: d.f32,
-  floorEnabled: d.i32,
+  /** 0 hides the floor shadow. It fades out near a level camera, where the floor turns edge on. */
+  floorStrength: d.f32,
   hazeColor: d.vec3f,
   hazeDensity: d.f32,
   hazeStart: d.f32,
@@ -563,7 +564,11 @@ export async function createFilmV3Renderer(
     }
 
     if (hit) {
-      const normal = surfaceNormal(hitPoint, threshold);
+      // The stencil sits just outside the surface, so flush pieces of a union show no seam.
+      const normal = surfaceNormal(
+        std.sub(hitPoint, std.mul(rayDirection, threshold * 1.5)),
+        threshold,
+      );
       const weights = std.mul(normal, normal);
       const tone = std.add(
         std.add(std.mul(state.xTone, weights.x), std.mul(state.yTone, weights.y)),
@@ -587,13 +592,13 @@ export async function createFilmV3Renderer(
     }
 
     let floor = d.f32(1);
-    if (state.floorEnabled === 1 && rayDirection.y < 0) {
+    if (state.floorStrength > 0 && rayDirection.y < 0) {
       const floorDistance = (state.floorHeight - origin.y) / rayDirection.y;
       const floorPoint = std.add(origin, std.mul(rayDirection, floorDistance));
       const floorThreshold = footprintStart;
       const shadow = softShadow(floorPoint, floorThreshold);
       const contact = std.clamp(sceneSample(floorPoint, floorThreshold).x / 0.9, 0, 1);
-      floor = shadow * (0.55 + 0.45 * std.sqrt(contact));
+      floor = std.mix(1, shadow * (0.55 + 0.45 * std.sqrt(contact)), state.floorStrength);
     }
     return TraceSample({ color: d.vec3f(0), coverage: 0, floor, toneShade: d.vec3f(0) });
   };
@@ -786,7 +791,8 @@ export async function createFilmV3Renderer(
 
     const overlay = std.textureSampleLevel(overlayView.$, linearSampler.$, uv, 0);
     color = std.mix(color, overlay.xyz, overlay.w);
-    const noise = hash(std.add(std.floor(pixel), d.vec2f(state.frameIndex * 17.31, 3.7))) - 0.5;
+    const noise =
+      hash(std.add(std.floor(pixel), d.vec2f(std.floor(state.frameIndex / 2) * 17.31, 3.7))) - 0.5;
     color = std.add(color, d.vec3f(noise * state.grain));
     return d.vec4f(std.clamp(color, d.vec3f(0), d.vec3f(1)), 1);
   });
@@ -822,7 +828,7 @@ export async function createFilmV3Renderer(
         aspectRatio: canvas.width / canvas.height,
         back: vector(camera.back),
         depth: sponge.depth,
-        floorEnabled: floor.enabled ? 1 : 0,
+        floorStrength: floor.strength,
         floorHeight: floor.height,
         halfHeight: camera.halfHeight,
         hazeColor: vector(haze.color),
