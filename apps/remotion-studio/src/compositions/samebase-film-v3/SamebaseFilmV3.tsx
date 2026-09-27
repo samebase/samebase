@@ -52,6 +52,8 @@ export function SamebaseFilmV3({ cut, format, fourthDirection, sampleGrid }: Sam
       <Audio
         src={staticFile("media/samebase-film-v3.mp3")}
         startFrom={Math.round(startSeconds * filmV3Fps)}
+        // The track peaks near 0 dBFS; this leaves headroom for the sound effects on top.
+        volume={0.84}
       />
       {cues.map(({ at, name, volume }) => (
         <Sequence from={Math.round((at - startSeconds) * filmV3Fps)} key={`${name}-${at}`}>
