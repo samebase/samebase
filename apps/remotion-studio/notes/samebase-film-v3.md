@@ -20,7 +20,8 @@ open under the cursor. Only after that belief does the fourth direction break it
   camera gets exactly its tone, so frame 0 is exactly the `#394447` mark.
 - The fields are riso inks: pink `#FF48B0` and blue `#3255A4`. The object stands on an invisible
   floor that receives its shadow, so the shadow falls across the type on the field.
-- Type is Inter Tight 800, large and flat. Only the approved lines appear. Each word rises into
+- Type is Inter Tight 800, large and flat, in a deep navy `#171B4F` on pink and white on blue, so
+  every word stays readable at phone size. Only the approved lines appear. Each word rises into
   place from its baseline.
 - A light grain covers the frame. It never replaces the 3D shading.
 
@@ -46,8 +47,8 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 | 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                                         | None                                             |
 | 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic.                                                                                                                                      | None                                             |
 | 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                                               | GitHub. Convex. Cloudflare.                      |
-| 17.5 to 22.4 | The fourth direction on the lift: the card fan (below). It opens, turns a little in the picture plane, and closes at 22.4 on the close sound.                                                                                  | Delete your Samebase account.                    |
-| 22.4 to 25.5 | The camera keeps orbiting as if nothing happened.                                                                                                                                                                              | Your app doesn't notice.                         |
+| 17.5 to 21   | The fourth direction on the lift: four faces (below). They open, hold with a slow turn in the picture plane, and close back into the cube at 21.0 on the close sound.                                                          | Delete your Samebase account.                    |
+| 21 to 25.5   | The camera keeps orbiting as if nothing happened.                                                                                                                                                                              | Your app doesn't notice.                         |
 | 25.5 to 32.5 | Match cut: the cube is the corner cell of a depth 5 Menger sponge. The camera backs away from the corner to a wide low view, outside the sponge, in blue haze. The woken region grows from the corner cell across the surface. | Every app on the same base. Samebase too.        |
 | 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                                       | Same base. Your accounts. No magic. samebase.com |
 
@@ -55,21 +56,28 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 
 `FilmV3Beat-fan` and `FilmV3Beat-tesseract` replay the film from 13 s to 23 s with each option.
 
-- A, card fan (in the film): the isometric frame is three rigid rhombi. A fourth rhombus slides out
-  from under the mark face, and the face bisectors fan from 120 degree spacing to an even X at 90
-  degree spacing. Each card is a rigid rotation of its rendered face, so the opening stays at one
-  third, the tunnel walls inside it keep their pixels, and no texture stretches. The edges are
-  analytic, the cards cast soft shadows on the cards below, and the new card takes the blue ink. At
-  rest the composite equals the 3D frame, so the change in and out has no seam.
+- A, four faces (in the film, v3.1): during the beat only the faces exist. The orthographic
+  isometric frame is split along the three lines from the center into the top, left, and right
+  regions, each with the depth seen through its opening. Each face is an affine map of its region,
+  so edges stay straight and openings stay one third. A copy of the right face in a new blue lies
+  exactly under the right face and slides out from under it. The visible faces always tile the full
+  turn: every direction from the center belongs to exactly one face, and neighbors share their rays.
+  The new face keeps at least 120 degrees until it is almost uncovered, so it never shows as a
+  needle, and the right face edge always ends where the new face outline ends, so the outline has no
+  notch and no stray point. A thin soft shadow marks the right face edge on the new face. The end
+  state is four equal 90 degree faces: a diamond of four marks around one corner. An uneven end
+  state (90, 75, 135, 60) read as a bent corner with a long spike and was less clear. At rest the
+  faces equal the 3D frame, so the swaps in and out have no cut. The floor shadow of the cube fades
+  while the faces are open.
+- A, card fan (v3, replaced): rigid rotated cards that overlapped each other and left small points
+  around the outline.
 - B, real fourth axis: the level 1 Menger cube is the frame of cubes with one-third beams around its
   edges. The tesseract frame with the same beams collapses to exactly this cube when its fourth
   extent is zero. The clip grows a shell along w, projects from 4D with perspective, turns it 180
   degrees in the xw plane until it is inside out, and collapses it back.
 
-The fan is in the film. With one-third beams, each tesseract cell is nearly solid, so the outer cell
-hides the inner cube and the frustum cells from most views. Mid-turn, the solid reads as a bent box,
-which looks like a rendering bug on a still frame. The fan keeps every frame a clean composition of
-rigid marks, and it is the operator's own reshape idea without the warp that failed.
+A is in the film. With one-third beams, each tesseract cell is nearly solid, so the outer cell hides
+the inner cube and the frustum cells from most views, and mid-turn the solid reads as a bent box.
 
 ## Rules
 

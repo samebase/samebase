@@ -2,14 +2,12 @@ import { common, d, std, tgpu } from "typegpu";
 
 import type { WebGpuFrameRenderer } from "../../webgpu/useWebGpuFrame";
 import { drawBackdrop, drawOverlay, waitForFilmV3Fonts } from "./filmV3Page";
-import type { FilmV3Frame, Vector3 } from "./filmV3Timeline";
+import { type FilmV3Frame, inks, type Vector3 } from "./filmV3Timeline";
 
 const MAXIMUM_SAMPLE_GRID = 4;
 const MAXIMUM_RAY_STEPS = 200;
 const MAXIMUM_MENGER_DEPTH = 8;
 const BEAM_COUNT = 32;
-/** The fan cards: a rhombus side spans 120 degrees, and sin(120 degrees) scales its edge distances. */
-const RHOMBUS_SINE = Math.sin((2 * Math.PI) / 3);
 
 const SceneState = d.struct({
   aspectRatio: d.f32,
@@ -60,23 +58,16 @@ const CompositeState = d.struct({
   frameIndex: d.f32,
   grain: d.f32,
   shadowTint: d.vec3f,
-  fanEnabled: d.i32,
+  facesEnabled: d.i32,
   /** Hexagon center in pixels from the top left. */
-  fanCenter: d.vec2f,
-  fanRadius: d.f32,
-  /** Darkness of the shadow that each card casts on the cards below it. */
-  fanShadow: d.f32,
-  /** Rotation of each card in degrees, counterclockwise. Card 0 is on top. */
-  fanAngles: d.vec4f,
-  /** Source face of each card: 0 top, 1 left, 2 right. */
-  fanFaces: d.vec4f,
-  fanBrightness: d.vec4f,
-  /** 1 recolors the source face direction of the card with its tone. */
-  fanRecolor: d.vec4f,
-  fanTone0: d.vec3f,
-  fanTone1: d.vec3f,
-  fanTone2: d.vec3f,
-  fanTone3: d.vec3f,
+  facesCenter: d.vec2f,
+  facesRadius: d.f32,
+  /** Start rays of the top, left, new, and right faces, in degrees counterclockwise. */
+  facesBoundaries: d.vec4f,
+  newEnd: d.f32,
+  rightStartLength: d.f32,
+  newShadow: d.f32,
+  newTone: d.vec3f,
   xTone: d.vec3f,
   yTone: d.vec3f,
   zTone: d.vec3f,
@@ -85,7 +76,7 @@ const CompositeState = d.struct({
 const TraceSample = d.struct({
   color: d.vec3f,
   coverage: d.f32,
-  /** Face direction weights times the shade, for the fan recolor. */
+  /** Face direction weights times the shade, for the new face recolor. */
   toneShade: d.vec3f,
   floor: d.f32,
 });
@@ -229,20 +220,6 @@ const angleRay = (degrees: number): d.v2f => {
 const cross2 = (a: d.v2f, b: d.v2f): number => {
   "use gpu";
   return a.x * b.y - a.y * b.x;
-};
-
-const pick4 = (values: d.v4f, index: number): number => {
-  "use gpu";
-  if (index === 0) {
-    return values.x;
-  }
-  if (index === 1) {
-    return values.y;
-  }
-  if (index === 2) {
-    return values.z;
-  }
-  return values.w;
 };
 
 function vector([x, y, z]: Vector3): d.v3f {
@@ -652,108 +629,143 @@ export async function createFilmV3Renderer(
     return std.textureSampleLevel(colorView.$, linearSampler.$, uv, 0);
   };
 
-  const cardTone = (card: number): d.v3f => {
+  /** Start ray of visible face `face`: 0 top, 1 left, 2 new, 3 right. */
+  const faceStart = (face: number): number => {
     "use gpu";
-    const state = compositeState.$;
-    if (card === 0) {
-      return d.vec3f(state.fanTone0);
+    const boundaries = compositeState.$.facesBoundaries;
+    if (face === 0) {
+      return boundaries.x;
     }
-    if (card === 1) {
-      return d.vec3f(state.fanTone1);
+    if (face === 1) {
+      return boundaries.y;
     }
-    if (card === 2) {
-      return d.vec3f(state.fanTone2);
+    if (face === 2) {
+      return boundaries.z;
     }
-    return d.vec3f(state.fanTone3);
+    return boundaries.w;
+  };
+
+  const faceEnd = (face: number): number => {
+    "use gpu";
+    if (face === 3) {
+      return faceStart(0) + 360;
+    }
+    return faceStart(face + 1);
+  };
+
+  const faceIsEmpty = (face: number): boolean => {
+    "use gpu";
+    return faceEnd(face) - faceStart(face) < 0.0001;
   };
 
   /**
-  One fan card: a rigid rotation of one rendered isometric face. Each source face is the rhombus
-  between the rays at 30 + 120 * face and 150 + 120 * face degrees around the hexagon center.
-  Returns the premultiplied color and the coverage of the card at `pixel`.
+  One face at `offset` (pixels from the center, y up): the affine map of its rendered isometric
+  region. The top face comes from the region between the rays at 30 and 150 degrees, the left face
+  from 150 to 270, and the right and new faces from 270 to 390. The new face is the whole
+  parallelogram up to `newEnd`, seen only up to the right face start, where it lies under the right
+  face. Returns the color and the coverage of its outer edges.
   */
-  /** Rhombus coordinates (a, b) of `pixel` on the source face of `card`, after its rotation. */
-  const cardCoordinates = (pixel: d.v2f, card: number): d.v2f => {
+  const faceColor = (offset: d.v2f, face: number): d.v4f => {
     "use gpu";
     const state = compositeState.$;
-    const offset = d.vec2f(pixel.x - state.fanCenter.x, state.fanCenter.y - pixel.y);
-    const rotation = angleRay(-pick4(state.fanAngles, card));
-    const rotated = d.vec2f(
-      offset.x * rotation.x - offset.y * rotation.y,
-      offset.x * rotation.y + offset.y * rotation.x,
-    );
-    const start = 30 + 120 * d.f32(d.i32(pick4(state.fanFaces, card) + 0.5));
-    const span = state.fanRadius * RHOMBUS_SINE;
-    return d.vec2f(
-      cross2(rotated, angleRay(start + 120)) / span,
-      cross2(angleRay(start), rotated) / span,
-    );
-  };
-
-  /** Soft coverage of the card outline, for the shadow that a card casts on the cards below. */
-  const cardShadow = (pixel: d.v2f, card: number): number => {
-    "use gpu";
-    const state = compositeState.$;
-    const softness = state.fanRadius * 0.05;
-    const shifted = std.sub(pixel, d.vec2f(state.fanRadius * 0.02, -state.fanRadius * 0.035));
-    const coordinates = cardCoordinates(shifted, card);
-    const span = state.fanRadius * RHOMBUS_SINE;
-    const edge = std.min(
-      std.min(coordinates.x, coordinates.y),
-      std.min(1 - coordinates.x, 1 - coordinates.y),
-    );
-    return std.smoothstep(-softness, softness, edge * span);
-  };
-
-  const fanCard = (pixel: d.v2f, card: number): d.v4f => {
-    "use gpu";
-    const state = compositeState.$;
-    const coordinates = cardCoordinates(pixel, card);
-    const a = coordinates.x;
-    const b = coordinates.y;
-    const face = d.i32(pick4(state.fanFaces, card) + 0.5);
-    const start = 30 + 120 * d.f32(face);
+    const start = faceStart(face);
+    let end = faceEnd(face);
+    let source = d.i32(face);
+    let startLength = d.f32(1);
+    if (face === 2) {
+      end = state.newEnd;
+    }
+    if (face === 3) {
+      source = 2;
+      startLength = state.rightStartLength;
+    }
     const u = angleRay(start);
-    const v = angleRay(start + 120);
-    const span = state.fanRadius * RHOMBUS_SINE;
-    const outer = std.clamp(std.min((1 - a) * span, (1 - b) * span) + 0.5, 0, 1);
-    const inner = std.clamp(std.min(a * span, b * span) + 1.5, 0, 1);
-    const coverage = outer * inner;
+    const v = angleRay(end);
+    const sine = cross2(u, v);
+    const a = cross2(offset, v) / sine / (state.facesRadius * startLength);
+    const b = cross2(u, offset) / sine / state.facesRadius;
+    const outerA = (1 - a) * state.facesRadius * startLength * sine;
+    const outerB = (1 - b) * state.facesRadius * sine;
+    const coverage = std.clamp(std.min(outerA, outerB) + 0.5, 0, 1);
     if (coverage <= 0) {
       return d.vec4f(0);
     }
-    const inset = 1.25 / span;
+    // Keep a pixel away from the region edges, where the render blends in the neighbor face.
+    const inset = 1.25 / state.facesRadius;
+    const sourceStart = 30 + 120 * d.f32(source);
     const sourceOffset = std.mul(
       std.add(
-        std.mul(u, std.clamp(a, inset, 1 - inset)),
-        std.mul(v, std.clamp(b, inset, 1 - inset)),
+        std.mul(angleRay(sourceStart), std.clamp(a, inset, 1 - inset)),
+        std.mul(angleRay(sourceStart + 120), std.clamp(b, inset, 1 - inset)),
       ),
-      state.fanRadius,
+      state.facesRadius,
     );
-    const sourcePixel = d.vec2f(
-      state.fanCenter.x + sourceOffset.x,
-      state.fanCenter.y - sourceOffset.y,
+    const uv = std.div(
+      d.vec2f(state.facesCenter.x + sourceOffset.x, state.facesCenter.y - sourceOffset.y),
+      state.outputSize,
     );
-    const uv = std.div(sourcePixel, state.outputSize);
-    const source = std.textureSampleLevel(colorView.$, linearSampler.$, uv, 0);
-    let color = source.xyz;
-    if (pick4(state.fanRecolor, card) > 0.5) {
+    const sample = std.textureSampleLevel(colorView.$, linearSampler.$, uv, 0);
+    // The render is premultiplied by its coverage, which is 1 inside a face.
+    let color = std.div(sample.xyz, std.max(sample.w, 0.001));
+    if (face === 2) {
+      // The new face takes a new tone in place of the mark face tone, with the same light.
       const toneShade = std.textureSampleLevel(auxView.$, linearSampler.$, uv, 0).xyz;
-      // Face 0 is the top (y) direction, face 1 the left (x) direction, face 2 the mark (z) face.
-      let oldTone = d.vec3f(state.yTone);
-      let weight = toneShade.y;
-      if (face === 1) {
-        oldTone = d.vec3f(state.xTone);
-        weight = toneShade.x;
-      } else if (face === 2) {
-        oldTone = d.vec3f(state.zTone);
-        weight = toneShade.z;
-      }
-      color = std.add(color, std.mul(std.sub(cardTone(card), oldTone), weight));
+      color = std.add(color, std.mul(std.sub(state.newTone, state.zTone), toneShade.z));
+      // A thin soft shadow where the right face lies on the new face.
+      const underRight = cross2(offset, angleRay(faceStart(3)));
+      color = std.mul(color, 1 - state.newShadow * std.exp(-std.max(underRight, 0) / 5));
     }
-    color = std.mul(color, pick4(state.fanBrightness, card));
-    // The source is premultiplied by its own coverage; inside a face that is 1.
-    return d.vec4f(std.mul(color, coverage / std.max(source.w, 0.001)), coverage);
+    return d.vec4f(std.mul(color, coverage), coverage);
+  };
+
+  const previousFace = (face: number): number => {
+    "use gpu";
+    let previous = (face + 3) % 4;
+    if (faceIsEmpty(previous)) {
+      previous = (previous + 3) % 4;
+    }
+    return previous;
+  };
+
+  const nextFace = (face: number): number => {
+    "use gpu";
+    let next = (face + 1) % 4;
+    if (faceIsEmpty(next)) {
+      next = (next + 1) % 4;
+    }
+    return next;
+  };
+
+  /**
+  The four faces tile the turn: every direction from the center belongs to exactly one face, and
+  the faces meet along shared rays. Within half a pixel of a shared ray the two faces blend.
+  */
+  const facesColor = (pixel: d.v2f): d.v4f => {
+    "use gpu";
+    const state = compositeState.$;
+    const offset = d.vec2f(pixel.x - state.facesCenter.x, state.facesCenter.y - pixel.y);
+    const angle = (std.atan2(offset.y, offset.x) * 180) / Math.PI;
+    const relative = std.fract((angle - faceStart(0)) / 360 + 2) * 360;
+    let face = d.i32(3);
+    if (relative < faceStart(1) - faceStart(0)) {
+      face = 0;
+    } else if (relative < faceStart(2) - faceStart(0)) {
+      face = 1;
+    } else if (relative < faceStart(3) - faceStart(0)) {
+      face = 2;
+    }
+    let layer = faceColor(offset, face);
+    const startDistance = cross2(angleRay(faceStart(face)), offset);
+    if (startDistance < 0.5) {
+      const neighbor = faceColor(offset, previousFace(face));
+      layer = std.mix(layer, neighbor, std.clamp(0.5 - startDistance, 0, 0.5));
+    }
+    const endDistance = cross2(offset, angleRay(faceEnd(face)));
+    if (endDistance < 0.5) {
+      const neighbor = faceColor(offset, nextFace(face));
+      layer = std.mix(layer, neighbor, std.clamp(0.5 - endDistance, 0, 0.5));
+    }
+    return layer;
   };
 
   const compositeFragment = tgpu.fragmentFn({
@@ -767,27 +779,14 @@ export async function createFilmV3Renderer(
     const floor = std.textureSampleLevel(floorView.$, linearSampler.$, uv, 0).x;
     let color = std.mul(backdrop, std.mix(state.shadowTint, d.vec3f(1), floor));
 
-    if (state.fanEnabled === 1) {
-      let transmittance = d.f32(1);
-      let front = d.vec3f(0);
-      for (let card = 0; card < 4; card += 1) {
-        const layer = fanCard(pixel, card);
-        // Each card above casts a soft shadow on this card; at rest the cards lie flat and cast none.
-        let lit = d.f32(1);
-        for (let above = 0; above < 4; above += 1) {
-          if (above >= card) {
-            break;
-          }
-          lit *= 1 - state.fanShadow * cardShadow(pixel, above);
-        }
-        front = std.add(front, std.mul(layer.xyz, transmittance * lit));
-        transmittance *= 1 - layer.w;
-      }
-      color = std.add(front, std.mul(color, transmittance));
+    // During the fourth direction only the faces exist, split from the isometric render.
+    let object = d.vec4f(0);
+    if (state.facesEnabled === 1) {
+      object = facesColor(pixel);
     } else {
-      const object = sampleObject(pixel);
-      color = std.add(object.xyz, std.mul(color, 1 - object.w));
+      object = sampleObject(pixel);
     }
+    color = std.add(object.xyz, std.mul(color, 1 - object.w));
 
     const overlay = std.textureSampleLevel(overlayView.$, linearSampler.$, uv, 0);
     color = std.mix(color, overlay.xyz, overlay.w);
@@ -821,7 +820,7 @@ export async function createFilmV3Renderer(
       drawOverlay(pageContext, frame);
       overlayTexture.write(pageCanvas);
 
-      const { camera, fan, floor, haze, light, sponge, tesseract, tones } = frame.scene;
+      const { camera, faces, floor, haze, light, sponge, tesseract, tones } = frame.scene;
       sceneState.write({
         ambient: light.ambient,
         aoScale: light.aoScale,
@@ -857,30 +856,23 @@ export async function createFilmV3Renderer(
         zTone: vector(tones.z),
       });
       beamState.write(tesseract.joints.map(([x, y, z, half]) => d.vec4f(x, y, z, half)));
-      const [card0, card1, card2, card3] = fan.cards;
+      const turned = (angle: number) => angle + faces.turn;
+      const [topStart, leftStart, newStart, rightStart] = faces.boundaries;
       compositeState.write({
-        fanAngles: d.vec4f(card0.angle, card1.angle, card2.angle, card3.angle),
-        fanBrightness: d.vec4f(
-          card0.brightness,
-          card1.brightness,
-          card2.brightness,
-          card3.brightness,
+        facesBoundaries: d.vec4f(
+          turned(topStart),
+          turned(leftStart),
+          turned(newStart),
+          turned(rightStart),
         ),
-        fanCenter: d.vec2f(...fan.center),
-        fanEnabled: fan.enabled ? 1 : 0,
-        fanFaces: d.vec4f(card0.face, card1.face, card2.face, card3.face),
-        fanRadius: fan.radius,
-        fanShadow: fan.shadow,
-        fanRecolor: d.vec4f(
-          card0.tone ? 1 : 0,
-          card1.tone ? 1 : 0,
-          card2.tone ? 1 : 0,
-          card3.tone ? 1 : 0,
-        ),
-        fanTone0: vector(card0.tone ?? tones.z),
-        fanTone1: vector(card1.tone ?? tones.z),
-        fanTone2: vector(card2.tone ?? tones.z),
-        fanTone3: vector(card3.tone ?? tones.z),
+        facesCenter: d.vec2f(...faces.center),
+        facesEnabled: faces.enabled ? 1 : 0,
+        facesRadius: faces.radius,
+        newEnd: turned(faces.newEnd),
+        newShadow: faces.shadow,
+        // A lighter blue, so that the new face under the dim light of the right face still reads blue.
+        newTone: vector(inks.newFace),
+        rightStartLength: faces.rightStartLength,
         frameIndex: frame.frameIndex,
         grain: frame.grain,
         outputSize: d.vec2f(canvas.width, canvas.height),
