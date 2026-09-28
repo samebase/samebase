@@ -145,14 +145,14 @@ export const inks = {
 The sky behind the object, from the top to the bottom of the frame, the ink of every word, and the
 tint of the floor shadow. The sky stays darker than the white top face, and the words stay dense.
 */
-const palettes = {
+export const palettes = {
   blue: { ink: inks.white, shadowTint: hex(0x6d6aa8), sky: [hex(0x3255a4), hex(0x3255a4)] },
   haze: { ink: hex(0x171b4f), shadowTint: hex(0xa8b3cc), sky: [hex(0x8499b0), hex(0xdfe4ea)] },
   paper: { ink: hex(0x232d31), shadowTint: hex(0xbdb3a8), sky: [hex(0xeee8dc), hex(0xeee8dc)] },
 } as const satisfies Record<FilmV3Palette, { ink: Rgb; shadowTint: Rgb; sky: readonly [Rgb, Rgb] }>;
 
 /** The landing hero tones by face direction: x the side faces, y the top, z the mark face. */
-const landingTones = { x: inks.cyan, y: inks.white, z: inks.slate };
+export const landingTones = { x: inks.cyan, y: inks.white, z: inks.slate };
 
 // ---------- motion ----------
 
@@ -160,11 +160,11 @@ function clamp01(value: number): number {
   return Math.min(Math.max(value, 0), 1);
 }
 
-function progress(time: number, start: number, end: number): number {
+export function progress(time: number, start: number, end: number): number {
   return clamp01((time - start) / (end - start));
 }
 
-function mix(from: number, to: number, amount: number): number {
+export function mix(from: number, to: number, amount: number): number {
   return from + (to - from) * amount;
 }
 
@@ -172,11 +172,11 @@ function easeInOutCubic(value: number): number {
   return value < 0.5 ? 4 * value ** 3 : 1 - (-2 * value + 2) ** 3 / 2;
 }
 
-function easeInOutSine(value: number): number {
+export function easeInOutSine(value: number): number {
   return -(Math.cos(Math.PI * value) - 1) / 2;
 }
 
-function smoothstep(edge0: number, edge1: number, value: number): number {
+export function smoothstep(edge0: number, edge1: number, value: number): number {
   const amount = clamp01((value - edge0) / (edge1 - edge0));
   return amount * amount * (3 - 2 * amount);
 }
@@ -232,7 +232,7 @@ function normalize(a: Vector3): Vector3 {
 
 const degrees = Math.PI / 180;
 const isometricYaw = -45;
-const isometricElevation = Math.atan(1 / Math.SQRT2) / degrees;
+export const isometricElevation = Math.atan(1 / Math.SQRT2) / degrees;
 /** Hexagon radius of the isometric cube, in cube half sizes. */
 const hexagonRadius = 2 * Math.sqrt(2 / 3);
 
@@ -244,7 +244,7 @@ type Orbit = {
   yaw: number;
 };
 
-function orbitCamera({ elevation, halfHeight, tan, target, yaw }: Orbit, rayLimit: number) {
+export function orbitCamera({ elevation, halfHeight, tan, target, yaw }: Orbit, rayLimit: number) {
   const back: Vector3 = [
     Math.sin(yaw * degrees) * Math.cos(elevation * degrees),
     Math.sin(elevation * degrees),
@@ -276,7 +276,7 @@ function floorStrengthAt(elevation: number): number {
 }
 
 /** The camera-fixed key light: upper left and toward the viewer. */
-function keyLight(camera: FilmV3Camera, aoScale: number, shadeStrength: number) {
+export function keyLight(camera: FilmV3Camera, aoScale: number, shadeStrength: number) {
   const local: Vector3 = normalize([-0.5, 0.78, 0.58]);
   const direction = normalize(
     add(
