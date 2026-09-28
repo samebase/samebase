@@ -77,7 +77,9 @@ const SceneState = d.struct({
   floorHeight: d.f32,
   /** 0 hides the floor shadow. It fades out near a level camera, where the floor turns edge on. */
   floorStrength: d.f32,
-  hazeColor: d.vec3f,
+  /** Distances from the cube box, in cube half sizes: the giant is clear to the first and hidden past the second. */
+  hazeClear: d.f32,
+  hazeHidden: d.f32,
   hazeDensity: d.f32,
   hazeStart: d.f32,
   xTone: d.vec3f,
@@ -754,13 +756,20 @@ export async function createFilmV3Renderer(
         state.shadeStrength,
       );
       const shade = state.ambient * occlusion + state.key * facing * shadow;
-      const haze = 1 - std.exp(-std.max(distance - state.hazeStart, 0) * state.hazeDensity);
-      const color = std.mix(std.mul(tone, shade), state.hazeColor, haze);
+      // The haze has the sky color behind the pixel, so it lowers the coverage. Near the cube the
+      // giant is clear out to `hazeClear`, and past `hazeHidden` the haze hides it. The distance is
+      // taken a pixel further along the ray, so a neighbor face that lies on a cube face plane, such
+      // as the cell under the cube seen through an opening, counts as outside the cube.
+      const inside = std.add(hitPoint, std.mul(rayDirection, threshold * 3));
+      const outsideCube = std.length(std.max(std.sub(std.abs(inside), d.vec3f(1)), d.vec3f(0)));
+      const clear =
+        (1 - std.smoothstep(state.hazeClear, state.hazeHidden, outsideCube)) *
+        std.exp(-std.max(distance - state.hazeStart, 0) * state.hazeDensity);
       return TraceSample({
-        color,
-        coverage: 1,
+        color: std.mul(tone, shade * clear),
+        coverage: clear,
         floor: 1,
-        toneShade: std.mul(weights, shade),
+        toneShade: std.mul(weights, shade * clear),
       });
     }
 
@@ -1087,7 +1096,8 @@ export async function createFilmV3Renderer(
         floorStrength: floor.strength,
         floorHeight: floor.height,
         halfHeight: camera.halfHeight,
-        hazeColor: vector(haze.color),
+        hazeClear: haze.clear,
+        hazeHidden: haze.hidden,
         hazeDensity: haze.density,
         hazeStart: haze.start,
         key: light.key,

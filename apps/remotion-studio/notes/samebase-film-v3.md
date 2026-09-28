@@ -18,11 +18,14 @@ open under the cursor. Only after that belief does the fourth direction break it
   `#00B8DB`, and the top faces `#FFFFFF`. A camera-fixed key light from the upper left adds real
   shading, a soft shadow, and ambient occlusion on top of these tones. A face that looks at the
   camera gets exactly its tone, so frame 0 is exactly the `#394447` mark.
-- The fields are riso inks: pink `#FF48B0` and blue `#3255A4`. The object stands on an invisible
-  floor that receives its shadow, so the shadow falls across the type on the field.
-- Type is Inter Tight 800, large and flat, in a deep navy `#171B4F` on pink and white on blue, so
-  every word stays readable at phone size. Only the approved lines appear. Each word rises into
-  place from its baseline.
+- The background is one palette for the whole film, the `palette` prop: `haze` (in the film), a pale
+  sky from `#8499B0` at the top to `#DFE4EA` at the bottom; `blue`, a deep blue field `#3255A4`; or
+  `paper`, a warm off-white `#EEE8DC`. The sky stays darker than the white top face. The object
+  stands on an invisible floor that receives its shadow, so the shadow falls across the type on the
+  sky.
+- Type is Inter Tight 800, large and flat, in the palette ink: deep navy `#171B4F` on the haze sky,
+  white on blue, and deep slate `#232D31` on paper, so every word stays readable at phone size. Only
+  the approved lines appear. Each word rises into place from its baseline.
 - A light grain covers the frame. It never replaces the 3D shading.
 
 ## Music and sound
@@ -40,17 +43,17 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 
 ## Shots
 
-| Time         | Picture                                                                                                                                                                                                          | Words                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 0 to 2       | Pink field. SAME and BASE fill the frame in blue. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.                                                  | SAME, BASE                                       |
-| 2 to 9.5     | Three drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion were always there. The words slide off in parallax.                                                              | None                                             |
-| 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                           | None                                             |
-| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic, with a long ease out that stops at 14.5.                                                                               | None                                             |
-| 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                                 | GitHub. Convex. Cloudflare.                      |
-| 17.5 to 21   | The fourth direction on the lift: four faces (below). They open like two doors, hold, and close back into the cube on the close sound at 21.0.                                                                   | Delete your Samebase account.                    |
-| 21 to 25.5   | The camera keeps orbiting as if nothing happened. From 24.6 s a cell slides into the left face opening.                                                                                                          | Your app doesn't notice.                         |
-| 25.5 to 32.5 | Match cut in the middle of the move: the cube is the corner cell of a depth 5 Menger sponge whose cube-size cells make the same move. The camera pulls back to a wide low view outside the sponge, in blue haze. | Every app on the same base. Samebase too.        |
-| 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                         | Same base. Your accounts. No magic. samebase.com |
+| Time         | Picture                                                                                                                                                                                                   | Words                                            |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 0 to 2       | Pale sky. SAME and BASE fill the frame in navy. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.                                             | SAME, BASE                                       |
+| 2 to 9.5     | Three drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion were always there. The words slide off in parallax.                                                       | None                                             |
+| 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                    | None                                             |
+| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic, with a long ease out that stops at 14.5.                                                                        | None                                             |
+| 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                          | GitHub. Convex. Cloudflare.                      |
+| 17.5 to 21.5 | The fourth direction on the lift: four faces (below). They open like two doors, hold, and close back into the cube on the close sound at 21.5.                                                            | Delete your Samebase account.                    |
+| 21.5 to 25   | The camera keeps orbiting as if nothing happened. From 24.6 s a cell slides into the left face opening.                                                                                                   | Your app doesn't notice.                         |
+| 25 to 32.5   | One continuous pull back in the middle of the move: the cube is the corner cell of a depth 5 Menger sponge, and the rest of the sponge emerges as the haze lifts. The words come in when the giant reads. | Every app on the same base. Samebase too.        |
+| 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                  | Same base. Your accounts. No magic. samebase.com |
 
 ## Fourth direction: the two prototypes
 
@@ -70,9 +73,10 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
   notch, needle, or stray point. It opens in the soft shadow of both doors and brightens as they
   open. The end state is four equal 90 degree faces: a diamond of four marks around one corner.
 - Timing: the faces replace the render at 17.0 s, while the frame is still, and the unfold opens on
-  the lift at 17.5 s over 1.6 s with a sine ease in and out, holds, and closes with the exact
-  reverse by 20.94 s. The render takes over again at 20.96 s, before the camera resumes. At unfold 0
-  the faces sample the render at their own pixels, so both swaps are pixel identical. The floor
+  the lift at 17.5 s over 1.6 s with a sine ease in and out, holds 0.74 s, and closes with the exact
+  reverse by 21.44 s. The render takes over again at 21.46 s, before the camera resumes at 21.5 s.
+  The music keeps an even beat here, so the close moved from 21.0 to 21.5 s for the hold. At unfold
+  0 the faces sample the render at their own pixels, so both swaps are pixel identical. The floor
   shadow fades with the unfold and returns with the close.
 - A, four faces (v3.1, replaced): a copy of the right face slid out from under the right face, so
   the unfold was not symmetric, and a small anticipation jumped on the lift frame.
@@ -100,11 +104,16 @@ flight, or if the plan does not end in the Menger layout.
   front, left, and top faces, one stagger apart, and slide back, at all three levels at once. At
   13.2 s the landing sponge takes over again, every channel closes, and the camera settles to the
   exact isometric view, so the four faces start from the v3.1 frame.
-- Scale (24.5 to 32.5 s): the cube slides a cell into its left face opening. The cut to the giant
-  comes at 25.5 s in the middle of that move, with the same camera, so the eye follows the moving
-  cell across the cut. On the giant only the cells of the cube size shuffle, and the move returns by
-  28.4 s, so the outline stays whole. The camera then pulls back from a three quarter view with lit
-  faces, as in v3.1.
+- Scale (24.5 to 32.5 s): the cube slides a cell into its left face opening. The floor shadow fades
+  from 24.2 s, and at 25.2 s, in the middle of that move, the cube becomes the corner cell of the
+  giant while the haze hides every other cell less than a pixel past the cube, so the swap does not
+  show. One camera move continues the orbit: an exponential dolly with a sine ease backs away from
+  the corner cell for 4.6 s in a three quarter view with lit faces. The haze has the sky color
+  behind each pixel, so the renderer draws it as less coverage. It is clear out to a distance from
+  the cube that grows with the dolly, a little ahead of it, and hides the giant past two to five
+  times that distance, so the giant emerges from the cube outward and is whole by about 28.5 s. A
+  light depth haze stays at the end. On the giant only the cells of the cube size shuffle, and the
+  move returns by 28.4 s, so the outline stays whole.
 
 The shuffled sponge (mode 2) follows the one cell that holds the point, and it also descends into
 the nearest cell when a march comes within two hit thresholds of its face, so the openings in that
@@ -129,9 +138,7 @@ frames exceed the GPU time limit and the device is lost.
 - `FilmV3Beat-fan` and `FilmV3Beat-tesseract`: the two 10 s beat prototypes.
 
 The floor shadow fades out below 9 degrees of camera elevation: the floor has the field color, so
-near a level camera its shadow collapses into a thin line with nothing under it. The giant shot
-starts with every level open near the corner cell, so the match cut shows the cube as one mark among
-identical marks, and the woken region then grows across the surface.
+near a level camera its shadow collapses into a thin line with nothing under it.
 
 ## Delivery
 

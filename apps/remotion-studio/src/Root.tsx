@@ -164,7 +164,13 @@ export function RemotionRoot() {
       <Composition
         id="SamebaseFilmV3"
         component={SamebaseFilmV3}
-        defaultProps={{ cut: "film", format: "landscape", fourthDirection: "fan", sampleGrid: 4 }}
+        defaultProps={{
+          cut: "film",
+          format: "landscape",
+          fourthDirection: "fan",
+          palette: "haze",
+          sampleGrid: 4,
+        }}
         durationInFrames={filmV3DurationInSeconds * filmV3Fps}
         fps={filmV3Fps}
         height={1080}
@@ -173,7 +179,13 @@ export function RemotionRoot() {
       <Composition
         id="SamebaseFilmV3Portrait"
         component={SamebaseFilmV3}
-        defaultProps={{ cut: "film", format: "portrait", fourthDirection: "fan", sampleGrid: 4 }}
+        defaultProps={{
+          cut: "film",
+          format: "portrait",
+          fourthDirection: "fan",
+          palette: "haze",
+          sampleGrid: 4,
+        }}
         durationInFrames={filmV3DurationInSeconds * filmV3Fps}
         fps={filmV3Fps}
         height={1350}
@@ -184,7 +196,13 @@ export function RemotionRoot() {
           id={`FilmV3Beat-${fourthDirection}`}
           key={fourthDirection}
           component={SamebaseFilmV3}
-          defaultProps={{ cut: "beat", format: "landscape", fourthDirection, sampleGrid: 4 }}
+          defaultProps={{
+            cut: "beat",
+            format: "landscape",
+            fourthDirection,
+            palette: "haze",
+            sampleGrid: 4,
+          }}
           durationInFrames={beatClipDurationInSeconds * filmV3Fps}
           fps={filmV3Fps}
           height={1080}

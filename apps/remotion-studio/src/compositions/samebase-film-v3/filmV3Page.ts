@@ -89,11 +89,18 @@ function drawCursor(context: Context, cursor: FilmV3Cursor, unit: number): void 
   context.restore();
 }
 
-/** The color field and the type behind the object. The object shadow falls on this layer. */
+/**
+The sky and the type behind the object. The object shadow falls on this layer, and the haze shows
+this layer through the far cells.
+*/
 export function drawBackdrop(context: Context, frame: FilmV3Frame): void {
   const { height, width } = context.canvas;
+  const [top, bottom] = frame.sky;
+  const sky = context.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, css(top));
+  sky.addColorStop(1, css(bottom));
   context.clearRect(0, 0, width, height);
-  context.fillStyle = css(frame.field);
+  context.fillStyle = sky;
   context.fillRect(0, 0, width, height);
   for (const line of frame.backdropTexts) {
     drawText(context, line);
