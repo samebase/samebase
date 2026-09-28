@@ -5,7 +5,7 @@ import {
 } from "@samebase/logo-model/shuffle";
 import { isWithinVoxelGrid, MENGER_SPONGE_VOXEL_STATE, voxelKey } from "@samebase/logo-model/voxel";
 
-export const filmV3Fps = 30;
+export const filmV3Fps = 60;
 export const filmV3DurationInSeconds = 42;
 /** The beat clips replay the film from the settle to the orbit after the fourth direction. */
 export const beatClipStart = 13;
@@ -31,22 +31,11 @@ export type FilmV3Camera = {
 export type FilmV3Scene = {
   camera: FilmV3Camera;
   faces: {
-    /**
-    Top face start, top face end (left face start), left face end (new face start), and new face
-    visible end (right face start), in degrees counterclockwise. The right face ends at the top face
-    start plus 360.
-    */
-    boundaries: readonly [number, number, number, number];
     center: readonly [number, number];
     enabled: boolean;
-    /** End ray of the whole new face. Past the visible end it runs on under the right face. */
-    newEnd: number;
     radius: number;
-    /** Right face edge on its start ray, in hexagon radii: it ends where the new face outline ends. */
-    rightStartLength: number;
-    /** Darkness of the thin shadow that the right face casts on the new face. */
-    shadow: number;
-    turn: number;
+    /** 0 is the isometric cube and 1 the four equal faces. */
+    unfold: number;
   };
   floor: { height: number; strength: number };
   haze: { color: Rgb; density: number; start: number };
@@ -101,12 +90,21 @@ export type FilmV3Frame = {
   backdropTexts: readonly FilmV3Text[];
   cursor: FilmV3Cursor;
   field: Rgb;
-  frameIndex: number;
+  /** The grain changes 15 times a second at every frame rate. */
+  grainStep: number;
   grain: number;
   overlayTexts: readonly FilmV3Text[];
   sampleGrid: number;
   scene: FilmV3Scene;
   shadowTint: Rgb;
+  /**
+  The camera and the unfold at the shutter open and close. Each antialiasing sample takes its own
+  time in the shutter, so fast moves blur.
+  */
+  shutter: {
+    cameras: readonly [FilmV3Camera, FilmV3Camera];
+    unfold: readonly [number, number];
+  };
 };
 
 /** `landscape` is the 1920x1080 film and `portrait` the 1080x1350 feed cut. */
@@ -169,6 +167,11 @@ function smoothstep(edge0: number, edge1: number, value: number): number {
 
 function easeOutCubic(value: number): number {
   return 1 - (1 - value) ** 3;
+}
+
+/** A short ease in and a long ease out, with no overshoot: the speed peaks at 38 percent. */
+function easeInLongOut(value: number): number {
+  return 1 - (1 - value * value) ** 4;
 }
 
 function easeOutQuint(value: number): number {
@@ -392,7 +395,7 @@ function readOrbit(time: number): Orbit {
     { at: 6.3, ease: easeOutCubic, to: 40, until: 6.9 },
     { at: 6.9, ease: easeInOutSine, to: -32, until: 9.4 },
     { at: 9.4, ease: easeInOutSine, to: -40, until: beats.settle },
-    { at: beats.settle, ease: easeInOutCubic, to: iso.yaw, until: 14.4 },
+    { at: beats.settle, ease: easeInLongOut, to: iso.yaw, until: beats.still },
     { at: beats.resume, ease: easeInOutSine, to: -118, until: 25.6 },
   ]);
   const elevation = keyed(time, 0, [
@@ -400,19 +403,19 @@ function readOrbit(time: number): Orbit {
     { at: 4.5, ease: easeInOutSine, to: 12, until: 6.3 },
     { at: 6.9, ease: easeInOutSine, to: 24, until: 9.4 },
     { at: 9.4, ease: easeInOutSine, to: 27, until: beats.settle },
-    { at: beats.settle, ease: easeInOutCubic, to: iso.elevation, until: 14.4 },
+    { at: beats.settle, ease: easeInLongOut, to: iso.elevation, until: beats.still },
     { at: beats.resume, ease: easeInOutSine, to: 22, until: 25.6 },
   ]);
   const tan = keyed(time, 0, [
     { at: 2, ease: easeInOutCubic, to: 0.42, until: 3.6 },
     { at: 6.9, ease: easeInOutSine, to: 0.34, until: 9.4 },
-    { at: beats.settle, ease: easeInOutCubic, to: 0, until: 14.3 },
+    { at: beats.settle, ease: easeInLongOut, to: 0, until: beats.still },
     { at: beats.resume, ease: easeInOutCubic, to: 0.36, until: 24.6 },
   ]);
   const halfHeight = keyed(time, 2.8, [
     { at: 2, ease: easeInOutCubic, to: 2.35, until: 3.6 },
     { at: 6.9, ease: easeInOutSine, to: 2.5, until: 9.4 },
-    { at: beats.settle, ease: easeInOutCubic, to: 2.9, until: 14.3 },
+    { at: beats.settle, ease: easeInLongOut, to: 2.9, until: beats.still },
     { at: beats.resume, ease: easeInOutCubic, to: 2.6, until: 24.6 },
   ]);
   return { elevation, halfHeight, tan, target: [0, 0, 0], yaw };
@@ -637,83 +640,48 @@ function readTexts(time: number, format: FilmV3Format) {
 }
 
 const restFaces = {
-  boundaries: [30, 150, 270, 270],
   center: [0, 0],
   enabled: false,
-  newEnd: 390,
   radius: 0,
-  rightStartLength: 1,
-  shadow: 0,
-  turn: 0,
+  unfold: 0,
 } as const satisfies FilmV3Scene["faces"];
 
 /**
-The end state of the four faces: the widths of the top, left, new, and right faces, counterclockwise
-from the top. They add up to 360 degrees, and the top face stays centered on 90 degrees.
+The faces replace the render one beat before the lift and hand it back just before the resume, both
+while the camera is still. At unfold 0 the faces equal the render, so neither swap shows.
 */
-const fourFaceWidths: readonly [number, number, number, number] = [90, 90, 90, 90];
+const facesStart = beats.lift - 0.5;
+const facesEnd = beats.resume - 0.04;
+const unfoldSeconds = 1.6;
 
 /**
-Extent of the new face along the ray `visible` degrees past its start edge, in hexagon radii. The new
-face is the parallelogram with two edges of one radius on its rays, `width` degrees apart.
+The unfold opens on the lift, holds, and closes with the exact reverse. It is home a moment before
+the faces end, so they end at rest.
 */
-function newFaceExtent(width: number, visible: number): number {
-  const sine = (value: number) => Math.sin(value * degrees);
-  return visible <= width / 2 ? sine(width) / sine(width - visible) : sine(width) / sine(visible);
+function readUnfold(time: number): number {
+  const closed = beats.resume - 0.06;
+  const opening = easeInOutSine(progress(time, beats.lift, beats.lift + unfoldSeconds));
+  const closing = easeInOutSine(progress(time, closed - unfoldSeconds, closed));
+  return opening * (1 - closing);
 }
 
 /**
-The fourth face. The isometric frame is split along the three lines from the center into the top,
-left, and right faces; each face is an affine map of its rendered region, including the depth seen
-through its opening. A copy of the right face lies exactly under it, slides out from under it, and
-the visible faces re-shear so that they always tile the full turn.
-
-The new face never narrows to a wedge. It keeps at least 120 degrees while the right face uncovers
-it: a 120 degree face lies inside the hexagon circle, so the edge where the right face meets it never
-passes the circle, and the right face edge takes exactly that length. Only when the new face is
-almost uncovered does it take its end width.
+The fourth direction. The orthographic isometric frame is split along the three lines from the
+center into the top, left, and right faces, and the renderer draws each one as an affine map of its
+rendered region, including the depth seen through its opening. At every unfold from 0 to 1 the
+figure is mirror symmetric about the vertical line through the center: the top face narrows from 120
+to 90 degrees around straight up, the left and right faces open away from the lower line like two
+doors, and the gap between them uncovers the new face, which waits at its final 90 degree shape
+straight down. The face widths are 120 - 30 u for the top, left, and right faces and 90 u for the
+new face, so the faces always tile the full turn.
 */
 function readFaces(time: number, halfHeight: number, width: number, height: number) {
-  const [topWidth, leftWidth, newWidth] = fourFaceWidths;
-  const endStart = 90 - topWidth / 2;
-  const end = [
-    endStart,
-    endStart + topWidth,
-    endStart + topWidth + leftWidth,
-    endStart + topWidth + leftWidth + newWidth,
-  ] as const;
-  // A small anticipation: the left face first takes 5 degrees from the right face.
-  const anticipation =
-    Math.sin(Math.PI * progress(time, beats.lift - 0.35, beats.lift + 0.15)) *
-    (1 - progress(time, beats.lift, beats.lift + 0.15));
-  const split = 270 + 5 * anticipation;
-  const open =
-    easeInOutCubic(progress(time, beats.lift, beats.lift + 1.1)) *
-    (1 - easeInOutCubic(progress(time, beats.collapse, beats.collapse + 1)));
-  const boundaries = [
-    mix(30, end[0], open),
-    mix(150, end[1], open),
-    mix(split, end[2], open),
-    mix(split, end[3], open),
-  ] as const;
-  const visible = boundaries[3] - boundaries[2];
-  const newFaceWidth =
-    newWidth < 120
-      ? mix(120, newWidth, smoothstep(50, newWidth, visible))
-      : mix(120, newWidth, smoothstep(0, newWidth, visible));
-  // During the hold the whole figure turns a little in the picture plane, which no cube can do.
-  const turn = -5 * Math.sin(Math.PI * progress(time, beats.lift + 1.1, beats.collapse + 1));
-  const faces = {
-    boundaries,
+  return {
     center: [width / 2, height / 2],
-    enabled: time >= beats.lift - 0.35 && time < beats.collapse + 1,
-    newEnd: boundaries[2] + newFaceWidth,
+    enabled: time >= facesStart && time < facesEnd,
     radius: (hexagonRadius * height) / (2 * halfHeight),
-    rightStartLength: newFaceExtent(newFaceWidth, visible),
-    shadow: 0.42 * smoothstep(0, 12, visible),
-    turn,
+    unfold: readUnfold(time),
   } satisfies FilmV3Scene["faces"];
-  return { faces, open };
 }
 
 /** The fourth axis: the shell grows on the lift, turns inside out, and collapses. */
@@ -882,9 +850,30 @@ function readGiant(time: number, format: FilmV3Format) {
   );
 }
 
+/** The shots start at these times. The shutter never spans a cut. */
+const shotStarts = [0, beats.scale, beats.end] as const;
+
+/**
+The frame at `time`. Its shutter is half a frame long and centered on `time`, clipped to the shot:
+the renderer spreads the antialiasing samples over it.
+*/
 export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Frame {
+  const shotStart = Math.max(...shotStarts.filter((start) => start <= time));
+  const shotEnd = Math.min(...shotStarts.filter((start) => start > time), Number.POSITIVE_INFINITY);
+  const halfShutter = 0.25 / filmV3Fps;
+  const open = readStillFrame(Math.max(time - halfShutter, shotStart), options).scene;
+  const close = readStillFrame(Math.min(time + halfShutter, shotEnd - 1e-4), options).scene;
+  return {
+    ...readStillFrame(time, options),
+    shutter: {
+      cameras: [open.camera, close.camera],
+      unfold: [open.faces.unfold, close.faces.unfold],
+    },
+  };
+}
+
+function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame, "shutter"> {
   const { format, fourthDirection, height, sampleGrid, width } = options;
-  const frameIndex = Math.round(time * filmV3Fps);
   // The feed cut is narrower, so its orbit frames the cube a little smaller.
   const baseOrbit = readOrbit(time);
   const orbit = {
@@ -960,33 +949,30 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     shuffle = { depth: 1, moveMinLevel: 0, ...readShuffle(time, scaleMoves) };
   }
 
-  if (time >= beats.lift && time < beats.resume + 1.6) {
-    if (fourthDirection === "fan") {
-      const fourFaces = readFaces(time, orbit.halfHeight, width, height);
-      faces = fourFaces.faces;
-      // Only the faces exist while they are open, so the floor shadow of the cube fades with them.
-      floor = { ...floor, strength: floor.strength * (1 - fourFaces.open) };
-    } else {
-      const shape = readTesseract(time);
-      const { view } = shape;
-      // Nearly head on, the opening of the outer mark frames the inner cube.
-      const elevation = orbit.elevation - 29 * view;
-      camera = orbitCamera(
-        {
-          elevation,
-          halfHeight: orbit.halfHeight + 1.6 * view,
-          tan: orbit.tan + 0.22 * view,
-          target: [0, -0.2 * view, 0],
-          yaw: orbit.yaw + 37 * view,
-        },
-        12,
-      );
-      floor = { height: -1, strength: floorStrengthAt(elevation) };
-      if (shape.active) {
-        mode = "tesseract";
-        tesseract = { halfExtent: shape.halfExtent, joints: shape.joints };
-        floor = { height: Math.min(-1, shape.lowest), strength: floorStrengthAt(elevation) };
-      }
+  if (fourthDirection === "fan") {
+    faces = readFaces(time, orbit.halfHeight, width, height);
+    // Only the faces exist while they are open, so the floor shadow of the cube fades with them.
+    floor = { ...floor, strength: floor.strength * (1 - faces.unfold) };
+  } else if (time >= beats.lift && time < beats.resume + 1.6) {
+    const shape = readTesseract(time);
+    const { view } = shape;
+    // Nearly head on, the opening of the outer mark frames the inner cube.
+    const elevation = orbit.elevation - 29 * view;
+    camera = orbitCamera(
+      {
+        elevation,
+        halfHeight: orbit.halfHeight + 1.6 * view,
+        tan: orbit.tan + 0.22 * view,
+        target: [0, -0.2 * view, 0],
+        yaw: orbit.yaw + 37 * view,
+      },
+      12,
+    );
+    floor = { height: -1, strength: floorStrengthAt(elevation) };
+    if (shape.active) {
+      mode = "tesseract";
+      tesseract = { halfExtent: shape.halfExtent, joints: shape.joints };
+      floor = { height: Math.min(-1, shape.lowest), strength: floorStrengthAt(elevation) };
     }
   }
 
@@ -1029,7 +1015,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     backdropTexts: texts.backdrop,
     cursor: inGiant || inEnd ? { pressed: 0, visible: 0, x: 0, y: 0 } : cursor,
     field,
-    frameIndex,
+    grainStep: Math.floor(Math.round(time * 30) / 2),
     grain: 0.024,
     overlayTexts: texts.overlay,
     sampleGrid,

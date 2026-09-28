@@ -1,6 +1,6 @@
 # Samebase film v3 storyboard
 
-`SamebaseFilmV3`: 1920x1080, 30 fps, 42 s. The object is a solid Menger cube from the first frame.
+`SamebaseFilmV3`: 1920x1080, 60 fps, 42 s. The object is a solid Menger cube from the first frame.
 Only the view changes: a drag orbit as on the landing hero, a hover that opens deeper channels, a
 fourth direction, and a pull back to a huge sponge. The earlier drafts built the cube from paper and
 warped a flat image. This film never does either.
@@ -45,9 +45,9 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 | 0 to 2       | Pink field. SAME and BASE fill the frame in blue. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.                                                  | SAME, BASE                                       |
 | 2 to 9.5     | Three drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion were always there. The words slide off in parallax.                                                              | None                                             |
 | 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                           | None                                             |
-| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic.                                                                                                                        | None                                             |
+| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic, with a long ease out that stops at 14.5.                                                                               | None                                             |
 | 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                                 | GitHub. Convex. Cloudflare.                      |
-| 17.5 to 21   | The fourth direction on the lift: four faces (below). They open, hold with a slow turn in the picture plane, and close back into the cube at 21.0 on the close sound.                                            | Delete your Samebase account.                    |
+| 17.5 to 21   | The fourth direction on the lift: four faces (below). They open like two doors, hold, and close back into the cube on the close sound at 21.0.                                                                   | Delete your Samebase account.                    |
 | 21 to 25.5   | The camera keeps orbiting as if nothing happened. From 24.6 s a cell slides into the left face opening.                                                                                                          | Your app doesn't notice.                         |
 | 25.5 to 32.5 | Match cut in the middle of the move: the cube is the corner cell of a depth 5 Menger sponge whose cube-size cells make the same move. The camera pulls back to a wide low view outside the sponge, in blue haze. | Every app on the same base. Samebase too.        |
 | 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                         | Same base. Your accounts. No magic. samebase.com |
@@ -56,19 +56,26 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 
 `FilmV3Beat-fan` and `FilmV3Beat-tesseract` replay the film from 13 s to 23 s with each option.
 
-- A, four faces (in the film, v3.1): during the beat only the faces exist. The orthographic
+- A, four faces (in the film, v3.4): during the beat only the faces exist. The orthographic
   isometric frame is split along the three lines from the center into the top, left, and right
-  regions, each with the depth seen through its opening. Each face is an affine map of its region,
-  so edges stay straight and openings stay one third. A copy of the right face in a new blue lies
-  exactly under the right face and slides out from under it. The visible faces always tile the full
-  turn: every direction from the center belongs to exactly one face, and neighbors share their rays.
-  The new face keeps at least 120 degrees until it is almost uncovered, so it never shows as a
-  needle, and the right face edge always ends where the new face outline ends, so the outline has no
-  notch and no stray point. A thin soft shadow marks the right face edge on the new face. The end
-  state is four equal 90 degree faces: a diamond of four marks around one corner. An uneven end
-  state (90, 75, 135, 60) read as a bent corner with a long spike and was less clear. At rest the
-  faces equal the 3D frame, so the swaps in and out have no cut. The floor shadow of the cube fades
-  while the faces are open.
+  regions, each with the depth seen through its opening. Each face is an affine map of its region
+  with both edges one hexagon radius long, so edges stay straight and openings stay one third. The
+  figure is mirror symmetric about the vertical line through the center at every frame. For the
+  unfold u from 0 to 1 the top face is 120 - 30u degrees wide around straight up, the left and right
+  faces are 120 - 30u each and open away from the lower line like two doors, and the new face is 90u
+  straight down, so the faces always tile the full turn. The new face is not sheared: it waits at
+  its final 90 degree shape (the top region upside down, as the bottom face looks from below, in a
+  new blue) and the gap between the doors uncovers it from the center line outward. Only its part
+  inside the lines through the lower door corners shows, so its outline meets the doors with no
+  notch, needle, or stray point. It opens in the soft shadow of both doors and brightens as they
+  open. The end state is four equal 90 degree faces: a diamond of four marks around one corner.
+- Timing: the faces replace the render at 17.0 s, while the frame is still, and the unfold opens on
+  the lift at 17.5 s over 1.6 s with a sine ease in and out, holds, and closes with the exact
+  reverse by 20.94 s. The render takes over again at 20.96 s, before the camera resumes. At unfold 0
+  the faces sample the render at their own pixels, so both swaps are pixel identical. The floor
+  shadow fades with the unfold and returns with the close.
+- A, four faces (v3.1, replaced): a copy of the right face slid out from under the right face, so
+  the unfold was not symmetric, and a small anticipation jumped on the lift frame.
 - A, card fan (v3, replaced): rigid rotated cards that overlapped each other and left small points
   around the outline.
 - B, real fourth axis: the level 1 Menger cube is the frame of cubes with one-third beams around its
@@ -110,6 +117,9 @@ frames exceed the GPU time limit and the device is lost.
 - No six-pointed stars, no regular eight-pointed stars, no diagonal Menger cross-sections, no flight
   through tunnels, no numbers that read as an app count, and no dates.
 - Every frame is a pure function of time.
+- The film renders at 60 fps. Each frame spreads its 16 antialiasing samples over a half frame
+  shutter centered on the frame time and clipped to the shot, so the drags, the pull back, and the
+  unfold blur a little. The grain changes 15 times a second.
 
 ## Cuts
 
