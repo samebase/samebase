@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { CloudflareWorkerBuild } from "../cloudflareResources";
+import type { CloudflareWorkerBuild } from "../cloudflare/resources";
 import {
   observedCompletedWorkerBuild,
   observedRunningWorkerBuild,

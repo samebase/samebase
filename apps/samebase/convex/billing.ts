@@ -16,13 +16,13 @@ import {
   readBillingAccountState,
   requireBillingAccountForOrganization,
   requireOwnerBillingAccountForOrganization,
-} from "./organizationBilling";
+} from "./organization/billingAccounts";
 import {
   PRO_INCLUDED_ORGANIZATION_MEMBERS,
   readOrganizationMemberCapacity,
   readOrganizationMembershipCount,
 } from "./organization/billingLimits";
-import { randomToken } from "./oauthUtils";
+import { randomToken } from "./lib/oauth";
 import { reconcilePolarCustomerBilling, type PolarBillingState } from "./polarBillingState";
 import {
   canClearPolarCheckoutAfterObservation,
@@ -38,7 +38,7 @@ import {
   readPolarProductCatalog,
   resolvePolarServer,
   type PolarServer,
-} from "./polarClient";
+} from "./polar/client";
 import { readActiveUser, vActiveUserDoc } from "./identity/lifecycle";
 import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/accountPresentation";
 import schema from "./schema";

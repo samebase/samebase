@@ -9,7 +9,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { assertPasswordAuthLogLevelAllowed } from "./deploymentProfile";
-import { readOptionalEnv } from "./oauthUtils";
+import { readOptionalEnv } from "./lib/oauth";
 import { readActiveUser } from "./identity/lifecycle";
 
 const { boolean, id, literal, object, string, union } = v;

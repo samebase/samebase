@@ -1,6 +1,6 @@
 import { devices, expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
-import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import type { WorkspaceSidebarState } from "../convex/identity/preferenceModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,

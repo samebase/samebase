@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
 import { env, internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { readOptionalEnv } from "./oauthUtils";
+import { readOptionalEnv } from "./lib/oauth";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organization/model";
 import { normalizeGitHubOwnerLogin } from "./organizations";
@@ -16,10 +16,10 @@ import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
 import {
   discoverPreviewSeedGitHubAppInstallations,
   type PreviewSeedGitHubAppInstallation,
-} from "./githubApp";
+} from "./githubApi/app";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
-import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { hashOrganizationProviderSnapshot } from "./providers/authFingerprint";
 import { readActiveUser } from "./identity/lifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
 

@@ -6,8 +6,8 @@ const polarMocks = vi.hoisted(() => ({
   createPolarClient: vi.fn(),
 }));
 
-vi.mock("./polarClient", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./polarClient")>();
+vi.mock("./polar/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./polar/client")>();
   return {
     ...actual,
     createPolarClient: polarMocks.createPolarClient,

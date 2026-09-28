@@ -3,8 +3,8 @@ import { bad, good } from "@samebase/sure";
 import { ConvexError } from "convex/values";
 import { z } from "zod";
 
-import { createUrlSearchParams, readUrlSearchParamsRecord } from "../shared/urlSearchParams";
-import { AppResourceNameConflictError } from "../shared/appResourceNames";
+import { createUrlSearchParams, readUrlSearchParamsRecord } from "../../shared/urlSearchParams";
+import { AppResourceNameConflictError } from "../../shared/appResourceNames";
 import {
   requestCloudflareApi,
   requestCloudflareApiOrThrow,
@@ -12,16 +12,16 @@ import {
   resolveCloudflareApiTransport,
   type CloudflareApiRequestResult,
   type CloudflareApiTransport,
-} from "./cloudflareApi/client";
-import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
-import { toErrorMessage } from "./jsonUtils";
-import type { ProviderApiCallRecorder } from "./providerApiLog";
+} from "../cloudflareApi/client";
+import type { components, Readable, Writable } from "../cloudflareApi/types.generated";
+import { toErrorMessage } from "../lib/json";
+import type { ProviderApiCallRecorder } from "../logging/providerApiLog";
 
 export {
   CloudflareApiError,
   isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
-} from "./cloudflareApi/client";
+} from "../cloudflareApi/client";
 
 type CloudflareProvisionConvexState = {
   production: {

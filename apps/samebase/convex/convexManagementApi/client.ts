@@ -19,13 +19,13 @@ import {
   type AjvStandaloneValidateFunction,
   type ConvexManagementResponseDecimalPath,
 } from "./validators.generated";
-import { isRecord, toErrorMessage } from "../jsonUtils";
+import { isRecord, toErrorMessage } from "../lib/json";
 import { ConvexManagementApiError } from "./errors";
-import type { ProviderApiCallRecorder } from "../providerApiLog";
+import type { ProviderApiCallRecorder } from "../logging/providerApiLog";
 import {
   logProviderResponseParseFailure,
   logProviderResponseValidationFailure,
-} from "../providerResponseValidation";
+} from "../logging/providerResponseValidation";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
 const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;

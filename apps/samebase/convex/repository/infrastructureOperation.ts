@@ -12,7 +12,7 @@ import {
   vRepositoryManualProviderWriteAction,
   type RepositoryManualProviderWriteAction,
 } from "./provisioningModel";
-import { toErrorMessage } from "../jsonUtils";
+import { toErrorMessage } from "../lib/json";
 import { requireRepositoryForUser } from "../organizationAccess";
 import { requireOrganizationNotBillingLimited } from "../organization/billingLimits";
 import { recordOrganizationLastUsedBuildToken } from "../organizations";

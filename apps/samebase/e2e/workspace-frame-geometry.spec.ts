@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import type { WorkspaceSidebarState } from "../convex/identity/preferenceModel";
 import {
   APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
   APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,

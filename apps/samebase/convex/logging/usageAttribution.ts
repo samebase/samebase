@@ -1,5 +1,5 @@
-import type { AccessKey, ViewerRole } from "../shared/accessModel";
-import type { ActionContractMcpName } from "./toolRuntime/actionCatalog";
+import type { AccessKey, ViewerRole } from "../../shared/accessModel";
+import type { ActionContractMcpName } from "../toolRuntime/actionCatalog";
 
 const SAMEBASE_USAGE_CONTEXT_LOG_TOPIC = "samebase_usage_context";
 const SAMEBASE_USAGE_CONTEXT_LOG_VERSION = 1;

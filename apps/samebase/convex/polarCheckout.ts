@@ -7,8 +7,8 @@ import {
   patchBillingAccount,
   readBillingAccountState,
   requireOwnerBillingAccountForOrganization,
-} from "./organizationBilling";
-import { randomToken } from "./oauthUtils";
+} from "./organization/billingAccounts";
+import { randomToken } from "./lib/oauth";
 
 const { boolean, id, literal, object, string, union } = v;
 

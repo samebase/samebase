@@ -2,7 +2,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { resolveCloudflareApiTransport } from "./cloudflareApi/client";
-import { listCloudflareBuildTokens } from "./cloudflareResources";
+import { listCloudflareBuildTokens } from "./cloudflare/resources";
 import { action } from "./functions";
 import {
   cloudflareListWorkersBuildTokensContract,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { rebaseStagedContent } from "./stagingRebase";
+import { rebaseStagedContent } from "./rebase";
 
 describe("rebaseStagedContent", () => {
   it("applies a non-conflicting patch on top of upstream", () => {

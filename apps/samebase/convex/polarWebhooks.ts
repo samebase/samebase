@@ -4,7 +4,7 @@ import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
 import { env, httpAction } from "./_generated/server";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
-import { createPolarClient, readPolarErrorLogFields } from "./polarClient";
+import { createPolarClient, readPolarErrorLogFields } from "./polar/client";
 
 const POLAR_WEBHOOK_API_TIMEOUT_MS = 1_500;
 

@@ -6,8 +6,8 @@ const githubAppMocks = vi.hoisted(() => ({
   verifyGitHubUserAuthorization: vi.fn(),
 }));
 
-vi.mock("./githubApp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./githubApp")>();
+vi.mock("./githubApi/app", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApi/app")>();
   return {
     ...actual,
     revokeGitHubAppUserToken: githubAppMocks.revokeGitHubAppUserToken,

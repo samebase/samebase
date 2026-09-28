@@ -8,10 +8,10 @@ import {
   requireGitHubRepositoryOwnerId,
   resolveGitHubAppAccessForProvisioningRun,
 } from "./githubAppAccess";
-import { createGitHubRepositoryInstallationOctokit } from "./githubApp";
-import { resolveGitHubRepositoryById } from "./githubRepoApi";
+import { createGitHubRepositoryInstallationOctokit } from "./githubApi/app";
+import { resolveGitHubRepositoryById } from "./githubApi/repository";
 import { resolveGitHubUserOctokitForProvisioningRun } from "./githubUserAuthorizations";
-import { toErrorMessage } from "./jsonUtils";
+import { toErrorMessage } from "./lib/json";
 import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
 import type {
   RepositoryProvisioningEventLevel,
@@ -23,7 +23,7 @@ import {
   formatProviderApiCallLogMessage,
   type ProviderApiCall,
   type ProviderApiCallRecorder,
-} from "./providerApiLog";
+} from "./logging/providerApiLog";
 
 const { boolean, id, literal, object, string, union } = v;
 

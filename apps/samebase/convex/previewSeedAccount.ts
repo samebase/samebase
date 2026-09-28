@@ -10,8 +10,8 @@ import {
   createGitHubUserOctokit,
   discoverPreviewSeedGitHubAppInstallations,
   type PreviewSeedGitHubAppInstallation,
-} from "./githubApp";
-import { readOptionalEnv } from "./oauthUtils";
+} from "./githubApi/app";
+import { readOptionalEnv } from "./lib/oauth";
 
 const { boolean, id } = v;
 

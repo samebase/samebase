@@ -8,12 +8,7 @@ import { mutation } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { connectConvexCredential } from "./organizationProviderCredentials";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
-import {
-  createCodeChallenge,
-  OAUTH_STATE_TTL_MS,
-  randomToken,
-  readRequiredEnv,
-} from "./oauthUtils";
+import { createCodeChallenge, OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./lib/oauth";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import {
   parseConvexOAuthTokenResponse,
@@ -26,7 +21,7 @@ import {
   buildAuthorizationCompletionResponse,
   buildProviderOAuthStoreReturnUrl,
   classifyAuthorizationCallbackError,
-} from "./authorizationCompletion";
+} from "./providers/authorizationCompletion";
 
 const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;

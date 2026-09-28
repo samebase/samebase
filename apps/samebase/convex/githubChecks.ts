@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { action } from "./functions";
 import { describeRepositoryTreeRefreshFailure } from "./github";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
-import { isRecord } from "./jsonUtils";
+import { isRecord } from "./lib/json";
 
 const { array, literal, number, object, string, union } = v;
 

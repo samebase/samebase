@@ -7,16 +7,16 @@ import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
 import { resolveGitHubAppAccess, type GitHubAppInstallationAccess } from "./githubAppAccess";
-import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
-import { guessMime, withRetry } from "./gitOperationsActions";
-import { isRecord } from "./jsonUtils";
+import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApi/app";
+import { guessMime, withRetry } from "./githubApi/blobContent";
+import { isRecord } from "./lib/json";
 import {
   getRepositoryMediaKind,
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
-import { readStagedFileKind } from "./stagingChanges";
+import { readStagedFileKind } from "../shared/stagedFiles";
 import type { GitHubTreeData } from "./repository/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const callCloudflareMcpToolMock = vi.hoisted(() => vi.fn());
 
-vi.mock("./cloudflareMcp", () => ({
+vi.mock("./mcpClient", () => ({
   callCloudflareMcpTool: callCloudflareMcpToolMock,
 }));
 
@@ -28,12 +28,12 @@ import {
   readCloudflareWorkerTag,
   rotateConvexDeployKeysForCloudflareWorkerBuilds,
   configureCloudflareWorkerBuildsForGitHub,
-} from "./cloudflareResources";
+} from "./resources";
 import {
   normalizeCloudflareAccounts,
   resolveCloudflareAccountAfterAuthorization,
-} from "./cloudflareAccountDiscovery";
-import { isRecord } from "./jsonUtils";
+} from "../cloudflareAccountDiscovery";
+import { isRecord } from "../lib/json";
 
 type RecordedCloudflareRequest = {
   method: string;

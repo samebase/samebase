@@ -1,7 +1,7 @@
 import { entries } from "@samebase/dependent/object";
 import type { PropertyValidators } from "convex/values";
 
-import { isRecord } from "../jsonUtils";
+import { isRecord } from "../lib/json";
 
 export interface ToolJsonSchema {
   type: "object";

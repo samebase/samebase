@@ -1,5 +1,5 @@
 import { includes } from "@samebase/dependent/main";
-import { asRecord, isRecord, type JsonRecord } from "../jsonUtils";
+import { asRecord, isRecord, type JsonRecord } from "../lib/json";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
 import { createRepositoryContract } from "../repository/contracts/createRepository";

@@ -5,7 +5,7 @@ import {
   starterTemplateManifest,
   type StarterTemplateManifest,
 } from "./starterSeedManifest.generated";
-import type { ProviderApiCall, ProviderApiCallRecorder } from "./providerApiLog";
+import type { ProviderApiCall, ProviderApiCallRecorder } from "./logging/providerApiLog";
 
 export type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 

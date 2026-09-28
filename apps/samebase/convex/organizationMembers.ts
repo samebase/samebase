@@ -10,7 +10,7 @@ import {
   type DatabaseWriter,
 } from "./_generated/server";
 import { action, mutation, query } from "./functions";
-import { createGitHubInstallationOctokit } from "./githubApp";
+import { createGitHubInstallationOctokit } from "./githubApi/app";
 import {
   requireAnotherActiveOrganizationOwner,
   requireOrganizationMembershipChangeAllowed,

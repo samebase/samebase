@@ -12,8 +12,8 @@ const providerMocks = vi.hoisted(() => ({
   requireCloudflareBuildTokenUuid: vi.fn(),
 }));
 
-vi.mock("../githubApp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../githubApp")>();
+vi.mock("../githubApi/app", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../githubApi/app")>();
   return {
     ...actual,
     createGitHubInstallationOctokit: providerMocks.createGitHubInstallationOctokit,
@@ -31,8 +31,8 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   };
 });
 
-vi.mock("../cloudflareResources", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../cloudflareResources")>();
+vi.mock("../cloudflare/resources", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../cloudflare/resources")>();
   return {
     ...actual,
     isCloudflareWorkerNameAvailable: providerMocks.isCloudflareWorkerNameAvailable,

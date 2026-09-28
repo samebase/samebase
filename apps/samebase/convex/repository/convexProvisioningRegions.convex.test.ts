@@ -30,8 +30,8 @@ vi.mock("../githubAppAccess", async (importOriginal) => {
   };
 });
 
-vi.mock("../githubRepoApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../githubRepoApi")>();
+vi.mock("../githubApi/repository", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../githubApi/repository")>();
   return {
     ...actual,
     fetchGitHubConvexCodeLocationDiscovery: githubMocks.fetchGitHubConvexCodeLocationDiscovery,

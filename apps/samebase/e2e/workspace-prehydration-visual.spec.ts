@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
-import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import type { WorkspaceSidebarState } from "../convex/identity/preferenceModel";
 import {
   APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,

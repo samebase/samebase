@@ -23,7 +23,7 @@ import {
   readGitHubSignInProfile,
 } from "./identity/githubSignIn";
 import { isAgentBrowserHandoffTokenValue, sha256Hex } from "./mcp/tokens";
-import { readOptionalEnv } from "./oauthUtils";
+import { readOptionalEnv } from "./lib/oauth";
 
 const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,

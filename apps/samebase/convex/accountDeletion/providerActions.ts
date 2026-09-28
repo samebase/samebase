@@ -7,7 +7,7 @@ import {
   getProviderCredentialsByConnectedUser,
   vConnectedProviderCredential,
 } from "../organizationProviderCredentials";
-import { providerAuthMatches } from "../providerAuth";
+import { providerAuthMatches } from "../providers/auth";
 import { readOwnedActiveRun } from "./stepContext";
 
 const { boolean, id, object, string } = v;

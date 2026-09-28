@@ -8,7 +8,7 @@ import {
   listGitHubAppConnectionInstallations,
   verifyGitHubAppConnectionInstallation,
   type GitHubAppConnectionInstallation,
-} from "./githubApp";
+} from "./githubApi/app";
 import {
   hasMatchingGitHubUserAuthorization,
   readGitHubSignInMatch,

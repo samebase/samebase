@@ -2,7 +2,7 @@ import type {
   SidebarLayoutState as PackageSidebarLayoutState,
   SidebarLayoutStateController as PackageSidebarLayoutStateController,
 } from "@samebase/sidebars/SidebarLayoutState";
-import type { WorkspaceSidebarState as ConvexWorkspaceSidebarState } from "../../convex/userPreferenceModel";
+import type { WorkspaceSidebarState as ConvexWorkspaceSidebarState } from "../../convex/identity/preferenceModel";
 import type { usePersistedWorkspaceSidebarState } from "./usePersistedWorkspaceSidebarState";
 
 type ConvexWorkspaceSidebarStateController = ReturnType<typeof usePersistedWorkspaceSidebarState>;

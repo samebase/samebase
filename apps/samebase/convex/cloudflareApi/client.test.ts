@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { buildCloudflareWorkerCreateBody } from "../cloudflareResources";
+import { buildCloudflareWorkerCreateBody } from "../cloudflare/resources";
 import {
   requestCloudflareApi,
   requestCloudflareApiOrThrow,

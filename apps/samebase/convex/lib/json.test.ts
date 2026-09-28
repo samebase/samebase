@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { toErrorMessage } from "./jsonUtils";
+import { toErrorMessage } from "./json";
 
 describe("toErrorMessage", () => {
   it("returns the message from Error instances", () => {

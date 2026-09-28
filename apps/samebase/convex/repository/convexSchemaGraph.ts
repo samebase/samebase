@@ -7,7 +7,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, mutation, query } from "../functions";
-import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
+import { isRecord, readBoolean, readString, toErrorMessage } from "../lib/json";
 import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
 import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";

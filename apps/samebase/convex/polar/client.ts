@@ -2,8 +2,8 @@ import { Polar } from "@polar-sh/sdk";
 import { HTTPClient } from "@polar-sh/sdk/lib/http";
 import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 
-import { env } from "./_generated/server";
-import { resolveDeploymentProfile } from "./deploymentProfile";
+import { env } from "../_generated/server";
+import { resolveDeploymentProfile } from "../deploymentProfile";
 
 export type PolarServer = "sandbox" | "production";
 export type PolarProductCatalogEntry = {

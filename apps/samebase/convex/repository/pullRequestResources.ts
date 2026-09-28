@@ -6,11 +6,11 @@ import { z } from "zod";
 
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
-import { allLimited } from "../common";
+import { allLimited } from "../lib/concurrency";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
-import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
+import { createGitHubRequestDeadlineSignal } from "../githubApi/repository";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import { vCloudflareBuildState } from "./cloudflareBuildMatching";
 import {

@@ -153,7 +153,7 @@ the full pair. The build script still chooses the branch-appropriate key from `W
 
 ### 5. Pages Project Is Created Or Patched
 
-`apps/samebase/convex/cloudflareResources.ts:ensureCloudflareResources` is the current Pages
+`apps/samebase/convex/cloudflare/resources.ts:ensureCloudflareResources` is the current Pages
 adapter. It calls the Cloudflare API through Cloudflare MCP `execute`, using `cloudflare.request`.
 
 Pages endpoints currently used:

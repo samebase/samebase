@@ -12,7 +12,7 @@ import {
   resolvePasswordAuthMode,
 } from "../deploymentProfile";
 import { buildNewUserNotification } from "./newUserNotification";
-import { readOptionalEnv } from "../oauthUtils";
+import { readOptionalEnv } from "../lib/oauth";
 import { normalizeAccountEmail } from "../../shared/accountPresentation";
 import type { AuthAccountProvider } from "./accountModel";
 

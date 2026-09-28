@@ -5,7 +5,7 @@ import { ConvexError, Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
+import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../organization/billingErrors";
 import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
@@ -26,8 +26,8 @@ import {
   rotateConvexDeployKeysForCloudflareWorkerBuilds,
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
-} from "../cloudflareResources";
-import { fetchGitHubDefaultBranchHead, fetchGitHubRepoIdentity } from "../githubRepoApi";
+} from "../cloudflare/resources";
+import { fetchGitHubDefaultBranchHead, fetchGitHubRepoIdentity } from "../githubApi/repository";
 import {
   resolveGitHubAppAccess,
   resolveGitHubAppAccessForProvisioningRun,
@@ -42,8 +42,8 @@ import {
   resolveConvexProvisioningConnectionForRepositoryWorkflow,
 } from "../infraProvisioning";
 import { action } from "../functions";
-import { toErrorMessage } from "../jsonUtils";
-import type { McpTokenHealth } from "../mcpTokenHealth";
+import { toErrorMessage } from "../lib/json";
+import type { McpTokenHealth } from "../cloudflare/mcpTokenHealth";
 import {
   AppResourceNameConflictError,
   validateAppResourceName,

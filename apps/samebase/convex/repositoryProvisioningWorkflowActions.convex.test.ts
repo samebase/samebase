@@ -13,8 +13,8 @@ const githubMocks = vi.hoisted(() => ({
   seedRepository: vi.fn(),
 }));
 
-vi.mock("./githubApp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./githubApp")>();
+vi.mock("./githubApi/app", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApi/app")>();
   return {
     ...actual,
     createGitHubRepositoryInstallationOctokit: githubMocks.createRepositoryOctokit,

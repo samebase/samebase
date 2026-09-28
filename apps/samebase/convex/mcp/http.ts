@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { FunctionReference } from "convex/server";
 import type { Value } from "convex/values";
-import type { JsonRecord } from "../jsonUtils";
+import type { JsonRecord } from "../lib/json";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
@@ -9,7 +9,7 @@ import {
   resolveAccountPresentation,
 } from "../../shared/accountPresentation";
 import { httpAction, type ActionCtx } from "../_generated/server";
-import { randomToken } from "../oauthUtils";
+import { randomToken } from "../lib/oauth";
 import {
   convexArgsToToolInputSchema,
   convexValidatorToToolOutputSchema,
@@ -18,7 +18,7 @@ import {
   logMcpHttpUsageContext,
   type SamebaseUsageMcpMethod,
   type SamebaseUsageMcpToolName,
-} from "../usageAttribution";
+} from "../logging/usageAttribution";
 import {
   getAuthenticationStatusContract,
   type McpAuthenticationStatus,

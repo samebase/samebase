@@ -7,8 +7,8 @@ import {
 import { RequestError } from "@octokit/request-error";
 import { Octokit } from "@octokit/rest";
 
-import { isRecord } from "./jsonUtils";
-import { env } from "./_generated/server";
+import { isRecord } from "../lib/json";
+import { env } from "../_generated/server";
 
 const GITHUB_PAGE_SIZE = 100;
 const MAX_GITHUB_PAGES = 100;

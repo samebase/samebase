@@ -6,7 +6,7 @@ import type {
   CloudflareProviderCredential,
   ConvexProviderCredential,
 } from "./organization/providerCredentialModel";
-import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { hashOrganizationProviderSnapshot } from "./providers/authFingerprint";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const teamId = "team-1";

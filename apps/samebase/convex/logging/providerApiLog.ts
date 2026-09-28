@@ -1,4 +1,4 @@
-import { isRecord } from "./jsonUtils";
+import { isRecord } from "../lib/json";
 
 export type ProviderApiCall = {
   provider: "Cloudflare" | "Convex" | "GitHub";

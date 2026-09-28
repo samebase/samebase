@@ -1,4 +1,4 @@
-import { readString, type JsonRecord } from "../jsonUtils";
+import { readString, type JsonRecord } from "../lib/json";
 import type { SendEmailArgs } from "../email";
 
 const NEW_USER_NOTIFICATION_TO = "nicuchiciuc@gmail.com";

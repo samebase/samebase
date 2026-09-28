@@ -43,7 +43,7 @@ import {
   readGitHubAppInstallation,
   verifyGitHubAppConnectionInstallation,
   verifyGitHubUserAuthorization,
-} from "./githubApp";
+} from "./app";
 
 // Source: https://docs.github.com/en/rest/orgs/members#list-organization-memberships-for-the-authenticated-user
 // Captured 2026-08-07. Tests mutate this provider example only to cover distinct owners and states.

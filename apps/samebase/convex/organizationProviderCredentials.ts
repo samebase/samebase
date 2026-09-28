@@ -23,9 +23,9 @@ import {
   providerAuthMatches,
   vCloudflareProviderAuth,
   vStandardProviderAuth,
-} from "./providerAuth";
-import { vMcpTokenHealth, type McpTokenHealth } from "./mcpTokenHealth";
-import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+} from "./providers/auth";
+import { vMcpTokenHealth, type McpTokenHealth } from "./cloudflare/mcpTokenHealth";
+import { hashOrganizationProviderSnapshot } from "./providers/authFingerprint";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,

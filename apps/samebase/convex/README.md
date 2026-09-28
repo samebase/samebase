@@ -15,10 +15,32 @@ billing, and infrastructure provisioning.
 ## Identity And Organization Models
 
 - `identity/` owns account tables, sign-in and account-linking helpers, user lifecycle validators,
-  viewer access, and new-user notification content.
-- `organization/` owns organization, membership, invitation, and provider credential models, member
-  capacity checks, and GitHub membership response parsing.
-- Registered functions remain in their existing modules. They import these owners directly.
+  viewer access, user preference and GitHub user authorization tables, and new-user notification
+  content.
+- `organization/` owns organization, membership, invitation, provider credential, billing account,
+  and GitHub App setup models, member capacity and billing limit checks, and GitHub membership
+  response parsing.
+
+## Provider And Shared Modules
+
+These folders hold plain modules. They register no functions, so moving them does not change a
+function path.
+
+- `githubApi/` - GitHub App configuration and Octokit clients, repository REST reads, and blob
+  content helpers.
+- `cloudflare/` - Cloudflare Workers, builds, and token resource calls, and the Cloudflare MCP
+  client and token health.
+- `cloudflareApi/` and `convexManagementApi/` - generated OpenAPI clients and validators.
+- `polar/` - the Polar client and product catalog.
+- `providers/` - provider auth validators, auth fingerprints, and OAuth completion responses.
+- `logging/` - provider API call logs, provider response validation logs, and usage attribution.
+- `staging/` - staged-file rebase.
+- `lib/` - generic helpers for JSON reads, bounded concurrency, slugs, and OAuth tokens and env.
+
+Registered functions remain in their existing root modules and import these owners directly. A root
+module path is part of every function path it registers, so moving one needs its own migration
+decision. See the
+[domain ownership rollout record](../../../archive/124_MONOREPO_DOMAIN_OWNERSHIP_ROLLOUT.md#intentional-deferrals).
 
 ## Repository Module Map
 

@@ -6,7 +6,7 @@ import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
-import { isRecord } from "../jsonUtils";
+import { isRecord } from "../lib/json";
 import { sha256Hex } from "./tokens";
 import { MCP_PROTOCOL_VERSION } from "./protocol";
 import {

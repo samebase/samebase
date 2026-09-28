@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { callCloudflareMcpTool } from "./cloudflareMcp";
+import { callCloudflareMcpTool } from "./mcpClient";
 
 afterEach(() => {
   vi.unstubAllEnvs();

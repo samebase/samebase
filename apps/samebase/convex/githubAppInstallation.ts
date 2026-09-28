@@ -20,8 +20,8 @@ import {
   revokeGitHubAppUserToken,
   verifyGitHubAppConnectionInstallation,
   verifyGitHubUserAuthorization,
-} from "./githubApp";
-import { vGitHubAppSetupPurpose } from "./githubAppSetupModel";
+} from "./githubApi/app";
+import { vGitHubAppSetupPurpose } from "./organization/githubAppSetupModel";
 import {
   hasMatchingGitHubUserAuthorization,
   readGitHubSignInProviderAccountId,
@@ -31,7 +31,7 @@ import {
   upsertGitHubUserAuthorization,
 } from "./githubUserAuthorizations";
 import { mutation } from "./functions";
-import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
+import { OAUTH_STATE_TTL_MS, randomToken } from "./lib/oauth";
 import { vGitHubOwnerType } from "./organization/model";
 import {
   findOrganizationMembership,
@@ -40,7 +40,7 @@ import {
 import {
   buildAuthorizationCompletionResponse,
   classifyAuthorizationCallbackError,
-} from "./authorizationCompletion";
+} from "./providers/authorizationCompletion";
 import { readActiveUser } from "./identity/lifecycle";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;

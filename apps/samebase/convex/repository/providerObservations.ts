@@ -12,10 +12,13 @@ import {
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentityByTag,
   type CloudflareConvexBuildAccessObservation,
-} from "../cloudflareResources";
+} from "../cloudflare/resources";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
-import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import {
+  fetchGitHubConvexCodeLocationDiscovery,
+  fetchGitHubRepoIdentity,
+} from "../githubApi/repository";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";

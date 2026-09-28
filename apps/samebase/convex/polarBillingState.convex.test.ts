@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import { readCanonicalPolarBillingState } from "./polarBillingState";
-import type { PolarProductCatalog } from "./polarClient";
+import type { PolarProductCatalog } from "./polar/client";
 import { makeConvexTest } from "./test.setup";
 
 const currentProductId = "current-product";

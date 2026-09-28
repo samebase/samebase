@@ -5,9 +5,9 @@ import { internalQuery, type QueryCtx } from "./_generated/server";
 import {
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
   ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
-} from "./billingErrors";
+} from "./organization/billingErrors";
 import { query } from "./functions";
-import { requireBillingAccountForOrganization } from "./organizationBilling";
+import { requireBillingAccountForOrganization } from "./organization/billingAccounts";
 import {
   readOrganizationMemberCapacity,
   readOrganizationMembershipCount,

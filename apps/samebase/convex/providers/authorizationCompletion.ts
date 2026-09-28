@@ -2,8 +2,8 @@ import {
   buildAuthorizationErrorUrl,
   type AuthorizationErrorCode,
   type AuthorizationProvider,
-} from "../shared/authorizationError";
-import type { ProviderOAuthStoreResult } from "./organization/providerCredentialModel";
+} from "../../shared/authorizationError";
+import type { ProviderOAuthStoreResult } from "../organization/providerCredentialModel";
 
 export type AuthorizationCompletionEventType =
   | "convex-oauth-complete"

@@ -15,7 +15,7 @@ import {
   hasStagedFileContentChange,
   readStagedFileKind,
   type StagedFileChangeCandidate,
-} from "./stagingChanges";
+} from "../shared/stagedFiles";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
 import { readActiveUser } from "./identity/lifecycle";
 

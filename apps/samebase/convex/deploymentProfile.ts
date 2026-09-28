@@ -2,7 +2,7 @@ import { Infer, v } from "convex/values";
 import { notEmpty } from "@samebase/dependent/main";
 import { query } from "./functions";
 import { env } from "./_generated/server";
-import { readOptionalEnv } from "./oauthUtils";
+import { readOptionalEnv } from "./lib/oauth";
 
 const { literal, object, union } = v;
 

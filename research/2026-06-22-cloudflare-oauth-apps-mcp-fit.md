@@ -117,7 +117,7 @@ Convex-owned MCP OAuth implementation.
 Current code:
 
 - `apps/samebase/convex/cloudflareMcpOAuth.ts`
-- `apps/samebase/convex/cloudflareMcp.ts`
+- `apps/samebase/convex/cloudflare/mcpClient.ts`
 - `apps/samebase/convex/cloudflareApi/client.ts`
 - `apps/samebase/convex/providerConnections.ts`
 - `apps/samebase/convex/users.ts`

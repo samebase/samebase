@@ -7,14 +7,14 @@ import type { Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
 import { action } from "../functions";
-import { toErrorMessage } from "../jsonUtils";
+import { toErrorMessage } from "../lib/json";
 import {
   requireGitHubRepositoryOwnerId,
   resolveGitHubAppAccess,
   type GitHubAppAccessTarget,
 } from "../githubAppAccess";
-import { createGitHubRepositoryInstallationOctokit } from "../githubApp";
-import { resolveGitHubRepositoryById } from "../githubRepoApi";
+import { createGitHubRepositoryInstallationOctokit } from "../githubApi/app";
+import { resolveGitHubRepositoryById } from "../githubApi/repository";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
 import { isLiveConnectedRepository, isSamebaseManagedRepository } from "./state";
 import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
@@ -26,7 +26,7 @@ import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNameAvailable,
   requireCloudflareBuildTokenUuid,
-} from "../cloudflareResources";
+} from "../cloudflare/resources";
 import {
   AppResourceNameConflictError,
   buildAvailableAppResourceNameSuggestion,

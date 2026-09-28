@@ -1,8 +1,8 @@
 import { defineSchema } from "convex/server";
 
 import { accountDeletionTables } from "./accountDeletion/model";
-import { githubAppSetupTables } from "./githubAppSetupModel";
-import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
+import { githubAppSetupTables } from "./organization/githubAppSetupModel";
+import { githubUserAuthorizationTables } from "./identity/githubUserAuthorizationModel";
 import { identityTables } from "./identity/model";
 import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organization/model";
@@ -17,7 +17,7 @@ import { repositoryFolderTables } from "./repository/folderModel";
 import { repositoryTables } from "./repository/model";
 import { repositoryOrganizationTreeTables } from "./repository/organizationTreeModel";
 import { repositoryProvisioningTables } from "./repository/provisioningModel";
-import { userPreferenceTables } from "./userPreferenceModel";
+import { userPreferenceTables } from "./identity/preferenceModel";
 
 export default defineSchema({
   ...identityTables,

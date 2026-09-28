@@ -1,4 +1,4 @@
-import { bytesToBase64 } from "../shared/base64";
+import { bytesToBase64 } from "../../shared/base64";
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 

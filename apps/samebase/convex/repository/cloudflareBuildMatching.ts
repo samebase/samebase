@@ -1,7 +1,7 @@
 import { bad, good, pure } from "@samebase/sure";
 import { type Infer, v } from "convex/values";
 
-import { normalizeCloudflareBuildRoot, type CloudflareWorkerBuild } from "../cloudflareResources";
+import { normalizeCloudflareBuildRoot, type CloudflareWorkerBuild } from "../cloudflare/resources";
 
 const { literal, union } = v;
 

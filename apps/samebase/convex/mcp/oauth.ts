@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { action, query } from "../functions";
-import { randomToken } from "../oauthUtils";
+import { randomToken } from "../lib/oauth";
 import {
   applyMcpDenyErrorParamsToRedirectUrl,
   buildMcpAuthorizationSuccessRedirectUrl,

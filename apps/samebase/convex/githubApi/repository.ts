@@ -3,9 +3,9 @@ import { Octokit } from "@octokit/rest";
 import {
   getConvexDirectoryRootDirectory,
   normalizeConvexDirectoryPath,
-} from "../shared/convexCodeLocation";
-import { getConvexConfigRootDirectory } from "../shared/convexConfigPath";
-import type { ProviderApiCallRecorder } from "./providerApiLog";
+} from "../../shared/convexCodeLocation";
+import { getConvexConfigRootDirectory } from "../../shared/convexConfigPath";
+import type { ProviderApiCallRecorder } from "../logging/providerApiLog";
 
 const GITHUB_REQUEST_DEADLINE_MS = 15_000;
 

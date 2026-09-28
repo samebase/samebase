@@ -10,7 +10,7 @@ import { isConvexManagementNotFoundError } from "../../convexManagementApi/error
 import {
   deleteCloudflareResources,
   isCloudflareWorkerNotFoundError,
-} from "../../cloudflareResources";
+} from "../../cloudflare/resources";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
 import { resolveGitHubAppAccessForRepositoryDeletionRun } from "../../githubAppAccess";
 import { readRetainedSnapshot } from "./runs";

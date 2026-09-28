@@ -4,7 +4,7 @@ import {
   parseGitHubRepositoryFullName,
   toSafeGitHubRepositoryName,
   tryParseGitHubRepositoryFullName,
-} from "../shared/githubRepositoryName";
+} from "./githubRepositoryName";
 
 describe("toSafeGitHubRepositoryName", () => {
   it("sanitizes repository names", () => {

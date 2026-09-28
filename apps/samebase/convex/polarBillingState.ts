@@ -7,13 +7,13 @@ import {
   findBillingAccountByPolarExternalCustomerId,
   patchBillingAccount,
   readBillingAccountState,
-} from "./organizationBilling";
+} from "./organization/billingAccounts";
 import {
   createPolarClient,
   readPolarProductCatalog,
   resolvePolarProduct,
   type PolarProductCatalog,
-} from "./polarClient";
+} from "./polar/client";
 
 const { boolean, literal, number, object, string, union } = v;
 

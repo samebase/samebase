@@ -27,7 +27,7 @@ import {
   fetchGitHubConvexCodeLocationDiscovery,
   fetchGitHubDefaultBranchHead,
   fetchGitHubRepoIdentity,
-} from "./githubRepoApi";
+} from "./repository";
 
 const octokit = new Octokit();
 

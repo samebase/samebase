@@ -9,7 +9,7 @@ import {
   createGitHubInstallationOctokit,
   createGitHubRepositoryInstallationOctokit,
   readGitHubAppInstallation,
-} from "./githubApp";
+} from "./githubApi/app";
 import {
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,

@@ -5,21 +5,19 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./functions";
-import {
-  createCodeChallenge,
-  OAUTH_STATE_TTL_MS,
-  randomToken,
-  readRequiredEnv,
-} from "./oauthUtils";
-import { isRecord } from "./jsonUtils";
+import { createCodeChallenge, OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./lib/oauth";
+import { isRecord } from "./lib/json";
 import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealth,
   type McpTokenHealth,
-} from "./mcpTokenHealth";
+} from "./cloudflare/mcpTokenHealth";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
-import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
+import {
+  requireCloudflareAuthUsableDuringRefresh,
+  vCloudflareProviderAuth,
+} from "./providers/auth";
 import { vOrganizationCloudflareAccount } from "./organization/model";
 import { vCloudflareTokenRefreshLease } from "./organization/providerCredentialModel";
 import {
@@ -34,7 +32,7 @@ import {
   buildAuthorizationCompletionResponse,
   buildProviderOAuthStoreReturnUrl,
   classifyAuthorizationCallbackError,
-} from "./authorizationCompletion";
+} from "./providers/authorizationCompletion";
 import {
   vRepositoryProviderWorkflowAuthority,
   type RepositoryProviderWorkflowAuthority,

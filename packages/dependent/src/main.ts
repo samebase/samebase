@@ -126,7 +126,7 @@ export function notEmpty<Value>(value: Value | null | undefined): value is Value
  * Narrow unknown to a string-keyed record, excluding arrays. Control flow can
  * only earn `object` from a typeof check, never an index signature, so this
  * claim stays hand-written as the one audited copy outside convex
- * (`apps/samebase/convex/jsonUtils.ts` is the convex-side home).
+ * (`apps/samebase/convex/lib/json.ts` is the convex-side home).
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

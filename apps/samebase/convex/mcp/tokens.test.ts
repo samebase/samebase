@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { createCodeChallenge } from "../oauthUtils";
+import { createCodeChallenge } from "../lib/oauth";
 import {
   createAccessTokenValue,
   createAgentBrowserHandoffTokenValue,

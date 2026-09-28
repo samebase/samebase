@@ -6,7 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
   ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
-} from "./billingErrors";
+} from "./organization/billingErrors";
 import {
   isConvexCloudDeployment,
   requestConvexManagementApiOrThrow,
@@ -17,12 +17,12 @@ import type { components, PlatformDeploymentResponse } from "./convexManagementA
 import {
   formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   isCloudflareGitHubAppRepositoryAuthorizationError,
-} from "./cloudflareResources";
+} from "./cloudflare/resources";
 import {
   isRepositoryProvisioningProviderStep,
   type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
-import type { ProviderApiCallRecorder } from "./providerApiLog";
+import type { ProviderApiCallRecorder } from "./logging/providerApiLog";
 import { requireActiveRepositoryProvisioningRun } from "./repositoryWorkflowAuthority";
 
 type ConvexDeployKeyAllowedAction = NonNullable<

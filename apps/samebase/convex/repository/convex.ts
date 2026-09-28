@@ -5,9 +5,9 @@ import { ConvexError, type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
+import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../organization/billingErrors";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
-import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
+import { discoverCloudflareWorkersForRepository } from "../cloudflare/resources";
 import {
   isConvexCloudDeployment,
   listConvexManagementDefaultProductionDeployments,
@@ -24,8 +24,8 @@ import type { ConvexDeploymentRegion } from "../../shared/convexDeploymentRegion
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   type GitHubConvexCodeLocationDiscovery,
-} from "../githubRepoApi";
-import { toErrorMessage } from "../jsonUtils";
+} from "../githubApi/repository";
+import { toErrorMessage } from "../lib/json";
 import {
   AppResourceNameConflictError,
   validateAppResourceName,

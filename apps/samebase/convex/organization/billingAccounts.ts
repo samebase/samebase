@@ -1,7 +1,7 @@
-import type { Doc, Id } from "./_generated/dataModel";
-import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
-import { requireOrganizationMembershipRecord } from "./organizationAccess";
-import { readActiveUser, type ActiveUserDoc } from "./identity/lifecycle";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
+import { requireOrganizationMembershipRecord } from "../organizationAccess";
+import { readActiveUser, type ActiveUserDoc } from "../identity/lifecycle";
 
 export type OrganizationBillingAccess = {
   user: ActiveUserDoc;

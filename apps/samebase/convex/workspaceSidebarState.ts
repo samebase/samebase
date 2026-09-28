@@ -4,7 +4,7 @@ import {
   vWorkspaceSidebarStateKey,
   vWorkspaceSidebarState,
   type WorkspaceSidebarState,
-} from "./userPreferenceModel";
+} from "./identity/preferenceModel";
 
 const { object, union } = v;
 

@@ -3,7 +3,7 @@ import { vResultValidator, type RunResult } from "@convex-dev/workpool";
 import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "../../_generated/api";
 import { internalMutation } from "../../_generated/server";
-import { toErrorMessage } from "../../jsonUtils";
+import { toErrorMessage } from "../../lib/json";
 import {
   requireActiveRepositoryDeletionContinuation,
   requireActiveRepositoryDeletionRun,

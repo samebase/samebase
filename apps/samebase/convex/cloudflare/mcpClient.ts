@@ -1,6 +1,6 @@
 "use node";
 
-import { asRecord, readString, toErrorMessage } from "./jsonUtils";
+import { asRecord, readString, toErrorMessage } from "../lib/json";
 
 export const CLOUDFLARE_MCP_SERVER_URL = "https://mcp.cloudflare.com/mcp";
 const MCP_PROTOCOL_VERSION = "2025-03-26";

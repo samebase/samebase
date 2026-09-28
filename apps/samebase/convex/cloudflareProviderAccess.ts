@@ -11,7 +11,7 @@ import {
 } from "./cloudflareAccountDiscovery";
 import { requestCloudflareApiOrThrow, resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
-import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
+import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./cloudflare/mcpTokenHealth";
 
 const { array, boolean, id, literal, object, string, union } = v;
 

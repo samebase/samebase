@@ -5,7 +5,7 @@ import {
   readString,
   readStringOrNumber,
   type JsonRecord,
-} from "../jsonUtils";
+} from "../lib/json";
 
 const GITHUB_API_URL = "https://api.github.com";
 const GITHUB_API_VERSION = "2022-11-28";

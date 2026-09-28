@@ -4,7 +4,7 @@ import { WorkflowManager, type WorkflowCtx } from "@convex-dev/workflow";
 import { components, internal } from "./_generated/api";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { toErrorMessage } from "./jsonUtils";
+import { toErrorMessage } from "./lib/json";
 import type { RepositoryProvisioningStep } from "./repository/provisioningModel";
 import { isLiveConnectedRepository } from "./repository/state";
 import {

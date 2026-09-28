@@ -9,7 +9,7 @@ import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
-import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
+import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./cloudflare/mcpTokenHealth";
 import {
   AUTH_ACCOUNT_LINK_INTENT_DURATION_MS,
   vAuthAccountProvider,
@@ -18,7 +18,7 @@ import {
   getOrganizationProviderConfiguration,
   type OrganizationProviderConfiguration,
 } from "./organizationProviderCredentials";
-import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { hashOrganizationProviderSnapshot } from "./providers/authFingerprint";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,

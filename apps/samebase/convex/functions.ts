@@ -20,7 +20,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { vAccessKey, vViewerRole } from "./identity/accessValidators";
-import { logAppFunctionUsageContext } from "./usageAttribution";
+import { logAppFunctionUsageContext } from "./logging/usageAttribution";
 import {
   readNonDeletedUser,
   vNonDeletedUserLifecycleDoc,

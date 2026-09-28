@@ -19,7 +19,7 @@ import {
   createGitHubUserOctokit,
   getGitHubAppConfiguration,
   requireExpiringGitHubUserAuthentication,
-} from "./githubApp";
+} from "./githubApi/app";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
 import { readActiveUser } from "./identity/lifecycle";

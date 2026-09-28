@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { createCodeChallenge } from "../oauthUtils";
+import { createCodeChallenge } from "../lib/oauth";
 import { makeConvexTest } from "../test.setup";
 
 const now = 1_000;

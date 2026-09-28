@@ -9,7 +9,7 @@ import {
   vOAuthProvider,
 } from "./organization/providerCredentialModel";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
-import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { hashOrganizationProviderSnapshot } from "./providers/authFingerprint";
 import { readActiveUser } from "./identity/lifecycle";
 
 export {

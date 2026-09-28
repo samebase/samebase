@@ -10,17 +10,17 @@ import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import type { GitHubTree } from "./repository/model";
-import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
-import { isRecord } from "./jsonUtils";
-import { rebaseStagedContent } from "./stagingRebase";
+import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./githubApi/blobContent";
+import { isRecord } from "./lib/json";
+import { rebaseStagedContent } from "./staging/rebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
   readStagedFileKind,
   type StagedFileKind,
-} from "./stagingChanges";
-import { sanitizeSlug } from "./slugUtils";
+} from "../shared/stagedFiles";
+import { sanitizeSlug } from "./lib/slug";
 import { describeRepositoryTreeRefreshFailure } from "./github";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { assertConnectedRepository } from "./repository/state";

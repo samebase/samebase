@@ -1,4 +1,4 @@
-import { createCodeChallenge, randomToken } from "../oauthUtils";
+import { createCodeChallenge, randomToken } from "../lib/oauth";
 export { isAgentBrowserHandoffTokenValue } from "../../shared/agentBrowserHandoff";
 
 export const MCP_AUTHORIZATION_CODE_TTL_MS = 10 * 60 * 1000;

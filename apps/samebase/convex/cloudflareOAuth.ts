@@ -11,10 +11,13 @@ import {
   deriveMcpTokenStatusFromExpiry,
   vMcpTokenHealth,
   type McpTokenHealth,
-} from "./mcpTokenHealth";
-import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
+} from "./cloudflare/mcpTokenHealth";
+import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./lib/oauth";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
-import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
+import {
+  requireCloudflareAuthUsableDuringRefresh,
+  vCloudflareProviderAuth,
+} from "./providers/auth";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
 import { vOrganizationCloudflareAccount } from "./organization/model";
 import { vCloudflareTokenRefreshLease } from "./organization/providerCredentialModel";
@@ -31,7 +34,7 @@ import {
   buildAuthorizationCompletionResponse,
   buildProviderOAuthStoreReturnUrl,
   classifyAuthorizationCallbackError,
-} from "./authorizationCompletion";
+} from "./providers/authorizationCompletion";
 import {
   vRepositoryProviderWorkflowAuthority,
   type RepositoryProviderWorkflowAuthority,

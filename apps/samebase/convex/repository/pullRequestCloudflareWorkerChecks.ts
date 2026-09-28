@@ -8,7 +8,7 @@ import {
   parseCloudflareWorkerBuildLogsUrl,
   parseCloudflareWorkerScriptUrl,
 } from "../../shared/cloudflareResourceUrls";
-import { allLimited } from "../common";
+import { allLimited } from "../lib/concurrency";
 import type { CloudflareBuildState } from "./cloudflareBuildMatching";
 import type {
   CloudflareWorkerPreview,

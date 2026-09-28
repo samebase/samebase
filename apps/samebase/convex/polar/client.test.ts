@@ -9,7 +9,7 @@ import {
   readPolarProductCatalogFromEntries,
   resolvePolarProduct,
   type PolarProductCatalog,
-} from "./polarClient";
+} from "./client";
 
 describe("Polar API version", () => {
   afterEach(() => {

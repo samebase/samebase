@@ -262,7 +262,7 @@ default-branch commit is the production candidate. Samebase's missing control-pl
 commit-scoped deployment that combines frontend and backend status.
 
 Today, provisioning records success after it requests the initial Cloudflare build, not after it
-observes a successful deployment. `apps/samebase/convex/cloudflareResources.ts` triggers the build,
+observes a successful deployment. `apps/samebase/convex/cloudflare/resources.ts` triggers the build,
 then `apps/samebase/convex/appProvisioningWorkflow.ts` can report that app infrastructure is ready.
 That is valid infrastructure-provisioning state, but it is not equivalent to Sites' terminal
 deployment state. The new deployment noun must keep those states separate.

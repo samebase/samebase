@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { CloudflareApiError, isCloudflareWorkerNotFoundError } from "./cloudflareResources";
+import { CloudflareApiError, isCloudflareWorkerNotFoundError } from "../cloudflare/resources";
 import {
   ConvexManagementApiError,
   isConvexManagementNotFoundError,
-} from "./convexManagementApi/errors";
+} from "../convexManagementApi/errors";
 
 describe("provider deletion errors", () => {
   it("recognizes Convex management not-found errors", () => {

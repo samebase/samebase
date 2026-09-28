@@ -12,8 +12,8 @@
   - `apps/samebase/package.json`
   - `apps/samebase/tsconfig.json`
   - `apps/remotion-studio/package.json`
-  - `apps/samebase/convex/jsonUtils.ts`
-  - `apps/samebase/convex/jsonUtils.test.ts`
+  - `apps/samebase/convex/lib/json.ts`
+  - `apps/samebase/convex/lib/json.test.ts`
   - `apps/samebase/lintConfig.test.ts`
 
 ## Summary
@@ -290,14 +290,14 @@ When a rule cannot move cleanly, this document must record:
 - Problem: the first Oxlint-only pass had reintroduced a broad app-wide
   `@typescript-eslint/no-explicit-any` override. Tried: removed the override, then fixed the
   remaining handwritten `any` usage in `apps/samebase/src/lib/convexQueryCache.ts`,
-  `apps/samebase/convex/gitOperationsActions.ts`, `apps/samebase/convex/schema.ts`, and
+  `apps/samebase/convex/githubApi/blobContent.ts`, `apps/samebase/convex/schema.ts`, and
   `apps/samebase/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is enforced again for
   handwritten app code; remaining `any` references are limited to generated Convex bindings and
   TanStack's generated route tree.
 
 - Problem: review surfaced a server-side safety regression outside the lint config itself. Tried:
-  removed `JSON.stringify(error)` fallback behavior from `apps/samebase/convex/jsonUtils.ts`,
-  limited `toErrorMessage()` to `Error` instances, primitives, and a small allowlist of plain-object
-  message keys, and added `apps/samebase/convex/jsonUtils.test.ts` coverage. Result: the Oxlint
-  migration no longer broadens arbitrary thrown-object logging in Convex code, so the accepted
-  simplification still respects the repository's no-sensitive-logs guardrail.
+  removed `JSON.stringify(error)` fallback behavior from `apps/samebase/convex/lib/json.ts`, limited
+  `toErrorMessage()` to `Error` instances, primitives, and a small allowlist of plain-object message
+  keys, and added `apps/samebase/convex/lib/json.test.ts` coverage. Result: the Oxlint migration no
+  longer broadens arbitrary thrown-object logging in Convex code, so the accepted simplification
+  still respects the repository's no-sensitive-logs guardrail.

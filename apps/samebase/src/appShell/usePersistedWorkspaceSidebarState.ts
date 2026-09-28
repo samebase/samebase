@@ -7,7 +7,7 @@ import type {
   SidebarLayoutStatePersistenceMode,
   SidebarLayoutStateUpdate,
 } from "@samebase/sidebars/SidebarLayoutState";
-import type { WorkspaceSidebarStateKey } from "../../convex/userPreferenceModel";
+import type { WorkspaceSidebarStateKey } from "../../convex/identity/preferenceModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 

@@ -14,19 +14,13 @@ import {
   type AjvStandaloneValidationError,
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
-import { callCloudflareMcpTool } from "../cloudflareMcp";
-import {
-  isRecord,
-  readBoolean,
-  readString,
-  readStringOrNumber,
-  toErrorMessage,
-} from "../jsonUtils";
-import type { ProviderApiCallRecorder } from "../providerApiLog";
+import { callCloudflareMcpTool } from "../cloudflare/mcpClient";
+import { isRecord, readBoolean, readString, readStringOrNumber, toErrorMessage } from "../lib/json";
+import type { ProviderApiCallRecorder } from "../logging/providerApiLog";
 import {
   logProviderResponseParseFailure,
   logProviderResponseValidationFailure,
-} from "../providerResponseValidation";
+} from "../logging/providerResponseValidation";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";

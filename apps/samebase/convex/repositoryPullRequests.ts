@@ -6,7 +6,7 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import { action } from "./functions";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
-import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
+import { createGitHubRequestDeadlineSignal } from "./githubApi/repository";
 import type { RepositoryConnectedGitHubTarget } from "./repository/model";
 import { isLiveConnectedRepository } from "./repository/state";
 

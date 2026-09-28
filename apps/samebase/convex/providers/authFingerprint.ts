@@ -1,9 +1,9 @@
 import type {
   CloudflareProviderCredential,
   ConvexProviderCredential,
-} from "./organization/providerCredentialModel";
-import type { ProviderAuth } from "./providerAuth";
-import { sha256Hex } from "./mcp/tokens";
+} from "../organization/providerCredentialModel";
+import type { ProviderAuth } from "./auth";
+import { sha256Hex } from "../mcp/tokens";
 
 function serializeProviderAuth(auth: ProviderAuth): string {
   switch (auth.method) {

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { RepositoryOverviewVisualMode } from "../src/repository/dashboard/RepositoryOverviewVisualFixture";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
-import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import type { WorkspaceSidebarState } from "../convex/identity/preferenceModel";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 const MOBILE_MINIMUM_SIDEBAR_WIDTH_PX = 130;
