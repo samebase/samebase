@@ -19,6 +19,7 @@ import { type GitHubTree } from "../../convex/repository/model";
 import { MonacoEditor } from "./MonacoEditor";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { flushCollaborativeUpdates } from "@/lib/collaborativeUpdates";
 
 // Temporary:
 // const tempRepositoryId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"repositories">;
@@ -207,10 +208,16 @@ function peerExtension({
           window.clearTimeout(this.retryTimer);
           this.retryTimer = null;
         }
-        if (this.releasePageLeaveGuard !== null) {
-          this.releasePageLeaveGuard();
-          this.releasePageLeaveGuard = null;
-        }
+        // Unmount cancels the retry that sends edits typed during an in-flight
+        // push, so flush them here and keep the page-leave guard until it settles.
+        const releasePageLeaveGuard = this.releasePageLeaveGuard;
+        this.releasePageLeaveGuard = null;
+        void flushCollaborativeUpdates({
+          state: this.view.state,
+          githubRepositoryFullName,
+          branch,
+          filePath,
+        }).then(() => releasePageLeaveGuard?.());
       }
     },
   );
