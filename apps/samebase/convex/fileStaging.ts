@@ -137,6 +137,16 @@ const clearMatchingStagingSnapshotArgsValidator = {
   branch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
 };
+const committedStagedFileValidator = object({
+  snapshot: stagedFileSnapshotValidator,
+  committedContent: contentValidator,
+  committedBlobSha: nullableStringValidator,
+});
+const clearCommittedStagingArgsValidator = {
+  repositoryId: repositoryIdValidator,
+  branch: branchValidator,
+  committedFiles: array(committedStagedFileValidator),
+};
 
 const deletionArgsValidator = {
   repositoryId: repositoryIdValidator,
@@ -781,6 +791,68 @@ export const clearMatchingStagingSnapshot = internalMutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     return await clearMatchingStagingSnapshotImpl(ctx, args);
+  },
+});
+
+/**
+ * Clear the `branch` staging rows that a commit wrote to GitHub. `snapshot` is
+ * the row the commit read, `committedContent` is what it wrote at
+ * `snapshot.filePath`, and `committedBlobSha` is that blob, or null when the
+ * commit deleted the file. A row edited after the snapshot keeps its edits: its
+ * base becomes the committed blob, with the snapshot content its edits started
+ * from as `initialContent`, so the next rebase replays only the newer edits.
+ */
+export const clearCommittedStaging = internalMutation({
+  args: clearCommittedStagingArgsValidator,
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    for (const { snapshot, committedContent, committedBlobSha } of args.committedFiles) {
+      if (snapshot.repositoryId !== args.repositoryId) {
+        throw new Error("Staging snapshot belongs to a different repository.");
+      }
+      if (snapshot.branch !== args.branch) {
+        throw new Error("Staging snapshot belongs to a different branch.");
+      }
+
+      const current = await ctx.db.get(snapshot._id);
+      if (!current) {
+        continue;
+      }
+
+      if (
+        matchesStagedFileSnapshot({ current, snapshot }) ||
+        (current.fileDeleted === snapshot.fileDeleted &&
+          current.kind === snapshot.kind &&
+          current.filePath === snapshot.filePath &&
+          current.storageId === snapshot.storageId &&
+          current.stagedBlobSha === snapshot.stagedBlobSha &&
+          (current.fileDeleted || current.content === committedContent))
+      ) {
+        await ctx.db.delete(current._id);
+        for (const filePath of new Set([current.filePath, current.initialFilePath])) {
+          await scheduleCollaborativeFileUpdatesCleanup(ctx, {
+            repositoryId: args.repositoryId,
+            branch: args.branch,
+            filePath,
+            cutoffTimestamp: current.lastEditTime + 1,
+          });
+        }
+        continue;
+      }
+
+      await ctx.db.patch(
+        current._id,
+        committedBlobSha === null
+          ? { initialFilePath: current.filePath, initialContent: "", parentCommitSha: null }
+          : {
+              initialFilePath: snapshot.filePath,
+              initialContent: snapshot.content,
+              parentCommitSha: committedBlobSha,
+            },
+      );
+    }
+
+    return null;
   },
 });
 

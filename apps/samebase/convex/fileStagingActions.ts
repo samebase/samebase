@@ -814,14 +814,14 @@ function formatUpstreamConflictError(paths: string[]): string {
   return `Commit conflicts with upstream changes. Resolve and retry: ${uniquePaths.join(", ")}`;
 }
 
-export async function inspectStagedFilesAgainstLatestHead(args: {
+export async function inspectStagedFilesAgainstLatestHead<File extends StagedFileForCommit>(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branch: string;
-  stagedFiles: StagedFileForCommit[];
+  stagedFiles: File[];
 }): Promise<{
-  rebasedFiles: StagedFileForCommit[];
+  rebasedFiles: File[];
   conflicts: StagedFileRebaseConflict[];
 }> {
   if (args.stagedFiles.length === 0) {
@@ -939,7 +939,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   await Promise.all(Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)));
 
   const conflicts: StagedFileRebaseConflict[] = [];
-  const rebasedFiles: StagedFileForCommit[] = [];
+  const rebasedFiles: File[] = [];
 
   for (const file of args.stagedFiles) {
     const upstreamLocation = resolveUpstreamLocationForFile(file);
@@ -1089,13 +1089,13 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   };
 }
 
-export async function rebaseStagedFilesOnLatestHead(args: {
+export async function rebaseStagedFilesOnLatestHead<File extends StagedFileForCommit>(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branch: string;
-  stagedFiles: StagedFileForCommit[];
-}): Promise<StagedFileForCommit[]> {
+  stagedFiles: File[];
+}): Promise<File[]> {
   const inspection = await inspectStagedFilesAgainstLatestHead(args);
   if (inspection.conflicts.length > 0) {
     throw new Error(formatUpstreamConflictError(inspection.conflicts.map((file) => file.filePath)));
@@ -3722,7 +3722,7 @@ export const commitAllStaged = internalAction({
     const fullRepo = `${repoOwner}/${repoName}`;
 
     // Get the staging record
-    const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
+    const changedFiles: DraftSourceStagingRecord[] = await ctx.runQuery(
       internal.fileStaging.listAllStagedFiles,
       {
         repositoryId: args.repositoryId,
@@ -3757,7 +3757,10 @@ export const commitAllStaged = internalAction({
       owner: repoOwner,
       repo: repoName,
       branch: commitBranch,
-      stagedFiles: changedFiles,
+      stagedFiles: changedFiles.map((file) => ({
+        ...file,
+        snapshot: stripCreationTimeFromStagingRecord(file),
+      })),
     });
 
     // Create a commit with all staged files
@@ -3844,12 +3847,20 @@ export const commitAllStaged = internalAction({
       }
     }
 
-    // 4. NOW clear staging. Client will refetch with correct tree + blobs.
-    await ctx.runMutation(internal.fileStaging.clearAllStagingForOperation, {
+    // 4. NOW clear the committed staging rows. Client will refetch with correct
+    //    tree + blobs. Rows edited after `changedFiles` was read keep their edits.
+    await ctx.runMutation(internal.fileStaging.clearCommittedStaging, {
       repositoryId: args.repositoryId,
-      userId: args.userId,
       branch: commitBranch,
-      skipTreeUpdate: true,
+      committedFiles: resolvedChangedFiles.map((file) => ({
+        snapshot: file.snapshot,
+        committedContent: file.content,
+        committedBlobSha: file.fileDeleted
+          ? null
+          : isBinaryStagedFile(file)
+            ? (file.stagedBlobSha ?? null)
+            : computeGitBlobShaFromText(file.content),
+      })),
     });
 
     return null;
