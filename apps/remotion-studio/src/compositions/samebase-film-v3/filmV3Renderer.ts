@@ -5,6 +5,8 @@ import { drawBackdrop, drawOverlay, waitForFilmV3Fonts } from "./filmV3Page";
 import { type FilmV3Frame, inks, type Vector3 } from "./filmV3Timeline";
 
 const MAXIMUM_SAMPLE_GRID = 4;
+/** Unfolds per pixel over the shutter while the faces move. */
+const FACE_SHUTTER_SAMPLES = 8;
 const MAXIMUM_RAY_STEPS = 200;
 const MAXIMUM_MENGER_DEPTH = 8;
 const BEAM_COUNT = 32;
@@ -25,6 +27,17 @@ const SceneState = d.struct({
   tanHalfFieldOfView: d.f32,
   rayStart: d.f32,
   rayEnd: d.f32,
+  /**
+  The camera at the shutter close; the fields above hold it at the shutter open. Each antialiasing
+  sample takes its own time in the shutter.
+  */
+  closeRight: d.vec3f,
+  closeUp: d.vec3f,
+  closeBack: d.vec3f,
+  closeFocus: d.vec3f,
+  closeHalfHeight: d.f32,
+  closeTanHalfFieldOfView: d.f32,
+  closeRayStart: d.f32,
   /** Unit vector toward the key light. */
   light: d.vec3f,
   ambient: d.f32,
@@ -74,22 +87,17 @@ const SceneState = d.struct({
 
 const CompositeState = d.struct({
   outputSize: d.vec2f,
-  frameIndex: d.f32,
+  grainStep: d.f32,
   grain: d.f32,
   shadowTint: d.vec3f,
   facesEnabled: d.i32,
   /** Hexagon center in pixels from the top left. */
   facesCenter: d.vec2f,
   facesRadius: d.f32,
-  /** Start rays of the top, left, new, and right faces, in degrees counterclockwise. */
-  facesBoundaries: d.vec4f,
-  newEnd: d.f32,
-  rightStartLength: d.f32,
-  newShadow: d.f32,
+  /** The unfold at the shutter open and close. */
+  facesUnfold: d.vec2f,
   newTone: d.vec3f,
-  xTone: d.vec3f,
   yTone: d.vec3f,
-  zTone: d.vec3f,
 });
 
 const TraceSample = d.struct({
@@ -654,17 +662,27 @@ export async function createFilmV3Renderer(
     return std.clamp(1 - 0.28 * occlusion, 0, 1);
   };
 
-  const traceSample = (screenPoint: d.v2f): d.Infer<typeof TraceSample> => {
+  /** One sample at `screenPoint`, `shutter` of the way from the shutter open to its close. */
+  const traceSample = (screenPoint: d.v2f, shutter: number): d.Infer<typeof TraceSample> => {
     "use gpu";
     const state = sceneState.$;
-    const lateral = std.add(std.mul(state.right, screenPoint.x), std.mul(state.up, screenPoint.y));
-    const focalPoint = std.add(state.focus, std.mul(lateral, state.halfHeight));
-    const rayDirection = std.normalize(
-      std.sub(std.mul(lateral, state.tanHalfFieldOfView), state.back),
+    const right = std.mix(state.right, state.closeRight, shutter);
+    const up = std.mix(state.up, state.closeUp, shutter);
+    const back = std.mix(state.back, state.closeBack, shutter);
+    const focus = std.mix(state.focus, state.closeFocus, shutter);
+    const halfHeight = std.mix(state.halfHeight, state.closeHalfHeight, shutter);
+    const tanHalfFieldOfView = std.mix(
+      state.tanHalfFieldOfView,
+      state.closeTanHalfFieldOfView,
+      shutter,
     );
-    const origin = std.sub(focalPoint, std.mul(rayDirection, state.rayStart));
-    const footprintStart = state.pixelSize * state.halfHeight;
-    const footprintGrowth = state.pixelSize * state.tanHalfFieldOfView;
+    const rayStart = std.mix(state.rayStart, state.closeRayStart, shutter);
+    const lateral = std.add(std.mul(right, screenPoint.x), std.mul(up, screenPoint.y));
+    const focalPoint = std.add(focus, std.mul(lateral, halfHeight));
+    const rayDirection = std.normalize(std.sub(std.mul(lateral, tanHalfFieldOfView), back));
+    const origin = std.sub(focalPoint, std.mul(rayDirection, rayStart));
+    const footprintStart = state.pixelSize * halfHeight;
+    const footprintGrowth = state.pixelSize * tanHalfFieldOfView;
 
     // Clip the march to the object bounds.
     let boundsCenter = d.vec3f(state.spongeCenter);
@@ -694,7 +712,7 @@ export async function createFilmV3Renderer(
       for (let step = 0; step < MAXIMUM_RAY_STEPS; step += 1) {
         const point = std.add(origin, std.mul(rayDirection, distance));
         threshold = std.max(
-          0.5 * (footprintStart + footprintGrowth * (distance - state.rayStart)),
+          0.5 * (footprintStart + footprintGrowth * (distance - rayStart)),
           footprintStart * 0.05,
         );
         const sample = sceneSample(point, threshold);
@@ -785,7 +803,12 @@ export async function createFilmV3Renderer(
           ),
           state.pixelSize,
         );
-        const sample = traceSample(std.add(screenPoint, offset));
+        // Neighboring samples take shutter times far apart, so a moving edge blurs evenly.
+        const shutterIndex = ((sampleY * grid + sampleX) * 7) % (grid * grid);
+        const sample = traceSample(
+          std.add(screenPoint, offset),
+          (d.f32(shutterIndex) + 0.5) / d.f32(grid * grid),
+        );
         color = std.add(color, sample.color);
         coverage += sample.coverage;
         toneShade = std.add(toneShade, sample.toneShade);
@@ -807,108 +830,134 @@ export async function createFilmV3Renderer(
     return std.textureSampleLevel(colorView.$, linearSampler.$, uv, 0);
   };
 
-  /** Start ray of visible face `face`: 0 top, 1 left, 2 new, 3 right. */
-  const faceStart = (face: number): number => {
+  /**
+  Start ray of face `face` at unfold `unfold`, in degrees counterclockwise: 0 top, 1 left, 2 new,
+  3 right. The rays are mirror symmetric about the vertical line through the center.
+  */
+  const faceStart = (face: number, unfold: number): number => {
     "use gpu";
-    const boundaries = compositeState.$.facesBoundaries;
     if (face === 0) {
-      return boundaries.x;
+      return 30 + 15 * unfold;
     }
     if (face === 1) {
-      return boundaries.y;
+      return 150 - 15 * unfold;
     }
     if (face === 2) {
-      return boundaries.z;
+      return 270 - 45 * unfold;
     }
-    return boundaries.w;
+    return 270 + 45 * unfold;
   };
 
-  const faceEnd = (face: number): number => {
+  const faceEnd = (face: number, unfold: number): number => {
     "use gpu";
     if (face === 3) {
-      return faceStart(0) + 360;
+      return faceStart(0, unfold) + 360;
     }
-    return faceStart(face + 1);
+    return faceStart(face + 1, unfold);
   };
 
-  const faceIsEmpty = (face: number): boolean => {
+  const faceIsEmpty = (face: number, unfold: number): boolean => {
     "use gpu";
-    return faceEnd(face) - faceStart(face) < 0.0001;
+    return faceEnd(face, unfold) - faceStart(face, unfold) < 0.0001;
   };
 
   /**
-  One face at `offset` (pixels from the center, y up): the affine map of its rendered isometric
-  region. The top face comes from the region between the rays at 30 and 150 degrees, the left face
-  from 150 to 270, and the right and new faces from 270 to 390. The new face is the whole
-  parallelogram up to `newEnd`, seen only up to the right face start, where it lies under the right
-  face. Returns the color and the coverage of its outer edges.
+  The render texture point of face `face` at `along` and `across` hexagon radii on its source edges.
+  The top, left, and right faces come from the rendered regions between the rays at 30, 150, 270,
+  and 390 degrees. The new face comes from the top region upside down, as the bottom face looks from
+  below.
   */
-  const faceColor = (offset: d.v2f, face: number): d.v4f => {
+  const sourcePoint = (face: number, along: number, across: number): d.v2f => {
     "use gpu";
     const state = compositeState.$;
-    const start = faceStart(face);
-    let end = faceEnd(face);
-    let source = d.i32(face);
-    let startLength = d.f32(1);
+    let sourceOffset = std.add(std.mul(angleRay(150), along), std.mul(angleRay(30), across));
+    if (face !== 2) {
+      const sourceStart = 30 + 120 * d.f32(std.min(face, 2));
+      sourceOffset = std.add(
+        std.mul(angleRay(sourceStart), along),
+        std.mul(angleRay(sourceStart + 120), across),
+      );
+    }
+    return std.div(
+      d.vec2f(
+        state.facesCenter.x + sourceOffset.x * state.facesRadius,
+        state.facesCenter.y - sourceOffset.y * state.facesRadius,
+      ),
+      state.outputSize,
+    );
+  };
+
+  /**
+  Face `face` at `offset` (pixels from the center, y up) and unfold `unfold`: its color and the
+  coverage of its outer edges. The top, left, and right faces are affine maps of their source
+  regions, with both edges one hexagon radius long, so their openings stay one third. The new face
+  waits at its final 90 degree shape straight down. Only its part inside the lines through the lower
+  corners of the two doors shows, so its outline meets the doors and never passes them.
+  */
+  const faceColor = (offset: d.v2f, face: number, unfold: number): d.v4f => {
+    "use gpu";
+    const state = compositeState.$;
+    const radius = state.facesRadius;
+    let u = angleRay(faceStart(face, unfold));
+    let v = angleRay(faceEnd(face, unfold));
+    let limit = d.f32(1);
     if (face === 2) {
-      end = state.newEnd;
+      u = angleRay(225);
+      v = angleRay(315);
+      // The lower corner of the left door, one radius out on the ray 270 - 45 unfold, in new face axes.
+      limit = std.sin(((45 + 45 * unfold) * Math.PI) / 180);
     }
-    if (face === 3) {
-      source = 2;
-      startLength = state.rightStartLength;
-    }
-    const u = angleRay(start);
-    const v = angleRay(end);
     const sine = cross2(u, v);
-    const a = cross2(offset, v) / sine / (state.facesRadius * startLength);
-    const b = cross2(u, offset) / sine / state.facesRadius;
-    const outerA = (1 - a) * state.facesRadius * startLength * sine;
-    const outerB = (1 - b) * state.facesRadius * sine;
-    const coverage = std.clamp(std.min(outerA, outerB) + 0.5, 0, 1);
-    if (coverage <= 0) {
+    const a = cross2(offset, v) / sine / radius;
+    const b = cross2(u, offset) / sine / radius;
+    const outer = std.min(limit - a, limit - b) * radius * sine;
+    if (outer < -1.5) {
       return d.vec4f(0);
     }
-    // Keep a pixel away from the region edges, where the render blends in the neighbor face.
-    const inset = 1.25 / state.facesRadius;
-    const sourceStart = 30 + 120 * d.f32(source);
-    const sourceOffset = std.mul(
-      std.add(
-        std.mul(angleRay(sourceStart), std.clamp(a, inset, 1 - inset)),
-        std.mul(angleRay(sourceStart + 120), std.clamp(b, inset, 1 - inset)),
-      ),
-      state.facesRadius,
-    );
-    const uv = std.div(
-      d.vec2f(state.facesCenter.x + sourceOffset.x, state.facesCenter.y - sourceOffset.y),
-      state.outputSize,
+    // Once the faces move, keep a pixel away from the region edges, where the render blends in the
+    // neighbor face. At unfold 0 every face samples the render at its own pixel.
+    const inset = 1.25 / radius;
+    const moving = std.min(unfold * 50, 1);
+    const uv = sourcePoint(
+      face,
+      std.mix(a, std.clamp(a, inset, 1 - inset), moving),
+      std.mix(b, std.clamp(b, inset, 1 - inset), moving),
     );
     const sample = std.textureSampleLevel(colorView.$, linearSampler.$, uv, 0);
     // The render is premultiplied by its coverage, which is 1 inside a face.
     let color = std.div(sample.xyz, std.max(sample.w, 0.001));
+    // The render antialiases the outline of the top, left, and right faces, so at unfold 0 they
+    // equal it exactly. The new face outline runs through the door corners and is drawn here.
+    let coverage = std.clamp(outer + 0.5, 0, 1);
+    if (face !== 2) {
+      coverage = std.textureSampleLevel(colorView.$, linearSampler.$, sourcePoint(face, a, b), 0).w;
+    }
     if (face === 2) {
-      // The new face takes a new tone in place of the mark face tone, with the same light.
+      // The new tone replaces the top tone with the same light. The new face opens in the soft
+      // shadow of both doors and brightens as they open.
       const toneShade = std.textureSampleLevel(auxView.$, linearSampler.$, uv, 0).xyz;
-      color = std.add(color, std.mul(std.sub(state.newTone, state.zTone), toneShade.z));
-      // A thin soft shadow where the right face lies on the new face.
-      const underRight = cross2(offset, angleRay(faceStart(3)));
-      color = std.mul(color, 1 - state.newShadow * std.exp(-std.max(underRight, 0) / 5));
+      color = std.add(color, std.mul(std.sub(state.newTone, state.yTone), toneShade.y));
+      const fromLeft = std.max(cross2(angleRay(faceStart(2, unfold)), offset), 0);
+      const fromRight = std.max(cross2(offset, angleRay(faceStart(3, unfold))), 0);
+      const doorShadow = (1 - 0.3 * std.exp(-fromLeft / 5)) * (1 - 0.3 * std.exp(-fromRight / 5));
+      color = std.mul(color, doorShadow * std.mix(0.55, 0.75, unfold));
     }
     return d.vec4f(std.mul(color, coverage), coverage);
   };
 
-  const previousFace = (face: number): number => {
+  const previousFace = (face: number, unfold: number): number => {
     "use gpu";
     let previous = (face + 3) % 4;
-    if (faceIsEmpty(previous)) {
+    if (faceIsEmpty(previous, unfold)) {
       previous = (previous + 3) % 4;
     }
     return previous;
   };
 
-  const nextFace = (face: number): number => {
+  const nextFace = (face: number, unfold: number): number => {
     "use gpu";
     let next = (face + 1) % 4;
-    if (faceIsEmpty(next)) {
+    if (faceIsEmpty(next, unfold)) {
       next = (next + 1) % 4;
     }
     return next;
@@ -918,32 +967,52 @@ export async function createFilmV3Renderer(
   The four faces tile the turn: every direction from the center belongs to exactly one face, and
   the faces meet along shared rays. Within half a pixel of a shared ray the two faces blend.
   */
+  const facesColorAt = (offset: d.v2f, unfold: number): d.v4f => {
+    "use gpu";
+    const angle = (std.atan2(offset.y, offset.x) * 180) / Math.PI;
+    const topStart = faceStart(0, unfold);
+    const relative = std.fract((angle - topStart) / 360 + 2) * 360;
+    let face = d.i32(3);
+    if (relative < faceStart(1, unfold) - topStart) {
+      face = 0;
+    } else if (relative < faceStart(2, unfold) - topStart) {
+      face = 1;
+    } else if (relative < faceStart(3, unfold) - topStart) {
+      face = 2;
+    }
+    let layer = faceColor(offset, face, unfold);
+    const startDistance = cross2(angleRay(faceStart(face, unfold)), offset);
+    if (startDistance < 0.5) {
+      const neighbor = faceColor(offset, previousFace(face, unfold), unfold);
+      layer = std.mix(layer, neighbor, std.clamp(0.5 - startDistance, 0, 0.5));
+    }
+    const endDistance = cross2(offset, angleRay(faceEnd(face, unfold)));
+    if (endDistance < 0.5) {
+      const neighbor = faceColor(offset, nextFace(face, unfold), unfold);
+      layer = std.mix(layer, neighbor, std.clamp(0.5 - endDistance, 0, 0.5));
+    }
+    return layer;
+  };
+
+  /** While the faces move, the pixel averages unfolds spread over the shutter. */
   const facesColor = (pixel: d.v2f): d.v4f => {
     "use gpu";
     const state = compositeState.$;
     const offset = d.vec2f(pixel.x - state.facesCenter.x, state.facesCenter.y - pixel.y);
-    const angle = (std.atan2(offset.y, offset.x) * 180) / Math.PI;
-    const relative = std.fract((angle - faceStart(0)) / 360 + 2) * 360;
-    let face = d.i32(3);
-    if (relative < faceStart(1) - faceStart(0)) {
-      face = 0;
-    } else if (relative < faceStart(2) - faceStart(0)) {
-      face = 1;
-    } else if (relative < faceStart(3) - faceStart(0)) {
-      face = 2;
+    let count = d.i32(1);
+    if (std.abs(state.facesUnfold.y - state.facesUnfold.x) > 0.00001) {
+      count = FACE_SHUTTER_SAMPLES;
     }
-    let layer = faceColor(offset, face);
-    const startDistance = cross2(angleRay(faceStart(face)), offset);
-    if (startDistance < 0.5) {
-      const neighbor = faceColor(offset, previousFace(face));
-      layer = std.mix(layer, neighbor, std.clamp(0.5 - startDistance, 0, 0.5));
+    let layer = d.vec4f(0);
+    for (let sample = 0; sample < FACE_SHUTTER_SAMPLES; sample += 1) {
+      if (sample >= count) {
+        break;
+      }
+      const shutter = (d.f32(sample) + 0.5) / d.f32(count);
+      const unfold = std.mix(state.facesUnfold.x, state.facesUnfold.y, shutter);
+      layer = std.add(layer, facesColorAt(offset, unfold));
     }
-    const endDistance = cross2(offset, angleRay(faceEnd(face)));
-    if (endDistance < 0.5) {
-      const neighbor = faceColor(offset, nextFace(face));
-      layer = std.mix(layer, neighbor, std.clamp(0.5 - endDistance, 0, 0.5));
-    }
-    return layer;
+    return std.div(layer, d.f32(count));
   };
 
   const compositeFragment = tgpu.fragmentFn({
@@ -968,8 +1037,7 @@ export async function createFilmV3Renderer(
 
     const overlay = std.textureSampleLevel(overlayView.$, linearSampler.$, uv, 0);
     color = std.mix(color, overlay.xyz, overlay.w);
-    const noise =
-      hash(std.add(std.floor(pixel), d.vec2f(std.floor(state.frameIndex / 2) * 17.31, 3.7))) - 0.5;
+    const noise = hash(std.add(std.floor(pixel), d.vec2f(state.grainStep * 17.31, 3.7))) - 0.5;
     color = std.add(color, d.vec3f(noise * state.grain));
     return d.vec4f(std.clamp(color, d.vec3f(0), d.vec3f(1)), 1);
   });
@@ -998,7 +1066,8 @@ export async function createFilmV3Renderer(
       drawOverlay(pageContext, frame);
       overlayTexture.write(pageCanvas);
 
-      const { camera, faces, floor, haze, light, shuffle, sponge, tesseract, tones } = frame.scene;
+      const { faces, floor, haze, light, shuffle, sponge, tesseract, tones } = frame.scene;
+      const [camera, closeCamera] = frame.shutter.cameras;
       const resting = { from: [0, 0, 0], progress: 0, to: [0, 0, 0] } as const;
       const [moveA = resting, moveB = resting, moveC = resting] = shuffle.moves;
       sceneState.write({
@@ -1007,6 +1076,13 @@ export async function createFilmV3Renderer(
         shadeStrength: light.shadeStrength,
         aspectRatio: canvas.width / canvas.height,
         back: vector(camera.back),
+        closeBack: vector(closeCamera.back),
+        closeFocus: vector(closeCamera.target),
+        closeHalfHeight: closeCamera.halfHeight,
+        closeRayStart: closeCamera.rayStart,
+        closeRight: vector(closeCamera.right),
+        closeTanHalfFieldOfView: closeCamera.tanHalfFieldOfView,
+        closeUp: vector(closeCamera.up),
         depth: sponge.depth,
         floorStrength: floor.strength,
         floorHeight: floor.height,
@@ -1057,30 +1133,17 @@ export async function createFilmV3Renderer(
           ),
         ),
       );
-      const turned = (angle: number) => angle + faces.turn;
-      const [topStart, leftStart, newStart, rightStart] = faces.boundaries;
       compositeState.write({
-        facesBoundaries: d.vec4f(
-          turned(topStart),
-          turned(leftStart),
-          turned(newStart),
-          turned(rightStart),
-        ),
         facesCenter: d.vec2f(...faces.center),
         facesEnabled: faces.enabled ? 1 : 0,
         facesRadius: faces.radius,
-        newEnd: turned(faces.newEnd),
-        newShadow: faces.shadow,
-        // A lighter blue, so that the new face under the dim light of the right face still reads blue.
+        facesUnfold: d.vec2f(...frame.shutter.unfold),
         newTone: vector(inks.newFace),
-        rightStartLength: faces.rightStartLength,
-        frameIndex: frame.frameIndex,
+        grainStep: frame.grainStep,
         grain: frame.grain,
         outputSize: d.vec2f(canvas.width, canvas.height),
         shadowTint: vector(frame.shadowTint),
-        xTone: vector(tones.x),
         yTone: vector(tones.y),
-        zTone: vector(tones.z),
       });
       scenePipeline
         .withColorAttachment({
