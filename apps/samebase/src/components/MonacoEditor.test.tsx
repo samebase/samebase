@@ -112,9 +112,8 @@ function createFakeMonacoEditor() {
       value = content;
       listeners.length = 0;
     },
-    typeAtEnd: (text: string) => {
-      const rangeOffset = value.length;
-      value += text;
+    typeAt: (rangeOffset: number, text: string) => {
+      value = value.slice(0, rangeOffset) + text + value.slice(rangeOffset);
       for (const listener of listeners) {
         listener({ changes: [{ rangeOffset, rangeLength: 0, text }] });
       }
@@ -184,11 +183,11 @@ describe("MonacoEditor", () => {
     });
     act(() => testState.mountEditor());
 
-    act(() => fakeEditor.typeAtEnd(" world"));
+    act(() => fakeEditor.typeAt(5, " world"));
     await vi.advanceTimersByTimeAsync(500);
     expect(testState.mutation).toHaveBeenCalledTimes(1);
 
-    act(() => fakeEditor.typeAtEnd("!"));
+    act(() => fakeEditor.typeAt(11, "!"));
     await act(async () => root.unmount());
     rootElement.remove();
     expect(isPageLeaveBlocked()).toBe(true);
@@ -240,9 +239,44 @@ describe("MonacoEditor", () => {
     act(() => testState.mountEditor());
     expect(fakeEditor.value()).toBe("hello there");
 
-    act(() => fakeEditor.typeAtEnd("!"));
+    act(() => fakeEditor.typeAt(11, "!"));
     await vi.advanceTimersByTimeAsync(500);
     expect(server.content()).toBe("hello there!");
+
+    await act(async () => root.unmount());
+    rootElement.remove();
+  });
+
+  it("pushes an edit to a CRLF document without changing its line endings", async () => {
+    vi.useFakeTimers();
+    const server = createCollaborativeServer("a\r\nb\r\n");
+    testState.mutation.mockImplementation(async (_reference: unknown, args: PushArgs) =>
+      server.pushUpdates(args),
+    );
+    fakeEditor.reset("a\r\nb\r\n");
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    await act(async () => {
+      root.render(
+        <MonacoEditor
+          firstDoc={{ version: 0, content: "a\r\nb\r\n" }}
+          githubRepositoryFullName="samebase/samebase"
+          branch="main"
+          filePath="src/index.ts"
+          repositoryId={fakeRepositoryId("repository-a")}
+          tree={[]}
+          treeSHA="tree-a"
+        />,
+      );
+    });
+    act(() => testState.mountEditor());
+
+    // Monaco offsets count each CRLF as two characters, so offset 4 is the end of "b".
+    act(() => fakeEditor.typeAt(4, "c"));
+    await vi.advanceTimersByTimeAsync(500);
+    expect(server.content()).toBe("a\r\nbc\r\n");
 
     await act(async () => root.unmount());
     rootElement.remove();

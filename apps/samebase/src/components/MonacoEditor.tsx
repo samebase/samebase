@@ -167,7 +167,12 @@ export function MonacoEditor({
   const cmStateRef = useRef(
     EditorState.create({
       doc: firstDoc.content,
-      extensions: [collab({ startVersion: firstDoc.version })],
+      extensions: [
+        collab({ startVersion: firstDoc.version }),
+        // The server splits staged content on "\n" only, and Monaco offsets
+        // count "\r\n" as two characters, so "\r" stays line content here.
+        EditorState.lineSeparator.of("\n"),
+      ],
     }),
   );
 
