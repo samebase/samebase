@@ -2561,8 +2561,9 @@ export const pullFromGitHubInternal = internalAction({
       includeUnchanged: true,
     });
 
-    const treeMapByBranch = new Map<string, Promise<Map<string, string>>>();
-    const getTreeMapForBranch = (branch: string): Promise<Map<string, string>> => {
+    // null is a branch deleted on GitHub, such as a merged pull request branch.
+    const treeMapByBranch = new Map<string, Promise<Map<string, string> | null>>();
+    const getTreeMapForBranch = (branch: string): Promise<Map<string, string> | null> => {
       const existing = treeMapByBranch.get(branch);
       if (existing) {
         return existing;
@@ -2573,6 +2574,11 @@ export const pullFromGitHubInternal = internalAction({
         owner: githubAccess.githubOwnerLogin,
         repo: connectedRepository.githubRepositoryName,
         branch,
+      }).catch((error: unknown) => {
+        if (getErrorStatus(error) === 404) {
+          return null;
+        }
+        throw error;
       });
       treeMapByBranch.set(branch, loaded);
       return loaded;
@@ -2610,14 +2616,20 @@ export const pullFromGitHubInternal = internalAction({
         continue;
       }
 
-      const pathInTree = staged.initialFilePath;
-      const newSha = branchTreeMap.get(pathInTree);
-      const fileExistsOnGitHub = newSha !== undefined;
-
       if (!isEdited) {
         instructions.push({ action: "delete", stagingId: staged._id });
         continue;
       }
+
+      // Edits on a deleted branch keep their base so they can still be read or
+      // discarded.
+      if (!branchTreeMap) {
+        continue;
+      }
+
+      const pathInTree = staged.initialFilePath;
+      const newSha = branchTreeMap.get(pathInTree);
+      const fileExistsOnGitHub = newSha !== undefined;
 
       if (!fileExistsOnGitHub) {
         instructions.push({
@@ -2757,6 +2769,10 @@ export const pullFromGitHubInternal = internalAction({
       connectedRepository.defaultBranch,
     ]);
     for (const branch of touchedBranches) {
+      const treeMap = treeMapByBranch.get(branch);
+      if (treeMap && (await treeMap) === null) {
+        continue;
+      }
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
         repositoryId: args.repositoryId,

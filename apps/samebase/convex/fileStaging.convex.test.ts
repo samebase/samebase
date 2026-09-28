@@ -282,6 +282,55 @@ describe("commitAllStaged", () => {
   });
 });
 
+describe("pullFromGitHubInternal", () => {
+  it("keeps edits staged on a branch deleted on GitHub and pulls the other branches", async () => {
+    const t = makeConvexTest();
+    const { organizationId, repositoryId, userId } = await seedConnectedRepository(t);
+    const github = createFakeGitHub(
+      new Map([
+        [
+          "main",
+          new Map([
+            ["kept.md", "k\n"],
+            ["stale.md", "s\n"],
+          ]),
+        ],
+      ]),
+    );
+    githubMocks.resolveGitHubAppAccess.mockResolvedValue({
+      organizationId,
+      githubInstallationId: "installation-staging",
+      githubOwnerId: "staging-owner",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "staging",
+      octokit: github,
+    });
+    for (const [branch, filePath, initialContent, content] of [
+      ["main", "kept.md", "k\n", "k\nl\n"],
+      ["main", "stale.md", "old\n", "old\n"],
+      ["merged", "draft.md", "d\n", "d\ne\n"],
+      ["merged", "open.md", "o\n", "o\n"],
+    ]) {
+      await insertStagedFile(t, {
+        repositoryId,
+        userId,
+        branch,
+        filePath,
+        initialContent,
+        content,
+      });
+    }
+
+    await t.action(internal.fileStagingActions.pullFromGitHubInternal, { userId, repositoryId });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    expect((await readStagedFiles(t)).map((row) => `${row.branch}:${row.filePath}`)).toEqual([
+      "merged:draft.md",
+      "main:kept.md",
+    ]);
+  });
+});
+
 describe("reconcileStagingWithTree", () => {
   it("keeps rows edited after the pull read them and clears only deleted rows' updates", async () => {
     const t = makeConvexTest();
