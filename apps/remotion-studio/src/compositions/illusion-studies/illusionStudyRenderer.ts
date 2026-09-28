@@ -28,7 +28,18 @@ export type IllusionStudyFrame = {
   `density * width * softplus((distance - start) / width)`: clear air near the camera, then an even
   density past `start`.
   */
-  haze: { density: number; start: number; width: number };
+  haze: {
+    /**
+    A clearing around the first cube. Past the cube box, at 3D distance `d` from it, the view fades
+    to the sky by `exp(-(veil * smoothstep(0, edge, d) + d / radius))`: a veil over everything
+    outside the cube that thins as the haze lifts, and a wide fade with no flat shoulder, so it reads
+    as haze and not as a mask edge.
+    */
+    clearing: { center: Vector3; edge: number; halfSize: number; radius: number; veil: number };
+    density: number;
+    start: number;
+    width: number;
+  };
   light: {
     ambient: number;
     aoScale: number;
@@ -37,6 +48,8 @@ export type IllusionStudyFrame = {
     /** Unit vector toward the key light. */
     direction: Vector3;
     key: number;
+    /** The shade never passes this: 1 keeps every face at or below its own tone. */
+    shadeLimit: number;
     /** 0 draws no cast shadow. */
     shadowStrength: number;
   };
@@ -58,14 +71,6 @@ export type IllusionStudyFrame = {
         /** The notch is the corner cell nearest the key view. */
         notchCenter: Vector3;
         notchHalf: number;
-        /**
-        `cube` puts a real cube in front of the notch: the notch cell turned half a turn about the key
-        view axis, so that in the key view it covers the notch with the same three faces.
-        */
-        notch: "cube" | "hole";
-        cubeCenter: Vector3;
-        /** Unit vector along the key view, toward the camera. */
-        keyAxis: Vector3;
       };
   sky: readonly [Rgb, Rgb];
   tones: { x: Rgb; y: Rgb; z: Rgb };
@@ -96,10 +101,16 @@ const StudyState = d.struct({
   key: d.f32,
   aoScale: d.f32,
   aoStrength: d.f32,
+  shadeLimit: d.f32,
   shadowStrength: d.f32,
   hazeDensity: d.f32,
   hazeStart: d.f32,
   hazeWidth: d.f32,
+  clearingCenter: d.vec3f,
+  clearingHalf: d.f32,
+  clearingRadius: d.f32,
+  clearingEdge: d.f32,
+  clearingVeil: d.f32,
   /** 0 is the sponge and 1 the notched block. */
   mode: d.i32,
   corner: d.vec3f,
@@ -110,9 +121,6 @@ const StudyState = d.struct({
   blockHalf: d.f32,
   notchCenter: d.vec3f,
   notchHalf: d.f32,
-  cubeFilled: d.i32,
-  cubeCenter: d.vec3f,
-  keyAxis: d.vec3f,
   boundsCenter: d.vec3f,
   boundsHalf: d.vec3f,
   xTone: d.vec3f,
@@ -149,12 +157,6 @@ const crossDistance = (point: d.v3f, width: number): number => {
   );
 };
 
-/** Half a turn about the unit axis `axis`. */
-const halfTurn = (point: d.v3f, axis: d.v3f): d.v3f => {
-  "use gpu";
-  return std.sub(std.mul(axis, 2 * std.dot(point, axis)), point);
-};
-
 const hash = (value: d.v2f): number => {
   "use gpu";
   return std.fract(std.sin(std.dot(value, d.vec2f(12.9898, 78.233))) * 43758.5453);
@@ -182,9 +184,6 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         ]),
         boundsHalf: d.vec3f(halfSize),
         corner: vector(corner),
-        cubeCenter: inert.point,
-        cubeFilled: 0,
-        keyAxis: inert.point,
         markBlock: 0,
         mode: 0,
         notchCenter: inert.point,
@@ -194,17 +193,12 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
       };
     }
     case "notch": {
-      const { block, blockHalf, cubeCenter, keyAxis, notch, notchCenter, notchHalf } = scene;
-      // The real cube floats in front of the notch, out past the block.
-      const reach = Math.max(...cubeCenter.map(Math.abs)) + Math.sqrt(3) * notchHalf;
+      const { block, blockHalf, notchCenter, notchHalf } = scene;
       return {
         blockHalf,
         boundsCenter: d.vec3f(0),
-        boundsHalf: d.vec3f(Math.max(blockHalf, reach)),
+        boundsHalf: d.vec3f(blockHalf),
         corner: inert.point,
-        cubeCenter: vector(cubeCenter),
-        cubeFilled: notch === "cube" ? 1 : 0,
-        keyAxis: vector(keyAxis),
         markBlock: block === "mark" ? 1 : 0,
         mode: 1,
         notchCenter: vector(notchCenter),
@@ -268,11 +262,10 @@ export async function createIllusionStudyRenderer(
   };
 
   /**
-  The notched block, and the real cube when the notch holds one. The removed box reaches past the
-  block on the outer sides, so no face of it lies on a block face. Returns the distance and 1 on the
-  block or 2 on the cube.
+  The notched block. The removed box reaches past the block on the outer sides, so no face of it lies
+  on a block face.
   */
-  const notchSample = (point: d.v3f): d.v2f => {
+  const notchDistance = (point: d.v3f): number => {
     "use gpu";
     const notchHalf = state.$.notchHalf;
     const outward = std.sign(state.$.notchCenter);
@@ -280,26 +273,15 @@ export async function createIllusionStudyRenderer(
       std.sub(point, std.add(state.$.notchCenter, std.mul(outward, notchHalf))),
       d.vec3f(notchHalf * 2),
     );
-    const block = std.max(blockDistance(point), -cut);
-    if (state.$.cubeFilled === 0) {
-      return d.vec2f(block, 1);
-    }
-    const cube = boxDistance(
-      halfTurn(std.sub(point, state.$.cubeCenter), state.$.keyAxis),
-      d.vec3f(notchHalf),
-    );
-    if (cube < block) {
-      return d.vec2f(cube, 2);
-    }
-    return d.vec2f(block, 1);
+    return std.max(blockDistance(point), -cut);
   };
 
-  const sceneSample = (point: d.v3f, threshold: number): d.v2f => {
+  const sceneSample = (point: d.v3f, threshold: number): number => {
     "use gpu";
     if (state.$.mode === 0) {
-      return d.vec2f(spongeDistance(point, threshold), 1);
+      return spongeDistance(point, threshold);
     }
-    return notchSample(point);
+    return notchDistance(point);
   };
 
   const surfaceNormal = (point: d.v3f, threshold: number): d.v3f => {
@@ -311,12 +293,12 @@ export async function createIllusionStudyRenderer(
     const e = d.vec3f(1, 1, 1);
     const sum = std.add(
       std.add(
-        std.mul(a, sceneSample(std.add(point, std.mul(a, epsilon)), threshold).x),
-        std.mul(b, sceneSample(std.add(point, std.mul(b, epsilon)), threshold).x),
+        std.mul(a, sceneSample(std.add(point, std.mul(a, epsilon)), threshold)),
+        std.mul(b, sceneSample(std.add(point, std.mul(b, epsilon)), threshold)),
       ),
       std.add(
-        std.mul(c, sceneSample(std.add(point, std.mul(c, epsilon)), threshold).x),
-        std.mul(e, sceneSample(std.add(point, std.mul(e, epsilon)), threshold).x),
+        std.mul(c, sceneSample(std.add(point, std.mul(c, epsilon)), threshold)),
+        std.mul(e, sceneSample(std.add(point, std.mul(e, epsilon)), threshold)),
       ),
     );
     return std.normalize(sum);
@@ -329,10 +311,7 @@ export async function createIllusionStudyRenderer(
     let distance = aoScale * 0.5;
     for (let step = 0; step < 56; step += 1) {
       // Shadow rays see openings below four pixels as solid, so a fine grid casts no moire.
-      const sample = sceneSample(
-        std.add(origin, std.mul(state.$.light, distance)),
-        threshold * 4,
-      ).x;
+      const sample = sceneSample(std.add(origin, std.mul(state.$.light, distance)), threshold * 4);
       light = std.min(light, (8 * sample) / distance);
       distance += std.clamp(sample, aoScale * 0.25, aoScale * 8);
       if (light < 0.002) {
@@ -349,7 +328,7 @@ export async function createIllusionStudyRenderer(
     let weight = d.f32(1);
     for (let sample = 1; sample <= 5; sample += 1) {
       const offset = aoScale * d.f32(sample);
-      const distance = sceneSample(std.add(point, std.mul(normal, offset)), threshold).x;
+      const distance = sceneSample(std.add(point, std.mul(normal, offset)), threshold);
       occlusion += (weight * (offset - distance)) / aoScale;
       weight *= 0.62;
     }
@@ -390,14 +369,13 @@ export async function createIllusionStudyRenderer(
 
     // The sponge counts a ray within half a pixel of a surface as a hit, which keeps its fine detail
     // stable. The notched block is plain, so its rays march close to the surface: a ray that passes a
-    // cube edge then misses it, and the edge never shows the tone of a hidden face.
+    // convex edge then misses it, and the edge never shows the tone of a hidden face.
     let hitFraction = d.f32(0.5);
     if (s.mode === 1) {
       hitFraction = 0.02;
     }
     let hit = d.bool(false);
     let hitPoint = d.vec3f(0);
-    let material = d.f32(0);
     let threshold = d.f32(0);
     if (distance < exitDistance) {
       for (let step = 0; step < MAXIMUM_RAY_STEPS; step += 1) {
@@ -408,13 +386,12 @@ export async function createIllusionStudyRenderer(
         );
         const sample = sceneSample(point, threshold);
         // A ray that runs out of steps grazes a surface, so it counts as a hit there.
-        if (sample.x < threshold || step === MAXIMUM_RAY_STEPS - 1) {
+        if (sample < threshold || step === MAXIMUM_RAY_STEPS - 1) {
           hit = true;
           hitPoint = d.vec3f(point);
-          material = sample.y;
           break;
         }
-        distance += std.max(sample.x, threshold * 0.5);
+        distance += std.max(sample, threshold * 0.5);
         if (distance > exitDistance) {
           break;
         }
@@ -429,12 +406,7 @@ export async function createIllusionStudyRenderer(
       std.sub(hitPoint, std.mul(rayDirection, threshold * 1.5)),
       threshold,
     );
-    // The real cube keeps its own face tones: its faces turn with it.
-    let toneNormal = d.vec3f(normal);
-    if (material > 1.5) {
-      toneNormal = halfTurn(normal, s.keyAxis);
-    }
-    const weights = std.mul(toneNormal, toneNormal);
+    const weights = std.mul(normal, normal);
     const tone = std.add(
       std.add(std.mul(s.xTone, weights.x), std.mul(s.yTone, weights.y)),
       std.mul(s.zTone, weights.z),
@@ -452,11 +424,21 @@ export async function createIllusionStudyRenderer(
     if (s.aoStrength > 0) {
       occlusion = std.mix(1, ambientOcclusion(hitPoint, normal, threshold), s.aoStrength);
     }
-    const shade = s.ambient * occlusion + s.key * facing * shadow;
+    const shade = std.min(s.ambient * occlusion + s.key * facing * shadow, s.shadeLimit);
     // Optical depth of the haze along the view ray, from the eye to the hit.
     const opticalDepth =
       s.hazeDensity * s.hazeWidth * std.log(1 + std.exp((distance - s.hazeStart) / s.hazeWidth));
-    const clear = std.exp(-opticalDepth);
+    // The clearing distance is read a little past the hit along the ray, so a neighbor face in the
+    // plane of a cube face counts as outside the cube.
+    const past = std.add(hitPoint, std.mul(rayDirection, threshold * 3));
+    const fromCube = std.length(
+      std.max(
+        std.sub(std.abs(std.sub(past, s.clearingCenter)), d.vec3f(s.clearingHalf)),
+        d.vec3f(0),
+      ),
+    );
+    const veil = s.clearingVeil * std.smoothstep(0, s.clearingEdge, fromCube);
+    const clear = std.exp(-opticalDepth - veil - fromCube / s.clearingRadius);
     return TraceSample({ color: std.mul(tone, shade * clear), coverage: clear });
   };
 
@@ -536,6 +518,11 @@ export async function createIllusionStudyRenderer(
         hazeDensity: haze.density,
         hazeStart: haze.start,
         hazeWidth: haze.width,
+        clearingCenter: vector(haze.clearing.center),
+        clearingHalf: haze.clearing.halfSize,
+        clearingRadius: haze.clearing.radius,
+        clearingEdge: haze.clearing.edge,
+        clearingVeil: haze.clearing.veil,
         key: light.key,
         light: vector(light.direction),
         pixelSize: 2 / canvas.height,
@@ -543,6 +530,7 @@ export async function createIllusionStudyRenderer(
         rayStart: camera.rayStart,
         right: vector(camera.right),
         sampleGrid: frame.sampleGrid,
+        shadeLimit: light.shadeLimit,
         shadowStrength: light.shadowStrength,
         skyBottom: vector(sky[1]),
         skyTop: vector(sky[0]),
