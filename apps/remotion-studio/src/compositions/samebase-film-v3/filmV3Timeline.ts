@@ -1,6 +1,7 @@
 import {
   easeLogoShuffleProgress,
   LOGO_SHUFFLE_MOVE_DURATION_MS,
+  LOGO_SHUFFLE_MOVE_STAGGER_MS,
 } from "@samebase/logo-model/shuffle";
 import { isWithinVoxelGrid, MENGER_SPONGE_VOXEL_STATE, voxelKey } from "@samebase/logo-model/voxel";
 
@@ -59,8 +60,10 @@ export type FilmV3Scene = {
   mode: "shuffle" | "sponge" | "tesseract";
   shuffle: {
     depth: number;
-    /** The cell in flight, as slot centers in its parent cell, with the eased progress. */
-    move: { from: Vector3; progress: number; to: Vector3 } | null;
+    /** Levels above this one keep the Menger layout, so the giant outline stays whole. */
+    moveMinLevel: number;
+    /** The cells in flight, as slot centers in their parent cell, with the eased progress. */
+    moves: readonly { from: Vector3; progress: number; to: Vector3 }[];
     /** 1 for each slot that holds a resting cell, x first, then y, then z. */
     slots: readonly number[];
   };
@@ -162,10 +165,6 @@ function easeInOutSine(value: number): number {
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const amount = clamp01((value - edge0) / (edge1 - edge0));
   return amount * amount * (3 - 2 * amount);
-}
-
-function easeInCubic(value: number): number {
-  return value ** 3;
 }
 
 function easeOutCubic(value: number): number {
@@ -361,14 +360,17 @@ function tesseractJoints(extent: number, turn: number) {
 
 export const beats = {
   press: 2,
-  hover: 9.5,
-  settle: 12.5,
+  /** The cursor lets go after the second drag and hovers; the reveal then covers the cube. */
+  hover: 6.35,
+  /** The cube shuffles at three levels, and every move returns before the settle. */
+  shuffle: 8.45,
+  settle: 13.2,
   still: 14.5,
   lift: 17.5,
   collapse: 20,
   resume: 21,
-  /** The cube joins the giant while its front face fills the frame. */
-  reveal: 24.3,
+  /** The match cut to the giant, in the middle of a shuffle move of the cube. */
+  scale: 25.5,
   end: 32.5,
   url: 36.75,
 } as const;
@@ -378,31 +380,40 @@ const iso: Pick<Orbit, "elevation" | "yaw"> = {
   yaw: isometricYaw,
 };
 
-/** Drag orbit: the cursor turns the solid as on the landing hero. */
+/**
+Drag orbit: the cursor turns the solid as on the landing hero. During the hover the camera swings
+to the left side, where the three moving faces take the light.
+*/
 function readOrbit(time: number): Orbit {
   const yaw = keyed(time, 0, [
-    { at: 2, ease: easeInOutSine, to: -58, until: 4.6 },
-    { at: 4.6, ease: easeOutCubic, to: -63, until: 5.0 },
-    { at: 5.0, ease: easeInOutSine, to: 36, until: 7.1 },
-    { at: 7.1, ease: easeOutCubic, to: 48, until: 8.3 },
-    { at: 8.3, ease: easeInOutSine, to: -16, until: 9.5 },
-    { at: 9.5, ease: easeInOutSine, to: -28, until: 12.5 },
-    { at: 12.5, ease: easeInOutCubic, to: iso.yaw, until: 14.4 },
+    { at: 2, ease: easeInOutSine, to: -58, until: 4.2 },
+    { at: 4.2, ease: easeOutCubic, to: -62, until: 4.5 },
+    { at: 4.5, ease: easeInOutSine, to: 34, until: 6.3 },
+    { at: 6.3, ease: easeOutCubic, to: 40, until: 6.9 },
+    { at: 6.9, ease: easeInOutSine, to: -32, until: 9.4 },
+    { at: 9.4, ease: easeInOutSine, to: -40, until: beats.settle },
+    { at: beats.settle, ease: easeInOutCubic, to: iso.yaw, until: 14.4 },
+    { at: beats.resume, ease: easeInOutSine, to: -118, until: 25.6 },
   ]);
   const elevation = keyed(time, 0, [
-    { at: 2, ease: easeInOutSine, to: 24, until: 4.6 },
-    { at: 5.0, ease: easeInOutSine, to: 12, until: 7.1 },
-    { at: 8.3, ease: easeInOutSine, to: 20, until: 9.5 },
-    { at: 9.5, ease: easeInOutSine, to: 26, until: 12.5 },
-    { at: 12.5, ease: easeInOutCubic, to: iso.elevation, until: 14.4 },
+    { at: 2, ease: easeInOutSine, to: 24, until: 4.2 },
+    { at: 4.5, ease: easeInOutSine, to: 12, until: 6.3 },
+    { at: 6.9, ease: easeInOutSine, to: 24, until: 9.4 },
+    { at: 9.4, ease: easeInOutSine, to: 27, until: beats.settle },
+    { at: beats.settle, ease: easeInOutCubic, to: iso.elevation, until: 14.4 },
+    { at: beats.resume, ease: easeInOutSine, to: 22, until: 25.6 },
   ]);
   const tan = keyed(time, 0, [
     { at: 2, ease: easeInOutCubic, to: 0.42, until: 3.6 },
-    { at: 12.5, ease: easeInOutCubic, to: 0, until: 14.3 },
+    { at: 6.9, ease: easeInOutSine, to: 0.34, until: 9.4 },
+    { at: beats.settle, ease: easeInOutCubic, to: 0, until: 14.3 },
+    { at: beats.resume, ease: easeInOutCubic, to: 0.36, until: 24.6 },
   ]);
   const halfHeight = keyed(time, 2.8, [
     { at: 2, ease: easeInOutCubic, to: 2.35, until: 3.6 },
-    { at: 12.5, ease: easeInOutCubic, to: 2.9, until: 14.3 },
+    { at: 6.9, ease: easeInOutSine, to: 2.5, until: 9.4 },
+    { at: beats.settle, ease: easeInOutCubic, to: 2.9, until: 14.3 },
+    { at: beats.resume, ease: easeInOutCubic, to: 2.6, until: 24.6 },
   ]);
   return { elevation, halfHeight, tan, target: [0, 0, 0], yaw };
 }
@@ -415,11 +426,10 @@ function readCursor(time: number, orbit: Orbit, width: number, height: number): 
   const centerY = height / 2;
   const grabX = centerX + 120;
   const grabY = centerY + 90;
-  const visible = progress(time, 0.5, 0.8) * (1 - progress(time, 13.2, 13.6));
+  const visible = progress(time, 0.5, 0.8) * (1 - progress(time, 8.85, 9.2));
   const pressWindows = [
-    [2, 4.6],
-    [5.0, 7.1],
-    [8.3, 9.4],
+    [2, 4.2],
+    [4.5, 6.3],
   ] as const;
   let pressed = 0;
   for (const [start, end] of pressWindows) {
@@ -438,7 +448,7 @@ function readCursor(time: number, orbit: Orbit, width: number, height: number): 
       y: mix(height * 1.02, grabY, approach),
     };
   }
-  if (time < 9.4) {
+  if (time < beats.hover) {
     // The cursor follows the drag: yaw moves it sideways and elevation moves it down.
     return {
       pressed,
@@ -447,17 +457,19 @@ function readCursor(time: number, orbit: Orbit, width: number, height: number): 
       y:
         grabY +
         orbit.elevation * dragPixelsPerDegree * 0.55 -
-        70 * Math.sin(Math.PI * progress(time, 5, 7.1)),
+        70 * Math.sin(Math.PI * progress(time, 4.5, 6.3)),
     };
   }
   // Hover: a slow figure eight over the faces, after the landing hero automatic probe.
-  const lastX = grabX + 16 * dragPixelsPerDegree;
-  const lastY = grabY + 20 * dragPixelsPerDegree * 0.55;
-  const hover = progress(time, 9.4, 13.4);
+  const release = readOrbit(beats.hover);
+  const lastX = grabX - release.yaw * dragPixelsPerDegree;
+  const lastY = grabY + release.elevation * dragPixelsPerDegree * 0.55;
+  const hover = progress(time, beats.hover, beats.shuffle + 0.5);
   const angle = hover * Math.PI * 2 * 0.85;
-  const entry = easeInOutSine(progress(time, 9.4, 10.0));
-  const exit = easeInOutCubic(progress(time, 12.6, 13.6));
-  const loopX = centerX + Math.sin(angle * 2) * 230 + 40;
+  const entry = easeInOutSine(progress(time, beats.hover, beats.hover + 0.6));
+  // The cursor stays on the cube until the reveal covers it, then leaves.
+  const exit = easeInOutCubic(progress(time, beats.shuffle, 9.2));
+  const loopX = centerX + Math.sin(angle * 2) * 180 + 20;
   const loopY = centerY - Math.sin(angle) * 150 + 30;
   return {
     pressed: 0,
@@ -564,7 +576,7 @@ function readTexts(time: number, format: FilmV3Format) {
   backdrop.push(
     ...stack(
       [[{ at: 21.25, text: "Your app" }], [{ at: 21.4, text: "doesn't notice." }]],
-      22.7,
+      25.1,
       time,
       lower,
     ),
@@ -724,6 +736,7 @@ function readTesseract(time: number) {
 // ---------- the shuffle ----------
 
 type Slot = readonly [number, number, number];
+type ShuffleMove = { at: number; from: Slot; to: Slot };
 
 /**
 The Menger layout of the landing shuffle: the 20 filled slots of `MENGER_SPONGE_VOXEL_STATE`, x first,
@@ -741,127 +754,153 @@ function slotCenter([x, y, z]: Slot): Vector3 {
   return [((x - 1) * 2) / 3, ((y - 1) * 2) / 3, ((z - 1) * 2) / 3];
 }
 
-/**
-One move at a time around the front ring (z = 2 is the front layer), as in the landing shuffle: a
-cell slides along one face axis into the free slot next to it. The first move fills the mark
-opening from below, so every later front face is solid at its center.
-*/
-const shuffleMoves: readonly { at: number; from: Slot; to: Slot }[] = [
-  { at: 22.4, from: [1, 0, 2], to: [1, 1, 2] },
-  { at: 24.6, from: [0, 0, 2], to: [1, 0, 2] },
-  { at: 26.6, from: [0, 1, 2], to: [0, 0, 2] },
-  { at: 28.6, from: [0, 2, 2], to: [0, 1, 2] },
-];
 const moveDuration = LOGO_SHUFFLE_MOVE_DURATION_MS / 1000;
+const moveStagger = LOGO_SHUFFLE_MOVE_STAGGER_MS / 1000;
 
-// Fail closed on a plan that breaks the shuffle rules: each move leaves a filled slot for the free
-// slot next to it along one axis, and starts after the move before it ends.
-shuffleMoves.reduce((slots, { at, from, to }, index) => {
-  const steps = from.map((value, axis) => Math.abs(value - (to[axis] ?? value)));
-  const previous = shuffleMoves[index - 1];
-  if (
-    slots[slotIndex(from)] !== 1 ||
-    slots[slotIndex(to)] !== 0 ||
-    steps.reduce((sum, step) => sum + step, 0) !== 1 ||
-    !isWithinVoxelGrid(3, ...to) ||
-    (previous && previous.at + moveDuration > at)
-  ) {
-    throw new Error(`Shuffle move ${voxelKey(...from)} to ${voxelKey(...to)} breaks the rules`);
-  }
-  return slots.map((filled, slot) =>
-    slot === slotIndex(from) ? 0 : slot === slotIndex(to) ? 1 : filled,
-  );
-}, mengerSlots);
+/**
+During the orbit: three edge cells slide up or across into the openings of the front, left, and top
+faces, one stagger apart, and then slide back. The same moves run inside every cell at every level.
+*/
+const orbitMoves: readonly ShuffleMove[] = [
+  { at: 8.5, from: [1, 0, 2], to: [1, 1, 2] },
+  { at: 8.5 + moveStagger, from: [0, 0, 1], to: [0, 1, 1] },
+  { at: 8.5 + 2 * moveStagger, from: [2, 2, 1], to: [1, 2, 1] },
+  { at: 8.5 + moveDuration, from: [1, 1, 2], to: [1, 0, 2] },
+  { at: 8.5 + moveStagger + moveDuration, from: [0, 1, 1], to: [0, 0, 1] },
+  { at: 8.5 + 2 * moveStagger + moveDuration, from: [1, 2, 1], to: [2, 2, 1] },
+];
 
-/** The resting slots and the cell in flight at `time`. The same state holds inside every cell. */
-function readShuffle(time: number) {
-  let slots = mengerSlots;
-  let move: FilmV3Scene["shuffle"]["move"] = null;
-  for (const { at, from, to } of shuffleMoves) {
-    if (time < at) {
-      break;
+/** Across the cut to the giant: a cell slides up into the left face opening and back. */
+const scaleMoves: readonly ShuffleMove[] = [
+  { at: 24.6, from: [0, 0, 1], to: [0, 1, 1] },
+  { at: 24.6 + moveDuration + 0.2, from: [0, 1, 1], to: [0, 0, 1] },
+];
+
+/**
+Fail closed on a plan that breaks the landing shuffle rules: a move leaves a filled slot for the
+free slot next to it along one axis, no two moves in flight share a slot, at most three move at
+once (the renderer draws three), and the plan ends in the Menger layout.
+*/
+function checkShufflePlan(moves: readonly ShuffleMove[]): void {
+  const events = moves
+    .flatMap((move) => [
+      { kind: "end" as const, move, time: move.at + moveDuration },
+      { kind: "start" as const, move, time: move.at },
+    ])
+    .sort((left, right) => left.time - right.time || (left.kind === "end" ? -1 : 1));
+  const slots = [...mengerSlots];
+  const busy = new Set<number>();
+  for (const { kind, move } of events) {
+    const from = slotIndex(move.from);
+    const to = slotIndex(move.to);
+    if (kind === "end") {
+      slots[to] = 1;
+      busy.delete(from);
+      busy.delete(to);
+      continue;
     }
-    slots = slots.map((filled, slot) => (slot === slotIndex(from) ? 0 : filled));
+    const steps = move.from.reduce(
+      (sum, value, axis) => sum + Math.abs(value - (move.to[axis] ?? value)),
+      0,
+    );
+    if (
+      slots[from] !== 1 ||
+      slots[to] !== 0 ||
+      steps !== 1 ||
+      !isWithinVoxelGrid(3, ...move.to) ||
+      busy.has(from) ||
+      busy.has(to) ||
+      busy.size >= 6
+    ) {
+      throw new Error(
+        `Shuffle move ${voxelKey(...move.from)} to ${voxelKey(...move.to)} breaks the rules`,
+      );
+    }
+    slots[from] = 0;
+    busy.add(from);
+    busy.add(to);
+  }
+  if (slots.some((filled, slot) => filled !== mengerSlots[slot])) {
+    throw new Error("A shuffle plan does not return to the Menger layout");
+  }
+}
+
+checkShufflePlan(orbitMoves);
+checkShufflePlan(scaleMoves);
+
+/** The resting slots and the cells in flight at `time`. The same state holds inside every cell. */
+function readShuffle(time: number, moves: readonly ShuffleMove[]) {
+  const slots = [...mengerSlots];
+  const inFlight: { from: Vector3; progress: number; to: Vector3 }[] = [];
+  for (const { at, from, to } of [...moves].sort((left, right) => left.at - right.at)) {
+    if (time < at) {
+      continue;
+    }
+    slots[slotIndex(from)] = 0;
     if (time < at + moveDuration) {
-      move = {
+      inFlight.push({
         from: slotCenter(from),
         progress: easeLogoShuffleProgress((time - at) / moveDuration),
         to: slotCenter(to),
-      };
+      });
     } else {
-      slots = slots.map((filled, slot) => (slot === slotIndex(to) ? 1 : filled));
+      slots[slotIndex(to)] = 1;
     }
   }
-  return { move, slots };
+  return { moves: inFlight, slots };
 }
 
-/**
-Levels above the cube in the giant. The cube is the front center cell of the front center cell of
-each level, because the first move fills that slot at every level, so it sits at the center of the
-giant front face.
-*/
-const giantLevels = 3;
-const giantHalfSize = 3 ** giantLevels;
-const giantCenter: Vector3 = [0, 0, 1 - giantHalfSize];
+/** The giant: a depth 5 sponge whose (-x, +y, -z) corner cell is the cube. */
+const giantLevels = 5;
+const giantHalfSize = 3 ** (giantLevels - 1);
+const giantCenter: Vector3 = [giantHalfSize - 1, -(giantHalfSize - 1), giantHalfSize - 1];
 
-/**
-From the four faces to the giant. The camera turns a little, then pushes in on the upper front face
-while the first move closes the mark opening. At the reveal the frame holds only the solid upper
-front face of the cube, so the cube can join the giant there with no visible change. From that frame
-one continuous pull back shows the cube as one cell of the giant, level after level, and turns to
-see the giant from outside.
-*/
-function readShuffleOrbit(time: number, format: FilmV3Format): Orbit {
-  const settle = easeInOutSine(progress(time, beats.resume, 22.9));
-  const push = easeInCubic(progress(time, 22.9, beats.reveal));
-  const pullTime = progress(time, beats.reveal, beats.end - 0.2);
-  const pull = 1 - (1 - pullTime) ** 2;
-  const turn = easeInOutSine(progress(time, 24.9, beats.end - 0.2));
-  if (time < beats.reveal) {
-    const faceTarget: Vector3 = [0, 0.35 * push, push];
-    return {
-      elevation: mix(mix(iso.elevation, 24, settle), 0, push),
-      halfHeight: Math.exp(mix(Math.log(mix(2.9, 2.7, settle)), Math.log(0.45), push)),
-      tan: mix(mix(0, 0.3, settle), 0.15, push),
-      target: faceTarget,
-      yaw: mix(mix(iso.yaw, -30, settle), 0, push),
-    };
-  }
-  const giantTarget: Vector3 = [0, 0, giantCenter[2]];
-  return {
-    elevation: 27 * turn,
-    halfHeight: Math.exp(mix(Math.log(0.45), Math.log(40), pull)),
-    tan: 0.15 + 0.35 * pull,
-    target: [
-      mix(0, giantTarget[0], turn),
-      // The feed cut is taller: the giant sits lower, so the words keep the sky.
-      mix(0.35, giantTarget[1] + (format === "portrait" ? 15 : 0), turn),
-      mix(1, giantTarget[2], turn),
-    ],
-    yaw: -40 * turn,
-  };
+function readGiant(time: number, format: FilmV3Format) {
+  const local = time - beats.scale;
+  // The camera backs straight away from the corner cell, so it never nears the surface.
+  const pull = easeInOutCubic(progress(local, 0, 2.8));
+  const drift = easeInOutSine(progress(local, 0, 7));
+  const halfHeight = Math.exp(mix(Math.log(2.6), Math.log(30), pull));
+  const yaw = -118 - 12 * pull + 7 * drift;
+  const elevation = 22 - 13 * pull + 2 * drift;
+  // Screen offset of the corner: left of center and low, so the sky holds the words.
+  const right: Vector3 = [Math.cos(yaw * degrees), 0, -Math.sin(yaw * degrees)];
+  const offset = pull * halfHeight;
+  return orbitCamera(
+    {
+      elevation,
+      halfHeight,
+      tan: mix(0.36, 0.74, pull),
+      target: add(scale(right, (format === "portrait" ? 0.22 : 0.58) * offset), [
+        0,
+        (format === "portrait" ? -0.1 : 0.32) * offset,
+        0,
+      ]),
+      yaw,
+    },
+    giantHalfSize * 5,
+  );
 }
 
 export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Frame {
   const { format, fourthDirection, height, sampleGrid, width } = options;
   const frameIndex = Math.round(time * filmV3Fps);
   // The feed cut is narrower, so its orbit frames the cube a little smaller.
-  const baseOrbit =
-    time >= beats.resume && time < beats.end ? readShuffleOrbit(time, format) : readOrbit(time);
+  const baseOrbit = readOrbit(time);
   const orbit = {
     ...baseOrbit,
     halfHeight: baseOrbit.halfHeight * (format === "portrait" ? 1.2 : 1),
   };
   const cursor = readCursor(time, orbit, width, height);
   const texts = readTexts(time, format);
-  const inGiant = time >= beats.reveal && time < beats.end;
+  const inGiant = time >= beats.scale && time < beats.end;
   const inEnd = time >= beats.end;
 
   let camera = orbitCamera(orbit, 6);
   let field = inks.pink;
   let sponge: FilmV3Scene["sponge"] = {
     center: [0, 0, 0],
-    depth: 4,
+    depth: 3,
     halfSize: 1,
     openness: 0,
     probe: [0.5, 0.5, 1],
@@ -879,21 +918,46 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     joints: tesseractJoints(0, 0).joints,
   };
 
-  // The hover reveal: the cursor probe opens deeper channels, as on the landing hero.
-  const hovering =
-    progress(time, beats.hover, beats.hover + 0.35) * (1 - progress(time, 12.7, 13.4));
-  if (hovering > 0) {
-    const probe = probeAt(camera, width, height, cursor.x, cursor.y, 1);
-    if (probe) {
-      sponge = { ...sponge, openness: hovering, probe };
+  // The hover reveal: the cursor probe opens deeper channels, as on the landing hero. At the end of
+  // the hover the reveal covers the whole cube, so every level down to the third is open.
+  const hovering = progress(time, beats.hover, beats.hover + 0.35);
+  if (hovering > 0 && time < beats.shuffle) {
+    // A slightly larger box catches a cursor at the cube edge; the probe clamps onto the cube.
+    const margin = 1.3;
+    const hit = probeAt(camera, width, height, cursor.x, cursor.y, margin);
+    if (hit) {
+      const onCube = (value: number) => clamp01(((value - 0.5) * 2 * margin) / 2 + 0.5);
+      sponge = {
+        ...sponge,
+        openness: hovering,
+        probe: [onCube(hit[0]), onCube(hit[1]), onCube(hit[2])],
+        revealRadius: mix(0.62, 2.6, smoothstep(7.7, beats.shuffle - 0.1, time)),
+      };
     }
   }
+  // After the shuffle every channel closes again while the camera settles to the isometric view.
+  if (time >= beats.settle && time < beats.lift) {
+    sponge = {
+      ...sponge,
+      openness: 1 - easeInOutCubic(progress(time, beats.settle + 0.1, 14)),
+      probe: [0.5, 0.5, 1],
+      revealRadius: 2.6,
+    };
+  }
 
-  // After the hover, the cube is the shuffled sponge. The switch hides in the settle turn.
-  const shuffleState = readShuffle(time);
-  let shuffle: FilmV3Scene["shuffle"] = { depth: 1, ...shuffleState };
-  if (time >= 13.5 && time < beats.end) {
+  // The shuffled sponge draws the open cube while cells move: it has the same geometry as the open
+  // landing sponge at rest, so both switches hide in the orbit.
+  let shuffle: FilmV3Scene["shuffle"] = {
+    depth: 3,
+    moveMinLevel: 0,
+    ...readShuffle(time, orbitMoves),
+  };
+  if (time >= beats.shuffle && time < beats.settle) {
     mode = "shuffle";
+  }
+  if (time >= 24.5 && time < beats.end) {
+    mode = "shuffle";
+    shuffle = { depth: 1, moveMinLevel: 0, ...readShuffle(time, scaleMoves) };
   }
 
   if (time >= beats.lift && time < beats.resume + 1.6) {
@@ -927,15 +991,19 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
   }
 
   if (inGiant) {
-    camera = orbitCamera(orbit, giantHalfSize * 5);
+    camera = readGiant(time, format);
     field = inks.blue;
-    shuffle = { depth: giantLevels + 1, ...shuffleState };
+    // Only the cells of the cube size shuffle on the giant, so its outline stays whole.
+    shuffle = {
+      depth: giantLevels,
+      moveMinLevel: giantLevels - 1,
+      ...readShuffle(time, scaleMoves),
+    };
     sponge = { ...sponge, center: giantCenter, halfSize: giantHalfSize };
-    const far = progress(time, 27, beats.end);
-    haze = { color: field, density: 0.0028 * far, start: camera.rayStart + 40 };
+    haze = { color: field, density: 0.009, start: camera.rayStart + 12 };
     floor = { height: -1, strength: 0 };
     aoScale = 0.045 * Math.max(1, camera.halfHeight / 2.6);
-    shadeStrength = 1 - 0.7 * smoothstep(1, 6, camera.halfHeight);
+    shadeStrength = 1 - 0.5 * smoothstep(2.6, 12, camera.halfHeight);
   }
 
   if (inEnd) {

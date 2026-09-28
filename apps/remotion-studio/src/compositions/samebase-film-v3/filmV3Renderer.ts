@@ -49,12 +49,18 @@ const SceneState = d.struct({
   tesseractHalfExtent: d.vec3f,
   /** Levels of the shuffled sponge: the top cell splits this many times. */
   shuffleDepth: d.i32,
-  /** The cell in flight at every level, in slot units of its parent: centers from and to. */
-  moveFrom: d.vec3f,
-  moveTo: d.vec3f,
-  /** Eased progress of the move in flight. */
-  moveProgress: d.f32,
-  moveActive: d.i32,
+  /** Levels above this one keep the Menger layout and no cell moves in them. */
+  moveMinLevel: d.i32,
+  /** Up to three cells in flight at every level, in slot units of their parent: from and to. */
+  moveFromA: d.vec3f,
+  moveToA: d.vec3f,
+  moveFromB: d.vec3f,
+  moveToB: d.vec3f,
+  moveFromC: d.vec3f,
+  moveToC: d.vec3f,
+  /** Eased progress of each cell in flight. */
+  moveProgress: d.vec3f,
+  moveCount: d.i32,
   floorHeight: d.f32,
   /** 0 hides the floor shadow. It fades out near a level camera, where the floor turns edge on. */
   floorStrength: d.f32,
@@ -467,6 +473,29 @@ export async function createFilmV3Renderer(
     return std.mul(std.sub(d.vec3f(x, y, z), d.vec3f(1)), 2 / 3);
   };
 
+  /** A Menger slot is filled when fewer than two of its coordinates are the middle one. */
+  const mengerFilled = (slot: number): number => {
+    "use gpu";
+    const center = slotCenter(slot);
+    const middle =
+      std.select(0, 1, std.abs(center.x) < 0.1) +
+      std.select(0, 1, std.abs(center.y) < 0.1) +
+      std.select(0, 1, std.abs(center.z) < 0.1);
+    return std.select(0, 1, middle < 2);
+  };
+
+  const movingCenter = (index: number): d.v3f => {
+    "use gpu";
+    const state = sceneState.$;
+    if (index === 0) {
+      return std.mix(state.moveFromA, state.moveToA, state.moveProgress.x);
+    }
+    if (index === 1) {
+      return std.mix(state.moveFromB, state.moveToB, state.moveProgress.y);
+    }
+    return std.mix(state.moveFromC, state.moveToC, state.moveProgress.z);
+  };
+
   const cellBoxDistance = (point: d.v3f, center: d.v3f): number => {
     "use gpu";
     const delta = std.sub(std.abs(std.sub(point, center)), d.vec3f(1 / 3));
@@ -475,11 +504,14 @@ export async function createFilmV3Renderer(
 
   /**
   The shuffled sponge, after the landing shuffle: every cell splits into the same 27 slots, the
-  resting cells fill their slots, and one cell slides between two slots. The same move runs inside
-  every cell at every level at the same time. The descent follows the one cell that holds the point;
-  the other cell boxes of each level bound the distance, so a march never skips a neighbor.
+  resting cells fill their slots, and up to three cells slide between two slots each. The same moves
+  run inside every cell at every level from `moveMinLevel` down, at the same time. The descent
+  follows the one cell that holds the point. For the march, the other cell boxes of every level bound
+  the distance, so a step never skips a neighbor. With `nearOnly` only the level where the point is
+  in empty space counts: normals and occlusion then see the cells around the point and not the loose
+  box bound of a far neighbor, which would draw lines along cell borders.
   */
-  const shuffleDistance = (point: d.v3f, threshold: number): number => {
+  const shuffleDistance = (point: d.v3f, threshold: number, nearOnly: boolean): number => {
     "use gpu";
     const state = sceneState.$;
     let local = std.div(std.sub(point, state.spongeCenter), state.spongeHalfSize);
@@ -490,41 +522,57 @@ export async function createFilmV3Renderer(
     if (outside > scale * 0.3) {
       return outside;
     }
-    const moving = std.mix(state.moveFrom, state.moveTo, state.moveProgress);
     let best = d.f32(1000000);
     for (let level = 0; level < MAXIMUM_MENGER_DEPTH; level += 1) {
       // Cells below two pixels stay solid: smaller openings only alias at grazing angles.
       if (level >= state.shuffleDepth || scale / 3 < threshold * 2) {
         break;
       }
-      let inside = d.bool(false);
-      let insideCenter = d.vec3f(0);
-      let others = d.f32(1000000);
-      if (state.moveActive === 1) {
-        const distance = cellBoxDistance(local, moving);
-        if (distance <= 0) {
-          inside = true;
-          insideCenter = d.vec3f(moving);
-        } else {
-          others = distance;
-        }
-      }
-      for (let slot = 0; slot < 27; slot += 1) {
-        if (slotFilled(slot) > 0.5) {
-          const center = slotCenter(slot);
-          const distance = cellBoxDistance(local, center);
-          if (distance <= 0 && !inside) {
-            inside = true;
-            insideCenter = d.vec3f(center);
-          } else {
-            others = std.min(others, distance);
+      const shuffled = level >= state.moveMinLevel;
+      // The nearest cell box. A point inside it, or closer than two hit thresholds, descends into it,
+      // so a march that nears a cell face finds the openings in that cell before it stops.
+      let nearest = d.f32(1000000);
+      let nearestCenter = d.vec3f(0);
+      let second = d.f32(1000000);
+      if (shuffled) {
+        for (let index = 0; index < 3; index += 1) {
+          if (index < state.moveCount) {
+            const center = movingCenter(index);
+            const distance = cellBoxDistance(local, center);
+            if (distance < nearest) {
+              second = nearest;
+              nearest = distance;
+              nearestCenter = d.vec3f(center);
+            } else {
+              second = std.min(second, distance);
+            }
           }
         }
       }
-      best = std.min(best, others * scale);
-      if (!inside) {
-        return best;
+      for (let slot = 0; slot < 27; slot += 1) {
+        let filled = mengerFilled(slot);
+        if (shuffled) {
+          filled = slotFilled(slot);
+        }
+        if (filled > 0.5) {
+          const center = slotCenter(slot);
+          const distance = cellBoxDistance(local, center);
+          if (distance < nearest) {
+            second = nearest;
+            nearest = distance;
+            nearestCenter = d.vec3f(center);
+          } else {
+            second = std.min(second, distance);
+          }
+        }
       }
+      if (nearest * scale > threshold * 2) {
+        return std.min(best, nearest * scale);
+      }
+      if (!nearOnly) {
+        best = std.min(best, second * scale);
+      }
+      const insideCenter = nearestCenter;
       local = std.mul(std.sub(local, insideCenter), 3);
       scale = scale / 3;
     }
@@ -539,11 +587,20 @@ export async function createFilmV3Renderer(
       return d.vec2f(tesseractDistance(point), 1);
     }
     if (state.mode === 2) {
-      return d.vec2f(shuffleDistance(point, threshold), 1);
+      return d.vec2f(shuffleDistance(point, threshold, false), 1);
     }
     const local = std.div(std.sub(point, state.spongeCenter), state.spongeHalfSize);
     const sample = mengerSample(local, threshold / state.spongeHalfSize);
     return d.vec2f(sample.x * state.spongeHalfSize, sample.y);
+  };
+
+  /** The distance that normals and occlusion read: the same, but near cells only in the shuffle. */
+  const shadingSample = (point: d.v3f, threshold: number): number => {
+    "use gpu";
+    if (sceneState.$.mode === 2) {
+      return shuffleDistance(point, threshold, true);
+    }
+    return sceneSample(point, threshold).x;
   };
 
   const surfaceNormal = (point: d.v3f, threshold: number): d.v3f => {
@@ -555,12 +612,12 @@ export async function createFilmV3Renderer(
     const e = d.vec3f(1, 1, 1);
     const sum = std.add(
       std.add(
-        std.mul(a, sceneSample(std.add(point, std.mul(a, epsilon)), threshold).x),
-        std.mul(b, sceneSample(std.add(point, std.mul(b, epsilon)), threshold).x),
+        std.mul(a, shadingSample(std.add(point, std.mul(a, epsilon)), threshold)),
+        std.mul(b, shadingSample(std.add(point, std.mul(b, epsilon)), threshold)),
       ),
       std.add(
-        std.mul(c, sceneSample(std.add(point, std.mul(c, epsilon)), threshold).x),
-        std.mul(e, sceneSample(std.add(point, std.mul(e, epsilon)), threshold).x),
+        std.mul(c, shadingSample(std.add(point, std.mul(c, epsilon)), threshold)),
+        std.mul(e, shadingSample(std.add(point, std.mul(e, epsilon)), threshold)),
       ),
     );
     return std.normalize(sum);
@@ -590,7 +647,7 @@ export async function createFilmV3Renderer(
     let weight = d.f32(1);
     for (let sample = 1; sample <= 5; sample += 1) {
       const offset = state.aoScale * d.f32(sample);
-      const distance = sceneSample(std.add(point, std.mul(normal, offset)), threshold).x;
+      const distance = shadingSample(std.add(point, std.mul(normal, offset)), threshold);
       occlusion += (weight * (offset - distance)) / state.aoScale;
       weight *= 0.62;
     }
@@ -942,6 +999,8 @@ export async function createFilmV3Renderer(
       overlayTexture.write(pageCanvas);
 
       const { camera, faces, floor, haze, light, shuffle, sponge, tesseract, tones } = frame.scene;
+      const resting = { from: [0, 0, 0], progress: 0, to: [0, 0, 0] } as const;
+      const [moveA = resting, moveB = resting, moveC = resting] = shuffle.moves;
       sceneState.write({
         ambient: light.ambient,
         aoScale: light.aoScale,
@@ -958,10 +1017,15 @@ export async function createFilmV3Renderer(
         key: light.key,
         light: vector(light.direction),
         mode: frame.scene.mode === "tesseract" ? 1 : frame.scene.mode === "shuffle" ? 2 : 0,
-        moveActive: shuffle.move ? 1 : 0,
-        moveFrom: vector(shuffle.move?.from ?? [0, 0, 0]),
-        moveProgress: shuffle.move?.progress ?? 0,
-        moveTo: vector(shuffle.move?.to ?? [0, 0, 0]),
+        moveCount: shuffle.moves.length,
+        moveFromA: vector(moveA.from),
+        moveFromB: vector(moveB.from),
+        moveFromC: vector(moveC.from),
+        moveMinLevel: shuffle.moveMinLevel,
+        moveProgress: d.vec3f(moveA.progress, moveB.progress, moveC.progress),
+        moveToA: vector(moveA.to),
+        moveToB: vector(moveB.to),
+        moveToC: vector(moveC.to),
         shuffleDepth: shuffle.depth,
         openness: sponge.openness,
         pixelSize: 2 / canvas.height,
