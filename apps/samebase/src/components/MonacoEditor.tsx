@@ -19,6 +19,7 @@ import { buildMonacoAppliedCacheKey } from "@/repository/editor/editorCacheKeys"
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { flushCollaborativeUpdates } from "@/lib/collaborativeUpdates";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -180,6 +181,8 @@ export function MonacoEditor({
   // Guard against concurrent pushes
   const pushingRef = useRef(false);
   const releasePageLeaveGuardRef = useRef<(() => void) | null>(null);
+  // Push retries outlive unmount; after it the final flush owns the remaining edits.
+  const isMountedRef = useRef(false);
 
   // Collab version – drives the pullUpdates subscription
   const [version, setVersion] = useState(firstDoc.version);
@@ -201,12 +204,22 @@ export function MonacoEditor({
     }
   }, [filePath]);
 
+  // Unmount stops the retry that sends edits typed during an in-flight push, so
+  // flush them here and keep the page-leave guard until that flush settles.
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      releasePageLeaveGuardRef.current?.();
+      isMountedRef.current = false;
+      const releasePageLeaveGuard = releasePageLeaveGuardRef.current;
       releasePageLeaveGuardRef.current = null;
+      void flushCollaborativeUpdates({
+        state: cmStateRef.current,
+        githubRepositoryFullName,
+        branch,
+        filePath,
+      }).then(() => releasePageLeaveGuard?.());
     };
-  }, []);
+  }, [githubRepositoryFullName, branch, filePath]);
 
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
@@ -219,7 +232,7 @@ export function MonacoEditor({
   const pushToServer = useCallback(async () => {
     const state = cmStateRef.current;
     const pending = sendableUpdates(state);
-    if (pushingRef.current || !pending.length) return;
+    if (!isMountedRef.current || pushingRef.current || !pending.length) return;
 
     pushingRef.current = true;
     const ver = getSyncedVersion(state);
