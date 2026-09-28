@@ -128,6 +128,11 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "hidden",
   },
+  "/oauth/provider-complete": {
+    access: "access_provider_connections",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    pathSuggestion: "hidden",
+  },
   "/pitch": { access: "access_admin", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/pitch/print": { access: "access_admin", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/pitch/print/mobile": {

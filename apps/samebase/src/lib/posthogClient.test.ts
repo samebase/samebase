@@ -260,6 +260,38 @@ describe("posthog client setup", () => {
     ).toBe("https://samebase.com/docs#handoff=not-secret");
   });
 
+  it("drops provider OAuth completion fragments from pageview and event URLs", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const beforeSend = config.before_send;
+    if (typeof beforeSend !== "function") {
+      throw new Error("PostHog before_send is not configured as one function.");
+    }
+
+    expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/oauth/provider-complete#provider=convex&state=state_secret&code=code_secret",
+        "https://samebase.com",
+      ),
+    ).toBe("https://samebase.com/oauth/provider-complete");
+    expect(
+      beforeSend({
+        event: "$pageleave",
+        properties: {
+          $current_url:
+            "https://samebase.com/oauth/provider-complete#provider=convex&state=state_secret&code=code_secret",
+          $session_entry_url: "/oauth/provider-complete?prod-ui#code=code_secret",
+        },
+        uuid: "pageleave-event-id",
+      })?.properties,
+    ).toMatchObject({
+      $current_url: "https://samebase.com/oauth/provider-complete",
+      $session_entry_url: "/oauth/provider-complete?prod-ui",
+    });
+  });
+
   it("replaces invitation codes in pageview URLs", () => {
     expect(
       sanitizeSamebasePostHogPageviewUrl(

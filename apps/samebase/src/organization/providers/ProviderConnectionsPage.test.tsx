@@ -958,6 +958,25 @@ describe("ProviderConnectionsPage", () => {
     },
   );
 
+  it("navigates the opener to the app completion page with its fragment intact", () => {
+    const navigate = vi.fn();
+    const returnTo = `${window.location.origin}/oauth/provider-complete#provider=convex&state=state-value&code=code-value`;
+
+    handleProviderOAuthPopupCompletionMessage({
+      event: new MessageEvent("message", {
+        data: { type: "convex-oauth-complete", returnTo },
+        origin: "https://api.samebase.com",
+        source: window,
+      }),
+      expectedOrigin: window.location.origin,
+      navigate,
+      providerPopupConfig: providerPopupConfig(),
+    });
+
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith(returnTo);
+  });
+
   it.each([
     {
       data: { type: "convex-oauth-complete" },
