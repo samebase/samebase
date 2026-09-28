@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase backend
-- Last updated: 2026-08-18
+- Last updated: 2026-09-29
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Evidence: `research/2026-08-06-provider-connection-authorization-audit.md`
 - Replaces: the temporary multi-row provider model in `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
@@ -207,7 +207,10 @@ the exact lease authorizes completion even if that member leaves. Refresh preser
 
 OAuth callback state stores one hash of the current provider destination and credential snapshot. It
 stores no raw credential. The final credential mutation verifies the exact unexpired callback row,
-deletes it, and writes the credential atomically. It rejects a reused state or changed snapshot. If
+deletes it, and writes the credential atomically. It rejects a reused state or changed snapshot. The
+provider callback does not exchange the code. It hands the state and code to the app page
+`/oauth/provider-complete` in the URL fragment, and `completeProviderOAuth` exchanges the code only
+for the signed-in user who created the callback row. Another account deletes the row first. If
 Cloudflare exchanges a code but Samebase cannot store the result, Samebase does not revoke the grant
 automatically. Cloudflare can return a grant that is also current for another connection, so
 automatic cleanup could revoke valid access. The owner manages upstream access in Cloudflare

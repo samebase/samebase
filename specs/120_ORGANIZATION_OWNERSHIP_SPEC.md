@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-09-02
+- Last updated: 2026-09-29
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -325,6 +325,13 @@ Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription re
 `/org/<owner>/settings#billing`. The server validates the owner-scoped return route. Return URLs
 keep the GitHub owner login and never include an internal organization ID.
 
+Only the Samebase user who starts a provider OAuth authorization can complete it. The Convex,
+Cloudflare, and Cloudflare MCP callbacks run without an app session, so a callback that receives an
+authorization code does not exchange it. The callback sends the browser to
+`/oauth/provider-complete` with the provider, state, and code in the URL fragment. That page removes
+the fragment and completes the authorization as its signed-in user. If that user did not start the
+authorization, Samebase deletes the callback state, links nothing, and returns to `/org`.
+
 User settings remain separate from organization administration. They contain personal profile and
 account actions, sign-in methods, and user-owned MCP clients. They contain no organization selector,
 personal repository authorization control, or organization billing.
@@ -481,6 +488,8 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Provider OAuth returns to `/org/<owner>/providers`. Checkout and billing-portal sessions return to
   `/org/<owner>/settings#billing`. Both keep the scoped route if membership was removed during the
   external flow.
+- A provider authorization code that reaches a Samebase account other than the account that started
+  the authorization links nothing, and nobody can use that code later.
 - Both members see the same organization repositories, provider status, billing state, and
   observations.
 - A member can create and reload a GitHub organization repository, Convex project, and Cloudflare

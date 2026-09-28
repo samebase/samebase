@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-09-07
+- Last updated: 2026-09-29
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Related: `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
@@ -196,7 +196,9 @@ A user with no memberships can still use `/settings`. On `/repo`, Samebase shows
 
 Provider OAuth returns to `/org/:owner/providers`. Checkout and billing-portal sessions return to
 `/org/:owner/settings#billing`. The return value carries the GitHub owner login and no internal
-organization ID.
+organization ID. Provider OAuth passes through `/oauth/provider-complete` first. A provider
+authorization that another Samebase account completes returns to `/org`, because that account can be
+outside the organization.
 
 GitHub authorization returns to `/org` without a credential or connection-session search parameter.
 The route keeps unrelated accepted search and hash values across the external return, then reads the
