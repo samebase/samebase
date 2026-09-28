@@ -1506,8 +1506,8 @@ export function buildCommitPreviewFromStagedFiles({
 
       return buildCommitPreviewFileFromContents({
         status,
-        path: file.filePath,
-        previousPath: renamed ? file.initialFilePath : undefined,
+        path: file.fileDeleted ? file.initialFilePath : file.filePath,
+        previousPath: renamed && !file.fileDeleted ? file.initialFilePath : undefined,
         isBinary,
         mimeType: isBinary ? file.mime : undefined,
         oldContent: isBinary ? "" : file.initialContent,
@@ -3472,9 +3472,10 @@ export async function createCommitWithMultipleFiles({
 
   for (const file of changedResolvedStagedFiles) {
     if (file.fileDeleted) {
-      // Only delete paths that actually exist in the repo
+      // Only delete paths that actually exist in the repo. A renamed row still
+      // exists upstream at initialFilePath.
       if (file.parentCommitSha !== null) {
-        pathsToDelete.add(file.filePath);
+        pathsToDelete.add(file.initialFilePath);
       }
     } else {
       const isRenamed = file.filePath !== file.initialFilePath;
