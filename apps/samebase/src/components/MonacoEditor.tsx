@@ -173,6 +173,9 @@ export function MonacoEditor({
 
   // Monaco editor instance (set on mount)
   const editorRef = useRef<MonacoEditorInstance | null>(null);
+  // A pulled batch that lands before Monaco mounts must be applied on mount;
+  // the batch itself does not change again to rerun the effect.
+  const [isEditorMounted, setIsEditorMounted] = useState(false);
 
   // Suppression flag: true while we are programmatically applying remote
   // changes to Monaco so the onDidChangeModelContent handler ignores them.
@@ -324,7 +327,7 @@ export function MonacoEditor({
     cmStateRef.current = tr.state;
     setVersion(getSyncedVersion(tr.state));
     syncPageLeaveGuard();
-  }, [remoteUpdates, syncPageLeaveGuard]);
+  }, [remoteUpdates, syncPageLeaveGuard, isEditorMounted]);
 
   // ---- Sync project files into Monaco models ----
   useEffect(() => {
@@ -355,6 +358,7 @@ export function MonacoEditor({
   // ---- Monaco mount handler ----
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    setIsEditorMounted(true);
     monacoRef.current = monaco;
 
     // If project files are already loaded (cache hit), sync immediately

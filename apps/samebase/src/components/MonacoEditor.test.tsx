@@ -12,10 +12,18 @@ type ContentChangeListener = (event: {
   changes: Array<{ rangeOffset: number; rangeLength: number; text: string }>;
 }) => void;
 
+type PulledUpdate = { clientID: string; changes: string; version: number; userId: string };
+
+type ModelEdit = {
+  range: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number };
+  text: string;
+};
+
 const testState = vi.hoisted(() => ({
   mutation: vi.fn(),
   query: vi.fn(),
   mountEditor: () => {},
+  pulledUpdatesByVersion: new Map<number, PulledUpdate[]>(),
 }));
 
 vi.mock("@/lib/convexClient", () => ({
@@ -23,7 +31,8 @@ vi.mock("@/lib/convexClient", () => ({
 }));
 
 vi.mock("@/lib/convexQueryCache", () => ({
-  useCacheQuery: () => undefined,
+  useCacheQuery: (_reference: unknown, args: { version: number }) =>
+    testState.pulledUpdatesByVersion.get(args.version),
 }));
 
 vi.mock("@/repository/editor/useProjectFiles", () => ({
@@ -53,7 +62,7 @@ type PushArgs = { version: number; updates: Array<{ clientId: string; changes: s
 
 function createCollaborativeServer(content: string) {
   let doc = Text.of(content.split("\n"));
-  const updates: Array<{ clientID: string; changes: string; version: number; userId: string }> = [];
+  const updates: PulledUpdate[] = [];
   return {
     content: () => doc.toString(),
     pushUpdates: (args: PushArgs) => {
@@ -79,7 +88,26 @@ function createCollaborativeServer(content: string) {
 function createFakeMonacoEditor() {
   let value = "";
   const listeners: ContentChangeListener[] = [];
+  const offsetAt = (lineNumber: number, column: number) =>
+    value
+      .split("\n")
+      .slice(0, lineNumber - 1)
+      .reduce((offset, line) => offset + line.length + 1, column - 1);
+  const model = {
+    getPositionAt: (offset: number) => {
+      const lines = value.slice(0, offset).split("\n");
+      return { lineNumber: lines.length, column: (lines.at(-1)?.length ?? 0) + 1 };
+    },
+    applyEdits: (edits: ModelEdit[]) => {
+      for (const { range, text } of [...edits].reverse()) {
+        const from = offsetAt(range.startLineNumber, range.startColumn);
+        const to = offsetAt(range.endLineNumber, range.endColumn);
+        value = value.slice(0, from) + text + value.slice(to);
+      }
+    },
+  };
   return {
+    value: () => value,
     reset: (content: string) => {
       value = content;
       listeners.length = 0;
@@ -92,7 +120,7 @@ function createFakeMonacoEditor() {
       }
     },
     editor: {
-      getModel: () => null,
+      getModel: () => model,
       onDidChangeModelContent: (listener: ContentChangeListener) => {
         listeners.push(listener);
       },
@@ -115,6 +143,7 @@ function isPageLeaveBlocked() {
 
 describe("MonacoEditor", () => {
   afterEach(() => {
+    testState.pulledUpdatesByVersion.clear();
     testState.mutation.mockReset();
     testState.query.mockReset();
     vi.useRealTimers();
@@ -172,5 +201,50 @@ describe("MonacoEditor", () => {
     const settledPushCount = testState.mutation.mock.calls.length;
     await vi.advanceTimersByTimeAsync(5000);
     expect(testState.mutation).toHaveBeenCalledTimes(settledPushCount);
+  });
+
+  it("applies remote updates that arrived before Monaco mounted", async () => {
+    vi.useFakeTimers();
+    const server = createCollaborativeServer("hello");
+    server.pushUpdates({
+      version: 0,
+      updates: [
+        {
+          clientId: "other-client",
+          changes: JSON.stringify(ChangeSet.of({ from: 5, insert: " there" }, 5).toJSON()),
+        },
+      ],
+    });
+    testState.pulledUpdatesByVersion.set(0, server.pullUpdates({ version: 0 }));
+    testState.mutation.mockImplementation(async (_reference: unknown, args: PushArgs) =>
+      server.pushUpdates(args),
+    );
+    fakeEditor.reset("hello");
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    await act(async () => {
+      root.render(
+        <MonacoEditor
+          firstDoc={{ version: 0, content: "hello" }}
+          githubRepositoryFullName="samebase/samebase"
+          branch="main"
+          filePath="src/index.ts"
+          repositoryId={fakeRepositoryId("repository-a")}
+          tree={[]}
+          treeSHA="tree-a"
+        />,
+      );
+    });
+    act(() => testState.mountEditor());
+    expect(fakeEditor.value()).toBe("hello there");
+
+    act(() => fakeEditor.typeAtEnd("!"));
+    await vi.advanceTimersByTimeAsync(500);
+    expect(server.content()).toBe("hello there!");
+
+    await act(async () => root.unmount());
+    rootElement.remove();
   });
 });
