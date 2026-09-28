@@ -2604,7 +2604,6 @@ export const pullFromGitHubInternal = internalAction({
       version: number;
       stagedContent: string;
       initialContent: string;
-      fileDeleted: boolean;
     }> = [];
 
     for (const staged of allStaged) {
@@ -2654,6 +2653,11 @@ export const pullFromGitHubInternal = internalAction({
           }
           continue;
         }
+        // A staged delete keeps its base so the commit reports the upstream
+        // edit as a conflict instead of deleting it.
+        if (staged.fileDeleted) {
+          continue;
+        }
         blobFetchQueue.push({
           stagingId: staged._id,
           sha: newSha,
@@ -2663,7 +2667,6 @@ export const pullFromGitHubInternal = internalAction({
           version: staged.version,
           stagedContent: staged.content,
           initialContent: staged.initialContent,
-          fileDeleted: staged.fileDeleted,
         });
       }
     }
@@ -2679,53 +2682,51 @@ export const pullFromGitHubInternal = internalAction({
         const buffer = Buffer.from(blob.data.content, "base64");
         const newContent = buffer.toString("utf-8");
         let shouldAdvanceParentCommit = true;
-        if (!item.fileDeleted) {
-          const rebaseResult = rebaseStagedContent({
-            baseContent: item.initialContent,
-            stagedContent: item.stagedContent,
-            upstreamContent: newContent,
-          });
+        const rebaseResult = rebaseStagedContent({
+          baseContent: item.initialContent,
+          stagedContent: item.stagedContent,
+          upstreamContent: newContent,
+        });
 
-          if (rebaseResult.content !== item.stagedContent) {
-            try {
-              await ctx.runMutation(internal.collaborative.pushContentUpdate, {
-                repositoryId: args.repositoryId,
-                filePath: item.filePath,
-                branch: item.branch,
-                expectedVersion: item.version,
-                newContent: rebaseResult.content,
-                userId: args.userId,
+        if (rebaseResult.content !== item.stagedContent) {
+          try {
+            await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+              repositoryId: args.repositoryId,
+              filePath: item.filePath,
+              branch: item.branch,
+              expectedVersion: item.version,
+              newContent: rebaseResult.content,
+              userId: args.userId,
+            });
+          } catch (error) {
+            if (!isStaleBaseVersionError(error)) {
+              throw error;
+            }
+
+            const latestStaging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
+              repositoryId: args.repositoryId,
+              originalFilePath: item.initialFilePath,
+              branch: item.branch,
+            });
+
+            if (!latestStaging) {
+              shouldAdvanceParentCommit = false;
+            } else if (!latestStaging.fileDeleted) {
+              const retriedRebase = rebaseStagedContent({
+                baseContent: latestStaging.initialContent,
+                stagedContent: latestStaging.content,
+                upstreamContent: newContent,
               });
-            } catch (error) {
-              if (!isStaleBaseVersionError(error)) {
-                throw error;
-              }
 
-              const latestStaging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
-                repositoryId: args.repositoryId,
-                originalFilePath: item.initialFilePath,
-                branch: item.branch,
-              });
-
-              if (!latestStaging) {
-                shouldAdvanceParentCommit = false;
-              } else if (!latestStaging.fileDeleted) {
-                const retriedRebase = rebaseStagedContent({
-                  baseContent: latestStaging.initialContent,
-                  stagedContent: latestStaging.content,
-                  upstreamContent: newContent,
+              if (retriedRebase.content !== latestStaging.content) {
+                await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+                  repositoryId: args.repositoryId,
+                  filePath: latestStaging.filePath,
+                  branch: item.branch,
+                  expectedVersion: latestStaging.version,
+                  newContent: retriedRebase.content,
+                  userId: args.userId,
                 });
-
-                if (retriedRebase.content !== latestStaging.content) {
-                  await ctx.runMutation(internal.collaborative.pushContentUpdate, {
-                    repositoryId: args.repositoryId,
-                    filePath: latestStaging.filePath,
-                    branch: item.branch,
-                    expectedVersion: latestStaging.version,
-                    newContent: retriedRebase.content,
-                    userId: args.userId,
-                  });
-                }
               }
             }
           }

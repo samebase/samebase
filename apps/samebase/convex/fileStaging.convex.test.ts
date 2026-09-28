@@ -330,6 +330,52 @@ describe("pullFromGitHubInternal", () => {
       "main:kept.md",
     ]);
   });
+
+  it("keeps the base of a staged delete whose file changed upstream", async () => {
+    const t = makeConvexTest();
+    const { organizationId, repositoryId, userId } = await seedConnectedRepository(t);
+    githubMocks.resolveGitHubAppAccess.mockResolvedValue({
+      organizationId,
+      githubInstallationId: "installation-staging",
+      githubOwnerId: "staging-owner",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "staging",
+      octokit: createFakeGitHub(new Map([["main", new Map([["gone.md", "upstream edit\n"]])]])),
+    });
+    const stagingId = await insertStagedFile(t, {
+      repositoryId,
+      userId,
+      branch: "main",
+      filePath: "gone.md",
+      initialContent: "old\n",
+      content: "old\n",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(stagingId, { fileDeleted: true });
+    });
+
+    await t.action(internal.fileStagingActions.pullFromGitHubInternal, { userId, repositoryId });
+    // A pull that read the row before the delete still sends the upstream base.
+    await t.mutation(internal.fileStaging.reconcileStagingWithTree, {
+      repositoryId,
+      userId,
+      instructions: [
+        {
+          action: "update",
+          stagingId,
+          parentCommitSha: gitBlobSha("upstream edit\n"),
+          initialContent: "upstream edit\n",
+        },
+      ],
+    });
+
+    expect(
+      await t.run(async (ctx) => {
+        const row = await ctx.db.get(stagingId);
+        return row && [row.fileDeleted, row.initialContent, row.parentCommitSha];
+      }),
+    ).toEqual([true, "old\n", gitBlobSha("old\n")]);
+  });
 });
 
 describe("reconcileStagingWithTree", () => {

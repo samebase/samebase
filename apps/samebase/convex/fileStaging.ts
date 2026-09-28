@@ -1763,6 +1763,11 @@ export const reconcileStagingWithTree = internalMutation({
           });
         }
       } else {
+        // A staged delete keeps its base so the commit reports an upstream edit
+        // as a conflict. The pull can read the row before the delete.
+        if (staged.fileDeleted && instruction.parentCommitSha !== null) {
+          continue;
+        }
         const patch: Record<string, unknown> = {
           parentCommitSha: instruction.parentCommitSha,
         };
