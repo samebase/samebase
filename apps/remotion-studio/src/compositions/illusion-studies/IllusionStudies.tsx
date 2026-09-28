@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 
 import { useWebGpuFrame } from "../../webgpu/useWebGpuFrame";
-import { type CubeOrHoleBlock, readCubeOrHoleFrame } from "./cubeOrHoleTimeline";
+import {
+  type CubeOrHoleScene,
+  readCubeOrHoleFrame,
+  readCubeOrHoleKeyFrame,
+} from "./cubeOrHoleTimeline";
 import { readEndlessPullbackFrame } from "./endlessPullbackTimeline";
 import { createIllusionStudyRenderer, type IllusionStudyFrame } from "./illusionStudyRenderer";
 
@@ -26,9 +30,18 @@ export function StudyEndlessPullback() {
   return <StudyCanvas frame={frame} />;
 }
 
-/** Study 2: a cube-shaped hole that reads as a cube until a slow orthographic orbit shows the hole. */
-export function StudyCubeOrHole({ block }: { block: CubeOrHoleBlock }) {
+/**
+Study 2: one swing through the key view. On one side the cube is a hole in a block; on the other it
+is a real cube in a room corner. The swap happens on the key view frame, where both look the same.
+*/
+export function StudyCubeOrHole() {
   const time = useCurrentFrame() / useVideoConfig().fps;
-  const frame = useMemo(() => readCubeOrHoleFrame(time, block, sampleGrid), [block, time]);
+  const frame = useMemo(() => readCubeOrHoleFrame(time, sampleGrid), [time]);
+  return <StudyCanvas frame={frame} />;
+}
+
+/** The key view of the hole or of the cube: the two pictures are the same. */
+export function StudyCubeOrHoleKey({ scene }: { scene: CubeOrHoleScene }) {
+  const frame = useMemo(() => readCubeOrHoleKeyFrame(scene, sampleGrid), [scene]);
   return <StudyCanvas frame={frame} />;
 }
