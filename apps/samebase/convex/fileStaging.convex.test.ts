@@ -281,3 +281,65 @@ describe("commitAllStaged", () => {
     expect(await readCollaborativeUpdatePaths(t)).toEqual(["main:notes.md"]);
   });
 });
+
+describe("reconcileStagingWithTree", () => {
+  it("keeps rows edited after the pull read them and clears only deleted rows' updates", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    const editedId = await insertStagedFile(t, {
+      repositoryId,
+      userId,
+      branch: "main",
+      filePath: "edited.md",
+      initialContent: "e\n",
+      content: "e\n",
+    });
+    const unchangedId = await insertStagedFile(t, {
+      repositoryId,
+      userId,
+      branch: "main",
+      filePath: "unchanged.md",
+      initialContent: "u\n",
+      content: "u\n",
+    });
+    await insertStagedFile(t, {
+      repositoryId,
+      userId,
+      branch: "feature",
+      filePath: "other.md",
+      initialContent: "o\n",
+      content: "o\n",
+    });
+    for (const [branch, filePath, expectedVersion, newContent] of [
+      ["main", "unchanged.md", 0, "u\nv\n"],
+      ["main", "unchanged.md", 1, "u\n"],
+      ["feature", "other.md", 0, "o\np\n"],
+      ["main", "edited.md", 0, "e\nf\n"],
+    ] as const) {
+      await t.mutation(internal.collaborative.pushContentUpdate, {
+        repositoryId,
+        filePath,
+        branch,
+        expectedVersion,
+        newContent,
+        userId,
+      });
+    }
+
+    await t.mutation(internal.fileStaging.reconcileStagingWithTree, {
+      repositoryId,
+      userId,
+      instructions: [
+        { action: "delete", stagingId: editedId },
+        { action: "delete", stagingId: unchangedId },
+      ],
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    expect((await readStagedFiles(t)).map((row) => `${row.branch}:${row.filePath}`)).toEqual([
+      "main:edited.md",
+      "feature:other.md",
+    ]);
+    expect(await readCollaborativeUpdatePaths(t)).toEqual(["feature:other.md", "main:edited.md"]);
+  });
+});

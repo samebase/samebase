@@ -1744,8 +1744,27 @@ export const reconcileStagingWithTree = internalMutation({
 
     const cleanupCutoffTimestamp = Date.now() + 1;
     for (const instruction of args.instructions) {
+      // Commits and clears can remove rows while the pull action runs.
+      const staged = await ctx.db.get(instruction.stagingId);
+      if (!staged) {
+        continue;
+      }
+
       if (instruction.action === "delete") {
-        await ctx.db.delete(instruction.stagingId);
+        // The pull deletes rows it read as unchanged. A row edited since then
+        // keeps its edits.
+        if (hasStagedFileChanges(staged)) {
+          continue;
+        }
+        await ctx.db.delete(staged._id);
+        for (const filePath of new Set([staged.filePath, staged.initialFilePath])) {
+          await scheduleCollaborativeFileUpdatesCleanup(ctx, {
+            repositoryId: args.repositoryId,
+            branch: staged.branch,
+            filePath,
+            cutoffTimestamp: cleanupCutoffTimestamp,
+          });
+        }
       } else {
         const patch: Record<string, unknown> = {
           parentCommitSha: instruction.parentCommitSha,
@@ -1755,16 +1774,6 @@ export const reconcileStagingWithTree = internalMutation({
         }
         await ctx.db.patch(instruction.stagingId, patch);
       }
-    }
-
-    // Clean up collaborative updates for deleted staging records
-    // (schedule batched deletion to avoid hitting read limits)
-    const hasDeletes = args.instructions.some((i) => i.action === "delete");
-    if (hasDeletes) {
-      await scheduleCollaborativeUpdatesCleanup(ctx, {
-        repositoryId: args.repositoryId,
-        cutoffTimestamp: cleanupCutoffTimestamp,
-      });
     }
 
     return null;
