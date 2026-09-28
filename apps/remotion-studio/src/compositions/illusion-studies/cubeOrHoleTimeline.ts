@@ -16,13 +16,13 @@ Two scenes that look the same in the key view, an orthographic isometric view:
 - The hole: a block of half size 2 with the cube of half size 1 at its corner (+x, -y, +z) cut
   away, seen from below. The notch shows the landing mark hexagon: white on top, cyan lower left,
   slate lower right. The eye reads it as a cube in a room corner.
-- The cube: that reading made real: an upright cube in front of the far corner of a room of the
-  same size, seen from above. The cube floats out of the corner along the key view, which does not
-  change the key view picture, so any turn shows it as a separate solid with its own shadow.
+- The cube: that reading made real: an upright cube resting in the far corner of a room of the
+  same size, seen from above. It is the depth inversion of the hole.
 
-Each scene turns about its own vertical, and the two turns go opposite ways on screen. The camera
-rests at the key view between them, and the swap happens on that rest, where both pictures are the
-same.
+Each scene turns about its own vertical. Turning the hole by an angle gives the same picture as
+turning the cube by the mirrored angles, as long as the camera stays in the corner octant, so one
+swing through the key view turns on smoothly from the hole to the cube. The swap happens on the
+frame that is exactly at the key view, where both pictures are the same.
 */
 const hole = { elevation: -isometricElevation, target: [0, 0, 0], yaw: 45 } as const;
 const cube = { elevation: isometricElevation, target: [-2, 2, 2], yaw: -45 } as const;
@@ -34,35 +34,41 @@ goes past the corner octant (yaw 45 + 45), so the block shows its far side and t
 in its outline. The cube side stays inside the octant, where the room corner reads naturally.
 */
 const holeSwing = 83;
-const cubeSwing = 40;
-/** How far the cube floats out of the room corner, on every axis. */
-const cubeLift = 1;
 /** Seconds of the clip. It ends where it starts, so it loops. */
 export const cubeOrHoleBeats = {
-  toHole: 0.5,
-  atHole: 3.8,
-  holeBack: 4.3,
-  restAtKey: 7.1,
-  toCube: 7.5,
-  atCube: 10.5,
-  cubeBack: 11,
-  home: 13.8,
-  end: 14.2,
+  toHole: 0.8,
+  atHole: 4.4,
+  throughKey: 5,
+  atCube: 10.6,
+  backToKey: 11.2,
+  home: 14,
+  end: 14.4,
 } as const;
 
-/** The last frame of the hole: the middle of the rest at the key view. */
-export const swapFrame = 438;
+/** The last frame of the hole: the swing passes the key view exactly on it. */
+export const swapFrame = 507;
+
+/** The cube side swing, chosen so that the swing back from the hole passes 0 exactly at `swapFrame`. */
+const cubeSwing = (() => {
+  const beats = cubeOrHoleBeats;
+  const eased = easeInOutSine(progress(swapFrame / cubeOrHoleFps, beats.throughKey, beats.atCube));
+  return holeSwing / eased - holeSwing;
+})();
 
 export function readSwing(time: number): number {
   const beats = cubeOrHoleBeats;
   const ease = (start: number, end: number) => easeInOutSine(progress(time, start, end));
   return (
-    holeSwing * (ease(beats.toHole, beats.atHole) - ease(beats.holeBack, beats.restAtKey)) -
-    cubeSwing * (ease(beats.toCube, beats.atCube) - ease(beats.cubeBack, beats.home))
+    holeSwing * ease(beats.toHole, beats.atHole) -
+    (holeSwing + cubeSwing) * ease(beats.throughKey, beats.atCube) +
+    cubeSwing * ease(beats.backToKey, beats.home)
   );
 }
 
-/** The elevation change with the swing: toward eye level on both sides. */
+/**
+The elevation change with the swing: toward eye level on both sides. It grows with the square of the
+swing, so the camera path is smooth through the key view.
+*/
 function readLift(swing: number): number {
   return swing >= 0 ? 21 * (swing / holeSwing) ** 2 : 20 * (swing / cubeSwing) ** 2;
 }
@@ -80,10 +86,7 @@ function holeCamera(swing: number) {
   );
 }
 
-/**
-The cube camera. Its angles are mirrored, so at swing 0 it gives the hole key view picture, and a
-negative swing turns the picture the other way than a positive swing of the hole.
-*/
+/** The cube camera for the same picture as the hole camera at `swing`: its angles are mirrored. */
 function cubeCamera(swing: number) {
   return orbitCamera(
     {
@@ -126,9 +129,9 @@ function frameAt(time: number, shown: CubeOrHoleScene, sampleGrid: number): Illu
         center: [-2, 2, 2],
         halfSize: 2,
         kind: "room",
-        lift: cubeLift,
         signs: [-1, 1, 1],
-        wall: 0.1,
+        // Under half a pixel, so a wall edge never shows as a strip.
+        wall: 0.003,
       }
     : { blockHalf: 2, kind: "notch", notchCenter: [1, -1, 1], notchHalf: 1 };
   return {
@@ -145,13 +148,13 @@ function frameAt(time: number, shown: CubeOrHoleScene, sampleGrid: number): Illu
       ambient: 0.6,
       aoScale: 0.09,
       aoStrength: 0,
-      // Fixed in the scene along the key view, so in the key view every shadow lies behind the cube
-      // that casts it, and each face of the key view gets 0.6 + key / sqrt(3), exactly its tone.
-      // A hard edge keeps the shadow from showing a soft rim around the cube in the key view.
+      // Fixed in the scene along the key view, so every face keeps one flat tone while the camera
+      // turns: each face of the key view gets 0.6 + key / sqrt(3), which is exactly its tone. Both
+      // scenes cast their shadows along the key view: the notch is open to the light, and the cube
+      // shadow falls under the cube, so the key view pictures stay the same.
       direction: keyView.back,
       key: 0.4 * Math.sqrt(3),
       shadeLimit: 1,
-      shadowHardness: 400,
       shadowStrength: 1,
     },
     sampleGrid,
