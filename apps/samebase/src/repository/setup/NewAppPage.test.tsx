@@ -441,7 +441,7 @@ describe("NewAppPage", () => {
     );
   });
 
-  it("starts from the saved EU region and lets the creator choose US", async () => {
+  it("starts from the saved EU region and offers only US and EU choices", async () => {
     convexRegionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const container = await mountPage();
     await vi.waitFor(() =>
@@ -460,6 +460,11 @@ describe("NewAppPage", () => {
     expect(regionSelect.textContent).toContain("EU West (Ireland)");
     expect(container.textContent).toContain("EU usage costs 1.3 times US usage.");
     await act(async () => regionSelect.click());
+    expect(
+      [...document.querySelectorAll<HTMLElement>('[role="option"]')].map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["🇺🇸 US East (N. Virginia)", "🇪🇺 EU West (Ireland)"]);
     const usOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
       (option) => option.textContent === "🇺🇸 US East (N. Virginia)",
     );

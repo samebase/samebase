@@ -9,13 +9,6 @@ export type ConvexDeploymentRegion =
   | typeof CONVEX_CANADA_CENTRAL_REGION
   | typeof CONVEX_AUSTRALIA_SOUTHEAST_REGION;
 
-export const CONVEX_DEPLOYMENT_REGIONS: readonly ConvexDeploymentRegion[] = [
-  CONVEX_US_EAST_REGION,
-  CONVEX_EU_WEST_REGION,
-  CONVEX_CANADA_CENTRAL_REGION,
-  CONVEX_AUSTRALIA_SOUTHEAST_REGION,
-];
-
 const convexDeploymentRegionDetails = {
   [CONVEX_US_EAST_REGION]: { displayName: "US East (N. Virginia)", icon: "🇺🇸" },
   [CONVEX_EU_WEST_REGION]: { displayName: "EU West (Ireland)", icon: "🇪🇺" },
