@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { IndexedDbWorkspacePage } from "@/components/IndexedDbWorkspacePage";
-import { INDEXED_DB_ROUTE } from "@/lib/indexedDbRoute";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
+import { IndexedDbWorkspacePage } from "@/browserStorage/IndexedDbWorkspacePage";
+import { INDEXED_DB_ROUTE } from "@/browserStorage/indexedDbRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = INDEXED_DB_ROUTE;

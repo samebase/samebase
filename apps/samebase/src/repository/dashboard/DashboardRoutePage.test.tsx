@@ -8,7 +8,7 @@ import { DashboardRoutePage } from "./DashboardRoutePage";
 
 const repositoryDashboardMock = vi.hoisted(() => vi.fn(() => null));
 
-vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
+vi.mock("@/appShell/AuthenticatedAppRoutePage", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: ReactNode }) => children,
 }));
 

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
+import { LogoPreviewPage } from "@/logo/LogoPreviewPage";
 import {
   LOGO_ISO_ROUTE_SEARCH_KEYS,
   LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS,

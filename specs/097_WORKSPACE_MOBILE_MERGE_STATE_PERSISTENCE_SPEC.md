@@ -20,8 +20,8 @@
   - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
   - `packages/sidebars/src/useSidebarLayoutMobileResize.ts`
   - `packages/sidebars/test/layoutMobile.test.tsx`
-  - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
-  - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
+  - `apps/samebase/src/appShell/useLocalStorageWorkspaceSidebarState.ts`
+  - `apps/samebase/src/appShell/usePersistedWorkspaceSidebarState.ts`
   - `apps/samebase/e2e/sidebar-layout.live.spec.ts`
   - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
 

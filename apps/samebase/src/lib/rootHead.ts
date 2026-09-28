@@ -1,8 +1,8 @@
-import { COMPACT_IDENTITY_SVG_URL } from "@/components/compactIdentitySvgAsset";
-import { agentBrowserHandoffPrehydrationScript } from "@/lib/agentBrowserHandoffPrehydration";
-import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
-import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
-import { SAMEBASE_BRAND_COPY } from "@/lib/samebaseBrandCopy";
+import { COMPACT_IDENTITY_SVG_URL } from "@/logo/compactIdentitySvgAsset";
+import { agentBrowserHandoffPrehydrationScript } from "@/agentAccess/agentBrowserHandoffPrehydration";
+import { appAuthPresentationPrehydrationScript } from "@/auth/appAuthPresentationPrehydration";
+import { publicLandingLogoPrehydrationScript } from "@/logo/publicLandingLogoPrehydration";
+import { SAMEBASE_BRAND_COPY } from "@/publicSite/samebaseBrandCopy";
 
 const structuredData = {
   "@context": "https://schema.org",

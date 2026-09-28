@@ -1,4 +1,4 @@
-import { useAppAuthActions } from "@/authClient";
+import { useAppAuthActions } from "@/auth/authClient";
 import { OrganizationInvitationPageView } from "@/organization/OrganizationInvitationPageView";
 import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/organization/organizationRoutes";
 import { useQuery } from "@tanstack/react-query";

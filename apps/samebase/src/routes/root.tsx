@@ -8,8 +8,8 @@ import {
   rootRouteId,
 } from "@tanstack/react-router";
 import { pick } from "@samebase/dependent/object";
-import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
-import { AppRootClient } from "@/components/AppRootClient";
+import { AppBootErrorBoundary } from "@/appShell/AppBootErrorBoundary";
+import { AppRootClient } from "@/appShell/AppRootClient";
 import {
   canAccessRouteMatchesAvailability,
   readRouteEnvironmentForRouteGuard,
@@ -26,7 +26,7 @@ import {
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
 import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
-import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
+import { clearRotatedLogoViewStates } from "@/logo/rotatedLogoViewState";
 import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode, useEffect } from "react";
 
@@ -149,7 +149,7 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
       includeHomeCanonical: matches.at(-1)?.pathname === "/",
     }),
   notFoundComponent: lazyRouteComponent(
-    () => import("@/components/NotFoundRoutePage"),
+    () => import("@/appShell/NotFoundRoutePage"),
     "NotFoundRoutePage",
   ),
   search: {

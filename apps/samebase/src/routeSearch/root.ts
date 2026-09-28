@@ -6,7 +6,7 @@ import {
   validateLogoRouteSearch,
   type LogoRouteSearch,
 } from "@/routeSearch/logo";
-import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/lib/mobileSidebarGestureDebug";
+import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/appShell/mobileSidebarGestureDebug";
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,

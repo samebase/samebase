@@ -6,7 +6,10 @@ import type {
 } from "../../../convex/repository/pullRequestResources";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
-import { buildRepositoryDatabaseRoute, buildRepositorySchemaRoute } from "@/lib/repositoryRoutes";
+import {
+  buildRepositoryDatabaseRoute,
+  buildRepositorySchemaRoute,
+} from "@/repository/repositoryRoutes";
 import type {
   RepositoryCloudflareProviderObservationState,
   RepositoryCloudflareWorkerBuildsObservation,

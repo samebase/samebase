@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/publicSite/publicLanding";
 
 const legalShellScreenshotOptions = {
   animations: "disabled",

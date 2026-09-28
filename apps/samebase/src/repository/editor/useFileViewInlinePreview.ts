@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
+import type { ProsemarkMergeEditorOptions } from "@/editors/ProsemarkMergeEditor";
 import { getReviewSplitDiffHighlights } from "@/repository/editor/reviewSplitDiff";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 import { isStaleBaseVersionError } from "../../../shared/stagingErrors";

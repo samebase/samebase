@@ -70,7 +70,7 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-vi.mock("@/authClient", () => ({
+vi.mock("@/auth/authClient", () => ({
   isInIframe: () => false,
 }));
 

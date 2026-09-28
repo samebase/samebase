@@ -1,11 +1,11 @@
 import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
 import { ProviderConnectionsPage } from "@/organization/providers/ProviderConnectionsPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
-import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
+import { useAuthorizationErrorNotice } from "@/auth/useAuthorizationErrorNotice";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { formatAuthorizationErrorMessage } from "@/auth/authorizationErrorMessage";
 
 const PROVIDER_AUTHORIZATION_SOURCES = [
   "convex",

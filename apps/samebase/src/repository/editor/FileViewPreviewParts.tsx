@@ -1,4 +1,4 @@
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { ProsemarkReadOnly } from "@/editors/ProsemarkReadOnly";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { CommitPreviewFile } from "./fileViewShared";

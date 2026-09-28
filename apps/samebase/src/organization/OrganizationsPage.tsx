@@ -9,9 +9,9 @@ import { Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { api } from "../../convex/_generated/api";
-import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
+import { AuthorizationErrorNotice } from "@/auth/AuthorizationErrorNotice";
 import { Button } from "@/components/ui/button";
-import { GitHubProviderLogo } from "@/components/repository-dashboard/RepositoryDashboardLogos";
+import { GitHubProviderLogo } from "@/components/ProviderLogos";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/organization/providers/githubAppSetupFlow";
 import { useOrganizationContext, type ViewerOrganization } from "@/organization/context";

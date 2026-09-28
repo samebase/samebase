@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/test";

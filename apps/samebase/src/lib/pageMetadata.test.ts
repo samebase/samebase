@@ -18,7 +18,7 @@ import {
   resolvePageMetadata,
   TERMS_PAGE_METADATA,
 } from "./pageMetadata";
-import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
+import { SAMEBASE_BRAND_COPY } from "../publicSite/samebaseBrandCopy";
 
 class FakeHeadElement {
   readonly attributes = new Map<string, string>();

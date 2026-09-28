@@ -4,7 +4,7 @@ import {
   ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   type RouteSearchParamSuggestionGroup,
 } from "@/routing/permissions";
-import { LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE } from "@/components/logo/logoPresentationTilt";
+import { LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE } from "@/logo/logoPresentationTilt";
 import { Badge } from "@/components/ui/badge";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import type { Suggestion } from "./RouteUrlEditorSuggestions";

@@ -1,13 +1,13 @@
 import { devices, expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
-} from "../src/lib/publicLanding";
+} from "../src/publicSite/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 import {
   applyOrganizationContextAcceptanceFixture,

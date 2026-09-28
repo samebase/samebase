@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AdminUsersPage } from "@/components/AdminUsersPage";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AdminUsersPage } from "@/admin/AdminUsersPage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
   ADMIN_USERS_ROUTE_SEARCH_STATIC_DATA,

@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
-import { useAppAuthActions, useAppSignInActions } from "@/authClient";
+import { useAppAuthActions, useAppSignInActions } from "@/auth/authClient";
 import { AccountDeletionDialog } from "@/account/AccountDeletionDialog";
 import { McpClientsSettingsSection } from "@/account/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
-import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
+import { readCurrentAuthTokenProfileClaims } from "@/auth/authTokenProfileJwt";
 import { getRouteApi, Link, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
-import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
+import { GOOGLE_AUTH_UI_ENABLED } from "@/auth/authMethodAvailability";
 
 const settingsRouteApi = getRouteApi("/settings");
 

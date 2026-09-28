@@ -1,4 +1,4 @@
-import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
+import { SAMEBASE_PUBLIC_LINKS } from "@/publicSite/publicLinks";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 

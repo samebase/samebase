@@ -12,7 +12,7 @@ import {
   DEFAULT_APP_THEME_COLORS,
   DEFAULT_LOGO_THEME_COLORS,
   RGB_LOGO_THEME_COLORS,
-} from "@/components/logo/logoTailwindColors";
+} from "@/logo/logoTailwindColors";
 
 describe("appThemeColorSearch", () => {
   afterEach(() => {

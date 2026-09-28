@@ -1,8 +1,5 @@
 import { Button } from "@/components/ui/button";
-import {
-  GitHubProviderLogo,
-  SamebaseLogoMark,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+import { GitHubProviderLogo, SamebaseLogoMark } from "@/components/ProviderLogos";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import {
   PullRequestResources,
@@ -15,7 +12,10 @@ import type {
   RepositoryPullRequestsState,
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { buildRepositoryFileRoute, buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
+import {
+  buildRepositoryFileRoute,
+  buildRepositorySettingsRoute,
+} from "@/repository/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

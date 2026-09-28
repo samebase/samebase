@@ -2,7 +2,7 @@ import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/repository/editor/FileTree";
 import { MediaUploadDialog } from "@/repository/editor/MediaUploadDialog";
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 
 const SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES = `
   [data-sidebar-media-upload-visual-fixture-font],

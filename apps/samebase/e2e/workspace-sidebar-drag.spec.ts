@@ -1,5 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;

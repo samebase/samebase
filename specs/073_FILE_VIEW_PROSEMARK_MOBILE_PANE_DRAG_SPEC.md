@@ -9,8 +9,8 @@
   - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`
   - `apps/samebase/src/components/RepositoryWorkspaceFrame.tsx`
   - `apps/samebase/src/repository/editor/FileView.tsx`
-  - `apps/samebase/src/components/ProsemarkMergeEditor.tsx`
-  - `apps/samebase/src/components/ProsemarkReadOnly.tsx`
+  - `apps/samebase/src/editors/ProsemarkMergeEditor.tsx`
+  - `apps/samebase/src/editors/ProsemarkReadOnly.tsx`
   - `apps/samebase/src/components/sidebar.tsx`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
   - `archive/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`

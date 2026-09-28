@@ -133,7 +133,7 @@ vi.mock("convex/browser", () => ({
   },
 }));
 
-vi.mock("@/lib/appBootRecovery", () => ({
+vi.mock("@/appShell/appBootRecovery", () => ({
   resetLocalAppData: cleanupState.resetLocalAppData,
 }));
 

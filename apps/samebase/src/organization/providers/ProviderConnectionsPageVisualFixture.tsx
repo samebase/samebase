@@ -2,7 +2,7 @@ import {
   ProviderConnectionsPageView,
   type ProviderConnectionsPageConnectionState,
 } from "@/organization/providers/ProviderConnectionsPage";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { formatAuthorizationErrorMessage } from "@/auth/authorizationErrorMessage";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export type ProviderConnectionsPageVisualMode =

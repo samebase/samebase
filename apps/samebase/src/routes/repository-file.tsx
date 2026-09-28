@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import {
   FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   validateFileViewRouteSearch,

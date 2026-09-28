@@ -10,7 +10,7 @@
   - `apps/samebase/dev/landingSlogan.ts`
   - `apps/samebase/vite.config.ts`
   - `apps/samebase/src/lib/noterBuildConfig.ts`
-  - `apps/samebase/src/lib/landingCopy.ts`
+  - `apps/samebase/src/publicSite/landingPageContent.ts`
   - `specs/102_SAMEBASE_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
 
 ## Summary

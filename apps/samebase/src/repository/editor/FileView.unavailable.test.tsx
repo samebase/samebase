@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { FileViewRepositoryUnavailableState } from "./FileView";
 
-vi.mock("@/components/AppWorkspaceShell", () => ({
+vi.mock("@/appShell/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({ children }: { children?: ReactNode }) => children ?? null,
 }));
 

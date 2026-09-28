@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
+import { LOCAL_STORAGE_ROUTE } from "../src/browserStorage/localStorageRoute";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/publicSite/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 
 test.setTimeout(120_000);

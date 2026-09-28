@@ -22,7 +22,7 @@ vi.mock("@/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@/components/PullRequestLink", () => ({
+vi.mock("@/repository/editor/PullRequestLink", () => ({
   PullRequestLink: ({
     pullRequestNumber,
     pullRequestUrl,

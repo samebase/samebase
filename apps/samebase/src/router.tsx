@@ -7,8 +7,8 @@ import {
 } from "@tanstack/router-core";
 import { routeTree } from "./routeTree.gen";
 import { createAppQueryClients } from "@/lib/appQueryClient";
-import { APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID } from "@/lib/appWorkspaceSidebarPreferences";
-import { AppRouteErrorPage } from "@/components/AppRouteErrorPage";
+import { APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID } from "@/appShell/appWorkspaceSidebarPreferences";
+import { AppRouteErrorPage } from "@/appShell/AppRouteErrorPage";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import type { Id } from "../convex/_generated/dataModel";
 

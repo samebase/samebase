@@ -1,4 +1,4 @@
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { lazy } from "react";
 
 const RepositoryDashboard = lazy(async () => {

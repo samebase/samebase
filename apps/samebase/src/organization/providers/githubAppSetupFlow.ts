@@ -4,7 +4,7 @@ import {
   type AuthorizationProvider,
 } from "../../../shared/authorizationError";
 import { getCurrentRootRelativeUrl } from "../../lib/currentRootRelativeUrl";
-import { readAuthorizationCompletionReturnTo } from "../../lib/authorizationCompletionMessage";
+import { readAuthorizationCompletionReturnTo } from "../../auth/authorizationCompletionMessage";
 
 const GITHUB_APP_SETUP_COMPLETION_TIMEOUT_MS = 10 * 60 * 1000;
 const GITHUB_APP_SETUP_POPUP_POLL_MS = 250;

@@ -5,9 +5,9 @@
 - Status: Accepted
 - Owner: Samebase frontend
 - Last updated: 2026-08-20
-- Related files: `apps/samebase/src/components/logo/logoStaticSvgContract.ts`,
-  `apps/samebase/src/components/logo/logoStaticSvgAsset.ts`,
-  `apps/samebase/src/components/compactIdentitySvgAsset.ts`,
+- Related files: `apps/samebase/src/logo/logoStaticSvgContract.ts`,
+  `apps/samebase/src/logo/logoStaticSvgAsset.ts`,
+  `apps/samebase/src/logo/compactIdentitySvgAsset.ts`,
   `apps/samebase/src/components/logo/logoFaceTreatment.ts`,
   `apps/samebase/src/components/logo/logoLeftFaceStyle.ts`, `apps/samebase/public/brand/`,
   `apps/samebase/public/logo-v1-side-primary.svg`, `apps/samebase/public/logo-v2-side-diagonal.svg`,

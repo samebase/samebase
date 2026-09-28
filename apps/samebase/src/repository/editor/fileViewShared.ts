@@ -1,7 +1,7 @@
 import { guard } from "@samebase/dependent";
 import { api } from "../../../convex/_generated/api";
 import type { GitHubTree } from "../../../convex/repository/model";
-import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
+import type { ProsemarkMergeEditorOptions } from "@/editors/ProsemarkMergeEditor";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/repository/editor/commitReviewStatus";
 import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../shared/stagedFiles";
 

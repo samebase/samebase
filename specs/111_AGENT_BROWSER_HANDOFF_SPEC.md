@@ -109,8 +109,8 @@ refresh-token replacement chain.
   and expiry cleanup.
 - `apps/samebase/shared/agentBrowserHandoff.test.ts` covers URL construction, return path
   normalization, and fragment parsing.
-- `apps/samebase/src/lib/agentBrowserHandoffPrehydration.test.ts` covers fragment removal and
-  storage fallback before hydration.
+- `apps/samebase/src/agentAccess/agentBrowserHandoffPrehydration.test.ts` covers fragment removal
+  and storage fallback before hydration.
 - `apps/samebase/src/lib/posthogClient.test.ts` covers analytics URL sanitization.
 - `apps/samebase/src/lib/appRouter.test.tsx` covers route registration for `/agents/connect`.
 - `apps/samebase/convex/mcp/http.convex.test.ts` covers MCP tool listing and trusted invocation

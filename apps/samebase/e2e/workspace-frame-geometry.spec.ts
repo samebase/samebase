@@ -5,7 +5,7 @@ import {
   APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
   APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-} from "../src/lib/appWorkspaceSidebarPreferences";
+} from "../src/appShell/appWorkspaceSidebarPreferences";
 
 /**
  * These tests exercise the file-view sidebars, so the first load starts with both sidebars open.

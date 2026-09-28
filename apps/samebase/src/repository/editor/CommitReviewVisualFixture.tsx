@@ -8,7 +8,7 @@ import {
 import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
-} from "@/components/ProsemarkMergeEditor";
+} from "@/editors/ProsemarkMergeEditor";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";

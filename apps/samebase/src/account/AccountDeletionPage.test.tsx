@@ -26,7 +26,7 @@ const queryState = vi.hoisted<{
   },
 }));
 
-vi.mock("@/authClient", () => ({
+vi.mock("@/auth/authClient", () => ({
   useAppAuthActions: () => ({ signOut: authActionState.signOut }),
 }));
 

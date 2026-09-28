@@ -1,4 +1,4 @@
-import { LogoMengerDepthTransitionPage } from "@/components/logo/LogoMengerDepthTransitionPage";
+import { LogoMengerDepthTransitionPage } from "@/logo/LogoMengerDepthTransitionPage";
 import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {

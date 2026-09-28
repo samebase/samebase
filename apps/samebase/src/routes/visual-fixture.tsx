@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { AppWorkspaceRouteChrome } from "@/appShell/AppWorkspaceShell";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,

@@ -21,7 +21,7 @@ import {
   RepositoryOverviewListHeader,
   RepositoryOverviewPickerPane,
 } from "@/repository/dashboard/RepositoryOverviewPickerPane";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
   RepositoryDefaultBranchObservation,
@@ -43,7 +43,7 @@ import {
 import {
   RepositoryConvexSchemaGraphVisualFixture,
   type RepositoryConvexSchemaGraphVisualMode,
-} from "../../components/repository-dashboard/RepositoryConvexSchemaGraphVisualFixture";
+} from "../schemaGraph/RepositoryConvexSchemaGraphVisualFixture";
 
 export type RepositoryOverviewVisualMode =
   | RepositoryOverviewDialogsVisualMode

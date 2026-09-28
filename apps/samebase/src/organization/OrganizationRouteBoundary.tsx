@@ -1,12 +1,12 @@
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
+import { AuthorizationErrorNotice } from "@/auth/AuthorizationErrorNotice";
 import {
   findViewerOrganization,
   useOrganizationContext,
   type ViewerOrganization,
 } from "@/organization/context";
 import { Button } from "@/components/ui/button";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { DASHBOARD_ROUTE } from "@/repository/dashboardRoute";
 import { Link } from "@tanstack/react-router";
 import { Fragment, type ReactNode } from "react";
 

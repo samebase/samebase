@@ -6,7 +6,7 @@ import { createLocalConvexAdminClient } from "../scripts/localConvexAdminClient.
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-} from "../src/lib/publicLanding";
+} from "../src/publicSite/publicLanding";
 
 const LOCAL_CONFIG_PATH = fileURLToPath(
   new URL("../.convex/local/default/config.json", import.meta.url),

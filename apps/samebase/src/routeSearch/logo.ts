@@ -27,25 +27,22 @@ import {
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
-} from "@/components/logo/logoIsometricRenderer";
+} from "@/logo/logoIsometricRenderer";
 import {
   clampLogoFractalDepthForRenderer,
   getLogoRendererFractalDepthHardMax,
   MAX_LOGO_FRACTAL_DEPTH,
   normalizeLogoFractalDepthForRoute,
   type LogoDepthRenderer,
-} from "@/components/logo/logoDepthLimits";
-import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
-import {
-  LOGO_DISTANCE_SCALE,
-  normalizeLogoDistanceScale,
-} from "@/components/logo/logoDistanceScale";
+} from "@/logo/logoDepthLimits";
+import { type LogoThemeColors } from "@/logo/logoTailwindColors";
+import { LOGO_DISTANCE_SCALE, normalizeLogoDistanceScale } from "@/logo/logoDistanceScale";
 import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
   normalizeLogoPresentationTiltRadiusScale,
   normalizeLogoPresentationTiltStrengthScale,
-} from "@/components/logo/logoPresentationTilt";
+} from "@/logo/logoPresentationTilt";
 import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
@@ -62,7 +59,7 @@ import {
   normalizeMengerAutomaticProbeStartProgress,
   normalizeMengerAutomaticProbeVerticalOffset,
   type MengerAutomaticProbeSettings,
-} from "@/components/logo/mengerAutomaticProbe";
+} from "@/logo/mengerAutomaticProbe";
 import {
   MENGER_TYPE_GPU_ANTIALIASING_MODES,
   MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
@@ -75,14 +72,14 @@ import {
   normalizeMengerTypeGpuResolutionScale,
   type MengerTypeGpuAntialiasing,
   type MengerHoverRenderer,
-} from "@/components/logo/mengerTypeGpuSettings";
+} from "@/logo/mengerTypeGpuSettings";
 import {
   DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
   normalizeLogoShuffleParallelMoves,
   readLogoShuffleParallelMoves,
   type LogoShuffleParallelMoves,
-} from "@/components/logo/logoShuffleAnimation";
-import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
+} from "@/logo/logoShuffleAnimation";
+import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STYLE_KINDS,
@@ -134,8 +131,8 @@ import {
   serializeVoxelState,
   type LogoGridSize,
 } from "@samebase/logo-model/voxel";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
-import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/components/logo/logoPresets";
+import { LANDING_DEV_MODE_QUERY_PARAM } from "@/publicSite/landingDevMode";
+import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/logo/logoPresets";
 import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 import {
   defineRouteSearchParams,

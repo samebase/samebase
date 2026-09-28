@@ -9,11 +9,11 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { createCompactIdentitySvgMarkup } from "./src/components/compactIdentitySvgAsset";
+import { createCompactIdentitySvgMarkup } from "./src/logo/compactIdentitySvgAsset";
 import {
   createLogoIdentitySvgAssets,
   createStaticLogoSvgMarkup,
-} from "./src/components/logo/logoStaticSvgAsset";
+} from "./src/logo/logoStaticSvgAsset";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";

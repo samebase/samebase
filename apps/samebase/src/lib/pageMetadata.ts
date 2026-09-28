@@ -1,5 +1,5 @@
-import { DASHBOARD_ROUTE } from "./dashboardRoute";
-import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
+import { DASHBOARD_ROUTE } from "../repository/dashboardRoute";
+import { INDEXED_DB_ROUTE } from "../browserStorage/indexedDbRoute";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
@@ -8,8 +8,8 @@ import {
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
 } from "@/routeSearch/landingPreview";
-import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
-import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
+import { LOCAL_STORAGE_ROUTE } from "../browserStorage/localStorageRoute";
+import { SAMEBASE_BRAND_COPY } from "../publicSite/samebaseBrandCopy";
 import {
   AGENT_BROWSER_HANDOFF_ROUTE,
   isAgentBrowserHandoffRoute,

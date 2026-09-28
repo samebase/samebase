@@ -16,15 +16,12 @@ import {
   type RepositoryOverviewVisualMode,
 } from "@/repository/dashboard/RepositoryOverviewVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
-import {
-  LogoThreeVisualFixture,
-  type LogoThreeVisualMode,
-} from "@/components/logo/LogoThreeVisualFixture";
+import { LogoThreeVisualFixture, type LogoThreeVisualMode } from "@/logo/LogoThreeVisualFixture";
 import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
 import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
-} from "@/components/logo/LogoSnapAnglesVisualFixture";
+} from "@/logo/LogoSnapAnglesVisualFixture";
 import {
   FileViewCompareVisualFixture,
   type FileViewCompareVisualMode,
@@ -46,15 +43,15 @@ import {
   type FileViewProsemarkHeightVisualMode,
 } from "@/repository/editor/FileViewProsemarkHeightVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
-import { SamebaseAttributionVisualFixture } from "@/components/SamebaseAttributionVisualFixture";
+import { SamebaseAttributionVisualFixture } from "@/publicSite/SamebaseAttributionVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
   type AppBootFailureStateVisualMode,
-} from "@/components/AppBootFailureStateVisualFixture";
+} from "@/appShell/AppBootFailureStateVisualFixture";
 import {
   SidebarLayoutVisualFixture,
   type SidebarLayoutVisualMode,
-} from "@/components/SidebarLayoutVisualFixture";
+} from "@/appShell/SidebarLayoutVisualFixture";
 import {
   RepositorySyncStatusVisualFixture,
   type RepositorySyncStatusVisualMode,
@@ -71,7 +68,7 @@ import {
   ProviderConnectionsPageVisualFixture,
   type ProviderConnectionsPageVisualMode,
 } from "@/organization/providers/ProviderConnectionsPageVisualFixture";
-import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
+import { PublicLandingAccountLoadingSection } from "@/publicSite/PublicLandingAccountSection";
 import {
   AccountDeletionStatusVisualFixture,
   type AccountDeletionStatusVisualMode,
@@ -91,7 +88,7 @@ import {
   type OrganizationMembersPageVisualMode,
 } from "@/organization/OrganizationMembersPageVisualFixture";
 import { OrganizationsPageVisualFixture } from "@/organization/OrganizationsPageVisualFixture";
-import { TermsAcceptanceVisualFixture } from "@/components/TermsAcceptanceVisualFixture";
+import { TermsAcceptanceVisualFixture } from "@/appShell/TermsAcceptanceVisualFixture";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DocsTheStackPage } from "@/components/LandingPreviewPage";
+import { DocsTheStackPage } from "@/publicSite/LandingPreviewPage";
 import {
   DOCS_ROUTE_SEARCH_STATIC_DATA,
   DOCS_THE_STACK_ROUTE,

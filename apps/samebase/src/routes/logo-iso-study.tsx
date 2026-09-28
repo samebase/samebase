@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoSingleCubeStudyPage } from "@/components/logo/LogoSingleCubeStudyPage";
+import { LogoSingleCubeStudyPage } from "@/logo/LogoSingleCubeStudyPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,

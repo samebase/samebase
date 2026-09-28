@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PitchDeckPage } from "@/components/PitchDeckPage";
+import { PitchDeckPage } from "@/publicSite/PitchDeckPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 

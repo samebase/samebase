@@ -6,11 +6,11 @@
 - Owner: Samebase frontend
 - Last updated: 2026-04-12
 - Related files: `specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md`, `apps/samebase/src/main.tsx`,
-  `apps/samebase/src/components/AppBootErrorBoundary.tsx`,
-  `apps/samebase/src/components/AppBootFailureState.tsx`,
-  `apps/samebase/src/lib/appBootRecovery.ts`, `apps/samebase/src/lib/appBuildMetadata.ts`,
+  `apps/samebase/src/appShell/AppBootErrorBoundary.tsx`,
+  `apps/samebase/src/appShell/AppBootFailureState.tsx`,
+  `apps/samebase/src/appShell/appBootRecovery.ts`, `apps/samebase/src/lib/appBuildMetadata.ts`,
   `apps/samebase/src/lib/convexQueryCache.ts`, `apps/samebase/src/lib/convexQueryCacheStorage.ts`,
-  `apps/samebase/src/lib/storageAccess.ts`, `apps/samebase/src/routes/root.tsx`
+  `apps/samebase/src/appShell/storageAccess.ts`, `apps/samebase/src/routes/root.tsx`
 
 ## Summary
 

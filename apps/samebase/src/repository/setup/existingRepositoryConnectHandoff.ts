@@ -1,6 +1,6 @@
 import { type RegisteredRouter, type RouterState } from "@tanstack/react-router";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
+import { buildRepositoryDashboardRoute } from "@/repository/repositoryRoutes";
 import { parseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
 
 type RouteSearch = RouterState<RegisteredRouter["routeTree"]>["location"]["search"];

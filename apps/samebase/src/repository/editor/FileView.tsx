@@ -3,8 +3,8 @@ import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { CodeEditorWrapper } from "@/components/CodeEditor";
+import { DASHBOARD_ROUTE } from "@/repository/dashboardRoute";
+import { CodeEditorWrapper } from "@/editors/CodeEditor";
 import { Button } from "@/components/ui/button";
 import { FileViewPushActions } from "@/repository/editor/FileViewPushActions";
 import {
@@ -18,7 +18,7 @@ import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
 } from "@/repository/editor/FileViewDeveloperTools";
-import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { AppWorkspaceRouteChrome } from "@/appShell/AppWorkspaceShell";
 import { CommandPalette } from "@/repository/editor/CommandPalette";
 import { FileViewSidebarContent, FileViewSidebarFooter } from "@/repository/editor/FileViewSidebar";
 import { FileViewMainHeader } from "@/repository/editor/FileViewMainHeader";
@@ -35,7 +35,7 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/repository/editor/FileCreationDialog";
 import { FolderCreationDialog } from "@/repository/editor/FolderCreationDialog";
-import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
+import { ProsemarkMergeEditor } from "@/editors/ProsemarkMergeEditor";
 import { notEmpty } from "@samebase/dependent";
 import {
   filterSimpleViewTreeItems,
@@ -50,7 +50,7 @@ import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/reposi
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/repository/editor/fileTreeState";
 import { type GitHubTree } from "../../../convex/repository/model";
-import { formatStopwatchDuration } from "@/lib/stopwatch";
+import { formatStopwatchDuration } from "@/repository/editor/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/repository/editor/DraftPullRequestFeedbackBanner";
 import { RepositorySyncStatus } from "@/repository/editor/RepositorySyncStatus";
 import { RepositoryMediaViewer } from "@/repository/editor/RepositoryMediaViewer";
@@ -59,8 +59,11 @@ import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWor
 import { MediaUploadDialog } from "@/repository/editor/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
-import { buildRepositoryFileRoute, parseRepositoryPathContext } from "@/lib/repositoryRoutes";
-import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
+import {
+  buildRepositoryFileRoute,
+  parseRepositoryPathContext,
+} from "@/repository/repositoryRoutes";
+import { resolveLegacyBranchlessFilePath } from "@/repository/editor/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   buildStagingPreviewRefreshKey,
@@ -77,7 +80,7 @@ import {
   type FileViewRouteSearchPatch,
   useFileViewRouteSearch,
 } from "@/routeSearch/fileView";
-import { encodeGitHubPath } from "@/lib/githubUrls";
+import { encodeGitHubPath } from "@/repository/githubUrls";
 import {
   type CommitReviewMode,
   type EffectiveSidebarMode,

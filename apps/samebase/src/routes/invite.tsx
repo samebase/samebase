@@ -1,5 +1,5 @@
 import { OrganizationInvitationPage } from "@/organization/OrganizationInvitationPage";
-import { TermsAcceptanceGate } from "@/components/TermsAcceptanceGate";
+import { TermsAcceptanceGate } from "@/appShell/TermsAcceptanceGate";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 

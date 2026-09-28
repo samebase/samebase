@@ -8,7 +8,7 @@
   `/landing-preview` becoming the future `/` page.
 - Related PR: https://github.com/samebase/samebase/pull/1112
 - Related files:
-  - `apps/samebase/src/components/LandingPreviewPage.tsx`
+  - `apps/samebase/src/publicSite/LandingPreviewPage.tsx`
   - `apps/samebase/src/content/landing-do-it-yourself.md`
   - `specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md`
   - `archive/088_LANDING_README_PREVIEW_SPEC.md`

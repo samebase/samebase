@@ -10,7 +10,7 @@ import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+} from "@/components/ProviderLogos";
 import { RootDirectoryLabel } from "@/repository/dashboard/RepositoryEnvironmentTree";
 import type {
   RepositorySettingsAction,
@@ -24,7 +24,7 @@ import {
   useOrganizationGitHubIdentities,
 } from "@/organization/useOrganizationGitHubIdentity";
 import { OrganizationContext } from "@/organization/context";
-import { buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
+import { buildRepositorySettingsRoute } from "@/repository/repositoryRoutes";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";

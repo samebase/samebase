@@ -2,7 +2,7 @@ import {
   buildOrganizationRoutePath,
   type OrganizationRouteSection,
 } from "@/organization/organizationRoutes";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { DASHBOARD_ROUTE } from "@/repository/dashboardRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   CHECKOUT_QUERY_PARAM,

@@ -154,7 +154,7 @@ Current code:
 - `apps/samebase/convex/mcp/protocol.ts`
 - `apps/samebase/convex/mcp/tokens.ts`
 - `apps/samebase/src/routes/mcp-consent.tsx`
-- `apps/samebase/src/components/McpConsentRoutePage.tsx`
+- `apps/samebase/src/agentAccess/McpConsentRoutePage.tsx`
 
 Current flow:
 

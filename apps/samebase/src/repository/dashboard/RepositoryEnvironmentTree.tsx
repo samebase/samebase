@@ -10,7 +10,7 @@ import {
   ConvexProviderLogo,
   NetlifyProviderLogo,
   SamebaseLogoMark,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+} from "@/components/ProviderLogos";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import {
   buildPullRequestEnvironmentRoots,
@@ -23,8 +23,8 @@ import {
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
 import type { PullRequestResourceState } from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
+import { buildGitHubBranchTreeUrl } from "@/repository/githubUrls";
+import { buildRepositoryFileRoute } from "@/repository/repositoryRoutes";
 import { applyRepositoryDashboardProviderAddSearch } from "@/routeSearch/root";
 import { Link } from "@tanstack/react-router";
 import { formatConvexDeploymentRegionLabel } from "../../../shared/convexDeploymentRegions";

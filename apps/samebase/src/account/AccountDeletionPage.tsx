@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 
 import { api } from "../../convex/_generated/api";
-import { useAppAuthActions } from "@/authClient";
+import { useAppAuthActions } from "@/auth/authClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 

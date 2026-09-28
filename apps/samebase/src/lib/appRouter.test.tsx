@@ -21,7 +21,7 @@ const routeErrorState = vi.hoisted(
   }),
 );
 
-vi.mock("@/components/RootIndexRoutePage", () => ({
+vi.mock("@/publicSite/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
 }));
 
@@ -41,11 +41,11 @@ vi.mock("@/repository/dashboard/DashboardRoutePage", () => ({
   ),
 }));
 
-vi.mock("@/components/NotFoundRoutePage", () => ({
+vi.mock("@/appShell/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
 }));
 
-vi.mock("@/components/AppWorkspaceShell", async () => {
+vi.mock("@/appShell/AppWorkspaceShell", async () => {
   const ReactModule = await import("react");
   type MockPaneProps = Pick<PaneFrameProps, "content" | "footer" | "header">;
 
@@ -102,7 +102,7 @@ vi.mock("@/lib/usePageMetadata", () => ({
   usePageMetadata: vi.fn(),
 }));
 
-vi.mock("@/components/TermsOfServicePage", () => ({
+vi.mock("@/publicSite/TermsOfServicePage", () => ({
   TermsOfServicePage: () => {
     if (routeErrorState.termsError) {
       throw routeErrorState.termsError;
@@ -112,34 +112,34 @@ vi.mock("@/components/TermsOfServicePage", () => ({
   },
 }));
 
-vi.mock("@/components/PrivacyPolicyPage", () => ({
+vi.mock("@/publicSite/PrivacyPolicyPage", () => ({
   PrivacyPolicyPage: () => <div data-testid="privacy-page">Privacy policy page</div>,
 }));
 
-vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
+vi.mock("@/appShell/AuthenticatedAppRoutePage", () => ({
   AuthenticatedAppRoutePage: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   AuthenticatedUserRoutePage: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("@/components/logo/LogoPreviewPage", () => ({
+vi.mock("@/logo/LogoPreviewPage", () => ({
   LogoPreviewPage: ({ renderMode }: { renderMode: string }) => (
     <div data-testid="logo-page">{renderMode}</div>
   ),
 }));
 
-vi.mock("@/components/logo/LogoStaticSvgPage", () => ({
+vi.mock("@/logo/LogoStaticSvgPage", () => ({
   LogoStaticSvgPage: () => <div data-testid="logo-svg-page">Logo SVG page</div>,
 }));
 
-vi.mock("@/components/logo/LogoSingleCubeStudyPage", () => ({
+vi.mock("@/logo/LogoSingleCubeStudyPage", () => ({
   LogoSingleCubeStudyPage: () => <div data-testid="logo-iso-study-page">Logo iso study page</div>,
 }));
 
-vi.mock("@/components/McpConsentRoutePage", () => ({
+vi.mock("@/agentAccess/McpConsentRoutePage", () => ({
   McpConsentRoutePage: () => <div data-testid="mcp-consent-page">MCP consent page</div>,
 }));
 
-vi.mock("@/components/AgentsConnectRoutePage", () => ({
+vi.mock("@/agentAccess/AgentsConnectRoutePage", () => ({
   AgentsConnectRoutePage: () => <div data-testid="agents-connect-page">Agents connect page</div>,
 }));
 
@@ -215,7 +215,7 @@ vi.mock("@/organization/OrganizationSettingsPage", () => ({
   ),
 }));
 
-vi.mock("@/components/LandingPreviewPage", () => ({
+vi.mock("@/publicSite/LandingPreviewPage", () => ({
   DocsCloudflareSetupPage: () => (
     <div data-testid="docs-cloudflare-setup-page">Docs Cloudflare setup page</div>
   ),
@@ -232,29 +232,29 @@ vi.mock("@/repository/editor/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 
-vi.mock("@/components/RepositoryDatabaseView", () => ({
+vi.mock("@/repository/database/RepositoryDatabaseView", () => ({
   RepositoryDatabaseView: () => (
     <div data-testid="repository-database-page">Repository database page</div>
   ),
 }));
 
-vi.mock("@/components/PitchDeckPage", () => ({
+vi.mock("@/publicSite/PitchDeckPage", () => ({
   PitchDeckPage: ({ mode }: { mode: string }) => <div data-testid="pitch-deck-page">{mode}</div>,
 }));
 
-vi.mock("@/components/logo/LogoTransitionLabPage", () => ({
+vi.mock("@/logo/LogoTransitionLabPage", () => ({
   LogoTransitionLabPage: () => (
     <div data-testid="logo-transition-lab-page">Logo transition lab page</div>
   ),
 }));
 
-vi.mock("@/components/logo/LogoTransitionTransformsLabPage", () => ({
+vi.mock("@/logo/LogoTransitionTransformsLabPage", () => ({
   LogoTransitionTransformsLabPage: () => (
     <div data-testid="logo-transition-transforms-lab-page">Logo transition transforms lab page</div>
   ),
 }));
 
-vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
+vi.mock("@/logo/LogoMengerDepthTransitionPage", () => ({
   LogoMengerDepthTransitionPage: ({
     mode,
     routeSearch,
@@ -307,7 +307,7 @@ vi.mock("@/components/logo/LogoMengerDepthTransitionPage", () => ({
   ),
 }));
 
-vi.mock("@/components/logo/LogoSierpinskiCarpetHoverPage", () => ({
+vi.mock("@/logo/LogoSierpinskiCarpetHoverPage", () => ({
   LogoSierpinskiCarpetHoverPage: ({
     routeSearch,
   }: {
@@ -330,9 +330,9 @@ vi.mock("@/components/logo/LogoSierpinskiCarpetHoverPage", () => ({
   ),
 }));
 
-vi.mock("@/components/AppRootClient", async () => {
+vi.mock("@/appShell/AppRootClient", async () => {
   const { Outlet } = await import("@tanstack/react-router");
-  const { AppWorkspaceShell } = await import("@/components/AppWorkspaceShell");
+  const { AppWorkspaceShell } = await import("@/appShell/AppWorkspaceShell");
 
   return {
     AppRootClient: () => (

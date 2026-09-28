@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoStaticSvgPage } from "@/components/logo/LogoStaticSvgPage";
+import { LogoStaticSvgPage } from "@/logo/LogoStaticSvgPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,

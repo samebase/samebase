@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { PullRequestLink } from "@/components/PullRequestLink";
+import { PullRequestLink } from "@/repository/editor/PullRequestLink";
 import { cn } from "@/lib/utils";
 
 type FileViewPushActionsProps = {

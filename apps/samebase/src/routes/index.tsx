@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { RootIndexRoutePage } from "@/components/RootIndexRoutePage";
+import { RootIndexRoutePage } from "@/publicSite/RootIndexRoutePage";
 import { ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import {
   LANDING_PAGE_ROUTE_SEARCH_STATIC_DATA,

@@ -14,7 +14,7 @@ import {
   type RootRouteSearch,
 } from "@/routeSearch/root";
 import { applySearchPatch } from "@/routing/searchFlags";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { DASHBOARD_ROUTE } from "@/repository/dashboardRoute";
 import { RepositoryCloudflareDialog } from "./RepositoryCloudflareDialog";
 import { RepositoryConvexDialog } from "./RepositoryConvexDialog";
 import { RepositoryDeleteDialog } from "./RepositoryDeleteDialog";

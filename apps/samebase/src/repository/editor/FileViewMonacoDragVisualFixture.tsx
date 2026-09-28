@@ -1,6 +1,6 @@
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
-import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { MonacoEditorSurface } from "@/editors/MonacoEditorSurface";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 
 export type FileViewMonacoDragVisualMode = "fileview-monaco-drag" | "fileview-monaco-flex-height";
 

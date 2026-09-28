@@ -4,7 +4,7 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
 } from "@/routeSearch/logo";
-import { LogoTransitionTransformsLabPage } from "@/components/logo/LogoTransitionTransformsLabPage";
+import { LogoTransitionTransformsLabPage } from "@/logo/LogoTransitionTransformsLabPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildLogoLabPageHead } from "@/lib/pageMetadata";
 

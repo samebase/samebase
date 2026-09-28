@@ -6,7 +6,7 @@ import {
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
 import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/publicSite/publicLanding";
 import { LANDING_PREVIEW_ARTICLE_TEST_ID } from "../src/routeSearch/landingPreview";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";

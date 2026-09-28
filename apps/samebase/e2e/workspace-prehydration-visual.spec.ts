@@ -3,12 +3,12 @@ import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import {
   APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-} from "../src/lib/appWorkspaceSidebarPreferences";
+} from "../src/appShell/appWorkspaceSidebarPreferences";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-} from "../src/lib/publicLanding";
-import { PUBLIC_LANDING_LOGO_STAGE_TEST_ID } from "../src/lib/publicLandingLogo";
+} from "../src/publicSite/publicLanding";
+import { PUBLIC_LANDING_LOGO_STAGE_TEST_ID } from "../src/logo/publicLandingLogoConstants";
 import { expectScreenshotsToMatch } from "./visualDiff";
 
 const MOBILE_VIEWPORT_SIZE = {

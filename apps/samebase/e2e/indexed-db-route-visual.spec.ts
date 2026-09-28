@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
-import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
+import { INDEXED_DB_ROUTE } from "../src/browserStorage/indexedDbRoute";
+import { LOCAL_STORAGE_ROUTE } from "../src/browserStorage/localStorageRoute";
 import { signInIfNeeded } from "./liveHelpers";
 
 const AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID = "dashboard-sidebar-account-section";

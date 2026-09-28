@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { SAMEBASE_PUBLIC_LINKS } from "../src/lib/publicLinks";
+import { SAMEBASE_PUBLIC_LINKS } from "../src/publicSite/publicLinks";
 
 test("each short Samebase path redirects to its official destination", async ({ request }) => {
   for (const link of [

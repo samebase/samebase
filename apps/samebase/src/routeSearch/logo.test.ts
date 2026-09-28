@@ -3,22 +3,22 @@ import { LOGO_AUTO_ROTATE_SPEED } from "@samebase/logo-model/auto-rotation";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
-} from "@/components/logo/logoIsometricRenderer";
-import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
-import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
-import { LOGO_DISTANCE_SCALE } from "@/components/logo/logoDistanceScale";
-import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
-import { DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES } from "@/components/logo/logoShuffleAnimation";
+} from "@/logo/logoIsometricRenderer";
+import { MAX_LOGO_FRACTAL_DEPTH } from "@/logo/logoDepthLimits";
+import { DEFAULT_LOGO_THEME_COLORS } from "@/logo/logoTailwindColors";
+import { LOGO_DISTANCE_SCALE } from "@/logo/logoDistanceScale";
+import { LOGO_PREVIEW_ZOOM } from "@/logo/logoPreviewZoom";
+import { DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES } from "@/logo/logoShuffleAnimation";
 import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
-} from "@/components/logo/logoPresentationTilt";
-import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
+} from "@/logo/logoPresentationTilt";
+import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/logo/mengerAutomaticProbe";
 import {
   MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
   MENGER_TYPE_GPU_DEFAULT_RESOLUTION_SCALE,
   MENGER_TYPE_GPU_MAXIMUM_DEPTH,
-} from "@/components/logo/mengerTypeGpuSettings";
+} from "@/logo/mengerTypeGpuSettings";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE,

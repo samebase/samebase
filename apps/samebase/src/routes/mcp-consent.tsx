@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { McpConsentRoutePage } from "@/components/McpConsentRoutePage";
+import { McpConsentRoutePage } from "@/agentAccess/McpConsentRoutePage";
 import {
   MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA,
   validateMcpConsentRouteSearch,

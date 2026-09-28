@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
+import { MAX_LOGO_FRACTAL_DEPTH } from "@/logo/logoDepthLimits";
 import {
   DEFAULT_VOXEL_STATE,
   LOGO_GRID_SIZE_2,

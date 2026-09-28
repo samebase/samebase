@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { GitHubProviderLogo } from "@/components/repository-dashboard/RepositoryDashboardLogos";
+import { GitHubProviderLogo } from "@/components/ProviderLogos";
 import {
   DefaultBranchSection,
   RepositoryOverviewLoadingLines,
@@ -12,7 +12,7 @@ import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
 import {
   buildRepositoryDashboardRoute,
   buildRepositorySettingsRoute,
-} from "@/lib/repositoryRoutes";
+} from "@/repository/repositoryRoutes";
 import { formatRepositorySourceSetupStep } from "./repositorySourceSetup";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, LayoutList, Loader2, Settings } from "lucide-react";

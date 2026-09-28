@@ -1,10 +1,7 @@
 import type { RepositoryOverviewPageKind } from "@/repository/dashboard/RepositoryOverviewPage";
-import { APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME } from "@/components/appSidebarNavigation";
+import { APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME } from "@/appShell/appSidebarNavigation";
 import { cn } from "@/lib/utils";
-import {
-  CloudflareProviderLogo,
-  ConvexProviderLogo,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+import { CloudflareProviderLogo, ConvexProviderLogo } from "@/components/ProviderLogos";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
@@ -38,7 +35,7 @@ import { personalOrganizationsFirst } from "@/organization/organizationOrder";
 import {
   buildRepositoryDashboardRoute,
   buildRepositorySettingsRoute,
-} from "@/lib/repositoryRoutes";
+} from "@/repository/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";

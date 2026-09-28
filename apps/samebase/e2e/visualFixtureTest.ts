@@ -1,5 +1,5 @@
 import { expect, test as base, type Page } from "@playwright/test";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;

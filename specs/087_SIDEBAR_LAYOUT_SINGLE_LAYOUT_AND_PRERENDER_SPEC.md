@@ -13,8 +13,8 @@
   - `packages/sidebars/src/SidebarLayoutGeometryInternal.ts`
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
   - `packages/sidebars/src/structure.css`
-  - `apps/samebase/src/components/AppWorkspaceShell.tsx`
-  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
+  - `apps/samebase/src/appShell/AppWorkspaceShell.tsx`
+  - `apps/samebase/src/appShell/appWorkspaceSidebarPrehydration.ts`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
   - `specs/094_SIDEBAR_LAYOUT_PANE_RUNTIME_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`

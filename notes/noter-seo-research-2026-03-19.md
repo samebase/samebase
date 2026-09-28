@@ -32,7 +32,7 @@ Local product references reviewed:
 - `README.md`
 - `apps/samebase/index.html`
 - `apps/samebase/src/bootstrap.ts`
-- `apps/samebase/src/SignInForm.tsx`
+- `apps/samebase/src/auth/SignInForm.tsx`
 - `apps/samebase/src/App.tsx`
 - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
 - `apps/samebase/src/components/ChatFab.tsx`
@@ -57,7 +57,7 @@ initial HTML is sparse.
 Relevant local references:
 
 - `apps/samebase/src/bootstrap.ts`
-- `apps/samebase/src/SignInForm.tsx`
+- `apps/samebase/src/auth/SignInForm.tsx`
 
 Implication:
 
@@ -111,7 +111,7 @@ funneled to the landing/sign-in surface.
 Relevant local references:
 
 - `apps/samebase/src/App.tsx`
-- `apps/samebase/src/SignInForm.tsx`
+- `apps/samebase/src/auth/SignInForm.tsx`
 
 Implication:
 

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DocsCloudflareSetupPage } from "@/components/LandingPreviewPage";
+import { DocsCloudflareSetupPage } from "@/publicSite/LandingPreviewPage";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_ROUTE_SEARCH_STATIC_DATA,

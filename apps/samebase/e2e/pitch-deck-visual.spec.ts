@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PITCH_DECK_SURFACE_TEST_ID } from "../src/components/PitchDeckPage";
+import { PITCH_DECK_SURFACE_TEST_ID } from "../src/publicSite/PitchDeckPage";
 import { signInIfNeeded } from "./liveHelpers";
 
 const pitchDeckScreenshotOptions = {

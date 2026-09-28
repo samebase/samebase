@@ -1,11 +1,11 @@
 import { devices, expect, test, type Page } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/appShell/appWorkspaceSidebarPreferences";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-} from "../src/lib/publicLanding";
+} from "../src/publicSite/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;

@@ -1,6 +1,6 @@
 import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
-import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
-import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
+import { DASHBOARD_ROUTE } from "./repository/dashboardRoute";
+import { INDEXED_DB_ROUTE } from "./browserStorage/indexedDbRoute";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
@@ -9,7 +9,7 @@ import {
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ROUTE,
 } from "./routeSearch/landingPreview";
-import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
+import { LOCAL_STORAGE_ROUTE } from "./browserStorage/localStorageRoute";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import {

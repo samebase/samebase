@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AdminAccountDeletionsPage } from "@/components/AdminAccountDeletionsPage";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AdminAccountDeletionsPage } from "@/admin/AdminAccountDeletionsPage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const ADMIN_ACCOUNT_DELETIONS_ROUTE = "/admin/account-deletions";

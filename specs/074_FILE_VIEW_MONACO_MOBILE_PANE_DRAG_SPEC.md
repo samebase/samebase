@@ -7,8 +7,8 @@
 - Last updated: 2026-03-30
 - Depends on:
   - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`
-  - `apps/samebase/src/components/CodeEditor.tsx`
-  - `apps/samebase/src/components/MonacoEditor.tsx`
+  - `apps/samebase/src/editors/CodeEditor.tsx`
+  - `apps/samebase/src/editors/MonacoEditor.tsx`
   - `apps/samebase/src/components/sidebar.tsx`
   - `rfcs/037_MONACO_MOBILE_FULL_BLEED_SPEC.md`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`

@@ -5,7 +5,7 @@ import {
   RepositoryMediaPreviewPanel,
   type RepositoryMediaAsset,
 } from "@/repository/editor/RepositoryMediaViewer";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 
 export type RepositoryMediaVisualMode = "media-png" | "media-svg" | "media-vox";
 

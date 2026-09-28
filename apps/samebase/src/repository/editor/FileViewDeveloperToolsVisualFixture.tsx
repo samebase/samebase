@@ -4,7 +4,7 @@ import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
 } from "@/repository/editor/FileViewDeveloperTools";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { TermsOfServicePage } from "@/components/TermsOfServicePage";
+import { TermsOfServicePage } from "@/publicSite/TermsOfServicePage";
 import { buildPageHead, TERMS_PAGE_METADATA } from "@/lib/pageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";

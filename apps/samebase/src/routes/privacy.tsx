@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PrivacyPolicyPage } from "@/components/PrivacyPolicyPage";
+import { PrivacyPolicyPage } from "@/publicSite/PrivacyPolicyPage";
 import { buildPageHead, PRIVACY_PAGE_METADATA } from "@/lib/pageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";

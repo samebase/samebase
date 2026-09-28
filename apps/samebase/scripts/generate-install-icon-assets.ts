@@ -172,15 +172,15 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       "logo face treatment module",
     );
     const compactIdentityModule = readRecord(
-      await server.ssrLoadModule("/src/components/compactIdentitySvgAsset.ts"),
+      await server.ssrLoadModule("/src/logo/compactIdentitySvgAsset.ts"),
       "compact identity SVG asset module",
     );
     const logoStaticModule = readRecord(
-      await server.ssrLoadModule("/src/components/logo/logoStaticSvgAsset.ts"),
+      await server.ssrLoadModule("src/logo/logoStaticSvgAsset.ts"),
       "logo static SVG asset module",
     );
     const socialLogoModule = readRecord(
-      await server.ssrLoadModule("/src/components/socialLogoAssets.ts"),
+      await server.ssrLoadModule("/src/logo/socialLogoAssets.ts"),
       "social logo asset module",
     );
     const defaultLogoFaceTreatment = faceTreatmentModule.DEFAULT_LOGO_FACE_TREATMENT;

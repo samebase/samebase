@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DocsPricingPage } from "@/components/LandingPreviewPage";
+import { DocsPricingPage } from "@/publicSite/LandingPreviewPage";
 import {
   DOCS_PRICING_ROUTE,
   DOCS_ROUTE_SEARCH_STATIC_DATA,

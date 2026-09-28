@@ -1,4 +1,4 @@
-import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
+import { LogoRasterSeamLabPage } from "@/logo/LogoRasterSeamLabPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,

@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
-import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
-import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
+import { INDEXED_DB_ROUTE } from "../src/browserStorage/indexedDbRoute";
+import { LOCAL_STORAGE_ROUTE } from "../src/browserStorage/localStorageRoute";
 import { signInIfNeeded } from "./liveHelpers";
 
 const localStorageRouteScreenshotOptions = {

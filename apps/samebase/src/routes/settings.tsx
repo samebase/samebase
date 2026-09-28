@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AuthenticatedUserRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
+import { AuthenticatedUserRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
+import { AuthorizationErrorNotice } from "@/auth/AuthorizationErrorNotice";
 import { UserSettingsPage } from "@/account/UserSettingsPage";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { formatAuthorizationErrorMessage } from "@/auth/authorizationErrorMessage";
 import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,
   validateSettingsRouteSearch,
 } from "@/routeSearch/settings";
-import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
+import { useAuthorizationErrorNotice } from "@/auth/useAuthorizationErrorNotice";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { useCallback } from "react";
 

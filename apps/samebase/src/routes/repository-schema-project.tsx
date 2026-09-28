@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
 
 const RepositoryConvexSchemaGraphView = lazy(async () => {
-  const module = await import("@/components/RepositoryConvexSchemaGraphView");
+  const module = await import("@/repository/schemaGraph/RepositoryConvexSchemaGraphView");
   return { default: module.RepositoryConvexSchemaGraphView };
 });
 

@@ -25,7 +25,7 @@
   - `apps/samebase/convex/mcp/tokens.ts`
   - `apps/samebase/convex/schema.ts`
   - `apps/samebase/convex/auth.ts`
-  - `apps/samebase/src/components/McpConsentRoutePage.tsx`
+  - `apps/samebase/src/agentAccess/McpConsentRoutePage.tsx`
 - External references:
   - [OAuth 2.0 for Native Apps, RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252)
   - [OAuth 2.0 Security Best Current Practice, RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700)

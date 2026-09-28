@@ -19,7 +19,7 @@ import {
   type LogoColorThemeMode,
   type LogoThemeColorKey,
   type LogoThemeColors,
-} from "@/components/logo/logoTailwindColors";
+} from "@/logo/logoTailwindColors";
 import { useDocumentThemeMode, type DocumentThemeMode } from "@/hooks/useDocumentThemeMode";
 import { useEffect, useState } from "react";
 

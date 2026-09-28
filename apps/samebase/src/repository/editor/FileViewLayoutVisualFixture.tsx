@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileViewMainHeader } from "@/repository/editor/FileViewMainHeader";
 import { Button } from "@/components/ui/button";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 import type { PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 

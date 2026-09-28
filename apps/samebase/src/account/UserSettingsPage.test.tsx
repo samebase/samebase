@@ -32,7 +32,7 @@ vi.mock("@convex-dev/auth/react", () => ({
   useConvexAuth: () => ({ fetchAccessToken: testState.fetchAccessToken }),
 }));
 
-vi.mock("@/authClient", () => ({
+vi.mock("@/auth/authClient", () => ({
   useAppAuthActions: () => ({ signOut: testState.signOut }),
   useAppSignInActions: () => ({ signInWithOAuth: testState.signInWithOAuth }),
 }));

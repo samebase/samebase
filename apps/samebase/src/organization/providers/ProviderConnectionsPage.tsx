@@ -1,6 +1,6 @@
-import { isInIframe } from "@/authClient";
+import { isInIframe } from "@/auth/authClient";
 import { useApiKeyConnectDialog } from "@/organization/providers/ApiKeyConnectDialog";
-import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
+import { AuthorizationErrorNotice } from "@/auth/AuthorizationErrorNotice";
 import type { ViewerOrganization } from "@/organization/context";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
@@ -8,7 +8,7 @@ import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+} from "@/components/ProviderLogos";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { readAuthorizationCompletionReturnTo } from "@/lib/authorizationCompletionMessage";
+import { readAuthorizationCompletionReturnTo } from "@/auth/authorizationCompletionMessage";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/organization/providers/githubAppSetupFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
@@ -45,7 +45,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../../shared/cloudflareTokenRefresh";
 import type { AuthorizationError } from "../../../shared/authorizationError";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { formatAuthorizationErrorMessage } from "@/auth/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
 import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";

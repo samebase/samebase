@@ -1,0 +1,37 @@
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { AppBootFailureState } from "@/appShell/AppBootFailureState";
+
+type AppBootErrorBoundaryProps = {
+  children: ReactNode;
+};
+
+type AppBootErrorBoundaryState = {
+  error: unknown;
+};
+
+export class AppBootErrorBoundary extends Component<
+  AppBootErrorBoundaryProps,
+  AppBootErrorBoundaryState
+> {
+  override state: AppBootErrorBoundaryState = {
+    error: null,
+  };
+
+  static getDerivedStateFromError(error: unknown): AppBootErrorBoundaryState {
+    return {
+      error,
+    };
+  }
+
+  override componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.error("App boot failure", error, errorInfo);
+  }
+
+  override render() {
+    if (this.state.error !== null) {
+      return <AppBootFailureState error={this.state.error} />;
+    }
+
+    return this.props.children;
+  }
+}

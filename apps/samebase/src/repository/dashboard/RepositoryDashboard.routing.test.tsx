@@ -26,7 +26,7 @@ vi.mock("convex/react", async (importOriginal) => {
     useMutation: createMutationMock,
   };
 });
-vi.mock("@/components/AppWorkspaceShell", () => ({
+vi.mock("@/appShell/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({ children }: { children?: ReactNode }) => children ?? null,
 }));
 vi.mock("./RepositoryOverviewPage", () => ({

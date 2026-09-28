@@ -1,4 +1,4 @@
-import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { AppWorkspaceRouteChrome } from "@/appShell/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import { tryParseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
 import {
@@ -24,7 +24,7 @@ import {
 } from "./RepositoryOverviewPickerPane";
 import { RepositorySelectedWorkspace } from "./RepositorySelectedWorkspace";
 import { useRepositoryWorkspaceModel } from "./useRepositoryWorkspaceModel";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { DASHBOARD_ROUTE } from "@/repository/dashboardRoute";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 

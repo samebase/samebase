@@ -11,7 +11,7 @@ import {
   validateFileViewRouteSearch,
 } from "@/routeSearch/fileView";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
+import { buildRepositoryFileRoute } from "@/repository/repositoryRoutes";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { tryParseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AccountDeletionPage } from "@/account/AccountDeletionPage";
-import { AuthenticatedUserRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedUserRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { ACCOUNT_DELETION_ROUTE } from "@/account/accountDeletionRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 

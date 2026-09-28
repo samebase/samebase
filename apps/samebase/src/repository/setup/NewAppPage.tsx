@@ -19,7 +19,7 @@ import {
   useCloudflareBuildTokens,
 } from "@/repository/setup/useCloudflareBuildTokens";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
+import { buildRepositoryDashboardRoute } from "@/repository/repositoryRoutes";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/organization/organizationRoutes";
 import {
   buildAvailableAppResourceNameSuggestion,
@@ -33,7 +33,7 @@ import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+} from "@/components/ProviderLogos";
 import type { ViewerOrganization } from "@/organization/context";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";

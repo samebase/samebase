@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedAppRoutePage } from "@/appShell/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
 
 const RepositoryDatabaseView = lazy(async () => {
-  const module = await import("@/components/RepositoryDatabaseView");
+  const module = await import("@/repository/database/RepositoryDatabaseView");
   return { default: module.RepositoryDatabaseView };
 });
 

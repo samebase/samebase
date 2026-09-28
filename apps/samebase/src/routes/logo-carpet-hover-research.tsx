@@ -1,4 +1,4 @@
-import { LogoSierpinskiCarpetHoverPage } from "@/components/logo/LogoSierpinskiCarpetHoverPage";
+import { LogoSierpinskiCarpetHoverPage } from "@/logo/LogoSierpinskiCarpetHoverPage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
   LOGO_CARPET_HOVER_ROUTE_SEARCH_KEYS,

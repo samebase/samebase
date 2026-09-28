@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
-} from "../src/lib/publicLandingLogo";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+} from "../src/logo/publicLandingLogoConstants";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/publicSite/publicLanding";
 
 test("unknown routes render the animated not-found page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

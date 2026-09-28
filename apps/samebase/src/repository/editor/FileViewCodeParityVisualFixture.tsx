@@ -4,17 +4,17 @@ import { EditorView } from "@codemirror/view";
 import { toCanvas } from "html-to-image";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
-import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
+import { MonacoEditorSurface } from "@/editors/MonacoEditorSurface";
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
-import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/appShell/SidebarLayoutFixtureFrame";
 import { Input } from "@/components/ui/input";
-import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
+import { getProsemarkFileThemeExtensions } from "@/editors/prosemarkSurface";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
   loadCodeMirrorLanguageExtension,
-} from "@/lib/codemirrorLanguage";
-import { fileCodeMirrorBaseExtensions } from "@/lib/fileCodeMirrorBaseExtensions";
+} from "@/editors/codemirrorLanguage";
+import { fileCodeMirrorBaseExtensions } from "@/editors/fileCodeMirrorBaseExtensions";
 
 export type FileViewCodeParityVisualMode = "file-view-code-parity";
 

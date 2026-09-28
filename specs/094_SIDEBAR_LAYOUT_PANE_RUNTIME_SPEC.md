@@ -13,10 +13,10 @@
   - `packages/sidebars/src/SidebarLayoutPrehydration.ts`
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
   - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
-  - `apps/samebase/src/components/AppWorkspaceShell.tsx`
-  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
-  - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
-  - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
+  - `apps/samebase/src/appShell/AppWorkspaceShell.tsx`
+  - `apps/samebase/src/appShell/appWorkspaceSidebarPrehydration.ts`
+  - `apps/samebase/src/appShell/usePersistedWorkspaceSidebarState.ts`
+  - `apps/samebase/src/appShell/useLocalStorageWorkspaceSidebarState.ts`
   - `packages/sidebars/src/SidebarLayoutState.ts`
   - `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`

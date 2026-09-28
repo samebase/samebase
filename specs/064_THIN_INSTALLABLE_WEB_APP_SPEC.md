@@ -11,7 +11,7 @@
   `apps/samebase/public/favicon-32.png`, `apps/samebase/public/samebase-icon.svg`,
   `apps/samebase/public/install-icon.svg`, `apps/samebase/public/logo-static.svg`,
   `apps/samebase/scripts/generate-install-icon-assets.ts`, `apps/samebase/src/entry.tsx`,
-  `apps/samebase/src/main.tsx`, `apps/samebase/src/components/compactIdentitySvgAsset.ts`,
+  `apps/samebase/src/main.tsx`, `apps/samebase/src/logo/compactIdentitySvgAsset.ts`,
   `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`, `apps/samebase/vite.config.ts`
 
 ## Summary
@@ -147,8 +147,8 @@ Current default:
   crops
 - keep the 16px and 32px favicons on their denser pixel-aligned geometry
 - use `apps/samebase/public/brand/icon/compact-v1-maskable.svg` only for maskable raster exports
-- use `apps/samebase/src/components/compactIdentitySvgAsset.ts` as the generator source for all
-  compact icon exports
+- use `apps/samebase/src/logo/compactIdentitySvgAsset.ts` as the generator source for all compact
+  icon exports
 - keep every served raster as an explicit committed file
 
 ### 4. Public HTML metadata contract
