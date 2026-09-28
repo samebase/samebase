@@ -456,17 +456,14 @@ export const deletePendingUploadBlob = mutation({
       userId: ctx.viewer.userId,
     });
 
+    // Any repository can reference the blob, not only `args.repositoryId`.
     const stagedFile = await ctx.db
       .query("repositoryStagedFiles")
-      .withIndex("by_repository_and_storageId", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("storageId", args.storageId),
-      )
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
       .first();
     const cachedBlob = await ctx.db
       .query("observations_repositoryFiles_blobs")
-      .withIndex("by_repository_and_storageId", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("storageId", args.storageId),
-      )
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
       .first();
     if (stagedFile || cachedBlob) {
       throw new Error("Cannot delete a blob that is already attached to staging.");

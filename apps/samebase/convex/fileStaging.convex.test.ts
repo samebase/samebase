@@ -13,7 +13,7 @@ vi.mock("./githubAppAccess", async (importOriginal) => {
   };
 });
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -98,7 +98,8 @@ async function seedConnectedRepository(t: ConvexTest) {
   const userId = await t.run(async (ctx) => {
     return await ctx.db.insert("users", {
       state: "active",
-      email: "staging@example.com",
+      // File writes are staff access.
+      email: "nicu@samebase.com",
       isApproved: true,
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
@@ -390,5 +391,68 @@ describe("reconcileStagingWithTree", () => {
       "feature:other.md",
     ]);
     expect(await readCollaborativeUpdatePaths(t)).toEqual(["feature:other.md", "main:edited.md"]);
+  });
+});
+
+describe("deletePendingUploadBlob", () => {
+  it("deletes only blobs that no repository references", async () => {
+    const t = makeConvexTest();
+    const { organizationId, repositoryId, userId } = await seedConnectedRepository(t);
+    const { repositoryId: otherRepositoryId } = await t.mutation(
+      internal.repository.records.createInitializingExistingRepositoryForUser,
+      {
+        organizationId,
+        userId,
+        githubRepositoryDatabaseId: "9002",
+        githubOwnerLogin: "staging",
+        githubRepositoryName: "other",
+      },
+    );
+    const [pendingStorageId, otherStorageId] = await t.run(async (ctx) => {
+      return await Promise.all([
+        ctx.storage.store(new Blob(["pending"])),
+        ctx.storage.store(new Blob(["other"])),
+      ]);
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositoryStagedFiles", {
+        repositoryId: otherRepositoryId,
+        branch: "main",
+        filePath: "image.png",
+        initialFilePath: "image.png",
+        fileDeleted: false,
+        kind: "binary",
+        content: "",
+        initialContent: "",
+        storageId: otherStorageId,
+        stagedBlobSha: "other-blob-sha",
+        parentCommitSha: null,
+        lastEditTime: 1,
+        lastEditUserId: userId,
+        version: 0,
+      });
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|staging-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await asUser.mutation(api.fileStaging.deletePendingUploadBlob, {
+      repositoryId,
+      storageId: pendingStorageId,
+    });
+    await expect(
+      asUser.mutation(api.fileStaging.deletePendingUploadBlob, {
+        repositoryId,
+        storageId: otherStorageId,
+      }),
+    ).rejects.toThrow("Cannot delete a blob that is already attached to staging.");
+
+    expect(
+      await t.run(async (ctx) => ({
+        pending: (await ctx.db.system.get(pendingStorageId)) !== null,
+        other: (await ctx.db.system.get(otherStorageId)) !== null,
+      })),
+    ).toEqual({ pending: false, other: true });
   });
 });
