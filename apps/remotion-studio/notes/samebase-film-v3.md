@@ -135,8 +135,10 @@ identical marks, and the woken region then grows across the surface.
 
 ## Delivery
 
-The master (CRF 16) is about 130 MB because of the grain. The grain changes every second frame. The
-web copy is a two-pass encode with grain tuning at 4300 kbit/s, for about 23.5 MB:
+The 60 fps master (CRF 16) is about 110 MB because of the grain. The web copy is a two-pass encode
+with grain tuning at 4300 kbit/s, for about 23.8 MB; the 4:5 web copy uses 4000 kbit/s, for about
+22.3 MB. At the same bit rate the 60 fps web copy keeps the quality of the 30 fps one (46.6 dB PSNR
+against its master, 46.1 dB for v3.3), because the grain holds for four frames:
 
 ```console
 pnpm exec remotion render SamebaseFilmV3 out/samebase-film-v3.mp4
