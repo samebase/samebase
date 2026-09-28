@@ -38,7 +38,12 @@ export type FilmV3Scene = {
     unfold: number;
   };
   floor: { height: number; strength: number };
-  haze: { color: Rgb; density: number; start: number };
+  /**
+  The haze has the color of the sky behind each pixel, so the renderer draws it as less coverage.
+  `clear` is the distance from the cube box, in cube half sizes, out to which the giant is clear,
+  and past `hidden` the haze hides it. Past `start` the depth haze thickens with `density`.
+  */
+  haze: { clear: number; density: number; hidden: number; start: number };
   light: {
     ambient: number;
     aoScale: number;
@@ -89,7 +94,8 @@ export type FilmV3Cursor = { pressed: number; visible: number; x: number; y: num
 export type FilmV3Frame = {
   backdropTexts: readonly FilmV3Text[];
   cursor: FilmV3Cursor;
-  field: Rgb;
+  /** The sky at the top and the bottom of the frame. */
+  sky: readonly [Rgb, Rgb];
   /** The grain changes 15 times a second at every frame rate. */
   grainStep: number;
   grain: number;
@@ -110,10 +116,14 @@ export type FilmV3Frame = {
 /** `landscape` is the 1920x1080 film and `portrait` the 1080x1350 feed cut. */
 export type FilmV3Format = "landscape" | "portrait";
 
+/** `blue` is a deep blue field, `haze` a pale sky, and `paper` a warm off-white. */
+export type FilmV3Palette = "blue" | "haze" | "paper";
+
 export type FilmV3Options = {
   format: FilmV3Format;
   fourthDirection: FourthDirection;
   height: number;
+  palette: FilmV3Palette;
   sampleGrid: number;
   width: number;
 };
@@ -125,15 +135,21 @@ function hex(value: number): Rgb {
 }
 
 export const inks = {
-  blue: hex(0x3255a4),
-  /** Words on the pink field: a dense ink that stays readable at phone size. */
-  navy: hex(0x171b4f),
   newFace: hex(0x4068cc),
   cyan: hex(0x00b8db),
-  pink: hex(0xff48b0),
   slate: hex(0x394447),
   white: hex(0xffffff),
 };
+
+/**
+The sky behind the object, from the top to the bottom of the frame, the ink of every word, and the
+tint of the floor shadow. The sky stays darker than the white top face, and the words stay dense.
+*/
+const palettes = {
+  blue: { ink: inks.white, shadowTint: hex(0x6d6aa8), sky: [hex(0x3255a4), hex(0x3255a4)] },
+  haze: { ink: hex(0x171b4f), shadowTint: hex(0xa8b3cc), sky: [hex(0x8499b0), hex(0xdfe4ea)] },
+  paper: { ink: hex(0x232d31), shadowTint: hex(0xbdb3a8), sky: [hex(0xeee8dc), hex(0xeee8dc)] },
+} as const satisfies Record<FilmV3Palette, { ink: Rgb; shadowTint: Rgb; sky: readonly [Rgb, Rgb] }>;
 
 /** The landing hero tones by face direction: x the side faces, y the top, z the mark face. */
 const landingTones = { x: inks.cyan, y: inks.white, z: inks.slate };
@@ -371,9 +387,13 @@ export const beats = {
   still: 14.5,
   lift: 17.5,
   collapse: 20,
-  resume: 21,
-  /** The match cut to the giant, in the middle of a shuffle move of the cube. */
-  scale: 25.5,
+  /** The four faces close on the beat, and the orbit resumes. */
+  resume: 21.5,
+  /**
+  The pull back starts in the middle of a shuffle move of the cube, and the cube becomes the corner
+  cell of the giant, which the haze still hides.
+  */
+  scale: 25.2,
   end: 32.5,
   url: 36.75,
 } as const;
@@ -507,7 +527,7 @@ function stack(
 }
 
 /** Pixel positions are authored per format: 1920x1080 for the film and 1080x1350 for the feed cut. */
-function readTexts(time: number, format: FilmV3Format) {
+function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
   const portrait = format === "portrait";
   const pick = <Value>(landscape: Value, portraitValue: Value) =>
     portrait ? portraitValue : landscape;
@@ -522,7 +542,7 @@ function readTexts(time: number, format: FilmV3Format) {
     backdrop.push({
       align: "left",
       cap: pick(300, 250),
-      color: inks.navy,
+      color: ink,
       words: [{ rise: 1, text: "SAME" }],
       x: pick(110, 60) + drift + slide * width,
       y: pick(470, 400),
@@ -530,7 +550,7 @@ function readTexts(time: number, format: FilmV3Format) {
     backdrop.push({
       align: "right",
       cap: pick(300, 250),
-      color: inks.navy,
+      color: ink,
       words: [{ rise: 1, text: "BASE" }],
       x: pick(1810, 1020) - drift + slide * width * 1.25,
       y: pick(910, 1210),
@@ -551,7 +571,7 @@ function readTexts(time: number, format: FilmV3Format) {
       {
         align: "center",
         cap: pick(80, 56),
-        color: inks.navy,
+        color: ink,
         leading: 0,
         x: pick(960, 540),
         y: pick(1000, 1240),
@@ -563,7 +583,7 @@ function readTexts(time: number, format: FilmV3Format) {
   const lower: Placement = {
     align: "left",
     cap: pick(56, 64),
-    color: inks.navy,
+    color: ink,
     leading: pick(80, 88),
     x: pick(110, 70),
     y: pick(940, 1215),
@@ -571,14 +591,14 @@ function readTexts(time: number, format: FilmV3Format) {
   backdrop.push(
     ...stack(
       [[{ at: 19, text: "Delete your" }], [{ at: 19.15, text: "Samebase account." }]],
-      20.95,
+      21.45,
       time,
       lower,
     ),
   );
   backdrop.push(
     ...stack(
-      [[{ at: 21.25, text: "Your app" }], [{ at: 21.4, text: "doesn't notice." }]],
+      [[{ at: 21.75, text: "Your app" }], [{ at: 21.9, text: "doesn't notice." }]],
       25.1,
       time,
       lower,
@@ -588,20 +608,20 @@ function readTexts(time: number, format: FilmV3Format) {
   const skyPlacement: Placement = {
     align: "left",
     cap: pick(82, 80),
-    color: inks.white,
+    color: ink,
     leading: pick(130, 106),
     x: pick(110, 70),
     y: pick(190, 170),
   };
   const everyApp = pick(
-    [[{ at: 27, text: "Every app on the same base." }]],
-    [[{ at: 27, text: "Every app on" }], [{ at: 27.15, text: "the same base." }]],
+    [[{ at: 29, text: "Every app on the same base." }]],
+    [[{ at: 29, text: "Every app on" }], [{ at: 29.15, text: "the same base." }]],
   );
   overlay.push(...stack(everyApp, 32.1, time, skyPlacement));
   overlay.push(
-    ...stack([[{ at: 29.25, text: "Samebase too." }]], 32.1, time, {
+    ...stack([[{ at: 30.25, text: "Samebase too." }]], 32.1, time, {
       ...skyPlacement,
-      color: inks.white,
+      color: ink,
       y: skyPlacement.y + everyApp.length * skyPlacement.leading,
     }),
   );
@@ -618,7 +638,7 @@ function readTexts(time: number, format: FilmV3Format) {
       {
         align: pick("left", "center"),
         cap: pick(112, 96),
-        color: inks.navy,
+        color: ink,
         leading: pick(175, 150),
         x: pick(150, 540),
         y: pick(330, 720),
@@ -629,7 +649,7 @@ function readTexts(time: number, format: FilmV3Format) {
     ...stack([[{ at: beats.url, text: "samebase.com" }]], 99, time, {
       align: pick("left", "center"),
       cap: pick(58, 56),
-      color: inks.navy,
+      color: ink,
       leading: 0,
       x: pick(152, 540),
       y: pick(930, 1210),
@@ -823,14 +843,24 @@ const giantLevels = 5;
 const giantHalfSize = 3 ** (giantLevels - 1);
 const giantCenter: Vector3 = [giantHalfSize - 1, -(giantHalfSize - 1), giantHalfSize - 1];
 
-function readGiant(time: number, format: FilmV3Format) {
-  const local = time - beats.scale;
-  // The camera backs straight away from the corner cell, so it never nears the surface.
-  const pull = easeInOutCubic(progress(local, 0, 2.8));
-  const drift = easeInOutSine(progress(local, 0, 7));
-  const halfHeight = Math.exp(mix(Math.log(2.6), Math.log(30), pull));
-  const yaw = -118 - 12 * pull + 7 * drift;
-  const elevation = 22 - 13 * pull + 2 * drift;
+/** The dolly backs away until the frame is this many times as tall. */
+const pullZoom = 30 / 2.6;
+
+function readPull(time: number): number {
+  return easeInOutSine(progress(time, beats.scale, beats.scale + 4.6));
+}
+
+/**
+One continuous camera move from the cube to the giant. The orbit keeps its own settle, and on top of
+it an exponential dolly backs away from the corner cell in a three-quarter view with lit faces, so
+the camera never nears the surface and never looks head on.
+*/
+function readPullBack(time: number, orbit: Orbit, format: FilmV3Format) {
+  const pull = readPull(time);
+  const drift = easeInOutSine(progress(time, beats.scale, beats.end));
+  const halfHeight = orbit.halfHeight * pullZoom ** pull;
+  const yaw = orbit.yaw - 12 * pull + 7 * drift;
+  const elevation = orbit.elevation - 13 * pull + 2 * drift;
   // Screen offset of the corner: left of center and low, so the sky holds the words.
   const right: Vector3 = [Math.cos(yaw * degrees), 0, -Math.sin(yaw * degrees)];
   const offset = pull * halfHeight;
@@ -838,7 +868,7 @@ function readGiant(time: number, format: FilmV3Format) {
     {
       elevation,
       halfHeight,
-      tan: mix(0.36, 0.74, pull),
+      tan: orbit.tan + 0.38 * pull,
       target: add(scale(right, (format === "portrait" ? 0.22 : 0.58) * offset), [
         0,
         (format === "portrait" ? -0.1 : 0.32) * offset,
@@ -850,8 +880,19 @@ function readGiant(time: number, format: FilmV3Format) {
   );
 }
 
+/**
+The haze lifts with the pull back: at the scale beat it hides every other cell of the giant less
+than a pixel past the cube, and the clear distance then grows with the dolly, a little ahead of it, while the
+haze edge softens, until the whole giant is clear.
+*/
+function readHazeLift(time: number) {
+  const zoom = pullZoom ** readPull(time);
+  const clear = 2.2 * (zoom - 1) ** 1.6;
+  return { clear, hidden: 0.0015 + clear * mix(2, 5, smoothstep(0.01, 0.5, clear)) };
+}
+
 /** The shots start at these times. The shutter never spans a cut. */
-const shotStarts = [0, beats.scale, beats.end] as const;
+const shotStarts = [0, beats.end] as const;
 
 /**
 The frame at `time`. Its shutter is half a frame long and centered on `time`, clipped to the shot:
@@ -873,7 +914,8 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
 }
 
 function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame, "shutter"> {
-  const { format, fourthDirection, height, sampleGrid, width } = options;
+  const { format, fourthDirection, height, palette, sampleGrid, width } = options;
+  const { ink, shadowTint, sky } = palettes[palette];
   // The feed cut is narrower, so its orbit frames the cube a little smaller.
   const baseOrbit = readOrbit(time);
   const orbit = {
@@ -881,12 +923,11 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
     halfHeight: baseOrbit.halfHeight * (format === "portrait" ? 1.2 : 1),
   };
   const cursor = readCursor(time, orbit, width, height);
-  const texts = readTexts(time, format);
+  const texts = readTexts(time, format, ink);
   const inGiant = time >= beats.scale && time < beats.end;
   const inEnd = time >= beats.end;
 
   let camera = orbitCamera(orbit, 6);
-  let field = inks.pink;
   let sponge: FilmV3Scene["sponge"] = {
     center: [0, 0, 0],
     depth: 3,
@@ -896,7 +937,7 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
     restDepth: 1,
     revealRadius: 0.62,
   };
-  let haze: FilmV3Scene["haze"] = { color: field, density: 0, start: 0 };
+  let haze: FilmV3Scene["haze"] = { clear: 1e6, density: 0, hidden: 2e6, start: 0 };
   let floor = { height: -1, strength: floorStrengthAt(orbit.elevation) };
   let aoScale = 0.045;
   let shadeStrength = 1;
@@ -976,9 +1017,14 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
     }
   }
 
+  // The floor has no place under the giant, so its shadow fades before the cube becomes a cell.
+  if (time < beats.end) {
+    floor = { ...floor, strength: floor.strength * (1 - smoothstep(24.2, beats.scale, time)) };
+  }
+
   if (inGiant) {
-    camera = readGiant(time, format);
-    field = inks.blue;
+    // The cube is the corner cell of the giant from here on, and the haze hides the rest.
+    camera = readPullBack(time, orbit, format);
     // Only the cells of the cube size shuffle on the giant, so its outline stays whole.
     shuffle = {
       depth: giantLevels,
@@ -986,14 +1032,13 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
       ...readShuffle(time, scaleMoves),
     };
     sponge = { ...sponge, center: giantCenter, halfSize: giantHalfSize };
-    haze = { color: field, density: 0.009, start: camera.rayStart + 12 };
+    haze = { ...readHazeLift(time), density: 0.009, start: camera.rayStart + 12 };
     floor = { height: -1, strength: 0 };
     aoScale = 0.045 * Math.max(1, camera.halfHeight / 2.6);
     shadeStrength = 1 - 0.5 * smoothstep(2.6, 12, camera.halfHeight);
   }
 
   if (inEnd) {
-    field = inks.pink;
     // The solid turns in and settles head on, flat as the mark, when the address lands.
     const turn = 1 - easeInOutCubic(progress(time, beats.end, beats.url));
     const view = { elevation: 10 * turn, halfHeight: 3.6, tan: 0.34 * turn, yaw: -32 * turn };
@@ -1005,16 +1050,15 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
         : add(scale(aligned.right, -4.27), scale(aligned.up, -0.6));
     camera = orbitCamera({ ...view, target }, 6);
     sponge = { ...sponge, center: [0, 0, 0], depth: 1, halfSize: 1, openness: 0, restDepth: 1 };
-    haze = { color: field, density: 0, start: 0 };
+    haze = { clear: 1e6, density: 0, hidden: 2e6, start: 0 };
     floor = { height: -1, strength: floorStrengthAt(view.elevation) };
     aoScale = 0.045;
   }
 
-  const shadowTint = field === inks.blue ? hex(0x6d6aa8) : ([0.62, 0.45, 0.66] as const);
   return {
     backdropTexts: texts.backdrop,
     cursor: inGiant || inEnd ? { pressed: 0, visible: 0, x: 0, y: 0 } : cursor,
-    field,
+    sky,
     grainStep: Math.floor(Math.round(time * 30) / 2),
     grain: 0.024,
     overlayTexts: texts.overlay,

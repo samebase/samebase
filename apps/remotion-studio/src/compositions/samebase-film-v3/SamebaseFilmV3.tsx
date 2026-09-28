@@ -14,6 +14,7 @@ import {
   beatClipStart,
   filmV3Fps,
   type FilmV3Format,
+  type FilmV3Palette,
   type FourthDirection,
   readFilmV3Frame,
 } from "./filmV3Timeline";
@@ -23,12 +24,19 @@ export type SamebaseFilmV3Props = {
   cut: "beat" | "film";
   format: FilmV3Format;
   fourthDirection: FourthDirection;
+  palette: FilmV3Palette;
   /** Antialiasing samples per pixel side. */
   sampleGrid: number;
 };
 
 /** The v3 brand film. The music is local only: `public/media/samebase-film-v3.mp3`. */
-export function SamebaseFilmV3({ cut, format, fourthDirection, sampleGrid }: SamebaseFilmV3Props) {
+export function SamebaseFilmV3({
+  cut,
+  format,
+  fourthDirection,
+  palette,
+  sampleGrid,
+}: SamebaseFilmV3Props) {
   const frame = useCurrentFrame();
   const { fps, height, width } = useVideoConfig();
   const startSeconds = cut === "beat" ? beatClipStart : 0;
@@ -38,10 +46,11 @@ export function SamebaseFilmV3({ cut, format, fourthDirection, sampleGrid }: Sam
         format,
         fourthDirection,
         height,
+        palette,
         sampleGrid,
         width,
       }),
-    [format, fourthDirection, fps, frame, height, sampleGrid, startSeconds, width],
+    [format, fourthDirection, fps, frame, height, palette, sampleGrid, startSeconds, width],
   );
   const canvasRef = useWebGpuFrame(createFilmV3Renderer, filmFrame);
   const cues = soundCues.filter(({ at }) => at >= startSeconds);
@@ -73,6 +82,6 @@ const soundCues = [
   { at: 4.85, name: "drag", volume: 0.24 },
   { at: 9.45, name: "reveal", volume: 0.5 },
   { at: 17.38, name: "lift", volume: 0.62 },
-  { at: 22.3, name: "drag", volume: 0.28 },
-  { at: 20.8, name: "close", volume: 0.5 },
+  { at: 22.8, name: "drag", volume: 0.28 },
+  { at: 21.3, name: "close", volume: 0.5 },
 ] as const;
