@@ -13,8 +13,10 @@ export const isFileTreeNodeType = guard<string, "tree" | "blob">((type) =>
   type === "tree" || type === "blob" ? type : null,
 );
 
-export function findBestInitialFile(files: GitHubTree[]) {
-  const fileList = files.filter((item) => item.type === "blob");
+export function findBestInitialFile(files: GitHubTree[], stagedDeletedPaths: ReadonlySet<string>) {
+  const fileList = files.filter(
+    (item) => item.type === "blob" && !stagedDeletedPaths.has(item.path),
+  );
 
   if (fileList.length === 0) {
     return null;
