@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { cubeOrHoleBeats, cubeOrHoleFps, readCubeOrHoleFrame } from "./cubeOrHoleTimeline";
+import {
+  cubeOrHoleBeats,
+  cubeOrHoleFps,
+  readCubeOrHoleFrame,
+  readSwing,
+  showsCube,
+  swapFrame,
+} from "./cubeOrHoleTimeline";
 import {
   clearingGoneAt,
   endlessPullbackFps,
@@ -38,16 +45,26 @@ describe("endless pull back", () => {
 });
 
 describe("cube or hole", () => {
-  test("stays orthographic and ends where it starts, so the clip loops", () => {
+  test("swaps the hole for the cube only on the frame exactly at the key view", () => {
+    const frames = Math.round(cubeOrHoleBeats.end * cubeOrHoleFps);
+    const swaps: number[] = [];
+    for (let frame = 1; frame < frames; frame += 1) {
+      if (showsCube(frame / cubeOrHoleFps) !== showsCube((frame - 1) / cubeOrHoleFps)) {
+        swaps.push(frame);
+      }
+    }
+    expect(swaps).toEqual([swapFrame + 1]);
+    expect(readSwing(swapFrame / cubeOrHoleFps)).toBeCloseTo(0, 9);
+  });
+
+  test("stays orthographic and rests at the key view at both ends, so the clip loops", () => {
     const frames = Math.round(cubeOrHoleBeats.end * cubeOrHoleFps);
     for (let frame = 0; frame < frames; frame += 1) {
-      for (const camera of readCubeOrHoleFrame(frame / cubeOrHoleFps, "plain", 1).cameras) {
+      for (const camera of readCubeOrHoleFrame(frame / cubeOrHoleFps, 1).cameras) {
         expect(camera.tanHalfFieldOfView).toBe(0);
       }
     }
-    const first = readCubeOrHoleFrame(0, "plain", 1);
-    const last = readCubeOrHoleFrame((frames - 1) / cubeOrHoleFps, "plain", 1);
-    expect(last.cameras).toEqual(first.cameras);
-    expect(last.light).toEqual(first.light);
+    expect(readSwing(0)).toBe(0);
+    expect(readSwing((frames - 1) / cubeOrHoleFps)).toBe(0);
   });
 });

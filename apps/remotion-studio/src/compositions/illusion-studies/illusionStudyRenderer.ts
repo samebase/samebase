@@ -48,6 +48,8 @@ export type IllusionStudyFrame = {
     /** Unit vector toward the key light. */
     direction: Vector3;
     key: number;
+    /** Sharpness of the cast shadow edge: 8 is the soft film shadow. */
+    shadowHardness: number;
     /** The shade never passes this: 1 keeps every face at or below its own tone. */
     shadeLimit: number;
     /** 0 draws no cast shadow. */
@@ -65,12 +67,25 @@ export type IllusionStudyFrame = {
       }
     | {
         kind: "notch";
-        /** `plain` is a solid block and `mark` the level 1 Menger sponge of the Samebase mark. */
-        block: "mark" | "plain";
         blockHalf: number;
         /** The notch is the corner cell nearest the key view. */
         notchCenter: Vector3;
         notchHalf: number;
+      }
+    | {
+        kind: "room";
+        /**
+        A real cube in a room corner: the far three walls of the box of half size `halfSize` at
+        `center`, as seen along `signs` (the key view direction toward the camera, one sign per
+        axis), and a cube of half the box size that floats `lift` out of the far corner along the key
+        view on every axis. The walls are `wall` thick, and their outer edges are cut along the key
+        view, so in the key view no edge shows a rim.
+        */
+        center: Vector3;
+        halfSize: number;
+        lift: number;
+        signs: Vector3;
+        wall: number;
       };
   sky: readonly [Rgb, Rgb];
   tones: { x: Rgb; y: Rgb; z: Rgb };
@@ -102,6 +117,7 @@ const StudyState = d.struct({
   aoScale: d.f32,
   aoStrength: d.f32,
   shadeLimit: d.f32,
+  shadowHardness: d.f32,
   shadowStrength: d.f32,
   hazeDensity: d.f32,
   hazeStart: d.f32,
@@ -111,16 +127,19 @@ const StudyState = d.struct({
   clearingRadius: d.f32,
   clearingEdge: d.f32,
   clearingVeil: d.f32,
-  /** 0 is the sponge and 1 the notched block. */
+  /** 0 is the sponge, 1 the notched block, and 2 the room corner. */
   mode: d.i32,
   corner: d.vec3f,
   octant: d.vec3f,
   spongeHalf: d.f32,
-  /** 0 is the plain block and 1 the mark. */
-  markBlock: d.i32,
   blockHalf: d.f32,
   notchCenter: d.vec3f,
   notchHalf: d.f32,
+  roomCenter: d.vec3f,
+  roomSigns: d.vec3f,
+  roomHalf: d.f32,
+  roomWall: d.f32,
+  roomLift: d.f32,
   boundsCenter: d.vec3f,
   boundsHalf: d.vec3f,
   xTone: d.vec3f,
@@ -167,8 +186,9 @@ function vector([x, y, z]: Vector3): d.v3f {
 }
 
 /**
-The scene fields of the uniform state. The mode that is not drawn keeps inert values: the shader
-reads the sponge fields only in mode 0 and the block fields only in mode 1.
+The scene fields of the uniform state. The modes that are not drawn keep inert values: the shader
+reads the sponge fields only in mode 0, the block fields only in mode 1, and the room fields only in
+mode 2.
 */
 function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
   const inert = { point: d.vec3f(0), size: 1 };
@@ -184,26 +204,53 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         ]),
         boundsHalf: d.vec3f(halfSize),
         corner: vector(corner),
-        markBlock: 0,
         mode: 0,
         notchCenter: inert.point,
         notchHalf: inert.size,
         octant: vector(octant),
+        roomCenter: inert.point,
+        roomHalf: inert.size,
+        roomSigns: inert.point,
+        roomWall: inert.size,
+        roomLift: 0,
         spongeHalf: halfSize,
       };
     }
     case "notch": {
-      const { block, blockHalf, notchCenter, notchHalf } = scene;
+      const { blockHalf, notchCenter, notchHalf } = scene;
       return {
         blockHalf,
         boundsCenter: d.vec3f(0),
         boundsHalf: d.vec3f(blockHalf),
         corner: inert.point,
-        markBlock: block === "mark" ? 1 : 0,
         mode: 1,
         notchCenter: vector(notchCenter),
         notchHalf,
         octant: inert.point,
+        roomCenter: inert.point,
+        roomHalf: inert.size,
+        roomSigns: inert.point,
+        roomWall: inert.size,
+        roomLift: 0,
+        spongeHalf: inert.size,
+      };
+    }
+    case "room": {
+      const { center, halfSize, lift, signs, wall } = scene;
+      return {
+        blockHalf: inert.size,
+        boundsCenter: vector(center),
+        boundsHalf: d.vec3f(halfSize + wall),
+        corner: inert.point,
+        mode: 2,
+        notchCenter: inert.point,
+        notchHalf: inert.size,
+        octant: inert.point,
+        roomCenter: vector(center),
+        roomHalf: halfSize,
+        roomSigns: vector(signs),
+        roomWall: wall,
+        roomLift: lift,
         spongeHalf: inert.size,
       };
     }
@@ -251,16 +298,6 @@ export async function createIllusionStudyRenderer(
     return std.max(outer, -removed);
   };
 
-  const blockDistance = (point: d.v3f): number => {
-    "use gpu";
-    const half = state.$.blockHalf;
-    const solid = boxDistance(point, d.vec3f(half));
-    if (state.$.markBlock === 0) {
-      return solid;
-    }
-    return std.max(solid, (-crossDistance(std.mul(std.div(point, half), 3), 1) / 3) * half);
-  };
-
   /**
   The notched block. The removed box reaches past the block on the outer sides, so no face of it lies
   on a block face.
@@ -273,7 +310,43 @@ export async function createIllusionStudyRenderer(
       std.sub(point, std.add(state.$.notchCenter, std.mul(outward, notchHalf))),
       d.vec3f(notchHalf * 2),
     );
-    return std.max(blockDistance(point), -cut);
+    return std.max(boxDistance(point, d.vec3f(state.$.blockHalf)), -cut);
+  };
+
+  /**
+  The room corner in box coordinates `q`, where the camera side is +q on every axis: the walls lie
+  just past the far faces at q = -half, the cube floats out of the far corner, and the prism of the box
+  outline along the key view (the largest minus the smallest coordinate at most twice the half size)
+  cuts the wall edges.
+  */
+  const roomDistance = (point: d.v3f): number => {
+    "use gpu";
+    const half = state.$.roomHalf;
+    const wall = state.$.roomWall;
+    const q = std.mul(std.sub(point, state.$.roomCenter), state.$.roomSigns);
+    const outer = -half - wall * 0.5;
+    const across = d.vec3f(half + wall * 0.5);
+    const middle = -wall * 0.5;
+    const walls = std.min(
+      boxDistance(
+        std.sub(q, d.vec3f(outer, middle, middle)),
+        d.vec3f(wall * 0.5, across.y, across.z),
+      ),
+      boxDistance(
+        std.sub(q, d.vec3f(middle, outer, middle)),
+        d.vec3f(across.x, wall * 0.5, across.z),
+      ),
+      boxDistance(
+        std.sub(q, d.vec3f(middle, middle, outer)),
+        d.vec3f(across.x, across.y, wall * 0.5),
+      ),
+    );
+    const prism = (std.max(q.x, q.y, q.z) - std.min(q.x, q.y, q.z) - 2 * half) / Math.SQRT2;
+    const cube = boxDistance(
+      std.sub(q, d.vec3f(state.$.roomLift - half * 0.5)),
+      d.vec3f(half * 0.5),
+    );
+    return std.min(std.max(walls, prism), cube);
   };
 
   const sceneSample = (point: d.v3f, threshold: number): number => {
@@ -281,7 +354,10 @@ export async function createIllusionStudyRenderer(
     if (state.$.mode === 0) {
       return spongeDistance(point, threshold);
     }
-    return notchDistance(point);
+    if (state.$.mode === 1) {
+      return notchDistance(point);
+    }
+    return roomDistance(point);
   };
 
   const surfaceNormal = (point: d.v3f, threshold: number): d.v3f => {
@@ -312,7 +388,7 @@ export async function createIllusionStudyRenderer(
     for (let step = 0; step < 56; step += 1) {
       // Shadow rays see openings below four pixels as solid, so a fine grid casts no moire.
       const sample = sceneSample(std.add(origin, std.mul(state.$.light, distance)), threshold * 4);
-      light = std.min(light, (8 * sample) / distance);
+      light = std.min(light, (state.$.shadowHardness * sample) / distance);
       distance += std.clamp(sample, aoScale * 0.25, aoScale * 8);
       if (light < 0.002) {
         break;
@@ -371,7 +447,7 @@ export async function createIllusionStudyRenderer(
     // stable. The notched block is plain, so its rays march close to the surface: a ray that passes a
     // convex edge then misses it, and the edge never shows the tone of a hidden face.
     let hitFraction = d.f32(0.5);
-    if (s.mode === 1) {
+    if (s.mode > 0) {
       hitFraction = 0.02;
     }
     let hit = d.bool(false);
@@ -385,8 +461,10 @@ export async function createIllusionStudyRenderer(
           footprintStart * hitFraction * 0.1,
         );
         const sample = sceneSample(point, threshold);
-        // A ray that runs out of steps grazes a surface, so it counts as a hit there.
-        if (sample < threshold || step === MAXIMUM_RAY_STEPS - 1) {
+        // In the sponge a ray that runs out of steps grazes fine detail, so it counts as a hit. The
+        // plain scenes have faces that turn edge on, and a ray that runs along one just outside
+        // must miss it, or the outline grows.
+        if (sample < threshold || (s.mode === 0 && step === MAXIMUM_RAY_STEPS - 1)) {
           hit = true;
           hitPoint = d.vec3f(point);
           break;
@@ -531,6 +609,7 @@ export async function createIllusionStudyRenderer(
         right: vector(camera.right),
         sampleGrid: frame.sampleGrid,
         shadeLimit: light.shadeLimit,
+        shadowHardness: light.shadowHardness,
         shadowStrength: light.shadowStrength,
         skyBottom: vector(sky[1]),
         skyTop: vector(sky[0]),
