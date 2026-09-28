@@ -445,7 +445,18 @@ export const deleteOrganization = mutation({
     if (deletionRuns.length > ORGANIZATION_DELETION_ROW_LIMIT) {
       throw new ConvexError("This organization cannot be deleted automatically.");
     }
-    if (deletionRuns.some((run) => run.state !== "succeeded")) {
+    // A failed removal run stays failed after a retry of the same repository succeeds. The
+    // succeeded run finished that repository's cleanup, so only its failed runs are settled.
+    const removedRepositoryIds = new Set(
+      deletionRuns.filter((run) => run.state === "succeeded").map((run) => run.repositoryId),
+    );
+    if (
+      deletionRuns.some(
+        (run) =>
+          run.state !== "succeeded" &&
+          !(run.state === "failed" && removedRepositoryIds.has(run.repositoryId)),
+      )
+    ) {
       throw new ConvexError("Finish organization repository cleanup before deletion.");
     }
 
