@@ -1,7 +1,6 @@
 import {
   keyLight,
   landingTones,
-  mix,
   orbitCamera,
   palettes,
   smoothstep,
@@ -12,39 +11,47 @@ import type { IllusionStudyFrame } from "./illusionStudyRenderer";
 export const endlessPullbackFps = 60;
 export const endlessPullbackSeconds = 14;
 
-/** Seconds for each threefold pull back once the dolly runs at full speed. */
+/** Seconds for each threefold zoom out once the zoom runs at full speed. */
 export const pullbackPeriod = 2.4;
-/** The dolly speeds up from rest over this long. */
+/** The zoom speeds up from rest over this long. */
 const speedUpSeconds = 2.4;
-/** From this many threefold pull backs on, the haze stays the same relative to the camera. */
-export const hazeLiftPeriods = 2;
 
 /** The cube is the (-x, +y, -z) corner cell of a sponge that runs on without end in +x, -y, +z. */
 const corner: Vector3 = [-1, 1, -1];
 const octant: Vector3 = [1, -1, 1];
 /**
-The outermost cell of the rendered sponge. The haze hides everything past half of it at the largest
-render scale, so its outer faces never show.
+The outermost cell of the rendered sponge. The depth haze hides everything past a small part of
+it at the largest render scale, so its outer faces never show.
 */
 const spongeHalfSize = 3 ** 5;
-/** The camera looks at the corner from outside it, in a three-quarter view with lit faces. */
-const view = { elevation: 20, halfHeight: 2.6, tan: 0.45, yaw: -120 };
-/** After the first pull back the target sits this fraction of the way from the corner to the cube center. */
-const targetToCube = 0.35;
+/** Orthographic, in a three-quarter view with lit faces, framed on the first cube. */
+const view = { elevation: 20, halfHeight: 2.6, yaw: -120 };
 
 /**
-Haze at the first frame and after the lift, in camera scale units: the air is clear out to
-`clearTo`, the haze turns even over the next two `width`s, and it thickens by `density` per unit.
-At the first frame the haze hides the sponge a little past the cube.
+Depth haze behind the focal plane, in zoom scale units: it starts past `start`, turns even over
+`width`, and thickens by `density` per unit. In this view the corner is the nearest point, so the
+haze thickens away from it on every side.
 */
-const firstHaze = { clearTo: 6.3, density: 2, width: 0.35 };
-const liftedHaze = { clearTo: 6, density: 0.1, width: 3 };
+const depthHaze = { density: 0.3, start: 1.5, width: 1.5 };
 
 /**
-Log base 3 of the dolly scale. The speed rises from 0 by a smoothstep over `speedUpSeconds` and then
-stays at one threefold pull back per period.
+The clearing around the first cube. At the first frame a thick veil hides everything outside the
+cube. The veil thins while the zoom log runs over `lift`, so the whole structure comes out of the
+haze together. The wide fade radius, in zoom scale units, is `10 ^ (widen.start + widen.growth *
+(zoomLog - widen.from) ^ 1.5)` past `widen.from`. Past `clearingGoneAt` the fade is far wider than
+the depth haze reach, and the clearing is dropped, so the zoom repeats exactly.
 */
-export function readPullbackLog(time: number): number {
+const lift = { from: 0.35, to: 1.9, veil: 8 };
+const widen = { from: 1.2, growth: 2.5, start: 0.5 };
+/** The veil edge, in first cube sizes: it keeps the cube outline antialiased. */
+const veilEdge = 0.04;
+export const clearingGoneAt = 2.8;
+
+/**
+Log base 3 of the zoom scale. The speed rises from 0 by a smoothstep over `speedUpSeconds` and then
+stays at one threefold zoom out per period.
+*/
+export function readZoomLog(time: number): number {
   if (time >= speedUpSeconds) {
     return (time - speedUpSeconds / 2) / pullbackPeriod;
   }
@@ -52,20 +59,17 @@ export function readPullbackLog(time: number): number {
 }
 
 /**
-The camera at dolly scale `scale`. The camera and its target scale about the corner, so the corner
-stays in place on screen. The sponge is the same after a threefold scale about the corner, so the
-picture at `scale` and at `3 * scale` is the same.
+The orthographic camera at zoom scale `scale`. The frame and the target scale about the corner, so
+the corner stays in place on screen. The sponge is the same after a threefold scale about the corner,
+so the picture at `scale` and at `3 * scale` is the same.
 */
-function cameraAt(scale: number, scaleLog: number) {
-  // The target starts at the cube center and moves toward the corner during the first pull back, so
-  // the corner, which stays in place on screen, ends near the frame center.
-  const toCube = mix(1, targetToCube, smoothstep(0, 1, scaleLog)) * scale;
+function cameraAt(scale: number) {
   return orbitCamera(
     {
       elevation: view.elevation,
       halfHeight: view.halfHeight * scale,
-      tan: view.tan,
-      target: [corner[0] + toCube, corner[1] - toCube, corner[2] + toCube],
+      tan: 0,
+      target: [corner[0] + scale, corner[1] - scale, corner[2] + scale],
       yaw: view.yaw,
     },
     120 * scale,
@@ -74,29 +78,38 @@ function cameraAt(scale: number, scaleLog: number) {
 
 /**
 The frame at `time`. The render scale stays between 1 and 3: the frame drops the whole number of
-threefold pull backs, the same one for the shutter open and close, so the move can run on with no
-loss of precision. The shutter is half a frame long and centered on `time`.
+threefold zooms, the same one for the shutter open and close, so the zoom can run on with no loss of
+precision. The first cube shrinks by the same factor in the render frame. The shutter is half a
+frame long and centered on `time`.
 */
 export function readEndlessPullbackFrame(time: number, sampleGrid: number): IllusionStudyFrame {
   const halfShutter = 0.25 / endlessPullbackFps;
-  const scaleLog = readPullbackLog(time);
-  const wholePeriods = Math.floor(scaleLog);
-  const cameraAtTime = (at: number) =>
-    cameraAt(3 ** (readPullbackLog(at) - wholePeriods), readPullbackLog(at));
-  const scale = 3 ** (scaleLog - wholePeriods);
-  const camera = cameraAtTime(time);
-  const lift = smoothstep(0, hazeLiftPeriods, scaleLog);
+  const zoomLog = readZoomLog(time);
+  const wholePeriods = Math.floor(zoomLog);
+  const renderScale = (at: number) => 3 ** (readZoomLog(at) - wholePeriods);
+  const scale = renderScale(time);
+  const camera = cameraAt(scale);
   const light = keyLight(camera, 0.045 * scale, 1);
-  const width = mix(firstHaze.width, liftedHaze.width, lift);
+  const cubeScale = 3 ** -wholePeriods;
+  const gone = zoomLog >= clearingGoneAt;
+  const widening = Math.max(zoomLog - widen.from, 0) ** 1.5;
+  const veil = lift.veil * (1 - smoothstep(lift.from, lift.to, zoomLog));
   return {
-    cameras: [cameraAtTime(time - halfShutter), cameraAtTime(time + halfShutter)],
+    cameras: [cameraAt(renderScale(time - halfShutter)), cameraAt(renderScale(time + halfShutter))],
     grain: 0.024,
     grainStep: Math.floor(Math.round(time * 30) / 2),
     haze: {
-      // The density falls by the same factor in equal steps of the lift, so the haze thins evenly.
-      density: (firstHaze.density * (liftedHaze.density / firstHaze.density) ** lift) / scale,
-      start: (mix(firstHaze.clearTo, liftedHaze.clearTo, lift) + 2 * width) * scale,
-      width: width * scale,
+      clearing: {
+        center: [corner[0] + cubeScale, corner[1] - cubeScale, corner[2] + cubeScale],
+        edge: veilEdge * 2 * cubeScale,
+        halfSize: cubeScale,
+        radius: gone ? 1e9 : 10 ** (widen.start + widen.growth * widening) * scale,
+        veil: gone ? 0 : veil,
+      },
+      density: depthHaze.density / scale,
+      // The rays start `rayStart` in front of the focal plane.
+      start: camera.rayStart + depthHaze.start * scale,
+      width: depthHaze.width * scale,
     },
     light: {
       ambient: light.ambient,
@@ -104,6 +117,8 @@ export function readEndlessPullbackFrame(time: number, sampleGrid: number): Illu
       aoStrength: 1,
       direction: light.direction,
       key: light.key,
+      // As in the film: no limit below the brightest possible shade.
+      shadeLimit: light.ambient + light.key,
       shadowStrength: 1,
     },
     sampleGrid,

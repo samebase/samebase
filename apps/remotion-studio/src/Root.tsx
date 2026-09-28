@@ -24,7 +24,6 @@ import {
 } from "./compositions/illusion-studies/endlessPullbackTimeline";
 import {
   StudyCubeOrHole,
-  StudyCubeOrHoleStill,
   StudyEndlessPullback,
 } from "./compositions/illusion-studies/IllusionStudies";
 import { LogoHype, logoHypeDurationInFrames, logoHypeFps } from "./compositions/logo-hype/LogoHype";
@@ -203,20 +202,6 @@ export function RemotionRoot() {
         height={1080}
         width={1920}
       />
-      {(["plain", "mark"] as const).flatMap((block) =>
-        (["hole", "cube"] as const).map((notch) => (
-          <Composition
-            id={`StudyCubeOrHoleStill-${block}-${notch}`}
-            component={StudyCubeOrHoleStill}
-            defaultProps={{ block, notch }}
-            durationInFrames={1}
-            fps={cubeOrHoleFps}
-            height={1080}
-            key={`${block}-${notch}`}
-            width={1920}
-          />
-        )),
-      )}
       <Composition
         id="SamebaseFilmV3Portrait"
         component={SamebaseFilmV3}
