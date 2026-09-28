@@ -144,6 +144,12 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "aws-eu-west-1"
+                      },
+                      {
+                        "const": "aws-ca-central-1"
+                      },
+                      {
+                        "const": "aws-ap-southeast-2"
                       }
                     ]
                   }

@@ -184,7 +184,12 @@ describe("MCP tool listing access", () => {
             githubOwnerLogin: { type: "string" },
             githubRepositoryName: { type: "string" },
             convexDeploymentRegion: {
-              anyOf: [{ const: "aws-us-east-1" }, { const: "aws-eu-west-1" }],
+              anyOf: [
+                { const: "aws-us-east-1" },
+                { const: "aws-eu-west-1" },
+                { const: "aws-ca-central-1" },
+                { const: "aws-ap-southeast-2" },
+              ],
             },
             cloudflareBuildTokenUuid: {
               anyOf: [{ type: "string" }, { type: "null" }],

@@ -3,8 +3,8 @@ import { linkStyle } from "@/components/styles";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  CONVEX_DEPLOYMENT_REGIONS,
   CONVEX_EU_WEST_REGION,
+  CONVEX_US_EAST_REGION,
   formatConvexDeploymentRegionLabel,
   parseConvexDeploymentRegion,
   type ConvexDeploymentRegion,
@@ -46,7 +46,8 @@ export function ConvexDeploymentRegionField({
           </SelectValue>
         </SelectTrigger>
         <AppSelectContent>
-          {CONVEX_DEPLOYMENT_REGIONS.map((region) => (
+          {/* The API enum also includes regions not yet released in the Convex dashboard. */}
+          {([CONVEX_US_EAST_REGION, CONVEX_EU_WEST_REGION] as const).map((region) => (
             <AppSelectItem key={region} value={region}>
               {formatConvexDeploymentRegionLabel(region)}
             </AppSelectItem>
