@@ -48,8 +48,6 @@ export type IllusionStudyFrame = {
     /** Unit vector toward the key light. */
     direction: Vector3;
     key: number;
-    /** Sharpness of the cast shadow edge: 8 is the soft film shadow. */
-    shadowHardness: number;
     /** The shade never passes this: 1 keeps every face at or below its own tone. */
     shadeLimit: number;
     /** 0 draws no cast shadow. */
@@ -77,13 +75,12 @@ export type IllusionStudyFrame = {
         /**
         A real cube in a room corner: the far three walls of the box of half size `halfSize` at
         `center`, as seen along `signs` (the key view direction toward the camera, one sign per
-        axis), and a cube of half the box size that floats `lift` out of the far corner along the key
-        view on every axis. The walls are `wall` thick, and their outer edges are cut along the key
-        view, so in the key view no edge shows a rim.
+        axis), and a cube of half the box size that rests in the far corner. The walls are `wall`
+        thick, and their outer edges are cut along the key view, so in the key view no edge shows a
+        rim.
         */
         center: Vector3;
         halfSize: number;
-        lift: number;
         signs: Vector3;
         wall: number;
       };
@@ -117,7 +114,6 @@ const StudyState = d.struct({
   aoScale: d.f32,
   aoStrength: d.f32,
   shadeLimit: d.f32,
-  shadowHardness: d.f32,
   shadowStrength: d.f32,
   hazeDensity: d.f32,
   hazeStart: d.f32,
@@ -139,7 +135,6 @@ const StudyState = d.struct({
   roomSigns: d.vec3f,
   roomHalf: d.f32,
   roomWall: d.f32,
-  roomLift: d.f32,
   boundsCenter: d.vec3f,
   boundsHalf: d.vec3f,
   xTone: d.vec3f,
@@ -212,7 +207,6 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         roomHalf: inert.size,
         roomSigns: inert.point,
         roomWall: inert.size,
-        roomLift: 0,
         spongeHalf: halfSize,
       };
     }
@@ -231,12 +225,11 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         roomHalf: inert.size,
         roomSigns: inert.point,
         roomWall: inert.size,
-        roomLift: 0,
         spongeHalf: inert.size,
       };
     }
     case "room": {
-      const { center, halfSize, lift, signs, wall } = scene;
+      const { center, halfSize, signs, wall } = scene;
       return {
         blockHalf: inert.size,
         boundsCenter: vector(center),
@@ -250,7 +243,6 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         roomHalf: halfSize,
         roomSigns: vector(signs),
         roomWall: wall,
-        roomLift: lift,
         spongeHalf: inert.size,
       };
     }
@@ -315,7 +307,7 @@ export async function createIllusionStudyRenderer(
 
   /**
   The room corner in box coordinates `q`, where the camera side is +q on every axis: the walls lie
-  just past the far faces at q = -half, the cube floats out of the far corner, and the prism of the box
+  just past the far faces at q = -half, the cube rests in the far corner, and the prism of the box
   outline along the key view (the largest minus the smallest coordinate at most twice the half size)
   cuts the wall edges.
   */
@@ -342,10 +334,7 @@ export async function createIllusionStudyRenderer(
       ),
     );
     const prism = (std.max(q.x, q.y, q.z) - std.min(q.x, q.y, q.z) - 2 * half) / Math.SQRT2;
-    const cube = boxDistance(
-      std.sub(q, d.vec3f(state.$.roomLift - half * 0.5)),
-      d.vec3f(half * 0.5),
-    );
+    const cube = boxDistance(std.add(q, d.vec3f(half * 0.5)), d.vec3f(half * 0.5));
     return std.min(std.max(walls, prism), cube);
   };
 
@@ -383,12 +372,18 @@ export async function createIllusionStudyRenderer(
   const softShadow = (origin: d.v3f, threshold: number): number => {
     "use gpu";
     const aoScale = state.$.aoScale;
+    // The sponge keeps the soft film shadow. The plain scenes use a hard edge: their shadows lie
+    // exactly behind the faces that cast them in the key view, and a soft edge would show a rim there.
+    let hardness = d.f32(8);
+    if (state.$.mode > 0) {
+      hardness = 400;
+    }
     let light = d.f32(1);
     let distance = aoScale * 0.5;
     for (let step = 0; step < 56; step += 1) {
       // Shadow rays see openings below four pixels as solid, so a fine grid casts no moire.
       const sample = sceneSample(std.add(origin, std.mul(state.$.light, distance)), threshold * 4);
-      light = std.min(light, (state.$.shadowHardness * sample) / distance);
+      light = std.min(light, (hardness * sample) / distance);
       distance += std.clamp(sample, aoScale * 0.25, aoScale * 8);
       if (light < 0.002) {
         break;
@@ -609,7 +604,6 @@ export async function createIllusionStudyRenderer(
         right: vector(camera.right),
         sampleGrid: frame.sampleGrid,
         shadeLimit: light.shadeLimit,
-        shadowHardness: light.shadowHardness,
         shadowStrength: light.shadowStrength,
         skyBottom: vector(sky[1]),
         skyTop: vector(sky[0]),

@@ -119,7 +119,6 @@ export function readEndlessPullbackFrame(time: number, sampleGrid: number): Illu
       key: light.key,
       // As in the film: no limit below the brightest possible shade.
       shadeLimit: light.ambient + light.key,
-      shadowHardness: 8,
       shadowStrength: 1,
     },
     sampleGrid,

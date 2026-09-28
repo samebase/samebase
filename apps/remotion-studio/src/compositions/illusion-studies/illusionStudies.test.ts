@@ -55,6 +55,8 @@ describe("cube or hole", () => {
     }
     expect(swaps).toEqual([swapFrame + 1]);
     expect(readSwing(swapFrame / cubeOrHoleFps)).toBeCloseTo(0, 9);
+    expect(readSwing((swapFrame - 1) / cubeOrHoleFps)).toBeGreaterThan(0);
+    expect(readSwing((swapFrame + 1) / cubeOrHoleFps)).toBeLessThan(0);
   });
 
   test("stays orthographic and rests at the key view at both ends, so the clip loops", () => {
