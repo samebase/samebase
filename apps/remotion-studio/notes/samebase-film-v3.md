@@ -40,17 +40,17 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 
 ## Shots
 
-| Time         | Picture                                                                                                                                                                                                                        | Words                                            |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| 0 to 2       | Pink field. SAME and BASE fill the frame in blue. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.                                                                | SAME, BASE                                       |
-| 2 to 9.5     | Three drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion were always there. The words slide off in parallax.                                                                            | None                                             |
-| 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                                         | None                                             |
-| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic.                                                                                                                                      | None                                             |
-| 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                                               | GitHub. Convex. Cloudflare.                      |
-| 17.5 to 21   | The fourth direction on the lift: four faces (below). They open, hold with a slow turn in the picture plane, and close back into the cube at 21.0 on the close sound.                                                          | Delete your Samebase account.                    |
-| 21 to 25.5   | The camera keeps orbiting as if nothing happened.                                                                                                                                                                              | Your app doesn't notice.                         |
-| 25.5 to 32.5 | Match cut: the cube is the corner cell of a depth 5 Menger sponge. The camera backs away from the corner to a wide low view, outside the sponge, in blue haze. The woken region grows from the corner cell across the surface. | Every app on the same base. Samebase too.        |
-| 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                                       | Same base. Your accounts. No magic. samebase.com |
+| Time         | Picture                                                                                                                                                                                                                                  | Words                                            |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 0 to 2       | Pink field. SAME and BASE fill the frame in blue. The mark sits in front of them, head on and orthographic. A cursor enters and presses on the downbeat at 2.0.                                                                          | SAME, BASE                                       |
+| 2 to 9.5     | Three drags. The camera orbits with a dolly into real perspective. Light, shadow, and occlusion were always there. The words slide off in parallax.                                                                                      | None                                             |
+| 9.5 to 12.5  | Hover: the cursor draws a slow figure eight over the faces. Deeper channels open under it and close behind it, as on the landing hero.                                                                                                   | None                                             |
+| 12.5 to 14.5 | The cursor leaves. The camera eases to the exact isometric view and back to orthographic.                                                                                                                                                | None                                             |
+| 14.5 to 17.5 | Stillness in the near silence. One word per beat under the cube.                                                                                                                                                                         | GitHub. Convex. Cloudflare.                      |
+| 17.5 to 21   | The fourth direction on the lift: four faces (below). They open, hold with a slow turn in the picture plane, and close back into the cube at 21.0 on the close sound.                                                                    | Delete your Samebase account.                    |
+| 21 to 24.3   | The camera turns a little, then pushes in on the upper front face while the first shuffle move slides the bottom middle cell up into the mark opening.                                                                                   | Your app doesn't notice.                         |
+| 24.3 to 32.5 | One continuous pull back: the cube is the front center cell of a Menger structure, level after level, whose cells slide with the same move at every scale. The camera turns to see the whole shuffled sponge from outside, in blue haze. | Every app on the same base. Samebase too.        |
+| 32.5 to 42   | End card: the solid turns in and settles head on as the flat mark when samebase.com lands at 36.75. The music rings out.                                                                                                                 | Same base. Your accounts. No magic. samebase.com |
 
 ## Fourth direction: the two prototypes
 
@@ -78,6 +78,25 @@ The sound effects (`samebase-film-v3-drag`, `-reveal`, `-lift`, `-close`) come f
 
 A is in the film. With one-third beams, each tesseract cell is nearly solid, so the outer cell hides
 the inner cube and the frustum cells from most views, and mid-turn the solid reads as a bent box.
+
+## The shuffle pull back (v3.2)
+
+The landing shuffle moves one cell at a time along a face axis into the free slot next to it, in 1.8
+s with a cubic ease in and out, and every cell repeats the same move inside itself at the same time.
+`readShuffle` holds the Menger layout from `MENGER_SPONGE_VOXEL_STATE` and four moves around the
+front ring: the first fills the mark opening from below. The plan fails closed at load if a move
+leaves an empty slot, enters a filled slot, or overlaps the move before it. Moves run one at a time,
+because each move enters the slot that the move before it left.
+
+The renderer draws the shuffled sponge as one distance field (mode 2): the descent follows the one
+cell that holds the point, and the other cell boxes of each level bound the distance. From 13.5 s,
+inside the settle turn, the cube uses this field, with the same geometry as before. The cube joins
+the giant at 24.3 s while its solid upper front face fills the whole frame: every pixel is the
+cube's own geometry, the neighbors lie flush in the same plane, and they cannot shadow or occlude
+the face, so the change has no visible effect. The field turns blue in the same frame. The giant is
+three levels above the cube, with the cube at the center of its front face. Occlusion and self
+shadow fade as the camera pulls back, because the cell boxes bound the distance loosely near cell
+borders, and cells below two pixels stay solid, so no moire shows.
 
 ## Rules
 

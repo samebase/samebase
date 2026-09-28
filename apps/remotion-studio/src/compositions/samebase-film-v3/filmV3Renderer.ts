@@ -30,6 +30,11 @@ const SceneState = d.struct({
   ambient: d.f32,
   key: d.f32,
   aoScale: d.f32,
+  /**
+  How much occlusion and self shadow darken the object. The giant keeps less of both, because its
+  cell boxes bound the distance loosely near cell borders.
+  */
+  shadeStrength: d.f32,
   /** 0 is the Menger sponge and 1 is the tesseract frame. */
   mode: d.i32,
   spongeCenter: d.vec3f,
@@ -42,6 +47,14 @@ const SceneState = d.struct({
   revealRadius: d.f32,
   openness: d.f32,
   tesseractHalfExtent: d.vec3f,
+  /** Levels of the shuffled sponge: the top cell splits this many times. */
+  shuffleDepth: d.i32,
+  /** The cell in flight at every level, in slot units of its parent: centers from and to. */
+  moveFrom: d.vec3f,
+  moveTo: d.vec3f,
+  /** Eased progress of the move in flight. */
+  moveProgress: d.f32,
+  moveActive: d.i32,
   floorHeight: d.f32,
   /** 0 hides the floor shadow. It fades out near a level camera, where the floor turns edge on. */
   floorStrength: d.f32,
@@ -264,6 +277,11 @@ export async function createFilmV3Renderer(
   const sceneState = root.createUniform(SceneState);
   const compositeState = root.createUniform(CompositeState);
   const beamState = root.createUniform(d.arrayOf(d.vec4f, BEAM_COUNT * 2));
+  /**
+  1 for each of the 27 slots that holds a resting cell, x first, then y, then z, four slots per
+  vector: a uniform array needs a 16 byte stride.
+  */
+  const slotState = root.createUniform(d.arrayOf(d.vec4f, 7));
 
   /**
   The landing hero opening: a channel below the rest depth opens by the smoothstep of its closeness
@@ -422,12 +440,106 @@ export async function createFilmV3Renderer(
     return best;
   };
 
+  const slotFilled = (slot: number): number => {
+    "use gpu";
+    // @ts-expect-error A WGSL array read has no undefined case, and every index is below 7.
+    const group = d.vec4f(slotState.$[d.i32(slot / 4)]);
+    const lane = slot % 4;
+    if (lane === 0) {
+      return group.x;
+    }
+    if (lane === 1) {
+      return group.y;
+    }
+    if (lane === 2) {
+      return group.z;
+    }
+    return group.w;
+  };
+
+  /** Center of slot `slot` in the unit cell: each coordinate is -2/3, 0, or 2/3. */
+  const slotCenter = (slot: number): d.v3f => {
+    "use gpu";
+    const index = d.f32(slot);
+    const z = std.floor(index / 9);
+    const y = std.floor((index - z * 9) / 3);
+    const x = index - z * 9 - y * 3;
+    return std.mul(std.sub(d.vec3f(x, y, z), d.vec3f(1)), 2 / 3);
+  };
+
+  const cellBoxDistance = (point: d.v3f, center: d.v3f): number => {
+    "use gpu";
+    const delta = std.sub(std.abs(std.sub(point, center)), d.vec3f(1 / 3));
+    return std.length(std.max(delta, d.vec3f(0))) + std.min(std.max(delta.x, delta.y, delta.z), 0);
+  };
+
+  /**
+  The shuffled sponge, after the landing shuffle: every cell splits into the same 27 slots, the
+  resting cells fill their slots, and one cell slides between two slots. The same move runs inside
+  every cell at every level at the same time. The descent follows the one cell that holds the point;
+  the other cell boxes of each level bound the distance, so a march never skips a neighbor.
+  */
+  const shuffleDistance = (point: d.v3f, threshold: number): number => {
+    "use gpu";
+    const state = sceneState.$;
+    let local = std.div(std.sub(point, state.spongeCenter), state.spongeHalfSize);
+    let scale = d.f32(state.spongeHalfSize);
+    // Far outside, the top cell box bounds the distance. Near it, the cell boxes do, so an opening
+    // at the top cell face stays open.
+    const outside = unitBoxDistance(local) * scale;
+    if (outside > scale * 0.3) {
+      return outside;
+    }
+    const moving = std.mix(state.moveFrom, state.moveTo, state.moveProgress);
+    let best = d.f32(1000000);
+    for (let level = 0; level < MAXIMUM_MENGER_DEPTH; level += 1) {
+      // Cells below two pixels stay solid: smaller openings only alias at grazing angles.
+      if (level >= state.shuffleDepth || scale / 3 < threshold * 2) {
+        break;
+      }
+      let inside = d.bool(false);
+      let insideCenter = d.vec3f(0);
+      let others = d.f32(1000000);
+      if (state.moveActive === 1) {
+        const distance = cellBoxDistance(local, moving);
+        if (distance <= 0) {
+          inside = true;
+          insideCenter = d.vec3f(moving);
+        } else {
+          others = distance;
+        }
+      }
+      for (let slot = 0; slot < 27; slot += 1) {
+        if (slotFilled(slot) > 0.5) {
+          const center = slotCenter(slot);
+          const distance = cellBoxDistance(local, center);
+          if (distance <= 0 && !inside) {
+            inside = true;
+            insideCenter = d.vec3f(center);
+          } else {
+            others = std.min(others, distance);
+          }
+        }
+      }
+      best = std.min(best, others * scale);
+      if (!inside) {
+        return best;
+      }
+      local = std.mul(std.sub(local, insideCenter), 3);
+      scale = scale / 3;
+    }
+    return std.min(best, unitBoxDistance(local) * scale);
+  };
+
   /** Distance and material in world units. */
   const sceneSample = (point: d.v3f, threshold: number): d.v2f => {
     "use gpu";
     const state = sceneState.$;
     if (state.mode === 1) {
       return d.vec2f(tesseractDistance(point), 1);
+    }
+    if (state.mode === 2) {
+      return d.vec2f(shuffleDistance(point, threshold), 1);
     }
     const local = std.div(std.sub(point, state.spongeCenter), state.spongeHalfSize);
     const sample = mengerSample(local, threshold / state.spongeHalfSize);
@@ -460,7 +572,8 @@ export async function createFilmV3Renderer(
     let light = d.f32(1);
     let distance = state.aoScale * 0.5;
     for (let step = 0; step < 56; step += 1) {
-      const sample = sceneSample(std.add(origin, std.mul(state.light, distance)), threshold).x;
+      // Shadow rays see openings below four pixels as solid, so a fine grid of openings casts no moire.
+      const sample = sceneSample(std.add(origin, std.mul(state.light, distance)), threshold * 4).x;
       light = std.min(light, (8 * sample) / distance);
       distance += std.clamp(sample, state.aoScale * 0.25, state.aoScale * 8);
       if (light < 0.002 || distance > state.rayEnd) {
@@ -554,9 +667,17 @@ export async function createFilmV3Renderer(
       const facing = std.max(std.dot(normal, state.light), 0);
       let shadow = d.f32(1);
       if (facing > 0) {
-        shadow = softShadow(std.add(hitPoint, std.mul(normal, threshold * 2)), threshold);
+        shadow = std.mix(
+          1,
+          softShadow(std.add(hitPoint, std.mul(normal, threshold * 2)), threshold),
+          state.shadeStrength,
+        );
       }
-      const occlusion = ambientOcclusion(hitPoint, normal, threshold);
+      const occlusion = std.mix(
+        1,
+        ambientOcclusion(hitPoint, normal, threshold),
+        state.shadeStrength,
+      );
       const shade = state.ambient * occlusion + state.key * facing * shadow;
       const haze = 1 - std.exp(-std.max(distance - state.hazeStart, 0) * state.hazeDensity);
       const color = std.mix(std.mul(tone, shade), state.hazeColor, haze);
@@ -820,10 +941,11 @@ export async function createFilmV3Renderer(
       drawOverlay(pageContext, frame);
       overlayTexture.write(pageCanvas);
 
-      const { camera, faces, floor, haze, light, sponge, tesseract, tones } = frame.scene;
+      const { camera, faces, floor, haze, light, shuffle, sponge, tesseract, tones } = frame.scene;
       sceneState.write({
         ambient: light.ambient,
         aoScale: light.aoScale,
+        shadeStrength: light.shadeStrength,
         aspectRatio: canvas.width / canvas.height,
         back: vector(camera.back),
         depth: sponge.depth,
@@ -835,7 +957,12 @@ export async function createFilmV3Renderer(
         hazeStart: haze.start,
         key: light.key,
         light: vector(light.direction),
-        mode: frame.scene.mode === "tesseract" ? 1 : 0,
+        mode: frame.scene.mode === "tesseract" ? 1 : frame.scene.mode === "shuffle" ? 2 : 0,
+        moveActive: shuffle.move ? 1 : 0,
+        moveFrom: vector(shuffle.move?.from ?? [0, 0, 0]),
+        moveProgress: shuffle.move?.progress ?? 0,
+        moveTo: vector(shuffle.move?.to ?? [0, 0, 0]),
+        shuffleDepth: shuffle.depth,
         openness: sponge.openness,
         pixelSize: 2 / canvas.height,
         probe: vector(sponge.probe),
@@ -856,6 +983,16 @@ export async function createFilmV3Renderer(
         zTone: vector(tones.z),
       });
       beamState.write(tesseract.joints.map(([x, y, z, half]) => d.vec4f(x, y, z, half)));
+      slotState.write(
+        Array.from({ length: 7 }, (_, group) =>
+          d.vec4f(
+            shuffle.slots[group * 4] ?? 0,
+            shuffle.slots[group * 4 + 1] ?? 0,
+            shuffle.slots[group * 4 + 2] ?? 0,
+            shuffle.slots[group * 4 + 3] ?? 0,
+          ),
+        ),
+      );
       const turned = (angle: number) => angle + faces.turn;
       const [topStart, leftStart, newStart, rightStart] = faces.boundaries;
       compositeState.write({

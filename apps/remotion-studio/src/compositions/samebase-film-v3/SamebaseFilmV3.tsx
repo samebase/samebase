@@ -73,5 +73,6 @@ const soundCues = [
   { at: 4.85, name: "drag", volume: 0.24 },
   { at: 9.45, name: "reveal", volume: 0.5 },
   { at: 17.38, name: "lift", volume: 0.62 },
+  { at: 22.3, name: "drag", volume: 0.28 },
   { at: 20.8, name: "close", volume: 0.5 },
 ] as const;

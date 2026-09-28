@@ -1,3 +1,9 @@
+import {
+  easeLogoShuffleProgress,
+  LOGO_SHUFFLE_MOVE_DURATION_MS,
+} from "@samebase/logo-model/shuffle";
+import { isWithinVoxelGrid, MENGER_SPONGE_VOXEL_STATE, voxelKey } from "@samebase/logo-model/voxel";
+
 export const filmV3Fps = 30;
 export const filmV3DurationInSeconds = 42;
 /** The beat clips replay the film from the settle to the orbit after the fourth direction. */
@@ -43,8 +49,21 @@ export type FilmV3Scene = {
   };
   floor: { height: number; strength: number };
   haze: { color: Rgb; density: number; start: number };
-  light: { ambient: number; aoScale: number; direction: Vector3; key: number };
-  mode: "sponge" | "tesseract";
+  light: {
+    ambient: number;
+    aoScale: number;
+    direction: Vector3;
+    key: number;
+    shadeStrength: number;
+  };
+  mode: "shuffle" | "sponge" | "tesseract";
+  shuffle: {
+    depth: number;
+    /** The cell in flight, as slot centers in its parent cell, with the eased progress. */
+    move: { from: Vector3; progress: number; to: Vector3 } | null;
+    /** 1 for each slot that holds a resting cell, x first, then y, then z. */
+    slots: readonly number[];
+  };
   sponge: {
     center: Vector3;
     depth: number;
@@ -145,6 +164,10 @@ function smoothstep(edge0: number, edge1: number, value: number): number {
   return amount * amount * (3 - 2 * amount);
 }
 
+function easeInCubic(value: number): number {
+  return value ** 3;
+}
+
 function easeOutCubic(value: number): number {
   return 1 - (1 - value) ** 3;
 }
@@ -235,7 +258,7 @@ function floorStrengthAt(elevation: number): number {
 }
 
 /** The camera-fixed key light: upper left and toward the viewer. */
-function keyLight(camera: FilmV3Camera, aoScale: number) {
+function keyLight(camera: FilmV3Camera, aoScale: number, shadeStrength: number) {
   const local: Vector3 = normalize([-0.5, 0.78, 0.58]);
   const direction = normalize(
     add(
@@ -245,7 +268,7 @@ function keyLight(camera: FilmV3Camera, aoScale: number) {
   );
   const ambient = 0.6;
   // A face that looks at the camera gets exactly its tone, so frame 0 is the flat mark.
-  return { ambient, aoScale, direction, key: (1 - ambient) / local[2] };
+  return { ambient, aoScale, direction, key: (1 - ambient) / local[2], shadeStrength };
 }
 
 /** Entry point of the pixel ray into the box of half size `half` at the origin, as unit coordinates. */
@@ -344,7 +367,8 @@ export const beats = {
   lift: 17.5,
   collapse: 20,
   resume: 21,
-  scale: 25.5,
+  /** The cube joins the giant while its front face fills the frame. */
+  reveal: 24.3,
   end: 32.5,
   url: 36.75,
 } as const;
@@ -364,7 +388,6 @@ function readOrbit(time: number): Orbit {
     { at: 8.3, ease: easeInOutSine, to: -16, until: 9.5 },
     { at: 9.5, ease: easeInOutSine, to: -28, until: 12.5 },
     { at: 12.5, ease: easeInOutCubic, to: iso.yaw, until: 14.4 },
-    { at: beats.resume, ease: easeInOutSine, to: -118, until: 25.6 },
   ]);
   const elevation = keyed(time, 0, [
     { at: 2, ease: easeInOutSine, to: 24, until: 4.6 },
@@ -372,17 +395,14 @@ function readOrbit(time: number): Orbit {
     { at: 8.3, ease: easeInOutSine, to: 20, until: 9.5 },
     { at: 9.5, ease: easeInOutSine, to: 26, until: 12.5 },
     { at: 12.5, ease: easeInOutCubic, to: iso.elevation, until: 14.4 },
-    { at: beats.resume, ease: easeInOutSine, to: 22, until: 25.6 },
   ]);
   const tan = keyed(time, 0, [
     { at: 2, ease: easeInOutCubic, to: 0.42, until: 3.6 },
     { at: 12.5, ease: easeInOutCubic, to: 0, until: 14.3 },
-    { at: beats.resume, ease: easeInOutCubic, to: 0.36, until: 24.6 },
   ]);
   const halfHeight = keyed(time, 2.8, [
     { at: 2, ease: easeInOutCubic, to: 2.35, until: 3.6 },
     { at: 12.5, ease: easeInOutCubic, to: 2.9, until: 14.3 },
-    { at: beats.resume, ease: easeInOutCubic, to: 2.6, until: 24.6 },
   ]);
   return { elevation, halfHeight, tan, target: [0, 0, 0], yaw };
 }
@@ -544,7 +564,7 @@ function readTexts(time: number, format: FilmV3Format) {
   backdrop.push(
     ...stack(
       [[{ at: 21.25, text: "Your app" }], [{ at: 21.4, text: "doesn't notice." }]],
-      25.2,
+      22.7,
       time,
       lower,
     ),
@@ -701,54 +721,140 @@ function readTesseract(time: number) {
   };
 }
 
-/**
-The giant: a depth 5 sponge whose (-x, +y, -z) corner cell is the cube, so the match cut keeps the
-cube in place and the camera finds the giant around it.
-*/
-const giantLevels = 5;
-const giantHalfSize = 3 ** (giantLevels - 1);
-const giantCenter: Vector3 = [giantHalfSize - 1, -(giantHalfSize - 1), giantHalfSize - 1];
+// ---------- the shuffle ----------
 
-function readGiant(time: number, format: FilmV3Format) {
-  const local = time - beats.scale;
-  // The camera backs straight away from the corner cell, so it never nears the surface.
-  const pull = easeInOutCubic(progress(local, 0, 2.8));
-  const drift = easeInOutSine(progress(local, 0, 7));
-  const logHalfHeight = mix(Math.log(2.6), Math.log(30), pull);
-  const halfHeight = Math.exp(logHalfHeight);
-  const yaw = -118 - 12 * pull + 7 * drift;
-  const elevation = 22 - 13 * pull + 2 * drift;
-  // Screen offset of the corner: left of center and a little low, so the sky holds the words.
-  const right: Vector3 = [Math.cos(yaw * degrees), 0, -Math.sin(yaw * degrees)];
-  const offset = pull * halfHeight;
-  const orbit: Orbit = {
-    elevation,
-    halfHeight,
-    tan: mix(0.36, 0.74, pull),
-    target: add(scale(right, (format === "portrait" ? 0.22 : 0.58) * offset), [
-      0,
-      (format === "portrait" ? -0.1 : 0.2) * offset,
-      0,
-    ]),
-    yaw,
+type Slot = readonly [number, number, number];
+
+/**
+The Menger layout of the landing shuffle: the 20 filled slots of `MENGER_SPONGE_VOXEL_STATE`, x first,
+then y, then z. Its 7 empty slots are the vacancies.
+*/
+const mengerSlots: readonly number[] = MENGER_SPONGE_VOXEL_STATE.split("-").flatMap((layer) =>
+  layer.split("_").flatMap((row) => row.split("").map((cell) => (cell === "x" ? 1 : 0))),
+);
+
+function slotIndex([x, y, z]: Slot): number {
+  return x + y * 3 + z * 9;
+}
+
+function slotCenter([x, y, z]: Slot): Vector3 {
+  return [((x - 1) * 2) / 3, ((y - 1) * 2) / 3, ((z - 1) * 2) / 3];
+}
+
+/**
+One move at a time around the front ring (z = 2 is the front layer), as in the landing shuffle: a
+cell slides along one face axis into the free slot next to it. The first move fills the mark
+opening from below, so every later front face is solid at its center.
+*/
+const shuffleMoves: readonly { at: number; from: Slot; to: Slot }[] = [
+  { at: 22.4, from: [1, 0, 2], to: [1, 1, 2] },
+  { at: 24.6, from: [0, 0, 2], to: [1, 0, 2] },
+  { at: 26.6, from: [0, 1, 2], to: [0, 0, 2] },
+  { at: 28.6, from: [0, 2, 2], to: [0, 1, 2] },
+];
+const moveDuration = LOGO_SHUFFLE_MOVE_DURATION_MS / 1000;
+
+// Fail closed on a plan that breaks the shuffle rules: each move leaves a filled slot for the free
+// slot next to it along one axis, and starts after the move before it ends.
+shuffleMoves.reduce((slots, { at, from, to }, index) => {
+  const steps = from.map((value, axis) => Math.abs(value - (to[axis] ?? value)));
+  const previous = shuffleMoves[index - 1];
+  if (
+    slots[slotIndex(from)] !== 1 ||
+    slots[slotIndex(to)] !== 0 ||
+    steps.reduce((sum, step) => sum + step, 0) !== 1 ||
+    !isWithinVoxelGrid(3, ...to) ||
+    (previous && previous.at + moveDuration > at)
+  ) {
+    throw new Error(`Shuffle move ${voxelKey(...from)} to ${voxelKey(...to)} breaks the rules`);
+  }
+  return slots.map((filled, slot) =>
+    slot === slotIndex(from) ? 0 : slot === slotIndex(to) ? 1 : filled,
+  );
+}, mengerSlots);
+
+/** The resting slots and the cell in flight at `time`. The same state holds inside every cell. */
+function readShuffle(time: number) {
+  let slots = mengerSlots;
+  let move: FilmV3Scene["shuffle"]["move"] = null;
+  for (const { at, from, to } of shuffleMoves) {
+    if (time < at) {
+      break;
+    }
+    slots = slots.map((filled, slot) => (slot === slotIndex(from) ? 0 : filled));
+    if (time < at + moveDuration) {
+      move = {
+        from: slotCenter(from),
+        progress: easeLogoShuffleProgress((time - at) / moveDuration),
+        to: slotCenter(to),
+      };
+    } else {
+      slots = slots.map((filled, slot) => (slot === slotIndex(to) ? 1 : filled));
+    }
+  }
+  return { move, slots };
+}
+
+/**
+Levels above the cube in the giant. The cube is the front center cell of the front center cell of
+each level, because the first move fills that slot at every level, so it sits at the center of the
+giant front face.
+*/
+const giantLevels = 3;
+const giantHalfSize = 3 ** giantLevels;
+const giantCenter: Vector3 = [0, 0, 1 - giantHalfSize];
+
+/**
+From the four faces to the giant. The camera turns a little, then pushes in on the upper front face
+while the first move closes the mark opening. At the reveal the frame holds only the solid upper
+front face of the cube, so the cube can join the giant there with no visible change. From that frame
+one continuous pull back shows the cube as one cell of the giant, level after level, and turns to
+see the giant from outside.
+*/
+function readShuffleOrbit(time: number, format: FilmV3Format): Orbit {
+  const settle = easeInOutSine(progress(time, beats.resume, 22.9));
+  const push = easeInCubic(progress(time, 22.9, beats.reveal));
+  const pullTime = progress(time, beats.reveal, beats.end - 0.2);
+  const pull = 1 - (1 - pullTime) ** 2;
+  const turn = easeInOutSine(progress(time, 24.9, beats.end - 0.2));
+  if (time < beats.reveal) {
+    const faceTarget: Vector3 = [0, 0.35 * push, push];
+    return {
+      elevation: mix(mix(iso.elevation, 24, settle), 0, push),
+      halfHeight: Math.exp(mix(Math.log(mix(2.9, 2.7, settle)), Math.log(0.45), push)),
+      tan: mix(mix(0, 0.3, settle), 0.15, push),
+      target: faceTarget,
+      yaw: mix(mix(iso.yaw, -30, settle), 0, push),
+    };
+  }
+  const giantTarget: Vector3 = [0, 0, giantCenter[2]];
+  return {
+    elevation: 27 * turn,
+    halfHeight: Math.exp(mix(Math.log(0.45), Math.log(40), pull)),
+    tan: 0.15 + 0.35 * pull,
+    target: [
+      mix(0, giantTarget[0], turn),
+      // The feed cut is taller: the giant sits lower, so the words keep the sky.
+      mix(0.35, giantTarget[1] + (format === "portrait" ? 15 : 0), turn),
+      mix(1, giantTarget[2], turn),
+    ],
+    yaw: -40 * turn,
   };
-  // The woken region grows from the cube's corner cell across the giant surface.
-  const revealRadius = mix(0.3, 0.95, easeInOutSine(progress(local, 1.2, 6.8)));
-  return { camera: orbitCamera(orbit, giantHalfSize * 5), revealRadius };
 }
 
 export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Frame {
   const { format, fourthDirection, height, sampleGrid, width } = options;
   const frameIndex = Math.round(time * filmV3Fps);
   // The feed cut is narrower, so its orbit frames the cube a little smaller.
-  const baseOrbit = readOrbit(time);
+  const baseOrbit =
+    time >= beats.resume && time < beats.end ? readShuffleOrbit(time, format) : readOrbit(time);
   const orbit = {
     ...baseOrbit,
     halfHeight: baseOrbit.halfHeight * (format === "portrait" ? 1.2 : 1),
   };
   const cursor = readCursor(time, orbit, width, height);
   const texts = readTexts(time, format);
-  const inScale = time >= beats.scale && time < beats.end;
+  const inGiant = time >= beats.reveal && time < beats.end;
   const inEnd = time >= beats.end;
 
   let camera = orbitCamera(orbit, 6);
@@ -765,6 +871,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
   let haze: FilmV3Scene["haze"] = { color: field, density: 0, start: 0 };
   let floor = { height: -1, strength: floorStrengthAt(orbit.elevation) };
   let aoScale = 0.045;
+  let shadeStrength = 1;
   let mode: FilmV3Scene["mode"] = "sponge";
   let faces: FilmV3Scene["faces"] = restFaces;
   let tesseract: FilmV3Scene["tesseract"] = {
@@ -782,7 +889,14 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     }
   }
 
-  if (time >= beats.lift && time < beats.scale) {
+  // After the hover, the cube is the shuffled sponge. The switch hides in the settle turn.
+  const shuffleState = readShuffle(time);
+  let shuffle: FilmV3Scene["shuffle"] = { depth: 1, ...shuffleState };
+  if (time >= 13.5 && time < beats.end) {
+    mode = "shuffle";
+  }
+
+  if (time >= beats.lift && time < beats.resume + 1.6) {
     if (fourthDirection === "fan") {
       const fourFaces = readFaces(time, orbit.halfHeight, width, height);
       faces = fourFaces.faces;
@@ -812,22 +926,16 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     }
   }
 
-  if (inScale) {
-    const giant = readGiant(time, format);
-    camera = giant.camera;
+  if (inGiant) {
+    camera = orbitCamera(orbit, giantHalfSize * 5);
     field = inks.blue;
-    sponge = {
-      center: giantCenter,
-      depth: giantLevels,
-      halfSize: giantHalfSize,
-      openness: 1,
-      probe: [0, 1, 0],
-      restDepth: 2,
-      revealRadius: giant.revealRadius,
-    };
-    haze = { color: field, density: 0.009, start: camera.rayStart + 12 };
+    shuffle = { depth: giantLevels + 1, ...shuffleState };
+    sponge = { ...sponge, center: giantCenter, halfSize: giantHalfSize };
+    const far = progress(time, 27, beats.end);
+    haze = { color: field, density: 0.0028 * far, start: camera.rayStart + 40 };
     floor = { height: -1, strength: 0 };
-    aoScale = 0.045 * (camera.halfHeight / 2.6);
+    aoScale = 0.045 * Math.max(1, camera.halfHeight / 2.6);
+    shadeStrength = 1 - 0.7 * smoothstep(1, 6, camera.halfHeight);
   }
 
   if (inEnd) {
@@ -851,7 +959,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
   const shadowTint = field === inks.blue ? hex(0x6d6aa8) : ([0.62, 0.45, 0.66] as const);
   return {
     backdropTexts: texts.backdrop,
-    cursor: inScale || inEnd ? { pressed: 0, visible: 0, x: 0, y: 0 } : cursor,
+    cursor: inGiant || inEnd ? { pressed: 0, visible: 0, x: 0, y: 0 } : cursor,
     field,
     frameIndex,
     grain: 0.024,
@@ -862,8 +970,9 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
       faces,
       floor,
       haze,
-      light: keyLight(camera, aoScale),
+      light: keyLight(camera, aoScale, shadeStrength),
       mode,
+      shuffle,
       sponge,
       tesseract,
       tones: landingTones,
