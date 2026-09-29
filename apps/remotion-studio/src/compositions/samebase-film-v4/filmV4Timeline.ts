@@ -307,12 +307,17 @@ const cornerOnScreen = { x: 0.42, y: -0.25 } as const;
 const spongeHalfSize = 3 ** 5;
 /** One threefold zoom out takes this long at full speed. */
 const pullbackPeriod = 2.4;
+/**
+The zoom out speeds up from rest over this long. The zoom in slows to rest the same way, so the turn
+at the deepest point reads as one breath and not as a stop.
+*/
+const zoomOutSpeedUp = 1.2;
 /** Detail floors, in first cube units: the cube keeps one or three levels of channels. */
 export const detailFloors = { oneLevel: 0.19, threeLevels: 0.0214 } as const;
 
 function zoomSpeed(elapsed: number, slowAfter: number): number {
   return (
-    (smoothstep(0, pullbackPeriod, elapsed) / pullbackPeriod) *
+    (smoothstep(0, zoomOutSpeedUp, elapsed) / pullbackPeriod) *
     mix(1, 0.4, smoothstep(slowAfter, slowAfter + 3, elapsed))
   );
 }
