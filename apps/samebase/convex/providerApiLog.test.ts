@@ -6,17 +6,25 @@ describe("formatProviderApiCallLogMessage", () => {
   it("shows endpoint templates and redacts identifiers, PII, and secrets", () => {
     const message = formatProviderApiCallLogMessage({
       provider: "Cloudflare",
-      method: "post",
-      endpoint: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
+      method: "patch",
+      endpoint: "/accounts/{account_id}/builds/workers/{script_tag}",
       values: {
         body: {
-          CONVEX_DEPLOY_KEY: {
-            value: "secret-key",
-            is_secret: true,
+          production_settings: {
+            environment_variables: {
+              CONVEX_DEPLOY_KEY: {
+                value: "secret-key",
+                is_secret: true,
+              },
+            },
           },
-          PREVIEW_CONVEX_DEPLOY_KEY: {
-            value: "preview-secret-key",
-            is_secret: true,
+          previews_base_config: {
+            environment_variables: {
+              CONVEX_DEPLOY_KEY: {
+                value: "preview-secret-key",
+                is_secret: true,
+              },
+            },
           },
           build_command: "pnpm run build",
           private: true,
@@ -24,17 +32,18 @@ describe("formatProviderApiCallLogMessage", () => {
         params: {
           path: {
             account_id: "abc123",
-            trigger_uuid: "trigger-123",
+            script_tag: "worker-123",
           },
+          query: { patch_existing_previews: "true" },
         },
       },
     });
 
     expect(message).toContain(
-      "API Cloudflare POST /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values=",
+      "API Cloudflare PATCH /accounts/{account_id}/builds/workers/{script_tag} values=",
     );
     expect(message).toContain('"CONVEX_DEPLOY_KEY":"[secret]"');
-    expect(message).toContain('"PREVIEW_CONVEX_DEPLOY_KEY":"[secret]"');
+    expect(message.match(/"CONVEX_DEPLOY_KEY":"\[secret\]"/g)).toHaveLength(2);
     expect(message).toContain('"account_id":"[redacted]"');
     expect(message).toContain('"build_command":"pnpm run build"');
     expect(message).not.toContain("secret-key");

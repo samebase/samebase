@@ -42,6 +42,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 });
 
 import { api } from "../_generated/api";
+import { CloudflareApiError } from "../cloudflareApi/client";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 afterEach(() => {
@@ -69,7 +70,7 @@ beforeEach(() => {
 });
 
 describe("repository provider observations", () => {
-  it("observes current Worker names and the Convex production region", async () => {
+  it("keeps Worker names and the Convex region available when Builds settings cannot be read", async () => {
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
 
@@ -247,39 +248,10 @@ describe("repository provider observations", () => {
             },
           ];
         }
-        throw new Error(`Unexpected Cloudflare request: ${request.path}`);
-      },
-    );
-    cloudflareMocks.requestCloudflareApi.mockImplementation(
-      async (request: { params?: { path?: Record<string, string> } }) => {
-        const workerTag = request.params?.path?.["external_script_id"];
-        if (!workerTag) {
-          throw new Error("Build request is missing its Worker tag.");
+        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+          throw new CloudflareApiError({ method: "GET", path: request.path, details: [] });
         }
-        return [
-          true,
-          [
-            {
-              build_uuid: `${workerTag}-build`,
-              status: "stopped",
-              build_outcome: "success",
-              created_on: "2026-08-15T08:00:00Z",
-              stopped_on: "2026-08-15T08:01:00Z",
-              build_trigger_metadata: {
-                branch: "main",
-                root_directory: "apps/live",
-                deploy_command: "pnpm run deploy",
-              },
-              trigger: {
-                trigger_uuid: `${workerTag}-production`,
-                external_script_id: workerTag,
-                root_directory: "apps/live",
-                deploy_command: "pnpm run deploy",
-                repo_connection: { repo_id: "github-repository" },
-              },
-            },
-          ],
-        ];
+        throw new Error(`Unexpected Cloudflare request: ${request.path}`);
       },
     );
     convexMocks.requestConvexManagementApi.mockResolvedValue([
@@ -343,17 +315,12 @@ describe("repository provider observations", () => {
       api.repository.providerObservations.observeCloudflareWorkerBuilds,
       { repositoryId: ids.repositoryId },
     );
-    expect(observation).toMatchObject({
-      state: "available",
+    expect(observation).toEqual({
+      state: "failed",
       workerId: ids.firstWorkerId,
-      builds: {
-        productionBuild: {
-          state: "available",
-          logsUrl:
-            "https://dash.cloudflare.com/cloudflare-account/workers/services/view/domain-router/production/builds/domain-router-tag-build",
-        },
-      },
+      reason: "request_failed",
     });
+    expect(cloudflareMocks.requestCloudflareApi).not.toHaveBeenCalled();
     await expect(
       viewer.action(api.repository.providerObservations.observeConvexProjects, {
         repositoryId: ids.repositoryId,

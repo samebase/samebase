@@ -336,13 +336,11 @@ describe("buildProductionEnvironmentRoots", () => {
               builds: {
                 state: "available",
                 productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
               },
             },
             builds: {
               state: "connected",
               productionTriggerUuid: "production-trigger",
-              previewTriggerUuid: "preview-trigger",
               productionBuildTokenUuid: "build-token",
               previewBuildTokenUuid: "build-token",
               productionBuild: {
@@ -593,7 +591,6 @@ describe("buildProductionEnvironmentRoots", () => {
             builds: {
               state: "connected",
               productionTriggerUuid: "samebase-production-trigger",
-              previewTriggerUuid: "samebase-preview-trigger",
               productionBuildTokenUuid: "samebase-build-token",
               previewBuildTokenUuid: "samebase-build-token",
               productionBuild: {
@@ -3011,7 +3008,6 @@ describe("buildRepositorySettingsState", () => {
               builds: {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid,
                 previewBuildTokenUuid,
                 productionBuild: { state: "unavailable", reasons: ["request_failed"] },
@@ -3387,13 +3383,11 @@ describe("buildRepositorySettingsState", () => {
                 builds: {
                   state: "available",
                   productionTriggerUuid: "production-trigger",
-                  previewTriggerUuid: "preview-trigger",
                 },
               },
               builds: {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
                 productionBuild: { state: "absent" },
@@ -3651,13 +3645,11 @@ describe("buildRepositorySettingsState", () => {
                 builds: {
                   state: "available",
                   productionTriggerUuid: "production-trigger",
-                  previewTriggerUuid: "preview-trigger",
                 },
               },
               builds: {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
                 productionBuild: { state: "unavailable", reasons: ["request_failed"] },

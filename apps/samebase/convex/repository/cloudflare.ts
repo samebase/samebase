@@ -98,7 +98,6 @@ type CloudflareActionConnection = {
 const vPreparedCloudflareWorkerBuilds = object({
   rootDirectory: string(),
   production: object({ triggerUuid: string() }),
-  preview: object({ triggerUuid: string() }),
 });
 type PreparedCloudflareWorkerBuilds = Infer<typeof vPreparedCloudflareWorkerBuilds>;
 type CloudflareWorkerBuildPreparation =
@@ -510,8 +509,7 @@ export async function attachExistingCloudflareWorkersForUser(
           token: resolved.connection.token,
           transport: resolved.connection.transport,
           accountId: resolved.account.accountId,
-          productionTriggerUuid: discovery.builds.productionTriggerUuid,
-          previewTriggerUuid: discovery.builds.previewTriggerUuid,
+          workerTag: identity.workerTag,
         });
       }
       return {
@@ -939,13 +937,12 @@ async function prepareConvexDeployKeyRotation(
     });
     if (discovery.state !== "ready" || discovery.builds.state !== "available") {
       throw new Error(
-        "Configure this Worker's GitHub Builds triggers before rotating Convex deploy keys.",
+        "Enable Worker Previews in Cloudflare and complete the starter changelog migration before rotating Convex deploy keys.",
       );
     }
     build = {
       rootDirectory: discovery.rootDirectory,
       production: { triggerUuid: discovery.builds.productionTriggerUuid },
-      preview: { triggerUuid: discovery.builds.previewTriggerUuid },
     };
   } else {
     build = buildPreparation.build;
@@ -1858,7 +1855,6 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
     return {
       rootDirectory: build.rootDirectory,
       production: { triggerUuid: build.production.triggerUuid },
-      preview: { triggerUuid: build.preview.triggerUuid },
     };
   },
 });

@@ -67,12 +67,9 @@ JSON Schema for the tool's `structuredContent`:
                           },
                           "productionTriggerUuid": {
                             "type": "string"
-                          },
-                          "previewTriggerUuid": {
-                            "type": "string"
                           }
                         },
-                        "required": ["state", "productionTriggerUuid", "previewTriggerUuid"],
+                        "required": ["state", "productionTriggerUuid"],
                         "additionalProperties": false
                       },
                       {

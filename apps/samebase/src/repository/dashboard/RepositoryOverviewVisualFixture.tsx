@@ -621,13 +621,11 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
           builds: {
             state: "available",
             productionTriggerUuid: "fixture-production-trigger",
-            previewTriggerUuid: "fixture-preview-trigger",
           },
         },
         builds: {
           state: "connected",
           productionTriggerUuid: "fixture-production-trigger",
-          previewTriggerUuid: "fixture-preview-trigger",
           productionBuildTokenUuid: "fixture-build-token",
           previewBuildTokenUuid: "fixture-build-token",
           productionBuild: {
