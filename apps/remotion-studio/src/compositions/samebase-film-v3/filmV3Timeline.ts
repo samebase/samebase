@@ -67,6 +67,8 @@ export type FilmV3Scene = {
     slots: readonly number[];
   };
   sponge: {
+    /** 1 anchors each opening toward the probe side of its parent hole, 0 centers it. */
+    anchorToProbe: number;
     center: Vector3;
     depth: number;
     halfSize: number;
@@ -936,6 +938,7 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
 
   let camera = orbitCamera(orbit, 6);
   let sponge: FilmV3Scene["sponge"] = {
+    anchorToProbe: 1,
     center: [0, 0, 0],
     depth: 3,
     halfSize: 1,

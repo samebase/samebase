@@ -44,8 +44,8 @@ const SceneState = d.struct({
   key: d.f32,
   aoScale: d.f32,
   /**
-  How much occlusion and self shadow darken the object. The giant keeps less of both, because its
-  cell boxes bound the distance loosely near cell borders.
+  How much self shadow darkens the object. The giant keeps less of it, because its cell boxes bound
+  the distance loosely near cell borders.
   */
   shadeStrength: d.f32,
   /** 0 is the Menger sponge and 1 is the tesseract frame. */
@@ -59,6 +59,8 @@ const SceneState = d.struct({
   probe: d.vec3f,
   revealRadius: d.f32,
   openness: d.f32,
+  /** 1 anchors each opening toward the probe side of its parent hole, 0 centers it. */
+  anchorToProbe: d.f32,
   tesseractHalfExtent: d.vec3f,
   /** Levels of the shuffled sponge: the top cell splits this many times. */
   shuffleDepth: d.i32,
@@ -331,7 +333,8 @@ export async function createFilmV3Renderer(
       return 1000;
     }
     const holeSize = 1 / (3 * scale);
-    const absoluteDelta = std.abs(channelDelta);
+    const anchorDelta = std.mul(channelDelta, sceneState.$.anchorToProbe);
+    const absoluteDelta = std.abs(anchorDelta);
     const totalDelta = absoluteDelta.x + absoluteDelta.y;
     let weightA = d.f32(0.5);
     if (totalDelta > 0) {
@@ -339,7 +342,7 @@ export async function createFilmV3Renderer(
       weightA = 0.5 + (absoluteDelta.x / totalDelta - 0.5) * directionalBlend;
     }
     const anchor = std.clamp(
-      std.sub(d.vec2f(0.5), std.div(channelDelta, holeSize)),
+      std.sub(d.vec2f(0.5), std.div(anchorDelta, holeSize)),
       d.vec2f(0),
       d.vec2f(1),
     );
@@ -606,7 +609,7 @@ export async function createFilmV3Renderer(
     return d.vec2f(sample.x * state.spongeHalfSize, sample.y);
   };
 
-  /** The distance that normals and occlusion read: the same, but near cells only in the shuffle. */
+  /** The distance that normals read: the same, but near cells only in the shuffle. */
   const shadingSample = (point: d.v3f, threshold: number): number => {
     "use gpu";
     if (sceneState.$.mode === 2) {
@@ -635,7 +638,7 @@ export async function createFilmV3Renderer(
     return std.normalize(sum);
   };
 
-  const softShadow = (origin: d.v3f, threshold: number): number => {
+  const keyShadow = (origin: d.v3f, threshold: number): number => {
     "use gpu";
     const state = sceneState.$;
     let light = d.f32(1);
@@ -643,27 +646,14 @@ export async function createFilmV3Renderer(
     for (let step = 0; step < 56; step += 1) {
       // Shadow rays see openings below four pixels as solid, so a fine grid of openings casts no moire.
       const sample = sceneSample(std.add(origin, std.mul(state.light, distance)), threshold * 4).x;
-      light = std.min(light, (8 * sample) / distance);
+      // A hard edge: the shadow is the exact outline of its caster, with no soft penumbra.
+      light = std.min(light, (400 * sample) / distance);
       distance += std.clamp(sample, state.aoScale * 0.25, state.aoScale * 8);
       if (light < 0.002 || distance > state.rayEnd) {
         break;
       }
     }
     return std.clamp(light, 0, 1);
-  };
-
-  const ambientOcclusion = (point: d.v3f, normal: d.v3f, threshold: number): number => {
-    "use gpu";
-    const state = sceneState.$;
-    let occlusion = d.f32(0);
-    let weight = d.f32(1);
-    for (let sample = 1; sample <= 5; sample += 1) {
-      const offset = state.aoScale * d.f32(sample);
-      const distance = shadingSample(std.add(point, std.mul(normal, offset)), threshold);
-      occlusion += (weight * (offset - distance)) / state.aoScale;
-      weight *= 0.62;
-    }
-    return std.clamp(1 - 0.28 * occlusion, 0, 1);
   };
 
   /** One sample at `screenPoint`, `shutter` of the way from the shutter open to its close. */
@@ -748,16 +738,12 @@ export async function createFilmV3Renderer(
       if (facing > 0) {
         shadow = std.mix(
           1,
-          softShadow(std.add(hitPoint, std.mul(normal, threshold * 2)), threshold),
+          keyShadow(std.add(hitPoint, std.mul(normal, threshold * 2)), threshold),
           state.shadeStrength,
         );
       }
-      const occlusion = std.mix(
-        1,
-        ambientOcclusion(hitPoint, normal, threshold),
-        state.shadeStrength,
-      );
-      const shade = state.ambient * occlusion + state.key * facing * shadow;
+      // Every face is one flat tone: no occlusion darkens holes, corners, or contacts.
+      const shade = state.ambient + state.key * facing * shadow;
       // The haze has the sky color behind the pixel, so it lowers the coverage. Near the cube the
       // giant is clear out to `hazeClear`, and past `hazeHidden` the haze hides it. The distance is
       // taken a pixel further along the ray, so a neighbor face that lies on a cube face plane, such
@@ -780,9 +766,7 @@ export async function createFilmV3Renderer(
       const floorDistance = (state.floorHeight - origin.y) / rayDirection.y;
       const floorPoint = std.add(origin, std.mul(rayDirection, floorDistance));
       const floorThreshold = footprintStart;
-      const shadow = softShadow(floorPoint, floorThreshold);
-      const contact = std.clamp(sceneSample(floorPoint, floorThreshold).x / 0.9, 0, 1);
-      floor = std.mix(1, shadow * (0.55 + 0.45 * std.sqrt(contact)), state.floorStrength);
+      floor = std.mix(1, keyShadow(floorPoint, floorThreshold), state.floorStrength);
     }
     return TraceSample({ color: d.vec3f(0), coverage: 0, floor, toneShade: d.vec3f(0) });
   };
@@ -1133,6 +1117,7 @@ export async function createFilmV3Renderer(
       const [moveA = resting, moveB = resting, moveC = resting] = shuffle.moves;
       sceneState.write({
         ambient: light.ambient,
+        anchorToProbe: sponge.anchorToProbe,
         aoScale: light.aoScale,
         shadeStrength: light.shadeStrength,
         aspectRatio: canvas.width / canvas.height,

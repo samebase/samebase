@@ -42,10 +42,13 @@ between the two renderers happen only while both pictures are the same.
 - `c`: mark to solid, local reveal, endless pull back. The surface opens inward, then the camera
   pulls outward and finds the same pattern at every larger scale: one idea, in and out.
 
+- `look`: look again. The moves of A in one shot that ends on its own first frame: the zoom out
+  goes on while the camera turns back to the front view, and the giant shrinks into the flat mark.
+
 The cube or hole move is in no cut: a Menger cube and its mold look different at the key view,
 because the mold shows the ends of its channels, which the cube hides.
 */
-export type FilmV4Variant = "a" | "b" | "c";
+export type FilmV4Variant = "a" | "b" | "c" | "look";
 
 /** How the new face of the fourth face move opens. */
 export type FourthFold = FilmV3Scene["faces"]["fold"];
@@ -57,7 +60,7 @@ needle twice the face side before it widens.
 */
 export const filmFold: FourthFold = "leaf";
 
-export const filmV4Seconds = { a: 38.5, b: 28, c: 25 } as const satisfies Record<
+export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 30 } as const satisfies Record<
   FilmV4Variant,
   number
 >;
@@ -92,6 +95,7 @@ function grainStepAt(time: number): number {
 // ---------- the film renderer: the cube ----------
 
 const restSponge = {
+  anchorToProbe: 1,
   center: [0, 0, 0],
   depth: 3,
   halfSize: 1,
@@ -217,12 +221,15 @@ function filmFrame(read: (time: number) => FilmV3Scene, time: number): FilmV3Fra
   };
 }
 
+/** The frame half height of the flat mark, in cube half sizes. */
+const markHalfHeight = 2.8;
+
 /** Move 1: head on, the solid reads as the flat mark, and a turn shows that it is solid. */
 function markTurn(time: number, turnStart: number, to: View, turnEnd: number): View {
   const turn = easeInOutSine(progress(time, turnStart, turnEnd));
   return {
     elevation: mix(0, to.elevation, turn),
-    halfHeight: mix(2.8, to.halfHeight, turn),
+    halfHeight: mix(markHalfHeight, to.halfHeight, turn),
     yaw: mix(0, to.yaw, turn),
   };
 }
@@ -270,8 +277,10 @@ function revealSponge(
   const leave = easeInOutSine(progress(time, start + 0.6, start + 1.6));
   const angle = easeInOutSine(progress(time, start + 0.6, spread)) * Math.PI * 2 * 0.85;
   // The loop stays well inside the cube outline, so the probe is always the point on the surface.
-  const x = mix(rest.x, size.width / 2 + Math.sin(angle * 2) * 150 - 60, leave);
-  const y = mix(rest.y, size.height / 2 - Math.sin(angle) * 120 + 20, leave);
+  // Its size is in pixels of the 1080 line frame.
+  const unit = size.height / 1080;
+  const x = mix(rest.x, size.width / 2 + (Math.sin(angle * 2) * 150 - 60) * unit, leave);
+  const y = mix(rest.y, size.height / 2 + (20 - Math.sin(angle) * 120) * unit, leave);
   const probe =
     leave > 0 ? (probeAt(camera, size.width, size.height, x, y, 1) ?? firstOpening) : firstOpening;
   return {
@@ -536,8 +545,8 @@ const a = {
 /** The shuffle of the v3 orbit, one second earlier. */
 const shuffleMovesA = orbitMoves.map((move) => ({ ...move, at: move.at - 1 }));
 
-function readViewA(time: number): View {
-  const turned = markTurn(time, a.turn[0], { elevation: 24, halfHeight: 2.5, yaw: -52 }, a.turn[1]);
+function readViewA(time: number, turnStart: number): View {
+  const turned = markTurn(time, turnStart, { elevation: 24, halfHeight: 2.5, yaw: -52 }, a.turn[1]);
   return {
     elevation: keyed(time, turned.elevation, [
       { at: a.turn[1], ease: easeInOutSine, to: 27, until: a.shuffle },
@@ -560,7 +569,7 @@ function readCubeA(
   mode: CubeShot["mode"],
   fold: FourthFold,
 ): FilmV3Scene {
-  const view = readViewA(time);
+  const view = readViewA(time, a.turn[0]);
   const dive = easeInOutSine(progress(time, a.dive.start, a.dive.deep));
   let sponge: FilmV3Scene["sponge"] = revealSponge(time, view, size, a.reveal);
   if (time >= a.settle) {
@@ -730,6 +739,178 @@ function readFilmV4C(time: number, size: Size): FilmV4Frame {
   };
 }
 
+// ---------- variant look: look again ----------
+
+/**
+Look plays the music of A up to the end of its phrase at 33.5 s, so the loop starts the track again
+on a phrase. The moves up to the zoom out are those of A, and the mark holds only 0.3 s, because the
+landing at the end holds 0.2 s before the loop.
+*/
+const look = {
+  turnStart: 0.3,
+  /** The camera starts to turn back to the front view while the zoom out goes on. */
+  turnBack: 22.6,
+  /** The camera lands on the flat mark of the first frame and holds it to the end. */
+  landed: 29.8,
+} as const;
+
+/**
+The giant: a Menger sponge two levels above the cube, whose (-x, +y, +z) corner cell is the cube.
+At the front view with the frame half height of the mark, its front face is the flat mark.
+*/
+const giant = { center: add(corner, scale(octant, 9)), halfSize: 9 } as const;
+
+/** Threefold zooms from the deepest point to the frame of the mark around the giant. */
+const lookZoomEnd = Math.log((markHalfHeight * giant.halfSize) / deepHalfHeight) / Math.log(3);
+
+/**
+Levels of the giant close in turn as they shrink, each opening to its center: first the channels of
+the cube size cells, then those of the next level, so the landing shows the level of the mark only.
+The spans are in threefold zooms.
+*/
+const giantCloses = { cells: [1.9, 2.6], blocks: [2.75, 3.3] } as const;
+
+/**
+The zoom speed after `elapsed` seconds of the zoom out: it speeds up from rest as in A and slows to
+rest over the last 3.5 seconds, where the camera lands on the mark.
+*/
+function lookZoomSpeed(elapsed: number, span: number): number {
+  return smoothstep(0, zoomOutSpeedUp, elapsed) * (1 - smoothstep(span - 3.5, span, elapsed));
+}
+
+/** Integral of the zoom speed with the midpoint rule. */
+function lookZoomIntegral(elapsed: number, span: number): number {
+  const steps = Math.max(Math.ceil(elapsed * 240), 1);
+  const step = elapsed / steps;
+  let sum = 0;
+  for (let index = 0; index < steps; index += 1) {
+    sum += lookZoomSpeed((index + 0.5) * step, span) * step;
+  }
+  return sum;
+}
+
+const lookZoomSpan = look.landed - a.dive.out;
+const lookZoomTotal = lookZoomIntegral(lookZoomSpan, lookZoomSpan);
+
+/** Threefold zooms out since the deepest point. */
+function lookZoomAt(time: number): number {
+  const elapsed = Math.min(time - a.dive.out, lookZoomSpan);
+  return elapsed <= 0 ? 0 : (lookZoomEnd * lookZoomIntegral(elapsed, lookZoomSpan)) / lookZoomTotal;
+}
+
+/**
+One frame of the zoom out is in giant units while the giant has more levels than the mark, and in
+cube units from the frame where only the level of the mark is left: there the giant and the rest
+cube scaled by 9 about the giant center are the same scene, so the change does not show.
+*/
+function lookPullScene(at: number, zoomAtFrame: number): FilmV3Scene {
+  const zoom = lookZoomAt(at);
+  const turn = easeInOutSine(progress(at, look.turnBack, look.landed));
+  const halfHeight = deepHalfHeight * 3 ** zoom;
+  const target = add(scale(corner, 1 - turn), scale(giant.center, turn));
+  const inMark = zoomAtFrame >= giantCloses.blocks[1];
+  const origin = inMark ? giant.center : ([0, 0, 0] as const);
+  const unit = inMark ? giant.halfSize : 1;
+  const camera = orbitCamera(
+    {
+      elevation: mix(iso.elevation, 0, turn),
+      halfHeight: halfHeight / unit,
+      tan: 0,
+      target: scale(add(target, scale(origin, -1)), 1 / unit),
+      yaw: mix(iso.yaw, 0, turn),
+    },
+    (6 * giant.halfSize) / unit,
+  );
+  const cellsOpen = 1 - easeInOutSine(progress(zoomAtFrame, ...giantCloses.cells));
+  const blocksOpen = 1 - easeInOutSine(progress(zoomAtFrame, ...giantCloses.blocks));
+  const sponge: FilmV3Scene["sponge"] = inMark
+    ? restSponge
+    : {
+        ...restSponge,
+        anchorToProbe: 0,
+        center: giant.center,
+        halfSize: giant.halfSize,
+        revealRadius: fullRevealRadius,
+        // While the cube size cells close, the two levels above them stay open; then only the
+        // level of the mark stays open while the next one closes.
+        ...(cellsOpen > 0
+          ? { depth: 3, openness: cellsOpen, restDepth: 2 }
+          : { depth: 2, openness: blocksOpen, restDepth: 1 }),
+      };
+  return {
+    camera,
+    faces: closedFaces,
+    floor: { height: -1, strength: 0 },
+    haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
+    // The shadow march scales with the frame once the frame is larger than the mark.
+    light: keyLight(camera, (0.045 * Math.max(1, halfHeight / markHalfHeight)) / unit, 1),
+    mode: "sponge",
+    shuffle: restShuffle,
+    sponge,
+    tesseract: unusedTesseract,
+    tones: landingTones,
+  };
+}
+
+function readCubeLook(
+  at: number,
+  frameTime: number,
+  size: Size,
+  mode: CubeShot["mode"],
+  fold: FourthFold,
+): FilmV3Scene {
+  if (frameTime >= look.landed) {
+    return readCubeLook(0, 0, size, mode, fold);
+  }
+  if (frameTime >= a.dive.swap) {
+    return lookPullScene(at, lookZoomAt(frameTime));
+  }
+  const view = readViewA(at, look.turnStart);
+  const dive = easeInOutSine(progress(at, a.dive.start, a.dive.deep));
+  let sponge: FilmV3Scene["sponge"] = revealSponge(at, view, size, a.reveal);
+  if (at >= a.settle) {
+    sponge = {
+      ...restSponge,
+      anchorToProbe: 0,
+      openness: 1 - easeInOutCubic(progress(at, a.settle + 0.1, a.settle + 0.8)),
+      revealRadius: fullRevealRadius,
+    };
+  }
+  return cubeScene({
+    dive,
+    faces: fourthFaces(at, a.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
+    floor: 1 - easeInOutSine(progress(at, a.lift, a.lift + unfoldSeconds)),
+    mode,
+    shuffle: { depth: 3, moveMinLevel: 0, ...readShuffle(at, shuffleMovesA) },
+    sponge,
+    view,
+  });
+}
+
+function readFilmV4Look(time: number, size: Size, fold: FourthFold): FilmV4Frame {
+  const cube = (mode: CubeShot["mode"]) => {
+    const frame = filmFrame((at) => readCubeLook(at, time, size, mode, fold), time);
+    // The landing is the first frame, grain included.
+    return time >= look.landed ? { ...frame, grainStep: grainStepAt(0) } : frame;
+  };
+  return {
+    layers: stackAt(time, [
+      { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube("sponge"), opacity) },
+      {
+        fade: 0.1,
+        from: a.shuffle - 0.05,
+        layer: (opacity) => filmLayer("film-shuffle", cube("shuffle"), opacity),
+      },
+      {
+        fade: 0.1,
+        from: a.settle - 0.05,
+        layer: (opacity) => filmLayer("film", cube("sponge"), opacity),
+      },
+    ]),
+    texts: [],
+  };
+}
+
 export function readFilmV4Frame(
   variant: FilmV4Variant,
   time: number,
@@ -743,6 +924,8 @@ export function readFilmV4Frame(
       return readFilmV4B(time, size, fold);
     case "c":
       return readFilmV4C(time, size);
+    case "look":
+      return readFilmV4Look(time, size, fold);
     default:
       return variant satisfies never;
   }

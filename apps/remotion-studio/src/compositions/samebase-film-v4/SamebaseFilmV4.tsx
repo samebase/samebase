@@ -19,7 +19,7 @@ import {
 import { createFilmV3Renderer } from "../samebase-film-v3/filmV3Renderer";
 import { drawText, waitForFilmV3Fonts } from "../samebase-film-v3/filmV3Page";
 import type { FilmV3Frame, FilmV3Text } from "../samebase-film-v3/filmV3Timeline";
-import { filmV4Fps, type FilmV4Variant, type FourthFold, readFilmV4Frame } from "./filmV4Timeline";
+import { type FilmV4Variant, type FourthFold, readFilmV4Frame } from "./filmV4Timeline";
 
 function FilmLayer({ frame, opacity }: { frame: FilmV3Frame; opacity: number }) {
   const { height, width } = useVideoConfig();
@@ -97,6 +97,10 @@ const music: Record<FilmV4Variant, readonly MusicCut[]> = {
     { at: 8.5, from: 17.5, to: 25.5 },
     { at: 16.5, from: 33.5, to: 42 },
   ],
+  look: [
+    { at: 0, from: 0, to: 14 },
+    { at: 14, from: 17.5, to: 33.5 },
+  ],
 };
 
 /** Sound effects, placed so that each peak lands on its picture hit, as in v3.5. */
@@ -116,19 +120,26 @@ const soundCues: Record<FilmV4Variant, readonly { at: number; name: string; volu
     { at: 0.4, name: "drag", volume: 0.3 },
     { at: 3.15, name: "reveal", volume: 0.45 },
   ],
+  look: [
+    { at: 0.2, name: "drag", volume: 0.3 },
+    { at: 3.15, name: "reveal", volume: 0.45 },
+    { at: 13.88, name: "lift", volume: 0.62 },
+    { at: 17.5, name: "close", volume: 0.5 },
+  ],
 };
 
 const fadeFrames = 2;
 
 function MusicCutAudio({ cut, fadeOut, from }: { cut: MusicCut; fadeOut: boolean; from: number }) {
-  const length = Math.round((cut.to - cut.from) * filmV4Fps);
+  const { fps } = useVideoConfig();
+  const length = Math.round((cut.to - cut.from) * fps);
   const fadeIn = cut.at > 0;
   return (
-    <Sequence durationInFrames={length} from={Math.round((cut.at - from) * filmV4Fps)}>
+    <Sequence durationInFrames={length} from={Math.round((cut.at - from) * fps)}>
       <Audio
         src={staticFile("media/samebase-film-v3.mp3")}
-        startFrom={Math.round(cut.from * filmV4Fps)}
-        endAt={Math.round(cut.to * filmV4Fps)}
+        startFrom={Math.round(cut.from * fps)}
+        endAt={Math.round(cut.to * fps)}
         // The track peaks near 0 dBFS; this leaves headroom for the sound effects on top.
         volume={(frame) =>
           0.84 *
@@ -173,7 +184,7 @@ export function SamebaseFilmV4({ fold, from, variant }: SamebaseFilmV4Props) {
         <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
       ))}
       {soundCues[variant].map(({ at, name, volume }) => (
-        <Sequence from={Math.round((at - from) * filmV4Fps)} key={`${name}-${at}`}>
+        <Sequence from={Math.round((at - from) * fps)} key={`${name}-${at}`}>
           <Audio src={staticFile(`media/samebase-film-v3-${name}.mp3`)} volume={volume} />
         </Sequence>
       ))}

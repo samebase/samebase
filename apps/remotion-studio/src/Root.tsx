@@ -200,6 +200,16 @@ export function RemotionRoot() {
           width={1920}
         />
       ))}
+      <Composition
+        id="SamebaseLookAgainPreview"
+        component={SamebaseFilmV4}
+        // The low resolution preview of the look again film.
+        defaultProps={{ fold: filmFold, from: 0, variant: "look" }}
+        durationInFrames={filmV4Seconds.look * 30}
+        fps={30}
+        height={360}
+        width={640}
+      />
       {(["leaf", "shear"] as const).map((fold) => (
         <Composition
           id={`FilmV4FoldBeat-${fold}`}
