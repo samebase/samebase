@@ -53,6 +53,12 @@ export type IllusionStudyFrame = {
     /** 0 draws no cast shadow. */
     shadowStrength: number;
   };
+  /**
+  Thin lines of `ink` on outlines, creases, and depth steps, drawn over the picture at `strength`
+  (0 draws none). They follow the picture: two scenes with the same key view picture get the same
+  lines there.
+  */
+  lines: { ink: Rgb; strength: number };
   sampleGrid: number;
   scene:
     | {
@@ -144,9 +150,20 @@ const StudyState = d.struct({
   skyBottom: d.vec3f,
   grain: d.f32,
   grainStep: d.f32,
+  lineInk: d.vec3f,
+  lineStrength: d.f32,
 });
 
-const TraceSample = d.struct({ color: d.vec3f, coverage: d.f32 });
+const TraceSample = d.struct({
+  color: d.vec3f,
+  coverage: d.f32,
+  /** 1 on a hit, with the surface normal and the distance behind the focal plane. */
+  hit: d.f32,
+  normal: d.vec3f,
+  depth: d.f32,
+});
+
+const SceneOutput = { color: d.vec4f, geometry: d.vec4f };
 
 const rectangleDistance = (point: d.v2f, halfSize: d.v2f): number => {
   "use gpu";
@@ -256,6 +273,14 @@ export async function createIllusionStudyRenderer(
 ): Promise<WebGpuFrameRenderer<IllusionStudyFrame>> {
   const root = await tgpu.init();
   const context = root.configureContext({ canvas, alphaMode: "opaque" });
+  const size = [canvas.width, canvas.height] as const;
+  const makeTarget = () =>
+    root.createTexture({ format: "rgba16float", size }).$usage("render", "sampled");
+  const colorTexture = makeTarget();
+  const geometryTexture = makeTarget();
+  const colorView = colorTexture.createView();
+  const geometryView = geometryTexture.createView();
+  const sampler = root.createSampler({ magFilter: "nearest", minFilter: "nearest" });
   const state = root.createUniform(StudyState);
 
   /**
@@ -471,7 +496,7 @@ export async function createIllusionStudyRenderer(
       }
     }
     if (!hit) {
-      return TraceSample({ color: d.vec3f(0), coverage: 0 });
+      return TraceSample({ color: d.vec3f(0), coverage: 0, depth: 0, hit: 0, normal: d.vec3f(0) });
     }
 
     // The normal is read just outside the surface, so flush pieces of a union show no seam.
@@ -512,12 +537,18 @@ export async function createIllusionStudyRenderer(
     );
     const veil = s.clearingVeil * std.smoothstep(0, s.clearingEdge, fromCube);
     const clear = std.exp(-opticalDepth - veil - fromCube / s.clearingRadius);
-    return TraceSample({ color: std.mul(tone, shade * clear), coverage: clear });
+    return TraceSample({
+      color: std.mul(tone, shade * clear),
+      coverage: clear,
+      depth: distance - rayStart,
+      hit: 1,
+      normal,
+    });
   };
 
-  const fragment = tgpu.fragmentFn({
+  const sceneFragment = tgpu.fragmentFn({
     in: { uv: d.vec2f },
-    out: d.vec4f,
+    out: SceneOutput,
   })(({ uv }) => {
     "use gpu";
     const s = state.$;
@@ -525,6 +556,9 @@ export async function createIllusionStudyRenderer(
     const grid = s.sampleGrid;
     let color = d.vec3f(0);
     let coverage = d.f32(0);
+    let hits = d.f32(0);
+    let normal = d.vec3f(0);
+    let depth = d.f32(0);
     for (let sampleY = 0; sampleY < MAXIMUM_SAMPLE_GRID; sampleY += 1) {
       if (sampleY >= grid) {
         break;
@@ -548,12 +582,97 @@ export async function createIllusionStudyRenderer(
         );
         color = std.add(color, sample.color);
         coverage += sample.coverage;
+        hits += sample.hit;
+        normal = std.add(normal, sample.normal);
+        depth += sample.depth * sample.hit;
       }
     }
     const count = d.f32(grid * grid);
+    return {
+      color: d.vec4f(std.div(color, count), coverage / count),
+      geometry: d.vec4f(normal, depth / std.max(hits, 1)),
+    };
+  });
+
+  const readColor = (uv: d.v2f): d.v4f => {
+    "use gpu";
+    return std.textureSampleLevel(colorView.$, sampler.$, uv, 0);
+  };
+
+  const readGeometry = (uv: d.v2f): d.v4f => {
+    "use gpu";
+    return std.textureSampleLevel(geometryView.$, sampler.$, uv, 0);
+  };
+
+  /**
+  The line weight between the pixel at `uv` and its neighbor `step` away: an outline where the
+  coverage changes, and a crease where two covered pixels face different ways.
+  */
+  const edgeWith = (uv: d.v2f, step: d.v2f, coverage: number, normal: d.v3f): number => {
+    "use gpu";
+    const neighbor = std.add(uv, step);
+    const neighborCoverage = readColor(neighbor).w;
+    let edge = std.abs(coverage - neighborCoverage);
+    if (coverage > 0.5 && neighborCoverage > 0.5) {
+      const bend = 1 - std.dot(normal, std.normalize(readGeometry(neighbor).xyz));
+      edge = std.max(edge, std.smoothstep(0.03, 0.25, bend));
+    }
+    return edge;
+  };
+
+  /**
+  A depth step across the pixel along `step`: the second difference of the depth, in pixel widths.
+  A flat face has none, so only a face in front of another face draws a line.
+  */
+  const depthStep = (uv: d.v2f, step: d.v2f, depth: number, footprint: number): number => {
+    "use gpu";
+    const before = std.sub(uv, step);
+    const after = std.add(uv, step);
+    if (readColor(before).w < 0.5 || readColor(after).w < 0.5) {
+      return 0;
+    }
+    const bend = std.abs(readGeometry(before).w + readGeometry(after).w - 2 * depth) / footprint;
+    return std.smoothstep(3, 8, bend);
+  };
+
+  const compositeFragment = tgpu.fragmentFn({
+    in: { uv: d.vec2f },
+    out: d.vec4f,
+  })(({ uv }) => {
+    "use gpu";
+    const s = state.$;
+    const object = readColor(uv);
     // The sky is the film backdrop: a vertical gradient from the top to the bottom of the frame.
     const sky = std.mix(s.skyTop, s.skyBottom, uv.y);
-    let pixelColor = std.add(std.div(color, count), std.mul(sky, 1 - coverage / count));
+    let pixelColor = std.add(object.xyz, std.mul(sky, 1 - object.w));
+    if (s.lineStrength > 0) {
+      const texel = d.vec2f(s.pixelSize / (2 * s.aspectRatio), s.pixelSize / 2);
+      const across = d.vec2f(texel.x, 0);
+      const down = d.vec2f(0, texel.y);
+      const geometry = readGeometry(uv);
+      const normal = std.normalize(geometry.xyz);
+      let edge = std.max(
+        std.max(
+          edgeWith(uv, across, object.w, normal),
+          edgeWith(uv, std.mul(across, -1), object.w, normal),
+        ),
+        std.max(
+          edgeWith(uv, down, object.w, normal),
+          edgeWith(uv, std.mul(down, -1), object.w, normal),
+        ),
+      );
+      if (object.w > 0.5) {
+        const footprint = s.pixelSize * s.halfHeight;
+        edge = std.max(
+          edge,
+          std.max(
+            depthStep(uv, across, geometry.w, footprint),
+            depthStep(uv, down, geometry.w, footprint),
+          ),
+        );
+      }
+      pixelColor = std.mix(pixelColor, s.lineInk, std.min(edge, 1) * s.lineStrength);
+    }
     const pixel = std.floor(
       d.vec2f((uv.x * 2 * s.aspectRatio) / s.pixelSize, (uv.y * 2) / s.pixelSize),
     );
@@ -562,8 +681,16 @@ export async function createIllusionStudyRenderer(
     return d.vec4f(std.clamp(pixelColor, d.vec3f(0), d.vec3f(1)), 1);
   });
 
-  const pipeline = root.createRenderPipeline({ fragment, vertex: common.fullScreenTriangle });
-  await pipeline.initAsync();
+  const scenePipeline = root.createRenderPipeline({
+    fragment: sceneFragment,
+    targets: { color: { format: "rgba16float" }, geometry: { format: "rgba16float" } },
+    vertex: common.fullScreenTriangle,
+  });
+  const compositePipeline = root.createRenderPipeline({
+    fragment: compositeFragment,
+    vertex: common.fullScreenTriangle,
+  });
+  await Promise.all([scenePipeline.initAsync(), compositePipeline.initAsync()]);
 
   return {
     destroy: () => root.destroy(),
@@ -597,6 +724,8 @@ export async function createIllusionStudyRenderer(
         clearingEdge: haze.clearing.edge,
         clearingVeil: haze.clearing.veil,
         key: light.key,
+        lineInk: vector(frame.lines.ink),
+        lineStrength: frame.lines.strength,
         light: vector(light.direction),
         pixelSize: 2 / canvas.height,
         rayEnd: camera.rayEnd,
@@ -613,7 +742,13 @@ export async function createIllusionStudyRenderer(
         yTone: vector(tones.y),
         zTone: vector(tones.z),
       });
-      pipeline.withColorAttachment({ view: context }).draw(3);
+      scenePipeline
+        .withColorAttachment({
+          color: { view: colorTexture },
+          geometry: { view: geometryTexture },
+        })
+        .draw(3);
+      compositePipeline.withColorAttachment({ view: context }).draw(3);
       return root.device.queue.onSubmittedWorkDone();
     },
   };

@@ -5,6 +5,7 @@ import {
   orbitCamera,
   palettes,
   progress,
+  smoothstep,
 } from "../samebase-film-v3/filmV3Timeline";
 import type { IllusionStudyFrame } from "./illusionStudyRenderer";
 
@@ -30,23 +31,25 @@ const halfHeight = 4.4;
 
 /**
 The swing, in degrees: positive angles show the hole and negative angles the cube. The hole side
-goes past the corner octant (yaw 45 + 45), so the block shows its far side and the notch as a step
-in its outline. The cube side stays inside the octant, where the room corner reads naturally.
+goes just past the corner octant (yaw 45 + 45), so the block shows the notch as a step in its
+outline. The cube side goes almost to the edge of the octant, where a room wall turns edge on: past
+it the wall would hide the cube.
 */
-const holeSwing = 83;
+const holeSwing = 58;
 /** Seconds of the clip. It ends where it starts, so it loops. */
 export const cubeOrHoleBeats = {
   toHole: 0.8,
-  atHole: 4.4,
-  throughKey: 5,
-  atCube: 10.6,
-  backToKey: 11.2,
-  home: 14,
-  end: 14.4,
+  atHole: 3.8,
+  throughKey: 4.3,
+  atCube: 8.6,
+  /** The camera holds on the cube side, where the cube is plain to see. */
+  backToKey: 10.1,
+  home: 12.9,
+  end: 13.3,
 } as const;
 
 /** The last frame of the hole: the swing passes the key view exactly on it. */
-export const swapFrame = 507;
+export const swapFrame = 400;
 
 /** The cube side swing, chosen so that the swing back from the hole passes 0 exactly at `swapFrame`. */
 const cubeSwing = (() => {
@@ -70,7 +73,7 @@ The elevation change with the swing: toward eye level on both sides. It grows wi
 swing, so the camera path is smooth through the key view.
 */
 function readLift(swing: number): number {
-  return swing >= 0 ? 21 * (swing / holeSwing) ** 2 : 20 * (swing / cubeSwing) ** 2;
+  return swing >= 0 ? 14 * (swing / holeSwing) ** 2 : 18 * (swing / cubeSwing) ** 2;
 }
 
 function holeCamera(swing: number) {
@@ -124,6 +127,7 @@ function frameAt(time: number, shown: CubeOrHoleScene, sampleGrid: number): Illu
   const inCube = shown === "cube";
   const cameraAt = (at: number) => (inCube ? cubeCamera : holeCamera)(readSwing(at));
   const keyView = inCube ? cubeCamera(0) : holeCamera(0);
+  const swing = readSwing(time);
   const scene: IllusionStudyFrame["scene"] = inCube
     ? {
         center: [-2, 2, 2],
@@ -146,8 +150,11 @@ function frameAt(time: number, shown: CubeOrHoleScene, sampleGrid: number): Illu
     },
     light: {
       ambient: 0.6,
-      aoScale: 0.09,
-      aoStrength: 0,
+      aoScale: 0.12,
+      // Occlusion darkens the notch creases on the hole side and the room corner and the cube
+      // contacts on the cube side. The two scenes have different creases, so it fades in as the
+      // camera leaves the key view and is zero on the swap frame.
+      aoStrength: smoothstep(0, 12, Math.abs(swing)),
       // Fixed in the scene along the key view, so every face keeps one flat tone while the camera
       // turns: each face of the key view gets 0.6 + key / sqrt(3), which is exactly its tone. Both
       // scenes cast their shadows along the key view: the notch is open to the light, and the cube
@@ -157,6 +164,8 @@ function frameAt(time: number, shown: CubeOrHoleScene, sampleGrid: number): Illu
       shadeLimit: 1,
       shadowStrength: 1,
     },
+    // Both scenes have the same outlines and creases in the key view, so the lines match there.
+    lines: { ink: palettes.haze.ink, strength: 0.85 },
     sampleGrid,
     scene,
     sky: palettes.haze.sky,
