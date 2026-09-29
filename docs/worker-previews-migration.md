@@ -2,10 +2,6 @@
 
 For existing Convex branch previews on Workers Builds.
 
-For apps connected to Samebase, do not run Builds repair or deploy-key rotation during this pilot.
-Those actions still use the old trigger model and shared-key layout. Samebase can report native
-preview settings as unavailable. Do not remove and reconnect the Worker to repair that status.
-
 ## Prepare the repository
 
 1. Reuse Convex previews with `convex deploy --preview-name <branch>`, not `--preview-create`.
@@ -23,23 +19,17 @@ The switch cannot be reversed.
 1. Open the Worker > **Settings > Builds > Set up Worker Previews > Set up**.
 2. Confirm the preview runtime settings. Set **New preview command** to `pnpm run deploy:preview`,
    then switch.
-3. Open the app's Convex project > **Project Settings > Preview Deploy Keys**. Check the project
-   name before copying its Preview deploy key. Do not use another project's key or a production key.
+3. Copy the app's Preview deploy key from Convex > **Project Settings > Preview Deploy Keys**. Check
+   that you selected the correct project.
 4. Under **Builds > Previews Base > Variables and secrets**, replace `CONVEX_DEPLOY_KEY` with that
-   key. Cloudflare copies the old build variables, including the production key. Save the
-   replacement before pushing a branch.
+   key. Cloudflare initially copies the production key here. Save the replacement before pushing the
+   preview branch.
 5. Keep the production `CONVEX_DEPLOY_KEY` under **Builds > Production**. Keep the existing
    `SAMEBASE_CONVEX_PROJECT` there. Remove `PREVIEW_CONVEX_DEPLOY_KEY` and `SAMEBASE_CONVEX_PROJECT`
    from **Builds > Previews Base**.
-6. After saving Previews Base, move the migration changes to a branch with a new name. Open a new PR
-   from that branch.
+6. Push the migration branch and open a PR.
 
 Deploy keys belong in **Builds**, not **Runtime variables and secrets**.
-
-Existing branches keep their copied build variables. Retrying a build or pushing another commit does
-not copy the updated Base values. `wrangler preview delete` does not reset the branch's saved Builds
-settings. Use a new branch name to copy the current Base settings. To keep an existing branch,
-update its own **Settings > Builds > Variables and secrets** instead.
 
 ## Verify
 
@@ -47,7 +37,14 @@ update its own **Settings > Builds > Variables and secrets** instead.
    Confirm the Cloudflare build succeeds. Open the preview URL and sign in.
 2. Save test data. Build the same branch again. Check that the Convex deployment, data, and login
    session remain unchanged.
-3. Verify production after merge. Samebase's status checks and provider actions still need updates
-   for this layout. Do not use key rotation to repair that status.
+3. Verify production after merge.
 
-A new branch gets a new Convex preview. It does not copy data or login sessions from the old branch.
+## Existing previews
+
+Branches with an existing preview keep their saved Builds variables. If a branch still uses an old
+key, use a new branch name to copy the current Base settings. Retrying the build or running
+`wrangler preview delete` does not reset those variables. A new branch also gets a new Convex
+preview.
+
+Samebase's Builds repair and key rotation still use the old setup. Do not run those actions or
+remove and reconnect the Worker after switching.
