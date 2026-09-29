@@ -10,7 +10,7 @@ export async function waitForFilmV3Fonts(): Promise<void> {
 
 type Context = CanvasRenderingContext2D;
 
-function css([red, green, blue]: Rgb, alpha = 1): string {
+export function css([red, green, blue]: Rgb, alpha = 1): string {
   const channel = (value: number) => Math.round(value * 255);
   return `rgba(${channel(red)}, ${channel(green)}, ${channel(blue)}, ${alpha})`;
 }
@@ -18,7 +18,7 @@ function css([red, green, blue]: Rgb, alpha = 1): string {
 let capRatio = 0;
 
 /** Inter Tight 800 at the size whose cap height is `cap` pixels. */
-function fontFor(context: Context, cap: number): string {
+export function fontFor(context: Context, cap: number): string {
   if (capRatio === 0) {
     context.font = `800 100px ${display}`;
     capRatio = context.measureText("H").actualBoundingBoxAscent / 100;

@@ -17,9 +17,15 @@ import {
   type IllusionStudyFrame,
 } from "../illusion-studies/illusionStudyRenderer";
 import { createFilmV3Renderer } from "../samebase-film-v3/filmV3Renderer";
-import { drawText, waitForFilmV3Fonts } from "../samebase-film-v3/filmV3Page";
-import type { FilmV3Frame, FilmV3Text } from "../samebase-film-v3/filmV3Timeline";
-import { type FilmV4Variant, type FourthFold, readFilmV4Frame } from "./filmV4Timeline";
+import { css, drawText, fontFor, waitForFilmV3Fonts } from "../samebase-film-v3/filmV3Page";
+import { palettes, type FilmV3Frame } from "../samebase-film-v3/filmV3Timeline";
+import {
+  type FilmV4Frame,
+  type FilmV4Outline,
+  type FilmV4Variant,
+  type FourthFold,
+  readFilmV4Frame,
+} from "./filmV4Timeline";
 
 function FilmLayer({ frame, opacity }: { frame: FilmV3Frame; opacity: number }) {
   const { height, width } = useVideoConfig();
@@ -41,8 +47,58 @@ function StudyLayer({ frame, opacity }: { frame: IllusionStudyFrame; opacity: nu
   );
 }
 
-/** The words over both renders, drawn once the display font has loaded. */
-function TextLayer({ texts }: { texts: readonly FilmV3Text[] }) {
+const [ink, pale] = [palettes.haze.ink, palettes.haze.sky[1]];
+
+/** The haze rises from the bottom edge, so the words stay readable over the sponge. */
+function drawVeil(context: CanvasRenderingContext2D, veil: number): void {
+  const { height, width } = context.canvas;
+  const gradient = context.createLinearGradient(0, 0.68 * height, 0, height);
+  gradient.addColorStop(0, css(pale, 0));
+  gradient.addColorStop(1, css(pale, 0.9 * veil));
+  context.fillStyle = gradient;
+  context.fillRect(0, 0.68 * height, width, 0.32 * height);
+}
+
+/** A pale line under an ink line, so the outline and its label read on every face tone. */
+function drawOutline(context: CanvasRenderingContext2D, outline: FilmV4Outline): void {
+  const { cap, drawn, label, labelOpacity, opacity, radius, x, y } = outline;
+  const unit = context.canvas.height;
+  context.save();
+  context.globalAlpha = opacity;
+  context.lineJoin = "round";
+  context.beginPath();
+  const vertex = (index: number) => {
+    const angle = Math.PI / 2 + (index * Math.PI) / 3;
+    return [x + radius * Math.cos(angle), y - radius * Math.sin(angle)] as const;
+  };
+  context.moveTo(...vertex(0));
+  const steps = drawn * 6;
+  for (let step = 1; step <= Math.ceil(steps); step += 1) {
+    // The last traced edge ends part of the way to its vertex.
+    const [[fromX, fromY], [toX, toY]] = [vertex(step - 1), vertex(step)];
+    const along = Math.min(1, steps - (step - 1));
+    context.lineTo(fromX + (toX - fromX) * along, fromY + (toY - fromY) * along);
+  }
+  context.strokeStyle = css(pale);
+  context.lineWidth = 0.012 * unit;
+  context.stroke();
+  context.strokeStyle = css(ink);
+  context.lineWidth = 0.005 * unit;
+  context.stroke();
+  context.globalAlpha = labelOpacity;
+  context.font = fontFor(context, cap);
+  context.textAlign = "center";
+  context.textBaseline = "alphabetic";
+  context.lineWidth = 0.35 * cap;
+  context.strokeStyle = css(pale);
+  context.strokeText(label, x, y - radius - 0.6 * cap);
+  context.fillStyle = css(ink);
+  context.fillText(label, x, y - radius - 0.6 * cap);
+  context.restore();
+}
+
+/** The veil, the outlines, and the words over both renders, drawn once the display font has loaded. */
+function OverlayLayer({ outlines, texts, veil }: Omit<FilmV4Frame, "layers">) {
   const { height, width } = useVideoConfig();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fontsReady, setFontsReady] = useState(false);
@@ -62,10 +118,18 @@ function TextLayer({ texts }: { texts: readonly FilmV3Text[] }) {
       return;
     }
     context.clearRect(0, 0, width, height);
+    if (veil > 0) {
+      drawVeil(context, veil);
+    }
+    for (const outline of outlines) {
+      if (outline.opacity > 0) {
+        drawOutline(context, outline);
+      }
+    }
     for (const line of texts) {
       drawText(context, line);
     }
-  }, [fontsReady, height, texts, width]);
+  }, [fontsReady, height, outlines, texts, veil, width]);
   return (
     <AbsoluteFill>
       <canvas height={height} ref={canvasRef} width={width} />
@@ -97,7 +161,7 @@ const music: Record<FilmV4Variant, readonly MusicCut[]> = {
     { at: 8.5, from: 17.5, to: 25.5 },
     { at: 16.5, from: 33.5, to: 42 },
   ],
-  look: [{ at: 0, from: 0, to: 37.5 }],
+  look: [{ at: 0, from: 0, to: 42 }],
 };
 
 /** Sound effects, placed so that each peak lands on its picture hit, as in v3.5. */
@@ -175,7 +239,7 @@ export function SamebaseFilmV4({ fold, from, variant }: SamebaseFilmV4Props) {
           <StudyLayer frame={layer.frame} key={layer.id} opacity={layer.opacity} />
         ),
       )}
-      <TextLayer texts={v4.texts} />
+      <OverlayLayer outlines={v4.outlines} texts={v4.texts} veil={v4.veil} />
       {cuts.map((cut, index) => (
         <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
       ))}

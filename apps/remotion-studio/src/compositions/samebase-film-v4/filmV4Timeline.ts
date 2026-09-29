@@ -64,7 +64,7 @@ needle twice the face side before it widens.
 */
 export const filmFold: FourthFold = "leaf";
 
-export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 37.5 } as const satisfies Record<
+export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 42 } as const satisfies Record<
   FilmV4Variant,
   number
 >;
@@ -81,7 +81,29 @@ export type FilmV4Layer =
   | { frame: FilmV3Frame; id: "film" | "film-shuffle"; kind: "film"; opacity: number }
   | { frame: IllusionStudyFrame; id: "study"; kind: "study"; opacity: number };
 
-export type FilmV4Frame = { layers: readonly FilmV4Layer[]; texts: readonly FilmV3Text[] };
+/**
+The silhouette of one cell at the isometric view, drawn around the frame point `x`, `y`: a hexagon
+with a vertex at the top, `drawn` of its outline traced from that vertex, and `label` above it. The
+label fades before the outline, so a small outline stays inside the next one.
+*/
+export type FilmV4Outline = {
+  cap: number;
+  drawn: number;
+  label: string;
+  labelOpacity: number;
+  opacity: number;
+  radius: number;
+  x: number;
+  y: number;
+};
+
+export type FilmV4Frame = {
+  layers: readonly FilmV4Layer[];
+  outlines: readonly FilmV4Outline[];
+  texts: readonly FilmV3Text[];
+  /** The haze that rises from the bottom edge behind the words, from 0 to 1. */
+  veil: number;
+};
 
 type Size = { height: number; width: number };
 type View = { elevation: number; halfHeight: number; yaw: number };
@@ -629,7 +651,9 @@ function readFilmV4A(time: number, size: Size, fold: FourthFold): FilmV4Frame {
         layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
       },
     ]),
+    outlines: [],
     texts: standardEnd(time, a.words, a.address),
+    veil: 0,
   };
 }
 
@@ -679,7 +703,9 @@ function readFilmV4B(time: number, size: Size, fold: FourthFold): FilmV4Frame {
         layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
       },
     ]),
+    outlines: [],
     texts: standardEnd(time, b.words, b.address),
+    veil: 0,
   };
 }
 
@@ -742,7 +768,9 @@ function readFilmV4C(time: number, size: Size): FilmV4Frame {
         layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
       },
     ]),
+    outlines: [],
     texts: standardEnd(time, c.words, c.address),
+    veil: 0,
   };
 }
 
@@ -1001,8 +1029,93 @@ function readFilmV4Look(time: number, size: Size): FilmV4Frame {
       },
       { fade: 0, from: look.landed, layer: (opacity) => filmLayer("film", rest, opacity) },
     ]),
-    texts: [],
+    outlines: lookOutlines(time, size),
+    texts: lookWords(time, size),
+    veil: smoothstep(26.4, 26.9, time) * (1 - smoothstep(34.4, 34.9, time)),
   };
+}
+
+/**
+Each move carries one line from the landing page. A line rises word by word as its move starts and
+sinks before the next one, and the dive and the first cycles of the zoom out have no words.
+*/
+const lookLines: readonly { at: number; text: string; until: number }[] = [
+  { at: 3.4, text: "GitHub. Convex. Cloudflare.", until: 6.9 },
+  { at: 7.6, text: "Run agents in parallel.", until: 10.9 },
+  { at: 11.1, text: "Every PR gets its own preview.", until: 14.6 },
+  { at: 26.9, text: "It looks like a box.", until: 29.2 },
+  { at: 29.5, text: "Delete your Samebase account.", until: 31.6 },
+  { at: 31.8, text: "Your app doesn't notice.", until: 34.3 },
+];
+
+/** The end lines rise over the landed mark and sink before the film ends on its first frame. */
+const lookEnd = { at: 37.4, address: 39.4, until: 41.2 } as const;
+
+function lookWords(time: number, { height, width }: Size): FilmV3Text[] {
+  const ink = haze.ink;
+  const shown = (at: number, until: number, index: number) =>
+    rise(time, at + index * 0.09) - rise(time, until + index * 0.05);
+  return [
+    ...lookLines.map(({ at, text, until }) => ({
+      align: "center" as const,
+      cap: 0.05 * height,
+      color: ink,
+      words: text.split(" ").map((word, index) => ({ rise: shown(at, until, index), text: word })),
+      x: width / 2,
+      y: 0.9 * height,
+    })),
+    {
+      align: "center",
+      cap: 0.05 * height,
+      color: ink,
+      words: ["Same base.", "Your accounts.", "No magic."].map((text, index) => ({
+        rise: rise(time, lookEnd.at + index * 0.6) - rise(time, lookEnd.until + index * 0.05),
+        text,
+      })),
+      x: width / 2,
+      y: 0.84 * height,
+    },
+    {
+      align: "center",
+      cap: 0.03 * height,
+      color: ink,
+      words: [{ rise: shown(lookEnd.address, lookEnd.until + 0.15, 0), text: "samebase.com" }],
+      x: width / 2,
+      y: 0.93 * height,
+    },
+  ];
+}
+
+/**
+While the camera zooms out, an outline traces the cube, labels it, and shrinks with it. Two cycles
+later a second outline does the same for the cell nine times larger. At the isometric view every
+corner cell draws a hexagon around the near corner, so the outlines share the frame center.
+*/
+const lookLabels = [
+  { label: "your app", level: 0 },
+  { label: "all your apps", level: 2 },
+] as const;
+
+function lookOutlines(time: number, { height, width }: Size): FilmV4Outline[] {
+  if (time < look.dive[1] || time >= look.star[0]) {
+    return [];
+  }
+  const zoom = lookZoomAt(time);
+  return lookLabels.map(({ label, level }) => {
+    // In frame heights: a cell of half size 3^level at the half height of the zoom.
+    const radius = (hexagonRadius * 3 ** (level - zoom)) / (2 * deepHalfHeight);
+    const fadeIn = 1 - smoothstep(0.42, 0.5, radius);
+    return {
+      cap: 0.036 * height,
+      drawn: easeInOutSine(progress(-radius, -0.5, -0.34)),
+      label,
+      labelOpacity: fadeIn * smoothstep(0.07, 0.11, radius),
+      opacity: fadeIn * smoothstep(0.015, 0.03, radius),
+      radius: radius * height,
+      x: width / 2,
+      y: height / 2,
+    };
+  });
 }
 
 export function readFilmV4Frame(
