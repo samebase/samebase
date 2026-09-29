@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { CloudflareWorkerBuild } from "../cloudflareResources";
 import {
   observedCompletedWorkerBuild,
+  observedNativePreviewsProductionBuild,
   observedRunningWorkerBuild,
 } from "../cloudflareApi/fixtures/observedWorkerBuilds";
 import {
@@ -22,7 +23,6 @@ function observedCompletedCloudflareBuild(
     rootDirectory?: string;
     triggerDeployCommand?: string | null;
     triggerRootDirectory?: string;
-    triggerUuid?: string;
   } = {},
 ): CloudflareWorkerBuild {
   return {
@@ -55,7 +55,6 @@ function observedCompletedCloudflareBuild(
               repo_id: args.repoId ?? "1021726325",
             },
             root_directory: args.triggerRootDirectory ?? args.rootDirectory ?? "apps/samebase",
-            trigger_uuid: args.triggerUuid ?? "b595a215-7b9b-4a04-a55d-578f39ca4335",
           },
   };
 }
@@ -67,10 +66,26 @@ const defaultBranchMatcherArgs = {
     rootDirectory: "apps/samebase",
   },
   githubRepositoryDatabaseId: "1021726325",
-  triggerUuid: "b595a215-7b9b-4a04-a55d-578f39ca4335",
 };
 
 describe("matchLatestCloudflareWorkerBuildForBranch", () => {
+  it("uses production history after native Worker Previews are enabled", () => {
+    expect(
+      matchLatestCloudflareWorkerBuildForBranch({
+        builds: [observedNativePreviewsProductionBuild],
+        branch: "main",
+        worker: { workerTag: "d8f877365405479ba51bd8f96fcdc156", rootDirectory: "/" },
+        githubRepositoryDatabaseId: "993742136",
+      }),
+    ).toEqual({
+      state: "available",
+      buildUuid: "feb42f59-fbea-4f1f-95a1-8bf8598df55e",
+      buildState: "success",
+      createdAt: Date.parse("2026-09-29T20:46:01.006Z"),
+      finishedAt: Date.parse("2026-09-29T20:46:56.238Z"),
+    });
+  });
+
   it("uses a valid default-branch build", () => {
     expect(
       matchLatestCloudflareWorkerBuildForBranch({
@@ -94,7 +109,6 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
           rootDirectory: "apps/samebase",
         },
         githubRepositoryDatabaseId: "1021726325",
-        triggerUuid: "3ff74fd1-50c4-43d2-9fd3-72086962b3e3",
       }),
     ).toEqual({
       state: "available",
@@ -130,11 +144,6 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
       "Worker tag",
       observedCompletedCloudflareBuild({ externalScriptId: "other-worker-tag" }),
       "worker_tag_mismatch",
-    ],
-    [
-      "trigger",
-      observedCompletedCloudflareBuild({ triggerUuid: "other-trigger" }),
-      "trigger_uuid_mismatch",
     ],
     [
       "repository",
@@ -198,7 +207,6 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
             repoId: "other-repository",
             triggerDeployCommand: null,
             triggerRootDirectory: "packages/api",
-            triggerUuid: "other-trigger",
           }),
         ],
         ...defaultBranchMatcherArgs,
@@ -209,7 +217,6 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
         "missing_build_uuid",
         "invalid_created_on",
         "worker_tag_mismatch",
-        "trigger_uuid_mismatch",
         "repository_id_mismatch",
         "trigger_root_directory_mismatch",
         "metadata_root_directory_mismatch",

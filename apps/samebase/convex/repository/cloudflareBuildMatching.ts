@@ -22,7 +22,6 @@ export const vCloudflareBuildDisagreementReason = union(
   literal("invalid_created_on"),
   literal("invalid_root_directory"),
   literal("worker_tag_mismatch"),
-  literal("trigger_uuid_mismatch"),
   literal("repository_id_mismatch"),
   literal("trigger_root_directory_mismatch"),
   literal("metadata_root_directory_mismatch"),
@@ -99,7 +98,6 @@ const validateCloudflareBuildAgreement = pure(
       rootDirectory: string;
     };
     githubRepositoryDatabaseId: string;
-    triggerUuid: string;
   }) => {
     const build = args.build;
     const trigger = build.trigger;
@@ -116,9 +114,6 @@ const validateCloudflareBuildAgreement = pure(
     } else {
       if (trigger.external_script_id !== args.worker.workerTag) {
         reasons.push("worker_tag_mismatch");
-      }
-      if (trigger.trigger_uuid !== args.triggerUuid) {
-        reasons.push("trigger_uuid_mismatch");
       }
       if (trigger.repo_connection?.repo_id !== args.githubRepositoryDatabaseId) {
         reasons.push("repository_id_mismatch");
@@ -178,7 +173,6 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
     rootDirectory: string;
   };
   githubRepositoryDatabaseId: string;
-  triggerUuid: string;
 }): CloudflareBuildMatch {
   const candidates = args.builds
     .flatMap((build) => {
@@ -205,7 +199,6 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
     createdAt: candidate.createdAt,
     worker: args.worker,
     githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
-    triggerUuid: args.triggerUuid,
   });
   if (!agrees) {
     return { state: "provider_disagreement", reasons: agreement };

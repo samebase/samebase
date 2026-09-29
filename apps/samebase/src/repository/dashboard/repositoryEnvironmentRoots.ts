@@ -49,10 +49,7 @@ type RepositoryEnvironmentBuildState = Extract<
 >["buildState"];
 
 type RepositoryProductionBuildState = Extract<
-  Extract<
-    Extract<RepositoryCloudflareWorkerBuildsObservation, { state: "available" }>["builds"],
-    { state: "connected" }
-  >["productionBuild"],
+  Extract<RepositoryCloudflareWorkerBuildsObservation, { state: "available" }>["productionBuild"],
   { state: "available" }
 >["buildState"];
 
@@ -210,13 +207,11 @@ export function buildProductionEnvironmentRoots({
       const primary = destinations.at(0);
 
       const productionBuild =
-        buildsObservation?.state === "available" && buildsObservation.builds.state === "connected"
-          ? buildsObservation.builds.productionBuild
-          : buildsObservation?.state === "available"
-            ? ({ state: "absent" } as const)
-            : buildsObservations.state === "loading" || buildsObservations.state === "checking"
-              ? ({ state: "loading" } as const)
-              : ({ state: "unavailable" } as const);
+        buildsObservation?.state === "available"
+          ? buildsObservation.productionBuild
+          : buildsObservations.state === "loading" || buildsObservations.state === "checking"
+            ? ({ state: "loading" } as const)
+            : ({ state: "unavailable" } as const);
       const build:
         | { state: "available"; buildState: RepositoryProductionBuildState; logsUrl: string }
         | { state: "absent" }

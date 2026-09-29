@@ -61,3 +61,26 @@ export const observedRetriedWorkerBuildMetadata = {
     build_trigger_source: "retry",
   },
 } as const;
+
+// Captured from the Workers Builds endpoint on 2026-09-30 after ChessMerge switched
+// to native Worker Previews. Only the build identity and status fields are retained.
+export const observedNativePreviewsProductionBuild = {
+  build_uuid: "feb42f59-fbea-4f1f-95a1-8bf8598df55e",
+  status: "stopped",
+  build_outcome: "success",
+  created_on: "2026-09-29T20:46:01.006Z",
+  stopped_on: "2026-09-29T20:46:56.238Z",
+  build_trigger_metadata: {
+    branch: "main",
+    root_directory: "/",
+    deploy_command: "pnpm run deploy",
+    commit_hash: "6f242965dfc3aa68e26b4207f1747ee43799a0f4",
+  },
+  trigger: {
+    trigger_uuid: "6bb5c81d-900b-405a-a52c-565dc4d90a82",
+    external_script_id: "d8f877365405479ba51bd8f96fcdc156",
+    root_directory: "/",
+    deploy_command: "pnpm run deploy",
+    repo_connection: { repo_id: "993742136" },
+  },
+} as const;

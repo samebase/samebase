@@ -97,7 +97,6 @@ const vCloudflareBuildsObservation = union(
     previewTriggerUuid: string(),
     productionBuildTokenUuid: union(string(), v.null()),
     previewBuildTokenUuid: union(string(), v.null()),
-    productionBuild: vCloudflareProductionBuildObservation,
   }),
 );
 const vWorkersDevObservation = union(
@@ -129,6 +128,7 @@ const vCloudflareWorkerBuildsObservation = union(
     workerId: id("repositoryCloudflareWorkers"),
     repository: vCloudflareWorkerRepositoryDiscovery,
     builds: vCloudflareBuildsObservation,
+    productionBuild: vCloudflareProductionBuildObservation,
   }),
   object({
     state: literal("failed"),
@@ -431,65 +431,57 @@ export const observeCloudflareWorkerBuilds = action({
             | {
                 state: "unavailable";
                 reasons: CloudflareProductionBuildUnavailableReasons;
-              } = { state: "unavailable", reasons: ["request_failed"] };
-          if (discovery.repository.state === "ready" && discovery.builds.state === "connected") {
-            const [valid, buildRead] = await readRecentCloudflareWorkerBuilds({
-              token: input.token,
-              transport: input.transport,
-              accountId: worker.accountId,
-              workerTag: worker.workerTag,
-            });
-            if (!valid) {
-              productionBuild = {
-                state: "unavailable",
-                reasons: [
-                  Array.isArray(buildRead) ? "response_validation_failed" : "response_parse_failed",
-                ],
               };
-            } else {
-              const buildMatch = matchLatestCloudflareWorkerBuildForBranch({
-                builds: buildRead.builds,
-                branch: defaultBranch,
-                worker: {
-                  workerTag: worker.workerTag,
-                  rootDirectory: discovery.repository.rootDirectory,
-                },
-                githubRepositoryDatabaseId: context.githubRepositoryDatabaseId,
-                triggerUuid: discovery.builds.productionTriggerUuid,
-              });
-              productionBuild =
-                buildMatch.state === "absent" && !buildRead.exhausted
-                  ? { state: "unavailable", reasons: ["build_history_incomplete"] }
-                  : buildMatch;
-            }
+          const [valid, buildRead] = await readRecentCloudflareWorkerBuilds({
+            token: input.token,
+            transport: input.transport,
+            accountId: worker.accountId,
+            workerTag: worker.workerTag,
+          });
+          if (!valid) {
+            productionBuild = {
+              state: "unavailable",
+              reasons: [
+                Array.isArray(buildRead) ? "response_validation_failed" : "response_parse_failed",
+              ],
+            };
+          } else {
+            const buildMatch = matchLatestCloudflareWorkerBuildForBranch({
+              builds: buildRead.builds,
+              branch: defaultBranch,
+              worker: {
+                workerTag: worker.workerTag,
+                rootDirectory: worker.rootDirectory,
+              },
+              githubRepositoryDatabaseId: context.githubRepositoryDatabaseId,
+            });
+            productionBuild =
+              buildMatch.state === "absent" && !buildRead.exhausted
+                ? { state: "unavailable", reasons: ["build_history_incomplete"] }
+                : buildMatch;
           }
           return {
             state: "available" as const,
             workerId: worker.workerId,
             repository: discovery.repository,
-            builds:
-              discovery.builds.state === "connected"
+            builds: discovery.builds,
+            productionBuild:
+              productionBuild.state === "available"
                 ? {
-                    ...discovery.builds,
-                    productionBuild:
-                      productionBuild.state === "available"
-                        ? {
-                            state: "available" as const,
-                            buildState: productionBuild.buildState,
-                            logsUrl: buildCloudflareBuildLogsUrl({
-                              accountId: worker.accountId,
-                              workerName: identity.workerName,
-                              buildUuid: productionBuild.buildUuid,
-                            }),
-                          }
-                        : productionBuild.state === "absent"
-                          ? { state: "absent" as const }
-                          : {
-                              state: "unavailable" as const,
-                              reasons: productionBuild.reasons,
-                            },
+                    state: "available" as const,
+                    buildState: productionBuild.buildState,
+                    logsUrl: buildCloudflareBuildLogsUrl({
+                      accountId: worker.accountId,
+                      workerName: identity.workerName,
+                      buildUuid: productionBuild.buildUuid,
+                    }),
                   }
-                : discovery.builds,
+                : productionBuild.state === "absent"
+                  ? { state: "absent" as const }
+                  : {
+                      state: "unavailable" as const,
+                      reasons: productionBuild.reasons,
+                    },
           };
         } catch (error) {
           if (!(error instanceof CloudflareApiError)) {

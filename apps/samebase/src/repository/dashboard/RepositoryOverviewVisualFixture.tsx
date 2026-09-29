@@ -215,6 +215,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
           builds: { state: "not_available" },
         },
         builds: { state: "not_connected" },
+        productionBuild: { state: "absent" },
       },
       {
         state: "available",
@@ -225,6 +226,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
           builds: { state: "not_available" },
         },
         builds: { state: "not_connected" },
+        productionBuild: { state: "absent" },
       },
     ],
   },
@@ -630,12 +632,12 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
           previewTriggerUuid: "fixture-preview-trigger",
           productionBuildTokenUuid: "fixture-build-token",
           previewBuildTokenUuid: "fixture-build-token",
-          productionBuild: {
-            state: "available",
-            buildState: "success",
-            logsUrl:
-              "https://dash.cloudflare.com/fixture-account/workers/services/view/tmp-f149-repository-loading-states/production/builds/fixture-production-build",
-          },
+        },
+        productionBuild: {
+          state: "available",
+          buildState: "success",
+          logsUrl:
+            "https://dash.cloudflare.com/fixture-account/workers/services/view/tmp-f149-repository-loading-states/production/builds/fixture-production-build",
         },
       },
     ],

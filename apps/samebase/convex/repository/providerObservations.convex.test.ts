@@ -69,7 +69,7 @@ beforeEach(() => {
 });
 
 describe("repository provider observations", () => {
-  it("observes current Worker names and the Convex production region", async () => {
+  it.each([true, false])("reads Builds with preview trigger: %s", async (preview) => {
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
 
@@ -226,7 +226,7 @@ describe("repository provider observations", () => {
             repo_id: "github-repository",
             provider_type: "github",
           };
-          return [
+          const triggers = [
             {
               trigger_uuid: `${workerTag}-production`,
               external_script_id: workerTag,
@@ -246,6 +246,7 @@ describe("repository provider observations", () => {
               root_directory: "apps/live",
             },
           ];
+          return preview ? triggers : triggers.slice(0, 1);
         }
         throw new Error(`Unexpected Cloudflare request: ${request.path}`);
       },
@@ -346,14 +347,31 @@ describe("repository provider observations", () => {
     expect(observation).toMatchObject({
       state: "available",
       workerId: ids.firstWorkerId,
-      builds: {
-        productionBuild: {
-          state: "available",
-          logsUrl:
-            "https://dash.cloudflare.com/cloudflare-account/workers/services/view/domain-router/production/builds/domain-router-tag-build",
-        },
+      builds: { state: preview ? "connected" : "not_connected" },
+      productionBuild: {
+        state: "available",
+        logsUrl:
+          "https://dash.cloudflare.com/cloudflare-account/workers/services/view/domain-router/production/builds/domain-router-tag-build",
       },
     });
+    cloudflareMocks.requestCloudflareApi.mockResolvedValue([true, []]);
+    await expect(
+      viewer.action(api.repository.providerObservations.observeCloudflareWorkerBuilds, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toMatchObject([
+      { productionBuild: { state: "absent" } },
+      { productionBuild: { state: "absent" } },
+    ]);
+    cloudflareMocks.requestCloudflareApi.mockResolvedValue([false, "invalid_json"]);
+    await expect(
+      viewer.action(api.repository.providerObservations.observeCloudflareWorkerBuilds, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toMatchObject([
+      { productionBuild: { state: "unavailable", reasons: ["response_parse_failed"] } },
+      { productionBuild: { state: "unavailable", reasons: ["response_parse_failed"] } },
+    ]);
     await expect(
       viewer.action(api.repository.providerObservations.observeConvexProjects, {
         repositoryId: ids.repositoryId,
