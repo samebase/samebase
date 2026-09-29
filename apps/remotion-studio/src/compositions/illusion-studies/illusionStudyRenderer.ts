@@ -68,6 +68,11 @@ export type IllusionStudyFrame = {
         octant: Vector3;
         /** Half size of the outermost cell. The haze hides everything past it. */
         halfSize: number;
+        /**
+        Openings with a half size below this stay closed, in scene units: it keeps the first cube at
+        the levels it showed before, and past the pixel footprint it has no effect. 0 sets no floor.
+        */
+        detailFloor: number;
       }
     | {
         kind: "notch";
@@ -134,6 +139,7 @@ const StudyState = d.struct({
   corner: d.vec3f,
   octant: d.vec3f,
   spongeHalf: d.f32,
+  detailFloor: d.f32,
   blockHalf: d.f32,
   notchCenter: d.vec3f,
   notchHalf: d.f32,
@@ -206,7 +212,7 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
   const inert = { point: d.vec3f(0), size: 1 };
   switch (scene.kind) {
     case "sponge": {
-      const { corner, halfSize, octant } = scene;
+      const { corner, detailFloor, halfSize, octant } = scene;
       return {
         blockHalf: inert.size,
         boundsCenter: vector([
@@ -216,6 +222,7 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         ]),
         boundsHalf: d.vec3f(halfSize),
         corner: vector(corner),
+        detailFloor,
         mode: 0,
         notchCenter: inert.point,
         notchHalf: inert.size,
@@ -234,6 +241,7 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         boundsCenter: d.vec3f(0),
         boundsHalf: d.vec3f(blockHalf),
         corner: inert.point,
+        detailFloor: 0,
         mode: 1,
         notchCenter: vector(notchCenter),
         notchHalf,
@@ -252,6 +260,7 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         boundsCenter: vector(center),
         boundsHalf: d.vec3f(halfSize + wall),
         corner: inert.point,
+        detailFloor: 0,
         mode: 2,
         notchCenter: inert.point,
         notchHalf: inert.size,
@@ -304,7 +313,11 @@ export async function createIllusionStudyRenderer(
       if (openingPixels <= OPENING_CLOSED_PIXELS) {
         break;
       }
-      const width = std.smoothstep(OPENING_CLOSED_PIXELS, OPENING_OPEN_PIXELS, openingPixels);
+      let width = std.smoothstep(OPENING_CLOSED_PIXELS, OPENING_OPEN_PIXELS, openingPixels);
+      const floor = state.$.detailFloor;
+      if (floor > 0) {
+        width = width * std.smoothstep(floor * 0.7, floor * 1.4, half / (3 * scale));
+      }
       const repeated = std.sub(
         std.mul(std.fract(std.mul(std.add(std.mul(unit, scale), d.vec3f(1)), 0.5)), 2),
         d.vec3f(1),
