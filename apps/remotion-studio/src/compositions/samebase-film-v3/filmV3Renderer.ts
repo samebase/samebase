@@ -93,6 +93,8 @@ const CompositeState = d.struct({
   grain: d.f32,
   shadowTint: d.vec3f,
   facesEnabled: d.i32,
+  /** How the new face opens: 0 it waits behind the doors, 1 it folds open like a leaf, 2 it shears. */
+  facesFold: d.i32,
   /** Hexagon center in pixels from the top left. */
   facesCenter: d.vec2f,
   facesRadius: d.f32,
@@ -910,7 +912,11 @@ export async function createFilmV3Renderer(
     let u = angleRay(faceStart(face, unfold));
     let v = angleRay(faceEnd(face, unfold));
     let limit = d.f32(1);
-    if (face === 2) {
+    if (face === 2 && state.facesFold === 1) {
+      // The leaf is drawn on top of all faces by `leafColor`; its gap between the doors is empty.
+      return d.vec4f(0);
+    }
+    if (face === 2 && state.facesFold === 0) {
       u = angleRay(225);
       v = angleRay(315);
       // The lower corner of the left door, one radius out on the ray 270 - 45 unfold, in new face axes.
@@ -951,6 +957,48 @@ export async function createFilmV3Renderer(
       const doorShadow = (1 - 0.3 * std.exp(-fromLeft / 5)) * (1 - 0.3 * std.exp(-fromRight / 5));
       color = std.mul(color, doorShadow * std.mix(0.55, 0.75, unfold));
     }
+    return d.vec4f(std.mul(color, coverage), coverage);
+  };
+
+  /**
+  The leaf fold: the new face folds open about its vertical diagonal, the cut line, like a book seen
+  from its spine. Each half turns from edge on to flat by the fold angle 90 unfold degrees, so in the
+  orthographic view its width is the sine of that angle times its flat width, and the hole folds
+  with it. Each half takes the camera-fixed key light at its own angle. The leaf folds toward the
+  viewer, so it covers the doors where the two overlap.
+  */
+  const leafColor = (offset: d.v2f, unfold: number): d.v4f => {
+    "use gpu";
+    const state = compositeState.$;
+    const radius = state.facesRadius;
+    const width = std.sin((unfold * Math.PI) / 2);
+    if (width < 0.001) {
+      return d.vec4f(0);
+    }
+    const flat = d.vec2f(offset.x / width, offset.y);
+    const u = angleRay(225);
+    const v = angleRay(315);
+    const a = cross2(flat, v) / radius;
+    const b = cross2(u, flat) / radius;
+    // Pixels to the nearest outline edge: the x scale shrinks each edge distance by this factor.
+    const toPixels = (radius * Math.SQRT2 * width) / std.sqrt(1 + width * width);
+    const edge = std.min(std.min(a, b), std.min(1 - a, 1 - b)) * toPixels;
+    if (edge < -1.5) {
+      return d.vec4f(0);
+    }
+    const inset = 1.25 / radius;
+    const uv = sourcePoint(2, std.clamp(a, inset, 1 - inset), std.clamp(b, inset, 1 - inset));
+    const sample = std.textureSampleLevel(colorView.$, linearSampler.$, uv, 0);
+    let color = std.div(sample.xyz, std.max(sample.w, 0.001));
+    const toneShade = std.textureSampleLevel(auxView.$, linearSampler.$, uv, 0).xyz;
+    color = std.add(color, std.mul(std.sub(state.newTone, state.yTone), toneShade.y));
+    // The key light in camera axes, as in the film: a flat half gets exactly its tone.
+    const light = std.normalize(d.vec3f(-0.5, 0.78, 0.58));
+    const side = std.sign(offset.x);
+    const normal = d.vec3f(side * std.sqrt(std.max(1 - width * width, 0)), 0, width);
+    const shade = 0.6 + (0.4 / light.z) * std.max(std.dot(normal, light), 0);
+    color = std.mul(color, shade * 0.8);
+    const coverage = std.clamp(edge + 0.5, 0, 1);
     return d.vec4f(std.mul(color, coverage), coverage);
   };
 
@@ -999,6 +1047,10 @@ export async function createFilmV3Renderer(
     if (endDistance < 0.5) {
       const neighbor = faceColor(offset, nextFace(face, unfold), unfold);
       layer = std.mix(layer, neighbor, std.clamp(0.5 - endDistance, 0, 0.5));
+    }
+    if (compositeState.$.facesFold === 1) {
+      const leaf = leafColor(offset, unfold);
+      layer = std.add(leaf, std.mul(layer, 1 - leaf.w));
     }
     return layer;
   };
@@ -1146,6 +1198,7 @@ export async function createFilmV3Renderer(
       compositeState.write({
         facesCenter: d.vec2f(...faces.center),
         facesEnabled: faces.enabled ? 1 : 0,
+        facesFold: { leaf: 1, shear: 2, wait: 0 }[faces.fold],
         facesRadius: faces.radius,
         facesUnfold: d.vec2f(...frame.shutter.unfold),
         newTone: vector(inks.newFace),

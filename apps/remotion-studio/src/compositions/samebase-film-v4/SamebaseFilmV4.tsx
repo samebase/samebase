@@ -19,7 +19,7 @@ import {
 import { createFilmV3Renderer } from "../samebase-film-v3/filmV3Renderer";
 import { drawText, waitForFilmV3Fonts } from "../samebase-film-v3/filmV3Page";
 import type { FilmV3Frame, FilmV3Text } from "../samebase-film-v3/filmV3Timeline";
-import { filmV4Fps, type FilmV4Variant, readFilmV4Frame } from "./filmV4Timeline";
+import { filmV4Fps, type FilmV4Variant, type FourthFold, readFilmV4Frame } from "./filmV4Timeline";
 
 function FilmLayer({ frame, opacity }: { frame: FilmV3Frame; opacity: number }) {
   const { height, width } = useVideoConfig();
@@ -79,45 +79,52 @@ in and out over two frames, so a jump in the track makes no click.
 */
 type MusicCut = { at: number; from: number; to: number };
 
+/**
+Every cut leaves out the near-silent fall of the track from 14 s to 17.5 s: each jump lands on a
+beat, from the groove straight onto the lift, so the music never stops.
+*/
 const music: Record<FilmV4Variant, readonly MusicCut[]> = {
-  a: [{ at: 0, from: 0, to: 42 }],
+  a: [
+    { at: 0, from: 0, to: 14 },
+    { at: 14, from: 17.5, to: 42 },
+  ],
   b: [
-    { at: 0, from: 0, to: 4 },
-    { at: 4, from: 14, to: 42 },
+    { at: 0, from: 0, to: 3.5 },
+    { at: 3.5, from: 17.5, to: 42 },
   ],
   c: [
-    { at: 0, from: 0, to: 7 },
-    { at: 7, from: 14, to: 25.5 },
-    { at: 18.5, from: 33.5, to: 42 },
+    { at: 0, from: 0, to: 8.5 },
+    { at: 8.5, from: 17.5, to: 25.5 },
+    { at: 16.5, from: 33.5, to: 42 },
   ],
 };
 
 /** Sound effects, placed so that each peak lands on its picture hit, as in v3.5. */
 const soundCues: Record<FilmV4Variant, readonly { at: number; name: string; volume: number }[]> = {
   a: [
-    { at: 1.9, name: "drag", volume: 0.3 },
-    { at: 4.65, name: "reveal", volume: 0.45 },
-    { at: 17.38, name: "lift", volume: 0.62 },
-    { at: 21.24, name: "close", volume: 0.5 },
+    { at: 0.4, name: "drag", volume: 0.3 },
+    { at: 3.15, name: "reveal", volume: 0.45 },
+    { at: 13.88, name: "lift", volume: 0.62 },
+    { at: 17.5, name: "close", volume: 0.5 },
   ],
   b: [
-    { at: 1.9, name: "drag", volume: 0.3 },
-    { at: 7.38, name: "lift", volume: 0.62 },
-    { at: 11.24, name: "close", volume: 0.5 },
+    { at: 0.4, name: "drag", volume: 0.3 },
+    { at: 3.38, name: "lift", volume: 0.62 },
+    { at: 7, name: "close", volume: 0.5 },
   ],
   c: [
-    { at: 1.9, name: "drag", volume: 0.3 },
-    { at: 4.65, name: "reveal", volume: 0.45 },
+    { at: 0.4, name: "drag", volume: 0.3 },
+    { at: 3.15, name: "reveal", volume: 0.45 },
   ],
 };
 
 const fadeFrames = 2;
 
-function MusicCutAudio({ cut, fadeOut }: { cut: MusicCut; fadeOut: boolean }) {
+function MusicCutAudio({ cut, fadeOut, from }: { cut: MusicCut; fadeOut: boolean; from: number }) {
   const length = Math.round((cut.to - cut.from) * filmV4Fps);
   const fadeIn = cut.at > 0;
   return (
-    <Sequence durationInFrames={length} from={Math.round(cut.at * filmV4Fps)}>
+    <Sequence durationInFrames={length} from={Math.round((cut.at - from) * filmV4Fps)}>
       <Audio
         src={staticFile("media/samebase-film-v3.mp3")}
         startFrom={Math.round(cut.from * filmV4Fps)}
@@ -133,18 +140,23 @@ function MusicCutAudio({ cut, fadeOut }: { cut: MusicCut; fadeOut: boolean }) {
   );
 }
 
-export type SamebaseFilmV4Props = { variant: FilmV4Variant };
+export type SamebaseFilmV4Props = {
+  fold: FourthFold;
+  /** Film seconds at the first frame: 0 for the films, later for the fourth face beat clips. */
+  from: number;
+  variant: FilmV4Variant;
+};
 
 /**
 The v4 brand films. The music and the sound effects are local only: `public/media/samebase-film-v3*.mp3`
 from v3.5.
 */
-export function SamebaseFilmV4({ variant }: SamebaseFilmV4Props) {
+export function SamebaseFilmV4({ fold, from, variant }: SamebaseFilmV4Props) {
   const frame = useCurrentFrame();
   const { fps, height, width } = useVideoConfig();
   const v4 = useMemo(
-    () => readFilmV4Frame(variant, frame / fps, { height, width }),
-    [variant, fps, frame, height, width],
+    () => readFilmV4Frame(variant, from + frame / fps, { height, width }, fold),
+    [fold, fps, frame, from, height, variant, width],
   );
   const cuts = music[variant];
   return (
@@ -158,10 +170,10 @@ export function SamebaseFilmV4({ variant }: SamebaseFilmV4Props) {
       )}
       <TextLayer texts={v4.texts} />
       {cuts.map((cut, index) => (
-        <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} key={cut.at} />
+        <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
       ))}
       {soundCues[variant].map(({ at, name, volume }) => (
-        <Sequence from={Math.round(at * filmV4Fps)} key={`${name}-${at}`}>
+        <Sequence from={Math.round((at - from) * filmV4Fps)} key={`${name}-${at}`}>
           <Audio src={staticFile(`media/samebase-film-v3-${name}.mp3`)} volume={volume} />
         </Sequence>
       ))}
