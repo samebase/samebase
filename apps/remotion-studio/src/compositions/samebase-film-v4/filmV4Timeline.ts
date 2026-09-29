@@ -112,7 +112,41 @@ const unusedTesseract = {
   joints: tesseractJoints(0, 0).joints,
 } as const satisfies FilmV3Scene["tesseract"];
 
+/**
+The cube is the (-x, +y, +z) corner cell of the giant, a sponge that runs on without end in +x, -y,
+and -z. From the isometric view and the three-quarter views of the film the corner is the point of
+the cube nearest the camera, and every other cell of the giant lies behind or under the cube.
+*/
+const corner: Vector3 = [-1, 1, 1];
+const octant: Vector3 = [1, -1, -1];
+
+/**
+The zoom in ends with the frame this tall, in cube half sizes: the three faces around the near corner
+fill the whole frame with a margin, from the isometric view and from the view of C.
+*/
+const deepHalfHeight = 0.6;
+
+/**
+The move from the cube to the giant. The camera zooms in toward the near corner of the cube until
+its three faces fill the frame, holds still, and zooms out from the same corner as the endless pull
+back. At `swap`, while the frame is still and shows no outline and no sky, the cube becomes the
+corner cell of the giant: every other cell of the giant is outside the frame, so the two renders
+give the same picture, and the rest of the giant then enters from the frame edges.
+*/
+type Dive = {
+  from: View;
+  start: number;
+  deep: number;
+  swap: number;
+  out: number;
+  detailFloor: number;
+  /** The zoom out slows to 40 percent over three seconds from here, under the words. */
+  slowAt: number;
+};
+
 type CubeShot = {
+  /** 0 is the view, 1 the deepest point of the zoom in toward the near corner. */
+  dive: number;
   faces: FilmV3Scene["faces"];
   /** Scales the floor shadow, which also fades out near a level camera. */
   floor: number;
@@ -122,12 +156,21 @@ type CubeShot = {
   view: View;
 };
 
-function cubeCamera(view: View): FilmV3Camera {
-  return orbitCamera({ ...view, tan: 0, target: [0, 0, 0] }, 6);
+/** The frame shrinks on a log scale, and the target moves from the cube center to the near corner. */
+function cubeCamera(view: View, dive: number): FilmV3Camera {
+  return orbitCamera(
+    {
+      ...view,
+      halfHeight: view.halfHeight * (deepHalfHeight / view.halfHeight) ** dive,
+      tan: 0,
+      target: scale(corner, dive),
+    },
+    6,
+  );
 }
 
 function cubeScene(shot: CubeShot): FilmV3Scene {
-  const camera = cubeCamera(shot.view);
+  const camera = cubeCamera(shot.view, shot.dive);
   return {
     camera,
     faces: shot.faces,
@@ -174,9 +217,32 @@ function markTurn(time: number, turnStart: number, to: View, turnEnd: number): V
 }
 
 /**
-Move 2: the channels open around a point that draws a slow figure eight over the faces, after the
-automatic probe of the landing hero. No cursor shows. At the end the reveal spreads over the whole
-cube, so every channel is fully open three levels deep.
+The first opening: the center of the level 2 hole in the middle of the left face row next to the
+near edge, in unit cube coordinates. With the point exactly on the center of a closed hole, the hole
+opens as one centered square that grows, and no partial sliver or lone speck shows around it.
+*/
+const firstOpening: Vector3 = [0, 0.5, 5 / 6];
+
+function dot(a: Vector3, b: Vector3): number {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+/** The pixel where the orthographic `camera` shows the world point `point`. */
+function pixelOf(camera: FilmV3Camera, point: Vector3, size: Size) {
+  const offset = add(point, scale(camera.target, -1));
+  const unit = size.height / (2 * camera.halfHeight);
+  return {
+    x: size.width / 2 + dot(offset, camera.right) * unit,
+    y: size.height / 2 - dot(offset, camera.up) * unit,
+  };
+}
+
+/**
+Move 2: the channels open around a point on the surface. No cursor shows. The point rests on
+`firstOpening` while the reveal starts with a radius smaller than the distance to the next channels,
+so only that hole opens; then the radius grows and the point eases into a slow figure eight over
+the faces, after the automatic probe of the landing hero. At the end the reveal spreads over the
+whole cube, so every channel is fully open three levels deep.
 */
 function revealSponge(
   time: number,
@@ -188,19 +254,22 @@ function revealSponge(
   if (openness <= 0) {
     return restSponge;
   }
-  const angle = progress(time, start, spread) * Math.PI * 2 * 0.85;
+  const camera = cubeCamera(view, 0);
+  const rest = pixelOf(camera, [-1, firstOpening[1] * 2 - 1, firstOpening[2] * 2 - 1], size);
+  const leave = easeInOutSine(progress(time, start + 0.6, start + 1.6));
+  const angle = easeInOutSine(progress(time, start + 0.6, spread)) * Math.PI * 2 * 0.85;
   // The loop stays well inside the cube outline, so the probe is always the point on the surface.
-  const x = size.width / 2 + Math.sin(angle * 2) * 150 - 60;
-  const y = size.height / 2 - Math.sin(angle) * 120 + 20;
-  const probe = probeAt(cubeCamera(view), size.width, size.height, x, y, 1) ?? restSponge.probe;
+  const x = mix(rest.x, size.width / 2 + Math.sin(angle * 2) * 150 - 60, leave);
+  const y = mix(rest.y, size.height / 2 - Math.sin(angle) * 120 + 20, leave);
+  const probe =
+    leave > 0 ? (probeAt(camera, size.width, size.height, x, y, 1) ?? firstOpening) : firstOpening;
   return {
     ...restSponge,
     openness,
     probe,
-    // The radius grows from a small spot, so the first openings cluster around one point.
     revealRadius:
       time < spread
-        ? mix(0.12, 0.62, easeInOutSine(progress(time, start, start + 0.9)))
+        ? mix(0.09, 0.62, easeInOutSine(progress(time, start + 0.3, start + 1.5)))
         : mix(0.62, fullRevealRadius, smoothstep(spread, end, time)),
   };
 }
@@ -226,16 +295,8 @@ const isoView: View = { ...iso, halfHeight: 2.9 };
 // ---------- the study renderer: the endless pull back ----------
 
 /**
-Move 6. The cube is the (-x, +y, +z) corner cell of a sponge that runs on without end in +x, -y, and
--z: from the isometric view and the three-quarter views of the film every other cell lies behind or
-under the cube, so a veil can hide them without hiding the cube.
-*/
-const corner: Vector3 = [-1, 1, 1];
-const octant: Vector3 = [1, -1, -1];
-const spongeHalfSize = 3 ** 5;
-/**
-The pull back ends in a three-quarter view with lit faces, clear of the isometric symmetry, and
-nearly level, so the top face of the giant is a thin band that fades into the sky above it.
+Move 6. The pull back ends in a three-quarter view with lit faces, clear of the isometric symmetry,
+and nearly level, so the top face of the giant is a thin band that fades into the sky above it.
 */
 const pullbackView = { elevation: 7, yaw: -58 } as const;
 /**
@@ -243,19 +304,11 @@ Where the corner of the giant ends on screen, in frame half heights from the cen
 and right, so the words keep clear sky at the upper left.
 */
 const cornerOnScreen = { x: 0.42, y: -0.25 } as const;
+const spongeHalfSize = 3 ** 5;
 /** One threefold zoom out takes this long at full speed. */
 const pullbackPeriod = 2.4;
 /** Detail floors, in first cube units: the cube keeps one or three levels of channels. */
 export const detailFloors = { oneLevel: 0.19, threeLevels: 0.0214 } as const;
-
-type Pullback = {
-  /** The camera is still until `start`, then the zoom and the turn speed up from rest. */
-  start: number;
-  from: View;
-  detailFloor: number;
-  /** The zoom slows to 40 percent over three seconds from here, under the words. */
-  slowAt: number;
-};
 
 function zoomSpeed(elapsed: number, slowAfter: number): number {
   return (
@@ -278,69 +331,54 @@ function zoomLogAt(elapsed: number, slowAfter: number): number {
   return sum;
 }
 
-function dot(a: Vector3, b: Vector3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
 /**
-The pull back camera at `renderScale`. The frame and the target scale about the corner, so the
-corner holds its place on screen while the camera turns and pans it from the cube center, where it
-starts, to `cornerOnScreen`.
+The pull back camera at `renderScale`. It starts at the deepest point of the zoom in, with the near
+corner at the frame center, and the frame scales about the corner while the camera turns and pans
+the corner to `cornerOnScreen`.
 */
-function pullbackCamera(time: number, pullback: Pullback, renderScale: number): FilmV3Camera {
-  const turn = easeInOutSine(progress(time, pullback.start, pullback.start + 5));
+function pullbackCamera(time: number, dive: Dive, renderScale: number): FilmV3Camera {
+  const turn = easeInOutSine(progress(time, dive.out, dive.out + 5));
   const angles = {
-    elevation: mix(pullback.from.elevation, pullbackView.elevation, turn),
-    halfHeight: pullback.from.halfHeight * renderScale,
+    elevation: mix(dive.from.elevation, pullbackView.elevation, turn),
+    halfHeight: deepHalfHeight * renderScale,
     tan: 0,
-    yaw: mix(pullback.from.yaw, pullbackView.yaw, turn),
+    yaw: mix(dive.from.yaw, pullbackView.yaw, turn),
   };
-  const centered = orbitCamera({ ...angles, target: add(corner, scale(octant, renderScale)) }, 1);
-  const across = dot(octant, centered.right) + pullback.from.halfHeight * cornerOnScreen.x;
-  const upward = dot(octant, centered.up) + pullback.from.halfHeight * cornerOnScreen.y;
-  const pan = add(scale(centered.right, across), scale(centered.up, upward));
-  return orbitCamera(
-    { ...angles, target: add(centered.target, scale(pan, -renderScale * turn)) },
-    120 * renderScale,
+  const centered = orbitCamera({ ...angles, target: corner }, 1);
+  const pan = add(
+    scale(centered.right, cornerOnScreen.x * angles.halfHeight * turn),
+    scale(centered.up, cornerOnScreen.y * angles.halfHeight * turn),
   );
+  return orbitCamera({ ...angles, target: add(corner, scale(pan, -1)) }, 120 * renderScale);
 }
 
 /**
 The frame drops the whole number of threefold zooms, the same one for the shutter open and close,
 so the zoom runs on with no loss of precision: the picture at scale `s` and at `3 s` is the same.
 */
-function pullbackStudy(time: number, pullback: Pullback): IllusionStudyFrame {
-  const slowAfter = pullback.slowAt - pullback.start;
-  const zoomLog = zoomLogAt(time - pullback.start, slowAfter);
+function pullbackStudy(time: number, dive: Dive): IllusionStudyFrame {
+  const slowAfter = dive.slowAt - dive.out;
+  const zoomLog = zoomLogAt(time - dive.out, slowAfter);
   const whole = Math.floor(zoomLog);
   const cameraAt = (at: number) =>
-    pullbackCamera(at, pullback, 3 ** (zoomLogAt(at - pullback.start, slowAfter) - whole));
+    pullbackCamera(at, dive, 3 ** (zoomLogAt(at - dive.out, slowAfter) - whole));
   const renderScale = 3 ** (zoomLog - whole);
   const camera = cameraAt(time);
-  const cubeScale = 3 ** -whole;
+  const halfHeight = deepHalfHeight * renderScale;
   const light = keyLight(camera, 0.045 * renderScale, 1);
-  // The haze follows the endless pull back study: a veil hides every cell but the cube and thins as
-  // the zoom runs, a wide fade clears the rest, and depth haze stays. The depth haze grows in with
-  // the first zoom, so the cube starts as clear as in the film render.
-  const gone = zoomLog >= 2.8;
-  const widening = Math.max(zoomLog - 1.2, 0) ** 1.5;
-  const veil = 8 * (1 - smoothstep(0, 1.2, zoomLog)) ** 2;
+  // Depth haze in frame units, so it is the same at every scale. It starts 2.5 frame half heights
+  // behind the corner, so the cube itself never takes more than about 2 percent, and it grows in
+  // with the first zoom, so the swap frame has none, as in the film render.
+  const hazeWidth = 0.5 * halfHeight;
   return {
     cameras: [cameraAt(time - halfShutter), cameraAt(time + halfShutter)],
     grain,
     grainStep: grainStepAt(time),
     haze: {
-      clearing: {
-        center: add(corner, scale(octant, cubeScale)),
-        // About three pixels at the start: no neighbor cell shows as a rim around the cube.
-        edge: 0.016 * cubeScale,
-        halfSize: cubeScale,
-        radius: gone ? 1e9 : 10 ** (0.5 + 2.5 * widening) * renderScale,
-        veil: gone ? 0 : veil,
-      },
-      density: (0.3 / renderScale) * smoothstep(0, 0.8, zoomLog),
-      start: camera.rayStart + 1.5 * renderScale,
-      width: 1.5 * renderScale,
+      clearing: { center: corner, edge: 1, halfSize: 1, radius: 1e9, veil: 0 },
+      density: (0.45 / hazeWidth) * smoothstep(0, 1, zoomLog),
+      start: camera.rayStart + 2.5 * halfHeight,
+      width: hazeWidth,
     },
     light: {
       ambient: light.ambient,
@@ -356,7 +394,7 @@ function pullbackStudy(time: number, pullback: Pullback): IllusionStudyFrame {
     sampleGrid,
     scene: {
       corner,
-      detailFloor: pullback.detailFloor * cubeScale,
+      detailFloor: dive.detailFloor * 3 ** -whole,
       halfSize: spongeHalfSize,
       kind: "sponge",
       octant,
@@ -452,8 +490,7 @@ const a = {
   still: 14.5,
   lift: 17.5,
   closed: 21.44,
-  handoff: 21.5,
-  zoom: 21.7,
+  dive: { start: 21.5, deep: 23.9, swap: 24.02, out: 24.2 },
   words: 32.75,
   address: 36.75,
 } as const;
@@ -487,6 +524,7 @@ function readCubeA(time: number, size: Size, mode: CubeShot["mode"]): FilmV3Scen
     };
   }
   return cubeScene({
+    dive: easeInOutSine(progress(time, a.dive.start, a.dive.deep)),
     faces: fourthFaces(time, a.lift, a.closed, view.halfHeight, size),
     // The floor shadow fades with the opening faces and stays away: the giant has no floor.
     floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + 1.6)),
@@ -498,11 +536,11 @@ function readCubeA(time: number, size: Size, mode: CubeShot["mode"]): FilmV3Scen
 }
 
 function readFilmV4A(time: number, size: Size): FilmV4Frame {
-  const pullback: Pullback = {
+  const dive: Dive = {
+    ...a.dive,
     detailFloor: detailFloors.oneLevel,
     from: isoView,
     slowAt: a.words - 1.25,
-    start: a.zoom,
   };
   const cube = (mode: CubeShot["mode"]) => filmFrame((at) => readCubeA(at, size, mode), time);
   return {
@@ -523,9 +561,9 @@ function readFilmV4A(time: number, size: Size): FilmV4Frame {
         layer: (opacity) => filmLayer("film", cube("sponge"), opacity),
       },
       {
-        fade: 0.2,
-        from: a.handoff,
-        layer: (opacity) => studyLayer(pullbackStudy(time, pullback), opacity),
+        fade: 0,
+        from: a.dive.swap,
+        layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
       },
     ]),
     texts: standardEnd(time, a.words, a.address),
@@ -542,8 +580,7 @@ const b = {
   turn: [2, 4.6],
   lift: 7.5,
   closed: 11.44,
-  handoff: 11.5,
-  zoom: 11.7,
+  dive: { start: 11.5, deep: 13.9, swap: 14.02, out: 14.2 },
   words: 22.75,
   address: 26.75,
 } as const;
@@ -552,6 +589,7 @@ const b = {
 function readCubeB(time: number, size: Size): FilmV3Scene {
   const view = markTurn(time, b.turn[0], isoView, b.turn[1]);
   return cubeScene({
+    dive: easeInOutSine(progress(time, b.dive.start, b.dive.deep)),
     faces: fourthFaces(time, b.lift, b.closed, view.halfHeight, size),
     floor: 1 - easeInOutSine(progress(time, b.lift, b.lift + 1.6)),
     mode: "sponge",
@@ -562,20 +600,20 @@ function readCubeB(time: number, size: Size): FilmV3Scene {
 }
 
 function readFilmV4B(time: number, size: Size): FilmV4Frame {
-  const pullback: Pullback = {
+  const dive: Dive = {
+    ...b.dive,
     detailFloor: detailFloors.oneLevel,
     from: isoView,
     slowAt: b.words - 1.25,
-    start: b.zoom,
   };
   const cube = () => filmFrame((at) => readCubeB(at, size), time);
   return {
     layers: stackAt(time, [
       { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube(), opacity) },
       {
-        fade: b.zoom - b.handoff,
-        from: b.handoff,
-        layer: (opacity) => studyLayer(pullbackStudy(time, pullback), opacity),
+        fade: 0,
+        from: b.dive.swap,
+        layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
       },
     ]),
     texts: standardEnd(time, b.words, b.address),
@@ -593,7 +631,7 @@ const c = {
   turn: [2, 4.6],
   reveal: { end: 9.8, spread: 8.6, start: 4.8 },
   settled: 10.2,
-  zoom: 10.4,
+  dive: { start: 10.2, deep: 12.6, swap: 12.72, out: 12.9 },
   words: 19.25,
   address: 22.75,
 } as const;
@@ -614,6 +652,7 @@ function readViewC(time: number): View {
 function readCubeC(time: number, size: Size): FilmV3Scene {
   const view = readViewC(time);
   return cubeScene({
+    dive: easeInOutSine(progress(time, c.dive.start, c.dive.deep)),
     faces: closedFaces,
     floor: 1 - easeInOutSine(progress(time, c.reveal.end - 0.8, c.settled)),
     mode: "sponge",
@@ -624,20 +663,20 @@ function readCubeC(time: number, size: Size): FilmV3Scene {
 }
 
 function readFilmV4C(time: number, size: Size): FilmV4Frame {
-  const pullback: Pullback = {
+  const dive: Dive = {
+    ...c.dive,
     detailFloor: detailFloors.threeLevels,
     from: readViewC(c.settled),
     slowAt: c.words - 1.25,
-    start: c.zoom,
   };
   const cube = () => filmFrame((at) => readCubeC(at, size), time);
   return {
     layers: stackAt(time, [
       { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube(), opacity) },
       {
-        fade: c.zoom - c.settled,
-        from: c.settled,
-        layer: (opacity) => studyLayer(pullbackStudy(time, pullback), opacity),
+        fade: 0,
+        from: c.dive.swap,
+        layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
       },
     ]),
     texts: standardEnd(time, c.words, c.address),
