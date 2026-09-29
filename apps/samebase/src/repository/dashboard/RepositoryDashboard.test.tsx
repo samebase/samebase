@@ -221,6 +221,7 @@ function makeAvailableRepositorySettingsCloudflareBuildsObservation(
       builds: { state: "not_available" },
     },
     builds: { state: "not_connected" },
+    productionBuild: { state: "absent" },
     ...overrides,
   };
 }
@@ -302,7 +303,7 @@ function makeRepositorySettingsBuilderRepository(
 }
 
 describe("buildProductionEnvironmentRoots", () => {
-  it("joins direct attachments to matching live Worker and Convex observations", () => {
+  it("shows production builds without the legacy preview setup", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
     const repository = makeRepositorySettingsBuilderRepository({
@@ -333,24 +334,14 @@ describe("buildProductionEnvironmentRoots", () => {
             repository: {
               state: "ready",
               rootDirectory: "apps/web",
-              builds: {
-                state: "available",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
-              },
+              builds: { state: "not_available" },
             },
-            builds: {
-              state: "connected",
-              productionTriggerUuid: "production-trigger",
-              previewTriggerUuid: "preview-trigger",
-              productionBuildTokenUuid: "build-token",
-              previewBuildTokenUuid: "build-token",
-              productionBuild: {
-                state: "available",
-                buildState: "success",
-                logsUrl:
-                  "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
-              },
+            builds: { state: "not_connected" },
+            productionBuild: {
+              state: "available",
+              buildState: "success",
+              logsUrl:
+                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
             },
           }),
         ],
@@ -448,7 +439,7 @@ describe("buildProductionEnvironmentRoots", () => {
     ]);
   });
 
-  it("keeps custom domains visible when workers.dev is disabled", () => {
+  it("keeps custom domains visible when workers.dev is disabled and builds are unavailable", () => {
     const workerId = fakeCloudflareWorkerId();
     const repository = makeRepositorySettingsBuilderRepository({
       cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
@@ -465,7 +456,12 @@ describe("buildProductionEnvironmentRoots", () => {
             workersDev: { state: "disabled" },
           }),
         ],
-        builds: [makeAvailableRepositorySettingsCloudflareBuildsObservation({ workerId })],
+        builds: [
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
+            workerId,
+            productionBuild: { state: "unavailable", reasons: ["request_failed"] },
+          }),
+        ],
         convexBuildAccess: [],
       }),
       convexObservations: {
@@ -488,7 +484,7 @@ describe("buildProductionEnvironmentRoots", () => {
             id: workerId,
             worker: {
               workerName: "demo-worker",
-              build: { state: "absent" },
+              build: { state: "unavailable" },
               destination: {
                 state: "available",
                 href: "https://app.example.com",
@@ -596,11 +592,11 @@ describe("buildProductionEnvironmentRoots", () => {
               previewTriggerUuid: "samebase-preview-trigger",
               productionBuildTokenUuid: "samebase-build-token",
               previewBuildTokenUuid: "samebase-build-token",
-              productionBuild: {
-                state: "available",
-                buildState: "success",
-                logsUrl: "https://dash.cloudflare.com/samebase-build",
-              },
+            },
+            productionBuild: {
+              state: "available",
+              buildState: "success",
+              logsUrl: "https://dash.cloudflare.com/samebase-build",
             },
           }),
         ],
@@ -3014,8 +3010,8 @@ describe("buildRepositorySettingsState", () => {
                 previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid,
                 previewBuildTokenUuid,
-                productionBuild: { state: "unavailable", reasons: ["request_failed"] },
               },
+              productionBuild: { state: "unavailable", reasons: ["request_failed"] },
             }),
           ],
           convexBuildAccess: [
@@ -3396,8 +3392,8 @@ describe("buildRepositorySettingsState", () => {
                 previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
-                productionBuild: { state: "absent" },
               },
+              productionBuild: { state: "absent" },
             }),
           ],
           convexBuildAccess: [
@@ -3660,8 +3656,8 @@ describe("buildRepositorySettingsState", () => {
                 previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
-                productionBuild: { state: "unavailable", reasons: ["request_failed"] },
               },
+              productionBuild: { state: "unavailable", reasons: ["request_failed"] },
             }),
           ],
           convexBuildAccess: [
