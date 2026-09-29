@@ -73,6 +73,11 @@ Use status, headers, and synthetic data for probes. Do not save private response
 
 ## Separate Production and Preview
 
+For an existing Workers app, use the
+[Worker Previews migration runbook](worker-previews-migration.md) to switch from version uploads to
+isolated Worker Previews. The table below describes the older version-upload model; do not use it as
+evidence that an app has migrated.
+
 Use separate build triggers and credentials:
 
 | Setting       | Production                 | Preview                   |
