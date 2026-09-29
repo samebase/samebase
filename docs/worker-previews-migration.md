@@ -27,16 +27,16 @@ The switch cannot be reversed.
    Convex project Preview deploy key. Cloudflare copies the old build variables, including the
    production key. Save the replacement before pushing.
 4. Keep the production `CONVEX_DEPLOY_KEY` under **Builds > Production**. Keep the same
-   `SAMEBASE_CONVEX_PROJECT` in both build configurations until Samebase's readers and writers
-   change.
+   `SAMEBASE_CONVEX_PROJECT` there. Remove `PREVIEW_CONVEX_DEPLOY_KEY` and `SAMEBASE_CONVEX_PROJECT`
+   from **Builds > Previews Base**.
 
 Deploy keys belong in **Builds**, not **Runtime variables and secrets**.
 
 ## Verify
 
-1. Push the branch. Confirm the build succeeds, then open the preview URL and sign in.
+1. Push a new commit after saving build secrets. Retrying an old build reuses its old variables.
+   Confirm the new build succeeds, then open the preview URL and sign in.
 2. Save test data. Build the same branch again. Check that the Convex deployment, data, and session
    remain unchanged.
-3. Verify production after merge. Remove `PREVIEW_CONVEX_DEPLOY_KEY` only after Samebase's status
-   checks and provider actions support the new layout. Do not use key rotation to repair that
-   status.
+3. Verify production after merge. Samebase's status checks and provider actions still need updates
+   for this layout. Do not use key rotation to repair that status.
