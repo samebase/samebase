@@ -64,7 +64,7 @@ needle twice the face side before it widens.
 */
 export const filmFold: FourthFold = "leaf";
 
-export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 34 } as const satisfies Record<
+export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 37.5 } as const satisfies Record<
   FilmV4Variant,
   number
 >;
@@ -751,50 +751,43 @@ function readFilmV4C(time: number, size: Size): FilmV4Frame {
 /**
 Look again is one chain: every move leaves the object in a new state that the next move starts
 from, and nothing returns to the plain cube until the end. The flat mark turns into a solid, the
-reveal opens it into fractal depth and it stays open, the shuffle starts and runs at every level to
-the end, the camera dives to the near corner and zooms out through threefold cycles of a giant with
+reveal opens it into fractal depth and it stays open, the shuffle moves the cells of every level
+one round and stops, the camera dives to the near corner and zooms out through threefold cycles of a giant with
 no end in sight, the isometric image turns into a star of 4, 5, and 7 sides and back to 3, and the
 camera turns to the front view while the giant shrinks into the flat mark of the first frame.
 
-The music plays the track from the start to 14 s and then from the lift at 17.5 s to 37.5 s, so the
-zoom out starts on the lift.
+The music plays the track from the start with no cut, and the zoom out starts on its lift at 17.5 s.
+Nothing else moves while the camera zooms or the star turns.
 */
 const look = {
   turn: [0.3, 3],
   reveal: { end: 6.8, spread: 5.6, start: 3.2 },
   /** The shuffled sponge takes over while it rests, and its first cells move at 7.5 s. */
   shuffle: 7.35,
-  settle: [11.2, 13.2],
-  dive: [11.8, 14],
-  star: [24.6, 31.4],
-  front: [31.4, 33.7],
+  settle: [14.7, 16.7],
+  dive: [15.3, 17.5],
+  star: [28.1, 34.9],
+  front: [34.9, 37.2],
   /** The camera lands on the flat mark of the first frame and holds it to the end. */
-  landed: 33.7,
+  landed: 37.2,
 } as const;
 
 type Slot = readonly [number, number, number];
 
 /**
-The shuffle wanders and comes back to the Menger layout only at the end. On each visible face of
-every cell, the opening at the face center travels three times around the 2 by 2 cells away from
-the near corner edges. The near corner and the three edges from it never move, so the zoom about
-the corner is the same at every level, and the star seams run along still edges.
-
-The first two rounds take a step every 2 s from `at`. All openings are back at the face centers
-at `topRest`, where the cells of the top level stop in the Menger layout, so the star arms keep
-whole tips. The third round runs from `lateAt` in the smaller cells only.
+The shuffle wanders one round and stops in the Menger layout before the dive. On each visible face
+of every cell, the opening at the face center travels once around the 2 by 2 cells away from the
+near corner edges, one step every 1.85 s from `at`. The near corner and the three edges from it
+never move, so the zoom about the corner is the same at every level, and the star seams run along
+still edges.
 */
-const topRest = 25.2;
-
 const wanderLoops: readonly {
   at: number;
-  lateAt: number;
   loop: readonly [Slot, Slot, Slot, Slot];
 }[] = [
   // The front face: the opening moves down, right, up, and back.
   {
     at: 7.5,
-    lateAt: 25.4,
     loop: [
       [1, 1, 2],
       [1, 0, 2],
@@ -804,8 +797,7 @@ const wanderLoops: readonly {
   },
   // The top face: right, back, left, and forward again.
   {
-    at: 8.2,
-    lateAt: 25.8,
+    at: 7.7,
     loop: [
       [1, 2, 1],
       [2, 2, 1],
@@ -815,8 +807,7 @@ const wanderLoops: readonly {
   },
   // The left face: down, back, up, and forward again.
   {
-    at: 8.9,
-    lateAt: 26.2,
+    at: 7.9,
     loop: [
       [0, 1, 1],
       [0, 0, 1],
@@ -826,9 +817,9 @@ const wanderLoops: readonly {
   },
 ];
 
-const wanderMoves: readonly ShuffleMove[] = wanderLoops.flatMap(({ at, lateAt, loop }) =>
-  Array.from({ length: 12 }, (_, step) => ({
-    at: step < 8 ? at + step * 2 : lateAt + (step - 8) * 1.85,
+const wanderMoves: readonly ShuffleMove[] = wanderLoops.flatMap(({ at, loop }) =>
+  Array.from({ length: 4 }, (_, step) => ({
+    at: at + step * 1.85,
     // The cell after the opening moves into it, so the opening moves on to that cell.
     from: loop[(step + 1) % 4] ?? loop[0],
     to: loop[step % 4] ?? loop[0],
@@ -842,14 +833,14 @@ const giantLevels = 5;
 /**
 The zoom out after the deepest point, in threefold cycles: a burst that speeds up to about 1.3
 seconds a cycle, and a slow cruise under the star that lands on the mark. The outline of the giant
-enters the frame at 26 s, and the landing frames the giant as the first frame frames the mark.
+enters the frame at 29.5 s, and the landing frames the giant as the first frame frames the mark.
 */
 function zoomBurst(time: number): number {
-  return smoothstep(look.dive[1], 21, time) * (1 - smoothstep(21.5, 26, time));
+  return smoothstep(look.dive[1], 24.5, time) * (1 - smoothstep(25, 29.5, time));
 }
 
 function zoomCruise(time: number): number {
-  return smoothstep(20, 26, time) * (1 - smoothstep(29, look.landed, time));
+  return smoothstep(23.5, 29.5, time) * (1 - smoothstep(32.5, look.landed, time));
 }
 
 /** The integral of `speed` from the deepest point to `end`, with the midpoint rule. */
@@ -871,9 +862,9 @@ const zoomEnd = giantLevels + Math.log(markHalfHeight / deepHalfHeight) / Math.l
 /** At the isometric view, the frame edge meets the outline of the giant here. */
 const zoomOutlineIn = giantLevels + Math.log(0.79 / deepHalfHeight) / Math.log(3);
 const cruiseSpeed =
-  (zoomEnd - zoomOutlineIn) / (integrate(zoomCruise, look.landed) - integrate(zoomCruise, 26));
+  (zoomEnd - zoomOutlineIn) / (integrate(zoomCruise, look.landed) - integrate(zoomCruise, 29.5));
 const burstSpeed =
-  (zoomOutlineIn - cruiseSpeed * integrate(zoomCruise, 26)) / integrate(zoomBurst, look.landed);
+  (zoomOutlineIn - cruiseSpeed * integrate(zoomCruise, 29.5)) / integrate(zoomBurst, look.landed);
 
 function lookZoomAt(time: number): number {
   const at = Math.min(time, look.landed);
@@ -883,11 +874,11 @@ function lookZoomAt(time: number): number {
 /** Star keys: the widths of the top, left, four new, and front sides, and when they are reached. */
 const starKeys: readonly { at: number; widths: StarWidths }[] = [
   { at: look.star[0], widths: noStar.widths },
-  { at: 25.9, widths: [98, 84, 0, 80, 0, 0, 98] },
-  { at: 27.2, widths: [76, 70, 0, 64, 0, 76, 74] },
+  { at: 29.4, widths: [98, 84, 0, 80, 0, 0, 98] },
+  { at: 30.7, widths: [76, 70, 0, 64, 0, 76, 74] },
   // Two new sides open together, so the star never has six sides.
-  { at: 28.8, widths: [55, 47, 50, 56, 45, 53, 54] },
-  { at: 30, widths: [48, 56, 46, 52, 55, 47, 56] },
+  { at: 32.3, widths: [55, 47, 50, 56, 45, 53, 54] },
+  { at: 33.5, widths: [48, 56, 46, 52, 55, 47, 56] },
   { at: look.star[1], widths: noStar.widths },
 ];
 
@@ -928,12 +919,8 @@ function readViewLook(time: number): View {
   };
 }
 
-function lookShuffle(
-  time: number,
-  fadePixels: number,
-  moveMinLevel: number,
-): FilmV3Scene["shuffle"] {
-  return { depth: 8, fadePixels, moveMinLevel, ...readShuffle(time, wanderMoves) };
+function lookShuffle(time: number, fadePixels: number): FilmV3Scene["shuffle"] {
+  return { depth: 8, fadePixels, moveMinLevel: 0, ...readShuffle(time, wanderMoves) };
 }
 
 function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Scene {
@@ -941,9 +928,9 @@ function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Sce
   return cubeScene({
     dive: easeInOutSine(progress(at, ...look.dive)),
     faces: closedFaces,
-    floor: 1 - easeInOutSine(progress(at, look.settle[0], 12.8)),
+    floor: 1 - easeInOutSine(progress(at, look.settle[0], 16.3)),
     mode,
-    shuffle: lookShuffle(at, 1.5, 0),
+    shuffle: lookShuffle(at, 1.5),
     sponge: revealSponge(at, view, size, look.reveal),
     view,
   });
@@ -981,12 +968,7 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
     haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
     light: keyLight(camera, (0.045 * halfHeight) / deepHalfHeight, 1),
     mode: "shuffle",
-    // From `topRest` the drawn giant is the whole giant, and its own cells stay in place.
-    shuffle: lookShuffle(
-      at,
-      Math.max(1.5, fade * 0.0426 * size.height),
-      frameTime >= topRest ? 1 : 0,
-    ),
+    shuffle: lookShuffle(at, Math.max(1.5, fade * 0.0426 * size.height)),
     sponge: { ...restSponge, center: add(corner, scale(octant, drawnHalf)), halfSize: drawnHalf },
     star: inStar
       ? {

@@ -97,10 +97,7 @@ const music: Record<FilmV4Variant, readonly MusicCut[]> = {
     { at: 8.5, from: 17.5, to: 25.5 },
     { at: 16.5, from: 33.5, to: 42 },
   ],
-  look: [
-    { at: 0, from: 0, to: 14 },
-    { at: 14, from: 17.5, to: 37.5 },
-  ],
+  look: [{ at: 0, from: 0, to: 37.5 }],
 };
 
 /** Sound effects, placed so that each peak lands on its picture hit, as in v3.5. */
@@ -123,7 +120,7 @@ const soundCues: Record<FilmV4Variant, readonly { at: number; name: string; volu
   look: [
     { at: 0.2, name: "drag", volume: 0.3 },
     { at: 3.05, name: "reveal", volume: 0.45 },
-    { at: 13.88, name: "lift", volume: 0.62 },
+    { at: 17.38, name: "lift", volume: 0.62 },
   ],
 };
 

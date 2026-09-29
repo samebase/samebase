@@ -727,10 +727,9 @@ export async function createFilmV3Renderer(
   z when the point is inside its side. Side k is the parallelogram R * (a * u + b * v) between the
   rays u and v at its start and end angles; the same (a, b) on the rays of its source face, which
   the isometric view draws at 30, 150, and 270 degrees, gives the source point. Every side is one
-  exact linear map, so the three 120 degree sides with no turn give the image back unchanged.
-
-  A narrow parallelogram is a needle of length 2R, so a side narrower than 70 degrees also shrinks
-  toward the center: a new side grows out of the cut instead of shooting out of it.
+  exact linear map, so the three 120 degree sides with no turn give the image back unchanged. A new
+  side opens from a segment of length 2R along the cut: while it is narrow, it is long and its square
+  openings are thin diamonds.
   */
   const starSource = (point: d.v2f, rotation: number, radius: number): d.v3f => {
     "use gpu";
@@ -753,8 +752,7 @@ export async function createFilmV3Renderer(
     const width = starWidth(side);
     const u = angleRay(first + start);
     const v = angleRay(first + start + width);
-    const growth = std.max(std.smoothstep(0, 70, width), 0.02);
-    const determinant = cross2(u, v) * radius * growth;
+    const determinant = cross2(u, v) * radius;
     const a = cross2(point, v) / determinant;
     const b = cross2(u, point) / determinant;
     const faceStart = 30 + 120 * d.f32(starSourceFace(side));
