@@ -73,9 +73,9 @@ Cloudflare Workers Builds runs `pnpm run build` for all branches. It then uses:
 | Non-production branches | `pnpm run deploy:preview` | `CONVEX_DEPLOY_KEY` |
 
 The production and preview Workers Builds triggers store different values under the same key name.
-The production trigger stores the Convex production deploy key. The preview trigger stores the
-Convex project Preview deploy key. The production trigger also stores the readable
-`SAMEBASE_CONVEX_PROJECT` marker. The preview trigger does not need that marker.
+Production build settings store the Convex production deploy key. Previews Base build settings
+store the Convex project Preview deploy key. Production build settings also store the readable
+`SAMEBASE_CONVEX_PROJECT` marker. Preview builds do not need that marker.
 
 The script fails closed when the branch identity is missing.
 `scripts/verify-current-branch-head.ts` prevents an older concurrent build from deploying backend

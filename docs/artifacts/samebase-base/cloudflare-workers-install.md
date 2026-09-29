@@ -81,13 +81,13 @@ the app lives at the repository root.
 
 Build variables and secrets are available only during the Workers build. The template needs a Convex
 deploy key before it can produce static assets. Samebase-managed setup stores the production and
-preview values under the same `CONVEX_DEPLOY_KEY` name on their separate triggers. It writes
+preview values under the same `CONVEX_DEPLOY_KEY` name in their separate build settings. It writes
 `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` only to the production
-trigger. The app does not consume that marker. Samebase reads it from Cloudflare to identify the
-declared project without storing a Worker-to-project relationship.
+build configuration. The app does not consume that marker. Samebase reads it from Cloudflare to
+identify the declared project without storing a Worker-to-project relationship.
 
-Cloudflare exposes the production trigger under **Settings > Builds > Production**. It exposes the
-preview trigger under **Settings > Builds > Previews Base**. Each tab has its own build command,
+Cloudflare exposes production build settings under **Settings > Builds > Production** and preview
+build settings under **Settings > Builds > Previews Base**. Each tab has its own build command,
 deploy command, token, and variables and secrets. Put the project Preview deploy key in the
 **Previews Base** Builds tab.
 
@@ -108,7 +108,7 @@ code.
 - `deployment:data:view`
 
 Do not grant `deployment:data:write`, function-run permissions, logs, backups, or integrations to
-this key. The preview trigger value must contain Convex's project-level Preview deploy key from
+this key. The Previews Base value must contain Convex's project-level Preview deploy key from
 project settings. Preview deploy keys use their own flow and do not take the production permission
 list.
 
@@ -166,10 +166,10 @@ Recommended dashboard values for the artifact:
   `version=1&teamId=<teamId>&projectId=<projectId>`. Do not encrypt it.
 - Previews Base build secret: add `CONVEX_DEPLOY_KEY` with the project Preview deploy key.
 
-For Samebase-managed setup, write the matching `CONVEX_DEPLOY_KEY` value to each trigger. Write the
-marker only to the production trigger. Existing apps remove `PREVIEW_CONVEX_DEPLOY_KEY` and the old
-preview marker manually after the starter changelog migration passes preview and production checks.
-Use the
+For Samebase-managed setup, write the matching `CONVEX_DEPLOY_KEY` value to each build
+configuration. Write the marker only to Production. Existing apps remove `PREVIEW_CONVEX_DEPLOY_KEY`
+and the old preview marker manually after the starter changelog migration passes preview and
+production checks. Use the
 [existing-app migration runbook](../../existing-app-cloudflare-workers-migration.md#migrate-to-worker-previews)
 to apply and verify that update in each repository.
 

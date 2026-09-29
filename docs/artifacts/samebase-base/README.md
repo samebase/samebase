@@ -183,20 +183,20 @@ For a Workers version of the artifact:
   `Build command`, and local deploy wrappers can run the build before Wrangler.
 - Do not tell users to leave the Cloudflare Workers Git build command empty. Workers Builds has its
   own dashboard build command and currently does not honor Wrangler custom build settings there.
-- Explain that the Builds API stores variables per trigger. Samebase-managed production and preview
-  triggers use the same `CONVEX_DEPLOY_KEY` name with different values.
+- Explain that the Builds API stores separate Production and Previews Base build settings. They use
+  the same `CONVEX_DEPLOY_KEY` name with different values.
 - Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code. Existing apps remove that variable
   manually after the starter changelog migration passes preview and production checks.
-- Samebase automation writes one scoped deploy-key build secret to each Workers Builds trigger. It
+- Samebase automation writes one scoped deploy-key build secret to each build configuration. It
   writes the non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
-  marker only to the production trigger. The generated app consumes only the deploy keys. Samebase
-  reads the marker from Cloudflare instead of persisting a Worker-to-project relationship.
+  marker only to Production. The generated app consumes only the deploy keys. Samebase reads the
+  marker from Cloudflare instead of persisting a Worker-to-project relationship.
 - Explain that the preview deploy key belongs under **Builds > Previews Base > Variables and
   secrets**. Never place a Convex deploy key in **Runtime variables and secrets**.
 - Document Convex deploy-key permissions with the current least-privilege split: production
   `CONVEX_DEPLOY_KEY` is a production deployment key with exactly `deployment:deploy`,
   `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; do not add data write,
-  function-run, logs, backups, or integrations permissions. The preview trigger value is Convex's
+  function-run, logs, backups, or integrations permissions. The Previews Base value is Convex's
   separate project-level Preview deploy key and does not use the production permission list.
 - Keep Workers request handlers, server functions, and SSR complexity out of the first app unless
   the template truly needs them.

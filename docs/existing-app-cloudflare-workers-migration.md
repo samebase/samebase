@@ -28,7 +28,7 @@ Record only the facts needed to validate or reverse the migration:
 - Cloudflare account, Worker, active version, and deployment
 - Convex project and production deployment
 - application root and provider build commands
-- production and preview trigger identities
+- the Worker identity, production build settings, and Previews Base build settings
 - non-secret environment variable names
 
 Do not copy credentials, private data, response bodies, or raw private logs into the record.
@@ -73,7 +73,7 @@ Use status, headers, and synthetic data for probes. Do not save private response
 
 ## Separate Production and Preview
 
-Use separate build triggers and credentials:
+Use separate Production and Previews Base build settings and credentials:
 
 | Setting       | Production                 | Preview                    |
 | ------------- | -------------------------- | -------------------------- |
@@ -88,9 +88,9 @@ Preview, Worker Preview URL, or Convex preview deployment.
 ## Migrate to Worker Previews
 
 Older Samebase apps can have both `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` on both
-Workers Builds triggers. The new layout uses `CONVEX_DEPLOY_KEY` with a different value on each
-trigger. Worker Previews is a public open beta and the default for new Workers Builds projects.
-Existing Workers need the one-time switch below.
+Workers Builds triggers. The new layout uses `CONVEX_DEPLOY_KEY` with a different value in
+Production and Previews Base build settings. Worker Previews is a public open beta and the default
+for new Workers Builds projects. Existing Workers need the one-time switch below.
 
 Apply the
 [starter changelog](../packages/plugin/plugins/samebase/skills/samebase/references/starter-changelog.md)
@@ -134,8 +134,9 @@ without repeating it.
    needed.
 3. Select **Switch to Worker Previews**. Cloudflare replaces the Preview command with
    `npx wrangler preview`.
-4. Restore `pnpm run deploy:preview` as the Preview command. Verify `pnpm run build` on both
-   triggers and `pnpm run deploy` on Production. Enable Preview builds for non-production branches.
+4. Restore `pnpm run deploy:preview` as the Preview command. Verify `pnpm run build` on both build
+   configurations and `pnpm run deploy` on Production. Enable Preview builds for non-production
+   branches.
 5. Under **Settings > Builds > Production**, verify that `CONVEX_DEPLOY_KEY` holds the production
    key. Keep the readable `SAMEBASE_CONVEX_PROJECT` marker there.
 6. Under **Settings > Builds > Previews Base**, set `CONVEX_DEPLOY_KEY` to the project Preview key.
@@ -157,12 +158,13 @@ that key before the Worker runs. Runtime secrets and Builds secrets are separate
 
 ### Remove the old variables
 
-After both deployments pass, delete `PREVIEW_CONVEX_DEPLOY_KEY` from both Builds triggers. Delete
-`SAMEBASE_CONVEX_PROJECT` from **Builds > Previews Base** if present. Keep the production marker.
+After both deployments pass, delete `PREVIEW_CONVEX_DEPLOY_KEY` from both build configurations.
+Delete `SAMEBASE_CONVEX_PROJECT` from **Builds > Previews Base** if present. Keep the production
+marker.
 
-The Builds variables endpoint uses `PATCH` as an upsert. The patch does not remove the legacy
-variable. Existing apps delete old values as migration work. Samebase does not delete them during
-key rotation.
+The worker-level Builds settings API updates only named environment variables. It requires an
+explicit null entry to delete a variable. Existing apps delete old values as migration work.
+Samebase does not delete them during key rotation.
 
 ## Validate and Cut Over
 

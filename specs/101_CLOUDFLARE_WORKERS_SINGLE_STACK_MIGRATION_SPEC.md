@@ -37,15 +37,15 @@ Cloudflare Pages is legacy after this migration. Samebase should not keep a perm
 provider matrix unless implementation proves that a short-lived Pages helper is cheaper than
 deleting it.
 
-The Convex deploy-key naming contract is part of the stack. Samebase-managed production and preview
-Builds triggers both use `CONVEX_DEPLOY_KEY`. The production trigger stores the production key. The
-preview trigger stores the project Preview key. A preview build must not use the production key.
+The Convex deploy-key naming contract is part of the stack. Samebase-managed Production and Previews
+Base build settings both use `CONVEX_DEPLOY_KEY`. Production stores the production key. Previews
+Base stores the project Preview key. A preview build must not use the production key.
 
 Samebase-managed wiring also sets the non-secret
 `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker on the production
-trigger. App build scripts consume only the deploy-key secret. The marker lets Samebase read which
-Convex project the Cloudflare configuration declares without copying that relationship into its
-database.
+build configuration. App build scripts consume only the deploy-key secret. The marker lets Samebase
+read which Convex project the Cloudflare configuration declares without copying that relationship
+into its database.
 
 Generated app provisioning can move to Workers before Samebase production hosting moves. That is the
 right first product step because it proves the user-facing automation path. The single-stack
@@ -262,16 +262,17 @@ Required Workers operations:
 2. connect the GitHub repository to Workers Builds
 3. list the account's non-secret Workers Builds token records
 4. require the selected token UUID and verify that Cloudflare still lists it for the exact account
-5. create or patch the production build trigger with that UUID
-6. create or patch the preview/non-production build trigger with the same UUID
-7. set `CONVEX_DEPLOY_KEY` to the production key on the production trigger and to the project
-   Preview key on the preview trigger
+5. create or patch Production build settings with that UUID through the worker-level Builds API
+6. set the same UUID in Previews Base build settings; new connections enable Worker Previews
+7. set `CONVEX_DEPLOY_KEY` to the production key in Production build settings and to the project
+   Preview key in Previews Base build settings
 8. set the non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
-   marker only on the production trigger
+   marker only in Production build settings
 9. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
 10. trigger the first production build
 11. read build status, logs, and production URL directly from Cloudflare when needed
-12. rediscover and delete Worker build triggers when deleting a Samebase-managed repository
+12. verify repository ownership and delete the worker-level Builds configuration when deleting a
+    Samebase-managed repository
 
 For generated single-repository apps, use these Workers Builds commands:
 
@@ -290,8 +291,9 @@ affects new Previews only. Runtime settings do not supply Workers Builds secrets
 
 Existing Workers complete the one-time switch in **Settings > Builds > Set up Worker Previews**. The
 switch cannot be reversed and replaces the Preview command. Restore `pnpm run deploy:preview`
-afterward, verify each trigger's Convex key, and enable Preview builds for non-production branches.
-Validate a real branch Preview and pull-request comment before the approved production cutover.
+afterward, verify each build configuration's Convex key, and enable Preview builds for
+non-production branches. Validate a real branch Preview and pull-request comment before the approved
+production cutover.
 
 For older monorepo-shaped Samebase-generated apps, a temporary fallback can use `apps/samebase` as
 the root with direct Wrangler commands while the template surface converges.
@@ -365,7 +367,7 @@ defines the attachment and coordinate update rules.
 The selected build-token UUID stays in the provisioning plan so an unfinished retry preserves the
 user's exact choice. If Cloudflare removes that record before managed setup finishes, Samebase does
 not select a replacement during retry. It tells the user to remove the failed app and create it
-again with another token. After setup, the production and preview triggers are the source of truth.
+again with another token. After setup, the worker-level build settings are the source of truth.
 Samebase fetches the current name from Cloudflare and never infers token health from list
 membership.
 

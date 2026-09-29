@@ -2,13 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("identifies the v2059 template snapshot", () => {
+  it("identifies the v2060 template snapshot", () => {
     expect({
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "e1e2a131607609a17bd791079444f4ac05ddf1005a5426f6b318ab44ac16e53c",
-      commitMessage: "Initialize app from Samebase starter build v2059",
+      contentHash: "7ca5bcc64107b4d9d859ec260b93168f88c98523249f57e720e736eda502c885",
+      commitMessage: "Initialize app from Samebase starter build v2060",
     });
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
@@ -171,7 +171,7 @@ describe("starterSeedManifest", () => {
       '"--preview-create"',
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
-      "Use one key name with a different value on each Workers Builds trigger",
+      "Use one key name with a different value in each Workers Builds configuration",
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
       "**Settings > Builds > Previews Base**",

@@ -87,15 +87,15 @@ For a Workers/TanStack Start version:
   inline environment assignment, shell parameter expansion, or required
   Unix-only utilities; use Node process APIs and handle Windows `.cmd` entry
   points explicitly when needed.
-- Use `CONVEX_DEPLOY_KEY` on both Workers Builds triggers. Store the production
-  deploy key on the production trigger and the project Preview deploy key on the
-  preview trigger. Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code.
+- Use `CONVEX_DEPLOY_KEY` in both Workers Builds configurations. Store the production
+  deploy key in Production and the project Preview deploy key in Previews Base build settings.
+  Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code.
 - Treat `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as Samebase's
   readable
-  Cloudflare Builds marker. Write the marker only to the production trigger during
+  Cloudflare Builds marker. Write the marker only to Production build settings during
   Samebase-managed setup. The generated app must not consume it.
 - Explain that Samebase-managed setup writes the canonical key separately through
-  the Builds trigger API. Existing apps delete `PREVIEW_CONVEX_DEPLOY_KEY` through
+  the worker-level Builds API. Existing apps delete `PREVIEW_CONVEX_DEPLOY_KEY` through
   the starter changelog migration. Put the preview key under
   **Builds > Previews Base > Variables and secrets**, not under
   **Runtime variables and secrets**.
@@ -117,7 +117,7 @@ For a Workers/TanStack Start version:
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,
   function-run permissions, logs, backups, and integrations are not needed. The
-  preview trigger value is the separate project-level Preview deploy key.
+  Previews Base value is the separate project-level Preview deploy key.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 

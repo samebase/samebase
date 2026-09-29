@@ -158,8 +158,8 @@ For Cloudflare Workers Builds, point the project root directory at `apps/samebas
 - Non-production deploy command: `pnpm run deploy:preview`
 
 `wrangler.jsonc` owns the static asset directory and SPA fallback. The build script deploys Convex
-first. Each Workers Builds trigger uses `CONVEX_DEPLOY_KEY`. The production trigger stores the
-Convex production key. The preview trigger stores the project Preview key.
+first. Production and Previews Base build settings each use `CONVEX_DEPLOY_KEY`. Production stores
+the Convex production key. Previews Base stores the project Preview key.
 
 These three package scripts are the stable Samebase deployment interface. A repository can change
 their implementation without changing the Workers Builds settings. Outside Workers Builds,

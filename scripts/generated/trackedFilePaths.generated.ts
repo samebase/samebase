@@ -1925,6 +1925,7 @@ export const trackedFilePaths = [
   "research/2026-09-05-plugin-reviewer-live-tests.md",
   "research/2026-09-05-test-value-audit.md",
   "research/2026-09-29-worker-previews-defaults.md",
+  "research/2026-09-29-worker-previews-rollout.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",
