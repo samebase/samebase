@@ -829,7 +829,13 @@ export async function createFilmV3Renderer(
           footprintStart * 0.05,
         );
         const sample = sceneSample(point, threshold);
-        if (sample.x < threshold && sample.y > 0.5) {
+        // In the shuffle, the box of a neighbor cell bounds the step but is not a surface. A tunnel
+        // that runs straight from one cell into the next would otherwise end at the cell border.
+        if (
+          sample.x < threshold &&
+          sample.y > 0.5 &&
+          (state.mode !== 2 || shuffleDistance(point, threshold, true) < threshold)
+        ) {
           hit = true;
           hitPoint = d.vec3f(point);
           break;
