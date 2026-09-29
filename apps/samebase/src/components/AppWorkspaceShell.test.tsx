@@ -899,37 +899,40 @@ describe("AppWorkspaceShell", () => {
     expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
   });
 
-  it("does not prehydrate a merged surface below the runtime main-width minimum", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          mobilePane: "right",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: 0,
-            side: "right",
+  it.each([0, -1])(
+    "does not prehydrate a merged surface with a non-positive main width: %s",
+    (mainWidthPx) => {
+      window.localStorage.setItem(
+        APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+        JSON.stringify({
+          state: {
+            ...LOCAL_SIDEBAR_STATE,
+            mobilePane: "right",
+            mobileSurface: {
+              kind: "merged",
+              mainWidthPx,
+              side: "right",
+            },
           },
-        },
-        version: 2,
-      }),
-    );
+          version: 2,
+        }),
+      );
 
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
-    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
+      const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
+      runAppWorkspaceSidebarPrehydrationScript(scriptElement);
+      expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+      expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
 
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
+      withMobileViewportWidth(390, () => {
+        runAppMobilePanePrehydrationScript(scriptElement);
+      });
 
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
-    expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
-    expect(layoutRoot.style.length).toBe(0);
-    expect(carousel.scrollLeft).toBe(0);
-  });
+      expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+      expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
+      expect(layoutRoot.style.length).toBe(0);
+      expect(carousel.scrollLeft).toBe(0);
+    },
+  );
 
   it("prehydrates closed local sidebars as zero width", () => {
     window.localStorage.setItem(
@@ -994,42 +997,47 @@ describe("AppWorkspaceShell", () => {
     ).toBe("pane");
   });
 
-  it("fits a persisted merged mobile pane to the current viewport before hydration", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftMobileWidthPx: 260,
-          mobilePane: "right",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: 302,
-            side: "right",
+  it.each([302, 100])(
+    "fits a persisted %s px merged mobile pane to the current viewport before hydration",
+    (mainWidthPx) => {
+      window.localStorage.setItem(
+        APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+        JSON.stringify({
+          state: {
+            ...LOCAL_SIDEBAR_STATE,
+            leftMobileWidthPx: 260,
+            mobilePane: "right",
+            mobileSurface: {
+              kind: "merged",
+              mainWidthPx,
+              side: "right",
+            },
+            rightMobileWidthPx: 1,
           },
-          rightMobileWidthPx: 1,
-        },
-        version: 2,
-      }),
-    );
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
+          version: 2,
+        }),
+      );
+      const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
 
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
+      withMobileViewportWidth(390, () => {
+        runAppMobilePanePrehydrationScript(scriptElement);
+      });
 
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-left-mobile-width")).toBe("260px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("260px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-right-mobile-width")).toBe("130px");
-    expect(carousel.scrollLeft).toBe(260);
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
-    expect(layoutRoot.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
-    expect(
-      carousel
-        .querySelector('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
-        ?.getAttribute("data-sidebar-layout-part"),
-    ).toBe("pane");
-  });
+      expect(layoutRoot.style.getPropertyValue("--sidebar-layout-left-mobile-width")).toBe("260px");
+      expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("260px");
+      expect(layoutRoot.style.getPropertyValue("--sidebar-layout-right-mobile-width")).toBe(
+        "130px",
+      );
+      expect(carousel.scrollLeft).toBe(260);
+      expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
+      expect(layoutRoot.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
+      expect(
+        carousel
+          .querySelector('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
+          ?.getAttribute("data-sidebar-layout-part"),
+      ).toBe("pane");
+    },
+  );
 
   it("prehydrates a persisted merge as unmerged geometry for slide behavior", () => {
     window.localStorage.setItem(

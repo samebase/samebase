@@ -91,6 +91,10 @@ the selected pane and pane widths do not change.
 The local storage parser must reject payloads from an old version or payloads with an invalid mobile
 surface. The app must not infer missing merge state from a saved pane width.
 
+A stored merged main width must be finite and positive. Both the prehydration reader and the runtime
+local storage reader use this rule. A positive saved width below the current layout minimum remains
+valid state; the renderer fits the merge to the current constraints.
+
 Committed merge state belongs to the pane state controller. In-progress drag state and local
 viewport measurements remain transient layout state.
 

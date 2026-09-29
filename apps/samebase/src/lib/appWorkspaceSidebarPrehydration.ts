@@ -43,7 +43,8 @@ function readAppWorkspaceSidebarPrehydrationState(): SidebarLayoutPrehydrationSt
         "mainWidthPx" in value &&
         (value.side === "left" || value.side === "right") &&
         typeof value.mainWidthPx === "number" &&
-        Number.isFinite(value.mainWidthPx)
+        Number.isFinite(value.mainWidthPx) &&
+        value.mainWidthPx > 0
       ) {
         return {
           kind: "merged",

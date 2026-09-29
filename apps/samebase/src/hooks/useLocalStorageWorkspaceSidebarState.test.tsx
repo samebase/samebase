@@ -181,20 +181,26 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     renderSidebarStateProbe(args);
   }
 
-  it("hydrates anonymous sidebar preferences from localStorage", () => {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        state: STORED_SIDEBAR_STATE,
-        version: 2,
-      }),
-    );
+  it.each([300, 100])(
+    "hydrates anonymous sidebar preferences with a saved %s px main width",
+    (mainWidthPx) => {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          state: {
+            ...STORED_SIDEBAR_STATE,
+            mobileSurface: { kind: "merged", mainWidthPx, side: "right" },
+          },
+          version: 2,
+        }),
+      );
 
-    renderProbe();
+      renderProbe();
 
-    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("right");
-    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("360");
-  });
+      expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("right");
+      expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("360");
+    },
+  );
 
   it("falls back to defaults for malformed localStorage payloads", () => {
     window.localStorage.setItem(
@@ -229,23 +235,26 @@ describe("useLocalStorageWorkspaceSidebarState", () => {
     expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("288");
   });
 
-  it("falls back to defaults for malformed mobile surface payloads", () => {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...STORED_SIDEBAR_STATE,
-          mobileSurface: { kind: "merged", mainWidthPx: 0, side: "right" },
-        },
-        version: 2,
-      }),
-    );
+  it.each([0, -1])(
+    "falls back to defaults for a non-positive merged main width: %s",
+    (mainWidthPx) => {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          state: {
+            ...STORED_SIDEBAR_STATE,
+            mobileSurface: { kind: "merged", mainWidthPx, side: "right" },
+          },
+          version: 2,
+        }),
+      );
 
-    renderProbe();
+      renderProbe();
 
-    expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
-    expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("288");
-  });
+      expect(rootElement?.firstElementChild?.getAttribute("data-mobile-pane")).toBe("main");
+      expect(rootElement?.firstElementChild?.getAttribute("data-right-width")).toBe("288");
+    },
+  );
 
   it("clears localStorage when the reset flag is active", () => {
     window.localStorage.setItem(

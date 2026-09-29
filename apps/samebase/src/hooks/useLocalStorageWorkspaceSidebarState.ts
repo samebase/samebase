@@ -1,5 +1,4 @@
 import { guard, isRecord } from "@samebase/dependent";
-import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
@@ -74,7 +73,7 @@ function parseMobileSurface(value: unknown): SidebarLayoutState["mobileSurface"]
     value["kind"] === "merged" &&
     (value["side"] === "left" || value["side"] === "right") &&
     isFiniteNumber(value["mainWidthPx"]) &&
-    value["mainWidthPx"] >= SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX
+    value["mainWidthPx"] > 0
   ) {
     return {
       kind: "merged",
