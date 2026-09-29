@@ -1,6 +1,7 @@
 import type { IllusionStudyFrame } from "../illusion-studies/illusionStudyRenderer";
 import {
   add,
+  checkShufflePlan,
   easeInLongOut,
   easeInOutCubic,
   easeInOutSine,
@@ -15,12 +16,15 @@ import {
   keyLight,
   landingTones,
   mix,
+  noStar,
   orbitCamera,
   orbitMoves,
   palettes,
   probeAt,
   progress,
   readShuffle,
+  type ShuffleMove,
+  type StarWidths,
   scale,
   smoothstep,
   tesseractJoints,
@@ -60,7 +64,7 @@ needle twice the face side before it widens.
 */
 export const filmFold: FourthFold = "leaf";
 
-export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 30 } as const satisfies Record<
+export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 34 } as const satisfies Record<
   FilmV4Variant,
   number
 >;
@@ -110,6 +114,7 @@ const fullRevealRadius = 8;
 
 const restShuffle = {
   depth: 3,
+  fadePixels: 1.5,
   moveMinLevel: 0,
   ...readShuffle(0, []),
 } as const satisfies FilmV3Scene["shuffle"];
@@ -195,6 +200,7 @@ function cubeScene(shot: CubeShot): FilmV3Scene {
     mode: shot.mode,
     shuffle: shot.shuffle,
     sponge: shot.sponge,
+    star: noStar,
     tesseract: unusedTesseract,
     tones: landingTones,
   };
@@ -215,6 +221,7 @@ function filmFrame(read: (time: number) => FilmV3Scene, time: number): FilmV3Fra
     shadowTint: haze.shadowTint,
     shutter: {
       cameras: [open.camera, close.camera],
+      starRotation: [open.star.rotation, close.star.rotation],
       unfold: [open.faces.unfold, close.faces.unfold],
     },
     sky: haze.sky,
@@ -585,7 +592,7 @@ function readCubeA(
     // The floor shadow fades with the opening faces and stays away: the giant has no floor.
     floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + unfoldSeconds)),
     mode,
-    shuffle: { depth: 3, moveMinLevel: 0, ...readShuffle(time, shuffleMovesA) },
+    shuffle: { depth: 3, fadePixels: 1.5, moveMinLevel: 0, ...readShuffle(time, shuffleMovesA) },
     sponge,
     view,
   });
@@ -742,170 +749,275 @@ function readFilmV4C(time: number, size: Size): FilmV4Frame {
 // ---------- variant look: look again ----------
 
 /**
-Look plays the music of A up to the end of its phrase at 33.5 s, so the loop starts the track again
-on a phrase. The moves up to the zoom out are those of A, and the mark holds only 0.3 s, because the
-landing at the end holds 0.2 s before the loop.
+Look again is one chain: every move leaves the object in a new state that the next move starts
+from, and nothing returns to the plain cube until the end. The flat mark turns into a solid, the
+reveal opens it into fractal depth and it stays open, the shuffle starts and runs at every level to
+the end, the camera dives to the near corner and zooms out through threefold cycles of a giant with
+no end in sight, the isometric image turns into a star of 4, 5, and 7 sides and back to 3, and the
+camera turns to the front view while the giant shrinks into the flat mark of the first frame.
+
+The music plays the track from the start to 14 s and then from the lift at 17.5 s to 37.5 s, so the
+zoom out starts on the lift.
 */
 const look = {
-  turnStart: 0.3,
-  /** The camera starts to turn back to the front view while the zoom out goes on. */
-  turnBack: 22.6,
+  turn: [0.3, 3],
+  reveal: { end: 6.8, spread: 5.6, start: 3.2 },
+  /** The shuffled sponge takes over while it rests, and its first cells move at 7.5 s. */
+  shuffle: 7.35,
+  settle: [11.2, 13.2],
+  dive: [11.8, 14],
+  star: [24.6, 31.4],
+  front: [31.4, 33.7],
   /** The camera lands on the flat mark of the first frame and holds it to the end. */
-  landed: 29.8,
+  landed: 33.7,
 } as const;
 
-/**
-The giant: a Menger sponge two levels above the cube, whose (-x, +y, +z) corner cell is the cube.
-At the front view with the frame half height of the mark, its front face is the flat mark.
-*/
-const giant = { center: add(corner, scale(octant, 9)), halfSize: 9 } as const;
-
-/** Threefold zooms from the deepest point to the frame of the mark around the giant. */
-const lookZoomEnd = Math.log((markHalfHeight * giant.halfSize) / deepHalfHeight) / Math.log(3);
+type Slot = readonly [number, number, number];
 
 /**
-Levels of the giant close in turn as they shrink, each opening to its center: first the channels of
-the cube size cells, then those of the next level, so the landing shows the level of the mark only.
-The spans are in threefold zooms.
+The shuffle wanders and comes back to the Menger layout only at the end. On each visible face of
+every cell, the opening at the face center travels three times around the 2 by 2 cells away from
+the near corner edges. The near corner and the three edges from it never move, so the zoom about
+the corner is the same at every level, and the star seams run along still edges.
+
+The first two rounds take a step every 2 s from `at`. All openings are back at the face centers
+at `topRest`, where the cells of the top level stop in the Menger layout, so the star arms keep
+whole tips. The third round runs from `lateAt` in the smaller cells only.
 */
-const giantCloses = { cells: [1.9, 2.6], blocks: [2.75, 3.3] } as const;
+const topRest = 25.2;
+
+const wanderLoops: readonly {
+  at: number;
+  lateAt: number;
+  loop: readonly [Slot, Slot, Slot, Slot];
+}[] = [
+  // The front face: the opening moves down, right, up, and back.
+  {
+    at: 7.5,
+    lateAt: 25.4,
+    loop: [
+      [1, 1, 2],
+      [1, 0, 2],
+      [2, 0, 2],
+      [2, 1, 2],
+    ],
+  },
+  // The top face: right, back, left, and forward again.
+  {
+    at: 8.2,
+    lateAt: 25.8,
+    loop: [
+      [1, 2, 1],
+      [2, 2, 1],
+      [2, 2, 0],
+      [1, 2, 0],
+    ],
+  },
+  // The left face: down, back, up, and forward again.
+  {
+    at: 8.9,
+    lateAt: 26.2,
+    loop: [
+      [0, 1, 1],
+      [0, 0, 1],
+      [0, 0, 0],
+      [0, 1, 0],
+    ],
+  },
+];
+
+const wanderMoves: readonly ShuffleMove[] = wanderLoops.flatMap(({ at, lateAt, loop }) =>
+  Array.from({ length: 12 }, (_, step) => ({
+    at: step < 8 ? at + step * 2 : lateAt + (step - 8) * 1.85,
+    // The cell after the opening moves into it, so the opening moves on to that cell.
+    from: loop[(step + 1) % 4] ?? loop[0],
+    to: loop[step % 4] ?? loop[0],
+  })),
+);
+checkShufflePlan(wanderMoves);
+
+/** The world size of the giant: a Menger sponge five levels above the cube. */
+const giantLevels = 5;
 
 /**
-The zoom speed after `elapsed` seconds of the zoom out: it speeds up from rest as in A and slows to
-rest over the last 3.5 seconds, where the camera lands on the mark.
+The zoom out after the deepest point, in threefold cycles: a burst that speeds up to about 1.3
+seconds a cycle, and a slow cruise under the star that lands on the mark. The outline of the giant
+enters the frame at 26 s, and the landing frames the giant as the first frame frames the mark.
 */
-function lookZoomSpeed(elapsed: number, span: number): number {
-  return smoothstep(0, zoomOutSpeedUp, elapsed) * (1 - smoothstep(span - 3.5, span, elapsed));
+function zoomBurst(time: number): number {
+  return smoothstep(look.dive[1], 21, time) * (1 - smoothstep(21.5, 26, time));
 }
 
-/** Integral of the zoom speed with the midpoint rule. */
-function lookZoomIntegral(elapsed: number, span: number): number {
-  const steps = Math.max(Math.ceil(elapsed * 240), 1);
-  const step = elapsed / steps;
+function zoomCruise(time: number): number {
+  return smoothstep(20, 26, time) * (1 - smoothstep(29, look.landed, time));
+}
+
+/** The integral of `speed` from the deepest point to `end`, with the midpoint rule. */
+function integrate(speed: (time: number) => number, end: number): number {
+  const start = look.dive[1];
+  if (end <= start) {
+    return 0;
+  }
+  const steps = Math.ceil((end - start) * 120);
+  const step = (end - start) / steps;
   let sum = 0;
   for (let index = 0; index < steps; index += 1) {
-    sum += lookZoomSpeed((index + 0.5) * step, span) * step;
+    sum += speed(start + (index + 0.5) * step) * step;
   }
   return sum;
 }
 
-const lookZoomSpan = look.landed - a.dive.out;
-const lookZoomTotal = lookZoomIntegral(lookZoomSpan, lookZoomSpan);
+const zoomEnd = giantLevels + Math.log(markHalfHeight / deepHalfHeight) / Math.log(3);
+/** At the isometric view, the frame edge meets the outline of the giant here. */
+const zoomOutlineIn = giantLevels + Math.log(0.79 / deepHalfHeight) / Math.log(3);
+const cruiseSpeed =
+  (zoomEnd - zoomOutlineIn) / (integrate(zoomCruise, look.landed) - integrate(zoomCruise, 26));
+const burstSpeed =
+  (zoomOutlineIn - cruiseSpeed * integrate(zoomCruise, 26)) / integrate(zoomBurst, look.landed);
 
-/** Threefold zooms out since the deepest point. */
 function lookZoomAt(time: number): number {
-  const elapsed = Math.min(time - a.dive.out, lookZoomSpan);
-  return elapsed <= 0 ? 0 : (lookZoomEnd * lookZoomIntegral(elapsed, lookZoomSpan)) / lookZoomTotal;
+  const at = Math.min(time, look.landed);
+  return burstSpeed * integrate(zoomBurst, at) + cruiseSpeed * integrate(zoomCruise, at);
+}
+
+/** Star keys: the widths of the top, left, four new, and front sides, and when they are reached. */
+const starKeys: readonly { at: number; widths: StarWidths }[] = [
+  { at: look.star[0], widths: noStar.widths },
+  { at: 25.9, widths: [98, 84, 0, 80, 0, 0, 98] },
+  { at: 27.2, widths: [76, 70, 0, 64, 0, 76, 74] },
+  // Two new sides open together, so the star never has six sides.
+  { at: 28.8, widths: [55, 47, 50, 56, 45, 53, 54] },
+  { at: 30, widths: [48, 56, 46, 52, 55, 47, 56] },
+  { at: look.star[1], widths: noStar.widths },
+];
+
+function starWidthsAt(time: number): StarWidths {
+  let widths: StarWidths = noStar.widths;
+  for (let index = 1; index < starKeys.length; index += 1) {
+    const from = starKeys[index - 1];
+    const to = starKeys[index];
+    if (from && to && time > from.at) {
+      const amount = easeInOutSine(progress(time, from.at, to.at));
+      const width = (side: 0 | 1 | 2 | 3 | 4 | 5 | 6) =>
+        mix(from.widths[side], to.widths[side], amount);
+      widths = [width(0), width(1), width(2), width(3), width(4), width(5), width(6)];
+    }
+  }
+  return widths;
+}
+
+/** The flat mark turns to a three-quarter view, drifts while the reveal and shuffle run, then settles. */
+function readViewLook(time: number): View {
+  const turned = markTurn(
+    time,
+    look.turn[0],
+    { elevation: 24, halfHeight: 2.5, yaw: -52 },
+    look.turn[1],
+  );
+  return {
+    elevation: keyed(time, turned.elevation, [
+      { at: look.turn[1], ease: easeInOutSine, to: 27, until: 7.5 },
+      { at: look.settle[0], ease: easeInOutSine, to: iso.elevation, until: look.settle[1] },
+    ]),
+    halfHeight: turned.halfHeight,
+    yaw: keyed(time, turned.yaw, [
+      { at: look.turn[1], ease: easeInOutSine, to: -38, until: 7.5 },
+      { at: 7.5, ease: easeInOutSine, to: -42, until: look.settle[0] },
+      { at: look.settle[0], ease: easeInOutSine, to: iso.yaw, until: look.settle[1] },
+    ]),
+  };
+}
+
+function lookShuffle(
+  time: number,
+  fadePixels: number,
+  moveMinLevel: number,
+): FilmV3Scene["shuffle"] {
+  return { depth: 8, fadePixels, moveMinLevel, ...readShuffle(time, wanderMoves) };
+}
+
+function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Scene {
+  const view = readViewLook(at);
+  return cubeScene({
+    dive: easeInOutSine(progress(at, ...look.dive)),
+    faces: closedFaces,
+    floor: 1 - easeInOutSine(progress(at, look.settle[0], 12.8)),
+    mode,
+    shuffle: lookShuffle(at, 1.5, 0),
+    sponge: revealSponge(at, view, size, look.reveal),
+    view,
+  });
 }
 
 /**
-One frame of the zoom out is in giant units while the giant has more levels than the mark, and in
-cube units from the frame where only the level of the mark is left: there the giant and the rest
-cube scaled by 9 about the giant center are the same scene, so the change does not show.
+The zoom out after the deepest point, in render units: the world scaled down about the near corner
+by the whole threefold cycles of the frame, so the numbers stay small at every scale. The giant
+draws at most two levels above the frame; while it is larger, its corner cell of that size gives
+the same picture.
 */
-function lookPullScene(at: number, zoomAtFrame: number): FilmV3Scene {
-  const zoom = lookZoomAt(at);
-  const turn = easeInOutSine(progress(at, look.turnBack, look.landed));
-  const halfHeight = deepHalfHeight * 3 ** zoom;
-  const target = add(scale(corner, 1 - turn), scale(giant.center, turn));
-  const inMark = zoomAtFrame >= giantCloses.blocks[1];
-  const origin = inMark ? giant.center : ([0, 0, 0] as const);
-  const unit = inMark ? giant.halfSize : 1;
+function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
+  const unit = 3 ** Math.floor(lookZoomAt(frameTime));
+  const front = easeInOutSine(progress(at, ...look.front));
+  const halfHeight = (deepHalfHeight * 3 ** lookZoomAt(at)) / unit;
+  const giantHalf = 3 ** giantLevels / unit;
+  const drawnHalf = Math.min(9, giantHalf);
   const camera = orbitCamera(
     {
-      elevation: mix(iso.elevation, 0, turn),
-      halfHeight: halfHeight / unit,
+      elevation: mix(iso.elevation, 0, front),
+      halfHeight,
       tan: 0,
-      target: scale(add(target, scale(origin, -1)), 1 / unit),
-      yaw: mix(iso.yaw, 0, turn),
+      target: add(corner, scale(octant, giantHalf * front)),
+      yaw: mix(iso.yaw, 0, front),
     },
-    (6 * giant.halfSize) / unit,
+    6 * drawnHalf,
   );
-  const cellsOpen = 1 - easeInOutSine(progress(zoomAtFrame, ...giantCloses.cells));
-  const blocksOpen = 1 - easeInOutSine(progress(zoomAtFrame, ...giantCloses.blocks));
-  const sponge: FilmV3Scene["sponge"] = inMark
-    ? restSponge
-    : {
-        ...restSponge,
-        anchorToProbe: 0,
-        center: giant.center,
-        halfSize: giant.halfSize,
-        revealRadius: fullRevealRadius,
-        // While the cube size cells close, the two levels above them stay open; then only the
-        // level of the mark stays open while the next one closes.
-        ...(cellsOpen > 0
-          ? { depth: 3, openness: cellsOpen, restDepth: 2 }
-          : { depth: 2, openness: blocksOpen, restDepth: 1 }),
-      };
+  // The smaller levels close during the landing, so the giant lands with the openings of the mark.
+  const fade = easeInOutSine(progress(at, look.front[0] - 0.2, look.landed - 0.2));
+  const inStar = frameTime >= look.star[0] && frameTime < look.star[1];
   return {
     camera,
     faces: closedFaces,
     floor: { height: -1, strength: 0 },
     haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
-    // The shadow march scales with the frame once the frame is larger than the mark.
-    light: keyLight(camera, (0.045 * Math.max(1, halfHeight / markHalfHeight)) / unit, 1),
-    mode: "sponge",
-    shuffle: restShuffle,
-    sponge,
+    light: keyLight(camera, (0.045 * halfHeight) / deepHalfHeight, 1),
+    mode: "shuffle",
+    // From `topRest` the drawn giant is the whole giant, and its own cells stay in place.
+    shuffle: lookShuffle(
+      at,
+      Math.max(1.5, fade * 0.0426 * size.height),
+      frameTime >= topRest ? 1 : 0,
+    ),
+    sponge: { ...restSponge, center: add(corner, scale(octant, drawnHalf)), halfSize: drawnHalf },
+    star: inStar
+      ? {
+          enabled: true,
+          hexRadius: hexagonRadius * giantHalf,
+          rotation: 360 * easeInOutSine(progress(at, ...look.star)),
+          widths: starWidthsAt(at),
+        }
+      : noStar,
     tesseract: unusedTesseract,
     tones: landingTones,
   };
 }
 
-function readCubeLook(
-  at: number,
-  frameTime: number,
-  size: Size,
-  mode: CubeShot["mode"],
-  fold: FourthFold,
-): FilmV3Scene {
-  if (frameTime >= look.landed) {
-    return readCubeLook(0, 0, size, mode, fold);
-  }
-  if (frameTime >= a.dive.swap) {
-    return lookPullScene(at, lookZoomAt(frameTime));
-  }
-  const view = readViewA(at, look.turnStart);
-  const dive = easeInOutSine(progress(at, a.dive.start, a.dive.deep));
-  let sponge: FilmV3Scene["sponge"] = revealSponge(at, view, size, a.reveal);
-  if (at >= a.settle) {
-    sponge = {
-      ...restSponge,
-      anchorToProbe: 0,
-      openness: 1 - easeInOutCubic(progress(at, a.settle + 0.1, a.settle + 0.8)),
-      revealRadius: fullRevealRadius,
-    };
-  }
-  return cubeScene({
-    dive,
-    faces: fourthFaces(at, a.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
-    floor: 1 - easeInOutSine(progress(at, a.lift, a.lift + unfoldSeconds)),
-    mode,
-    shuffle: { depth: 3, moveMinLevel: 0, ...readShuffle(at, shuffleMovesA) },
-    sponge,
-    view,
-  });
-}
-
-function readFilmV4Look(time: number, size: Size, fold: FourthFold): FilmV4Frame {
-  const cube = (mode: CubeShot["mode"]) => {
-    const frame = filmFrame((at) => readCubeLook(at, time, size, mode, fold), time);
-    // The landing is the first frame, grain included.
-    return time >= look.landed ? { ...frame, grainStep: grainStepAt(0) } : frame;
-  };
+function readFilmV4Look(time: number, size: Size): FilmV4Frame {
+  const cube = (mode: CubeShot["mode"]) =>
+    filmFrame(
+      (at) => (time >= look.dive[1] ? lookPullScene(at, time, size) : readCubeLook(at, size, mode)),
+      time,
+    );
+  // The landing is the first frame, grain included.
+  const rest = filmFrame((at) => readCubeLook(Math.min(at, 0), size, "sponge"), 0);
   return {
     layers: stackAt(time, [
       { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube("sponge"), opacity) },
       {
         fade: 0.1,
-        from: a.shuffle - 0.05,
+        from: look.shuffle - 0.05,
         layer: (opacity) => filmLayer("film-shuffle", cube("shuffle"), opacity),
       },
-      {
-        fade: 0.1,
-        from: a.settle - 0.05,
-        layer: (opacity) => filmLayer("film", cube("sponge"), opacity),
-      },
+      { fade: 0, from: look.landed, layer: (opacity) => filmLayer("film", rest, opacity) },
     ]),
     texts: [],
   };
@@ -925,7 +1037,7 @@ export function readFilmV4Frame(
     case "c":
       return readFilmV4C(time, size);
     case "look":
-      return readFilmV4Look(time, size, fold);
+      return readFilmV4Look(time, size);
     default:
       return variant satisfies never;
   }

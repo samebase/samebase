@@ -207,8 +207,8 @@ export function RemotionRoot() {
         defaultProps={{ fold: filmFold, from: 0, variant: "look" }}
         durationInFrames={filmV4Seconds.look * 30}
         fps={30}
-        height={360}
-        width={640}
+        height={270}
+        width={480}
       />
       {(["leaf", "shear"] as const).map((fold) => (
         <Composition

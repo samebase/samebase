@@ -9,6 +9,13 @@ const MAXIMUM_SAMPLE_GRID = 4;
 const FACE_SHUTTER_SAMPLES = 8;
 const MAXIMUM_RAY_STEPS = 200;
 const MAXIMUM_MENGER_DEPTH = 8;
+/**
+A shuffled cell level fades out between its fade width and this many times that width: its cells
+grow until they close the openings between them. Below 3, only one level fades at a time.
+*/
+const FADE_SPAN = 8 / 3;
+/** Sides of the star warp. */
+const STAR_SIDES = 7;
 const BEAM_COUNT = 32;
 
 const SceneState = d.struct({
@@ -76,6 +83,17 @@ const SceneState = d.struct({
   /** Eased progress of each cell in flight. */
   moveProgress: d.vec3f,
   moveCount: d.i32,
+  /** Shuffled cells narrower than this many pixels are solid, and a level fades out above it. */
+  fadePixels: d.f32,
+  /** 1 warps the isometric image into the star. */
+  starEnabled: d.i32,
+  /** The hexagon radius of the object outline, in world units at the focal plane. */
+  starHexRadius: d.f32,
+  /** The star turn at the shutter open and close, in degrees counterclockwise. */
+  starRotation: d.vec2f,
+  /** Widths in degrees of sides 0 to 3 and 4 to 6 of the star, counterclockwise from the top face. */
+  starWidthsA: d.vec4f,
+  starWidthsB: d.vec4f,
   floorHeight: d.f32,
   /** 0 hides the floor shadow. It fades out near a level camera, where the floor turns edge on. */
   floorStrength: d.f32,
@@ -511,9 +529,9 @@ export async function createFilmV3Renderer(
     return std.mix(state.moveFromC, state.moveToC, state.moveProgress.z);
   };
 
-  const cellBoxDistance = (point: d.v3f, center: d.v3f): number => {
+  const cellBoxDistance = (point: d.v3f, center: d.v3f, halfSize: number): number => {
     "use gpu";
-    const delta = std.sub(std.abs(std.sub(point, center)), d.vec3f(1 / 3));
+    const delta = std.sub(std.abs(std.sub(point, center)), d.vec3f(halfSize));
     return std.length(std.max(delta, d.vec3f(0))) + std.min(std.max(delta.x, delta.y, delta.z), 0);
   };
 
@@ -539,10 +557,15 @@ export async function createFilmV3Renderer(
     }
     let best = d.f32(1000000);
     for (let level = 0; level < MAXIMUM_MENGER_DEPTH; level += 1) {
-      // Cells below two pixels stay solid: smaller openings only alias at grazing angles.
-      if (level >= state.shuffleDepth || scale / 3 < threshold * 2) {
+      // Cells below the fade width stay solid: smaller openings only alias at grazing angles. Just
+      // above it the cells grow into their neighbors, so the level fades out and never pops. The
+      // threshold is half a pixel.
+      const cellPixels = scale / (3 * threshold);
+      if (level >= state.shuffleDepth || cellPixels < state.fadePixels) {
         break;
       }
+      const grow = 1 - std.smoothstep(state.fadePixels, state.fadePixels * FADE_SPAN, cellPixels);
+      const cellHalf = (1 + grow) / 3;
       const shuffled = level >= state.moveMinLevel;
       // The nearest cell box. A point inside it, or closer than two hit thresholds, descends into it,
       // so a march that nears a cell face finds the openings in that cell before it stops.
@@ -553,7 +576,7 @@ export async function createFilmV3Renderer(
         for (let index = 0; index < 3; index += 1) {
           if (index < state.moveCount) {
             const center = movingCenter(index);
-            const distance = cellBoxDistance(local, center);
+            const distance = cellBoxDistance(local, center, cellHalf);
             if (distance < nearest) {
               second = nearest;
               nearest = distance;
@@ -571,7 +594,7 @@ export async function createFilmV3Renderer(
         }
         if (filled > 0.5) {
           const center = slotCenter(slot);
-          const distance = cellBoxDistance(local, center);
+          const distance = cellBoxDistance(local, center, cellHalf);
           if (distance < nearest) {
             second = nearest;
             nearest = distance;
@@ -580,6 +603,10 @@ export async function createFilmV3Renderer(
             second = std.min(second, distance);
           }
         }
+      }
+      if (grow > 0) {
+        // The fading level is the last one. Its grown cells stay inside their parent box.
+        return std.min(best, std.max(nearest, unitBoxDistance(local)) * scale);
       }
       if (nearest * scale > threshold * 2) {
         return std.min(best, nearest * scale);
@@ -656,6 +683,88 @@ export async function createFilmV3Renderer(
     return std.clamp(light, 0, 1);
   };
 
+  const starWidth = (side: number): number => {
+    "use gpu";
+    const state = sceneState.$;
+    if (side < 4) {
+      if (side === 0) {
+        return state.starWidthsA.x;
+      }
+      if (side === 1) {
+        return state.starWidthsA.y;
+      }
+      if (side === 2) {
+        return state.starWidthsA.z;
+      }
+      return state.starWidthsA.w;
+    }
+    if (side === 4) {
+      return state.starWidthsB.x;
+    }
+    if (side === 5) {
+      return state.starWidthsB.y;
+    }
+    return state.starWidthsB.z;
+  };
+
+  /**
+  Source cube face of each star side, counterclockwise from the top face: 0 the top, 1 the left,
+  and 2 the front. Neighbor sides never share a face while zero width sides are left out.
+  */
+  const starSourceFace = (side: number): number => {
+    "use gpu";
+    if (side === 0 || side === 3) {
+      return 0;
+    }
+    if (side === 1 || side === 5) {
+      return 1;
+    }
+    return 2;
+  };
+
+  /**
+  The source point of `point` in the star warp, around the frame center, in screen units, and 1 in
+  z when the point is inside its side. Side k is the parallelogram R * (a * u + b * v) between the
+  rays u and v at its start and end angles; the same (a, b) on the rays of its source face, which
+  the isometric view draws at 30, 150, and 270 degrees, gives the source point. Every side is one
+  exact linear map, so the three 120 degree sides with no turn give the image back unchanged.
+
+  A narrow parallelogram is a needle of length 2R, so a side narrower than 70 degrees also shrinks
+  toward the center: a new side grows out of the cut instead of shooting out of it.
+  */
+  const starSource = (point: d.v2f, rotation: number, radius: number): d.v3f => {
+    "use gpu";
+    const first = 30 + rotation;
+    const angle = (std.atan2(point.y, point.x) * 180) / Math.PI;
+    const relative = std.fract((angle - first) / 360 + 4) * 360;
+    // Past the last side, rounding leaves the point on the last side.
+    let side = d.i32(STAR_SIDES - 1);
+    let start = 360 - starWidth(STAR_SIDES - 1);
+    let cumulative = d.f32(0);
+    for (let index = 0; index < STAR_SIDES; index += 1) {
+      const sideWidth = starWidth(index);
+      if (relative < cumulative + sideWidth) {
+        side = index;
+        start = cumulative;
+        break;
+      }
+      cumulative += sideWidth;
+    }
+    const width = starWidth(side);
+    const u = angleRay(first + start);
+    const v = angleRay(first + start + width);
+    const growth = std.max(std.smoothstep(0, 70, width), 0.02);
+    const determinant = cross2(u, v) * radius * growth;
+    const a = cross2(point, v) / determinant;
+    const b = cross2(u, point) / determinant;
+    const faceStart = 30 + 120 * d.f32(starSourceFace(side));
+    const source = std.mul(
+      std.add(std.mul(angleRay(faceStart), a), std.mul(angleRay(faceStart + 120), b)),
+      radius,
+    );
+    return d.vec3f(source, std.select(0, 1, a <= 1 && b <= 1));
+  };
+
   /** One sample at `screenPoint`, `shutter` of the way from the shutter open to its close. */
   const traceSample = (screenPoint: d.v2f, shutter: number): d.Infer<typeof TraceSample> => {
     "use gpu";
@@ -671,7 +780,19 @@ export async function createFilmV3Renderer(
       shutter,
     );
     const rayStart = std.mix(state.rayStart, state.closeRayStart, shutter);
-    const lateral = std.add(std.mul(right, screenPoint.x), std.mul(up, screenPoint.y));
+    let imagePoint = d.vec2f(screenPoint);
+    if (state.starEnabled === 1) {
+      const star = starSource(
+        screenPoint,
+        std.mix(state.starRotation.x, state.starRotation.y, shutter),
+        state.starHexRadius / halfHeight,
+      );
+      if (star.z < 0.5) {
+        return TraceSample({ color: d.vec3f(0), coverage: 0, floor: 1, toneShade: d.vec3f(0) });
+      }
+      imagePoint = d.vec2f(star.x, star.y);
+    }
+    const lateral = std.add(std.mul(right, imagePoint.x), std.mul(up, imagePoint.y));
     const focalPoint = std.add(focus, std.mul(lateral, halfHeight));
     const rayDirection = std.normalize(std.sub(std.mul(lateral, tanHalfFieldOfView), back));
     const origin = std.sub(focalPoint, std.mul(rayDirection, rayStart));
@@ -1111,7 +1232,7 @@ export async function createFilmV3Renderer(
       drawOverlay(pageContext, frame);
       overlayTexture.write(pageCanvas);
 
-      const { faces, floor, haze, light, shuffle, sponge, tesseract, tones } = frame.scene;
+      const { faces, floor, haze, light, shuffle, sponge, star, tesseract, tones } = frame.scene;
       const [camera, closeCamera] = frame.shutter.cameras;
       const resting = { from: [0, 0, 0], progress: 0, to: [0, 0, 0] } as const;
       const [moveA = resting, moveB = resting, moveC = resting] = shuffle.moves;
@@ -1141,6 +1262,12 @@ export async function createFilmV3Renderer(
         light: vector(light.direction),
         mode: frame.scene.mode === "tesseract" ? 1 : frame.scene.mode === "shuffle" ? 2 : 0,
         moveCount: shuffle.moves.length,
+        fadePixels: shuffle.fadePixels,
+        starEnabled: star.enabled ? 1 : 0,
+        starHexRadius: star.hexRadius,
+        starRotation: d.vec2f(...frame.shutter.starRotation),
+        starWidthsA: d.vec4f(star.widths[0], star.widths[1], star.widths[2], star.widths[3]),
+        starWidthsB: d.vec4f(star.widths[4], star.widths[5], star.widths[6], 0),
         moveFromA: vector(moveA.from),
         moveFromB: vector(moveB.from),
         moveFromC: vector(moveC.from),

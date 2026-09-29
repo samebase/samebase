@@ -65,6 +65,8 @@ export type FilmV3Scene = {
     moves: readonly { from: Vector3; progress: number; to: Vector3 }[];
     /** 1 for each slot that holds a resting cell, x first, then y, then z. */
     slots: readonly number[];
+    /** Cells narrower than this many pixels are solid, and the level above it fades out. */
+    fadePixels: number;
   };
   sponge: {
     /** 1 anchors each opening toward the probe side of its parent hole, 0 centers it. */
@@ -77,6 +79,20 @@ export type FilmV3Scene = {
     restDepth: number;
     revealRadius: number;
   };
+  /**
+  The star warp of the isometric image around the frame center, which must be the near corner of the
+  object: seven sides counterclockwise from the top face, with widths in degrees that add up to 360.
+  The top, left, and front faces are sides 0, 1, and 6, so widths of 120, 120, 0, 0, 0, 0, and 120
+  with no turn give the image back unchanged. The turn is in the shutter.
+  */
+  star: {
+    enabled: boolean;
+    /** The hexagon radius of the object outline, in world units. */
+    hexRadius: number;
+    /** The star turn in degrees counterclockwise. */
+    rotation: number;
+    widths: StarWidths;
+  };
   tesseract: {
     halfExtent: Vector3;
     /** Two joint cubes per beam: center x, y, z and half size. */
@@ -84,6 +100,16 @@ export type FilmV3Scene = {
   };
   tones: { x: Rgb; y: Rgb; z: Rgb };
 };
+
+export type StarWidths = readonly [number, number, number, number, number, number, number];
+
+/** The star warp off: the three isometric sides with no turn. */
+export const noStar = {
+  enabled: false,
+  hexRadius: 1,
+  rotation: 0,
+  widths: [120, 120, 0, 0, 0, 0, 120],
+} as const satisfies FilmV3Scene["star"];
 
 export type FilmV3Text = {
   align: "center" | "left" | "right";
@@ -116,6 +142,8 @@ export type FilmV3Frame = {
   */
   shutter: {
     cameras: readonly [FilmV3Camera, FilmV3Camera];
+    /** The star turn in degrees counterclockwise. */
+    starRotation: readonly [number, number];
     unfold: readonly [number, number];
   };
 };
@@ -778,7 +806,7 @@ Fail closed on a plan that breaks the landing shuffle rules: a move leaves a fil
 free slot next to it along one axis, no two moves in flight share a slot, at most three move at
 once (the renderer draws three), and the plan ends in the Menger layout.
 */
-function checkShufflePlan(moves: readonly ShuffleMove[]): void {
+export function checkShufflePlan(moves: readonly ShuffleMove[]): void {
   const events = moves
     .flatMap((move) => [
       { kind: "end" as const, move, time: move.at + moveDuration },
@@ -917,6 +945,7 @@ export function readFilmV3Frame(time: number, options: FilmV3Options): FilmV3Fra
     ...readStillFrame(time, options),
     shutter: {
       cameras: [open.camera, close.camera],
+      starRotation: [0, 0],
       unfold: [open.faces.unfold, close.faces.unfold],
     },
   };
@@ -990,6 +1019,7 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
   let shuffle: FilmV3Scene["shuffle"] = {
     depth: 3,
     moveMinLevel: 0,
+    fadePixels: 1.5,
     ...readShuffle(time, orbitMoves),
   };
   if (time >= beats.shuffle && time < beats.settle) {
@@ -997,7 +1027,7 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
   }
   if (time >= 24.5 && time < beats.end) {
     mode = "shuffle";
-    shuffle = { depth: 1, moveMinLevel: 0, ...readShuffle(time, scaleMoves) };
+    shuffle = { depth: 1, fadePixels: 1.5, moveMinLevel: 0, ...readShuffle(time, scaleMoves) };
   }
 
   if (fourthDirection === "fan") {
@@ -1039,6 +1069,7 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
     shuffle = {
       depth: giantLevels,
       moveMinLevel: giantLevels - 1,
+      fadePixels: 1.5,
       ...readShuffle(time, scaleMoves),
     };
     sponge = { ...sponge, center: giantCenter, halfSize: giantHalfSize };
@@ -1082,6 +1113,7 @@ function readStillFrame(time: number, options: FilmV3Options): Omit<FilmV3Frame,
       mode,
       shuffle,
       sponge,
+      star: noStar,
       tesseract,
       tones: landingTones,
     },
