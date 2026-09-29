@@ -73,6 +73,9 @@ Use status, headers, and synthetic data for probes. Do not save private response
 
 ## Separate Production and Preview
 
+To replace the version-upload model below, follow the
+[Worker Previews migration steps](worker-previews-migration.md).
+
 Use separate build triggers and credentials:
 
 | Setting       | Production                 | Preview                   |
