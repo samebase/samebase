@@ -4192,7 +4192,7 @@ export interface components {
      */
     workers_usage_model: "standard" | "bundled" | "unbound";
     /**
-     * @description Name of the script, used in URLs and route configuration.
+     * @description Name of the script.
      * @example this-is_my_script-01
      */
     workers_script_name: string;
@@ -5551,15 +5551,33 @@ export interface components {
       queries: components["schemas"]["workers_query"][];
     };
     workers_query: {
-      params?: unknown[];
+      /** @description Values bound to the `?` placeholders in `sql`, in order. */
+      params?: components["schemas"]["workers_query-param"][];
       sql: string;
     };
+    "workers_query-param": (string | null) | number;
     "workers_query-by-name": {
       durable_object_name: string;
       /** @enum {string} */
       jurisdiction: "fedramp" | "eu" | "none";
       queries: components["schemas"]["workers_query"][];
     };
+    "workers_query-result": {
+      /** @description The error that stopped the queries. Omitted when every query succeeds. */
+      error?: string;
+      /** @description One entry per query, in request order. */
+      results: {
+        columns: string[];
+        meta: {
+          rows_read?: number;
+          rows_written?: number;
+        };
+        /** @description Each row lists its values in column order. */
+        rows: components["schemas"]["workers_query-value"][][];
+      }[];
+    };
+    /** @description A SQLite value. Blobs are returned as arrays of byte values. */
+    "workers_query-value": (string | null) | number | number[];
     "workers-observability_issue_occurrence": {
       context?: {
         account?: string;
@@ -8382,7 +8400,10 @@ export type WorkersObject = components["schemas"]["workers_object"];
 export type WorkersCursor = components["schemas"]["workers_cursor"];
 export type WorkersQueryById = components["schemas"]["workers_query-by-id"];
 export type WorkersQuery = components["schemas"]["workers_query"];
+export type WorkersQueryParam = components["schemas"]["workers_query-param"];
 export type WorkersQueryByName = components["schemas"]["workers_query-by-name"];
+export type WorkersQueryResult = components["schemas"]["workers_query-result"];
+export type WorkersQueryValue = components["schemas"]["workers_query-value"];
 export type WorkersObservabilityIssueOccurrence =
   components["schemas"]["workers-observability_issue_occurrence"];
 export type WorkersObservabilityQuery = components["schemas"]["workers-observability_query"];
@@ -10069,9 +10090,9 @@ export interface operations {
   };
   "namespace-worker-delete-scripts": {
     parameters: {
-      query?: {
+      query: {
         /** @description Filter scripts by tags before deletion. Format: comma-separated list of tag:allowed pairs where allowed is 'yes' or 'no'. */
-        tags?: string;
+        tags: string;
         /** @description Limit the number of scripts to delete. */
         limit?: number;
       };
@@ -11064,7 +11085,7 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["workers_api-response-common"] & {
-            result?: unknown;
+            result?: components["schemas"]["workers_query-result"];
           };
         };
       };
