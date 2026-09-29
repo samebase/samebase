@@ -33,6 +33,11 @@ export type FilmV3Scene = {
   faces: {
     center: readonly [number, number];
     enabled: boolean;
+    /**
+    How the new face opens. `wait`: it waits at its final shape behind the doors. `leaf`: it folds
+    open about its vertical diagonal. `shear`: it is a rhombus of fixed side whose angle grows.
+    */
+    fold: "leaf" | "shear" | "wait";
     radius: number;
     /** 0 is the isometric cube and 1 the four equal faces. */
     unfold: number;
@@ -662,6 +667,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
 export const restFaces = {
   center: [0, 0],
   enabled: false,
+  fold: "wait",
   radius: 0,
   unfold: 0,
 } as const satisfies FilmV3Scene["faces"];
@@ -699,6 +705,7 @@ function readFaces(time: number, halfHeight: number, width: number, height: numb
   return {
     center: [width / 2, height / 2],
     enabled: time >= facesStart && time < facesEnd,
+    fold: "wait",
     radius: (hexagonRadius * height) / (2 * halfHeight),
     unfold: readUnfold(time),
   } satisfies FilmV3Scene["faces"];

@@ -47,7 +47,17 @@ because the mold shows the ends of its channels, which the cube hides.
 */
 export type FilmV4Variant = "a" | "b" | "c";
 
-export const filmV4Seconds = { a: 42, b: 32, c: 27 } as const satisfies Record<
+/** How the new face of the fourth face move opens. */
+export type FourthFold = FilmV3Scene["faces"]["fold"];
+
+/**
+The fold of the films: the leaf. Its halves visibly turn in the light while the hole folds with
+them, so the move reads as a fold, and it never reaches past the square diagonal. The shear grows a
+needle twice the face side before it widens.
+*/
+export const filmFold: FourthFold = "leaf";
+
+export const filmV4Seconds = { a: 38.5, b: 28, c: 25 } as const satisfies Record<
   FilmV4Variant,
   number
 >;
@@ -103,6 +113,7 @@ const restShuffle = {
 const closedFaces = {
   center: [0, 0],
   enabled: false,
+  fold: "wait",
   radius: 0,
   unfold: 0,
 } as const satisfies FilmV3Scene["faces"];
@@ -279,12 +290,26 @@ Move 5: at the isometric view the two faces under the corner open like mirror do
 face, hold, and close with the exact reverse. The camera is still and orthographic, and at unfold 0
 the faces equal the render, so neither swap shows.
 */
-function fourthFaces(time: number, lift: number, closed: number, halfHeight: number, size: Size) {
-  const opening = easeInOutSine(progress(time, lift, lift + 1.6));
-  const closing = easeInOutSine(progress(time, closed - 1.6, closed));
+/** The faces open for this long, hold for one beat, and close with the exact reverse. */
+const unfoldSeconds = 1.6;
+const unfoldHold = 0.5;
+
+/**
+The faces follow the zoom in toward the corner, which starts while they close: at the isometric view
+the corner lies on the view axis, so the faces keep their center and only their radius grows.
+*/
+function fourthFaces(
+  time: number,
+  lift: number,
+  { fold, halfHeight, size }: { fold: FourthFold; halfHeight: number; size: Size },
+) {
+  const closed = lift + 2 * unfoldSeconds + unfoldHold;
+  const opening = easeInOutSine(progress(time, lift, lift + unfoldSeconds));
+  const closing = easeInOutSine(progress(time, closed - unfoldSeconds, closed));
   return {
     center: [size.width / 2, size.height / 2],
     enabled: time >= lift - 0.5 && time < closed + 0.02,
+    fold,
     radius: (hexagonRadius * size.height) / (2 * halfHeight),
     unfold: opening * (1 - closing),
   } satisfies FilmV3Scene["faces"];
@@ -484,21 +509,32 @@ function standardEnd(time: number, first: number, address: number): FilmV3Text[]
   );
 }
 
+/** The half height of the cube camera after `dive` of the zoom in toward the corner. */
+function divedHalfHeight(view: View, dive: number): number {
+  return view.halfHeight * (deepHalfHeight / view.halfHeight) ** dive;
+}
+
 // ---------- variant A ----------
 
-/** A follows the v3.5 beats: the shuffle ends on the settle, and the faces open on the music lift. */
+/**
+A plays the music from the start to its groove end at 14 s and then from the lift at 17.5 s, so the
+music never stops, and the faces open on the lift at 14 s. The mark holds one beat before it turns,
+and every move starts as the one before it settles.
+*/
 const a = {
-  turn: [2, 4.6],
-  reveal: { end: 8.4, spread: 7.2, start: 4.8 },
-  shuffle: 8.45,
-  settle: 13.2,
-  still: 14.5,
-  lift: 17.5,
-  closed: 21.44,
-  dive: { start: 21.5, deep: 23.9, swap: 24.02, out: 24.2 },
-  words: 32.75,
-  address: 36.75,
+  turn: [0.5, 3.1],
+  reveal: { end: 6.9, spread: 5.7, start: 3.3 },
+  shuffle: 7.45,
+  settle: 12.2,
+  still: 13.5,
+  lift: 14,
+  dive: { start: 17.1, deep: 19.5, swap: 19.63, out: 19.8 },
+  words: 29.25,
+  address: 33.25,
 } as const;
+
+/** The shuffle of the v3 orbit, one second earlier. */
+const shuffleMovesA = orbitMoves.map((move) => ({ ...move, at: move.at - 1 }));
 
 function readViewA(time: number): View {
   const turned = markTurn(time, a.turn[0], { elevation: 24, halfHeight: 2.5, yaw: -52 }, a.turn[1]);
@@ -518,36 +554,42 @@ function readViewA(time: number): View {
   };
 }
 
-function readCubeA(time: number, size: Size, mode: CubeShot["mode"]): FilmV3Scene {
+function readCubeA(
+  time: number,
+  size: Size,
+  mode: CubeShot["mode"],
+  fold: FourthFold,
+): FilmV3Scene {
   const view = readViewA(time);
+  const dive = easeInOutSine(progress(time, a.dive.start, a.dive.deep));
   let sponge: FilmV3Scene["sponge"] = revealSponge(time, view, size, a.reveal);
   if (time >= a.settle) {
     sponge = {
       ...restSponge,
-      openness: 1 - easeInOutCubic(progress(time, a.settle + 0.1, 14)),
+      openness: 1 - easeInOutCubic(progress(time, a.settle + 0.1, a.settle + 0.8)),
       revealRadius: fullRevealRadius,
     };
   }
   return cubeScene({
-    dive: easeInOutSine(progress(time, a.dive.start, a.dive.deep)),
-    faces: fourthFaces(time, a.lift, a.closed, view.halfHeight, size),
+    dive,
+    faces: fourthFaces(time, a.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
     // The floor shadow fades with the opening faces and stays away: the giant has no floor.
-    floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + 1.6)),
+    floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + unfoldSeconds)),
     mode,
-    shuffle: { depth: 3, moveMinLevel: 0, ...readShuffle(time, orbitMoves) },
+    shuffle: { depth: 3, moveMinLevel: 0, ...readShuffle(time, shuffleMovesA) },
     sponge,
     view,
   });
 }
 
-function readFilmV4A(time: number, size: Size): FilmV4Frame {
+function readFilmV4A(time: number, size: Size, fold: FourthFold): FilmV4Frame {
   const dive: Dive = {
     ...a.dive,
     detailFloor: detailFloors.oneLevel,
     from: isoView,
     slowAt: a.words - 1.25,
   };
-  const cube = (mode: CubeShot["mode"]) => filmFrame((at) => readCubeA(at, size, mode), time);
+  const cube = (mode: CubeShot["mode"]) => filmFrame((at) => readCubeA(at, size, mode, fold), time);
   return {
     // Move 3: the shuffled sponge draws the fully open cube while cells move, and every level makes
     // the same move at once. At rest it has the geometry of the fully open cube, so the handovers
@@ -578,25 +620,25 @@ function readFilmV4A(time: number, size: Size): FilmV4Frame {
 // ---------- variant B ----------
 
 /**
-B cuts the music from the groove at 4 s straight to its fall at 14 s, so the faces open on the lift
-of the track at 7.5 s: film time is track time minus 10 from the cut on.
+B plays the music from the start to 3.5 s and then from the lift at 17.5 s, so the faces open on
+the lift one beat after the turn: film time is track time minus 14 from the cut on.
 */
 const b = {
-  turn: [2, 4.6],
-  lift: 7.5,
-  closed: 11.44,
-  dive: { start: 11.5, deep: 13.9, swap: 14.02, out: 14.2 },
-  words: 22.75,
-  address: 26.75,
+  turn: [0.5, 3.1],
+  lift: 3.5,
+  dive: { start: 6.6, deep: 9, swap: 9.13, out: 9.3 },
+  words: 18.75,
+  address: 22.75,
 } as const;
 
-/** The mark turns straight to the isometric view and holds still through the fall of the music. */
-function readCubeB(time: number, size: Size): FilmV3Scene {
+/** The mark turns straight to the isometric view, and the faces open one beat later. */
+function readCubeB(time: number, size: Size, fold: FourthFold): FilmV3Scene {
   const view = markTurn(time, b.turn[0], isoView, b.turn[1]);
+  const dive = easeInOutSine(progress(time, b.dive.start, b.dive.deep));
   return cubeScene({
-    dive: easeInOutSine(progress(time, b.dive.start, b.dive.deep)),
-    faces: fourthFaces(time, b.lift, b.closed, view.halfHeight, size),
-    floor: 1 - easeInOutSine(progress(time, b.lift, b.lift + 1.6)),
+    dive,
+    faces: fourthFaces(time, b.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
+    floor: 1 - easeInOutSine(progress(time, b.lift, b.lift + unfoldSeconds)),
     mode: "sponge",
     shuffle: restShuffle,
     sponge: restSponge,
@@ -604,14 +646,14 @@ function readCubeB(time: number, size: Size): FilmV3Scene {
   });
 }
 
-function readFilmV4B(time: number, size: Size): FilmV4Frame {
+function readFilmV4B(time: number, size: Size, fold: FourthFold): FilmV4Frame {
   const dive: Dive = {
     ...b.dive,
     detailFloor: detailFloors.oneLevel,
     from: isoView,
     slowAt: b.words - 1.25,
   };
-  const cube = () => filmFrame((at) => readCubeB(at, size), time);
+  const cube = () => filmFrame((at) => readCubeB(at, size, fold), time);
   return {
     layers: stackAt(time, [
       { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube(), opacity) },
@@ -628,17 +670,17 @@ function readFilmV4B(time: number, size: Size): FilmV4Frame {
 // ---------- variant C ----------
 
 /**
-C cuts the music from the groove at 7 s to its fall at 14 s, so the pull back speeds up on the lift
-of the track at 10.5 s, and again from 25.5 s to 33.5 s, one phrase apart, so the words land on the
-last phrase before the ring out.
+C plays the music from the start to 8.5 s and then from the lift at 17.5 s, so the zoom toward the
+corner starts on the lift, and again from 25.5 s to 33.5 s, one phrase apart, so the words land on
+the last phrase before the ring out.
 */
 const c = {
-  turn: [2, 4.6],
-  reveal: { end: 9.8, spread: 8.6, start: 4.8 },
-  settled: 10.2,
-  dive: { start: 10.2, deep: 12.6, swap: 12.72, out: 12.9 },
-  words: 19.25,
-  address: 22.75,
+  turn: [0.5, 3.1],
+  reveal: { end: 8.3, spread: 7.1, start: 3.3 },
+  settled: 8.7,
+  dive: { start: 8.3, deep: 10.7, swap: 10.83, out: 11 },
+  words: 17.25,
+  address: 20.75,
 } as const;
 
 function readViewC(time: number): View {
@@ -688,12 +730,17 @@ function readFilmV4C(time: number, size: Size): FilmV4Frame {
   };
 }
 
-export function readFilmV4Frame(variant: FilmV4Variant, time: number, size: Size): FilmV4Frame {
+export function readFilmV4Frame(
+  variant: FilmV4Variant,
+  time: number,
+  size: Size,
+  fold: FourthFold,
+): FilmV4Frame {
   switch (variant) {
     case "a":
-      return readFilmV4A(time, size);
+      return readFilmV4A(time, size, fold);
     case "b":
-      return readFilmV4B(time, size);
+      return readFilmV4B(time, size, fold);
     case "c":
       return readFilmV4C(time, size);
     default:

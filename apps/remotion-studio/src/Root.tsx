@@ -59,7 +59,7 @@ import {
   filmV3Fps,
 } from "./compositions/samebase-film-v3/filmV3Timeline";
 import { SamebaseFilmV4 } from "./compositions/samebase-film-v4/SamebaseFilmV4";
-import { filmV4Fps, filmV4Seconds } from "./compositions/samebase-film-v4/filmV4Timeline";
+import { filmFold, filmV4Fps, filmV4Seconds } from "./compositions/samebase-film-v4/filmV4Timeline";
 import { SamebaseRisoFilm } from "./compositions/samebase-riso-film/SamebaseRisoFilm";
 import { SamebaseRisoLoop } from "./compositions/samebase-riso-film/SamebaseRisoLoop";
 import { filmDurationInFrames, filmFps } from "./compositions/samebase-riso-film/filmMotion";
@@ -192,11 +192,24 @@ export function RemotionRoot() {
         <Composition
           id={`SamebaseFilmV4${variant.toUpperCase()}`}
           component={SamebaseFilmV4}
-          defaultProps={{ variant }}
+          defaultProps={{ fold: filmFold, from: 0, variant }}
           durationInFrames={filmV4Seconds[variant] * filmV4Fps}
           fps={filmV4Fps}
           height={1080}
           key={variant}
+          width={1920}
+        />
+      ))}
+      {(["leaf", "shear"] as const).map((fold) => (
+        <Composition
+          id={`FilmV4FoldBeat-${fold}`}
+          component={SamebaseFilmV4}
+          // The fourth face of B, from one beat before the lift to the start of the zoom in.
+          defaultProps={{ fold, from: 3, variant: "b" }}
+          durationInFrames={Math.round(5.2 * filmV4Fps)}
+          fps={filmV4Fps}
+          height={1080}
+          key={fold}
           width={1920}
         />
       ))}
