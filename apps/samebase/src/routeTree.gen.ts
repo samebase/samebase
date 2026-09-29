@@ -14,6 +14,7 @@ import { Route as xRouteImport } from "./routes/x";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
+import { Route as templatesPreviewRouteImport } from "./routes/templates-preview";
 import { Route as settingsRouteImport } from "./routes/settings";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
@@ -87,6 +88,11 @@ const testRoute = testRouteImport.update({
 const termsRoute = termsRouteImport.update({
   id: "/terms",
   path: "/terms",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const templatesPreviewRoute = templatesPreviewRouteImport.update({
+  id: "/templates-preview",
+  path: "/templates-preview",
   getParentRoute: () => rootRouteImport,
 } as any);
 const settingsRoute = settingsRouteImport.update({
@@ -354,6 +360,7 @@ export interface FileRoutesByFullPath {
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/settings": typeof settingsRoute;
+  "/templates-preview": typeof templatesPreviewRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -410,6 +417,7 @@ export interface FileRoutesByTo {
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/settings": typeof settingsRoute;
+  "/templates-preview": typeof templatesPreviewRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -467,6 +475,7 @@ export interface FileRoutesById {
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/settings": typeof settingsRoute;
+  "/templates-preview": typeof templatesPreviewRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -525,6 +534,7 @@ export interface FileRouteTypes {
     | "/pricing"
     | "/privacy"
     | "/settings"
+    | "/templates-preview"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -581,6 +591,7 @@ export interface FileRouteTypes {
     | "/pricing"
     | "/privacy"
     | "/settings"
+    | "/templates-preview"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -637,6 +648,7 @@ export interface FileRouteTypes {
     | "/pricing"
     | "/privacy"
     | "/settings"
+    | "/templates-preview"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -694,6 +706,7 @@ export interface RootRouteChildren {
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
   settingsRoute: typeof settingsRoute;
+  templatesPreviewRoute: typeof templatesPreviewRoute;
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
@@ -771,6 +784,13 @@ declare module "@tanstack/react-router" {
       path: "/terms";
       fullPath: "/terms";
       preLoaderRoute: typeof termsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/templates-preview": {
+      id: "/templates-preview";
+      path: "/templates-preview";
+      fullPath: "/templates-preview";
+      preLoaderRoute: typeof templatesPreviewRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/settings": {
@@ -1134,6 +1154,7 @@ const rootRouteChildren: RootRouteChildren = {
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
   settingsRoute: settingsRoute,
+  templatesPreviewRoute: templatesPreviewRoute,
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,

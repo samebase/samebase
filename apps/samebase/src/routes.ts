@@ -57,6 +57,7 @@ export const routes = rootRoute("root.tsx", [
   route("/pitch/print", "pitch-print.tsx"),
   route("/pitch/print/mobile", "pitch-print-mobile.tsx"),
   route("/visual-fixture", "visual-fixture.tsx"),
+  route("/templates-preview", "templates-preview.tsx"),
   route(AGENT_BROWSER_HANDOFF_ROUTE, "agents-connect.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),

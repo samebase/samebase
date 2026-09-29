@@ -161,6 +161,13 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_public",
     availableEnvironments: ["local"],
   },
+  "/templates-preview": {
+    access: "access_public",
+    availableEnvironments: ["local", "preview"],
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    pathSuggestion: "hidden",
+    prerender: false,
+  },
 } as const satisfies Record<RoutePath, RouteMetadata>;
 
 type RouteAccessMetadataByPath = typeof ROUTE_ACCESS_METADATA_BY_PATH;

@@ -2,6 +2,16 @@ import { describe, expect, it } from "vite-plus/test";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "./routeAccessMetadata";
 
 describe("route access metadata", () => {
+  it("keeps the templates design study out of production and discovery", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/templates-preview"]).toEqual({
+      access: "access_public",
+      availableEnvironments: ["local", "preview"],
+      appWorkspaceRouteChrome: { leftPane: "none" },
+      pathSuggestion: "hidden",
+      prerender: false,
+    });
+  });
+
   it("keeps the organization directory in the global app surface", () => {
     expect(ROUTE_ACCESS_METADATA_BY_PATH["/org"]).toEqual({
       access: "access_dashboard",
