@@ -2660,8 +2660,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.account-settings",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "put": {
         "operationId": "worker-account-settings-create-worker-account-settings",
@@ -2736,8 +2735,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.account-settings",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/assets/upload": {
@@ -2825,8 +2823,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.assets.upload",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces": {
@@ -2879,8 +2876,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       },
       "post": {
         "operationId": "namespace-worker-create",
@@ -2949,8 +2945,7 @@
         "x-api-token-group": ["Workers Scripts Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}": {
@@ -3012,7 +3007,6 @@
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true,
         "x-forge-require-confirmation": "This will permanently delete the Workers for Platforms dispatch namespace."
       },
       "get": {
@@ -3072,8 +3066,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "patch": {
         "operationId": "namespace-worker-patch-namespace",
@@ -3151,10 +3144,10 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
-        "x-fern-sdk-method-name": "edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "edit"
       },
       "put": {
         "operationId": "namespace-worker-put-namespace",
@@ -3235,8 +3228,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts": {
@@ -3265,6 +3257,7 @@
             "name": "tags",
             "in": "query",
             "description": "Filter scripts by tags before deletion. Format: comma-separated list of tag:allowed pairs where allowed is 'yes' or 'no'.",
+            "required": true,
             "schema": {
               "type": "string",
               "example": "production:yes,staging:no"
@@ -3313,10 +3306,10 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
         "x-fern-sdk-method-name": "bulk-delete",
-        "x-forge-hidden": true,
         "x-forge-require-confirmation": "This will permanently delete matching scripts in the Workers for Platforms dispatch namespace."
       },
       "get": {
@@ -3401,8 +3394,7 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}": {
@@ -3441,7 +3433,8 @@
             "description": "If true, delete the script even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted script are deleted even if other Workers reference them.",
             "schema": {
               "type": "boolean"
-            }
+            },
+            "x-fern-parameter-name": "delete-with-references"
           }
         ],
         "responses": {
@@ -3610,6 +3603,7 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts",
         "x-fern-sdk-method-name": "update"
@@ -3691,8 +3685,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.assets.upload",
-        "x-fern-sdk-method-name": "create-session",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create-session"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/bindings": {
@@ -3772,11 +3765,9 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.bindings",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/content": {
@@ -3847,8 +3838,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.content",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "put": {
         "operationId": "namespace-worker-put-script-content",
@@ -3978,8 +3968,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.content",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets": {
@@ -4062,11 +4051,9 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       },
       "put": {
         "operationId": "namespace-worker-put-script-secrets",
@@ -4164,11 +4151,9 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets-bulk": {
@@ -4272,11 +4257,9 @@
           }
         ],
         "tags": ["Workers for Platforms"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
-        "x-fern-sdk-method-name": "bulk-edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "bulk"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}": {
@@ -4358,7 +4341,6 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
         "x-fern-sdk-method-name": "delete",
@@ -4455,11 +4437,9 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.secrets",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/settings": {
@@ -4538,11 +4518,9 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.settings",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "patch": {
         "operationId": "namespace-worker-patch-script-settings",
@@ -4646,11 +4624,9 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.settings",
-        "x-fern-sdk-method-name": "edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "edit"
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/tags": {
@@ -4733,7 +4709,6 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags",
         "x-fern-sdk-method-name": "list"
@@ -4828,9 +4803,8 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
-        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags.bulk",
+        "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags",
         "x-fern-sdk-method-name": "update"
       }
     },
@@ -4906,7 +4880,6 @@
         ],
         "tags": ["Workers for Platforms"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-for-platforms.dispatch-namespaces.scripts.tags",
         "x-fern-sdk-method-name": "delete",
@@ -5635,7 +5608,9 @@
                     },
                     {
                       "properties": {
-                        "result": {}
+                        "result": {
+                          "$ref": "#/components/schemas/workers_query-result"
+                        }
                       },
                       "type": "object"
                     }
@@ -5666,10 +5641,10 @@
         ],
         "tags": ["Durable Objects Namespace"],
         "x-api-token-group": ["Workers Scripts Write"],
+        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "durable-objects.namespaces",
-        "x-fern-sdk-method-name": "query",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "query"
       }
     },
     "/accounts/{account_id}/workers/observability/destinations": {
@@ -18304,6 +18279,7 @@
         ],
         "tags": ["Workers Smart Placement"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
+        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.placement.regions",
         "x-fern-sdk-method-name": "list"
@@ -18549,7 +18525,8 @@
             "description": "If true, delete the Worker even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted Worker are deleted even if other Workers reference them.",
             "schema": {
               "type": "boolean"
-            }
+            },
+            "x-fern-parameter-name": "delete-with-references"
           }
         ],
         "responses": {
@@ -18849,8 +18826,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.assets.upload",
-        "x-fern-sdk-method-name": "create-session",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create-session"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/content": {
@@ -18974,8 +18950,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.legacy.scripts.content",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/content/v2": {
@@ -19038,8 +19013,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.legacy.scripts.content",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/deployments": {
@@ -19190,7 +19164,8 @@
             "description": "If set to true, the deployment will be created even if normally blocked by something such rolling back to an older version when a secret has changed.",
             "schema": {
               "type": "boolean"
-            }
+            },
+            "x-fern-parameter-name": "bypass-deployment-checks"
           }
         ],
         "requestBody": {
@@ -19886,17 +19861,9 @@
         ],
         "tags": ["Worker Script"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.secrets",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true,
-        "x-forge-params": {
-          "name": {
-            "positional": true,
-            "required": true
-          }
-        }
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/secrets-bulk": {
@@ -19991,11 +19958,9 @@
           }
         ],
         "tags": ["Worker Script"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.secrets",
-        "x-fern-sdk-method-name": "bulk-edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "bulk"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/secrets/{secret_name}": {
@@ -20383,7 +20348,6 @@
         "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.legacy.scripts.subdomain",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true,
         "x-forge-require-confirmation": "This will disable all workers.dev subdomains for the Worker script."
       },
       "get": {
@@ -20458,8 +20422,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.legacy.scripts.subdomain",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "post": {
         "operationId": "worker-script-post-subdomain",
@@ -20559,8 +20522,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
         "x-fern-sdk-group-name": "workers.legacy.scripts.subdomain",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/tails": {
@@ -20708,8 +20670,7 @@
         "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers.tail",
-        "x-fern-sdk-method-name": "start",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "start"
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/tails/{id}": {
@@ -21246,11 +21207,10 @@
         ],
         "tags": ["Worker Environment"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
+        "x-fern-ignore": true,
         "x-fern-sdk-group-name": "workers.services.environments.content",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "put": {
         "operationId": "worker-environment-put-script-content",
@@ -21377,11 +21337,10 @@
         ],
         "tags": ["Worker Environment"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
+        "x-fern-ignore": true,
         "x-fern-sdk-group-name": "workers.services.environments.content",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/services/{service_name}/environments/{environment_name}/settings": {
@@ -21448,11 +21407,10 @@
         ],
         "tags": ["Worker Environment"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
+        "x-fern-ignore": true,
         "x-fern-sdk-group-name": "workers.services.environments.settings",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "patch": {
         "operationId": "worker-script-environment-patch-settings",
@@ -21533,11 +21491,10 @@
           }
         ],
         "tags": ["Worker Environment"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "deprecated",
+        "x-fern-ignore": true,
         "x-fern-sdk-group-name": "workers.services.environments.settings",
-        "x-fern-sdk-method-name": "edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "edit"
       }
     },
     "/accounts/{account_id}/workers/subdomain": {
@@ -22082,7 +22039,8 @@
             "description": "If true, delete the Worker even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted Worker are deleted even if other Workers reference them.",
             "schema": {
               "type": "boolean"
-            }
+            },
+            "x-fern-parameter-name": "delete-with-references"
           }
         ],
         "responses": {
@@ -23028,7 +22986,8 @@
             "description": "If true, delete the Preview even when other Workers still reference it. Service bindings in those Workers may be left broken. Durable Object namespaces implemented by the deleted Preview are deleted even if other Workers reference them.",
             "schema": {
               "type": "boolean"
-            }
+            },
+            "x-fern-parameter-name": "delete-with-references"
           }
         ],
         "responses": {
@@ -24366,8 +24325,8 @@
         ],
         "tags": ["Versions"],
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "generally-available",
+        "x-fern-ignore": true,
         "x-fern-sdk-group-name": "workers.versions.latest",
         "x-fern-sdk-method-name": "get"
       },
@@ -27493,7 +27452,7 @@
         "x-auditable": true
       },
       "workers_script_name": {
-        "description": "Name of the script, used in URLs and route configuration.",
+        "description": "Name of the script.",
         "type": "string",
         "example": "this-is_my_script-01",
         "pattern": "^[a-z0-9_][a-z0-9-_]*$",
@@ -30012,8 +29971,11 @@
         "type": "object",
         "properties": {
           "params": {
+            "description": "Values bound to the `?` placeholders in `sql`, in order.",
             "type": "array",
-            "items": {}
+            "items": {
+              "$ref": "#/components/schemas/workers_query-param"
+            }
           },
           "sql": {
             "type": "string",
@@ -30021,6 +29983,17 @@
           }
         },
         "required": ["sql"]
+      },
+      "workers_query-param": {
+        "anyOf": [
+          {
+            "nullable": true,
+            "type": "string"
+          },
+          {
+            "type": "number"
+          }
+        ]
       },
       "workers_query-by-name": {
         "type": "object",
@@ -30041,6 +30014,71 @@
           }
         },
         "required": ["durable_object_name", "jurisdiction", "queries"]
+      },
+      "workers_query-result": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "description": "The error that stopped the queries. Omitted when every query succeeds.",
+            "type": "string"
+          },
+          "results": {
+            "description": "One entry per query, in request order.",
+            "type": "array",
+            "items": {
+              "properties": {
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "rows_read": {
+                      "type": "number"
+                    },
+                    "rows_written": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "rows": {
+                  "description": "Each row lists its values in column order.",
+                  "type": "array",
+                  "items": {
+                    "items": {
+                      "$ref": "#/components/schemas/workers_query-value"
+                    },
+                    "type": "array"
+                  }
+                }
+              },
+              "required": ["columns", "rows", "meta"],
+              "type": "object"
+            }
+          }
+        },
+        "required": ["results"]
+      },
+      "workers_query-value": {
+        "description": "A SQLite value. Blobs are returned as arrays of byte values.",
+        "anyOf": [
+          {
+            "nullable": true,
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        ]
       },
       "workers-observability_issue_occurrence": {
         "type": "object",
