@@ -121,6 +121,7 @@ export function readEndlessPullbackFrame(time: number, sampleGrid: number): Illu
       shadeLimit: light.ambient + light.key,
       shadowStrength: 1,
     },
+    lines: { ink: palettes.haze.ink, strength: 0 },
     sampleGrid,
     scene: { corner, halfSize: spongeHalfSize, kind: "sponge", octant },
     sky: palettes.haze.sky,
