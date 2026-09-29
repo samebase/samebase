@@ -23,5 +23,7 @@ trustPolicyExclude:
   # TODO(2026-07-10): Recheck once upstream dependencies no longer resolve
   # this trust-downgraded version.
   - "undici-types@6.21.0"
+overrides:
+  undici: 7.29.1
 allowBuilds:
   esbuild: true
