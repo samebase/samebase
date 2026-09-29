@@ -3,6 +3,7 @@
   "name": "samebase-domains",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-14",
+  "previews": {},
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

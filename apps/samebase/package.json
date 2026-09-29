@@ -30,7 +30,7 @@
     "build:app": "convex codegen && pnpm run build:ci",
     "build:ci": "tsgo && pnpm run generate:cloudflare-redirects && vp build",
     "deploy": "wrangler deploy",
-    "deploy:preview": "node ./scripts/deploy-worker-preview.ts",
+    "deploy:preview": "wrangler preview",
     "deploy:dry-run": "pnpm run build:app && wrangler deploy --dry-run",
     "lint": "pnpm run check",
     "lint:ci": "pnpm run check:ci",
@@ -145,6 +145,6 @@
     "unplugin-typegpu": "0.12.1",
     "vite": "catalog:",
     "vite-plus": "catalog:",
-    "wrangler": "4.92.0"
+    "wrangler": "4.136.2"
   }
 }

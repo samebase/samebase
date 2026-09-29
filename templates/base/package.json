@@ -18,7 +18,7 @@
     "build": "node ./scripts/build-cloudflare.ts",
     "build:app": "vp run check && vp build",
     "deploy": "wrangler deploy",
-    "deploy:preview": "node ./scripts/deploy-worker-preview.ts",
+    "deploy:preview": "wrangler preview",
     "deploy:dry-run": "pnpm run build:app && wrangler deploy --dry-run",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
@@ -62,7 +62,7 @@
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:",
-    "wrangler": "^4.118.0"
+    "wrangler": "4.136.2"
   },
   "packageManager": "pnpm@11.1.1"
 }

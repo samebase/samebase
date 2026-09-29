@@ -40,17 +40,19 @@ pnpm run typecheck
 
 Use the repository root as the Cloudflare Workers Builds root directory. Run `pnpm run build`, then
 `pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches. These three scripts
-are the stable Samebase deployment interface. The preview adapter passes Cloudflare's connected
-Worker name to `wrangler preview`.
+are the stable Samebase deployment interface. The preview script runs `wrangler preview`, which
+reads Cloudflare's connected Worker name from the build environment.
 
-Worker Previews is a private beta. The Cloudflare account must have access to use
-`pnpm run deploy:preview`.
+Worker Previews is a public open beta and the default for new Workers Builds projects. It requires
+Wrangler `4.135.0` or later and the `previews: {}` block in `wrangler.jsonc`. Existing Workers need
+the
+[one-time switch](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/#existing-workers-connected-to-builds).
+The switch cannot be reversed. Restore `pnpm run deploy:preview` as the Preview command afterward.
 
-Use `pnpm run deploy:dry-run` for a local upload check. For a local Worker Preview, set
-`CLOUDFLARE_WORKER_NAME` to `samebase-sidebars-example` before you run `pnpm run deploy:preview`.
-`wrangler.jsonc` publishes `dist/client` with the standard Samebase observability and SPA settings.
-`public/_redirects` maps `/` to its prerendered HTML file while `index.html` remains the SPA
-fallback.
+Use `pnpm run deploy:dry-run` for a local upload check. To publish a local Worker Preview, run
+`pnpm run deploy:preview --worker-name samebase-sidebars-example`. `wrangler.jsonc` publishes
+`dist/client` with the standard Samebase observability and SPA settings. `public/_redirects` maps
+`/` to its prerendered HTML file while `index.html` remains the SPA fallback.
 
 ## Architecture
 

@@ -295,9 +295,9 @@ Samebase production itself.
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
    - falls back to a frontend-only build for local dry runs without a deploy key
 4. Use direct `wrangler deploy` for production.
-5. Add a small cross-platform Worker Preview adapter that passes the connected Worker name to
-   `wrangler preview --worker-name`.
-6. Use one local Worker-name override for dry-run validation.
+5. Use direct `wrangler preview` for previews with Wrangler `4.135.0` or later. Wrangler reads the
+   connected Worker name from the build environment. Local callers use `--worker-name`.
+6. Include the required `previews` block in `wrangler.jsonc`. Static-only apps use an empty block.
 
 ### Documentation
 
@@ -339,7 +339,7 @@ Current implementation result:
 
 1. `pnpm --filter samebase build:ci` passes.
 2. `pnpm --filter samebase deploy:dry-run` passes locally.
-3. The Worker Preview adapter tests prove the `--worker-name` argument without publishing a Preview.
+3. Worker Previews has no dry-run mode. Verify a real branch Preview before production cutover.
 4. Wrangler reads `apps/samebase/dist/client` as the Worker Static Assets upload directory.
 
 ### Phase 3: Shadow Worker

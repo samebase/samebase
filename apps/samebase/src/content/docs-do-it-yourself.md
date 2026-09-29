@@ -75,6 +75,13 @@ Worker code. It does not supply build variables.
 Enable **Builds for Preview branches** under **Settings > Builds > Previews Base**. Then save the
 configuration and start the first deployment.
 
+New Workers Builds projects use Worker Previews by default. If you connect an older Worker, complete
+the
+[one-time Worker Previews switch](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/#existing-workers-connected-to-builds)
+under **Settings > Builds**. This switch cannot be reversed. It replaces the Preview command, so
+restore `pnpm run deploy:preview` afterward. Check the preview build secret before the next branch
+build.
+
 ## 5. Check the first deployment
 
 Wait for the production build to finish, then open the `workers.dev` URL from the Worker page. You
@@ -84,10 +91,14 @@ Create a branch and open a pull request to check the preview path. Cloudflare ru
 `pnpm run deploy:preview` and gives the branch a preview URL. The preview key gives that branch its
 own Convex deployment and data.
 
-`pnpm run deploy:preview` uses Cloudflare Worker Previews. Worker Previews is a private beta, and
-the Cloudflare account must have access. Configure safe runtime values and bindings before you share
-a Preview URL. A new Worker Preview copies its runtime Base settings once. Later Base changes do not
-update an existing Preview.
+`pnpm run deploy:preview` uses the public Worker Previews open beta. The starter includes a
+supported Wrangler dependency and the required `previews` block. Check that Cloudflare posts the
+Preview URL on the pull request, then test the app at that URL.
+
+If your app needs runtime variables or bindings, add preview-safe values to `previews` in
+`wrangler.jsonc`. Copy dashboard-generated configuration into that file. Set runtime secrets in the
+runtime **Previews Base** settings. Base secret changes affect new Previews only. Keep the Convex
+deploy key in **Builds > Previews Base**, where the build can read it.
 
 After setup:
 

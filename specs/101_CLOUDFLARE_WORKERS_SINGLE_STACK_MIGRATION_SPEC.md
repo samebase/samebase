@@ -280,11 +280,18 @@ For generated single-repository apps, use these Workers Builds commands:
 3. preview deploy command: `pnpm run deploy:preview`
 
 These names are the stable Samebase repository interface. The repository owns their implementation.
-`pnpm run deploy:preview` uses `wrangler preview --worker-name <connected-worker-name>`. Worker
-Previews is a private beta, and the Cloudflare account must have access. Runtime variables do not
-supply Workers Builds secrets. Preview builds must be enabled for non-production branches. A
-dashboard banner that offers the literal `npx wrangler preview` command does not replace the stable
-repository command when its adapter already runs Wrangler Preview.
+`pnpm run deploy:preview` runs `wrangler preview` directly. Wrangler `4.135.0` or later reads the
+connected Worker name from `WRANGLER_CI_OVERRIDE_NAME`. Local callers pass `--worker-name`.
+
+Worker Previews is a public open beta and the default for new Workers Builds projects. The Wrangler
+file must contain `previews`. Use an empty block for static-only apps. Commit preview runtime
+variables and bindings in that block. Keep runtime secrets in Previews Base. A Base secret change
+affects new Previews only. Runtime settings do not supply Workers Builds secrets.
+
+Existing Workers complete the one-time switch in **Settings > Builds > Set up Worker Previews**. The
+switch cannot be reversed and replaces the Preview command. Restore `pnpm run deploy:preview`
+afterward, verify each trigger's Convex key, and enable Preview builds for non-production branches.
+Validate a real branch Preview and pull-request comment before the approved production cutover.
 
 For older monorepo-shaped Samebase-generated apps, a temporary fallback can use `apps/samebase` as
 the root with direct Wrangler commands while the template surface converges.

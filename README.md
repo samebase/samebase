@@ -174,9 +174,17 @@ deploying Convex and can validate the Worker package with:
 pnpm --filter samebase deploy:dry-run
 ```
 
-`pnpm --filter samebase deploy:preview` creates or updates a named Worker Preview. Worker Previews
-is a private beta, and the Cloudflare account must have access. Put the preview key under **Builds >
-Previews Base**, not under **Runtime variables and secrets**.
+`pnpm --filter samebase deploy:preview` runs `wrangler preview` to create or update a named Worker
+Preview. Worker Previews is a public open beta and the default for new Workers Builds projects.
+Wrangler `4.135.0` or later reads the connected Worker name from the build environment. For local
+use, pass `--worker-name <actual-worker-name>`. The required `previews: {}` block is in
+`wrangler.jsonc`.
+
+Put the preview key under **Builds > Previews Base**, not under **Runtime variables and secrets**.
+Existing Workers need the one-time switch in **Settings > Builds > Set up Worker Previews**. Follow
+the
+[migration runbook](./docs/existing-app-cloudflare-workers-migration.md#migrate-to-worker-previews)
+to update each repository, provider settings, and deployment checks.
 
 ### Testing
 

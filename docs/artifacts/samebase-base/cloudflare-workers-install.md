@@ -5,7 +5,8 @@ current Cloudflare Workers Git setup shape so a future agent can repeat the brow
 spot dashboard changes.
 
 Observed on 2026-05-14 in the Cloudflare Workers dashboard. Rechecked on 2026-09-01 against the live
-**Builds > Production** and **Builds > Previews Base** settings and Wrangler 4.118.0.
+**Builds > Production** and **Builds > Previews Base** settings. Updated on 2026-09-29 from the
+provided setup screenshot and Cloudflare's September 22 Worker Previews release documentation.
 
 ## Current Dashboard Flow
 
@@ -38,7 +39,7 @@ The next step is `Set up your application`:
 - `Build command`, marked optional, defaulting to `pnpm run build` for this pnpm repo.
 - `Deploy command`, defaulting to `npx wrangler deploy`.
 - `Preview command`, defaulting to `npx wrangler preview`.
-- `Enable Preview builds`, off by default.
+- `Enable Preview builds`, enabled in the September 29 screenshot. Verify the setting during setup.
 - `Protect with Cloudflare Access`, off by default.
 - `Advanced settings`.
 
@@ -59,21 +60,21 @@ For production, the default deploy command is `npx wrangler deploy`. That runs W
 repository and deploys the Worker using `wrangler.jsonc`.
 
 For non-production branches, `npx wrangler preview` creates or updates a named Preview resource.
-Worker Previews is a private beta, and the account must have access.
+Worker Previews is a public open beta. New Workers Builds projects use this preview model by
+default. The project must use Wrangler `4.135.0` or later.
 
-For an existing Worker, Cloudflare can show an **Enable Worker Previews** banner. Cloudflare
-documents this button as a change from the old Preview command to `npx wrangler preview`. The Builds
-trigger API has no separate Worker Previews flag. When the repository uses the stable
-`pnpm run deploy:preview` wrapper, keep that command because the wrapper already runs
-`wrangler preview`.
+Existing Workers keep the previous preview model until the one-time switch. Open **Settings >
+Builds**, then select **Set up Worker Previews**. The switch cannot be reversed. It replaces the
+Preview command with `npx wrangler preview`. After the switch, restore the Samebase command
+`pnpm run deploy:preview` and check the preview build key before a branch build.
 
 Cloudflare inferred `pnpm run build` only after it read the exact `build` script from the pushed
 default branch. It did not infer the package's `deploy` or `deploy:preview` script names. Samebase
 must set those two fields explicitly.
 
-For a reusable artifact template, do not hard-code `name` in `wrangler.jsonc`. `wrangler deploy`
-reads `WRANGLER_CI_OVERRIDE_NAME` from Workers Builds. `wrangler preview` does not use that value to
-select the target, so the repository Preview adapter passes it as `--worker-name`.
+For a reusable artifact template, do not hard-code `name` in `wrangler.jsonc`. `wrangler deploy` and
+the supported `wrangler preview` both read `WRANGLER_CI_OVERRIDE_NAME` from Workers Builds. No
+repository adapter is needed to pass the connected Worker name.
 
 The `Path` field is the repository root used for build and deploy commands. It should stay `/` while
 the app lives at the repository root.
@@ -90,9 +91,10 @@ preview trigger under **Settings > Builds > Previews Base**. Each tab has its ow
 deploy command, token, and variables and secrets. Put the project Preview deploy key in the
 **Previews Base** Builds tab.
 
-When Cloudflare first enables Worker Previews, it can copy the production build variables into
-**Previews Base**. Before you start a branch build, replace the copied production key with the
-project Preview key. Delete the copied `SAMEBASE_CONVEX_PROJECT` marker from **Previews Base**.
+Before you start a branch build, check the variables under **Builds > Previews Base**. If that scope
+contains a copied production key, replace it with the project Preview key. Keep
+`SAMEBASE_CONVEX_PROJECT` only under **Production**. Remove a copied preview marker after the
+migration passes its deployment checks.
 
 The top-level **Runtime variables and secrets** section is separate. Do not put a Convex deploy key
 there. The value would not reach the build command and would expose a deploy credential to Worker
@@ -129,23 +131,26 @@ pnpm run deploy
 pnpm run deploy:preview
 ```
 
-`pnpm run deploy` runs `wrangler deploy`. `pnpm run deploy:preview` uses a small cross-platform
-adapter around `wrangler preview --worker-name <worker>`. In Workers Builds, the adapter reads
-`WRANGLER_CI_OVERRIDE_NAME`. Locally, it requires `CLOUDFLARE_WORKER_NAME`. The `--name` option
-names the Preview, not the Worker. Wrangler Preview does not support `--dry-run`.
+`pnpm run deploy` runs `wrangler deploy`. `pnpm run deploy:preview` runs `wrangler preview`.
+Wrangler selects the connected Worker from the build environment. Locally, use
+`pnpm run deploy:preview --worker-name <actual-worker-name>`. The `--name` option selects the
+Preview name. Wrangler Preview does not support `--dry-run`.
 
 Keep `build`, `deploy`, and `deploy:preview` as the stable Samebase repository interface. The
 repository can change their implementation without changing the Cloudflare settings.
 
-Keep helper scripts runnable by plain `node` in the Workers Builds image. Cloudflare defaults
-Workers Builds to Node 22.16.0, which does not run `.ts` files through `node` by default. If the
-artifact keeps Node-invoked helpers in TypeScript, pin Node 24 with `.node-version` or
-`NODE_VERSION`; otherwise use plain ESM JavaScript helpers or an explicit TypeScript runner.
+Keep helper scripts runnable by plain `node` in the Workers Builds image. Pin Node 24 with
+`.node-version` or `NODE_VERSION` so the build can run the repository's TypeScript automation.
 
-Keep `wrangler.jsonc` because it still owns the static assets directory, SPA fallback, preview URL
-preference, and local Wrangler deploy/dry-run behavior. Do not put `name` or `build.command` in the
+Keep `wrangler.jsonc` because it still owns the static assets directory, SPA fallback, preview
+settings, and local Wrangler deploy/dry-run behavior. Do not put `name` or `build.command` in the
 reusable template `wrangler.jsonc`, and do not claim that the Cloudflare Git build command comes
 from `wrangler.jsonc`; the dashboard `Build command` is a real setting in Workers Builds.
+
+Add the required `previews` block. Use `previews: {}` when the app serves only static assets. Put
+preview runtime variables and bindings in that block when the app needs them. Copy any
+dashboard-generated configuration into the file. Store runtime secrets in Previews Base, outside the
+repository. A later Base secret change affects new Previews only.
 
 Recommended dashboard values for the artifact:
 
@@ -163,7 +168,10 @@ Recommended dashboard values for the artifact:
 
 For Samebase-managed setup, write the matching `CONVEX_DEPLOY_KEY` value to each trigger. Write the
 marker only to the production trigger. Existing apps remove `PREVIEW_CONVEX_DEPLOY_KEY` and the old
-preview marker through the starter changelog migration.
+preview marker manually after the starter changelog migration passes preview and production checks.
+Use the
+[existing-app migration runbook](../../existing-app-cloudflare-workers-migration.md#migrate-to-worker-previews)
+to apply and verify that update in each repository.
 
 ## Sources
 
@@ -174,7 +182,7 @@ preview marker through the starter changelog migration.
 - Cloudflare Workers Builds overview: <https://developers.cloudflare.com/workers/ci-cd/builds/>
 - Cloudflare Wrangler custom builds:
   <https://developers.cloudflare.com/workers/wrangler/custom-builds/>
-- Cloudflare Workers Preview URLs:
-  <https://developers.cloudflare.com/workers/configuration/previews/>
-- Cloudflare Worker Previews private-beta documentation:
-  <https://github.com/cloudflare/cloudflare-docs/pull/31775>
+- [Cloudflare Worker Previews setup](https://developers.cloudflare.com/workers/previews/get-started/)
+- [Cloudflare Worker Previews configuration](https://developers.cloudflare.com/workers/previews/configuration/)
+- [Existing Workers Builds migration](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/#existing-workers-connected-to-builds)
+- [Worker Previews release](https://developers.cloudflare.com/changelog/post/2026-09-22-worker-previews/)

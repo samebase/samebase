@@ -56,19 +56,11 @@ The core workflow runs on macOS, Linux, and Windows. See
 | `pnpm run deploy:preview` | Create or update the current branch's Worker Preview                 |
 | `pnpm run deploy:dry-run` | Build the app and validate a production upload without publishing it |
 
-For a local Worker Preview, set `CLOUDFLARE_WORKER_NAME` before you run
-`pnpm run deploy:preview`.
-
-On macOS or Linux:
+For a local Worker Preview, pass the actual Worker name. This command works on macOS, Linux, and
+Windows:
 
 ```sh
-export CLOUDFLARE_WORKER_NAME=my-worker
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:CLOUDFLARE_WORKER_NAME = "my-worker"
+pnpm run deploy:preview --worker-name my-worker
 ```
 
 ## Deployment contract
@@ -94,10 +86,15 @@ code after a newer commit reaches the same branch. `convex deploy --cmd` supplie
 interface that Samebase configures in Workers Builds. The repository owns the implementation under
 those names. Outside Workers Builds, `pnpm run build` runs only the app build.
 
-`pnpm run deploy:preview` uses Cloudflare Worker Previews. Worker Previews is a private beta, and
-the Cloudflare account must have access. Put the preview key under **Builds > Previews Base**, not
-under **Runtime variables and secrets**. Enable Preview builds for non-production branches, but
-keep the Preview command set to `pnpm run deploy:preview`.
+`pnpm run deploy:preview` runs `wrangler preview`. Worker Previews is a public open beta and the
+default preview model for new Workers Builds projects. Wrangler requires version `4.135.0` or later
+and a `previews` block in `wrangler.jsonc`. The starter uses `previews: {}` because it only serves
+static assets. Wrangler reads the connected Worker name from the Cloudflare build environment.
+
+Put the preview key under **Builds > Previews Base**, not under **Runtime variables and secrets**.
+Enable Preview builds for non-production branches. Existing Workers need the one-time Worker
+Previews switch before they use the new model. After that switch, restore the Preview command to
+`pnpm run deploy:preview`.
 
 See [`docs/cloudflare-workers-builds.md`](./docs/cloudflare-workers-builds.md) for the detailed build
 and deploy behavior. Use the
@@ -108,9 +105,8 @@ and deploy behavior. Use the
 - `package.json` defines the supported development, check, build, and deploy commands.
 - `prerender.config.ts` defines the public pages shared by TanStack Start and Cloudflare.
 - `vite.config.ts` defines the TanStack Start SPA and prerender behavior.
-- `wrangler.jsonc` defines Cloudflare static assets, SPA fallback, and preview URLs.
+- `wrangler.jsonc` defines Cloudflare static assets, SPA fallback, and the `previews` configuration.
 - `scripts/build-cloudflare.ts` owns the Cloudflare build and Convex deployment selection.
-- `scripts/deploy-worker-preview.ts` passes the connected Worker name to `wrangler preview`.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
 

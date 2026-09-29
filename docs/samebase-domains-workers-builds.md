@@ -8,7 +8,7 @@ Use these settings for the production trigger:
 - Root directory: `apps/domain-router`
 - Build command: `pnpm run build`
 - Deploy command: `pnpm run deploy`
-- Version command: `pnpm run build:preview`
+- Preview command: `pnpm run deploy:preview`
 - Production branch: `main`
 - Include paths:
   - `apps/domain-router/*`

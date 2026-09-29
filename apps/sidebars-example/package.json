@@ -14,7 +14,7 @@
     "build:app": "vp build",
     "check": "vp check && vp run typecheck && vp test && vp run build:app",
     "deploy": "wrangler deploy",
-    "deploy:preview": "node ./scripts/deploy-worker-preview.ts",
+    "deploy:preview": "wrangler preview",
     "deploy:dry-run": "pnpm run build:app && wrangler deploy --dry-run",
     "dev": "vp dev",
     "format": "vp fmt",
@@ -42,7 +42,7 @@
     "typescript": "5.9.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.3.0",
     "vite-plus": "0.3.0",
-    "wrangler": "4.92.0"
+    "wrangler": "4.136.2"
   },
   "engines": {
     "node": ">=24.11.0",

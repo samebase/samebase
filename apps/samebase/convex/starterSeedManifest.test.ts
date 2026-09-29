@@ -7,7 +7,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "ab290dc0e66a6e20ad475542c0a1e1e137e9df6fb503805df6cdc8d8e4fbc4b6",
+      contentHash: "e1e2a131607609a17bd791079444f4ac05ddf1005a5426f6b318ab44ac16e53c",
       commitMessage: "Initialize app from Samebase starter build v2059",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -30,7 +30,6 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
     expect(filePaths).toContain("prerender.config.ts");
-    expect(filePaths).toContain("scripts/deploy-worker-preview.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
     expect(filePaths).toContain("scripts/generate-cloudflare-redirects.ts");
     expect(filePaths).toContain("tsconfig.node.json");
@@ -70,7 +69,7 @@ describe("starterSeedManifest", () => {
           build: "node ./scripts/build-cloudflare.ts",
           "build:app": "vp run check && vp build",
           deploy: "wrangler deploy",
-          "deploy:preview": "node ./scripts/deploy-worker-preview.ts",
+          "deploy:preview": "wrangler preview",
           format: "vp fmt",
           "format:check": "vp fmt --check",
           lint: "vp lint --report-unused-disable-directives",
@@ -179,9 +178,8 @@ describe("starterSeedManifest", () => {
     );
     expect(starterTemplateManifest.files["package.json"]).toContain('"deploy:preview"');
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"deploy:worker-preview"');
-    expect(starterTemplateManifest.files["scripts/deploy-worker-preview.ts"]).toContain(
-      '["preview", "--worker-name", readWorkerName(env)]',
-    );
+    expect(starterTemplateManifest.files["scripts/deploy-worker-preview.ts"]).toBeUndefined();
+    expect(starterTemplateManifest.files["wrangler.jsonc"]).toContain('"previews": {}');
   });
 
   it("includes durable guest-name reservation in the starter auth flow", () => {

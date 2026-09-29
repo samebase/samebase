@@ -77,8 +77,8 @@ For a Workers/TanStack Start version:
 - Read docs/artifacts/samebase-base/cloudflare-workers-install.md before writing
   Workers setup docs. Make `package.json` `build` match the Cloudflare
   dashboard default and delegate to the Cloudflare-aware build path. Do not
-  hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts
-  to pass the connected Cloudflare Worker name to Wrangler. Keep
+  hard-code the Worker `name` in `wrangler.jsonc`; use Wrangler's native
+  connected Worker name from the build environment. Keep
   `build.command` out of the reusable `wrangler.jsonc` so Workers Builds and
   local Wrangler checks have one clear build owner each. Keep Node-invoked
   repository automation in erasable TypeScript runnable by plain `node`, and
@@ -100,8 +100,19 @@ For a Workers/TanStack Start version:
   **Builds > Previews Base > Variables and secrets**, not under
   **Runtime variables and secrets**.
 - Keep `build`, `deploy`, and `deploy:preview` as the stable Samebase repository
-  interface. Make `deploy:preview` use `wrangler preview --worker-name` through a
-  cross-platform adapter. Worker Previews has no dry-run mode.
+  interface. Make `deploy:preview` run `wrangler preview` directly. Pin a Wrangler
+  release at least 4.135.0. For local use, pass `--worker-name <actual-worker-name>`.
+  The `--name` option selects the Preview name. Worker Previews has no dry-run mode.
+- Add `previews: {}` to `wrangler.jsonc` for the static-only app. Put any preview
+  runtime variables and bindings in that block. Copy dashboard-generated settings
+  into the file. Keep runtime secrets outside the file in Previews Base. Later
+  Base secret changes affect new Previews only.
+- Describe Worker Previews as a public open beta and the default for new Workers
+  Builds projects. Existing Workers need the one-time switch in Settings > Builds.
+  Explain that the switch cannot be reversed and replaces the Preview command.
+  Restore `pnpm run deploy:preview` after the switch. Migrate an existing app on
+  a branch, verify a real Preview, then verify production after the approved merge.
+  Delete old preview keys and markers manually only after those checks pass.
 - Document the current Convex permission split: production `CONVEX_DEPLOY_KEY`
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,

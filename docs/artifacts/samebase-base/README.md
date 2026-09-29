@@ -156,15 +156,23 @@ For a Workers version of the artifact:
   Cloudflare-specific script while keeping the plain static app build visible as `build:app` or
   similar.
 - Keep `wrangler.jsonc` as the deploy contract for the static asset directory, SPA fallback, preview
-  URL preference, and local Wrangler deploy/dry-run behavior. Do not hard-code `name` in the
-  reusable artifact template.
+  settings, and local Wrangler deploy/dry-run behavior. Include the required `previews: {}` block
+  for static-only apps. Do not hard-code `name` in the reusable artifact template.
 - Make `package.json` `deploy` use `wrangler deploy`. Wrangler reads the connected Worker name from
   Cloudflare's build environment.
-- Make `package.json` `deploy:preview` use a small cross-platform adapter around `wrangler preview`.
-  Pass the connected Worker name with `--worker-name`. Do not add a dry-run command for Worker
-  Previews.
+- Make `package.json` `deploy:preview` run `wrangler preview` directly. Pin a Wrangler release at
+  least `4.135.0`, which reads the connected Worker name from Cloudflare's build environment. For
+  local use, pass `--worker-name <actual-worker-name>`. Do not add a Worker-name adapter or a
+  dry-run command for Worker Previews.
 - Keep `build`, `deploy`, and `deploy:preview` as the stable Samebase repository interface. A target
   repository can change the implementation under those names.
+- Document Worker Previews as a public open beta and the default model for new Workers Builds
+  projects. Existing Workers need the one-time dashboard switch. State that the switch cannot be
+  reversed and restores the default command, which must be changed back to
+  `pnpm run deploy:preview`.
+- Keep preview runtime variables and bindings in the `previews` block. Copy dashboard-generated
+  configuration into the file. Keep runtime secrets in Previews Base. A Base secret change affects
+  new Previews only.
 - Keep repository automation in erasable TypeScript runnable by plain `node` in Cloudflare's Workers
   Builds image, and pin Node 24 with `.node-version` or `NODE_VERSION`.
 - Keep the core workflow native on macOS, Linux, and Windows. Do not add Bash scripts, POSIX-only
@@ -177,8 +185,8 @@ For a Workers version of the artifact:
   own dashboard build command and currently does not honor Wrangler custom build settings there.
 - Explain that the Builds API stores variables per trigger. Samebase-managed production and preview
   triggers use the same `CONVEX_DEPLOY_KEY` name with different values.
-- Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code. Existing apps remove that variable through
-  the starter changelog migration.
+- Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code. Existing apps remove that variable
+  manually after the starter changelog migration passes preview and production checks.
 - Samebase automation writes one scoped deploy-key build secret to each Workers Builds trigger. It
   writes the non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
   marker only to the production trigger. The generated app consumes only the deploy keys. Samebase
