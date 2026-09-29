@@ -88,7 +88,7 @@ export const cloudflareDiscoverWorkersContract = {
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
-current GitHub repository, Workers Builds root, trigger pair, and Convex marker. Only a Worker with
+current GitHub repository, Workers Builds root, Production and Previews Base settings, and Convex marker. Only a Worker with
 one verified root for the Samebase repository's GitHub repository is eligible for attachment. A partial inventory never
 proves that an unlisted Worker is absent. It may refresh private Samebase provider-connection
 bookkeeping, but it writes no attachment or provider resource.`,

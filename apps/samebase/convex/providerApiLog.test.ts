@@ -34,7 +34,7 @@ describe("formatProviderApiCallLogMessage", () => {
             account_id: "abc123",
             script_tag: "worker-123",
           },
-          query: { patch_existing_previews: "true" },
+          query: { patch_existing_previews: "false" },
         },
       },
     });

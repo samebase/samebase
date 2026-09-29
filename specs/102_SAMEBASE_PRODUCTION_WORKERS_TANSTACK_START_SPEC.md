@@ -82,17 +82,17 @@ convention, and shadcn is configured through `apps/samebase/components.json` wit
 separate repository-wide cleanup, but it is not part of the hosting cutover.
 
 Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. The app build
-script uses `WORKERS_CI_BRANCH` to choose the production or preview deployment. Each Builds trigger
-provides its scoped value as `CONVEX_DEPLOY_KEY`. Preview builds must require a preview-scoped key.
-The Workers Builds variable table does not store `VITE_CONVEX_URL`; `convex deploy --cmd` supplies
-the selected production or preview deployment URL to the child build command. After building the app
-and immediately before Convex pushes functions, the command compares `WORKERS_CI_COMMIT_SHA` with
-the current remote head of `WORKERS_CI_BRANCH`. A stale build must fail without deploying Convex.
-This protects both production and named branch previews from an older concurrent Workers Build
-finishing after a newer one. The guard adds one authenticated `git ls-remote` request per provider
-build. It is not an atomic compare-and-swap: a branch can still advance in the short interval
-between the Git check and Convex's internal push. Eliminating that residual race requires
-provider-side serialization or a Convex source-commit concurrency primitive.
+script uses `WORKERS_CI_BRANCH` to choose the production or preview deployment. Production and
+Previews Base build settings provide their scoped values as `CONVEX_DEPLOY_KEY`. Preview builds must
+require a preview-scoped key. The Workers Builds variable table does not store `VITE_CONVEX_URL`;
+`convex deploy --cmd` supplies the selected production or preview deployment URL to the child build
+command. After building the app and immediately before Convex pushes functions, the command compares
+`WORKERS_CI_COMMIT_SHA` with the current remote head of `WORKERS_CI_BRANCH`. A stale build must fail
+without deploying Convex. This protects both production and named branch previews from an older
+concurrent Workers Build finishing after a newer one. The guard adds one authenticated
+`git ls-remote` request per provider build. It is not an atomic compare-and-swap: a branch can still
+advance in the short interval between the Git check and Convex's internal push. Eliminating that
+residual race requires provider-side serialization or a Convex source-commit concurrency primitive.
 
 ### Static Page Prerendering And SPA Shell
 
@@ -267,7 +267,7 @@ Samebase production itself.
    deploying Convex.
 3. Keep a Cloudflare build script that:
    - deploys Convex production from `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is `main`
-   - creates or reuses a named Convex preview deployment from the preview trigger's
+   - creates or reuses a named Convex preview deployment from the Previews Base build settings'
      `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
@@ -289,8 +289,8 @@ Samebase production itself.
      provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
      `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
    - creates no repositories during seeding
-   - uses the preview trigger's `CONVEX_DEPLOY_KEY` on a non-production branch and fails if it is
-     missing
+   - uses the Previews Base build settings' `CONVEX_DEPLOY_KEY` on a non-production branch and fails
+     if it is missing
    - passes `--preview-name <WORKERS_CI_BRANCH>` to each preview Convex Auth environment command
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
    - falls back to a frontend-only build for local dry runs without a deploy key

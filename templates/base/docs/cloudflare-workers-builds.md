@@ -70,7 +70,9 @@ Local dry-runs can validate the Worker package without build secrets:
 pnpm run deploy:dry-run
 ```
 
-Worker Previews has no dry-run mode. To publish a local Preview, pass the actual Worker name:
+Worker Previews has no dry-run mode. Before a manual deployment, run `pnpm run build` with the
+intended backend URL. The deploy commands publish the existing assets and do not rebuild them.
+To publish a local Preview, pass the actual Worker name:
 
 ```sh
 pnpm run deploy:preview --worker-name my-worker
@@ -110,13 +112,13 @@ Convex deploy keys remain in the separate **Builds** settings described above.
 3. If the Worker uses the old preview model, open **Settings > Builds > Set up Worker Previews**.
    The switch cannot be reversed. Configure the preview runtime settings, then select **Switch to
    Worker Previews**. Restore the Preview command to `pnpm run deploy:preview` after the switch.
-4. Verify `pnpm run build` on both Builds triggers and `pnpm run deploy` on Production. Enable
+4. Verify `pnpm run build` in both build configurations and `pnpm run deploy` on Production. Enable
    Preview builds. Set the Previews Base build secret `CONVEX_DEPLOY_KEY` to the project Preview key before
    starting a branch build. Keep the production key and `SAMEBASE_CONVEX_PROJECT` on Production.
 5. Run a branch build from the reviewed commit. Check the Worker Preview URL, its pull-request
    comment, and the branch's separate Convex deployment. Test authentication and an app data change.
 6. After approval to merge and deploy, merge the update and verify production.
-7. After both deployments pass, delete `PREVIEW_CONVEX_DEPLOY_KEY` from both Builds triggers.
+7. After both deployments pass, delete `PREVIEW_CONVEX_DEPLOY_KEY` from both build configurations.
    Delete any `SAMEBASE_CONVEX_PROJECT` marker from Previews Base build settings. Samebase key rotation does
    not delete these old values.
 

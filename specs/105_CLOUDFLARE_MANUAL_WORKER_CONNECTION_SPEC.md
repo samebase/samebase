@@ -40,9 +40,10 @@ repository's required `cloudflareAccountId`. Provider reads and writes load the 
 current Cloudflare credential and fail closed if it is absent or cannot access that exact account.
 This flow does not select or change the organization's Cloudflare account.
 
-Worker existence, workers.dev URLs, GitHub repository connection, build triggers, build-token UUIDs,
-build status, domains, and Convex build variables remain current Cloudflare observations. Samebase
-fetches each build-token name from Cloudflare and does not store it.
+Worker existence, workers.dev URLs, GitHub repository connection, Builds settings, production
+trigger identity, build-token UUIDs, build status, domains, and Convex build variables remain
+current Cloudflare observations. Samebase fetches each build-token name from Cloudflare and does not
+store it.
 
 ### Existing Worker flow
 
@@ -54,8 +55,8 @@ fetches each build-token name from Cloudflare and does not store it.
 3. For each Worker, Samebase reads Workers Builds triggers and requires GitHub provider type plus an
    exact match to the repository's immutable GitHub repository ID for direct selection. A Worker
    with no active trigger is observed separately from a Worker connected to another repository.
-4. A selectable Worker has one unambiguous normalized root across its active production and preview
-   triggers. The root is displayed read-only and becomes the approved attachment root.
+4. A selectable Worker has one unambiguous normalized root across its active Builds connection. The
+   root is displayed read-only and becomes the approved attachment root.
 5. Every selectable Worker starts selected because its exact repository connection has already been
    verified. The user may deselect any Worker before confirming. Samebase may also show their
    readable `SAMEBASE_CONVEX_PROJECT` evidence without persisting a relation.
@@ -73,9 +74,9 @@ unconnected Worker is configured individually because roots are per Worker and C
 not batch-atomic.
 
 `Connect and add` also requires one Workers Builds token selected from the exact repository account.
-Samebase re-lists the account records before the write and applies the selected UUID to both
-triggers. After both trigger writes succeed, that UUID becomes the organization account's last-used
-Builds token.
+Samebase re-lists the account records before the write and applies the selected UUID to Production
+and Previews Base build settings through the worker-level Builds API. After both scopes are
+configured, that UUID becomes the organization account's last-used Builds token.
 
 If Cloudflare reports an error after attachment, Samebase re-observes the Worker before it explains
 what to do next. The Worker stays under its stored root and can show `Needs attention`. The message
@@ -116,8 +117,8 @@ by name from Z to A without case sensitivity, with UUID as the stable tie-breake
 Cloudflare's default timestamped names in newest-name-first order without parsing the timestamp. A
 later refresh does not replace an existing or user-selected UUID. Provider writes never infer a
 token from a name, list position, or another Worker's current binding. They validate the exact
-selected UUID again. A successful write of both triggers updates the organization default. A failed
-write does not update it.
+selected UUID again. Successful configuration of Production and Previews Base build settings updates
+the organization default. A failed write does not update it.
 
 If Builds configuration fails, the Worker stays attached under its stored root with
 `Needs attention`. This preserves cleanup ownership and lets the user retry the explicit
@@ -160,20 +161,26 @@ explicit operations.
 with a different live root. The member must use `Update root` first when the current provider root
 is the intended coordinate.
 
-Repository settings shows the current token name when both triggers use the same listed UUID. It
-reports when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These
-are observations, not token-health claims. `Change API token` opens the same explicit configuration
-flow. Confirmation writes the chosen UUID to both triggers and starts a production build.
+Repository settings shows the current token name when Production and Previews Base build settings
+use the same listed UUID. It reports when those build-token UUIDs differ or a bound UUID is no
+longer in Cloudflare's list. These are observations, not token-health claims. `Change API token`
+opens the same explicit configuration flow. Confirmation writes the chosen UUID to both build
+settings scopes and starts a production build.
+
+Production and Previews Base settings use the worker-level Builds API. Migration removes the legacy
+preview trigger. The production trigger UUID remains available for manual builds and build history;
+preview settings do not require a preview trigger UUID.
 
 When build access has no trustworthy attached target, `Use <project> for Workers Builds` names each
 available destination explicitly. When a Worker's marker already names an attached project but its
 keys are incomplete or its team coordinate is stale, `Repair keys for <project>` offers only that
 project. A healthy attached target offers no write action.
 
-After the user chooses the exact attached Convex project, Samebase writes one secret deploy key to
-each trigger. It writes the readable
+After the user chooses the exact attached Convex project, Samebase writes the production deploy key
+to Production build settings and the project Preview key to Previews Base build settings, each as
+the secret `CONVEX_DEPLOY_KEY`. It writes the readable
 `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker only to the
-production trigger. That live Cloudflare configuration is the relationship. Samebase does not
+Production build settings. That live Cloudflare configuration is the relationship. Samebase does not
 persist a Worker-to-project edge.
 
 ### Operation safety
@@ -191,8 +198,8 @@ uses the normal action for that state:
   connect that existing Worker. Samebase does not adopt it automatically.
 - An attached Worker with incomplete Builds configuration uses the normal Configure Workers Builds
   action.
-- A Worker whose build-token record is missing or whose triggers disagree uses the normal Change API
-  token action.
+- A Worker whose build-token record is missing or whose Production and Previews Base build-token
+  UUIDs disagree uses the normal Change API token action.
 - Incomplete Convex build access uses the normal key repair action for the observed attached
   project. Repeating this action replaces the deterministic deploy keys and writes one complete
   production and preview configuration.
@@ -200,7 +207,8 @@ uses the normal action for that state:
 ## Non-Goals
 
 - Automatically accepting a provider name or root change.
-- Persisting trigger, URL, domain, build status, build-token name, marker, or deploy-key state.
+- Persisting Builds settings, trigger identifiers, URL, domain, build status, build-token name,
+  marker, or deploy-key state.
 - Inferring a Worker placement from repository folders.
 - Attaching Workers from a different GitHub repository.
 - Selecting or changing a Cloudflare account in a repository flow.
@@ -210,7 +218,7 @@ uses the normal action for that state:
 
 - Provider tests cover pagination beyond 100 Workers, partial fallback, zero-trigger Workers,
   different-repository Workers, provider type, exact GitHub repository identity, exact repository
-  account, missing or mismatched organization credentials, ambiguous roots, production/preview
+  account, missing or mismatched organization credentials, ambiguous roots, Production/Previews Base
   disagreement, and marker disagreement.
 - Mutation tests cover organization and account destination checks, atomic batches, global identity
   conflicts, idempotency, origin upgrade, stored roots, and stable `workerTag` resolution after a
@@ -223,4 +231,4 @@ uses the normal action for that state:
   focused unconnected-Worker root flow, count copy, exact Convex action targets, stored-root Builds
   repair, and `Needs attention`.
 - UI tests cover token loading, empty and failed lists, visible default and changed selections, live
-  token names, missing records, trigger disagreement, and token change.
+  token names, missing records, build-token disagreement, and token change.

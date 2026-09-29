@@ -25,7 +25,7 @@ manual resource attachment:
 2. attach or create the Convex project at the plan's confirmed `convex.json` path
 3. when the plan has a selected Workers Builds token, attach or create the Cloudflare Worker named
    by the plan
-4. configure the Worker's Workers Builds triggers for GitHub
+4. configure the Worker's Workers Builds Production and Previews Base settings for GitHub
 5. rotate and install the selected Convex project's deploy keys, then start the first production
    build
 
@@ -121,11 +121,11 @@ the region in the plan. The provider create request sends it as `deploymentRegio
 
 `buildTokenUuid` is an explicit non-secret Workers Builds token choice. The `planned` state accepts
 a selected token UUID or `null`. The `creating` and `created` states require a selected token UUID.
-The plan keeps a selected UUID because a retry must use the same user choice. Before each trigger
-write, Samebase requires Cloudflare to list that UUID for the repository account. Samebase does not
-store the token name, the underlying user API token ID, or its secret. If Cloudflare no longer lists
-the selected UUID, managed setup tells the user to remove the failed app and create it again with
-another token. Retry does not choose a replacement token.
+The plan keeps a selected UUID because a retry must use the same user choice. Before each Builds
+configuration write, Samebase requires Cloudflare to list that UUID for the repository account.
+Samebase does not store the token name, the underlying user API token ID, or its secret. If
+Cloudflare no longer lists the selected UUID, managed setup tells the user to remove the failed app
+and create it again with another token. Retry does not choose a replacement token.
 
 `null` records that the account had no listed token when New App started. It is not a general option
 to skip managed Builds setup. The New App page or MCP caller confirms that the provider token list
@@ -136,9 +136,9 @@ creates and attaches the Worker, and configures Builds. The separate deploy-key 
 attached Convex project, installs its keys, and starts the production build. The managed plan stays
 unchanged and does not persist the later token choice.
 
-After both trigger writes succeed for a selected UUID, Samebase records the UUID as the organization
-account's last-used Builds token. That organization default affects only future selections. It never
-replaces the plan UUID during a retry.
+After Production and Previews Base configuration succeeds for a selected UUID, Samebase records the
+UUID as the organization account's last-used Builds token. That organization default affects only
+future selections. It never replaces the plan UUID during a retry.
 
 Indexes:
 
@@ -213,21 +213,22 @@ Indexes:
 
 This table is the durable attachment between a repository and a Cloudflare Worker. It stores the
 stable `workerTag` identity and the approved `workerName` and `rootDirectory` coordinates that spec
-115 defines. Current workers.dev URLs, domains, Worker existence, Workers Builds triggers,
-repository configuration, build status, token data, and Convex deploy keys remain provider state.
-Convex `_creationTime` records when the attachment was created.
+115 defines. Current workers.dev URLs, domains, Worker existence, Workers Builds settings and
+trigger identifiers, repository configuration, build status, token data, and Convex deploy keys
+remain provider state. Convex `_creationTime` records when the attachment was created.
 
 ### Worker-to-Convex build relationship
 
 `SAMEBASE_CONVEX_PROJECT` is a non-secret Cloudflare Workers Builds variable with the value
 `version=1&teamId=<teamId>&projectId=<projectId>`.
 
-Samebase writes the marker only to the production Builds trigger. Each trigger has one secret
-variable named `CONVEX_DEPLOY_KEY`. The production trigger stores the production deploy key. The
-preview trigger stores the project Preview deploy key. The production marker is the authoritative
-declaration of which Convex project the Worker is configured to deploy. It is user-controlled
-provider configuration, not cryptographic proof that the hidden secret values belong to that
-project. A user who changes the keys directly in Cloudflare must also update or remove the marker.
+Samebase writes the marker only to Production build settings. Production and Previews Base build
+settings each have one secret variable named `CONVEX_DEPLOY_KEY`. Production stores the production
+deploy key. Previews Base stores the project Preview deploy key. The production marker is the
+authoritative declaration of which Convex project the Worker is configured to deploy. It is
+user-controlled provider configuration, not cryptographic proof that the hidden secret values belong
+to that project. A user who changes the keys directly in Cloudflare must also update or remove the
+marker.
 
 Samebase does not persist a Worker-to-project dependency row or attachment field. The selected
 project may exist as active workflow input while an explicit provider operation runs, but completed
@@ -236,8 +237,8 @@ The preview secret is a project-level key for the project declared by the produc
 
 The live observation reports these states without guessing:
 
-- a valid production marker and the canonical secret name on both triggers: configured for that
-  project
+- a valid production marker and the canonical secret name in both build settings scopes: configured
+  for that project
 - a valid production marker with a missing canonical secret: incomplete, with repair available
 - secret names with no production marker: target unknown
 - a malformed production marker: invalid
@@ -270,22 +271,29 @@ write-safety check.
 Cloudflare uses three independently loading observation axes:
 
 1. Worker identity, current name, existence, domains, and workers.dev availability.
-2. Workers Builds repository configuration, production/preview trigger identifiers, and each
-   trigger's build-token UUID, including the current normalized root used for drift detection.
-3. Convex marker and deploy-key classification for the connected trigger identifiers.
+2. Workers Builds repository configuration, the production trigger identifier, and the Production
+   and Previews Base build-token UUIDs, including the current normalized root used for drift
+   detection.
+3. Convex marker and deploy-key classification in the connected Worker's Production and Previews
+   Base build settings.
 
 The dashboard starts the first two reads concurrently. A confirmed Worker and its links become
-available without waiting for Builds or trigger variables. The third read starts only after the
-second read proves that both Builds triggers exist. Trigger identifiers are short-lived input for
-that browser request, not durable Samebase data; the server revalidates that every requested Worker
-belongs to the repository and derives its Cloudflare account from the attachment before reading
-trigger variables. Provider secret values never leave the action.
+available without waiting for Builds or build variables. The third read starts only after the second
+read proves that Workers Builds is connected. The browser supplies Worker attachment IDs; the server
+revalidates that every requested Worker belongs to the repository and derives its Cloudflare account
+and Worker identity from the attachment before reading build variables through the worker-level
+Builds API. Provider secret values never leave the action.
+
+Production and Previews Base settings use the worker-level Builds API. Migration removes the legacy
+preview trigger. The production trigger UUID remains available for manual builds and build history;
+preview settings do not require a preview trigger UUID. Trigger identifiers are live provider
+observations, not durable Samebase data.
 
 Workers Builds token names come from the current account token list. A listed record is not proof
 that its underlying user token can run a new build. The dashboard reports only the observed binding:
-the same listed UUID on both triggers, a bound UUID that is not listed, different production and
-preview UUIDs, or an unavailable read. It does not persist the name or label a listed record
-healthy.
+the same listed UUID in Production and Previews Base settings, a bound UUID that is not listed,
+different build-token UUIDs between those scopes, or an unavailable read. It does not persist the
+name or label a listed record healthy.
 
 Provisioning and repair actions re-read the provider state they require before acting. Durable run
 events record that an explicit operation succeeded or failed; they are operation evidence, not a
@@ -375,12 +383,12 @@ Repository default branch:
 5. `api.repository.providerObservations.observeCloudflareWorkerBuilds`
 
 - Args: `{ repositoryId: Id<"repositories"> }`
-- Returns: bounded live repository configuration and production/preview Builds trigger identifiers
+- Returns: bounded live repository configuration, the production Builds trigger identifier, and
+  Production and Previews Base build settings observations
 
 6. `api.repository.providerObservations.observeCloudflareWorkerConvexBuildAccess`
 
-- Args:
-  `{ repositoryId: Id<"repositories">, targets: { workerId, productionTriggerUuid, previewTriggerUuid }[] }`
+- Args: `{ repositoryId: Id<"repositories">, targets: { workerId }[] }`
 - Returns: bounded live Convex marker and deploy-key classification without provider secret values
 
 7. `api.repository.providerObservations.observeConvexProjects`
@@ -452,7 +460,7 @@ sequenceDiagram
     CFB->>CFL: create/read Worker
     CFB->>DB: write repositoryCloudflareWorkers
     WF->>CFB: configure_workers_builds_for_github child run
-    CFB->>CFL: connect GitHub repository + create build triggers
+    CFB->>CFL: connect GitHub repository + configure Production and Previews Base build settings
     CFB->>DB: record Workers Builds configuration event
     WF->>CFB: rotate_convex_deploy_keys_for_workers_builds child run
     CFB->>CVX: mint production + project preview deploy keys
@@ -534,12 +542,12 @@ In `RepositoryDashboard`:
   selected attached Convex project through `Use <project> for Workers Builds`. If the Worker's live
   marker already names an attached project but the access needs repair, the UI offers only
   `Repair keys for <project>`. The action writes the production and preview values as
-  `CONVEX_DEPLOY_KEY` on their matching triggers. It writes `SAMEBASE_CONVEX_PROJECT` only to the
-  production trigger. The selected project is operation input, not a persisted Samebase dependency
-  row.
-- The dashboard derives the current deploy-key configuration state from the two live Cloudflare
-  triggers. Loading, configured, not configured, incomplete, target unknown, invalid, externally
-  configured, and provider-read failure are distinct states.
+  `CONVEX_DEPLOY_KEY` in Production and Previews Base build settings, respectively. It writes
+  `SAMEBASE_CONVEX_PROJECT` only to Production build settings. The selected project is operation
+  input, not a persisted Samebase dependency row.
+- The dashboard derives the current deploy-key configuration state from live Production and Previews
+  Base build settings. Loading, configured, not configured, incomplete, target unknown, invalid,
+  externally configured, and provider-read failure are distinct states.
 - Worker, Builds, and Convex build-access observations load independently. A confirmed Worker link
   remains usable while later facts show a quiet loading pulse. Reload actions retry only the failed
   observation axis.

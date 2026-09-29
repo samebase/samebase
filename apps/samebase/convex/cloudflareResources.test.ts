@@ -7,6 +7,7 @@ vi.mock("./cloudflareMcp", () => ({
 }));
 
 import {
+  assertCloudflareWorkerHasNoPreviewsForKeyRotation,
   buildCloudflareWorkerCreateBody,
   buildCloudflareWorkerEnvVars,
   CloudflareApiError,
@@ -1441,13 +1442,36 @@ describe("cloudflare resources", () => {
     );
   });
 
-  // The published OpenAPI contains request examples, but no WorkerResponse example.
+  it("blocks key rotation when the Preview inventory cannot be read", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("Preview inventory unavailable"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      assertCloudflareWorkerHasNoPreviewsForKeyRotation({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerTag: "worker-tag",
+      }),
+    ).rejects.toThrow("Preview inventory unavailable");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.cloudflare.com/client/v4/accounts/account-id/builds/workers/worker-tag/previews?page=1&per_page=1",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  // The published OpenAPI contains request examples, but no WorkerResponse or Preview list example.
   // Replace these with sourced provider response tests before enabling this draft.
   it.todo("reads a migrated Worker with only its production trigger");
+  it.todo(
+    "reports one Worker's repository, branch, or root mismatch without rejecting other observations",
+  );
   it.todo("rejects a legacy Worker without migrating it or rotating its keys");
   it.todo("updates build settings without changing existing previews");
   it.todo(
-    "rotates only preview secrets on existing previews, preserves unrelated secrets, and verifies masked key readback",
+    "rotates production and preview-base keys without existing previews, preserves unrelated secrets, and verifies masked key readback",
   );
+  it.todo("rejects existing previews before any Convex key is created or revoked");
   it.todo("verifies new settings before an optional initial build at the default-branch SHA");
 });

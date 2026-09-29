@@ -91,11 +91,16 @@ The production trigger still matters for manual production builds and matching b
 connections enable Worker Previews. Existing legacy connections fail closed until the operator
 completes the irreversible switch. The code does not call the migration endpoint.
 
-Normal build-setting updates leave existing Previews unchanged. Key rotation updates only the
-specified preview build secrets on existing Previews because the prior Convex key is revoked. The
-new response shape, masked secret readback, preservation of unrelated secrets, and propagation to
-existing Previews still need live verification. Five success-path tests remain TODO pending a
-sourced provider response. This is a release blocker, not completed API validation.
+Normal build-setting updates leave existing Previews unchanged. Independent review found that
+copying a rotated key to all existing Previews could overwrite an unverified Preview-specific Convex
+target. The draft now blocks rotation before any key deletion or creation if any Previews exist or
+their list cannot be verified. It never propagates the key to existing Previews. Safe rotation for
+existing Previews is incomplete and remains a release blocker.
+
+The new response shape, masked secret readback, and preservation of unrelated secrets still need
+live verification. Seven tests remain TODO pending sourced provider responses. This is not completed
+API validation. Repository, branch, and root mismatches now return a failed observation for that
+Worker instead of rejecting all Worker observations.
 
 The local Wrangler OAuth login returned HTTP 403 for read-only Builds requests. Suitable Workers CI
 read access is required to capture and verify the new response. See the
@@ -116,6 +121,10 @@ The new API patch passed 123 tests across seven affected files, with five explic
 provisioning composition test exceeded its fake-timer pump limit in the combined run and passed
 alone without changes. The positive worker-level response cases remain blocked as described above.
 
+After the safety fixes and rebase, the final eight-file check passed 130 tests with seven explicit
+TODO cases. App and script type checks, targeted lint, generated action docs, and plugin checks
+passed. The final starter includes main's v2059 supply-chain fixes.
+
 ### Remaining check failures
 
 - Ailegis, Score Four, and Weight fail their production dependency audit because `js-yaml@4.3.1` is
@@ -130,6 +139,23 @@ alone without changes. The positive worker-level response cases remain blocked a
 - Bristol's successful offline build used only a command-scoped loopback `VITE_CONVEX_URL`. It
   proves packaging, not backend connectivity. Its read-only native Preview inspection returned
   partial because Cloudflare returned an empty Preview list.
+
+### Test-health handoff
+
+```text
+Investigate this test failure as a dedicated suite-health task. Use the samebase-test-policy skill.
+Do not run the full suite. Diagnose first, and do not change code unless I also ask for a fix.
+
+Test-health handoff
+- Test: apps/samebase/convex/repositoryProvisioningWorkflow.convex.test.ts > app provisioning workflow composition > skips Cloudflare setup when the confirmed token list was empty
+- Source task: https://github.com/samebase/samebase/pull/1562
+- Exact command: pnpm exec vp test apps/samebase/convex/repositoryProvisioningWorkflow.convex.test.ts -t 'skips Cloudflare setup when the confirmed token list was empty'
+- First error: finishAllScheduledFunctions: scheduled function did not complete after 10000 timer pumps. Does an action have an unresolvable setTimeout or infinite loop?
+- Artifact: tool log; first useful frame repositoryProvisioningWorkflow.convex.test.ts:214
+- Ownership: unclear
+- Evidence: failed in the combined run (571 ms test, 3.98 s command); the isolated test passed (146 ms test, 393 ms command). This path skips Cloudflare setup. No direct cause found. No repair made.
+- Merge impact: non-blocking for this isolated-passed check; required CI must still be green.
+```
 
 ## Ownership
 

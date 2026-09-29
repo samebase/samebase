@@ -17,7 +17,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     title: "Rotate Convex deploy keys for Workers Builds",
     name: "repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Rotate Samebase-named production and preview Convex deploy keys, write each value as CONVEX_DEPLOY_KEY on its matching Workers Builds trigger, and start a production build.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Requires a verified empty Worker preview list. Rotate Samebase-named production and preview Convex deploy keys, write each value as CONVEX_DEPLOY_KEY in Production and Previews Base build settings, respectively, and start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -33,10 +33,16 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `The repair for builds that cannot deploy the backend: mints production and preview deploy
 keys on the selected Convex project's production and preview scopes. It writes the production key
-as \`CONVEX_DEPLOY_KEY\` on the production Workers Builds trigger and the project Preview key under
-the same name on the preview trigger. It writes the non-secret
+as \`CONVEX_DEPLOY_KEY\` in Production build settings and the project Preview key under
+the same name in Previews Base build settings through the worker-level Builds API. It writes the
+non-secret
 \`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>\` marker only to the
-production trigger.
+Production build settings.
+
+Before it deletes or creates a Convex deploy key, the operation requires a verified empty Worker
+preview list. Existing previews or an unavailable preview list block rotation because
+preview-specific Convex projects and secret key overrides cannot yet be verified safely. It checks
+the list again before it writes build settings and does not apply those changes to existing previews.
 
 The operation reads the variables back and verifies the production marker value, secrecy flags, and
 canonical key name before it starts the production build. The preview key belongs under

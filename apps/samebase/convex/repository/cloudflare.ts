@@ -15,6 +15,7 @@ import {
   type CloudflareApiTransport,
 } from "../cloudflareApi/client";
 import {
+  assertCloudflareWorkerHasNoPreviewsForKeyRotation,
   createCloudflareWorker,
   discoverCloudflareWorkersForRepository,
   readCloudflareWorkerIdentity,
@@ -981,6 +982,12 @@ async function rotatePreparedConvexDeployKeys(
     deployKeyNames,
   } = prepared;
   const project = context.convexProject;
+  await assertCloudflareWorkerHasNoPreviewsForKeyRotation({
+    token: connection.token,
+    transport: connection.transport,
+    accountId: context.accountId,
+    workerTag: context.workerTag,
+  });
   await Promise.all([
     (async () => {
       await args.beforeProviderWrite?.();

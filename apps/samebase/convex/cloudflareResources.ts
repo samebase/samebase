@@ -234,6 +234,7 @@ export type CloudflareWorkerRepositoryDiscovery =
     }
   | { state: "not_connected" }
   | { state: "connected_elsewhere" }
+  | { state: "failed"; message: string }
   | {
       state: "ambiguous";
       reason:
@@ -245,7 +246,7 @@ export type CloudflareWorkerRepositoryDiscovery =
     };
 
 export type CloudflareWorkerDiscoveryItem = CloudflareWorkerInventoryItem & {
-  repository: CloudflareWorkerRepositoryDiscovery | { state: "failed"; message: string };
+  repository: CloudflareWorkerRepositoryDiscovery;
 };
 
 export type CloudflareWorkerProviderDiscoveryItem = CloudflareWorkerDiscoveryItem & {
@@ -1009,7 +1010,7 @@ function requireWorkerPreviewSettings(configuration: CloudflareWorkerBuildConfig
   return { production, preview };
 }
 
-function assertWorkerBuildRepositoryAndRoot(args: {
+function matchWorkerBuildRepositoryAndRoot(args: {
   configuration: CloudflareWorkerBuildConfiguration;
   expectedRepoId: string;
   expectedRootDirectory: string;
@@ -1022,19 +1023,58 @@ function assertWorkerBuildRepositoryAndRoot(args: {
     repository.repo_id !== args.expectedRepoId ||
     repository.branch !== args.defaultBranch
   ) {
-    throw new Error(
-      "Cloudflare Worker build configuration no longer matches the expected GitHub repository and production branch.",
-    );
+    return {
+      state: "mismatch" as const,
+      message:
+        "Cloudflare Worker build configuration no longer matches the expected GitHub repository and production branch.",
+    };
   }
   if (
     normalizeCloudflareBuildRoot(production.root_directory) !== args.expectedRootDirectory ||
     normalizeCloudflareBuildRoot(preview.root_directory) !== args.expectedRootDirectory
   ) {
+    return {
+      state: "mismatch" as const,
+      message:
+        "Cloudflare production and preview Builds must use the expected repository root directory.",
+    };
+  }
+  return { state: "matched" as const, production, preview };
+}
+
+function assertWorkerBuildRepositoryAndRoot(
+  args: Parameters<typeof matchWorkerBuildRepositoryAndRoot>[0],
+) {
+  const match = matchWorkerBuildRepositoryAndRoot(args);
+  if (match.state === "mismatch") {
+    throw new Error(match.message);
+  }
+  return match;
+}
+
+export async function assertCloudflareWorkerHasNoPreviewsForKeyRotation(
+  args: {
+    token: string;
+    accountId: string;
+    workerTag: string;
+  } & CloudflareApiCallOptions,
+): Promise<void> {
+  const previews = await requestCloudflareApiOrThrow({
+    token: args.token,
+    transport: args.transport,
+    method: "GET",
+    path: "/accounts/{account_id}/builds/workers/{script_tag}/previews",
+    params: {
+      path: { account_id: args.accountId, script_tag: args.workerTag },
+      query: { page: 1, per_page: 1 },
+    },
+    recordApiCall: args.recordApiCall,
+  });
+  if (!previews || previews.length > 0) {
     throw new Error(
-      "Cloudflare production and preview Builds must use the expected repository root directory.",
+      "Convex key rotation is unavailable while this Worker has previews or its preview list cannot be verified. Preview-specific Convex projects and masked key overrides cannot be verified safely.",
     );
   }
-  return { production, preview };
 }
 
 function assertBuildEnvironmentVariables(args: {
@@ -1351,12 +1391,19 @@ export async function readCloudflareWorkerBuildsDiscoveryForIdentity(
       builds: { state: "not_connected" },
     };
   }
-  const { production, preview } = assertWorkerBuildRepositoryAndRoot({
+  const match = matchWorkerBuildRepositoryAndRoot({
     configuration,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: repository.rootDirectory,
     defaultBranch: args.defaultBranch,
   });
+  if (match.state === "mismatch") {
+    return {
+      repository: { state: "failed", message: match.message },
+      builds: { state: "not_connected" },
+    };
+  }
+  const { production, preview } = match;
   return {
     repository,
     builds: {
@@ -1727,6 +1774,13 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       triggerKind: "preview",
       convexDeployKey: args.convex.preview.deployKey,
     });
+    await assertCloudflareWorkerHasNoPreviewsForKeyRotation({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      workerTag: args.workerTag,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
     await args.beforeProviderWrite?.();
     await requestCloudflareApiOrThrow({
       token: args.cloudflareToken,
@@ -1735,13 +1789,13 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       path: "/accounts/{account_id}/builds/workers/{script_tag}",
       params: {
         path: { account_id: args.accountId, script_tag: args.workerTag },
-        query: { patch_existing_previews: "true" },
+        query: { patch_existing_previews: "false" },
       },
       recordApiCall: args.recordApiCall,
       body: {
         production_settings: { environment_variables: productionEnvVars },
-        // Rotation revokes the prior key. Existing previews need the replacement,
-        // but their commands, roots, and other settings must remain unchanged.
+        // A preview can override its Convex project and key. Never propagate a
+        // parent key into existing previews without verified per-preview ownership.
         previews_base_config: { environment_variables: previewEnvVars },
       },
     });
