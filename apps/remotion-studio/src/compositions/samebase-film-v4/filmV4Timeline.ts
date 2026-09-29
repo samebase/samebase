@@ -781,7 +781,7 @@ Look again is one chain: every move leaves the object in a new state that the ne
 from, and nothing returns to the plain cube until the end. The flat mark turns into a solid, the
 reveal opens it into fractal depth and it stays open, the shuffle moves the cells of every level
 one round and stops, the camera dives to the near corner and zooms out through threefold cycles of a giant with
-no end in sight, the isometric image turns into a star of 4, 5, and 7 sides and back to 3, and the
+no end in sight, the isometric image turns into a star of 4 and then 5 sides and back to 3, and the
 camera turns to the front view while the giant shrinks into the flat mark of the first frame.
 
 The music plays the track from the start with no cut, and the zoom out starts on its lift at 17.5 s.
@@ -908,10 +908,9 @@ function lookZoomAt(time: number): number {
 const starKeys: readonly { at: number; widths: StarWidths }[] = [
   { at: look.star[0], widths: noStar.widths },
   { at: 29.4, widths: [98, 84, 0, 80, 0, 0, 98] },
-  { at: 30.7, widths: [76, 70, 0, 64, 0, 76, 74] },
-  // Two new sides open together, so the star never has six sides.
-  { at: 32.3, widths: [55, 47, 50, 56, 45, 53, 54] },
-  { at: 33.5, widths: [48, 56, 46, 52, 55, 47, 56] },
+  { at: 31, widths: [76, 70, 0, 64, 0, 76, 74] },
+  // The five sides trade widths, so the star never holds still.
+  { at: 33.2, widths: [70, 78, 0, 72, 0, 68, 72] },
   { at: look.star[1], widths: noStar.widths },
 ];
 
@@ -1035,7 +1034,7 @@ function readFilmV4Look(time: number, size: Size): FilmV4Frame {
     ]),
     outlines: lookOutlines(time, size),
     texts: lookWords(time, size),
-    veil: smoothstep(26.4, 26.9, time) * (1 - smoothstep(34.4, 34.9, time)),
+    veil: smoothstep(29, 29.5, time) * (1 - smoothstep(34.4, 34.9, time)),
   };
 }
 
@@ -1047,7 +1046,6 @@ const lookLines: readonly { at: number; text: string; until: number }[] = [
   { at: 3.4, text: "GitHub. Convex. Cloudflare.", until: 6.9 },
   { at: 7.6, text: "Run agents in parallel.", until: 10.9 },
   { at: 11.1, text: "Every PR gets its own preview.", until: 14.6 },
-  { at: 26.9, text: "It looks like a box.", until: 29.2 },
   { at: 29.5, text: "Delete your Samebase account.", until: 31.6 },
   { at: 31.8, text: "Your app doesn't notice.", until: 34.3 },
 ];
