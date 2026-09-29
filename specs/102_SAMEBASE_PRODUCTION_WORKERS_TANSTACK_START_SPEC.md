@@ -5,7 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase production hosting
 - Created: 2026-05-16
-- Last updated: 2026-08-28
+- Last updated: 2026-09-30
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
@@ -55,10 +55,11 @@ component guards.
 ## Target Stack
 
 1. React app built by TanStack Start SPA mode
-2. Convex backend deployed before the frontend build when a deploy key is present
+2. Convex backend deployed during Workers Builds, with the frontend build run by
+   `convex deploy --cmd`
 3. Cloudflare Workers Static Assets serving `dist/client`
 4. Workers SPA fallback serving `/index.html` for client routes
-5. repository-owned deploy scripts for production and preview-version uploads
+5. `wrangler deploy` for production and `wrangler preview` for native Worker Previews
 6. Workers Builds connected to the repository after the code path is proven
 
 ## Implementation Notes
@@ -81,10 +82,13 @@ convention, and shadcn is configured through `apps/samebase/components.json` wit
 `@/lib/utils`, and `@/hooks`. Changing to package imports or another alias can be evaluated as a
 separate repository-wide cleanup, but it is not part of the hosting cutover.
 
-Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. The app build
-script uses `WORKERS_CI_BRANCH` to choose between `CONVEX_DEPLOY_KEY` on `main` and
-`PREVIEW_CONVEX_DEPLOY_KEY` on non-production branches. Preview builds must require the preview key
-instead of falling back to the production key. The Workers Builds variable table does not store
+Samebase now pins Wrangler `4.136.2` for native Worker Previews. Workers Builds supplies the Worker
+name through `WRANGLER_CI_OVERRIDE_NAME`; the config does not need a fixed name.
+
+Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. Production
+and Previews Base build settings each supply `CONVEX_DEPLOY_KEY` with the corresponding Convex key.
+The app uses `WORKERS_CI_BRANCH` to deploy production on `main` or reuse the named Convex preview.
+Local builds never deploy Convex. The Workers Builds variable table does not store
 `VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected production or preview deployment URL
 to the child build command. After building the app and immediately before Convex pushes functions,
 the command compares `WORKERS_CI_COMMIT_SHA` with the current remote head of `WORKERS_CI_BRANCH`. A
@@ -249,7 +253,8 @@ Samebase production itself.
 
 1. Add `apps/samebase/wrangler.jsonc`.
 2. Use a current compatibility date for this migration.
-3. Enable preview URLs.
+3. Enable preview URLs. Keep `previews: {}` for native Worker Previews. Enable native preview builds
+   in the dashboard separately, as described in `docs/worker-previews-migration.md`.
 4. Serve assets from `./dist/client`.
 5. Set `assets.not_found_handling = "single-page-application"` so unmatched app-route navigations
    serve the SPA shell from `/index.html` without routing generated assets through `_redirects`.
@@ -268,8 +273,8 @@ Samebase production itself.
    deploying Convex.
 3. Keep a Cloudflare build script that:
    - deploys Convex production from `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is `main`
-   - creates or reuses a named Convex preview deployment from `PREVIEW_CONVEX_DEPLOY_KEY` when
-     `WORKERS_CI_BRANCH` is a non-production branch
+   - creates or reuses a named Convex preview deployment from the Previews Base `CONVEX_DEPLOY_KEY`
+     when `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
    - uses `DEV_SEED_GITHUB_API_KEY` only in preview deployments to discover the matching GitHub user
@@ -290,13 +295,12 @@ Samebase production itself.
      provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
      `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
    - creates no repositories during seeding
-   - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
-     `CONVEX_DEPLOY_KEY` is present
+   - requires `CONVEX_DEPLOY_KEY` in Workers Builds; Convex validates its deployment type
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
-   - falls back to a frontend-only build for local dry runs without a deploy key
-4. Add production deploy and preview upload scripts around Wrangler.
-5. Use the Worker name supplied by Workers Builds when available, with one local override for
-   dry-run validation.
+   - runs a frontend-only build outside Workers Builds, even when a deploy key is present
+4. Keep `deploy` and `deploy:preview` as direct Wrangler commands, without a deploy wrapper.
+5. Use the Worker name supplied by Workers Builds. Local dry-run validation uses
+   `pnpm --filter samebase deploy:dry-run --name samebase`. Native previews have no dry-run command.
 
 ### Documentation
 
@@ -308,6 +312,9 @@ Samebase production itself.
 3. Document the cutover window and validation checklist.
 
 ## Rollout Plan
+
+The phases below record the original Pages-to-Workers rollout. For the current native preview
+commands and setup, use the build contract above and `docs/worker-previews-migration.md`.
 
 ### Phase 1: Local Build Migration
 
