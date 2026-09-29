@@ -796,8 +796,13 @@ const look = {
   dive: [15.3, 17.5],
   star: [28.1, 34.9],
   front: [34.9, 37.2],
-  /** The camera lands on the flat mark of the first frame and holds it to the end. */
+  /** The camera lands head on, with every level of the giant still open. */
   landed: 37.2,
+  /**
+  The smaller levels close together in one move under the end lines, long after the zoom out, and
+  the giant is then the flat mark of the first frame.
+  */
+  closed: [39, 39.7],
 } as const;
 
 type Slot = readonly [number, number, number];
@@ -986,8 +991,7 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
     },
     6 * drawnHalf,
   );
-  // The smaller levels close during the landing, so the giant lands with the openings of the mark.
-  const fade = easeInOutSine(progress(at, look.front[0] - 0.2, look.landed - 0.2));
+  const fade = easeInOutSine(progress(at, ...look.closed));
   const inStar = frameTime >= look.star[0] && frameTime < look.star[1];
   return {
     camera,
@@ -1027,7 +1031,7 @@ function readFilmV4Look(time: number, size: Size): FilmV4Frame {
         from: look.shuffle - 0.05,
         layer: (opacity) => filmLayer("film-shuffle", cube("shuffle"), opacity),
       },
-      { fade: 0, from: look.landed, layer: (opacity) => filmLayer("film", rest, opacity) },
+      { fade: 0, from: look.closed[1], layer: (opacity) => filmLayer("film", rest, opacity) },
     ]),
     outlines: lookOutlines(time, size),
     texts: lookWords(time, size),
@@ -1049,7 +1053,7 @@ const lookLines: readonly { at: number; text: string; until: number }[] = [
 ];
 
 /** The end lines rise over the landed mark and sink before the film ends on its first frame. */
-const lookEnd = { at: 37.4, address: 39.4, until: 41.2 } as const;
+const lookEnd = { at: 37.4, address: 39.8, until: 41.3 } as const;
 
 function lookWords(time: number, { height, width }: Size): FilmV3Text[] {
   const ink = haze.ink;
