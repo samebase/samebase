@@ -29,13 +29,14 @@ The switch cannot be reversed.
 4. Keep the production `CONVEX_DEPLOY_KEY` under **Builds > Production**. Keep the same
    `SAMEBASE_CONVEX_PROJECT` there. Remove `PREVIEW_CONVEX_DEPLOY_KEY` and `SAMEBASE_CONVEX_PROJECT`
    from **Builds > Previews Base**.
+5. For each existing Worker Preview, select it in the Worker dropdown and apply the same build
+   variable changes under **Settings > Builds**. Previews Base changes affect new previews.
 
 Deploy keys belong in **Builds**, not **Runtime variables and secrets**.
 
 ## Verify
 
-1. Push a new commit after saving build secrets. Retrying an old build reuses its old variables.
-   Confirm the new build succeeds, then open the preview URL and sign in.
+1. Push the branch. Confirm the build succeeds, then open the preview URL and sign in.
 2. Save test data. Build the same branch again. Check that the Convex deployment, data, and session
    remain unchanged.
 3. Verify production after merge. Samebase's status checks and provider actions still need updates
