@@ -6,6 +6,13 @@ import type { FilmV3Camera, Rgb, Vector3 } from "../samebase-film-v3/filmV3Timel
 const MAXIMUM_SAMPLE_GRID = 4;
 const MAXIMUM_RAY_STEPS = 256;
 const MAXIMUM_SPONGE_LEVELS = 14;
+/** The stack scene holds up to this many unit cells. */
+const MAXIMUM_STACK_CELLS = 12;
+/**
+Cut cells grow by this much, so neighbors overlap: two cut boxes that only touch leave a skin of
+zero thickness on the shared face. It moves the hole walls by a fifth of a pixel.
+*/
+const HOLE_OVERLAP = 0.002;
 /**
 A sponge opening fades in between these widths, in pixels: narrower openings stay closed, so the
 detail follows the pixel footprint and never pops.
@@ -89,6 +96,23 @@ export type IllusionStudyFrame = {
         halfSize: number;
         signs: Vector3;
         wall: number;
+      }
+    | {
+        kind: "stack";
+        /**
+        Unit cubes (half size 1) in the box of half size `halfSize` at `center`, in box coordinates
+        where the camera side of the key view is + on every axis (`signs` maps them to the scene).
+        `cubes` stands the cells in the far corner of a room, as the far three walls of the box,
+        `wall` thick and cut along the key view. `holes` is the depth inversion: the solid box with
+        the cells mirrored through its center cut away. For cells that fill the corner without gaps
+        (a plane partition), both give the same key view picture.
+        */
+        cells: readonly Vector3[];
+        center: Vector3;
+        form: "cubes" | "holes";
+        halfSize: number;
+        signs: Vector3;
+        wall: number;
       };
   sky: readonly [Rgb, Rgb];
   tones: { x: Rgb; y: Rgb; z: Rgb };
@@ -129,7 +153,7 @@ const StudyState = d.struct({
   clearingRadius: d.f32,
   clearingEdge: d.f32,
   clearingVeil: d.f32,
-  /** 0 is the sponge, 1 the notched block, and 2 the room corner. */
+  /** 0 is the sponge, 1 the notched block, 2 the room corner, and 3 the stack. */
   mode: d.i32,
   corner: d.vec3f,
   octant: d.vec3f,
@@ -141,6 +165,9 @@ const StudyState = d.struct({
   roomSigns: d.vec3f,
   roomHalf: d.f32,
   roomWall: d.f32,
+  /** 0 stands the stack cells in the room and 1 cuts them out of the box. */
+  stackHoles: d.i32,
+  stackCount: d.i32,
   boundsCenter: d.vec3f,
   boundsHalf: d.vec3f,
   xTone: d.vec3f,
@@ -224,6 +251,8 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         roomHalf: inert.size,
         roomSigns: inert.point,
         roomWall: inert.size,
+        stackCount: 0,
+        stackHoles: 0,
         spongeHalf: halfSize,
       };
     }
@@ -242,6 +271,8 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         roomHalf: inert.size,
         roomSigns: inert.point,
         roomWall: inert.size,
+        stackCount: 0,
+        stackHoles: 0,
         spongeHalf: inert.size,
       };
     }
@@ -260,6 +291,28 @@ function sceneUniforms(scene: IllusionStudyFrame["scene"]) {
         roomHalf: halfSize,
         roomSigns: vector(signs),
         roomWall: wall,
+        stackCount: 0,
+        stackHoles: 0,
+        spongeHalf: inert.size,
+      };
+    }
+    case "stack": {
+      const { cells, center, form, halfSize, signs, wall } = scene;
+      return {
+        blockHalf: inert.size,
+        boundsCenter: vector(center),
+        boundsHalf: d.vec3f(halfSize + wall),
+        corner: inert.point,
+        mode: 3,
+        notchCenter: inert.point,
+        notchHalf: inert.size,
+        octant: inert.point,
+        roomCenter: vector(center),
+        roomHalf: halfSize,
+        roomSigns: vector(signs),
+        roomWall: wall,
+        stackCount: cells.length,
+        stackHoles: form === "holes" ? 1 : 0,
         spongeHalf: inert.size,
       };
     }
@@ -282,6 +335,8 @@ export async function createIllusionStudyRenderer(
   const geometryView = geometryTexture.createView();
   const sampler = root.createSampler({ magFilter: "nearest", minFilter: "nearest" });
   const state = root.createUniform(StudyState);
+  /** Stack cell centers in box coordinates; a uniform array needs a 16 byte stride. */
+  const stackState = root.createUniform(d.arrayOf(d.vec4f, MAXIMUM_STACK_CELLS));
 
   /**
   The self-similar sponge: the outermost cell fills the octant from the corner out to twice its half
@@ -363,6 +418,73 @@ export async function createIllusionStudyRenderer(
     return std.min(std.max(walls, prism), cube);
   };
 
+  /** The far three walls of the room box, in box coordinates, cut along the key view. */
+  const wallsDistance = (q: d.v3f): number => {
+    "use gpu";
+    const half = state.$.roomHalf;
+    const wall = state.$.roomWall;
+    const outer = -half - wall * 0.5;
+    const across = half + wall * 0.5;
+    const middle = -wall * 0.5;
+    const walls = std.min(
+      boxDistance(std.sub(q, d.vec3f(outer, middle, middle)), d.vec3f(wall * 0.5, across, across)),
+      boxDistance(std.sub(q, d.vec3f(middle, outer, middle)), d.vec3f(across, wall * 0.5, across)),
+      boxDistance(std.sub(q, d.vec3f(middle, middle, outer)), d.vec3f(across, across, wall * 0.5)),
+    );
+    const prism = (std.max(q.x, q.y, q.z) - std.min(q.x, q.y, q.z) - 2 * half) / Math.SQRT2;
+    return std.max(walls, prism);
+  };
+
+  const stackCell = (index: number): d.v3f => {
+    "use gpu";
+    // @ts-expect-error A WGSL array read has no undefined case, and every index is below the maximum.
+    return d.vec4f(stackState.$[index]).xyz;
+  };
+
+  /**
+  The stack: cubes on the room walls, or the box with the mirrored cells cut away. A cut cell that
+  touches a box face reaches past it, so no cut face lies on a box face.
+  */
+  const stackDistance = (point: d.v3f): number => {
+    "use gpu";
+    const s = state.$;
+    const q = std.mul(std.sub(point, s.roomCenter), s.roomSigns);
+    let cells = d.f32(1000000);
+    for (let index = 0; index < MAXIMUM_STACK_CELLS; index += 1) {
+      if (index >= s.stackCount) {
+        break;
+      }
+      const cell = stackCell(index);
+      if (s.stackHoles === 0) {
+        cells = std.min(cells, boxDistance(std.sub(q, cell), d.vec3f(1)));
+      } else {
+        const mirrored = std.mul(cell, -1);
+        const face = s.roomHalf - 1.01;
+        let reach = d.vec3f(0);
+        if (std.abs(mirrored.x) > face) {
+          reach.x = std.sign(mirrored.x);
+        }
+        if (std.abs(mirrored.y) > face) {
+          reach.y = std.sign(mirrored.y);
+        }
+        if (std.abs(mirrored.z) > face) {
+          reach.z = std.sign(mirrored.z);
+        }
+        cells = std.min(
+          cells,
+          boxDistance(
+            std.sub(q, std.add(mirrored, std.mul(reach, 0.5))),
+            std.add(d.vec3f(1 + HOLE_OVERLAP), std.mul(std.abs(reach), 0.5)),
+          ),
+        );
+      }
+    }
+    if (s.stackHoles === 0) {
+      return std.min(wallsDistance(q), cells);
+    }
+    return std.max(boxDistance(q, d.vec3f(s.roomHalf)), -cells);
+  };
+
   const sceneSample = (point: d.v3f, threshold: number): number => {
     "use gpu";
     if (state.$.mode === 0) {
@@ -371,7 +493,10 @@ export async function createIllusionStudyRenderer(
     if (state.$.mode === 1) {
       return notchDistance(point);
     }
-    return roomDistance(point);
+    if (state.$.mode === 2) {
+      return roomDistance(point);
+    }
+    return stackDistance(point);
   };
 
   const surfaceNormal = (point: d.v3f, threshold: number): d.v3f => {
@@ -742,6 +867,13 @@ export async function createIllusionStudyRenderer(
         yTone: vector(tones.y),
         zTone: vector(tones.z),
       });
+      const cells = scene.kind === "stack" ? scene.cells : [];
+      stackState.write(
+        Array.from({ length: MAXIMUM_STACK_CELLS }, (_, index) => {
+          const [x, y, z] = cells[index] ?? [0, 0, 0];
+          return d.vec4f(x, y, z, 1);
+        }),
+      );
       scenePipeline
         .withColorAttachment({
           color: { view: colorTexture },

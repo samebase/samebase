@@ -16,6 +16,13 @@ import {
   readEndlessPullbackFrame,
   readZoomLog,
 } from "./endlessPullbackTimeline";
+import {
+  readCells,
+  readShuffleCubeOrHoleFrame,
+  shuffleCubeOrHoleFps,
+  showsRoom,
+  swapFrames,
+} from "./shuffleCubeOrHoleTimeline";
 
 describe("endless pull back", () => {
   test("repeats exactly one period later once the clearing is gone", () => {
@@ -68,5 +75,25 @@ describe("cube or hole", () => {
     }
     expect(readSwing(0)).toBe(0);
     expect(readSwing((frames - 1) / cubeOrHoleFps)).toBe(0);
+  });
+});
+
+describe("shuffle cube or hole", () => {
+  test("swaps only at rest: the cubes are home and the camera is at the key view", () => {
+    const home = readCells(0);
+    for (const frame of [
+      swapFrames.toBox,
+      swapFrames.toBox + 1,
+      swapFrames.toRoom,
+      swapFrames.toRoom + 1,
+    ]) {
+      const time = frame / shuffleCubeOrHoleFps;
+      expect(readCells(time)).toEqual(home);
+      const [open, close] = readShuffleCubeOrHoleFrame(time, 1).cameras;
+      expect(open).toEqual(close);
+    }
+    expect(showsRoom(swapFrames.toBox)).toBe(true);
+    expect(showsRoom(swapFrames.toBox + 1)).toBe(false);
+    expect(showsRoom(swapFrames.toRoom + 1)).toBe(true);
   });
 });

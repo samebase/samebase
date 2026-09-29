@@ -26,7 +26,13 @@ import {
   StudyCubeOrHole,
   StudyCubeOrHoleKey,
   StudyEndlessPullback,
+  StudyShuffleCubeOrHole,
+  StudyShuffleKey,
 } from "./compositions/illusion-studies/IllusionStudies";
+import {
+  shuffleBeats,
+  shuffleCubeOrHoleFps,
+} from "./compositions/illusion-studies/shuffleCubeOrHoleTimeline";
 import { LogoHype, logoHypeDurationInFrames, logoHypeFps } from "./compositions/logo-hype/LogoHype";
 import { MarkIllusionTest } from "./compositions/mark-illusion-test/MarkIllusionTest";
 import {
@@ -211,6 +217,26 @@ export function RemotionRoot() {
           fps={cubeOrHoleFps}
           height={1080}
           key={scene}
+          width={1920}
+        />
+      ))}
+      <Composition
+        id="StudyShuffleCubeOrHole"
+        component={StudyShuffleCubeOrHole}
+        durationInFrames={Math.round(shuffleBeats.end * shuffleCubeOrHoleFps)}
+        fps={shuffleCubeOrHoleFps}
+        height={1080}
+        width={1920}
+      />
+      {(["cubes", "holes"] as const).map((form) => (
+        <Composition
+          id={`StudyShuffleKey-${form}`}
+          component={StudyShuffleKey}
+          defaultProps={{ form }}
+          durationInFrames={1}
+          fps={shuffleCubeOrHoleFps}
+          height={1080}
+          key={form}
           width={1920}
         />
       ))}

@@ -8,6 +8,11 @@ import {
   readCubeOrHoleKeyFrame,
 } from "./cubeOrHoleTimeline";
 import { readEndlessPullbackFrame } from "./endlessPullbackTimeline";
+import {
+  readShuffleCubeOrHoleFrame,
+  readShuffleKeyFrame,
+  type ShuffleForm,
+} from "./shuffleCubeOrHoleTimeline";
 import { createIllusionStudyRenderer, type IllusionStudyFrame } from "./illusionStudyRenderer";
 
 /** Antialiasing samples per pixel side, as in the film. */
@@ -43,5 +48,21 @@ export function StudyCubeOrHole() {
 /** The key view of the hole or of the cube: the two pictures are the same. */
 export function StudyCubeOrHoleKey({ scene }: { scene: CubeOrHoleScene }) {
   const frame = useMemo(() => readCubeOrHoleKeyFrame(scene, sampleGrid), [scene]);
+  return <StudyCanvas frame={frame} />;
+}
+
+/**
+Study 3: cubes shuffle in a room corner as on the landing hero; at rest the room becomes a box with
+the same picture, and an orbit shows that the cubes are holes in the box.
+*/
+export function StudyShuffleCubeOrHole() {
+  const time = useCurrentFrame() / useVideoConfig().fps;
+  const frame = useMemo(() => readShuffleCubeOrHoleFrame(time, sampleGrid), [time]);
+  return <StudyCanvas frame={frame} />;
+}
+
+/** The rest arrangement at the key view as cubes or as holes: the two pictures are the same. */
+export function StudyShuffleKey({ form }: { form: ShuffleForm }) {
+  const frame = useMemo(() => readShuffleKeyFrame(form, sampleGrid), [form]);
   return <StudyCanvas frame={frame} />;
 }
