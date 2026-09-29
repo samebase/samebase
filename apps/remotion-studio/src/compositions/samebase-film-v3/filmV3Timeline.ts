@@ -168,7 +168,7 @@ export function mix(from: number, to: number, amount: number): number {
   return from + (to - from) * amount;
 }
 
-function easeInOutCubic(value: number): number {
+export function easeInOutCubic(value: number): number {
   return value < 0.5 ? 4 * value ** 3 : 1 - (-2 * value + 2) ** 3 / 2;
 }
 
@@ -186,7 +186,7 @@ function easeOutCubic(value: number): number {
 }
 
 /** A short ease in and a long ease out, with no overshoot: the speed peaks at 38 percent. */
-function easeInLongOut(value: number): number {
+export function easeInLongOut(value: number): number {
   return 1 - (1 - value * value) ** 4;
 }
 
@@ -199,9 +199,9 @@ function easeOutBack(value: number, overshoot = 1.4): number {
 }
 
 /** Piecewise motion: each key eases from the previous value to its own value over its span. */
-type Key = { at: number; ease: (value: number) => number; to: number; until: number };
+export type Key = { at: number; ease: (value: number) => number; to: number; until: number };
 
-function keyed(time: number, from: number, keys: readonly Key[]): number {
+export function keyed(time: number, from: number, keys: readonly Key[]): number {
   let value = from;
   for (const key of keys) {
     if (time <= key.at) {
@@ -214,11 +214,11 @@ function keyed(time: number, from: number, keys: readonly Key[]): number {
 
 // ---------- vectors ----------
 
-function add(a: Vector3, b: Vector3): Vector3 {
+export function add(a: Vector3, b: Vector3): Vector3 {
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 }
 
-function scale(a: Vector3, amount: number): Vector3 {
+export function scale(a: Vector3, amount: number): Vector3 {
   return [a[0] * amount, a[1] * amount, a[2] * amount];
 }
 
@@ -226,7 +226,7 @@ function cross(a: Vector3, b: Vector3): Vector3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
-function normalize(a: Vector3): Vector3 {
+export function normalize(a: Vector3): Vector3 {
   return scale(a, 1 / Math.hypot(a[0], a[1], a[2]));
 }
 
@@ -234,9 +234,9 @@ const degrees = Math.PI / 180;
 const isometricYaw = -45;
 export const isometricElevation = Math.atan(1 / Math.SQRT2) / degrees;
 /** Hexagon radius of the isometric cube, in cube half sizes. */
-const hexagonRadius = 2 * Math.sqrt(2 / 3);
+export const hexagonRadius = 2 * Math.sqrt(2 / 3);
 
-type Orbit = {
+export type Orbit = {
   elevation: number;
   halfHeight: number;
   tan: number;
@@ -270,7 +270,7 @@ export function orbitCamera({ elevation, halfHeight, tan, target, yaw }: Orbit, 
 The invisible floor has the color of the field, so near a level camera its shadow collapses into a
 thin line with no visible floor under it. The shadow fades out below 9 degrees of elevation.
 */
-function floorStrengthAt(elevation: number): number {
+export function floorStrengthAt(elevation: number): number {
   const amount = clamp01((elevation - 1.5) / 7.5);
   return amount * amount * (3 - 2 * amount);
 }
@@ -290,7 +290,7 @@ export function keyLight(camera: FilmV3Camera, aoScale: number, shadeStrength: n
 }
 
 /** Entry point of the pixel ray into the box of half size `half` at the origin, as unit coordinates. */
-function probeAt(
+export function probeAt(
   camera: FilmV3Camera,
   width: number,
   height: number,
@@ -338,7 +338,7 @@ sit at w = 0, so the cube keeps its exact size and a shell twice its size grows 
 `extent` 0 the pairs of joints coincide and the projection is exactly the level 1 cube. The turn in
 the xw plane about the tesseract center swaps the inner and outer cells at 180 degrees.
 */
-function tesseractJoints(extent: number, turn: number) {
+export function tesseractJoints(extent: number, turn: number) {
   const centerW = (2 / 3) * extent;
   const cosine = Math.cos(turn * degrees);
   const sine = Math.sin(turn * degrees);
@@ -659,7 +659,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
   return { backdrop, overlay };
 }
 
-const restFaces = {
+export const restFaces = {
   center: [0, 0],
   enabled: false,
   radius: 0,
@@ -724,7 +724,7 @@ function readTesseract(time: number) {
 // ---------- the shuffle ----------
 
 type Slot = readonly [number, number, number];
-type ShuffleMove = { at: number; from: Slot; to: Slot };
+export type ShuffleMove = { at: number; from: Slot; to: Slot };
 
 /**
 The Menger layout of the landing shuffle: the 20 filled slots of `MENGER_SPONGE_VOXEL_STATE`, x first,
@@ -749,7 +749,7 @@ const moveStagger = LOGO_SHUFFLE_MOVE_STAGGER_MS / 1000;
 During the orbit: three edge cells slide up or across into the openings of the front, left, and top
 faces, one stagger apart, and then slide back. The same moves run inside every cell at every level.
 */
-const orbitMoves: readonly ShuffleMove[] = [
+export const orbitMoves: readonly ShuffleMove[] = [
   { at: 8.5, from: [1, 0, 2], to: [1, 1, 2] },
   { at: 8.5 + moveStagger, from: [0, 0, 1], to: [0, 1, 1] },
   { at: 8.5 + 2 * moveStagger, from: [2, 2, 1], to: [1, 2, 1] },
@@ -817,7 +817,7 @@ checkShufflePlan(orbitMoves);
 checkShufflePlan(scaleMoves);
 
 /** The resting slots and the cells in flight at `time`. The same state holds inside every cell. */
-function readShuffle(time: number, moves: readonly ShuffleMove[]) {
+export function readShuffle(time: number, moves: readonly ShuffleMove[]) {
   const slots = [...mengerSlots];
   const inFlight: { from: Vector3; progress: number; to: Vector3 }[] = [];
   for (const { at, from, to } of [...moves].sort((left, right) => left.at - right.at)) {

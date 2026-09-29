@@ -58,6 +58,8 @@ import {
   filmV3DurationInSeconds,
   filmV3Fps,
 } from "./compositions/samebase-film-v3/filmV3Timeline";
+import { SamebaseFilmV4 } from "./compositions/samebase-film-v4/SamebaseFilmV4";
+import { filmV4Fps, filmV4Seconds } from "./compositions/samebase-film-v4/filmV4Timeline";
 import { SamebaseRisoFilm } from "./compositions/samebase-riso-film/SamebaseRisoFilm";
 import { SamebaseRisoLoop } from "./compositions/samebase-riso-film/SamebaseRisoLoop";
 import { filmDurationInFrames, filmFps } from "./compositions/samebase-riso-film/filmMotion";
@@ -186,6 +188,18 @@ export function RemotionRoot() {
         height={1080}
         width={1920}
       />
+      {(["a", "b", "c"] as const).map((variant) => (
+        <Composition
+          id={`SamebaseFilmV4${variant.toUpperCase()}`}
+          component={SamebaseFilmV4}
+          defaultProps={{ variant }}
+          durationInFrames={filmV4Seconds[variant] * filmV4Fps}
+          fps={filmV4Fps}
+          height={1080}
+          key={variant}
+          width={1920}
+        />
+      ))}
       <Composition
         id="StudyEndlessPullback"
         component={StudyEndlessPullback}

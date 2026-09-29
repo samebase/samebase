@@ -123,7 +123,7 @@ export function readEndlessPullbackFrame(time: number, sampleGrid: number): Illu
     },
     lines: { ink: palettes.haze.ink, strength: 0 },
     sampleGrid,
-    scene: { corner, halfSize: spongeHalfSize, kind: "sponge", octant },
+    scene: { corner, detailFloor: 0, halfSize: spongeHalfSize, kind: "sponge", octant },
     sky: palettes.haze.sky,
     tones: landingTones,
   };

@@ -27,7 +27,7 @@ function fontFor(context: Context, cap: number): string {
 }
 
 /** Each word rises from below the baseline into place, clipped to the line box. */
-function drawText(context: Context, line: FilmV3Text): void {
+export function drawText(context: Context, line: FilmV3Text): void {
   if (line.words.every(({ rise }) => rise <= 0)) {
     return;
   }
