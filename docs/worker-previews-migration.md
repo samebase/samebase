@@ -2,9 +2,9 @@
 
 For existing Convex branch previews on Workers Builds.
 
-For Samebase-managed apps, do not run deploy-key rotation during this pilot. The current action
-writes the production key into both build configurations. Samebase's status checks also expect the
-old key layout. A successful preview build does not prove those actions support the new layout.
+For apps connected to Samebase, do not run Builds repair or deploy-key rotation during this pilot.
+Those actions still use the old trigger model and shared-key layout. Samebase can report native
+preview settings as unavailable. Do not remove and reconnect the Worker to repair that status.
 
 ## Prepare the repository
 
