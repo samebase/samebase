@@ -952,11 +952,11 @@ function readViewLook(time: number): View {
 }
 
 /**
-The openings stay open until they are smaller than the space between two of the 16 samples of a
-pixel, so no opening closes while it can still be seen. The samples average the smallest ones to a
-tone.
+The openings never close while the camera zooms: the fade width is 1/25 of a sample, 1/100 of a
+pixel, below the smallest level that the sponge draws. The samples average the smallest openings to
+a tone.
 */
-const lookFadePixels = 0.1;
+const lookFadePixels = 0.04;
 
 function lookShuffle(time: number, fadePixels: number): FilmV3Scene["shuffle"] {
   return { depth: 8, fadePixels, moveMinLevel: 0, ...readShuffle(time, wanderMoves) };
@@ -1006,7 +1006,7 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
     haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
     light: keyLight(camera, (0.045 * halfHeight) / deepHalfHeight, 1),
     mode: "shuffle",
-    shuffle: lookShuffle(at, Math.max(lookFadePixels, fade * 0.0426 * size.height)),
+    shuffle: lookShuffle(at, Math.max(lookFadePixels, fade * 0.0426 * sampleGrid * size.height)),
     sponge: { ...restSponge, center: add(corner, scale(octant, drawnHalf)), halfSize: drawnHalf },
     star: inStar
       ? {

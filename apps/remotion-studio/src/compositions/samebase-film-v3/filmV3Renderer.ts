@@ -794,8 +794,11 @@ export async function createFilmV3Renderer(
     const focalPoint = std.add(focus, std.mul(lateral, halfHeight));
     const rayDirection = std.normalize(std.sub(std.mul(lateral, tanHalfFieldOfView), back));
     const origin = std.sub(focalPoint, std.mul(rayDirection, rayStart));
-    const footprintStart = state.pixelSize * halfHeight;
-    const footprintGrowth = state.pixelSize * tanHalfFieldOfView;
+    // Each of the grid by grid samples of a pixel traces its own ray, so the hit threshold is half a
+    // sample. With half a pixel, a ray stopped at the rim of every opening narrower than a pixel.
+    const sampleSize = state.pixelSize / d.f32(state.sampleGrid);
+    const footprintStart = sampleSize * halfHeight;
+    const footprintGrowth = sampleSize * tanHalfFieldOfView;
 
     // Clip the march to the object bounds.
     let boundsCenter = d.vec3f(state.spongeCenter);
