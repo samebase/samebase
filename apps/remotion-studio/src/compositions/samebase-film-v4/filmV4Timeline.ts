@@ -952,10 +952,11 @@ function readViewLook(time: number): View {
 }
 
 /**
-The openings stay open down to 4/3 of a pixel and close below it, so the smallest holes are still
-there while the camera zooms. The 16 samples of each pixel average the smaller ones to a tone.
+The openings stay open until they are smaller than the space between two of the 16 samples of a
+pixel, so no opening closes while it can still be seen. The samples average the smallest ones to a
+tone.
 */
-const lookFadePixels = 0.5;
+const lookFadePixels = 0.1;
 
 function lookShuffle(time: number, fadePixels: number): FilmV3Scene["shuffle"] {
   return { depth: 8, fadePixels, moveMinLevel: 0, ...readShuffle(time, wanderMoves) };
