@@ -5,7 +5,8 @@ Cann's `record-it`. See [UPSTREAM.md](UPSTREAM.md) for the source commit and att
 
 ## Start
 
-Use macOS 14 or later, Node 24, pnpm, and Xcode Command Line Tools. The recorder uses SwiftUI,
+Use Node 24, pnpm, and Xcode 26 or its Command Line Tools. Building requires the macOS 26 SDK for
+the encoder APIs. The installed app targets macOS 14 or later. The recorder uses SwiftUI,
 ScreenCaptureKit, and AVFoundation, so its capture code remains in Swift. The launcher is TypeScript
 and calls the macOS tools directly.
 
@@ -91,8 +92,9 @@ pnpm record-it test
 pnpm record-it restart
 ```
 
-Unit tests require full Xcode, because Command Line Tools do not include XCTest. If full Xcode is
-installed but `xcode-select -p` points to Command Line Tools, select it for the test command only:
+Unit tests require full Xcode 26 or later, because Command Line Tools do not include XCTest. If
+Xcode is installed but `xcode-select -p` points to Command Line Tools, select it for the test
+command only:
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer pnpm record-it test
