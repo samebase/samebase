@@ -7,7 +7,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "dd2406b73bee927913154f6c06b3c56eb1415dd586d9fc46948f3c3c158774ec",
+      contentHash: "46e6eda89f913c147a425aed7979c0b8658b8da4be873fa83089177bb18db127",
       commitMessage: "Initialize app from Samebase starter build v2064",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -172,11 +172,9 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
       '"--preview-create"',
     );
-    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
-      "Previews Base: the Convex project's Preview deploy key.",
-    );
-    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).not.toContain(
-      "write the same two secrets to both",
+    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toBeUndefined();
+    expect(starterTemplateManifest.files["README.md"]).toContain(
+      "https://samebase.com/docs/cloudflare-setup#worker-previews",
     );
   });
 

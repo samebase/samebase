@@ -392,7 +392,7 @@ test("shows migration steps without broken repair buttons for legacy previews", 
   await expect(fixture.getByText("This Worker does not use native Worker Previews.")).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Migration steps" })).toHaveAttribute(
     "href",
-    "https://github.com/samebase/base/blob/main/docs/cloudflare-workers-builds.md",
+    "/docs/cloudflare-setup#worker-previews",
   );
   await expect(fixture.locator('a[href*="dash.cloudflare.com"]')).toHaveAttribute(
     "href",
@@ -415,6 +415,12 @@ test("shows migration steps without broken repair buttons for legacy previews", 
       scale: "css",
     },
   );
+  await page.goto("/docs/cloudflare-setup#worker-previews");
+  await expect(page).toHaveURL(/\/docs\/cloudflare-setup#worker-previews$/);
+  await expect(
+    page.getByRole("heading", { name: "Worker Previews", exact: true }),
+  ).toBeInViewport();
+  await expect(page.getByRole("heading", { name: "Switch Cloudflare", exact: true })).toBeVisible();
 });
 
 test("covers the mobile repository removal dialog", async ({ page }) => {

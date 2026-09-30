@@ -25,13 +25,13 @@ import {
 } from "@/organization/useOrganizationGitHubIdentity";
 import { OrganizationContext } from "@/organization/context";
 import { buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
+import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import { MoreHorizontal } from "lucide-react";
 import { type ReactNode, useContext, useState } from "react";
 import { api } from "../../../convex/_generated/api";
-import { WORKER_PREVIEWS_MIGRATION_URL } from "../../../shared/cloudflareWorkerPreviews";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 type RepositoryGitHubIdentityObservation =
@@ -174,14 +174,13 @@ function SettingsResourceRow({ resource }: { resource: RepositorySettingsResourc
           {resource.workerPreviewsMigrationRequired ? (
             <div className="mt-1 text-xs leading-5 text-muted-foreground" role="status">
               This Worker does not use native Worker Previews.{" "}
-              <a
+              <Link
                 className="underline underline-offset-4"
-                href={WORKER_PREVIEWS_MIGRATION_URL}
-                rel="noreferrer noopener"
-                target="_blank"
+                hash="worker-previews"
+                to={DOCS_CLOUDFLARE_SETUP_ROUTE}
               >
                 Migration steps
-              </a>
+              </Link>
             </div>
           ) : null}
           {resource.description ? (

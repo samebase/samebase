@@ -162,8 +162,8 @@ For Cloudflare Workers Builds, point the project root directory at `apps/samebas
 must be a Convex production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
 `deployment:env:write`, and `deployment:data:view`; the preview key is Convex's project-level
 Preview deploy key. The build script reuses the branch's Convex preview before `wrangler preview`
-uploads the assets. See the [migration steps](docs/worker-previews-migration.md) for dashboard
-setup.
+uploads the assets. See the
+[migration steps](https://samebase.com/docs/cloudflare-setup#worker-previews) for dashboard setup.
 
 Local builds never deploy Convex. To build assets and validate the Worker package without a deploy:
 

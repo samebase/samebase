@@ -1,8 +1,9 @@
 # Cloudflare Workers Install Trace
 
 This is a historical dashboard trace, not the current setup guide. Use the
-[template build guide](../../../templates/base/docs/cloudflare-workers-builds.md) for new apps and
-the [Worker Previews migration steps](../../worker-previews-migration.md) for existing apps.
+[Cloudflare guide](https://samebase.com/docs/cloudflare-setup) for new apps and the
+[Worker Previews migration steps](https://samebase.com/docs/cloudflare-setup#worker-previews) for
+existing apps.
 
 Observed on 2026-05-14 in the Cloudflare Workers dashboard.
 
