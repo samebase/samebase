@@ -30,7 +30,8 @@ full history and send changes back to it.
 1. Open the [Convex dashboard](https://dashboard.convex.dev/) and create a project.
 2. Open its production deployment, then open **Settings** and **General**.
 3. Under **Deploy keys**, generate a key named `Cloudflare production`.
-4. Enable only the `deployment:deploy` permission. Copy the key when Convex shows it.
+4. Enable only `deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and
+   `deployment:data:view`. Copy the key when Convex shows it.
 5. Open the project settings and generate a preview deploy key named `Cloudflare previews`. Copy
    this key too.
 
@@ -77,6 +78,9 @@ should see the starter todo app.
 Create a branch and open a pull request to check the preview path. Cloudflare runs
 `pnpm run deploy:preview` and gives the branch a preview URL. The preview key gives that branch its
 own Convex deployment and data.
+
+Add a todo in the preview, then push another commit to the same branch. Reload the preview and check
+that the todo and login session are still present.
 
 After setup:
 
