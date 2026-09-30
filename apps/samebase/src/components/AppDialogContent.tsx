@@ -3,11 +3,12 @@ import { type ComponentProps } from "react";
 import { DialogContent as DialogContentUI } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type AppDialogContentSize = "default" | "lg";
+type AppDialogContentSize = "default" | "lg" | "xl";
 
 const appDialogContentSizeClass: Record<AppDialogContentSize, string> = {
   default: "[--samebase-dialog-max-width:28rem]",
   lg: "[--samebase-dialog-max-width:42rem]",
+  xl: "[--samebase-dialog-max-width:72rem]",
 };
 
 /**

@@ -14,8 +14,8 @@ Use a small checked template definition. Keep build commands in package scripts 
 configuration in the existing provider files. Keep resource creation in Samebase's Convex workflows.
 Use AI to adapt code and prepare changes for review.
 
-The first UI should serve people who create apps in Samebase. Show templates in one list. Keep the
-selected template when a visitor signs in and selects an organization.
+The first UI should serve people who create apps in Samebase. Show templates in a visual gallery.
+Keep the selected template when a visitor signs in and selects an organization.
 
 ## What exists today
 
@@ -138,9 +138,15 @@ Resource removal is a separate action from a source update.
 
 ## UI proposal
 
-Show one Templates heading and three rows. Each row contains the repository name, one short
-description, and its available actions. Base and Mail offer a setup preview. Samebase links to its
-source until an installable release is ready.
+Show one Templates heading and a grid of three cards. Each card leads with a large app preview,
+followed by the repository name, one short description, and its available actions. Selecting the
+image opens a larger view. Use two columns when the content pane has enough room and one column on
+narrow panes. Base and Mail offer a setup preview. Samebase links to its source until an installable
+release is ready.
+
+Use screenshots with safe example data for released templates. The current prototype uses a saved
+Samebase screenshot and source-based UI samples for Base and Mail. The enlarged view identifies
+samples and screenshots. Replace the samples with captured app screens before release.
 
 Show resources after the user selects a template. Keep component research, shared-default policy,
 and update rules in the documentation. The template chooser has no component tab, detail panel,
@@ -150,8 +156,8 @@ The production entry points should be:
 
 - **New App:** choose a template, then continue to the existing organization and provider setup.
   Preselect Base to preserve the shortest current path.
-- **Public Templates:** browse the same list before sign-in. Preserve the selection through sign-in.
-  Public entries need public source or an access-aware source link.
+- **Public Templates:** browse the same gallery before sign-in. Preserve the selection through
+  sign-in. Public entries need public source or an access-aware source link.
 - **An existing repository:** ask an agent to add a component using its documented setup. Prepare a
   PR before changing the app. Start with documentation and MCP discovery; add a browser action once
   the install contract is proven.

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" fill="none">
+  <title>Mail workspace, example inboxes and messages</title>
+  <rect width="1280" height="800" fill="white"/>
+  <rect x="0" y="64" width="224" height="736" fill="#fafafa"/>
+  <path d="M0 64H1280M224 64V800M576 64V800M0 120H576M576 157H1280" stroke="#e5e5e5"/>
+  <rect x="16" y="14" width="36" height="36" fill="#262626"/>
+  <path d="m25 24-3 9v7h24v-7l-3-9H25Zm-3 9h7l2 4h6l2-4h7" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="1056" y="14" width="160" height="36" fill="#262626"/>
+  <path d="M1236 24h-6v16h6m4-8h15m-5-5 5 5-5 5" stroke="#737373" stroke-width="1.5" stroke-linejoin="round"/>
+  <g font-family="system-ui, sans-serif" fill="#171717">
+    <text x="64" y="40" font-size="21" font-weight="600">Mail</text>
+    <text x="1136" y="38" font-size="15" text-anchor="middle" fill="white">+ New message</text>
+    <text x="16" y="98" font-size="13" letter-spacing="1" fill="#737373">INBOXES</text>
+    <text x="196" y="99" font-size="24" fill="#737373">+</text>
+    <text x="240" y="98" font-size="13" letter-spacing="1" fill="#737373">THREADS</text>
+    <rect x="8" y="132" width="208" height="44" fill="#f0f0f0"/>
+    <text x="20" y="160" font-size="17" font-weight="500">All mail</text>
+    <text x="198" y="160" font-size="17" text-anchor="end">3</text>
+    <text x="20" y="204" font-size="17" fill="#737373">hello</text>
+    <text x="198" y="204" font-size="17" text-anchor="end" fill="#737373">2</text>
+    <text x="20" y="248" font-size="17" fill="#737373">work</text>
+    <text x="198" y="248" font-size="17" text-anchor="end" fill="#737373">1</text>
+    <text x="20" y="292" font-size="17" fill="#737373">newsletters</text>
+    <rect x="225" y="121" width="350" height="154" fill="#f5f5f5"/>
+    <path d="M224 275H576M224 429H576M224 583H576M224 737H576" stroke="#e5e5e5"/>
+    <text x="244" y="153" font-size="17" font-weight="600">Alex Chen</text>
+    <text x="556" y="153" font-size="13" text-anchor="end" fill="#737373">10:42</text>
+    <text x="244" y="184" font-size="17" font-weight="500">A few ideas for Friday</text>
+    <text x="244" y="212" font-size="14" fill="#737373">I've put together a short list...</text>
+    <text x="244" y="250" font-size="13" fill="#737373">to hello@example.com</text>
+    <text x="244" y="307" font-size="17" font-weight="600">Design team</text>
+    <text x="556" y="307" font-size="13" text-anchor="end" fill="#737373">09:18</text>
+    <text x="244" y="338" font-size="17" font-weight="500">The next version</text>
+    <text x="244" y="366" font-size="14" fill="#737373">Here are the updated screens.</text>
+    <text x="244" y="404" font-size="13" fill="#737373">to work@example.com</text>
+    <text x="244" y="461" font-size="17" font-weight="600">Field notes</text>
+    <text x="556" y="461" font-size="13" text-anchor="end" fill="#737373">Yesterday</text>
+    <text x="244" y="492" font-size="17">This week's reading list</text>
+    <text x="244" y="520" font-size="14" fill="#737373">Three things we liked this week.</text>
+    <text x="244" y="558" font-size="13" fill="#737373">to hello@example.com</text>
+    <text x="244" y="615" font-size="17">Sam Rivera</text>
+    <text x="556" y="615" font-size="13" text-anchor="end" fill="#737373">Yesterday</text>
+    <text x="244" y="646" font-size="17">Re: See you there</text>
+    <text x="244" y="674" font-size="14" fill="#737373">Perfect, see you on Friday!</text>
+    <text x="244" y="712" font-size="13" fill="#737373">to hello@example.com</text>
+    <text x="604" y="102" font-size="20" font-weight="500">A few ideas for Friday</text>
+    <text x="604" y="130" font-size="14" fill="#737373">hello@example.com</text>
+    <rect x="1158" y="89" width="94" height="40" fill="white" stroke="#e5e5e5"/>
+    <text x="1205" y="115" font-size="15" text-anchor="middle">Reply</text>
+    <text x="604" y="202" font-size="17" font-weight="500">Alex Chen &lt;alex@example.org&gt;</text>
+    <text x="604" y="231" font-size="14" fill="#737373">to hello@example.com</text>
+    <text x="1252" y="202" font-size="13" text-anchor="end" fill="#737373">10:42</text>
+    <text x="604" y="292" font-size="18">Hi there,</text>
+    <text x="604" y="340" font-size="18">I've put together a short list for Friday.</text>
+    <text x="604" y="372" font-size="18">Let's start with the new designs and leave</text>
+    <text x="604" y="404" font-size="18">some time to try things out.</text>
+    <text x="604" y="468" font-size="18">Does 10 work for you?</text>
+    <text x="604" y="532" font-size="18">Alex</text>
+  </g>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" fill="none">
+  <title>Base todo workspace, example tasks</title>
+  <rect width="1280" height="800" fill="#fafafa"/>
+  <rect x="160" y="64" width="960" height="672" fill="white" stroke="#e5e5e5"/>
+  <g font-family="system-ui, sans-serif" fill="#171717">
+    <text x="224" y="155" font-size="30">Todo list</text>
+    <text x="224" y="190" font-size="20" fill="#737373">Guest 12</text>
+    <rect x="910" y="126" width="146" height="54" rx="8" fill="white" stroke="#e5e5e5"/>
+    <text x="983" y="160" font-size="20" text-anchor="middle">Sign out</text>
+    <rect x="224" y="232" width="722" height="58" rx="8" fill="white" stroke="#d4d4d4"/>
+    <text x="242" y="269" font-size="22" fill="#737373">New todo</text>
+    <rect x="960" y="232" width="96" height="58" rx="8" fill="#262626"/>
+    <text x="1008" y="269" font-size="22" text-anchor="middle" fill="white">Add</text>
+    <rect x="224" y="326" width="832" height="88" fill="white" stroke="#e5e5e5"/>
+    <rect x="244" y="355" width="28" height="28" rx="6" fill="white" stroke="#d4d4d4"/>
+    <text x="292" y="361" font-size="22">Plan the week</text>
+    <text x="292" y="390" font-size="17" fill="#737373">Created by Guest 12</text>
+    <rect x="224" y="426" width="832" height="88" fill="white" stroke="#e5e5e5"/>
+    <rect x="244" y="455" width="28" height="28" rx="6" fill="white" stroke="#d4d4d4"/>
+    <text x="292" y="461" font-size="22">Read a chapter</text>
+    <text x="292" y="490" font-size="17" fill="#737373">Created by Guest 8</text>
+    <rect x="224" y="526" width="832" height="88" fill="white" stroke="#e5e5e5"/>
+    <rect x="244" y="555" width="28" height="28" rx="6" fill="#262626"/>
+    <path d="m251 569 5 5 10-11" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="292" y="561" font-size="22" fill="#737373" text-decoration="line-through">Buy coffee</text>
+    <text x="292" y="590" font-size="17" fill="#737373">Created by Guest 12</text>
+  </g>
+</svg>
