@@ -32,6 +32,7 @@ import {
   tesseractJoints,
   type Vector3,
 } from "../samebase-film-v3/filmV3Timeline";
+import { contrastRatio, mixOklch } from "./oklch";
 
 export const filmV4Fps = 60;
 
@@ -151,10 +152,7 @@ export const lookStyles = {
   },
 } as const satisfies Record<string, LookStyle>;
 
-/**
-The riso look: riso inks on paper. The film starts and ends in `paper`, and a cut on the beat of a
-new line changes the whole theme, the way the theme params of Samebase recolor a whole app.
-*/
+/** The riso look: riso inks on paper. */
 const riso = {
   paper: {
     ink: hex(0x0078bf),
@@ -186,14 +184,74 @@ const riso = {
   },
 } as const satisfies Record<string, LookStyle>;
 
-const risoThemes: readonly { at: number; theme: LookStyle }[] = [
-  { at: 0, theme: riso.paper },
-  { at: 7.5, theme: riso.pink },
-  { at: 11.1, theme: riso.yellow },
-  { at: 17.5, theme: riso.blue },
-  { at: 29.5, theme: riso.pink },
-  { at: 34.9, theme: riso.paper },
+/**
+The riso look never stops shifting between its sets, the way the theme params of Samebase recolor a
+whole app: paper while the mark turns, then pink, yellow, blue, pink, yellow, and paper again for
+the end. Each blend runs at a steady pace from one key to the next.
+*/
+const risoKeys: readonly { at: number; theme: LookStyle }[] = [
+  { at: 3.2, theme: riso.paper },
+  { at: 8.5, theme: riso.pink },
+  { at: 13.5, theme: riso.yellow },
+  { at: 19.5, theme: riso.blue },
+  { at: 26, theme: riso.pink },
+  { at: 31, theme: riso.yellow },
+  { at: 36.5, theme: riso.paper },
 ];
+
+function mixStyle(from: LookStyle, to: LookStyle, amount: number): LookStyle {
+  const mix = (first: Rgb, second: Rgb) => mixOklch(first, second, amount);
+  return {
+    ink: mix(from.ink, to.ink),
+    pale: mix(from.pale, to.pale),
+    shadowTint: mix(from.shadowTint, to.shadowTint),
+    sky: [mix(from.sky[0], to.sky[0]), mix(from.sky[1], to.sky[1])],
+    tones: { x: mix(from.tones.x, to.tones.x), y: mix(from.tones.y, to.tones.y), z: mix(from.tones.z, to.tones.z) },
+  };
+}
+
+function risoThemeAt(time: number): LookStyle {
+  let theme: LookStyle = riso.paper;
+  for (let index = 1; index < risoKeys.length; index += 1) {
+    const from = risoKeys[index - 1];
+    const to = risoKeys[index];
+    if (from && to && time > from.at) {
+      theme = mixStyle(from.theme, to.theme, progress(time, from.at, to.at));
+    }
+  }
+  return theme;
+}
+
+const risoInks = [0x0078bf, 0xf7f1e6, 0xff48b0, 0xffe800, 0x00838a].map(hex);
+const lineInks = new Map<string, Rgb>();
+
+/**
+The ink of a line over the top (0) or bottom (1) sky color: in the riso look, the riso ink with the
+best contrast over the whole time the line shows, so one line keeps one color while the sky shifts
+under it.
+*/
+function lineInk(style: LookStyleName, row: 0 | 1, at: number, until: number): Rgb {
+  if (style !== "riso") {
+    return lookStyles[style].ink;
+  }
+  const key = `${row} ${at} ${until}`;
+  const known = lineInks.get(key);
+  if (known) {
+    return known;
+  }
+  let best = { contrast: 0, ink: riso.paper.ink };
+  for (const ink of risoInks) {
+    let contrast = Infinity;
+    for (let time = at; time <= until + 0.5; time += 0.1) {
+      contrast = Math.min(contrast, contrastRatio(ink, risoThemeAt(time).sky[row]));
+    }
+    if (contrast > best.contrast) {
+      best = { contrast, ink };
+    }
+  }
+  lineInks.set(key, best.ink);
+  return best.ink;
+}
 
 export type LookStyleName = keyof typeof lookStyles | "riso";
 
@@ -201,13 +259,7 @@ function lookThemeAt(style: LookStyleName, time: number): LookStyle {
   if (style !== "riso") {
     return lookStyles[style];
   }
-  let theme: LookStyle = riso.paper;
-  for (const entry of risoThemes) {
-    if (time >= entry.at) {
-      theme = entry.theme;
-    }
-  }
-  return theme;
+  return risoThemeAt(time);
 }
 
 /** The same frame in `style`: the scene keeps its geometry, light, and camera. */
@@ -1142,7 +1194,7 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
 
 function readFilmV4Look(time: number, size: Size, style: LookStyleName): FilmV4Frame {
   const theme = lookThemeAt(style, time);
-  const backdrop = lookBackdropWords(time, size, theme.ink);
+  const backdrop = lookBackdropWords(time, size, style);
   const cube = (mode: CubeShot["mode"]) =>
     styled(
       filmFrame(
@@ -1170,8 +1222,9 @@ function readFilmV4Look(time: number, size: Size, style: LookStyleName): FilmV4F
       { fade: 0, from: look.closed[1], layer: (opacity) => filmLayer("film", rest, opacity) },
     ]),
     outlines: lookOutlines(time, size),
-    overlay: { ink: theme.ink, pale: theme.pale },
-    texts: lookFrontWords(time, size, theme.ink),
+    // The outline labels show while the camera zooms out.
+    overlay: { ink: lineInk(style, 1, 21.5, 28.5), pale: theme.pale },
+    texts: lookFrontWords(time, size, style),
     veil: smoothstep(29, 29.5, time) * (1 - smoothstep(34.4, 34.9, time)),
   };
 }
@@ -1204,12 +1257,16 @@ function risingWords(time: number, words: readonly string[], at: number, until: 
   }));
 }
 
-function lookBackdropWords(time: number, { height, width }: Size, ink: Rgb): FilmV3Text[] {
+function lookBackdropWords(
+  time: number,
+  { height, width }: Size,
+  style: LookStyleName,
+): FilmV3Text[] {
   return lookBandLines.flatMap(({ at, rows, until }) =>
     rows.map((row, index) => ({
       align: "center" as const,
       cap: 0.19 * height,
-      color: ink,
+      color: lineInk(style, index === 0 ? 0 : 1, at, until),
       fit: 0.94 * width,
       words: risingWords(time, row.split(" "), at + index * 0.22, until + index * 0.08, 0.08),
       x: width / 2,
@@ -1218,12 +1275,12 @@ function lookBackdropWords(time: number, { height, width }: Size, ink: Rgb): Fil
   );
 }
 
-function lookFrontWords(time: number, { height, width }: Size, ink: Rgb): FilmV3Text[] {
+function lookFrontWords(time: number, { height, width }: Size, style: LookStyleName): FilmV3Text[] {
   return [
     ...lookStarLines.map(({ at, text, until }) => ({
       align: "center" as const,
       cap: 0.13 * height,
-      color: ink,
+      color: lineInk(style, 1, at, until),
       fit: 0.94 * width,
       words: risingWords(time, text.split(" "), at, until, 0.08),
       x: width / 2,
@@ -1232,7 +1289,7 @@ function lookFrontWords(time: number, { height, width }: Size, ink: Rgb): FilmV3
     {
       align: "center",
       cap: 0.035 * height,
-      color: ink,
+      color: lineInk(style, 1, lookAddress.at, lookAddress.until),
       fit: width,
       words: risingWords(time, ["samebase.com"], lookAddress.at, lookAddress.until, 0),
       x: width / 2,
