@@ -5,10 +5,10 @@
 MCP tool `repository_cloudflare_discoverWorkers` · scope `access_provider_connections` · write
 
 Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
-current GitHub repository, Workers Builds root, trigger pair, and Convex marker. Only a Worker with
-one verified root for the Samebase repository's GitHub repository is eligible for attachment. A
-partial inventory never proves that an unlisted Worker is absent. It may refresh private Samebase
-provider-connection bookkeeping, but it writes no attachment or provider resource.
+current GitHub repository, production and Previews Base Builds settings, root, and Convex marker.
+Only a Worker with one verified root for the Samebase repository's GitHub repository is eligible for
+attachment. A partial inventory never proves that an unlisted Worker is absent. It may refresh
+private Samebase provider-connection bookkeeping, but it writes no attachment or provider resource.
 
 ## Arguments
 
@@ -222,16 +222,6 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "state": {
                     "const": "target_unknown"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "inconsistent"
                   }
                 },
                 "required": ["state"],

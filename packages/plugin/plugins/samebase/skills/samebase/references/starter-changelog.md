@@ -45,7 +45,8 @@ Delete the obsolete deploy wrapper and its tests after updating callers. Remove
 Convex.
 
 Update `ensure-convex-auth.ts` so preview auth reads and writes use the same
-`--preview-name <branch>` as the build. Keep existing auth keys on repeated builds.
+`--preview-name <branch>` as the build. Keep existing auth keys on repeated builds. Stop auth setup
+if an environment read fails, so a read error cannot replace existing keys.
 
 Source:
 [Worker Previews migration](https://github.com/samebase/samebase/blob/main/docs/worker-previews-migration.md).

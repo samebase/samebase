@@ -42,6 +42,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 });
 
 import { api } from "../_generated/api";
+import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 afterEach(() => {
@@ -69,7 +70,7 @@ beforeEach(() => {
 });
 
 describe("repository provider observations", () => {
-  it.each([true, false])("reads Builds with preview trigger: %s", async (preview) => {
+  it.each([true, false])("reads Builds with native previews enabled: %s", async (preview) => {
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
 
@@ -215,38 +216,30 @@ describe("repository provider observations", () => {
             },
           };
         }
-        if (
-          request.path === "/accounts/{account_id}/builds/workers/{external_script_id}/triggers"
-        ) {
-          const workerTag = request.params?.path?.["external_script_id"];
+        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+          const workerTag = request.params?.path?.["script_tag"];
           if (!workerTag) {
-            throw new Error("Build trigger request is missing its Worker tag.");
+            throw new Error("Build settings request is missing its Worker tag.");
           }
-          const repository = {
-            repo_id: "github-repository",
-            provider_type: "github",
+          return {
+            ...observedNativeWorkerBuildSettings,
+            script_tag: workerTag,
+            git_repository: {
+              ...observedNativeWorkerBuildSettings.git_repository,
+              repo_id: "github-repository",
+            },
+            production_settings: {
+              ...observedNativeWorkerBuildSettings.production_settings,
+              build_token_uuid: "build-token",
+              root_directory: "apps/live",
+            },
+            previews_enabled: preview,
+            previews_base_config: {
+              ...observedNativeWorkerBuildSettings.previews_base_config,
+              build_token_uuid: "build-token",
+              root_directory: "apps/live",
+            },
           };
-          const triggers = [
-            {
-              trigger_uuid: `${workerTag}-production`,
-              external_script_id: workerTag,
-              build_token_uuid: "build-token",
-              branch_includes: ["main"],
-              branch_excludes: [],
-              repo_connection: repository,
-              root_directory: "apps/live",
-            },
-            {
-              trigger_uuid: `${workerTag}-preview`,
-              external_script_id: workerTag,
-              build_token_uuid: "build-token",
-              branch_includes: ["*"],
-              branch_excludes: ["main"],
-              repo_connection: repository,
-              root_directory: "apps/live",
-            },
-          ];
-          return preview ? triggers : triggers.slice(0, 1);
         }
         throw new Error(`Unexpected Cloudflare request: ${request.path}`);
       },

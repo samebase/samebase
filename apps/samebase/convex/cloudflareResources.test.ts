@@ -20,6 +20,7 @@ import {
   listCloudflareBuildTokens,
   listCloudflareWorkerInventory,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
+  readCloudflareWorkerBranchPreviewUrls,
   readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
@@ -41,6 +42,11 @@ import {
   observedMissingWorkerBuildSettingsResponse,
   observedNativeWorkerBuildSettings,
 } from "./cloudflareApi/fixtures/observedWorkerBuildSettings";
+import {
+  observedPreviewWorkerBuildSettings,
+  observedWorkerPreviewSummaries,
+  observedWorkerRuntimePreview,
+} from "./cloudflareApi/fixtures/observedWorkerPreviews";
 import type { components, Readable } from "./cloudflareApi/types.generated";
 
 type RecordedCloudflareRequest = {
@@ -777,6 +783,134 @@ describe("cloudflare resources", () => {
       { name: "Unnamed token", uuid: "token-unnamed" },
       { name: "samebase build token", uuid: "token-samebase" },
     ]);
+  });
+});
+
+describe("native Worker Preview URLs", () => {
+  const previewArgs = {
+    token: "test-token",
+    transport: "direct" as const,
+    accountId,
+    workerTag: observedPreviewWorkerBuildSettings.script_tag,
+    workerName: observedPreviewWorkerBuildSettings.git_repository.repo_name,
+    expectedRepoId: observedPreviewWorkerBuildSettings.git_repository.repo_id,
+    defaultBranch: observedPreviewWorkerBuildSettings.git_repository.branch,
+    rootDirectory: observedPreviewWorkerBuildSettings.production_settings.root_directory,
+    branches: [observedWorkerPreviewSummaries[0].branch],
+  };
+
+  function stubPreviewReads(results: readonly unknown[]) {
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const result = results[requests.length];
+        requests.push(input instanceof Request ? input.url : String(input));
+        if (result === undefined) throw new Error("Unexpected Preview read.");
+        return cloudflareSuccessResponse(result);
+      }),
+    );
+    return requests;
+  }
+
+  it("reads the current branch Preview ID and its runtime URL under the attached Worker", async () => {
+    const requests = stubPreviewReads([
+      observedPreviewWorkerBuildSettings,
+      observedWorkerPreviewSummaries,
+      observedWorkerRuntimePreview,
+    ]);
+    expect(await readCloudflareWorkerBranchPreviewUrls(previewArgs)).toEqual(
+      new Map([[observedWorkerPreviewSummaries[0].branch, observedWorkerRuntimePreview.urls[0]]]),
+    );
+    expect(requests.map((url) => new URL(url).pathname)).toEqual([
+      `/client/v4/accounts/${accountId}/builds/workers/${previewArgs.workerTag}`,
+      `/client/v4/accounts/${accountId}/builds/workers/${previewArgs.workerTag}/previews`,
+      `/client/v4/accounts/${accountId}/workers/workers/${previewArgs.workerTag}/previews/${observedWorkerRuntimePreview.id}`,
+    ]);
+  });
+
+  it("does not read a runtime URL when there is no exact branch match", async () => {
+    const requests = stubPreviewReads([
+      observedPreviewWorkerBuildSettings,
+      observedWorkerPreviewSummaries,
+    ]);
+    expect(
+      await readCloudflareWorkerBranchPreviewUrls({ ...previewArgs, branches: ["other-branch"] }),
+    ).toEqual(new Map());
+    expect(requests).toHaveLength(2);
+  });
+
+  it.each([
+    { expectedRepoId: "another-repository" },
+    { rootDirectory: "apps/another-app" },
+    { defaultBranch: "another-production-branch" },
+  ])(
+    "rejects a changed repository, root, or production branch before reading Previews (%j)",
+    async (changed) => {
+      const requests = stubPreviewReads([observedPreviewWorkerBuildSettings]);
+      await expect(
+        readCloudflareWorkerBranchPreviewUrls({ ...previewArgs, ...changed }),
+      ).rejects.toThrow("no longer match");
+      expect(requests).toHaveLength(1);
+    },
+  );
+
+  it("does not choose between two Preview IDs for the same branch", async () => {
+    const requests = stubPreviewReads([
+      observedPreviewWorkerBuildSettings,
+      [
+        ...observedWorkerPreviewSummaries,
+        { ...observedWorkerPreviewSummaries[0], preview_id: "f".repeat(32) },
+      ],
+    ]);
+    expect(await readCloudflareWorkerBranchPreviewUrls(previewArgs)).toEqual(new Map());
+    expect(requests).toHaveLength(2);
+  });
+
+  it.each([
+    {
+      previews: Array.from({ length: 100 }, () => ({
+        ...observedWorkerPreviewSummaries[0],
+        preview_id: undefined,
+      })),
+    },
+    { previews: [...observedWorkerPreviewSummaries, ...observedWorkerPreviewSummaries] },
+  ])("rejects missing or repeated Preview IDs within a page", async ({ previews }) => {
+    const requests = stubPreviewReads([observedPreviewWorkerBuildSettings, previews]);
+    await expect(readCloudflareWorkerBranchPreviewUrls(previewArgs)).rejects.toThrow(
+      "omitted or repeated",
+    );
+    expect(requests).toHaveLength(2);
+  });
+
+  it("rejects a Preview ID repeated from an earlier full page", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...observedWorkerPreviewSummaries[0],
+      preview_id: index.toString(16).padStart(32, "0"),
+    }));
+    const requests = stubPreviewReads([
+      observedPreviewWorkerBuildSettings,
+      firstPage,
+      [firstPage[0]],
+    ]);
+    await expect(readCloudflareWorkerBranchPreviewUrls(previewArgs)).rejects.toThrow(
+      "omitted or repeated",
+    );
+    expect(requests).toHaveLength(3);
+  });
+
+  it.each([
+    { ...observedWorkerRuntimePreview, id: "f".repeat(32) },
+    { ...observedWorkerRuntimePreview, urls: [] },
+    {
+      ...observedWorkerRuntimePreview,
+      urls: [...observedWorkerRuntimePreview.urls, ...observedWorkerRuntimePreview.urls],
+    },
+    { ...observedWorkerRuntimePreview, urls: ["https://untrusted.example"] },
+    { ...observedWorkerRuntimePreview, urls: ["https://branch-another-worker.rir.workers.dev"] },
+  ])("omits the URL when runtime identity or URL authority is not proven", async (preview) => {
+    stubPreviewReads([observedPreviewWorkerBuildSettings, observedWorkerPreviewSummaries, preview]);
+    expect(await readCloudflareWorkerBranchPreviewUrls(previewArgs)).toEqual(new Map());
   });
 });
 

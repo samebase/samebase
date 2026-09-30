@@ -16,7 +16,6 @@ type RunResult = {
 };
 
 type RunOptions = {
-  allowFailure?: boolean;
   env?: NodeJS.ProcessEnv;
   sensitive?: boolean;
   stdio?: "inherit" | "pipe";
@@ -57,7 +56,7 @@ function runConvexCli(args: string[], options: RunOptions = {}) {
         stdout: Buffer.concat(stdoutChunks).toString("utf8"),
         stderr: Buffer.concat(stderrChunks).toString("utf8"),
       };
-      if (result.code === 0 || options.allowFailure) {
+      if (result.code === 0) {
         resolve(result);
         return;
       }
@@ -75,12 +74,11 @@ async function readConvexEnv(
   runConvex: RunConvex,
 ) {
   const result = await runConvex(["env", "get", name, ...selectionArgs], {
-    allowFailure: true,
     env,
     stdio: "pipe",
   });
   if (result.code !== 0) {
-    return null;
+    throw new Error(`Could not read Convex environment variable ${name}.`);
   }
   const value = result.stdout.trim();
   return value.length > 0 ? value : null;

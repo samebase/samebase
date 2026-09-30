@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createUrlSearchParams, readUrlSearchParamsRecord } from "../shared/urlSearchParams";
 import { AppResourceNameConflictError } from "../shared/appResourceNames";
+import { normalizeCloudflareWorkerPreviewUrl } from "../shared/cloudflareResourceUrls";
 import {
   requestCloudflareApi,
   requestCloudflareApiOrThrow,
@@ -991,7 +992,6 @@ export type CloudflareConvexBuildAccessObservation =
   | { state: "configured"; convexProject: SamebaseConvexProjectReference }
   | { state: "incomplete"; convexProject: SamebaseConvexProjectReference }
   | { state: "target_unknown" }
-  | { state: "inconsistent" }
   | { state: "invalid" };
 type CloudflareAuthMethod = "api_key" | "oauth" | "mcp_oauth";
 
@@ -1169,6 +1169,76 @@ export async function readCloudflareWorkerBuildsDiscoveryForIdentity(
       previewBuildTokenUuid: settings?.previews_base_config?.build_token_uuid ?? null,
     },
   };
+}
+
+export async function readCloudflareWorkerBranchPreviewUrls(
+  args: {
+    token: string;
+    accountId: string;
+    workerTag: string;
+    workerName: string;
+    expectedRepoId: string;
+    defaultBranch: string;
+    rootDirectory: string;
+    branches: readonly string[];
+  } & CloudflareApiCallOptions,
+): Promise<Map<string, string>> {
+  assertWorkerBuildSettingsTarget({
+    settings: await readCloudflareWorkerBuildSettings(args),
+    expectedRepoId: args.expectedRepoId,
+    defaultBranch: args.defaultBranch,
+    rootDirectory: args.rootDirectory,
+  });
+  const previews: Readable<components["schemas"]["builds_PreviewSummary"]>[] = [];
+  const seenIds = new Set<string>();
+  for (let page = 1; ; page += 1) {
+    const previewPage = requireCloudflareResult(
+      await requestCloudflareApiOrThrow({
+        token: args.token,
+        transport: args.transport,
+        method: "GET",
+        path: "/accounts/{account_id}/builds/workers/{script_tag}/previews",
+        recordApiCall: args.recordApiCall,
+        params: {
+          path: { account_id: args.accountId, script_tag: args.workerTag },
+          query: { page, per_page: 100 },
+        },
+      }),
+      "Cloudflare did not return Worker Previews.",
+    );
+    for (const preview of previewPage) {
+      if (!preview.preview_id || seenIds.has(preview.preview_id)) {
+        throw new Error("Cloudflare Worker Preview pagination omitted or repeated a Preview ID.");
+      }
+      seenIds.add(preview.preview_id);
+      previews.push(preview);
+    }
+    if (previewPage.length < 100) break;
+  }
+  const urls = await Promise.all(
+    [...new Set(args.branches)].map(async (branch) => {
+      const matches = previews.filter((preview) => preview.branch === branch);
+      const previewId = matches.length === 1 ? matches[0]?.preview_id : undefined;
+      if (!previewId) return null;
+      const preview = requireCloudflareResult(
+        await requestCloudflareApiOrThrow({
+          token: args.token,
+          transport: args.transport,
+          method: "GET",
+          path: "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}",
+          recordApiCall: args.recordApiCall,
+          params: {
+            path: { account_id: args.accountId, worker_id: args.workerTag, preview_id: previewId },
+          },
+        }),
+        "Cloudflare did not return the Worker Preview.",
+      );
+      if (preview.id !== previewId || preview.urls.length !== 1) return null;
+      const normalized = normalizeCloudflareWorkerPreviewUrl(preview.urls[0], args.workerName);
+      return normalized ? ([branch, normalized.url] as const) : null;
+    }),
+  );
+  return new Map(urls.filter(notEmpty));
 }
 
 export async function readCloudflareWorkerConvexBuildAccess(

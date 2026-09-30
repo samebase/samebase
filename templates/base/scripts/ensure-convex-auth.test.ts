@@ -61,4 +61,17 @@ describe("ensure-convex-auth", () => {
 
     expect(runConvex.mock.calls).toHaveLength(2);
   });
+
+  it("does not replace auth keys when an environment read fails", async () => {
+    const calls: string[][] = [];
+    await expect(
+      ensureConvexAuth({ WORKERS_CI_BRANCH: "nicu-preview-smoke" }, async (args) => {
+        calls.push(args);
+        return { code: 1, stdout: "", stderr: "Environment read failed" };
+      }),
+    ).rejects.toThrow("Could not read Convex environment variable JWT_PRIVATE_KEY.");
+    expect(calls).toEqual([
+      ["env", "get", "JWT_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
+    ]);
+  });
 });
