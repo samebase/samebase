@@ -44,10 +44,10 @@ describe("build-cloudflare", () => {
     ]);
   });
 
-  it("requires the preview key for non-main branches with the production key present", () => {
+  it("does not read the legacy preview key", () => {
     expect(() =>
       selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "prod-key",
+        PREVIEW_CONVEX_DEPLOY_KEY: "legacy-preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
@@ -74,7 +74,6 @@ describe("build-cloudflare", () => {
     expect(() =>
       selectConvexDeployPlan({
         CONVEX_DEPLOY_KEY: "prod-key",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_shared",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
@@ -86,7 +85,6 @@ describe("build-cloudflare", () => {
     expect(() =>
       selectConvexDeployPlan({
         CONVEX_DEPLOY_KEY: "prod-key",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         VITE_PUBLIC_POSTHOG_HOST: "https://posthog.samebase.com",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
@@ -94,19 +92,16 @@ describe("build-cloudflare", () => {
     ).toThrow("Do not set VITE_PUBLIC_POSTHOG_HOST");
   });
 
-  it("selects the production key for the main branch", () => {
+  it("deploys production for the main branch", () => {
     expect(
       selectConvexDeployPlan({
         CONVEX_DEPLOY_KEY: "prod-key",
         PROD_POSTHOG_PROJECT_TOKEN: "phc_prod",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
       }),
     ).toEqual({
       kind: "deploy",
-      deployKeyName: "CONVEX_DEPLOY_KEY",
-      deployKey: "prod-key",
       postHogProjectToken: "phc_prod",
       routeEnvironment: "production",
       args: [
@@ -123,7 +118,6 @@ describe("build-cloudflare", () => {
     expect(
       selectConvexDeployPlan({
         CONVEX_DEPLOY_KEY: "prod-key",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
       }),
@@ -133,19 +127,16 @@ describe("build-cloudflare", () => {
     });
   });
 
-  it("selects the preview key for non-main branches", () => {
+  it("reuses a named Convex preview for non-main branches", () => {
     expect(
       selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "preview-key",
         PROD_POSTHOG_PROJECT_TOKEN: "phc_prod",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
     ).toEqual({
       kind: "previewDeploy",
-      deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
-      deployKey: "preview-key",
       routeEnvironment: "preview",
       args: [
         "exec",
@@ -171,20 +162,23 @@ describe("build-cloudflare", () => {
     const invocations: Array<{
       operation: string | undefined;
       deployKey: string | undefined;
+      routeEnvironment: string | undefined;
+      postHogToken: string | undefined;
+      prerenderOrigin: string | undefined;
     }> = [];
-    const runCommand = (
-      _command: string,
-      args: readonly string[],
-      env: NodeJS.ProcessEnv | undefined,
-    ) => {
+    const runCommand = (args: readonly string[], env: NodeJS.ProcessEnv | undefined) => {
       invocations.push({
         operation: args[2] === "deploy" ? "deploy" : args[3],
         deployKey: env?.CONVEX_DEPLOY_KEY,
+        routeEnvironment: env?.VITE_SAMEBASE_ROUTE_ENVIRONMENT,
+        postHogToken: env?.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN,
+        prerenderOrigin: env?.SAMEBASE_PRERENDER_ORIGIN,
       });
       return Promise.resolve();
     };
     const env = {
-      PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+      CONVEX_DEPLOY_KEY: "preview-key",
+      PROD_POSTHOG_PROJECT_TOKEN: "phc_prod",
       WORKERS_CI: "1",
       WORKERS_CI_BRANCH: "feature-branch",
       WORKERS_CI_COMMIT_SHA: "current-commit",
@@ -193,14 +187,26 @@ describe("build-cloudflare", () => {
     await main(env, runCommand);
 
     expect(invocations).toEqual([
-      { operation: "deploy", deployKey: "preview-key" },
-      { operation: "devAuth:seedPasswordAccount", deployKey: "preview-key" },
+      {
+        operation: "deploy",
+        deployKey: "preview-key",
+        routeEnvironment: "preview",
+        postHogToken: undefined,
+        prerenderOrigin: undefined,
+      },
+      {
+        operation: "devAuth:seedPasswordAccount",
+        deployKey: "preview-key",
+        routeEnvironment: "preview",
+        postHogToken: undefined,
+        prerenderOrigin: undefined,
+      },
     ]);
   });
 
   it("does not seed when the named preview deploy fails", async () => {
     const invocations: Array<string | undefined> = [];
-    const runCommand = (_command: string, args: readonly string[]) => {
+    const runCommand = (args: readonly string[]) => {
       invocations.push(args[2]);
       return Promise.reject(new Error("deploy failed"));
     };
@@ -208,7 +214,7 @@ describe("build-cloudflare", () => {
     await expect(
       main(
         {
-          PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+          CONVEX_DEPLOY_KEY: "preview-key",
           WORKERS_CI: "1",
           WORKERS_CI_BRANCH: "feature-branch",
           WORKERS_CI_COMMIT_SHA: "current-commit",
@@ -232,7 +238,6 @@ describe("build-cloudflare", () => {
   it("requires the production key with the current least-privilege permission set", () => {
     expect(() =>
       selectConvexDeployPlan({
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
       }),
@@ -245,11 +250,51 @@ describe("build-cloudflare", () => {
     expect(selectConvexDeployPlan({})).toEqual({ kind: "frontendOnly", routeEnvironment: "local" });
   });
 
-  it("requires an explicit branch when Convex deploy keys are present locally", () => {
-    expect(() =>
-      selectConvexDeployPlan({
+  it("does not pass a deploy key to local codegen even with a branch set", async () => {
+    const invocations: Array<{ args: readonly string[]; env: NodeJS.ProcessEnv | undefined }> = [];
+    await main(
+      {
         CONVEX_DEPLOY_KEY: "prod-key",
-      }),
-    ).toThrow("Set WORKERS_CI_BRANCH");
+        WORKERS_CI_BRANCH: "main",
+      },
+      (args, env) => {
+        invocations.push({ args, env });
+        return Promise.resolve();
+      },
+    );
+    expect(invocations).toEqual([
+      {
+        args: ["run", "build:app"],
+        env: {
+          CONVEX_DEPLOY_KEY: undefined,
+          WORKERS_CI_BRANCH: "main",
+          VITE_SAMEBASE_ROUTE_ENVIRONMENT: "local",
+        },
+      },
+    ]);
+  });
+
+  it("exposes analytics and the canonical origin only to the production build", async () => {
+    const invocations: Array<{ args: readonly string[]; env: NodeJS.ProcessEnv | undefined }> = [];
+    await main(
+      {
+        CONVEX_DEPLOY_KEY: "prod-key",
+        PROD_POSTHOG_PROJECT_TOKEN: "phc_prod",
+        WORKERS_CI: "1",
+        WORKERS_CI_BRANCH: "main",
+      },
+      (args, env) => {
+        invocations.push({ args, env });
+        return Promise.resolve();
+      },
+    );
+    expect(invocations).toHaveLength(1);
+    expect(invocations[0]?.env).toMatchObject({
+      CONVEX_DEPLOY_KEY: "prod-key",
+      VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_prod",
+      VITE_PUBLIC_POSTHOG_HOST: "https://e.samebase.com",
+      VITE_SAMEBASE_ROUTE_ENVIRONMENT: "production",
+      SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com",
+    });
   });
 });

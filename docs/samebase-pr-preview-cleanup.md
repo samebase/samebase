@@ -11,7 +11,7 @@ available.
 
 The scope is only preview resources created for the `samebase.com` app build:
 
-- Cloudflare Worker preview versions, when they can be proven
+- native Cloudflare Worker Previews, or legacy preview versions created before the migration
 - the Convex preview deployment for the exact branch
 
 Do not change Cloudflare deploy behavior, add preview tags, add cleanup scripts, or touch temporary
@@ -20,9 +20,9 @@ Samebase-managed repository infrastructure as part of this workflow.
 ## Safety Rules
 
 1. Continue only after the branch's GitHub PR is no longer open: `state` is `MERGED` or `CLOSED`.
-2. Delete nothing from Cloudflare unless each exact Worker version is tied to the branch or PR by
-   provider or GitHub metadata.
-3. Delete no active Cloudflare Worker version and never delete the Worker itself.
+2. Delete nothing from Cloudflare unless each exact Preview or Worker version is tied to the branch
+   or PR by provider or GitHub metadata.
+3. Delete no active production Worker version and never delete the parent Worker itself.
 4. Delete no Convex deployment unless it is a `preview` deployment for the exact branch.
 5. Load cleanup credentials from the repo seed env before using inherited shell values. Missing
    values in the inherited shell environment alone are not a reason to stop.
@@ -76,6 +76,22 @@ Continue only when `headRefName` equals `$branch` and `state` is `MERGED` or `CL
 number, URL, state, branch, and head SHA visible while inspecting provider resources.
 
 ## 2. Inspect Cloudflare Worker Previews
+
+### Native previews
+
+Open the Samebase Worker's Previews list in the Cloudflare dashboard. Match the Preview's branch or
+PR metadata to the terminal PR. Then delete only that Preview:
+
+```bash
+CLOUDFLARE_API_TOKEN="$DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler preview delete --worker-name "$CLOUDFLARE_WORKER_NAME" --name "$branch" --skip-confirmation
+```
+
+Refresh the dashboard to confirm removal. This deletes the Preview and its deployments, not the
+parent Worker. It does not reset saved branch build variables. Continue with Convex cleanup below.
+
+### Legacy preview versions
+
+Use this section for previews created before the native Worker Previews migration.
 
 List recent Worker versions and active deployments:
 
@@ -170,6 +186,6 @@ the lookup evidence.
 In the final `clean` response, include:
 
 - the PR URL and terminal state
-- any Cloudflare Worker version IDs deleted, or the blocker that prevented deletion
+- any Cloudflare Preview names or legacy version IDs deleted, or the blocker that prevented deletion
 - any Convex deployment name deleted, or the blocker that prevented deletion
 - the remaining local cleanup actions, only after provider preview cleanup completed

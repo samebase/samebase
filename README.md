@@ -155,17 +155,20 @@ For Cloudflare Workers Builds, point the project root directory at `apps/samebas
 
 - Build command: `pnpm run build`
 - Production deploy command: `pnpm run deploy`
-- Non-production deploy command: `pnpm run deploy:preview`
+- Preview command: `pnpm run deploy:preview`
 
-`wrangler.jsonc` owns the static asset directory and SPA fallback. The build script deploys Convex
-first by selecting `CONVEX_DEPLOY_KEY` for `main` and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production
-branches. The production key must be a Convex production deploy key with exactly
-`deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; the
-preview key is Convex's separate project-level Preview deploy key. Local dry-runs build the app
-assets without deploying Convex and can validate the Worker package with:
+`wrangler.jsonc` owns the static asset directory and SPA fallback. Workers Builds supplies
+`CONVEX_DEPLOY_KEY` from separate production and Previews Base build settings. The production key
+must be a Convex production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
+`deployment:env:write`, and `deployment:data:view`; the preview key is Convex's project-level
+Preview deploy key. The build script reuses the branch's Convex preview before `wrangler preview`
+uploads the assets. See the [migration steps](docs/worker-previews-migration.md) for dashboard
+setup.
+
+Local builds never deploy Convex. To build assets and validate the Worker package without a deploy:
 
 ```bash
-CLOUDFLARE_WORKER_NAME=samebase pnpm --filter samebase deploy:dry-run
+pnpm --filter samebase deploy:dry-run --name samebase
 ```
 
 ### Testing
