@@ -1051,15 +1051,10 @@ describe("organization provider status", () => {
       stubCloudflareRefreshFailure(`private ${method} refresh detail`);
 
       const error = await readActionError(
-        method === "oauth"
-          ? t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-              organizationId,
-              userId,
-            })
-          : t.action(internal.cloudflareMcpOAuth.resolveConnectionForOrganization, {
-              organizationId,
-              userId,
-            }),
+        t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+          organizationId,
+          userId,
+        }),
       );
       expect(error.message).toContain(`private ${method} refresh detail`);
     }
