@@ -78,6 +78,7 @@
     "verify:tracked-file-paths": "pnpm run generate:tracked-file-paths && git diff --exit-code -- scripts/generated/trackedFilePaths.generated.ts",
     "onboarding-video:landing-demo": "pnpm --filter @samebase/onboarding-video-tools landing-demo",
     "onboarding-video:screen-demo": "pnpm --filter @samebase/onboarding-video-tools screen-demo",
+    "record-it": "node ./scripts/record-it.ts",
     "share:local": "node ./scripts/worktree-share.ts --mode local",
     "share:worktree": "node ./scripts/worktree-share.ts",
     "typecheck:remotion-studio": "tsgo -p apps/remotion-studio/tsconfig.json --pretty false",

@@ -1,0 +1,26 @@
+name: Samebase Recorder
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/record-it.yml"
+      - "tools/record-it/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/record-it.yml"
+      - "tools/record-it/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: native recorder tests
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test native capture and media writers
+        run: swift test --package-path tools/record-it
