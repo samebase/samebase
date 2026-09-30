@@ -44,14 +44,22 @@ export function parseCloudflareWorkerBuildLogsUrl(
   url: string,
 ): { accountId: string; buildUuid: string; workerName: string } | null {
   const segments = dashboardSegments(url);
-  return segments?.length === 8 &&
-    segments[1] === "workers" &&
-    segments[2] === "services" &&
-    segments[3] === "view" &&
-    segments[5] === "production" &&
-    segments[6] === "builds"
-    ? { accountId: segments[0], buildUuid: segments[7], workerName: segments[4] }
-    : null;
+  if (
+    !segments ||
+    segments[1] !== "workers" ||
+    segments[2] !== "services" ||
+    segments[3] !== "view" ||
+    segments[5] !== "production"
+  ) {
+    return null;
+  }
+  if (segments.length === 8 && segments[6] === "builds") {
+    return { accountId: segments[0], buildUuid: segments[7], workerName: segments[4] };
+  }
+  if (segments.length === 10 && segments[6] === "previews" && segments[8] === "builds") {
+    return { accountId: segments[0], buildUuid: segments[9], workerName: segments[4] };
+  }
+  return null;
 }
 
 export function parseCloudflareWorkerScriptUrl(

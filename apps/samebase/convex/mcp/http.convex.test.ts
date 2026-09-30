@@ -3,6 +3,11 @@ import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
+import {
+  observedCreatedWorkerBuildSettings,
+  observedMigratedWorkerBuildSettings,
+  observedMissingWorkerBuildSettingsResponse,
+} from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
@@ -1292,7 +1297,39 @@ describe("MCP tools/call access enforcement", () => {
     const cloudflareAccountId = "00000000000000000000000000000001";
     const defaultBranchCommitSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const providerRequests: Array<{ body: unknown; method: string; path: string }> = [];
-    let createdTriggerCount = 0;
+    const createdBuildSettings = {
+      ...observedCreatedWorkerBuildSettings,
+      script_tag: "mcp-worker-tag",
+      git_repository: {
+        ...observedCreatedWorkerBuildSettings.git_repository,
+        repo_id: "123",
+        repo_name: "demo",
+        provider_account_id: "456",
+        provider_account_name: "samebase",
+      },
+      production_settings: {
+        ...observedCreatedWorkerBuildSettings.production_settings,
+        root_directory: "apps/web",
+        build_token_uuid: "reusable-build-token",
+      },
+      previews_base_config: {
+        ...observedCreatedWorkerBuildSettings.previews_base_config,
+        root_directory: "apps/web",
+        build_token_uuid: "reusable-build-token",
+      },
+    };
+    const nativeBuildSettings = {
+      ...observedMigratedWorkerBuildSettings,
+      script_tag: createdBuildSettings.script_tag,
+      git_repository: createdBuildSettings.git_repository,
+      production_settings: createdBuildSettings.production_settings,
+      previews_base_config: {
+        ...observedMigratedWorkerBuildSettings.previews_base_config,
+        root_directory: "apps/web",
+        build_token_uuid: "reusable-build-token",
+      },
+    };
+    let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
 
     function jsonResponse(result: unknown, status = 200): Response {
       return new Response(JSON.stringify(result), {
@@ -1384,10 +1421,32 @@ describe("MCP tools/call access enforcement", () => {
         return cloudflareResponse(workerDetails());
       }
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
-        return cloudflareResponse([]);
+        return cloudflareResponse([
+          {
+            trigger_uuid: "created-trigger-1",
+            external_script_id: "mcp-worker-tag",
+            branch_includes: ["main"],
+            branch_excludes: [],
+            repo_connection: { repo_id: "123", provider_type: "github" },
+            root_directory: "apps/web",
+          },
+        ]);
       }
-      if (url.pathname.endsWith("/builds/repos/connections")) {
-        return cloudflareResponse({ repo_connection_uuid: "repo-connection" });
+      if (method === "GET" && url.pathname.endsWith("/builds/workers/mcp-worker-tag")) {
+        return buildSettings
+          ? cloudflareResponse(buildSettings)
+          : jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
+      }
+      if (method === "POST" && url.pathname.endsWith("/builds/workers")) {
+        buildSettings = createdBuildSettings;
+        return cloudflareResponse(buildSettings);
+      }
+      if (
+        method === "POST" &&
+        url.pathname.endsWith("/builds/workers/mcp-worker-tag/migrate_to_previews")
+      ) {
+        buildSettings = nativeBuildSettings;
+        return cloudflareResponse(buildSettings);
       }
       if (url.pathname.endsWith("/builds/tokens")) {
         return cloudflareResponse([
@@ -1397,10 +1456,6 @@ describe("MCP tools/call access enforcement", () => {
             cloudflare_token_id: "opaque-oauth-token-id",
           },
         ]);
-      }
-      if (method === "POST" && url.pathname.endsWith("/builds/triggers")) {
-        createdTriggerCount += 1;
-        return cloudflareResponse({ trigger_uuid: `created-trigger-${createdTriggerCount}` });
       }
       if (method === "POST" && url.pathname.endsWith("/builds/triggers/created-trigger-1/builds")) {
         return cloudflareResponse({});
@@ -1567,8 +1622,13 @@ describe("MCP tools/call access enforcement", () => {
     const workerCreateRequests = providerRequests.filter(
       (request) => request.method === "POST" && request.path.endsWith("/workers/workers"),
     );
-    const triggerCreateRequests = providerRequests.filter(
-      (request) => request.method === "POST" && request.path.endsWith("/builds/triggers"),
+    const buildsCreateRequests = providerRequests.filter(
+      (request) => request.method === "POST" && request.path.endsWith("/builds/workers"),
+    );
+    const previewMigrationRequests = providerRequests.filter(
+      (request) =>
+        request.method === "POST" &&
+        request.path.endsWith("/builds/workers/mcp-worker-tag/migrate_to_previews"),
     );
     const initialBuildRequest = providerRequests.find(
       (request) =>
@@ -1576,20 +1636,37 @@ describe("MCP tools/call access enforcement", () => {
         request.path.endsWith("/builds/triggers/created-trigger-1/builds"),
     );
     expect(workerCreateRequests).toHaveLength(1);
-    expect(triggerCreateRequests).toHaveLength(2);
-    expect(triggerCreateRequests.map((request) => request.body)).toEqual([
+    expect(buildsCreateRequests).toHaveLength(1);
+    expect(buildsCreateRequests.map((request) => request.body)).toEqual([
       expect.objectContaining({
-        repo_connection_uuid: "repo-connection",
-        root_directory: "apps/web",
-        branch_includes: ["main"],
-      }),
-      expect.objectContaining({
-        repo_connection_uuid: "repo-connection",
-        root_directory: "apps/web",
-        branch_includes: ["*"],
-        branch_excludes: ["main"],
+        script_tag: "mcp-worker-tag",
+        git_repository: {
+          branch: "main",
+          provider_type: "github",
+          provider_account_id: "456",
+          provider_account_name: "samebase",
+          repo_id: "123",
+          repo_name: "demo",
+        },
+        production_settings: expect.objectContaining({
+          build_token_uuid: "reusable-build-token",
+          root_directory: "apps/web",
+          build_command: "pnpm run build",
+          deploy_command: "pnpm run deploy",
+        }),
+        previews_base_config: expect.objectContaining({
+          build_token_uuid: "reusable-build-token",
+          root_directory: "apps/web",
+          build_command: "pnpm run build",
+          deploy_command: "pnpm run deploy:preview",
+        }),
+        previews_enabled: true,
       }),
     ]);
+    expect(previewMigrationRequests).toHaveLength(1);
+    expect(previewMigrationRequests[0]?.body).toEqual({
+      deploy_command: "pnpm run deploy:preview",
+    });
     expect(
       providerRequests.some((request) => request.method === "PATCH" || request.method === "DELETE"),
     ).toBe(false);

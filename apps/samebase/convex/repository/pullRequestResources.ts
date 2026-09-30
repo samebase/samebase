@@ -11,6 +11,7 @@ import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
+import { readCloudflareWorkerBranchPreviewUrls } from "../cloudflareResources";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import { vCloudflareBuildState } from "./cloudflareBuildMatching";
 import {
@@ -34,6 +35,7 @@ import {
 } from "./pullRequestHostingPreviews";
 import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
+import { readCloudflareObservationInput } from "./providerObservations";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -740,22 +742,29 @@ export function resolveConvexPreviewDeployment(args: {
 }
 
 export function buildPullRequestCloudflareWorkerResources(args: {
-  cloudflare: CloudflareWorkerProofRead;
+  head: PullRequestResourceHead;
   workers: readonly StableWorker[];
+  nativePreviewUrlsByWorker: ReadonlyMap<StableWorker["workerId"], ReadonlyMap<string, string>>;
 }): { state: "available"; workers: PullRequestWorkerResource[] } | { state: "unavailable" } {
-  if (args.cloudflare.state === "unavailable") {
+  if (args.head.cloudflareWorkerProof.state === "unavailable") {
     return { state: "unavailable" };
   }
 
   const workers: PullRequestWorkerResource[] = [];
   for (const worker of args.workers) {
-    const matches = args.cloudflare.workers.filter(
+    const matches = args.head.cloudflareWorkerProof.workers.filter(
       (proof) => proof.accountId === worker.accountId && proof.name === worker.workerName,
     );
     if (matches.length > 1) {
       return { state: "unavailable" };
     }
     const proof = matches.at(0);
+    const nativePreviewUrl =
+      !args.head.isCrossRepository &&
+      args.head.headRepositoryId !== null &&
+      proof?.logsUrl.includes("/production/previews/")
+        ? args.nativePreviewUrlsByWorker.get(worker.workerId)?.get(args.head.headRefName)
+        : undefined;
     workers.push({
       ...workerResourceIdentity(worker),
       cloudflareBuild:
@@ -768,13 +777,21 @@ export function buildPullRequestCloudflareWorkerResources(args: {
               logsUrl: proof.logsUrl,
             },
       cloudflareBranchPreview:
-        proof === undefined || proof.preview.state === "absent"
+        proof === undefined
           ? { state: "absent" }
-          : {
-              state: "available",
-              url: proof.preview.url,
-              provenance: proof.preview.provenance,
-            },
+          : proof.preview.state === "available"
+            ? {
+                state: "available",
+                url: proof.preview.url,
+                provenance: proof.preview.provenance,
+              }
+            : nativePreviewUrl
+              ? {
+                  state: "available",
+                  url: nativePreviewUrl,
+                  provenance: "selected_result",
+                }
+              : { state: "absent" },
     });
   }
   return { state: "available", workers };
@@ -1318,6 +1335,59 @@ export const getPullRequestResources = action({
       pullRequestIds: args.pullRequestIds,
     });
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
+    const nativePreviewUrlsByWorker = new Map<StableWorker["workerId"], Map<string, string>>();
+    if (
+      context.cloudflareAccountId !== undefined &&
+      heads.some(
+        (head) =>
+          !head.isCrossRepository &&
+          head.headRepositoryId !== null &&
+          head.cloudflareWorkerProof.state === "available" &&
+          head.cloudflareWorkerProof.workers.some(
+            (proof) =>
+              proof.preview.state === "absent" && proof.logsUrl.includes("/production/previews/"),
+          ),
+      )
+    ) {
+      const input = await readCloudflareObservationInput(ctx, {
+        organizationId: context.organizationId,
+        userId: ctx.viewer.userId,
+        accountId: context.cloudflareAccountId,
+      });
+      if (input.state === "available") {
+        await Promise.all(
+          context.cloudflareWorkers.map(async (worker) => {
+            const branches = heads.flatMap((head) =>
+              !head.isCrossRepository &&
+              head.headRepositoryId !== null &&
+              head.cloudflareWorkerProof.state === "available" &&
+              head.cloudflareWorkerProof.workers.some(
+                (proof) =>
+                  proof.accountId === worker.accountId &&
+                  proof.name === worker.workerName &&
+                  proof.preview.state === "absent" &&
+                  proof.logsUrl.includes("/production/previews/"),
+              )
+                ? [head.headRefName]
+                : [],
+            );
+            if (branches.length === 0) return;
+            const urls = await readCloudflareWorkerBranchPreviewUrls({
+              token: input.token,
+              transport: input.transport,
+              accountId: worker.accountId,
+              workerTag: worker.workerTag,
+              workerName: worker.workerName,
+              rootDirectory: worker.rootDirectory,
+              expectedRepoId: context.githubRepositoryDatabaseId,
+              defaultBranch: context.defaultBranch,
+              branches,
+            }).catch(() => new Map<string, string>());
+            nativePreviewUrlsByWorker.set(worker.workerId, urls);
+          }),
+        );
+      }
+    }
     const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
     for (const head of heads) {
       const hostingPreviews = buildPullRequestHostingPreviews({
@@ -1325,8 +1395,9 @@ export const getPullRequestResources = action({
         configuredWorkers: context.cloudflareWorkers,
       });
       const cloudflareWorkers = buildPullRequestCloudflareWorkerResources({
-        cloudflare: head.cloudflareWorkerProof,
+        head,
         workers: context.cloudflareWorkers,
+        nativePreviewUrlsByWorker,
       });
       resourcesByPullRequest.set(head.id, {
         cloudflareBuilds: { state: cloudflareWorkers.state },

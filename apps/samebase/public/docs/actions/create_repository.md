@@ -10,7 +10,7 @@ one production deployment. It uses convexDeploymentRegion when supplied. Otherwi
 organization default, which is US East when no default is saved. When cloudflareBuildTokenUuid is a
 current token UUID, it also creates a Cloudflare Worker and configures Workers Builds for the
 repository (pushes to the default branch deploy, and pull requests get preview deploys) with Convex
-deploy keys in the build triggers.
+deploy keys in production and Previews Base Builds settings.
 
 Pass null only after cloudflare_listWorkersBuildTokens returns an empty current list. In that case,
 the run creates no Cloudflare Worker and stops after GitHub and Convex are ready. Cloudflare setup
@@ -29,9 +29,9 @@ created, so pick a different name and call again; failures after provisioning st
 
 What it writes: one repository (private by default) and one Convex project with one production
 deployment in the resolved region. When `cloudflareBuildTokenUuid` is not null, it also writes one
-Worker and two Workers Builds triggers that carry `CONVEX_DEPLOY_KEY` and
-`PREVIEW_CONVEX_DEPLOY_KEY` variables. All resources live in the organization's provider accounts.
-Deleting the Samebase account does not remove or stop any of them.
+Worker with native Worker Previews. Production Builds and Previews Base Builds each carry
+`CONVEX_DEPLOY_KEY` with the matching Convex key. All resources live in the organization's provider
+accounts. Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through `repository_dashboard_getUserRepositories`: while running,
 `providerSetup` carries the current step; on failure it carries the failed step and a message.

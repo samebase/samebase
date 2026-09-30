@@ -380,6 +380,43 @@ test("keeps provider ownership and actions together in mobile settings", async (
   });
 });
 
+test("shows migration steps without broken repair buttons for legacy previews", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openRepositoryOverviewV2(
+    page,
+    "repository-overview-v2-settings-legacy-previews",
+  );
+
+  await expect(fixture.getByText("This Worker does not use native Worker Previews.")).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Migration steps" })).toHaveAttribute(
+    "href",
+    "https://github.com/samebase/base/blob/main/docs/cloudflare-workers-builds.md",
+  );
+  await expect(fixture.locator('a[href*="dash.cloudflare.com"]')).toHaveAttribute(
+    "href",
+    /dash\.cloudflare\.com/,
+  );
+  await expect(fixture.getByRole("button", { name: /Configure Workers Builds/ })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: /Change API token/ })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: /Rotate Convex deploy keys/ })).toHaveCount(0);
+  await fixture.getByRole("button", { name: /Actions for Cloudflare Worker/ }).click();
+  await expect(
+    page.getByRole("menuitem", { name: /Remove from repository.*Cloudflare Worker/ }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(fixture).toHaveScreenshot(
+    "repository-overview-v2-settings-legacy-previews-mobile.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+});
+
 test("covers the mobile repository removal dialog", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openRepositoryOverviewV2(page, "repository-overview-v2-delete-dialog");

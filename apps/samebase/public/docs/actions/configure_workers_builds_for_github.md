@@ -5,10 +5,11 @@
 MCP tool `repository_cloudflare_configureWorkersBuildsForGitHub` · scope
 `access_provider_connections` · write
 
-Configures the production and preview Workers Builds triggers for an attached Worker, GitHub
-repository, and root directory, then starts a production build. A trigger belonging to a different
-repository is never adopted. Samebase reads the current Worker and repository state live, writes the
-provider configuration, and stores no trigger or status mirror in Convex.
+Configures production and Previews Base Builds settings for an attached Worker, GitHub repository,
+and root directory, then starts a production build. New connections enable native Worker Previews.
+Existing connections must already use native Worker Previews. A connection to a different repository
+is never adopted. Samebase reads the current Worker and repository state live and stores no
+build-settings or status mirror in Convex.
 
 ## Arguments
 
@@ -17,7 +18,7 @@ provider configuration, and stores no trigger or status mirror in Convex.
 - `workerId` (string, required): Stable Samebase Worker attachment id returned by
   repository_dashboard_getUserRepositories.
 - `rootDirectory` (string, required): Repository root to write to this Worker's GitHub Builds
-  triggers.
+  settings.
 - `buildTokenUuid` (string, required): Workers Builds token UUID returned by
   cloudflare_listWorkersBuildTokens.
 

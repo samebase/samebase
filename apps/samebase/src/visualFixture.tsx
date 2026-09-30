@@ -198,6 +198,7 @@ const REPOSITORY_DASHBOARD_VISUAL_MODES = [
   "repository-overview-v2-settings-checking",
   "repository-overview-v2-settings-completed",
   "repository-overview-v2-settings-drift",
+  "repository-overview-v2-settings-legacy-previews",
   "repository-overview-v2-settings-loading",
 ] as const satisfies readonly RepositoryOverviewVisualMode[];
 

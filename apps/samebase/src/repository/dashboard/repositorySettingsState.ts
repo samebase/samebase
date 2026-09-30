@@ -83,6 +83,7 @@ export type RepositorySettingsResource = {
   provider: "cloudflare" | "convex";
   resourceId: string;
   state: "available" | "checking" | "failed" | "loading" | "missing" | "setting_up";
+  workerPreviewsMigrationRequired?: true;
   warning?: string;
 };
 
@@ -376,11 +377,6 @@ function formatCloudflareConvexBuildAccessState({
         actions,
         description: "Convex deploy keys exist, but their project is unknown.",
       };
-    case "inconsistent":
-      return {
-        actions,
-        description: "Production and preview Builds target different Convex projects.",
-      };
     case "invalid":
       return { actions, description: "The Convex project marker is invalid." };
   }
@@ -579,6 +575,16 @@ function buildCloudflareRow({
         };
       }
 
+      if (
+        buildsObservation.repository.state === "ready" &&
+        buildsObservation.repository.builds.state === "legacy_previews"
+      ) {
+        return {
+          ...availableBase,
+          description: previewDescription,
+          workerPreviewsMigrationRequired: true,
+        };
+      }
       const repositoryState = formatCloudflareRepositoryState(buildsObservation);
       if (repositoryState.canConnect) {
         const isConfiguring =

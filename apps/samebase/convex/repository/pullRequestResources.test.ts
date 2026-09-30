@@ -706,25 +706,29 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
   it("uses the matching check result from the current pull request commit scan", () => {
     expect(
       buildPullRequestCloudflareWorkerResources({
-        cloudflare: {
-          state: "available",
-          workers: [
-            {
-              accountId: "account-1",
-              buildUuid: "build-1",
-              buildState: "failure",
-              logsUrl:
-                "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1",
-              name: "samebase-worker",
-              preview: {
-                state: "available",
-                url: "https://feature-samebase-worker.example.workers.dev",
-                provenance: "selected_result",
+        head: {
+          ...head,
+          cloudflareWorkerProof: {
+            state: "available",
+            workers: [
+              {
+                accountId: "account-1",
+                buildUuid: "build-1",
+                buildState: "failure",
+                logsUrl:
+                  "https://dash.cloudflare.com/?to=/account-1/workers/services/view/samebase-worker/production/builds/build-1",
+                name: "samebase-worker",
+                preview: {
+                  state: "available",
+                  url: "https://feature-samebase-worker.example.workers.dev",
+                  provenance: "selected_result",
+                },
               },
-            },
-          ],
+            ],
+          },
         },
         workers: [worker],
+        nativePreviewUrlsByWorker: new Map(),
       }),
     ).toEqual({
       state: "available",
@@ -753,8 +757,9 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
   it("marks only a missing parsed row unavailable", () => {
     expect(
       buildPullRequestCloudflareWorkerResources({
-        cloudflare: { state: "available", workers: [] },
+        head: { ...head, cloudflareWorkerProof: { state: "available", workers: [] } },
         workers: [worker],
+        nativePreviewUrlsByWorker: new Map(),
       }),
     ).toEqual({
       state: "available",
@@ -773,10 +778,112 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
   it("returns one unavailable result when Cloudflare checks are unreadable", () => {
     expect(
       buildPullRequestCloudflareWorkerResources({
-        cloudflare: { state: "unavailable" },
+        head: { ...head, cloudflareWorkerProof: { state: "unavailable" } },
         workers: [worker],
+        nativePreviewUrlsByWorker: new Map(),
       }),
     ).toEqual({ state: "unavailable" });
+  });
+
+  const nativeProof = {
+    accountId: worker.accountId,
+    buildUuid: "build-1",
+    buildState: "success" as const,
+    logsUrl:
+      "https://dash.cloudflare.com/account-1/workers/services/view/samebase-worker/production/previews/feature-live-truth/builds/build-1",
+    name: worker.workerName,
+    preview: { state: "absent" as const },
+  };
+  const nativeHead: PullRequestResourceHead = {
+    ...head,
+    cloudflareWorkerProof: { state: "available", workers: [nativeProof] },
+  };
+  const nativeUrl = "https://feature-live-truth-samebase-worker.example.workers.dev";
+  const nativePreviewUrlsByWorker = new Map([
+    [worker.workerId, new Map([[head.headRefName, nativeUrl]])],
+  ]);
+
+  it("adds an observed native branch URL without changing the current build proof", () => {
+    expect(
+      buildPullRequestCloudflareWorkerResources({
+        head: nativeHead,
+        workers: [worker],
+        nativePreviewUrlsByWorker,
+      }),
+    ).toEqual({
+      state: "available",
+      workers: [
+        {
+          workerId: worker.workerId,
+          workerName: worker.workerName,
+          rootDirectory: worker.rootDirectory,
+          cloudflareBuild: {
+            state: "available",
+            uuid: nativeProof.buildUuid,
+            buildState: nativeProof.buildState,
+            logsUrl: nativeProof.logsUrl,
+          },
+          cloudflareBranchPreview: {
+            state: "available",
+            url: nativeUrl,
+            provenance: "selected_result",
+          },
+        },
+      ],
+    });
+  });
+
+  it.each([
+    { ...nativeHead, isCrossRepository: true },
+    { ...nativeHead, headRepositoryId: null },
+    { ...nativeHead, headRefName: "another-branch" },
+    {
+      ...nativeHead,
+      cloudflareWorkerProof: {
+        state: "available" as const,
+        workers: [
+          {
+            ...nativeProof,
+            logsUrl: nativeProof.logsUrl.replace("previews/feature-live-truth/", ""),
+          },
+        ],
+      },
+    },
+  ])("does not apply a native URL to a fork, another branch, or a legacy build", (changedHead) => {
+    const result = buildPullRequestCloudflareWorkerResources({
+      head: changedHead,
+      workers: [worker],
+      nativePreviewUrlsByWorker,
+    });
+    expect(
+      result.state === "available" ? result.workers[0].cloudflareBranchPreview : result,
+    ).toEqual({ state: "absent" });
+  });
+
+  it("keeps the current build when a provider URL read fails", () => {
+    expect(
+      buildPullRequestCloudflareWorkerResources({
+        head: nativeHead,
+        workers: [worker],
+        nativePreviewUrlsByWorker: new Map(),
+      }),
+    ).toEqual({
+      state: "available",
+      workers: [
+        {
+          workerId: worker.workerId,
+          workerName: worker.workerName,
+          rootDirectory: worker.rootDirectory,
+          cloudflareBuild: {
+            state: "available",
+            uuid: nativeProof.buildUuid,
+            buildState: nativeProof.buildState,
+            logsUrl: nativeProof.logsUrl,
+          },
+          cloudflareBranchPreview: { state: "absent" },
+        },
+      ],
+    });
   });
 });
 

@@ -588,8 +588,6 @@ describe("buildProductionEnvironmentRoots", () => {
             },
             builds: {
               state: "connected",
-              productionTriggerUuid: "samebase-production-trigger",
-              previewTriggerUuid: "samebase-preview-trigger",
               productionBuildTokenUuid: "samebase-build-token",
               previewBuildTokenUuid: "samebase-build-token",
             },
@@ -2979,6 +2977,54 @@ describe("RepositoryCloudflareDialogContent", () => {
 });
 
 describe("buildRepositorySettingsState", () => {
+  it("shows migration guidance instead of failing repair actions for legacy previews", () => {
+    const workerId = fakeCloudflareWorkerId("worker-legacy-previews");
+    const state = buildRepositorySettingsState({
+      cloudflareAccount: undefined,
+      cloudflareBuildTokens: { state: "not_available" },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
+        builds: [
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
+            workerId,
+            repository: {
+              state: "ready",
+              rootDirectory: "/",
+              builds: { state: "legacy_previews" },
+            },
+            productionBuild: {
+              state: "available",
+              buildState: "success",
+              logsUrl: "https://dash.cloudflare.com/legacy-build",
+            },
+          }),
+        ],
+        convexBuildAccess: [],
+      }),
+      configureWorkersBuildsForGitHubOnClick: vi.fn(),
+      rotateConvexDeployKeysForWorkersBuildsOnClick: vi.fn(),
+      detachCloudflareWorkerOnClick: vi.fn(),
+      convexObservations: {
+        state: "loaded",
+        refreshFailed: false,
+        reload: () => {},
+        observations: [],
+      },
+      pendingAction: null,
+      repository: makeRepositorySettingsBuilderRepository({
+        cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+      }),
+    });
+    const row = getRepositorySettingsResource(state, "/", "cloudflare");
+    expect(row).toMatchObject({
+      state: "available",
+      workerPreviewsMigrationRequired: true,
+      href: "https://dash.cloudflare.com/?to=/account-1/workers/services/view/demo-worker/production/settings",
+    });
+    expect(row.description).toBeUndefined();
+    expect(row.actions?.map((action) => action.label)).toEqual(["Remove from repository"]);
+  });
+
   it("reports the live Workers Builds token binding without claiming token health", () => {
     const workerId = fakeCloudflareWorkerId("worker-build-token");
     const changeBuildToken = vi.fn();
@@ -3006,8 +3052,6 @@ describe("buildRepositorySettingsState", () => {
               workerId,
               builds: {
                 state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid,
                 previewBuildTokenUuid,
               },
@@ -3382,14 +3426,10 @@ describe("buildRepositorySettingsState", () => {
                 rootDirectory: "apps/new-web",
                 builds: {
                   state: "available",
-                  productionTriggerUuid: "production-trigger",
-                  previewTriggerUuid: "preview-trigger",
                 },
               },
               builds: {
                 state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
               },
@@ -3646,14 +3686,10 @@ describe("buildRepositorySettingsState", () => {
                 rootDirectory: "/",
                 builds: {
                   state: "available",
-                  productionTriggerUuid: "production-trigger",
-                  previewTriggerUuid: "preview-trigger",
                 },
               },
               builds: {
                 state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
               },

@@ -1,12 +1,12 @@
 # Cloudflare Workers Install Trace
 
-Use this note when regenerating or auditing the `samebase/base` teaching artifact. It records the
-current Cloudflare Workers Git setup shape so a future agent can repeat the browser walkthrough and
-spot dashboard changes.
+This is a historical dashboard trace, not the current setup guide. Use the
+[template build guide](../../../templates/base/docs/cloudflare-workers-builds.md) for new apps and
+the [Worker Previews migration steps](../../worker-previews-migration.md) for existing apps.
 
 Observed on 2026-05-14 in the Cloudflare Workers dashboard.
 
-## Current Dashboard Flow
+## Observed Dashboard Flow
 
 Start at Workers & Pages and choose to create a Worker.
 

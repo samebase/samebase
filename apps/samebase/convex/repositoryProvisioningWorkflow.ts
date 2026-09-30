@@ -57,8 +57,6 @@ const composedInfrastructureState = object({
 type ComposedInfrastructureState = Infer<typeof composedInfrastructureState>;
 const composedCloudflareBuilds = object({
   rootDirectory: string(),
-  production: object({ triggerUuid: string() }),
-  preview: object({ triggerUuid: string() }),
 });
 type ComposedCloudflareBuilds = Infer<typeof composedCloudflareBuilds>;
 const composedInfrastructureRetryContext = object({

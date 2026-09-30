@@ -24,6 +24,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 
 import { api, internal } from "../_generated/api";
 import { CloudflareApiError } from "../cloudflareApi/client";
+import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 function workerResponse(args: { workerName: string; workerTag?: string }) {
@@ -35,17 +36,22 @@ function workerResponse(args: { workerName: string; workerTag?: string }) {
   };
 }
 
-function buildTrigger(args: { repoId?: string; rootDirectory?: string; workerTag?: string }) {
+function workerBuildSettings(args: { repoId?: string; rootDirectory: string; workerTag?: string }) {
   return {
-    trigger_uuid: "production-trigger",
-    external_script_id: args.workerTag ?? "worker-tag",
-    branch_includes: ["main"],
-    branch_excludes: [],
-    repo_connection: {
+    ...observedNativeWorkerBuildSettings,
+    script_tag: args.workerTag ?? "worker-tag",
+    git_repository: {
+      ...observedNativeWorkerBuildSettings.git_repository,
       repo_id: args.repoId ?? "github-repository",
-      provider_type: "github",
     },
-    root_directory: args.rootDirectory,
+    production_settings: {
+      ...observedNativeWorkerBuildSettings.production_settings,
+      root_directory: args.rootDirectory,
+    },
+    previews_base_config: {
+      ...observedNativeWorkerBuildSettings.previews_base_config,
+      root_directory: args.rootDirectory,
+    },
   };
 }
 
@@ -59,7 +65,7 @@ type CloudflareTestRequest = {
 function useCloudflareReadFixture(args: {
   workerName: string;
   workerTag?: string;
-  triggers?: ReturnType<typeof buildTrigger>[];
+  settings?: ReturnType<typeof workerBuildSettings>;
 }) {
   const workerTag = args.workerTag ?? "worker-tag";
   providerMocks.requestCloudflareApiOrThrow.mockImplementation(
@@ -70,8 +76,8 @@ function useCloudflareReadFixture(args: {
       if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
         return workerResponse({ workerName: args.workerName, workerTag });
       }
-      if (request.path === "/accounts/{account_id}/builds/workers/{external_script_id}/triggers") {
-        return args.triggers ?? [];
+      if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+        return args.settings ?? null;
       }
       throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
     },
@@ -389,7 +395,7 @@ describe("Cloudflare Worker stored coordinates", () => {
     const fixture = await createFixture();
     useCloudflareReadFixture({
       workerName: "provider-current-worker",
-      triggers: [buildTrigger({ rootDirectory: "apps/new" })],
+      settings: workerBuildSettings({ rootDirectory: "apps/new" }),
     });
 
     await expect(
@@ -424,7 +430,7 @@ describe("Cloudflare Worker stored coordinates", () => {
     const before = await readStoredCoordinates(fixture);
     useCloudflareReadFixture({
       workerName: "provider-current-worker",
-      triggers: [buildTrigger({ repoId: "other-repository", rootDirectory: "apps/new" })],
+      settings: workerBuildSettings({ repoId: "other-repository", rootDirectory: "apps/new" }),
     });
 
     await expect(
@@ -442,7 +448,7 @@ describe("Cloudflare Worker stored coordinates", () => {
     const before = await readStoredCoordinates(fixture);
     useCloudflareReadFixture({
       workerName: "provider-current-worker",
-      triggers: [buildTrigger({ rootDirectory: "apps/provider-current" })],
+      settings: workerBuildSettings({ rootDirectory: "apps/provider-current" }),
     });
 
     await expect(
@@ -477,7 +483,7 @@ describe("Cloudflare Worker stored coordinates", () => {
     useCloudflareReadFixture({
       workerName: "provider-current-worker",
       workerTag: "drift-worker-tag",
-      triggers: [buildTrigger({ rootDirectory: "apps/drift", workerTag: "drift-worker-tag" })],
+      settings: workerBuildSettings({ rootDirectory: "apps/drift", workerTag: "drift-worker-tag" }),
     });
 
     const [attachedWorkerId] = await fixture.owner.action(api.repository.cloudflare.attachWorkers, {
@@ -510,12 +516,10 @@ describe("Cloudflare Worker stored coordinates", () => {
             workerTag: "connect-worker-tag",
           });
         }
-        if (
-          request.path === "/accounts/{account_id}/builds/workers/{external_script_id}/triggers"
-        ) {
-          return [];
+        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+          return null;
         }
-        if (request.path === "/accounts/{account_id}/builds/repos/connections") {
+        if (request.method === "POST" && request.path === "/accounts/{account_id}/builds/workers") {
           throw new Error("stop after attachment");
         }
         throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);

@@ -15,17 +15,15 @@ export const vCloudflareConvexBuildAccess = union(
   object({ state: literal("configured"), convexProject: vCloudflareConvexProjectReference }),
   object({ state: literal("incomplete"), convexProject: vCloudflareConvexProjectReference }),
   object({ state: literal("target_unknown") }),
-  object({ state: literal("inconsistent") }),
   object({ state: literal("invalid") }),
   object({ state: literal("unavailable") }),
 );
 
-export const vCloudflareWorkerBuildTriggerPair = union(
+export const vCloudflareWorkerBuildSettingsStatus = union(
   object({
     state: literal("available"),
-    productionTriggerUuid: string(),
-    previewTriggerUuid: string(),
   }),
+  object({ state: literal("legacy_previews") }),
   object({ state: literal("not_available") }),
   object({ state: literal("ambiguous") }),
 );
@@ -34,7 +32,7 @@ export const vCloudflareWorkerRepositoryDiscovery = union(
   object({
     state: literal("ready"),
     rootDirectory: string(),
-    builds: vCloudflareWorkerBuildTriggerPair,
+    builds: vCloudflareWorkerBuildSettingsStatus,
   }),
   object({ state: literal("not_connected") }),
   object({ state: literal("connected_elsewhere") }),
@@ -90,7 +88,7 @@ export const cloudflareDiscoverWorkersContract = {
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
-current GitHub repository, Workers Builds root, trigger pair, and Convex marker. Only a Worker with
+current GitHub repository, production and Previews Base Builds settings, root, and Convex marker. Only a Worker with
 one verified root for the Samebase repository's GitHub repository is eligible for attachment. A partial inventory never
 proves that an unlisted Worker is absent. It may refresh private Samebase provider-connection
 bookkeeping, but it writes no attachment or provider resource.`,
