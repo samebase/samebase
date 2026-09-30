@@ -170,11 +170,8 @@ For a Workers version of the artifact:
   `Build command`, and local deploy wrappers can run the build before Wrangler.
 - Do not tell users to leave the Cloudflare Workers Git build command empty. Workers Builds has its
   own dashboard build command and currently does not honor Wrangler custom build settings there.
-- Use the
-  [template's native Worker Previews build contract](../../../templates/base/docs/cloudflare-workers-builds.md)
-  for build commands, deploy keys, and the production-only `SAMEBASE_CONVEX_PROJECT` marker.
-- Follow the [Worker Previews migration steps](../../worker-previews-migration.md) for existing
-  apps.
+- Use the [public Cloudflare guide](https://samebase.com/docs/cloudflare-setup#worker-previews) for
+  build commands, deploy keys, and existing-app migration steps.
 - Keep Workers request handlers, server functions, and SSR complexity out of the first app unless
   the template truly needs them.
 
