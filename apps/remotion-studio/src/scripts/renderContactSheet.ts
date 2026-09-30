@@ -10,7 +10,7 @@ import { openBrowser, renderStill, selectComposition } from "@remotion/renderer"
 
 import { fail, resolveRepoRoot, runMain } from "../../../../scripts/lib/scriptRuntime.ts";
 import { trackedFilePath } from "../../../../scripts/lib/trackedFilePath.ts";
-import { chromiumOptions, webpackOverride } from "../renderSettings.ts";
+import { chromeMode, chromiumOptions, webpackOverride } from "../renderSettings.ts";
 
 const usage = `Usage: renderContactSheet.ts <composition-id> <frames> <columns> <output.jpg> [cell width]
 
@@ -73,7 +73,7 @@ async function renderContactSheet(): Promise<void> {
   );
   const workDirectory = await mkdtemp(path.join(tmpdir(), "remotion-contact-sheet-"));
   const serveUrl = await bundle({ entryPoint, webpackOverride });
-  const browser = await openBrowser("chrome", { chromiumOptions });
+  const browser = await openBrowser("chrome", { chromeMode, chromiumOptions });
 
   try {
     const composition = await selectComposition({

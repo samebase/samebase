@@ -1,8 +1,9 @@
 import { Config } from "@remotion/cli/config";
 
-import { chromiumOptions, webpackOverride } from "./src/renderSettings.ts";
+import { chromeMode, chromiumOptions, webpackOverride } from "./src/renderSettings.ts";
 
 Config.overrideWebpackConfig(webpackOverride);
+Config.setChromeMode(chromeMode);
 Config.setChromiumOpenGlRenderer(chromiumOptions.gl);
 Config.setCodec("h264");
 Config.setColorSpace("bt709");

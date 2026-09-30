@@ -21,3 +21,13 @@ serves the bundle from `http://localhost`, which is a secure context. With ANGLE
 on an Apple silicon Mac exposes the Metal WebGPU adapter, so WebGPU needs no other flag.
 */
 export const chromiumOptions = { gl: "angle" } as const satisfies ChromiumOptions;
+
+/**
+The Windows headless shell ships without `dxil.dll` and `dxcompiler.dll`, so `requestDevice()` fails
+there with `DynamicLib.Open: dxil.dll`. Chrome for Testing ships both.
+
+On a laptop with an integrated and a discrete GPU, Windows Chrome gives WebGPU the integrated GPU and
+ignores `powerPreference`, and the film hangs that GPU. Set the Chrome for Testing `chrome.exe` under
+`node_modules/.remotion` to "High performance" in the Windows Graphics settings.
+*/
+export const chromeMode = process.platform === "win32" ? "chrome-for-testing" : "headless-shell";
