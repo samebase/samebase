@@ -14,6 +14,7 @@
     "render:founder-demo-youtube": "remotion render FounderDemoYouTube out/founder-demo-youtube.mp4",
     "render:contact-sheet": "node src/scripts/renderContactSheet.ts",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
+    "render:look-again-riso": "remotion render SamebaseLookAgainRiso out/look-again-riso.mp4 --concurrency=1",
     "render:look-again-preview": "remotion render SamebaseLookAgainPreview out/look-again-preview.mp4 --concurrency=1",
     "render:mark-illusion-test": "remotion render MarkIllusionTest out/mark-illusion-test.mp4",
     "render:menger-dive-spike": "remotion render MengerDiveSpike out/menger-dive-spike.mp4",

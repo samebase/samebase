@@ -210,6 +210,16 @@ export function RemotionRoot() {
         height={270}
         width={480}
       />
+      <Composition
+        id="SamebaseLookAgainRiso"
+        component={SamebaseFilmV4}
+        // The look again film in the riso style at full size.
+        defaultProps={{ fold: filmFold, from: 0, style: "riso", variant: "look" }}
+        durationInFrames={filmV4Seconds.look * filmV4Fps}
+        fps={filmV4Fps}
+        height={1080}
+        width={1920}
+      />
       {(["riso", "cobalt", "sunset"] as const).map((style) => (
         <Composition
           id={`SamebaseLookAgainStyle-${style}`}
