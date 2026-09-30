@@ -1,6 +1,7 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 import {
+  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
@@ -27,6 +28,7 @@ const expectedLandingPreviewSidebarFiles = [
   "Receipts",
   "Pricing",
   "Cloudflare setup",
+  "Worker Previews migration",
 ] as const;
 
 async function expectSidebarFiles(sidebar: Locator) {
@@ -52,6 +54,10 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar.getByRole("link", { name: "Pricing" })).toHaveAttribute(
     "href",
     new RegExp(`^${DOCS_PRICING_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar.getByRole("link", { name: "Worker Previews migration" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE}(\\?|$)`),
   );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");

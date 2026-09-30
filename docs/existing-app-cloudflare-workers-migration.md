@@ -74,7 +74,7 @@ Use status, headers, and synthetic data for probes. Do not save private response
 ## Separate Production and Preview
 
 To replace the version-upload model below, follow the
-[Worker Previews migration steps](https://samebase.com/docs/cloudflare-setup#worker-previews).
+[Worker Previews migration steps](https://samebase.com/docs/cloudflare-previews-migration).
 
 Use separate build triggers and credentials:
 

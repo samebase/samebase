@@ -1,6 +1,7 @@
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import {
+  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
@@ -143,6 +144,14 @@ export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA: PageMetadata = {
+  title: "Migrate to Cloudflare Worker Previews | Samebase",
+  description: "Update an existing Samebase app to use Cloudflare Worker Previews.",
+  canonicalPath: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
 export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
   title: "Receipts | Samebase",
   description: "Every factual Samebase claim with its primary source and check date.",
@@ -228,6 +237,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return DOCS_CLOUDFLARE_SETUP_PAGE_METADATA.title;
   }
 
+  if (pathname === DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE) {
+    return DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA.title;
+  }
+
   if (pathname === DOCS_THE_STACK_ROUTE) {
     return DOCS_THE_STACK_PAGE_METADATA.title;
   }
@@ -285,6 +298,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_CLOUDFLARE_SETUP_ROUTE) {
     return DOCS_CLOUDFLARE_SETUP_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE) {
+    return DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA;
   }
 
   if (args.pathname === DOCS_THE_STACK_ROUTE) {

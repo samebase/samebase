@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
+  DocsCloudflarePreviewsMigrationPage,
   DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
   DocsIndexPage,
@@ -283,11 +284,13 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("The stack");
     expect(sidebarMarkup).toContain("Cloudflare setup");
+    expect(sidebarMarkup).toContain("Worker Previews migration");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain('href="/"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
+    expect(sidebarMarkup).toContain('href="/docs/cloudflare-previews-migration"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).toContain('href="/pricing"');
     expect(sidebarMarkup).not.toContain("Start here");
@@ -299,6 +302,9 @@ describe("LandingPage", () => {
       sidebarMarkup.indexOf("Cloudflare setup"),
     );
     expect(sidebarMarkup.indexOf("Cloudflare setup")).toBeLessThan(
+      sidebarMarkup.indexOf("Worker Previews migration"),
+    );
+    expect(sidebarMarkup.indexOf("Worker Previews migration")).toBeLessThan(
       sidebarMarkup.indexOf("Do it yourself"),
     );
   });
@@ -314,6 +320,7 @@ describe("LandingPage", () => {
     expect(mainMarkup).toContain('href="/"');
     expect(mainMarkup).toContain('href="/docs/the-stack"');
     expect(mainMarkup).toContain('href="/docs/cloudflare-setup"');
+    expect(mainMarkup).toContain('href="/docs/cloudflare-previews-migration"');
     expect(mainMarkup).toContain('href="/docs/do-it-yourself"');
     expect(mainMarkup).toContain('href="/docs/receipts"');
     expect(mainMarkup).toContain('href="/pricing"');
@@ -331,6 +338,17 @@ describe("LandingPage", () => {
     const deployKeyActionIndex = markup.indexOf("Use `&lt;project&gt;` for Workers Builds");
     expect(createWorkerIndex).toBeGreaterThan(-1);
     expect(deployKeyActionIndex).toBeGreaterThan(createWorkerIndex);
+    expect(markup).not.toContain("Switch Cloudflare");
+  });
+
+  it("renders the Worker Previews migration separately from first-app setup", () => {
+    const markup = renderToStaticMarkup(<DocsCloudflarePreviewsMigrationPage />);
+
+    expect(markup).toContain("Migrate to Cloudflare Worker Previews");
+    expect(markup).toContain("Switch Cloudflare");
+    expect(markup).toContain("Previews Base");
+    expect(markup).not.toContain("Create the app in Samebase");
+    expect(markup).not.toContain("Play the complete Samebase onboarding");
   });
 
   it("renders the do-it-yourself guide separately", () => {

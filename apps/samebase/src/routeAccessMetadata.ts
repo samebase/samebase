@@ -48,6 +48,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs": { access: "access_public" },
   "/docs/cloudflare-setup": { access: "access_public" },
+  "/docs/cloudflare-previews-migration": { access: "access_public" },
   "/docs/do-it-yourself": { access: "access_public" },
   "/docs/receipts": { access: "access_public" },
   "/docs/the-stack": { access: "access_public" },

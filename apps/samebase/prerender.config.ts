@@ -29,6 +29,11 @@ const expectedPublicPrerenderMetadataByPath = {
       "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
     robots: "index,follow",
   },
+  "/docs/cloudflare-previews-migration": {
+    title: "Migrate to Cloudflare Worker Previews | Samebase",
+    description: "Update an existing Samebase app to use Cloudflare Worker Previews.",
+    robots: "index,follow",
+  },
   "/docs/do-it-yourself": {
     title: "Do it yourself | Samebase",
     description: "Deploy the Samebase stack by hand, with no Samebase account.",

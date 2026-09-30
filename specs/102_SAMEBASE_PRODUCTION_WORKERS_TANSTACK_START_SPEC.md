@@ -255,7 +255,7 @@ Samebase production itself.
 2. Use a current compatibility date for this migration.
 3. Enable preview URLs. Keep `previews: {}` for native Worker Previews. Enable native preview builds
    in the dashboard separately, as described in the
-   [Worker Previews guide](https://samebase.com/docs/cloudflare-setup#worker-previews).
+   [Worker Previews guide](https://samebase.com/docs/cloudflare-previews-migration).
 4. Serve assets from `./dist/client`.
 5. Set `assets.not_found_handling = "single-page-application"` so unmatched app-route navigations
    serve the SPA shell from `/index.html` without routing generated assets through `_redirects`.
@@ -316,7 +316,7 @@ Samebase production itself.
 
 The phases below record the original Pages-to-Workers rollout. For the current native preview
 commands and setup, use the build contract above and the
-[Worker Previews guide](https://samebase.com/docs/cloudflare-setup#worker-previews).
+[Worker Previews guide](https://samebase.com/docs/cloudflare-previews-migration).
 
 ### Phase 1: Local Build Migration
 

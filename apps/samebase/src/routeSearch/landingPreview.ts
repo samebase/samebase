@@ -12,6 +12,7 @@ export const LANDING_PREVIEW_ROUTE = "/landing-preview";
 export const LANDING_PAGE_ROUTE = "/";
 export const DOCS_INDEX_ROUTE = "/docs";
 export const DOCS_CLOUDFLARE_SETUP_ROUTE = "/docs/cloudflare-setup";
+export const DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE = "/docs/cloudflare-previews-migration";
 export const DOCS_DO_IT_YOURSELF_ROUTE = "/docs/do-it-yourself";
 export const DOCS_RECEIPTS_ROUTE = "/docs/receipts";
 export const DOCS_THE_STACK_ROUTE = "/docs/the-stack";

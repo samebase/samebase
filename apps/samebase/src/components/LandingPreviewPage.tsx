@@ -26,6 +26,7 @@ import {
   type MobilePane,
 } from "@samebase/sidebars/SidebarRuntime";
 import {
+  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_PRICING_ROUTE,
@@ -41,6 +42,7 @@ import {
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsCloudflareSetupMarkdown from "@/content/docs-cloudflare-setup.md?raw";
+import docsCloudflarePreviewsMigrationMarkdown from "@/content/docs-cloudflare-previews-migration.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
@@ -52,6 +54,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 type LandingPreviewDocumentKey =
   | "overview"
   | "cloudflareSetup"
+  | "cloudflarePreviewsMigration"
   | "doItYourself"
   | "theStack"
   | "receipts"
@@ -61,6 +64,7 @@ const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PAGE_ROUTE },
   { label: "The stack", to: DOCS_THE_STACK_ROUTE },
   { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
+  { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
   { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
   { label: "Pricing", to: DOCS_PRICING_ROUTE },
@@ -836,6 +840,16 @@ function DocsCloudflareSetupDocument() {
   );
 }
 
+function DocsCloudflarePreviewsMigrationDocument() {
+  return (
+    <MarkdownLandingDocument
+      className={DOCS_DOCUMENT_CLASS_NAME}
+      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
+      markdown={docsCloudflarePreviewsMigrationMarkdown}
+    />
+  );
+}
+
 function DocsReceiptsDocument() {
   return (
     <MarkdownLandingDocument
@@ -867,6 +881,10 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 
   if (documentKey === "cloudflareSetup") {
     return <DocsCloudflareSetupDocument />;
+  }
+
+  if (documentKey === "cloudflarePreviewsMigration") {
+    return <DocsCloudflarePreviewsMigrationDocument />;
   }
 
   if (documentKey === "receipts") {
@@ -911,6 +929,10 @@ export function DocsDoItYourselfPage() {
 
 export function DocsCloudflareSetupPage() {
   return <LandingPreviewChromePage documentKey="cloudflareSetup" />;
+}
+
+export function DocsCloudflarePreviewsMigrationPage() {
+  return <LandingPreviewChromePage documentKey="cloudflarePreviewsMigration" />;
 }
 
 export function DocsTheStackPage() {

@@ -29,6 +29,7 @@ describe("route access metadata", () => {
     const publicDocsPaths = [
       "/docs",
       "/docs/cloudflare-setup",
+      "/docs/cloudflare-previews-migration",
       "/docs/do-it-yourself",
       "/docs/receipts",
       "/docs/the-stack",

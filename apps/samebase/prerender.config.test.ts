@@ -8,6 +8,7 @@ describe("prerenderPages", () => {
     expect(paths).toContain("/");
     expect(paths).toContain("/docs");
     expect(paths).toContain("/docs/cloudflare-setup");
+    expect(paths).toContain("/docs/cloudflare-previews-migration");
     expect(paths).toContain("/docs/do-it-yourself");
     expect(paths).toContain("/docs/receipts");
     expect(paths).toContain("/docs/the-stack");

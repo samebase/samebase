@@ -216,6 +216,11 @@ vi.mock("@/organization/OrganizationSettingsPage", () => ({
 }));
 
 vi.mock("@/components/LandingPreviewPage", () => ({
+  DocsCloudflarePreviewsMigrationPage: () => (
+    <div data-testid="docs-cloudflare-previews-migration-page">
+      Docs Worker Previews migration page
+    </div>
+  ),
   DocsCloudflareSetupPage: () => (
     <div data-testid="docs-cloudflare-setup-page">Docs Cloudflare setup page</div>
   ),
@@ -1071,6 +1076,16 @@ describe("appRouter", () => {
     ).toBe("/localStorage");
     expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
     expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the Worker Previews migration through an explicit route", async () => {
+    await renderRoute("/docs/cloudflare-previews-migration");
+
+    expect(
+      rootElement?.querySelector('[data-testid="docs-cloudflare-previews-migration-page"]')
+        ?.textContent,
+    ).toContain("Docs Worker Previews migration page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

@@ -2,6 +2,7 @@ import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import {
+  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
@@ -61,6 +62,7 @@ export const routes = rootRoute("root.tsx", [
   route("/landing", "landing.tsx"),
   route(DOCS_INDEX_ROUTE, "docs.tsx"),
   route(DOCS_CLOUDFLARE_SETUP_ROUTE, "docs-cloudflare-setup.tsx"),
+  route(DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE, "docs-cloudflare-previews-migration.tsx"),
   route(DOCS_DO_IT_YOURSELF_ROUTE, "docs-do-it-yourself.tsx"),
   route(DOCS_RECEIPTS_ROUTE, "docs-receipts.tsx"),
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),

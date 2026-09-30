@@ -2,7 +2,7 @@
 
 This is a historical dashboard trace, not the current setup guide. Use the
 [Cloudflare guide](https://samebase.com/docs/cloudflare-setup) for new apps and the
-[Worker Previews migration steps](https://samebase.com/docs/cloudflare-setup#worker-previews) for
+[Worker Previews migration steps](https://samebase.com/docs/cloudflare-previews-migration) for
 existing apps.
 
 Observed on 2026-05-14 in the Cloudflare Workers dashboard.

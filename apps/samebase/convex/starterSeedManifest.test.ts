@@ -7,7 +7,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "46e6eda89f913c147a425aed7979c0b8658b8da4be873fa83089177bb18db127",
+      contentHash: "8173ef2ed5d25f577de5536aef6733bfdf4f86a32924d7d3aab537eaec792aa9",
       commitMessage: "Initialize app from Samebase starter build v2064",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -173,8 +173,11 @@ describe("starterSeedManifest", () => {
       '"--preview-create"',
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toBeUndefined();
+    expect(starterTemplateManifest.files["README.md"]).not.toContain(
+      "https://samebase.com/docs/cloudflare-previews-migration",
+    );
     expect(starterTemplateManifest.files["README.md"]).toContain(
-      "https://samebase.com/docs/cloudflare-setup#worker-previews",
+      "https://samebase.com/docs/do-it-yourself",
     );
   });
 

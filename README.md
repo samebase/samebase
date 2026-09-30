@@ -163,7 +163,7 @@ must be a Convex production deploy key with exactly `deployment:deploy`, `deploy
 `deployment:env:write`, and `deployment:data:view`; the preview key is Convex's project-level
 Preview deploy key. The build script reuses the branch's Convex preview before `wrangler preview`
 uploads the assets. See the
-[migration steps](https://samebase.com/docs/cloudflare-setup#worker-previews) for dashboard setup.
+[migration steps](https://samebase.com/docs/cloudflare-previews-migration) for dashboard setup.
 
 Local builds never deploy Convex. To build assets and validate the Worker package without a deploy:
 
