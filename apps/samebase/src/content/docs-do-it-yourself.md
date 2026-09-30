@@ -48,24 +48,26 @@ Create a Worker, not a Pages project. The starter deploys its frontend and Worke
 5. Use `main` as the production branch.
 6. Set the build commands:
 
-   | Field                                | Value                     |
-   | ------------------------------------ | ------------------------- |
-   | Build command                        | `pnpm run build`          |
-   | Deploy command                       | `pnpm run deploy`         |
-   | Non-production branch deploy command | `pnpm run deploy:preview` |
-   | Root directory                       | `/`                       |
+   | Field           | Value                     |
+   | --------------- | ------------------------- |
+   | Build command   | `pnpm run build`          |
+   | Deploy command  | `pnpm run deploy`         |
+   | Preview command | `pnpm run deploy:preview` |
+   | Root directory  | `/`                       |
 
-7. Add both keys under **Build variables and secrets**:
+7. Enable **Preview builds**. Add `CONVEX_DEPLOY_KEY` separately under **Settings > Builds >
+   Variables and secrets**:
 
-   | Name                        | Value                          |
-   | --------------------------- | ------------------------------ |
-   | `CONVEX_DEPLOY_KEY`         | the production key from step 3 |
-   | `PREVIEW_CONVEX_DEPLOY_KEY` | the preview key from step 3    |
+   | Builds environment | `CONVEX_DEPLOY_KEY` value      |
+   | ------------------ | ------------------------------ |
+   | Production         | the production key from step 3 |
+   | Previews Base      | the Preview key from step 3    |
+
+   Deploy keys are build secrets. Do not put them in **Runtime variables and secrets**.
 
 Do not add `VITE_CONVEX_URL`. The starter gets the correct URL from Convex during each build.
 
-Enable builds for non-production branches under **Settings**, **Build**, and **Branch control**.
-Then save the configuration and start the first deployment.
+Save the configuration and start the first deployment.
 
 ## 5. Check the first deployment
 
