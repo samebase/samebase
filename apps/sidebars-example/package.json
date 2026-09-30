@@ -10,14 +10,12 @@
   },
   "type": "module",
   "scripts": {
-    "build": "vp run build:cloudflare",
+    "build": "vp run build:app",
     "build:app": "vp build",
-    "build:cloudflare": "vp run build:app",
     "check": "vp check && vp run typecheck && vp test && vp run build:app",
-    "deploy": "node ./scripts/deploy-cloudflare.ts deploy",
-    "deploy:preview": "node ./scripts/deploy-cloudflare.ts preview",
-    "deploy:dry-run": "node ./scripts/deploy-cloudflare.ts deploy --dry-run",
-    "deploy:preview:dry-run": "node ./scripts/deploy-cloudflare.ts preview --dry-run",
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler preview",
+    "deploy:dry-run": "vp run build:app && wrangler deploy --dry-run",
     "dev": "vp dev",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
@@ -44,7 +42,7 @@
     "typescript": "5.9.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.3.0",
     "vite-plus": "0.3.0",
-    "wrangler": "4.92.0"
+    "wrangler": "4.136.2"
   },
   "engines": {
     "node": ">=24.11.0",

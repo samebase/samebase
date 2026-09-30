@@ -1552,7 +1552,6 @@ export const trackedFilePaths = [
   "apps/sidebars-example/pnpm-lock.yaml",
   "apps/sidebars-example/pnpm-workspace.yaml",
   "apps/sidebars-example/public/_redirects",
-  "apps/sidebars-example/scripts/deploy-cloudflare.ts",
   "apps/sidebars-example/src/components/SamebaseAttribution.tsx",
   "apps/sidebars-example/src/index.css",
   "apps/sidebars-example/src/routeTree.gen.ts",
