@@ -24,7 +24,6 @@ import {
   requireActiveRepositoryProvisioningContinuation,
 } from "../repositoryWorkflowAuthority";
 import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
-import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudflareWorkerPreviews";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -716,9 +715,6 @@ export const readManagedWorkerConfigurationContext = internalQuery({
   returns: vManagedWorkerConfigurationContext,
   handler: async (ctx, args) => {
     const { plan, repository } = await requireActiveManagedProvisioning(ctx, args);
-    if (plan.starterBuildContract !== "native_worker_previews") {
-      throw new Error(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
-    }
     const [worker, organization] = await Promise.all([
       requireWorker(ctx, repository, args),
       requireRepositoryOrganization(ctx.db, repository),

@@ -715,7 +715,6 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
     await ctx.db.insert("workflow_repositoryProvisioning_plans", {
       repositoryId,
       convexConfigPath: "convex.json",
-      starterBuildContract: "native_worker_previews",
       convex: {
         state: "planned",
         projectName: args.convexProjectName,

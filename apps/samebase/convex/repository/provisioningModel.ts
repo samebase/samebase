@@ -124,8 +124,6 @@ export const repositoryProvisioningTables = {
   workflow_repositoryProvisioning_plans: defineTable({
     repositoryId: id("repositories"),
     convexConfigPath: string(),
-    /** Old creation plans must not authorize an irreversible preview switch for old starter code. */
-    starterBuildContract: v.optional(literal("native_worker_previews")),
     convex: union(
       object({
         state: literal("planned"),

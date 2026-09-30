@@ -392,7 +392,7 @@ test("shows migration steps without broken repair buttons for legacy previews", 
   await expect(fixture.getByText("This Worker does not use native Worker Previews.")).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Migration steps" })).toHaveAttribute(
     "href",
-    "https://github.com/samebase/samebase/blob/main/docs/worker-previews-migration.md",
+    "https://github.com/samebase/base/blob/main/docs/cloudflare-workers-builds.md",
   );
   await expect(fixture.locator('a[href*="dash.cloudflare.com"]')).toHaveAttribute(
     "href",
