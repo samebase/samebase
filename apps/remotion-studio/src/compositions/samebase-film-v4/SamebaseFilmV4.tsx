@@ -48,14 +48,18 @@ function StudyLayer({ frame, opacity }: { frame: IllusionStudyFrame; opacity: nu
   );
 }
 
-/** The haze rises from the bottom edge, so the words stay readable over the sponge. */
+/**
+The haze rises from the bottom edge, so the words stay readable over the sponge. A tall frame has
+its words higher, above the feed controls, so its haze is full from 80 percent of the height down.
+*/
 function drawVeil(context: CanvasRenderingContext2D, veil: number, pale: Rgb): void {
   const { height, width } = context.canvas;
-  const gradient = context.createLinearGradient(0, 0.68 * height, 0, height);
+  const [from, full] = height > width ? [0.52, 0.8] : [0.68, 1];
+  const gradient = context.createLinearGradient(0, from * height, 0, full * height);
   gradient.addColorStop(0, css(pale, 0));
   gradient.addColorStop(1, css(pale, 0.9 * veil));
   context.fillStyle = gradient;
-  context.fillRect(0, 0.68 * height, width, 0.32 * height);
+  context.fillRect(0, from * height, width, (1 - from) * height);
 }
 
 /** A pale line under an ink line, so the outline and its label read on every face tone. */
@@ -65,7 +69,8 @@ function drawOutline(
   { ink, pale }: FilmV4Frame["overlay"],
 ): void {
   const { cap, drawn, label, labelOpacity, opacity, radius, x, y } = outline;
-  const unit = context.canvas.height;
+  // The outline sizes follow the short side, as the camera does.
+  const unit = Math.min(context.canvas.height, context.canvas.width);
   context.save();
   context.globalAlpha = opacity;
   context.lineJoin = "round";

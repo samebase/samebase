@@ -230,6 +230,26 @@ export function RemotionRoot() {
         height={1080}
         width={1920}
       />
+      <Composition
+        id="SamebaseLookAgainRisoVertical"
+        component={SamebaseFilmV4}
+        // The riso film for vertical phone feeds.
+        defaultProps={{ fold: filmFold, from: 0, sound: true, style: "riso", variant: "look" }}
+        durationInFrames={filmV4Seconds.look * filmV4Fps}
+        fps={filmV4Fps}
+        height={1920}
+        width={1080}
+      />
+      <Composition
+        id="SamebaseLookAgainRisoVerticalPreview"
+        component={SamebaseFilmV4}
+        // The low resolution preview of the vertical riso film.
+        defaultProps={{ fold: filmFold, from: 0, sound: true, style: "riso", variant: "look" }}
+        durationInFrames={filmV4Seconds.look * 30}
+        fps={30}
+        height={640}
+        width={360}
+      />
       {(["riso", "cobalt", "sunset"] as const).map((style) => (
         <Composition
           id={`SamebaseLookAgainStyle-${style}`}

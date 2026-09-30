@@ -112,6 +112,19 @@ export type FilmV4Frame = {
 type Size = { height: number; width: number };
 type View = { elevation: number; halfHeight: number; yaw: number };
 
+/**
+The camera keeps the world size of one pixel along the short frame side, and the view half heights
+of the timeline are in frames of that side. A tall frame then shows the object at its landscape size
+across the width, with more sky above and below it.
+*/
+function shortSide({ height, width }: Size): number {
+  return Math.min(height, width);
+}
+
+function frameScale(size: Size): number {
+  return size.height / shortSide(size);
+}
+
 const sampleGrid = 4;
 const halfShutter = 0.25 / filmV4Fps;
 const grain = 0.024;
@@ -206,7 +219,11 @@ function mixStyle(from: LookStyle, to: LookStyle, amount: number): LookStyle {
     pale: mix(from.pale, to.pale),
     shadowTint: mix(from.shadowTint, to.shadowTint),
     sky: [mix(from.sky[0], to.sky[0]), mix(from.sky[1], to.sky[1])],
-    tones: { x: mix(from.tones.x, to.tones.x), y: mix(from.tones.y, to.tones.y), z: mix(from.tones.z, to.tones.z) },
+    tones: {
+      x: mix(from.tones.x, to.tones.x),
+      y: mix(from.tones.y, to.tones.y),
+      z: mix(from.tones.z, to.tones.z),
+    },
   };
 }
 
@@ -359,11 +376,11 @@ type CubeShot = {
 };
 
 /** The frame shrinks on a log scale, and the target moves from the cube center to the near corner. */
-function cubeCamera(view: View, dive: number): FilmV3Camera {
+function cubeCamera(view: View, dive: number, size: Size): FilmV3Camera {
   return orbitCamera(
     {
       ...view,
-      halfHeight: view.halfHeight * (deepHalfHeight / view.halfHeight) ** dive,
+      halfHeight: frameScale(size) * view.halfHeight * (deepHalfHeight / view.halfHeight) ** dive,
       tan: 0,
       target: scale(corner, dive),
     },
@@ -371,8 +388,8 @@ function cubeCamera(view: View, dive: number): FilmV3Camera {
   );
 }
 
-function cubeScene(shot: CubeShot): FilmV3Scene {
-  const camera = cubeCamera(shot.view, shot.dive);
+function cubeScene(shot: CubeShot, size: Size): FilmV3Scene {
+  const camera = cubeCamera(shot.view, shot.dive, size);
   return {
     camera,
     faces: shot.faces,
@@ -461,13 +478,13 @@ function revealSponge(
   if (openness <= 0) {
     return restSponge;
   }
-  const camera = cubeCamera(view, 0);
+  const camera = cubeCamera(view, 0, size);
   const rest = pixelOf(camera, [-1, firstOpening[1] * 2 - 1, firstOpening[2] * 2 - 1], size);
   const leave = easeInOutSine(progress(time, start + 0.6, start + 1.6));
   const angle = easeInOutSine(progress(time, start + 0.6, spread)) * Math.PI * 2 * 0.85;
   // The loop stays well inside the cube outline, so the probe is always the point on the surface.
-  // Its size is in pixels of the 1080 line frame.
-  const unit = size.height / 1080;
+  // Its size is in pixels of a 1080 pixel short side.
+  const unit = shortSide(size) / 1080;
   const x = mix(rest.x, size.width / 2 + (Math.sin(angle * 2) * 150 - 60) * unit, leave);
   const y = mix(rest.y, size.height / 2 + (20 - Math.sin(angle) * 120) * unit, leave);
   const probe =
@@ -508,7 +525,7 @@ function fourthFaces(
     center: [size.width / 2, size.height / 2],
     enabled: time >= lift - 0.5 && time < closed + 0.02,
     fold,
-    radius: (hexagonRadius * size.height) / (2 * halfHeight),
+    radius: (hexagonRadius * shortSide(size)) / (2 * halfHeight),
     unfold: opening * (1 - closing),
   } satisfies FilmV3Scene["faces"];
 }
@@ -770,16 +787,19 @@ function readCubeA(
       revealRadius: fullRevealRadius,
     };
   }
-  return cubeScene({
-    dive,
-    faces: fourthFaces(time, a.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
-    // The floor shadow fades with the opening faces and stays away: the giant has no floor.
-    floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + unfoldSeconds)),
-    mode,
-    shuffle: { depth: 3, fadePixels: 1.5, moveMinLevel: 0, ...readShuffle(time, shuffleMovesA) },
-    sponge,
-    view,
-  });
+  return cubeScene(
+    {
+      dive,
+      faces: fourthFaces(time, a.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
+      // The floor shadow fades with the opening faces and stays away: the giant has no floor.
+      floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + unfoldSeconds)),
+      mode,
+      shuffle: { depth: 3, fadePixels: 1.5, moveMinLevel: 0, ...readShuffle(time, shuffleMovesA) },
+      sponge,
+      view,
+    },
+    size,
+  );
 }
 
 function readFilmV4A(time: number, size: Size, fold: FourthFold): FilmV4Frame {
@@ -838,15 +858,18 @@ const b = {
 function readCubeB(time: number, size: Size, fold: FourthFold): FilmV3Scene {
   const view = markTurn(time, b.turn[0], isoView, b.turn[1]);
   const dive = easeInOutSine(progress(time, b.dive.start, b.dive.deep));
-  return cubeScene({
-    dive,
-    faces: fourthFaces(time, b.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
-    floor: 1 - easeInOutSine(progress(time, b.lift, b.lift + unfoldSeconds)),
-    mode: "sponge",
-    shuffle: restShuffle,
-    sponge: restSponge,
-    view,
-  });
+  return cubeScene(
+    {
+      dive,
+      faces: fourthFaces(time, b.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
+      floor: 1 - easeInOutSine(progress(time, b.lift, b.lift + unfoldSeconds)),
+      mode: "sponge",
+      shuffle: restShuffle,
+      sponge: restSponge,
+      view,
+    },
+    size,
+  );
 }
 
 function readFilmV4B(time: number, size: Size, fold: FourthFold): FilmV4Frame {
@@ -904,15 +927,18 @@ function readViewC(time: number): View {
 
 function readCubeC(time: number, size: Size): FilmV3Scene {
   const view = readViewC(time);
-  return cubeScene({
-    dive: easeInOutSine(progress(time, c.dive.start, c.dive.deep)),
-    faces: closedFaces,
-    floor: 1 - easeInOutSine(progress(time, c.reveal.end - 0.8, c.settled)),
-    mode: "sponge",
-    shuffle: restShuffle,
-    sponge: revealSponge(time, view, size, c.reveal),
-    view,
-  });
+  return cubeScene(
+    {
+      dive: easeInOutSine(progress(time, c.dive.start, c.dive.deep)),
+      faces: closedFaces,
+      floor: 1 - easeInOutSine(progress(time, c.reveal.end - 0.8, c.settled)),
+      mode: "sponge",
+      shuffle: restShuffle,
+      sponge: revealSponge(time, view, size, c.reveal),
+      view,
+    },
+    size,
+  );
 }
 
 function readFilmV4C(time: number, size: Size): FilmV4Frame {
@@ -1135,15 +1161,18 @@ function lookShuffle(time: number, fadePixels: number): FilmV3Scene["shuffle"] {
 
 function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Scene {
   const view = readViewLook(at);
-  return cubeScene({
-    dive: easeInOutSine(progress(at, ...look.dive)),
-    faces: closedFaces,
-    floor: 1 - easeInOutSine(progress(at, look.settle[0], 16.3)),
-    mode,
-    shuffle: lookShuffle(at, lookFadePixels),
-    sponge: { ...revealSponge(at, view, size, look.reveal), depth: lookDepth },
-    view,
-  });
+  return cubeScene(
+    {
+      dive: easeInOutSine(progress(at, ...look.dive)),
+      faces: closedFaces,
+      floor: 1 - easeInOutSine(progress(at, look.settle[0], 16.3)),
+      mode,
+      shuffle: lookShuffle(at, lookFadePixels),
+      sponge: { ...revealSponge(at, view, size, look.reveal), depth: lookDepth },
+      view,
+    },
+    size,
+  );
 }
 
 /**
@@ -1161,7 +1190,7 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
   const camera = orbitCamera(
     {
       elevation: mix(iso.elevation, 0, front),
-      halfHeight,
+      halfHeight: frameScale(size) * halfHeight,
       tan: 0,
       target: add(corner, scale(octant, giantHalf * front)),
       yaw: mix(iso.yaw, 0, front),
@@ -1177,7 +1206,10 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
     haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
     light: keyLight(camera, (0.045 * halfHeight) / deepHalfHeight, 1),
     mode: "shuffle",
-    shuffle: lookShuffle(at, Math.max(lookFadePixels, fade * 0.0426 * sampleGrid * size.height)),
+    shuffle: lookShuffle(
+      at,
+      Math.max(lookFadePixels, fade * 0.0426 * sampleGrid * shortSide(size)),
+    ),
     sponge: { ...restSponge, center: add(corner, scale(octant, drawnHalf)), halfSize: drawnHalf },
     star: inStar
       ? {
@@ -1232,36 +1264,139 @@ function readFilmV4Look(time: number, size: Size, style: LookStyleName): FilmV4F
 /**
 The big lines of the cube shots stand behind the object in two bands, one above and one below it,
 so the object overlaps them. Each line fills the frame width, rises word by word as its move starts,
-and sinks before the next one.
+and sinks before the next one. A tall frame breaks each row into the `tall` lines.
 */
-const lookBandLines: readonly { at: number; rows: readonly [string, string]; until: number }[] = [
-  { at: 3.4, rows: ["GitHub. Convex.", "Cloudflare."], until: 6.9 },
-  { at: 7.6, rows: ["Run agents", "in parallel."], until: 10.9 },
-  { at: 11.2, rows: ["Every PR gets", "its own preview."], until: 14.6 },
-  { at: 37.4, rows: ["Same base.", "Your accounts. No magic."], until: 41.3 },
+const lookBandLines: readonly {
+  at: number;
+  rows: readonly [string, string];
+  tall: readonly [readonly string[], readonly string[]];
+  until: number;
+}[] = [
+  {
+    at: 3.4,
+    rows: ["GitHub. Convex.", "Cloudflare."],
+    tall: [["GitHub.", "Convex."], ["Cloudflare."]],
+    until: 6.9,
+  },
+  {
+    at: 7.6,
+    rows: ["Run agents", "in parallel."],
+    tall: [["Run agents"], ["in parallel."]],
+    until: 10.9,
+  },
+  {
+    at: 11.2,
+    rows: ["Every PR gets", "its own preview."],
+    tall: [["Every PR gets"], ["its own", "preview."]],
+    until: 14.6,
+  },
+  {
+    at: 37.4,
+    rows: ["Same base.", "Your accounts. No magic."],
+    tall: [["Same base."], ["Your accounts.", "No magic."]],
+    until: 41.3,
+  },
 ];
 
 /** The star fills the middle of the frame, so its lines stand in front of it over the haze. */
-const lookStarLines: readonly { at: number; text: string; until: number }[] = [
-  { at: 29.5, text: "Delete your Samebase account.", until: 31.6 },
-  { at: 31.8, text: "Your app doesn't notice.", until: 34.3 },
+const lookStarLines: readonly {
+  at: number;
+  tall: readonly string[];
+  text: string;
+  until: number;
+}[] = [
+  {
+    at: 29.5,
+    tall: ["Delete your", "Samebase account."],
+    text: "Delete your Samebase account.",
+    until: 31.6,
+  },
+  {
+    at: 31.8,
+    tall: ["Your app", "doesn't notice."],
+    text: "Your app doesn't notice.",
+    until: 34.3,
+  },
 ];
+
+/**
+The lines of a tall frame, in short side widths from the frame center: the last line above the
+object and the first line below it overlap its edges as the landscape bands do. Every line stays
+clear of the controls that a phone feed draws over the right edge and the bottom fifth.
+*/
+const tallLayout = { above: -0.27, address: 0.255, below: 0.39, fit: 0.86 } as const;
+
+/** Lines that stack up from above the object or down from below it, with their words rising in order. */
+function tallLines(
+  time: number,
+  lines: readonly string[],
+  {
+    above,
+    at,
+    cap,
+    color,
+    size,
+    until,
+  }: {
+    above: boolean;
+    at: number;
+    cap: number;
+    color: Rgb;
+    size: Size;
+    until: number;
+  },
+): FilmV3Text[] {
+  const step = 1.25 * cap;
+  const start = size.height / 2 + (above ? tallLayout.above : tallLayout.below) * size.width;
+  let before = 0;
+  return lines.map((line, index) => {
+    const words = line.split(" ");
+    const first = before;
+    before += words.length;
+    return {
+      align: "center",
+      cap,
+      color,
+      fit: tallLayout.fit * size.width,
+      words: risingWords(time, words, at + first * 0.08, until + first * 0.04, 0.08),
+      x: size.width / 2,
+      y: above ? start - (lines.length - 1 - index) * step : start + index * step,
+    };
+  });
+}
 
 const lookAddress = { at: 39.8, until: 41.45 } as const;
 
 /** The words of one line, each rising `step` seconds after the one before it. */
-function risingWords(time: number, words: readonly string[], at: number, until: number, step: number) {
+function risingWords(
+  time: number,
+  words: readonly string[],
+  at: number,
+  until: number,
+  step: number,
+) {
   return words.map((word, index) => ({
     rise: rise(time, at + index * step) - rise(time, until + index * 0.04),
     text: word,
   }));
 }
 
-function lookBackdropWords(
-  time: number,
-  { height, width }: Size,
-  style: LookStyleName,
-): FilmV3Text[] {
+function lookBackdropWords(time: number, size: Size, style: LookStyleName): FilmV3Text[] {
+  const { height, width } = size;
+  if (height > width) {
+    return lookBandLines.flatMap(({ at, tall, until }) =>
+      tall.flatMap((lines, index) =>
+        tallLines(time, lines, {
+          above: index === 0,
+          at: at + index * 0.22,
+          cap: 0.1 * width,
+          color: lineInk(style, index === 0 ? 0 : 1, at, until),
+          size,
+          until: until + index * 0.08,
+        }),
+      ),
+    );
+  }
   return lookBandLines.flatMap(({ at, rows, until }) =>
     rows.map((row, index) => ({
       align: "center" as const,
@@ -1275,7 +1410,31 @@ function lookBackdropWords(
   );
 }
 
-function lookFrontWords(time: number, { height, width }: Size, style: LookStyleName): FilmV3Text[] {
+function lookFrontWords(time: number, size: Size, style: LookStyleName): FilmV3Text[] {
+  const { height, width } = size;
+  if (height > width) {
+    return [
+      ...lookStarLines.flatMap(({ at, tall, until }) =>
+        tallLines(time, tall, {
+          above: false,
+          at,
+          cap: 0.075 * width,
+          color: lineInk(style, 1, at, until),
+          size,
+          until,
+        }),
+      ),
+      {
+        align: "center",
+        cap: 0.035 * width,
+        color: lineInk(style, 1, lookAddress.at, lookAddress.until),
+        fit: width,
+        words: risingWords(time, ["samebase.com"], lookAddress.at, lookAddress.until, 0),
+        x: width / 2,
+        y: height / 2 + tallLayout.address * width,
+      },
+    ];
+  }
   return [
     ...lookStarLines.map(({ at, text, until }) => ({
       align: "center" as const,
@@ -1308,25 +1467,28 @@ const lookLabels = [
   { label: "all your apps", level: 2 },
 ] as const;
 
-function lookOutlines(time: number, { height, width }: Size): FilmV4Outline[] {
+function lookOutlines(time: number, size: Size): FilmV4Outline[] {
   if (time < look.dive[1] || time >= look.star[0]) {
     return [];
   }
   const zoom = lookZoomAt(time);
+  const unit = shortSide(size);
   return lookLabels.map(({ label, level }) => {
-    // In frame heights: a cell of half size 3^level at the half height of the zoom.
+    // In short sides: a cell of half size 3^level at the half height of the zoom.
     const radius = (hexagonRadius * 3 ** (level - zoom)) / (2 * deepHalfHeight);
     const fadeIn = 1 - smoothstep(0.42, 0.5, radius);
     return {
       // The label grows and shrinks with its outline.
-      cap: 0.28 * radius * height,
+      // It stops growing at 0.3 frame widths, where the longest label nearly fills a tall frame; a
+      // landscape outline leaves the frame first.
+      cap: 0.28 * Math.min(radius, (0.3 * size.width) / unit) * unit,
       drawn: easeInOutSine(progress(-radius, -0.5, -0.34)),
       label,
       labelOpacity: fadeIn * smoothstep(0.07, 0.11, radius),
       opacity: fadeIn * smoothstep(0.015, 0.03, radius),
-      radius: radius * height,
-      x: width / 2,
-      y: height / 2,
+      radius: radius * unit,
+      x: size.width / 2,
+      y: size.height / 2,
     };
   });
 }
