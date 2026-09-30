@@ -3,6 +3,8 @@
   "name": "samebase-posthog-proxy",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-29",
+  "preview_urls": true,
+  "previews": {},
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

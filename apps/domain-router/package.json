@@ -6,13 +6,13 @@
   "type": "module",
   "scripts": {
     "build": "wrangler deploy --dry-run",
-    "build:preview": "wrangler versions upload",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler preview",
     "deploy:dry-run": "wrangler deploy --dry-run",
     "check": "wrangler deploy --dry-run"
   },
   "devDependencies": {
-    "wrangler": "4.90.0"
+    "wrangler": "4.136.2"
   }
 }
