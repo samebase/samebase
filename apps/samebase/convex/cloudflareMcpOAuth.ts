@@ -62,7 +62,7 @@ const CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS = [
 const { id, number, optional, string, union } = v;
 
 type OAuthContext = ActionCtx | MutationCtx;
-type CloudflareOAuthTokenOperation =
+export type CloudflareOAuthTokenOperation =
   | "exchange Cloudflare OAuth code"
   | "refresh Cloudflare OAuth token";
 type CloudflareMcpAuthorizeSearchParams = {
@@ -96,7 +96,8 @@ const cloudflareMcpTokenResponseSchema = z.object({
   expires_in: z.number(),
 });
 type CloudflareMcpTokenResponse = z.infer<typeof cloudflareMcpTokenResponseSchema>;
-async function fetchWithTimeout(
+
+export async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit = {},
   timeoutMs = DEFAULT_OAUTH_TIMEOUT_MS,
@@ -157,7 +158,7 @@ export function formatCloudflareOAuthEndpointError(payload: unknown): string | u
   return `${detail.slice(0, 237)}...`;
 }
 
-function formatCloudflareOAuthRequestFailure(args: {
+export function formatCloudflareOAuthRequestFailure(args: {
   operation: CloudflareOAuthTokenOperation;
   status: number;
   payload: unknown;

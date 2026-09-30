@@ -7,8 +7,10 @@ import type { ActionCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./functions";
 import {
-  formatCloudflareOAuthEndpointError,
+  fetchWithTimeout,
+  formatCloudflareOAuthRequestFailure,
   refreshCloudflareMcpOAuthToken,
+  type CloudflareOAuthTokenOperation,
 } from "./cloudflareMcpOAuth";
 import {
   deriveMcpTokenStatusFromExpiry,
@@ -42,13 +44,9 @@ import {
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
-const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 const { boolean, id, number, object, optional, string, union } = v;
 
 type OAuthContext = ActionCtx | MutationCtx;
-type CloudflareOAuthTokenOperation =
-  | "exchange Cloudflare OAuth code"
-  | "refresh Cloudflare OAuth token";
 type CloudflareOAuthAuthorizeSearchParams = {
   response_type: "code";
   client_id: string;
@@ -113,38 +111,6 @@ const cloudflareOauthTokenResponseSchema = z.object({
   refresh_token: nonEmptyString.optional(),
   expires_in: z.number().positive(),
 });
-
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-  timeoutMs = DEFAULT_OAUTH_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Cloudflare OAuth request timed out after ${timeoutMs}ms.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function formatCloudflareOAuthRequestFailure(args: {
-  operation: CloudflareOAuthTokenOperation;
-  status: number;
-  payload: unknown;
-}): Error {
-  const detail = formatCloudflareOAuthEndpointError(args.payload);
-  const message = `Failed to ${args.operation} (${args.status})`;
-  if (!detail) {
-    return new Error(`${message}.`);
-  }
-  return new Error(`${message}: ${detail}.`);
-}
 
 function parseCloudflareOAuthTokenResponse(
   payload: unknown,
