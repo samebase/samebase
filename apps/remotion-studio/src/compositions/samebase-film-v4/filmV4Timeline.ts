@@ -10,6 +10,7 @@ import {
   type FilmV3Scene,
   type FilmV3Text,
   floorStrengthAt,
+  hex,
   hexagonRadius,
   isometricElevation,
   keyed,
@@ -23,6 +24,7 @@ import {
   probeAt,
   progress,
   readShuffle,
+  type Rgb,
   type ShuffleMove,
   type StarWidths,
   scale,
@@ -100,6 +102,7 @@ export type FilmV4Outline = {
 export type FilmV4Frame = {
   layers: readonly FilmV4Layer[];
   outlines: readonly FilmV4Outline[];
+  overlay: { ink: Rgb; pale: Rgb };
   texts: readonly FilmV3Text[];
   /** The haze that rises from the bottom edge behind the words, from 0 to 1. */
   veil: number;
@@ -112,6 +115,60 @@ const sampleGrid = 4;
 const halfShutter = 0.25 / filmV4Fps;
 const grain = 0.024;
 const haze = palettes.haze;
+
+/** The colors of the look film: the sky, the face tones, the shadow tint, and the words. */
+export type LookStyle = {
+  ink: Rgb;
+  /** The haze behind the words and the casing of the outlines. */
+  pale: Rgb;
+  shadowTint: Rgb;
+  sky: readonly [Rgb, Rgb];
+  tones: FilmV3Scene["tones"];
+};
+
+/** `haze` is the landing look. The others are presentation tests. */
+export const lookStyles = {
+  haze: {
+    ink: haze.ink,
+    pale: haze.sky[1],
+    shadowTint: haze.shadowTint,
+    sky: haze.sky,
+    tones: landingTones,
+  },
+  riso: {
+    ink: hex(0x0078bf),
+    pale: hex(0xf2ebdd),
+    shadowTint: hex(0xd6c4a8),
+    sky: [hex(0xf7f1e6), hex(0xf2ebdd)],
+    tones: { x: hex(0x0078bf), y: hex(0xffe800), z: hex(0xff48b0) },
+  },
+  cobalt: {
+    ink: hex(0xffffff),
+    pale: hex(0x2f55f0),
+    shadowTint: hex(0x14287a),
+    sky: [hex(0x1733c4), hex(0x2f55f0)],
+    tones: { x: hex(0xffd400), y: hex(0xffffff), z: hex(0x0b1654) },
+  },
+  sunset: {
+    ink: hex(0x1d1147),
+    pale: hex(0xff5c8a),
+    shadowTint: hex(0xb8325c),
+    sky: [hex(0xff8a3d), hex(0xff5c8a)],
+    tones: { x: hex(0x6b2bd9), y: hex(0xfff4e6), z: hex(0x1d1147) },
+  },
+} as const satisfies Record<string, LookStyle>;
+
+export type LookStyleName = keyof typeof lookStyles;
+
+/** The same frame in `style`: the scene keeps its geometry, light, and camera. */
+function styled(frame: FilmV3Frame, style: LookStyle): FilmV3Frame {
+  return {
+    ...frame,
+    scene: { ...frame.scene, tones: style.tones },
+    shadowTint: style.shadowTint,
+    sky: style.sky,
+  };
+}
 const iso = { elevation: isometricElevation, yaw: -45 } as const;
 
 function grainStepAt(time: number): number {
@@ -652,6 +709,7 @@ function readFilmV4A(time: number, size: Size, fold: FourthFold): FilmV4Frame {
       },
     ]),
     outlines: [],
+    overlay: { ink: haze.ink, pale: haze.sky[1] },
     texts: standardEnd(time, a.words, a.address),
     veil: 0,
   };
@@ -704,6 +762,7 @@ function readFilmV4B(time: number, size: Size, fold: FourthFold): FilmV4Frame {
       },
     ]),
     outlines: [],
+    overlay: { ink: haze.ink, pale: haze.sky[1] },
     texts: standardEnd(time, b.words, b.address),
     veil: 0,
   };
@@ -769,6 +828,7 @@ function readFilmV4C(time: number, size: Size): FilmV4Frame {
       },
     ]),
     outlines: [],
+    overlay: { ink: haze.ink, pale: haze.sky[1] },
     texts: standardEnd(time, c.words, c.address),
     veil: 0,
   };
@@ -1027,14 +1087,21 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
   };
 }
 
-function readFilmV4Look(time: number, size: Size): FilmV4Frame {
+function readFilmV4Look(time: number, size: Size, style: LookStyle): FilmV4Frame {
   const cube = (mode: CubeShot["mode"]) =>
-    filmFrame(
-      (at) => (time >= look.dive[1] ? lookPullScene(at, time, size) : readCubeLook(at, size, mode)),
-      time,
+    styled(
+      filmFrame(
+        (at) =>
+          time >= look.dive[1] ? lookPullScene(at, time, size) : readCubeLook(at, size, mode),
+        time,
+      ),
+      style,
     );
   // The landing is the first frame, grain included.
-  const rest = filmFrame((at) => readCubeLook(Math.min(at, 0), size, "sponge"), 0);
+  const rest = styled(
+    filmFrame((at) => readCubeLook(Math.min(at, 0), size, "sponge"), 0),
+    style,
+  );
   return {
     layers: stackAt(time, [
       { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube("sponge"), opacity) },
@@ -1046,7 +1113,8 @@ function readFilmV4Look(time: number, size: Size): FilmV4Frame {
       { fade: 0, from: look.closed[1], layer: (opacity) => filmLayer("film", rest, opacity) },
     ]),
     outlines: lookOutlines(time, size),
-    texts: lookWords(time, size),
+    overlay: { ink: style.ink, pale: style.pale },
+    texts: lookWords(time, size, style.ink),
     veil: smoothstep(29, 29.5, time) * (1 - smoothstep(34.4, 34.9, time)),
   };
 }
@@ -1066,8 +1134,7 @@ const lookLines: readonly { at: number; text: string; until: number }[] = [
 /** The end lines rise over the landed mark and sink before the film ends on its first frame. */
 const lookEnd = { at: 37.4, address: 39.8, until: 41.3 } as const;
 
-function lookWords(time: number, { height, width }: Size): FilmV3Text[] {
-  const ink = haze.ink;
+function lookWords(time: number, { height, width }: Size, ink: Rgb): FilmV3Text[] {
   const shown = (at: number, until: number, index: number) =>
     rise(time, at + index * 0.09) - rise(time, until + index * 0.05);
   return [
@@ -1138,6 +1205,7 @@ export function readFilmV4Frame(
   time: number,
   size: Size,
   fold: FourthFold,
+  style: LookStyleName,
 ): FilmV4Frame {
   switch (variant) {
     case "a":
@@ -1147,7 +1215,7 @@ export function readFilmV4Frame(
     case "c":
       return readFilmV4C(time, size);
     case "look":
-      return readFilmV4Look(time, size);
+      return readFilmV4Look(time, size, lookStyles[style]);
     default:
       return variant satisfies never;
   }

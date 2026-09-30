@@ -165,7 +165,7 @@ export type FilmV3Options = {
 
 // ---------- colors ----------
 
-function hex(value: number): Rgb {
+export function hex(value: number): Rgb {
   return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
 }
 

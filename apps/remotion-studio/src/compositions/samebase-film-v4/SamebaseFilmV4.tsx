@@ -18,9 +18,10 @@ import {
 } from "../illusion-studies/illusionStudyRenderer";
 import { createFilmV3Renderer } from "../samebase-film-v3/filmV3Renderer";
 import { css, drawText, fontFor, waitForFilmV3Fonts } from "../samebase-film-v3/filmV3Page";
-import { palettes, type FilmV3Frame } from "../samebase-film-v3/filmV3Timeline";
+import type { FilmV3Frame, Rgb } from "../samebase-film-v3/filmV3Timeline";
 import {
   type FilmV4Frame,
+  type LookStyleName,
   type FilmV4Outline,
   type FilmV4Variant,
   type FourthFold,
@@ -47,10 +48,8 @@ function StudyLayer({ frame, opacity }: { frame: IllusionStudyFrame; opacity: nu
   );
 }
 
-const [ink, pale] = [palettes.haze.ink, palettes.haze.sky[1]];
-
 /** The haze rises from the bottom edge, so the words stay readable over the sponge. */
-function drawVeil(context: CanvasRenderingContext2D, veil: number): void {
+function drawVeil(context: CanvasRenderingContext2D, veil: number, pale: Rgb): void {
   const { height, width } = context.canvas;
   const gradient = context.createLinearGradient(0, 0.68 * height, 0, height);
   gradient.addColorStop(0, css(pale, 0));
@@ -60,7 +59,11 @@ function drawVeil(context: CanvasRenderingContext2D, veil: number): void {
 }
 
 /** A pale line under an ink line, so the outline and its label read on every face tone. */
-function drawOutline(context: CanvasRenderingContext2D, outline: FilmV4Outline): void {
+function drawOutline(
+  context: CanvasRenderingContext2D,
+  outline: FilmV4Outline,
+  { ink, pale }: FilmV4Frame["overlay"],
+): void {
   const { cap, drawn, label, labelOpacity, opacity, radius, x, y } = outline;
   const unit = context.canvas.height;
   context.save();
@@ -98,7 +101,7 @@ function drawOutline(context: CanvasRenderingContext2D, outline: FilmV4Outline):
 }
 
 /** The veil, the outlines, and the words over both renders, drawn once the display font has loaded. */
-function OverlayLayer({ outlines, texts, veil }: Omit<FilmV4Frame, "layers">) {
+function OverlayLayer({ outlines, overlay, texts, veil }: Omit<FilmV4Frame, "layers">) {
   const { height, width } = useVideoConfig();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fontsReady, setFontsReady] = useState(false);
@@ -119,17 +122,17 @@ function OverlayLayer({ outlines, texts, veil }: Omit<FilmV4Frame, "layers">) {
     }
     context.clearRect(0, 0, width, height);
     if (veil > 0) {
-      drawVeil(context, veil);
+      drawVeil(context, veil, overlay.pale);
     }
     for (const outline of outlines) {
       if (outline.opacity > 0) {
-        drawOutline(context, outline);
+        drawOutline(context, outline, overlay);
       }
     }
     for (const line of texts) {
       drawText(context, line);
     }
-  }, [fontsReady, height, outlines, texts, veil, width]);
+  }, [fontsReady, height, outlines, overlay, texts, veil, width]);
   return (
     <AbsoluteFill>
       <canvas height={height} ref={canvasRef} width={width} />
@@ -215,6 +218,8 @@ export type SamebaseFilmV4Props = {
   fold: FourthFold;
   /** Film seconds at the first frame: 0 for the films, later for the fourth face beat clips. */
   from: number;
+  /** The colors of the look variant. The other variants keep the landing haze. */
+  style: LookStyleName;
   variant: FilmV4Variant;
 };
 
@@ -222,12 +227,12 @@ export type SamebaseFilmV4Props = {
 The v4 brand films. The music and the sound effects are local only: `public/media/samebase-film-v3*.mp3`
 from v3.5.
 */
-export function SamebaseFilmV4({ fold, from, variant }: SamebaseFilmV4Props) {
+export function SamebaseFilmV4({ fold, from, style, variant }: SamebaseFilmV4Props) {
   const frame = useCurrentFrame();
   const { fps, height, width } = useVideoConfig();
   const v4 = useMemo(
-    () => readFilmV4Frame(variant, from + frame / fps, { height, width }, fold),
-    [fold, fps, frame, from, height, variant, width],
+    () => readFilmV4Frame(variant, from + frame / fps, { height, width }, fold, style),
+    [fold, fps, frame, from, height, style, variant, width],
   );
   const cuts = music[variant];
   return (
@@ -239,7 +244,12 @@ export function SamebaseFilmV4({ fold, from, variant }: SamebaseFilmV4Props) {
           <StudyLayer frame={layer.frame} key={layer.id} opacity={layer.opacity} />
         ),
       )}
-      <OverlayLayer outlines={v4.outlines} texts={v4.texts} veil={v4.veil} />
+      <OverlayLayer
+        outlines={v4.outlines}
+        overlay={v4.overlay}
+        texts={v4.texts}
+        veil={v4.veil}
+      />
       {cuts.map((cut, index) => (
         <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
       ))}

@@ -192,7 +192,7 @@ export function RemotionRoot() {
         <Composition
           id={`SamebaseFilmV4${variant.toUpperCase()}`}
           component={SamebaseFilmV4}
-          defaultProps={{ fold: filmFold, from: 0, variant }}
+          defaultProps={{ fold: filmFold, from: 0, style: "haze", variant }}
           durationInFrames={filmV4Seconds[variant] * filmV4Fps}
           fps={filmV4Fps}
           height={1080}
@@ -204,18 +204,31 @@ export function RemotionRoot() {
         id="SamebaseLookAgainPreview"
         component={SamebaseFilmV4}
         // The low resolution preview of the look again film.
-        defaultProps={{ fold: filmFold, from: 0, variant: "look" }}
+        defaultProps={{ fold: filmFold, from: 0, style: "haze", variant: "look" }}
         durationInFrames={filmV4Seconds.look * 30}
         fps={30}
         height={270}
         width={480}
       />
+      {(["riso", "cobalt", "sunset"] as const).map((style) => (
+        <Composition
+          id={`SamebaseLookAgainStyle-${style}`}
+          component={SamebaseFilmV4}
+          // A presentation test of the look again preview.
+          defaultProps={{ fold: filmFold, from: 0, style, variant: "look" }}
+          durationInFrames={filmV4Seconds.look * 30}
+          fps={30}
+          height={270}
+          key={style}
+          width={480}
+        />
+      ))}
       {(["leaf", "shear"] as const).map((fold) => (
         <Composition
           id={`FilmV4FoldBeat-${fold}`}
           component={SamebaseFilmV4}
           // The fourth face of B, from one beat before the lift to the start of the zoom in.
-          defaultProps={{ fold, from: 3, variant: "b" }}
+          defaultProps={{ fold, from: 3, style: "haze", variant: "b" }}
           durationInFrames={Math.round(5.2 * filmV4Fps)}
           fps={filmV4Fps}
           height={1080}
