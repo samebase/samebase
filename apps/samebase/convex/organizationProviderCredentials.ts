@@ -315,44 +315,6 @@ export const loadCloudflareTokenRefreshContinuation = internalQuery({
   },
 });
 
-export const loadCloudflareTokenRefreshContinuationForManualProviderWrite = internalQuery({
-  args: {
-    ...manualCloudflareProviderWriteArgs,
-    expectedAuth: vCloudflareProviderAuth,
-    expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
-  },
-  returns: vCloudflareTokenRefreshConfiguration,
-  handler: async (ctx, args) => {
-    await requireManualCloudflareProviderWriteCheckpoint(ctx, args);
-    const [organization, credentials] = await Promise.all([
-      ctx.db.get(args.organizationId),
-      getOrganizationProviderCredentials(ctx.db, args.organizationId),
-    ]);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const credential = credentials?.cloudflare;
-    if (credential === undefined) {
-      throw new Error("Cloudflare credential not found.");
-    }
-    if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
-      throw new Error("Cloudflare credential changed before token refresh continuation.");
-    }
-    if (
-      credential.tokenRefreshLease?.startedAt !== args.expectedTokenRefreshLease.startedAt ||
-      credential.tokenRefreshLease.expiresAt !== args.expectedTokenRefreshLease.expiresAt
-    ) {
-      throw new Error("Cloudflare token refresh lease changed before continuation.");
-    }
-    return {
-      ...(organization.cloudflareAccount
-        ? { cloudflareAccount: organization.cloudflareAccount }
-        : {}),
-      cloudflareCredential: credential,
-    };
-  },
-});
-
 export const loadForRepositoryProviderWorkflow = internalQuery({
   args: { authority: vRepositoryProviderWorkflowAuthority },
   returns: object({

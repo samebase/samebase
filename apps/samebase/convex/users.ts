@@ -779,7 +779,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   let shouldRecordLastTokenRefreshAt = false;
   try {
     const resolvedConnection = await args.ctx.runAction(
-      internal.cloudflareMcpOAuth.resolveConnectionForOrganization,
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
       {
         userId: args.userId,
         organizationId,
