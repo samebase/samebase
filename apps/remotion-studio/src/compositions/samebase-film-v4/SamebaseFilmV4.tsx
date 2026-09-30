@@ -218,6 +218,11 @@ export type SamebaseFilmV4Props = {
   fold: FourthFold;
   /** Film seconds at the first frame: 0 for the films, later for the fourth face beat clips. */
   from: number;
+  /**
+  Plays the music and the sound effects. A video-only render leaves them out, so it runs on a
+  machine without the local-only media files, and the music is added to the result later.
+  */
+  sound: boolean;
   /** The colors of the look variant. The other variants keep the landing haze. */
   style: LookStyleName;
   variant: FilmV4Variant;
@@ -227,14 +232,15 @@ export type SamebaseFilmV4Props = {
 The v4 brand films. The music and the sound effects are local only: `public/media/samebase-film-v3*.mp3`
 from v3.5.
 */
-export function SamebaseFilmV4({ fold, from, style, variant }: SamebaseFilmV4Props) {
+export function SamebaseFilmV4({ fold, from, sound, style, variant }: SamebaseFilmV4Props) {
   const frame = useCurrentFrame();
   const { fps, height, width } = useVideoConfig();
   const v4 = useMemo(
     () => readFilmV4Frame(variant, from + frame / fps, { height, width }, fold, style),
     [fold, fps, frame, from, height, style, variant, width],
   );
-  const cuts = music[variant];
+  const cuts = sound ? music[variant] : [];
+  const cues = sound ? soundCues[variant] : [];
   return (
     <AbsoluteFill style={{ backgroundColor: "#dfe4ea" }}>
       {v4.layers.map((layer) =>
@@ -253,7 +259,7 @@ export function SamebaseFilmV4({ fold, from, style, variant }: SamebaseFilmV4Pro
       {cuts.map((cut, index) => (
         <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
       ))}
-      {soundCues[variant].map(({ at, name, volume }) => (
+      {cues.map(({ at, name, volume }) => (
         <Sequence from={Math.round((at - from) * fps)} key={`${name}-${at}`}>
           <Audio src={staticFile(`media/samebase-film-v3-${name}.mp3`)} volume={volume} />
         </Sequence>

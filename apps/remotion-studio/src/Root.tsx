@@ -192,7 +192,7 @@ export function RemotionRoot() {
         <Composition
           id={`SamebaseFilmV4${variant.toUpperCase()}`}
           component={SamebaseFilmV4}
-          defaultProps={{ fold: filmFold, from: 0, style: "haze", variant }}
+          defaultProps={{ fold: filmFold, from: 0, sound: true, style: "haze", variant }}
           durationInFrames={filmV4Seconds[variant] * filmV4Fps}
           fps={filmV4Fps}
           height={1080}
@@ -204,7 +204,7 @@ export function RemotionRoot() {
         id="SamebaseLookAgainPreview"
         component={SamebaseFilmV4}
         // The low resolution preview of the look again film.
-        defaultProps={{ fold: filmFold, from: 0, style: "haze", variant: "look" }}
+        defaultProps={{ fold: filmFold, from: 0, sound: true, style: "haze", variant: "look" }}
         durationInFrames={filmV4Seconds.look * 30}
         fps={30}
         height={270}
@@ -214,7 +214,17 @@ export function RemotionRoot() {
         id="SamebaseLookAgainRiso"
         component={SamebaseFilmV4}
         // The look again film in the riso style at full size.
-        defaultProps={{ fold: filmFold, from: 0, style: "riso", variant: "look" }}
+        defaultProps={{ fold: filmFold, from: 0, sound: true, style: "riso", variant: "look" }}
+        durationInFrames={filmV4Seconds.look * filmV4Fps}
+        fps={filmV4Fps}
+        height={1080}
+        width={1920}
+      />
+      <Composition
+        id="SamebaseLookAgainRisoVideo"
+        component={SamebaseFilmV4}
+        // The same film without sound, for a machine without the local-only music files.
+        defaultProps={{ fold: filmFold, from: 0, sound: false, style: "riso", variant: "look" }}
         durationInFrames={filmV4Seconds.look * filmV4Fps}
         fps={filmV4Fps}
         height={1080}
@@ -225,7 +235,7 @@ export function RemotionRoot() {
           id={`SamebaseLookAgainStyle-${style}`}
           component={SamebaseFilmV4}
           // A presentation test of the look again preview.
-          defaultProps={{ fold: filmFold, from: 0, style, variant: "look" }}
+          defaultProps={{ fold: filmFold, from: 0, sound: true, style, variant: "look" }}
           durationInFrames={filmV4Seconds.look * 30}
           fps={30}
           height={270}
@@ -238,7 +248,7 @@ export function RemotionRoot() {
           id={`FilmV4FoldBeat-${fold}`}
           component={SamebaseFilmV4}
           // The fourth face of B, from one beat before the lift to the start of the zoom in.
-          defaultProps={{ fold, from: 3, style: "haze", variant: "b" }}
+          defaultProps={{ fold, from: 3, sound: true, style: "haze", variant: "b" }}
           durationInFrames={Math.round(5.2 * filmV4Fps)}
           fps={filmV4Fps}
           height={1080}
