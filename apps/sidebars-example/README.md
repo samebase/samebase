@@ -27,7 +27,6 @@ pnpm run dev
 pnpm run build
 pnpm run check
 pnpm run deploy:dry-run
-pnpm run deploy:preview:dry-run
 pnpm run format
 pnpm run format:check
 pnpm run lint
@@ -38,14 +37,20 @@ pnpm run typecheck
 ## Cloudflare deployment
 
 Use the repository root as the Cloudflare Workers Builds root directory. Run `pnpm run build`, then
-`pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches. The deploy script uses
-the connected Worker name that Cloudflare supplies and does not repeat the build during Workers
-Builds.
+`pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches. Wrangler uses the
+connected Worker name that Cloudflare supplies. Enable native Worker Previews for the existing
+connection as described in the
+[migration guide](https://samebase.com/docs/cloudflare-previews-migration). This app does not use
+Convex or deploy keys.
 
-For a local upload check, set `CLOUDFLARE_WORKER_NAME` to `samebase-sidebars-example`, then run one
-of the dry-run commands above. `wrangler.jsonc` publishes `dist/client` with the standard Samebase
-observability and SPA settings. `public/_redirects` maps `/` to its prerendered HTML file while
-`index.html` remains the SPA fallback.
+Build before a manual deploy. Use `pnpm run deploy --name samebase-sidebars-example` for production
+or `pnpm run deploy:preview --worker-name samebase-sidebars-example` for a preview. For a local
+check without an upload, run `pnpm run deploy:dry-run --name samebase-sidebars-example`. It builds
+the app before the production dry run. Worker Previews has no dry-run mode.
+
+`wrangler.jsonc` publishes `dist/client` with the standard Samebase observability and SPA settings.
+`public/_redirects` maps `/` to its prerendered HTML file while `index.html` remains the SPA
+fallback.
 
 ## Architecture
 
