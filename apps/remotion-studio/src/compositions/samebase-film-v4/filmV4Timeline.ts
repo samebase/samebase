@@ -951,6 +951,12 @@ function readViewLook(time: number): View {
   };
 }
 
+/**
+The openings stay open down to 4/3 of a pixel and close below it, so the smallest holes are still
+there while the camera zooms. The 16 samples of each pixel average the smaller ones to a tone.
+*/
+const lookFadePixels = 0.5;
+
 function lookShuffle(time: number, fadePixels: number): FilmV3Scene["shuffle"] {
   return { depth: 8, fadePixels, moveMinLevel: 0, ...readShuffle(time, wanderMoves) };
 }
@@ -962,7 +968,7 @@ function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Sce
     faces: closedFaces,
     floor: 1 - easeInOutSine(progress(at, look.settle[0], 16.3)),
     mode,
-    shuffle: lookShuffle(at, 1.5),
+    shuffle: lookShuffle(at, lookFadePixels),
     sponge: revealSponge(at, view, size, look.reveal),
     view,
   });
@@ -999,7 +1005,7 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
     haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
     light: keyLight(camera, (0.045 * halfHeight) / deepHalfHeight, 1),
     mode: "shuffle",
-    shuffle: lookShuffle(at, Math.max(1.5, fade * 0.0426 * size.height)),
+    shuffle: lookShuffle(at, Math.max(lookFadePixels, fade * 0.0426 * size.height)),
     sponge: { ...restSponge, center: add(corner, scale(octant, drawnHalf)), halfSize: drawnHalf },
     star: inStar
       ? {
