@@ -392,7 +392,7 @@ test("shows migration steps without broken repair buttons for legacy previews", 
   await expect(fixture.getByText("This Worker does not use native Worker Previews.")).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Migration steps" })).toHaveAttribute(
     "href",
-    "/docs/cloudflare-setup#worker-previews",
+    "/docs/cloudflare-previews-migration",
   );
   await expect(fixture.locator('a[href*="dash.cloudflare.com"]')).toHaveAttribute(
     "href",
@@ -415,12 +415,15 @@ test("shows migration steps without broken repair buttons for legacy previews", 
       scale: "css",
     },
   );
-  await page.goto("/docs/cloudflare-setup#worker-previews");
-  await expect(page).toHaveURL(/\/docs\/cloudflare-setup#worker-previews$/);
+  await page.goto("/docs/cloudflare-previews-migration");
+  await expect(page).toHaveURL(/\/docs\/cloudflare-previews-migration$/);
   await expect(
-    page.getByRole("heading", { name: "Worker Previews", exact: true }),
+    page.getByRole("heading", { name: "Migrate to Cloudflare Worker Previews", exact: true }),
   ).toBeInViewport();
   await expect(page.getByRole("heading", { name: "Switch Cloudflare", exact: true })).toBeVisible();
+  const markdownResponse = await page.request.get("/docs/cloudflare-previews-migration.md");
+  expect(markdownResponse.status()).toBe(200);
+  expect(await markdownResponse.text()).toContain("# Migrate to Cloudflare Worker Previews");
 });
 
 test("covers the mobile repository removal dialog", async ({ page }) => {

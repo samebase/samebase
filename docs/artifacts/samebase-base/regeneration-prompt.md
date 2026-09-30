@@ -74,7 +74,7 @@ For a Workers/TanStack Start version:
 - Keep Convex as the backend.
 - Preserve the current app behavior, including the QR share block.
 - Deploy with Cloudflare Workers Static Assets using wrangler.jsonc.
-- Read apps/samebase/src/content/docs-cloudflare-setup.md before writing
+- Read apps/samebase/src/content/docs-cloudflare-previews-migration.md before writing
   Workers setup docs. Make `package.json` `build` match the Cloudflare
   dashboard default and delegate to the Cloudflare-aware build path. Do not
   hard-code the Worker `name` in `wrangler.jsonc`; use the template's pinned
@@ -88,9 +88,9 @@ For a Workers/TanStack Start version:
   Unix-only utilities; use Node process APIs and handle Windows `.cmd` entry
   points explicitly when needed.
 - Use the native Worker Previews commands and deploy-key scopes documented in
-  apps/samebase/src/content/docs-cloudflare-setup.md. Do not restore the old
+  apps/samebase/src/content/docs-cloudflare-previews-migration.md. Do not restore the old
   two-key build script or the Wrangler deploy wrapper.
-- Follow https://samebase.com/docs/cloudflare-setup#worker-previews when updating an existing app.
+- Follow https://samebase.com/docs/cloudflare-previews-migration when updating an existing app.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 

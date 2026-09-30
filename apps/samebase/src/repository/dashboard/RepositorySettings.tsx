@@ -25,7 +25,7 @@ import {
 } from "@/organization/useOrganizationGitHubIdentity";
 import { OrganizationContext } from "@/organization/context";
 import { buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
-import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
+import { DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE } from "@/routeSearch/landingPreview";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
@@ -176,8 +176,7 @@ function SettingsResourceRow({ resource }: { resource: RepositorySettingsResourc
               This Worker does not use native Worker Previews.{" "}
               <Link
                 className="underline underline-offset-4"
-                hash="worker-previews"
-                to={DOCS_CLOUDFLARE_SETUP_ROUTE}
+                to={DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE}
               >
                 Migration steps
               </Link>

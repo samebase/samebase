@@ -275,6 +275,10 @@ function syncStaticCompactIdentitySvgAssetsPlugin() {
  */
 const contentDocsMarkdownAssets = [
   { assetPath: "docs/cloudflare-setup.md", sourcePath: "src/content/docs-cloudflare-setup.md" },
+  {
+    assetPath: "docs/cloudflare-previews-migration.md",
+    sourcePath: "src/content/docs-cloudflare-previews-migration.md",
+  },
   { assetPath: "docs/do-it-yourself.md", sourcePath: "src/content/docs-do-it-yourself.md" },
   {
     assetPath: "docs/operate/agent-plugin.md",

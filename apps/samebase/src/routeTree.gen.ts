@@ -42,6 +42,7 @@ import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
+import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/docs-cloudflare-previews-migration";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminUsersRouteImport } from "./routes/admin-users";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
@@ -228,6 +229,12 @@ const docsCloudflareSetupRoute = docsCloudflareSetupRouteImport.update({
   path: "/docs/cloudflare-setup",
   getParentRoute: () => rootRouteImport,
 } as any);
+const docsCloudflarePreviewsMigrationRoute =
+  docsCloudflarePreviewsMigrationRouteImport.update({
+    id: "/docs/cloudflare-previews-migration",
+    path: "/docs/cloudflare-previews-migration",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const agentsConnectRoute = agentsConnectRouteImport.update({
   id: "/agents/connect",
   path: "/agents/connect",
@@ -356,6 +363,7 @@ export interface FileRoutesByFullPath {
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
+  "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
@@ -411,6 +419,7 @@ export interface FileRoutesByTo {
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
+  "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
@@ -467,6 +476,7 @@ export interface FileRoutesById {
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
+  "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
@@ -524,6 +534,7 @@ export interface FileRouteTypes {
     | "/admin/account-deletions"
     | "/admin/users"
     | "/agents/connect"
+    | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
@@ -579,6 +590,7 @@ export interface FileRouteTypes {
     | "/admin/account-deletions"
     | "/admin/users"
     | "/agents/connect"
+    | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
@@ -634,6 +646,7 @@ export interface FileRouteTypes {
     | "/admin/account-deletions"
     | "/admin/users"
     | "/agents/connect"
+    | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
@@ -690,6 +703,7 @@ export interface RootRouteChildren {
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   adminUsersRoute: typeof adminUsersRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
+  docsCloudflarePreviewsMigrationRoute: typeof docsCloudflarePreviewsMigrationRoute;
   docsCloudflareSetupRoute: typeof docsCloudflareSetupRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
@@ -955,6 +969,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsCloudflareSetupRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/docs/cloudflare-previews-migration": {
+      id: "/docs/cloudflare-previews-migration";
+      path: "/docs/cloudflare-previews-migration";
+      fullPath: "/docs/cloudflare-previews-migration";
+      preLoaderRoute: typeof docsCloudflarePreviewsMigrationRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/agents/connect": {
       id: "/agents/connect";
       path: "/agents/connect";
@@ -1122,6 +1143,7 @@ const rootRouteChildren: RootRouteChildren = {
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   adminUsersRoute: adminUsersRoute,
   agentsConnectRoute: agentsConnectRoute,
+  docsCloudflarePreviewsMigrationRoute: docsCloudflarePreviewsMigrationRoute,
   docsCloudflareSetupRoute: docsCloudflareSetupRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,

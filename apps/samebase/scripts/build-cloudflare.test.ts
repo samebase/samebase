@@ -35,6 +35,7 @@ describe("build-cloudflare", () => {
       "https://samebase.com/",
       "https://samebase.com/docs",
       "https://samebase.com/docs/cloudflare-setup",
+      "https://samebase.com/docs/cloudflare-previews-migration",
       "https://samebase.com/docs/do-it-yourself",
       "https://samebase.com/docs/receipts",
       "https://samebase.com/docs/the-stack",

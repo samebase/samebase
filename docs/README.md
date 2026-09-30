@@ -20,7 +20,7 @@ Current key docs:
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
 - `docs/existing-app-cloudflare-workers-migration.md` for moving an adopted application from an old
   host to Cloudflare Workers with branch validation, cutover, monitoring, and rollback
-- [Worker Previews](https://samebase.com/docs/cloudflare-setup#worker-previews) for switching an
+- [Worker Previews](https://samebase.com/docs/cloudflare-previews-migration) for switching an
   existing Convex app to Worker Previews, separating build keys, and checking that repeated preview
   builds preserve data and sessions
 - `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger

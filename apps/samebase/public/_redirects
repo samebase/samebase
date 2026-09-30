@@ -24,6 +24,10 @@
 /docs /docs/index.html 200
 /docs/ /docs/index.html 200
 
+/docs/cloudflare-previews-migration/index.html /docs/cloudflare-previews-migration 301
+/docs/cloudflare-previews-migration /docs/cloudflare-previews-migration/index.html 200
+/docs/cloudflare-previews-migration/ /docs/cloudflare-previews-migration/index.html 200
+
 /docs/cloudflare-setup/index.html /docs/cloudflare-setup 301
 /docs/cloudflare-setup /docs/cloudflare-setup/index.html 200
 /docs/cloudflare-setup/ /docs/cloudflare-setup/index.html 200
