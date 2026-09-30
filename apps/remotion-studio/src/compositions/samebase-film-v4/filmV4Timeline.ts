@@ -135,13 +135,6 @@ export const lookStyles = {
     sky: haze.sky,
     tones: landingTones,
   },
-  riso: {
-    ink: hex(0x0078bf),
-    pale: hex(0xf2ebdd),
-    shadowTint: hex(0xd6c4a8),
-    sky: [hex(0xf7f1e6), hex(0xf2ebdd)],
-    tones: { x: hex(0x0078bf), y: hex(0xffe800), z: hex(0xff48b0) },
-  },
   cobalt: {
     ink: hex(0xffffff),
     pale: hex(0x2f55f0),
@@ -158,12 +151,70 @@ export const lookStyles = {
   },
 } as const satisfies Record<string, LookStyle>;
 
-export type LookStyleName = keyof typeof lookStyles;
+/**
+The riso look: riso inks on paper. The film starts and ends in `paper`, and a cut on the beat of a
+new line changes the whole theme, the way the theme params of Samebase recolor a whole app.
+*/
+const riso = {
+  paper: {
+    ink: hex(0x0078bf),
+    pale: hex(0xf2ebdd),
+    shadowTint: hex(0xd6c4a8),
+    sky: [hex(0xf7f1e6), hex(0xf2ebdd)],
+    tones: { x: hex(0x0078bf), y: hex(0xffe800), z: hex(0xff48b0) },
+  },
+  pink: {
+    ink: hex(0xf7f1e6),
+    pale: hex(0xff5cb8),
+    shadowTint: hex(0xc8338a),
+    sky: [hex(0xff48b0), hex(0xff5cb8)],
+    tones: { x: hex(0xffe800), y: hex(0xf7f1e6), z: hex(0x0078bf) },
+  },
+  yellow: {
+    ink: hex(0xff48b0),
+    pale: hex(0xffee3a),
+    shadowTint: hex(0xd4bf00),
+    sky: [hex(0xffe800), hex(0xffee3a)],
+    tones: { x: hex(0xff48b0), y: hex(0xf7f1e6), z: hex(0x00838a) },
+  },
+  blue: {
+    ink: hex(0xffe800),
+    pale: hex(0x1488cf),
+    shadowTint: hex(0x005a91),
+    sky: [hex(0x0078bf), hex(0x1488cf)],
+    tones: { x: hex(0xffe800), y: hex(0xf7f1e6), z: hex(0xff48b0) },
+  },
+} as const satisfies Record<string, LookStyle>;
+
+const risoThemes: readonly { at: number; theme: LookStyle }[] = [
+  { at: 0, theme: riso.paper },
+  { at: 7.5, theme: riso.pink },
+  { at: 11.1, theme: riso.yellow },
+  { at: 17.5, theme: riso.blue },
+  { at: 29.5, theme: riso.pink },
+  { at: 34.9, theme: riso.paper },
+];
+
+export type LookStyleName = keyof typeof lookStyles | "riso";
+
+function lookThemeAt(style: LookStyleName, time: number): LookStyle {
+  if (style !== "riso") {
+    return lookStyles[style];
+  }
+  let theme: LookStyle = riso.paper;
+  for (const entry of risoThemes) {
+    if (time >= entry.at) {
+      theme = entry.theme;
+    }
+  }
+  return theme;
+}
 
 /** The same frame in `style`: the scene keeps its geometry, light, and camera. */
-function styled(frame: FilmV3Frame, style: LookStyle): FilmV3Frame {
+function styled(frame: FilmV3Frame, style: LookStyle, backdropTexts: FilmV3Text[]): FilmV3Frame {
   return {
     ...frame,
+    backdropTexts,
     scene: { ...frame.scene, tones: style.tones },
     shadowTint: style.shadowTint,
     sky: style.sky,
@@ -576,6 +627,7 @@ function endWords(time: number, lines: readonly Word[], address: Word): FilmV3Te
     ...lines.map(({ at, text }, index) => ({
       align: "left" as const,
       cap: 84,
+      fit: Infinity,
       color: ink,
       words: [{ rise: rise(time, at), text }],
       x: 150,
@@ -584,6 +636,7 @@ function endWords(time: number, lines: readonly Word[], address: Word): FilmV3Te
     {
       align: "left",
       cap: 46,
+      fit: Infinity,
       color: ink,
       words: [{ rise: rise(time, address.at), text: address.text }],
       x: 152,
@@ -1087,7 +1140,9 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
   };
 }
 
-function readFilmV4Look(time: number, size: Size, style: LookStyle): FilmV4Frame {
+function readFilmV4Look(time: number, size: Size, style: LookStyleName): FilmV4Frame {
+  const theme = lookThemeAt(style, time);
+  const backdrop = lookBackdropWords(time, size, theme.ink);
   const cube = (mode: CubeShot["mode"]) =>
     styled(
       filmFrame(
@@ -1095,12 +1150,14 @@ function readFilmV4Look(time: number, size: Size, style: LookStyle): FilmV4Frame
           time >= look.dive[1] ? lookPullScene(at, time, size) : readCubeLook(at, size, mode),
         time,
       ),
-      style,
+      theme,
+      backdrop,
     );
   // The landing is the first frame, grain included.
   const rest = styled(
     filmFrame((at) => readCubeLook(Math.min(at, 0), size, "sponge"), 0),
-    style,
+    theme,
+    backdrop,
   );
   return {
     layers: stackAt(time, [
@@ -1113,57 +1170,73 @@ function readFilmV4Look(time: number, size: Size, style: LookStyle): FilmV4Frame
       { fade: 0, from: look.closed[1], layer: (opacity) => filmLayer("film", rest, opacity) },
     ]),
     outlines: lookOutlines(time, size),
-    overlay: { ink: style.ink, pale: style.pale },
-    texts: lookWords(time, size, style.ink),
+    overlay: { ink: theme.ink, pale: theme.pale },
+    texts: lookFrontWords(time, size, theme.ink),
     veil: smoothstep(29, 29.5, time) * (1 - smoothstep(34.4, 34.9, time)),
   };
 }
 
 /**
-Each move carries one line from the landing page. A line rises word by word as its move starts and
-sinks before the next one, and the dive and the first cycles of the zoom out have no words.
+The big lines of the cube shots stand behind the object in two bands, one above and one below it,
+so the object overlaps them. Each line fills the frame width, rises word by word as its move starts,
+and sinks before the next one.
 */
-const lookLines: readonly { at: number; text: string; until: number }[] = [
-  { at: 3.4, text: "GitHub. Convex. Cloudflare.", until: 6.9 },
-  { at: 7.6, text: "Run agents in parallel.", until: 10.9 },
-  { at: 11.1, text: "Every PR gets its own preview.", until: 14.6 },
+const lookBandLines: readonly { at: number; rows: readonly [string, string]; until: number }[] = [
+  { at: 3.4, rows: ["GitHub. Convex.", "Cloudflare."], until: 6.9 },
+  { at: 7.6, rows: ["Run agents", "in parallel."], until: 10.9 },
+  { at: 11.2, rows: ["Every PR gets", "its own preview."], until: 14.6 },
+  { at: 37.4, rows: ["Same base.", "Your accounts. No magic."], until: 41.3 },
+];
+
+/** The star fills the middle of the frame, so its lines stand in front of it over the haze. */
+const lookStarLines: readonly { at: number; text: string; until: number }[] = [
   { at: 29.5, text: "Delete your Samebase account.", until: 31.6 },
   { at: 31.8, text: "Your app doesn't notice.", until: 34.3 },
 ];
 
-/** The end lines rise over the landed mark and sink before the film ends on its first frame. */
-const lookEnd = { at: 37.4, address: 39.8, until: 41.3 } as const;
+const lookAddress = { at: 39.8, until: 41.45 } as const;
 
-function lookWords(time: number, { height, width }: Size, ink: Rgb): FilmV3Text[] {
-  const shown = (at: number, until: number, index: number) =>
-    rise(time, at + index * 0.09) - rise(time, until + index * 0.05);
-  return [
-    ...lookLines.map(({ at, text, until }) => ({
+/** The words of one line, each rising `step` seconds after the one before it. */
+function risingWords(time: number, words: readonly string[], at: number, until: number, step: number) {
+  return words.map((word, index) => ({
+    rise: rise(time, at + index * step) - rise(time, until + index * 0.04),
+    text: word,
+  }));
+}
+
+function lookBackdropWords(time: number, { height, width }: Size, ink: Rgb): FilmV3Text[] {
+  return lookBandLines.flatMap(({ at, rows, until }) =>
+    rows.map((row, index) => ({
       align: "center" as const,
-      cap: 0.05 * height,
+      cap: 0.19 * height,
       color: ink,
-      words: text.split(" ").map((word, index) => ({ rise: shown(at, until, index), text: word })),
+      fit: 0.94 * width,
+      words: risingWords(time, row.split(" "), at + index * 0.22, until + index * 0.08, 0.08),
       x: width / 2,
-      y: 0.9 * height,
+      y: (index === 0 ? 0.25 : 0.94) * height,
+    })),
+  );
+}
+
+function lookFrontWords(time: number, { height, width }: Size, ink: Rgb): FilmV3Text[] {
+  return [
+    ...lookStarLines.map(({ at, text, until }) => ({
+      align: "center" as const,
+      cap: 0.13 * height,
+      color: ink,
+      fit: 0.94 * width,
+      words: risingWords(time, text.split(" "), at, until, 0.08),
+      x: width / 2,
+      y: 0.93 * height,
     })),
     {
       align: "center",
-      cap: 0.05 * height,
+      cap: 0.035 * height,
       color: ink,
-      words: ["Same base.", "Your accounts.", "No magic."].map((text, index) => ({
-        rise: rise(time, lookEnd.at + index * 0.6) - rise(time, lookEnd.until + index * 0.05),
-        text,
-      })),
+      fit: width,
+      words: risingWords(time, ["samebase.com"], lookAddress.at, lookAddress.until, 0),
       x: width / 2,
-      y: 0.84 * height,
-    },
-    {
-      align: "center",
-      cap: 0.03 * height,
-      color: ink,
-      words: [{ rise: shown(lookEnd.address, lookEnd.until + 0.15, 0), text: "samebase.com" }],
-      x: width / 2,
-      y: 0.93 * height,
+      y: 0.73 * height,
     },
   ];
 }
@@ -1188,7 +1261,8 @@ function lookOutlines(time: number, { height, width }: Size): FilmV4Outline[] {
     const radius = (hexagonRadius * 3 ** (level - zoom)) / (2 * deepHalfHeight);
     const fadeIn = 1 - smoothstep(0.42, 0.5, radius);
     return {
-      cap: 0.036 * height,
+      // The label grows and shrinks with its outline.
+      cap: 0.28 * radius * height,
       drawn: easeInOutSine(progress(-radius, -0.5, -0.34)),
       label,
       labelOpacity: fadeIn * smoothstep(0.07, 0.11, radius),
@@ -1215,7 +1289,7 @@ export function readFilmV4Frame(
     case "c":
       return readFilmV4C(time, size);
     case "look":
-      return readFilmV4Look(time, size, lookStyles[style]);
+      return readFilmV4Look(time, size, style);
     default:
       return variant satisfies never;
   }

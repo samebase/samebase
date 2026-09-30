@@ -26,24 +26,33 @@ export function fontFor(context: Context, cap: number): string {
   return `800 ${cap / capRatio}px ${display}`;
 }
 
-/** Each word rises from below the baseline into place, clipped to the line box. */
+/**
+Each word rises from below the baseline into place, clipped to the line box. A line wider than
+`fit` shrinks until it fits.
+*/
 export function drawText(context: Context, line: FilmV3Text): void {
   if (line.words.every(({ rise }) => rise <= 0)) {
     return;
   }
-  const lineHeight = line.cap * 1.45;
   context.save();
-  context.beginPath();
-  context.rect(0, line.y - line.cap * 1.2, context.canvas.width, lineHeight);
-  context.clip();
-  context.font = fontFor(context, line.cap);
   context.textAlign = "left";
   context.textBaseline = "alphabetic";
-  context.letterSpacing = `${-0.03 * (line.cap / capRatio)}px`;
   context.fillStyle = css(line.color);
-  const space = context.measureText(" ").width * 1.6;
-  const widths = line.words.map(({ text }) => context.measureText(text).width);
-  const total = widths.reduce((sum, width) => sum + width, 0) + space * (widths.length - 1);
+  const measure = (cap: number) => {
+    context.font = fontFor(context, cap);
+    context.letterSpacing = `${-0.03 * (cap / capRatio)}px`;
+    const space = context.measureText(" ").width * 1.6;
+    const widths = line.words.map(({ text }) => context.measureText(text).width);
+    const total = widths.reduce((sum, width) => sum + width, 0) + space * (widths.length - 1);
+    return { space, total, widths };
+  };
+  const natural = measure(line.cap);
+  const cap = natural.total > line.fit ? (line.cap * line.fit) / natural.total : line.cap;
+  const { space, total, widths } = cap === line.cap ? natural : measure(cap);
+  const lineHeight = cap * 1.45;
+  context.beginPath();
+  context.rect(0, line.y - cap * 1.2, context.canvas.width, lineHeight);
+  context.clip();
   let x =
     line.align === "left" ? line.x : line.align === "center" ? line.x - total / 2 : line.x - total;
   line.words.forEach(({ rise, text }, index) => {

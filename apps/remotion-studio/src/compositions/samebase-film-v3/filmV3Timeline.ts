@@ -115,6 +115,8 @@ export type FilmV3Text = {
   align: "center" | "left" | "right";
   /** Cap height in pixels. */
   cap: number;
+  /** The widest the line may be, in pixels. A wider line shrinks to fit. */
+  fit: number;
   color: Rgb;
   /** Rise 0 hides a word below the baseline and 1 shows it: each word rises into place. */
   words: readonly { rise: number; text: string }[];
@@ -577,6 +579,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
     backdrop.push({
       align: "left",
       cap: pick(300, 250),
+      fit: Infinity,
       color: ink,
       words: [{ rise: 1, text: "SAME" }],
       x: pick(110, 60) + drift + slide * width,
@@ -585,6 +588,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
     backdrop.push({
       align: "right",
       cap: pick(300, 250),
+      fit: Infinity,
       color: ink,
       words: [{ rise: 1, text: "BASE" }],
       x: pick(1810, 1020) - drift + slide * width * 1.25,
@@ -606,6 +610,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
       {
         align: "center",
         cap: pick(80, 56),
+        fit: Infinity,
         color: ink,
         leading: 0,
         x: pick(960, 540),
@@ -618,6 +623,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
   const lower: Placement = {
     align: "left",
     cap: pick(56, 64),
+    fit: Infinity,
     color: ink,
     leading: pick(80, 88),
     x: pick(110, 70),
@@ -643,6 +649,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
   const skyPlacement: Placement = {
     align: "left",
     cap: pick(82, 80),
+    fit: Infinity,
     color: ink,
     leading: pick(130, 106),
     x: pick(110, 70),
@@ -673,6 +680,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
       {
         align: pick("left", "center"),
         cap: pick(112, 96),
+        fit: Infinity,
         color: ink,
         leading: pick(175, 150),
         x: pick(150, 540),
@@ -684,6 +692,7 @@ function readTexts(time: number, format: FilmV3Format, ink: Rgb) {
     ...stack([[{ at: beats.url, text: "samebase.com" }]], 99, time, {
       align: pick("left", "center"),
       cap: pick(58, 56),
+      fit: Infinity,
       color: ink,
       leading: 0,
       x: pick(152, 540),
