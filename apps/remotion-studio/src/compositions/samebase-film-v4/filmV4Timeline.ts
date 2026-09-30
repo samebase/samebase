@@ -952,11 +952,11 @@ function readViewLook(time: number): View {
 }
 
 /**
-The openings never close while the camera zooms: the fade width is 1/25 of a sample, 1/100 of a
-pixel, below the smallest level that the sponge draws. The samples average the smallest openings to
-a tone.
+The openings close only when they are smaller than one of the 16 samples of a pixel, a quarter of a
+pixel, where no one can see them. Smaller openings would cost GPU time and add nothing: a head-on
+frame then traces most rays down long tunnels.
 */
-const lookFadePixels = 0.04;
+const lookFadePixels = 1;
 
 /**
 The levels of openings under the cube. The reveal opens all of them, so the shuffled sponge that

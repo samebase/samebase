@@ -281,6 +281,14 @@ export async function createFilmV3Renderer(
   canvas: HTMLCanvasElement,
 ): Promise<WebGpuFrameRenderer<FilmV3Frame>> {
   const root = await tgpu.init();
+  // A lost device leaves the canvas black or partly written, so the frame fails instead.
+  let lostMessage: string | undefined;
+  root.device.lost.then(
+    (info) => {
+      lostMessage = `${info.reason}: ${info.message}`;
+    },
+    () => {},
+  );
   const { architecture, vendor } = root.device.adapterInfo;
   console.info(`Film v3 WebGPU adapter: ${vendor} ${architecture}`);
   const context = root.configureContext({ canvas, alphaMode: "opaque" });
@@ -1233,6 +1241,9 @@ export async function createFilmV3Renderer(
   return {
     destroy: () => root.destroy(),
     render: async (frame) => {
+      root.device.pushErrorScope("internal");
+      root.device.pushErrorScope("out-of-memory");
+      root.device.pushErrorScope("validation");
       await waitForFilmV3Fonts();
       drawBackdrop(pageContext, frame);
       backdropTexture.write(pageCanvas);
@@ -1335,7 +1346,16 @@ export async function createFilmV3Renderer(
         })
         .draw(3);
       compositePipeline.withColorAttachment({ view: context }).draw(3);
-      return root.device.queue.onSubmittedWorkDone();
+      await root.device.queue.onSubmittedWorkDone();
+      for (let scope = 0; scope < 3; scope += 1) {
+        const error = await root.device.popErrorScope();
+        if (error) {
+          throw new Error(`Film v3 WebGPU error: ${error.message}`);
+        }
+      }
+      if (lostMessage) {
+        throw new Error(`Film v3 WebGPU device lost: ${lostMessage}`);
+      }
     },
   };
 }
