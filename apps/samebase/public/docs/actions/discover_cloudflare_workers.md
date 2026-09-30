@@ -64,15 +64,9 @@ JSON Schema for the tool's `structuredContent`:
                         "properties": {
                           "state": {
                             "const": "available"
-                          },
-                          "productionTriggerUuid": {
-                            "type": "string"
-                          },
-                          "previewTriggerUuid": {
-                            "type": "string"
                           }
                         },
-                        "required": ["state", "productionTriggerUuid", "previewTriggerUuid"],
+                        "required": ["state"],
                         "additionalProperties": false
                       },
                       {

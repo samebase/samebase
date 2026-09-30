@@ -26,6 +26,7 @@ import type * as billingErrors from "../billingErrors.js";
 import type * as billingResourceQuotas from "../billingResourceQuotas.js";
 import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.js";
 import type * as cloudflareApi_client from "../cloudflareApi/client.js";
+import type * as cloudflareApi_fixtures_observedWorkerBuildSettings from "../cloudflareApi/fixtures/observedWorkerBuildSettings.js";
 import type * as cloudflareApi_fixtures_observedWorkerBuilds from "../cloudflareApi/fixtures/observedWorkerBuilds.js";
 import type * as cloudflareApi_fixtures_observedWorkerErrors from "../cloudflareApi/fixtures/observedWorkerErrors.js";
 import type * as cloudflareBuildTokens from "../cloudflareBuildTokens.js";
@@ -205,6 +206,7 @@ declare const fullApi: ApiFromModules<{
   billingResourceQuotas: typeof billingResourceQuotas;
   cloudflareAccountDiscovery: typeof cloudflareAccountDiscovery;
   "cloudflareApi/client": typeof cloudflareApi_client;
+  "cloudflareApi/fixtures/observedWorkerBuildSettings": typeof cloudflareApi_fixtures_observedWorkerBuildSettings;
   "cloudflareApi/fixtures/observedWorkerBuilds": typeof cloudflareApi_fixtures_observedWorkerBuilds;
   "cloudflareApi/fixtures/observedWorkerErrors": typeof cloudflareApi_fixtures_observedWorkerErrors;
   cloudflareBuildTokens: typeof cloudflareBuildTokens;

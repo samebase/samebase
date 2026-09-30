@@ -93,8 +93,6 @@ const vCloudflareBuildsObservation = union(
   object({ state: literal("not_connected") }),
   object({
     state: literal("connected"),
-    productionTriggerUuid: string(),
-    previewTriggerUuid: string(),
     productionBuildTokenUuid: union(string(), v.null()),
     previewBuildTokenUuid: union(string(), v.null()),
   }),
@@ -150,8 +148,6 @@ const vCloudflareWorkerConvexBuildAccessObservation = union(
 );
 const vCloudflareWorkerBuildAccessTarget = object({
   workerId: id("repositoryCloudflareWorkers"),
-  productionTriggerUuid: string(),
-  previewTriggerUuid: string(),
 });
 const vConvexProductionDeploymentObservation = union(
   object({
@@ -560,8 +556,7 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
             token: input.token,
             transport: input.transport,
             accountId: worker.accountId,
-            productionTriggerUuid: target.productionTriggerUuid,
-            previewTriggerUuid: target.previewTriggerUuid,
+            workerTag: worker.workerTag,
           });
           return {
             state: "available" as const,

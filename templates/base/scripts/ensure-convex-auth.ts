@@ -1,4 +1,4 @@
-// Samebase source build: v1989
+// Samebase source build: v2064
 /// <reference types="node" />
 import { spawn } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";
@@ -68,8 +68,13 @@ function runConvexCli(args: string[], options: RunOptions = {}) {
   });
 }
 
-async function readConvexEnv(name: string, env: NodeJS.ProcessEnv, runConvex: RunConvex) {
-  const result = await runConvex(["env", "get", name], {
+async function readConvexEnv(
+  name: string,
+  env: NodeJS.ProcessEnv,
+  selectionArgs: string[],
+  runConvex: RunConvex,
+) {
+  const result = await runConvex(["env", "get", name, ...selectionArgs], {
     allowFailure: true,
     env,
     stdio: "pipe",
@@ -102,9 +107,10 @@ async function setConvexEnv(
   name: string,
   value: string,
   env: NodeJS.ProcessEnv,
+  selectionArgs: string[],
   runConvex: RunConvex,
 ) {
-  await runConvex(["env", "set", "--", name, value], {
+  await runConvex(["env", "set", ...selectionArgs, "--", name, value], {
     env,
     sensitive: true,
   });
@@ -114,8 +120,10 @@ export async function ensureConvexAuth(
   env: NodeJS.ProcessEnv,
   runConvex: RunConvex = runConvexCli,
 ) {
-  const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, runConvex);
-  const existingJwks = await readConvexEnv("JWKS", env, runConvex);
+  const branch = env["WORKERS_CI_BRANCH"];
+  const selectionArgs = branch && branch !== "main" ? ["--preview-name", branch] : [];
+  const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
+  const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
 
   if (existingPrivateKey && existingJwks) {
     console.log("Convex Auth keys already configured.");
@@ -126,8 +134,8 @@ export async function ensureConvexAuth(
   }
 
   const keys = generateAuthKeys();
-  await setConvexEnv("JWT_PRIVATE_KEY", keys.JWT_PRIVATE_KEY, env, runConvex);
-  await setConvexEnv("JWKS", keys.JWKS, env, runConvex);
+  await setConvexEnv("JWT_PRIVATE_KEY", keys.JWT_PRIVATE_KEY, env, selectionArgs, runConvex);
+  await setConvexEnv("JWKS", keys.JWKS, env, selectionArgs, runConvex);
   console.log("Convex Auth keys configured.");
 }
 

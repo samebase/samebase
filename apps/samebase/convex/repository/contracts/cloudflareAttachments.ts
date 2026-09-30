@@ -20,11 +20,9 @@ export const vCloudflareConvexBuildAccess = union(
   object({ state: literal("unavailable") }),
 );
 
-export const vCloudflareWorkerBuildTriggerPair = union(
+export const vCloudflareWorkerBuildSettingsStatus = union(
   object({
     state: literal("available"),
-    productionTriggerUuid: string(),
-    previewTriggerUuid: string(),
   }),
   object({ state: literal("not_available") }),
   object({ state: literal("ambiguous") }),
@@ -34,7 +32,7 @@ export const vCloudflareWorkerRepositoryDiscovery = union(
   object({
     state: literal("ready"),
     rootDirectory: string(),
-    builds: vCloudflareWorkerBuildTriggerPair,
+    builds: vCloudflareWorkerBuildSettingsStatus,
   }),
   object({ state: literal("not_connected") }),
   object({ state: literal("connected_elsewhere") }),

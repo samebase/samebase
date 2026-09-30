@@ -160,8 +160,6 @@ export function useRepositoryProviderObservations(
         ? [
             {
               workerId: observation.workerId,
-              productionTriggerUuid: observation.builds.productionTriggerUuid,
-              previewTriggerUuid: observation.builds.previewTriggerUuid,
             },
           ]
         : [],

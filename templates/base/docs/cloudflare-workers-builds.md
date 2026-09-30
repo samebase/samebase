@@ -26,8 +26,9 @@ The deploy scripts run `wrangler deploy` and `wrangler preview`. Wrangler gets t
 Workers Builds, so the template does not need a fixed name. `previews: {}` in `wrangler.jsonc`
 permits native preview deployment; it does not enable preview builds in the dashboard.
 
-When migrating an existing app, enable preview builds and replace the copied production key in
-Previews Base with the project's Preview key. Remove `PREVIEW_CONVEX_DEPLOY_KEY` from build settings.
+When migrating an existing app, open **Settings > Builds > Set up Worker Previews > Set up**,
+then select **Switch to Worker Previews**. Enable preview builds and replace the copied production
+key in Previews Base with the project's Preview key. Remove `PREVIEW_CONVEX_DEPLOY_KEY` from build settings.
 Existing branch previews keep their saved build variables. Use a new branch name after correcting
 Previews Base. Retrying or deleting the Worker preview does not reset those variables. Check both
 production and a new branch preview before finishing.

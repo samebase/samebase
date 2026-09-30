@@ -588,8 +588,6 @@ describe("buildProductionEnvironmentRoots", () => {
             },
             builds: {
               state: "connected",
-              productionTriggerUuid: "samebase-production-trigger",
-              previewTriggerUuid: "samebase-preview-trigger",
               productionBuildTokenUuid: "samebase-build-token",
               previewBuildTokenUuid: "samebase-build-token",
             },
@@ -3006,8 +3004,6 @@ describe("buildRepositorySettingsState", () => {
               workerId,
               builds: {
                 state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid,
                 previewBuildTokenUuid,
               },
@@ -3382,14 +3378,10 @@ describe("buildRepositorySettingsState", () => {
                 rootDirectory: "apps/new-web",
                 builds: {
                   state: "available",
-                  productionTriggerUuid: "production-trigger",
-                  previewTriggerUuid: "preview-trigger",
                 },
               },
               builds: {
                 state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
               },
@@ -3646,14 +3638,10 @@ describe("buildRepositorySettingsState", () => {
                 rootDirectory: "/",
                 builds: {
                   state: "available",
-                  productionTriggerUuid: "production-trigger",
-                  previewTriggerUuid: "preview-trigger",
                 },
               },
               builds: {
                 state: "connected",
-                productionTriggerUuid: "production-trigger",
-                previewTriggerUuid: "preview-trigger",
                 productionBuildTokenUuid: "build-token",
                 previewBuildTokenUuid: "build-token",
               },

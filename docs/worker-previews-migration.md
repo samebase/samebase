@@ -46,5 +46,7 @@ key, use a new branch name to copy the current Base settings. Retrying the build
 `wrangler preview delete` does not reset those variables. A new branch also gets a new Convex
 preview.
 
-Samebase's Builds repair and key rotation still use the old setup. Do not run those actions or
-remove and reconnect the Worker after switching.
+Samebase's Builds configuration and key rotation use native production and Previews Base settings.
+Switch an existing Worker to native previews before running those actions. Samebase updates the
+production key and the Previews Base key. It also updates the keys in existing previews, so later
+preview builds do not use a revoked key.

@@ -97,8 +97,6 @@ type CloudflareActionConnection = {
 
 const vPreparedCloudflareWorkerBuilds = object({
   rootDirectory: string(),
-  production: object({ triggerUuid: string() }),
-  preview: object({ triggerUuid: string() }),
 });
 type PreparedCloudflareWorkerBuilds = Infer<typeof vPreparedCloudflareWorkerBuilds>;
 type CloudflareWorkerBuildPreparation =
@@ -510,8 +508,7 @@ export async function attachExistingCloudflareWorkersForUser(
           token: resolved.connection.token,
           transport: resolved.connection.transport,
           accountId: resolved.account.accountId,
-          productionTriggerUuid: discovery.builds.productionTriggerUuid,
-          previewTriggerUuid: discovery.builds.previewTriggerUuid,
+          workerTag: identity.workerTag,
         });
       }
       return {
@@ -769,7 +766,7 @@ async function configurePreparedWorkersBuildsForGitHub(
     repositoryId: Id<"repositories">;
     buildTokenUuid: string;
     initialBuild: "deferred" | "requested";
-    existingBuilds: "preserve_repository" | "require_unconnected";
+    existingBuilds: "preserve_repository" | "require_unconnected" | "initialize_created_worker";
     beforeProviderWrite?: () => void | Promise<void>;
     afterBuildsConfigured?: () => void | Promise<void>;
   },
@@ -939,13 +936,11 @@ async function prepareConvexDeployKeyRotation(
     });
     if (discovery.state !== "ready" || discovery.builds.state !== "available") {
       throw new Error(
-        "Configure this Worker's GitHub Builds triggers before rotating Convex deploy keys.",
+        "Configure this Worker's native GitHub Builds settings before rotating Convex deploy keys.",
       );
     }
     build = {
       rootDirectory: discovery.rootDirectory,
-      production: { triggerUuid: discovery.builds.productionTriggerUuid },
-      preview: { triggerUuid: discovery.builds.previewTriggerUuid },
     };
   } else {
     build = buildPreparation.build;
@@ -1051,7 +1046,6 @@ async function rotatePreparedConvexDeployKeys(
       cloudflareToken: connection.token,
       cloudflareAuthMethod: connection.auth.method,
       accountId: context.accountId,
-      build,
       convex: {
         production: { deployKey: production.deployKey },
         preview: { deployKey: preview.deployKey },
@@ -1845,7 +1839,7 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
         repositoryId,
         buildTokenUuid: context.buildTokenUuid,
         initialBuild: "deferred",
-        existingBuilds: "preserve_repository",
+        existingBuilds: "initialize_created_worker",
       },
       prepared,
     );
@@ -1857,8 +1851,6 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
     });
     return {
       rootDirectory: build.rootDirectory,
-      production: { triggerUuid: build.production.triggerUuid },
-      preview: { triggerUuid: build.preview.triggerUuid },
     };
   },
 });
