@@ -958,8 +958,14 @@ a tone.
 */
 const lookFadePixels = 0.04;
 
+/**
+The levels of openings under the cube. The reveal opens all of them, so the shuffled sponge that
+takes over at `look.shuffle` draws the same cube.
+*/
+const lookDepth = 8;
+
 function lookShuffle(time: number, fadePixels: number): FilmV3Scene["shuffle"] {
-  return { depth: 8, fadePixels, moveMinLevel: 0, ...readShuffle(time, wanderMoves) };
+  return { depth: lookDepth, fadePixels, moveMinLevel: 0, ...readShuffle(time, wanderMoves) };
 }
 
 function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Scene {
@@ -970,7 +976,7 @@ function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Sce
     floor: 1 - easeInOutSine(progress(at, look.settle[0], 16.3)),
     mode,
     shuffle: lookShuffle(at, lookFadePixels),
-    sponge: revealSponge(at, view, size, look.reveal),
+    sponge: { ...revealSponge(at, view, size, look.reveal), depth: lookDepth },
     view,
   });
 }
