@@ -47,6 +47,9 @@ appear in Studio immediately.
   with the type above the object, and the page turns on its left binding.
 - `SamebaseRisoLoop` is an 8-second seamless loop: an endless isometric pull back from the sponge
   corner under the finale music.
+- `SamebaseLookAgainRiso` is the 42-second "Look again" brand film at 1920x1080, and
+  `SamebaseLookAgainRisoVertical` its 1080x1920 cut for vertical phone feeds. The delivery notes are
+  in `notes/look-again-film.md`.
 - `ContactSheetLabel` draws the time labels for the contact sheet command.
 
 Each production composition owns its component, timing model, and supporting edit data under
