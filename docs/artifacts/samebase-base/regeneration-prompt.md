@@ -74,11 +74,11 @@ For a Workers/TanStack Start version:
 - Keep Convex as the backend.
 - Preserve the current app behavior, including the QR share block.
 - Deploy with Cloudflare Workers Static Assets using wrangler.jsonc.
-- Read docs/artifacts/samebase-base/cloudflare-workers-install.md before writing
+- Read templates/base/docs/cloudflare-workers-builds.md before writing
   Workers setup docs. Make `package.json` `build` match the Cloudflare
   dashboard default and delegate to the Cloudflare-aware build path. Do not
-  hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts
-  to pass the connected Cloudflare Worker name to Wrangler. Keep
+  hard-code the Worker `name` in `wrangler.jsonc`; use the template's pinned
+  Wrangler version to read the Worker name from Workers Builds. Keep
   `build.command` out of the reusable `wrangler.jsonc` so Workers Builds and
   local Wrangler checks have one clear build owner each. Keep Node-invoked
   repository automation in erasable TypeScript runnable by plain `node`, and
@@ -87,26 +87,10 @@ For a Workers/TanStack Start version:
   inline environment assignment, shell parameter expansion, or required
   Unix-only utilities; use Node process APIs and handle Windows `.cmd` entry
   points explicitly when needed.
-- Use the Convex deploy-key contract: `CONVEX_DEPLOY_KEY` for the production
-  branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches.
-- Treat `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as Samebase's
-  readable
-  Cloudflare Builds marker. Write the same marker to both triggers during
-  Samebase-managed setup. The generated app must not consume it.
-- In the generated template docs, explain the Cloudflare Workers Builds UI
-  limitation that motivates the separate preview key: the API supports per-trigger
-  build variables for production and preview triggers, but the dashboard setup
-  path does not expose a Pages-style production/preview selector for build
-  variables. Explain that the build script reads `WORKERS_CI_BRANCH`, picks the
-  right secret, and keeps preview builds from falling back to the production key.
-- For Samebase-managed setup, write both deploy-key secrets and the readable
-  project marker onto every Workers Builds trigger so Cloudflare contains the
-  complete declared configuration.
-- Document the current Convex permission split: production `CONVEX_DEPLOY_KEY`
-  is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
-  `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,
-  function-run permissions, logs, backups, and integrations are not needed. `PREVIEW_CONVEX_DEPLOY_KEY`
-  is the separate project-level Preview deploy key.
+- Use the native Worker Previews commands and deploy-key scopes documented in
+  templates/base/docs/cloudflare-workers-builds.md. Do not restore the old
+  two-key build script or the Wrangler deploy wrapper.
+- Follow docs/worker-previews-migration.md when updating an existing app.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 

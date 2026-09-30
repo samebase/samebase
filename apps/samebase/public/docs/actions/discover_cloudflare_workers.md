@@ -73,6 +73,16 @@ JSON Schema for the tool's `structuredContent`:
                         "type": "object",
                         "properties": {
                           "state": {
+                            "const": "legacy_previews"
+                          }
+                        },
+                        "required": ["state"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "state": {
                             "const": "not_available"
                           }
                         },

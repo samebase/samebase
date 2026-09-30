@@ -70,6 +70,7 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-settings-checking"
   | "repository-overview-v2-settings-completed"
   | "repository-overview-v2-settings-drift"
+  | "repository-overview-v2-settings-legacy-previews"
   | "repository-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -1178,6 +1179,7 @@ type RepositoryOverviewProviderSettingsVisualMode = Extract<
   | "repository-overview-v2-settings-checking"
   | "repository-overview-v2-settings-completed"
   | "repository-overview-v2-settings-drift"
+  | "repository-overview-v2-settings-legacy-previews"
 >;
 
 function RepositoryOverviewProviderSettingsFixture({
@@ -1280,6 +1282,26 @@ function RepositoryOverviewProviderSettingsFixture({
       };
       convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
       break;
+    case "repository-overview-v2-settings-legacy-previews":
+      repository = PROVISIONING_REPOSITORY;
+      cloudflareObservations = {
+        ...PROVISIONING_CLOUDFLARE_OBSERVATIONS,
+        builds: {
+          ...PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds,
+          observations: PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds.observations.map(
+            (observation) => ({
+              ...observation,
+              repository: {
+                ...observation.repository,
+                builds: { state: "legacy_previews" },
+              },
+              builds: { state: "not_connected" },
+            }),
+          ),
+        },
+      };
+      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      break;
   }
 
   const { settingsState, workspace } = buildFixtureWorkspace({
@@ -1376,6 +1398,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     case "repository-overview-v2-settings-checking":
     case "repository-overview-v2-settings-completed":
     case "repository-overview-v2-settings-drift":
+    case "repository-overview-v2-settings-legacy-previews":
       return <RepositoryOverviewProviderSettingsFixture mode={mode} />;
   }
 

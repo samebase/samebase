@@ -31,6 +31,7 @@ import { useAction } from "convex/react";
 import { MoreHorizontal } from "lucide-react";
 import { type ReactNode, useContext, useState } from "react";
 import { api } from "../../../convex/_generated/api";
+import { WORKER_PREVIEWS_MIGRATION_URL } from "../../../shared/cloudflareWorkerPreviews";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 type RepositoryGitHubIdentityObservation =
@@ -168,6 +169,19 @@ function SettingsResourceRow({ resource }: { resource: RepositorySettingsResourc
           {resource.warning ? (
             <div className="mt-1 text-xs leading-5 text-red-700" role="status">
               {resource.warning}
+            </div>
+          ) : null}
+          {resource.workerPreviewsMigrationRequired ? (
+            <div className="mt-1 text-xs leading-5 text-muted-foreground" role="status">
+              This Worker does not use native Worker Previews.{" "}
+              <a
+                className="underline underline-offset-4"
+                href={WORKER_PREVIEWS_MIGRATION_URL}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                Migration steps
+              </a>
             </div>
           ) : null}
           {resource.description ? (

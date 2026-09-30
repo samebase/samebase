@@ -36,9 +36,10 @@ and preserve `preview_urls: true`. No fixed Worker name is needed in Workers Bui
 Enable native preview builds in Cloudflare. In **Settings > Builds > Variables and secrets**, set
 Previews Base's `CONVEX_DEPLOY_KEY` to the project's Preview deploy key. Remove the old
 `PREVIEW_CONVEX_DEPLOY_KEY` variables. Keep `SAMEBASE_CONVEX_PROJECT` in production only. Existing
-previews keep their saved build variables. Use a new branch name after correcting Base; retrying or
-deleting the Worker preview does not reset those variables. Verify production, a new preview, and a
-second build on the same preview branch.
+previews keep their saved build variables. Samebase key rotation updates existing preview keys.
+After a manual Base-only key correction, use a new branch name; retrying or deleting the Worker
+preview does not reset those variables. Verify production, a new preview, and a second build on the
+same preview branch.
 
 Delete the obsolete deploy wrapper and its tests after updating callers. Remove
 `deploy:preview:dry-run`, which native previews do not support. Local `build` must not deploy

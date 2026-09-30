@@ -25,6 +25,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 import { api, internal } from "../_generated/api";
 import { CloudflareApiError } from "../cloudflareApi/client";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
+import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudflareWorkerPreviews";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 function workerResponse(args: { workerName: string; workerTag?: string }) {
@@ -210,7 +211,7 @@ async function createFixture() {
       rootDirectory: "apps/old",
       origin: "provisioned",
     });
-    return { memberId, organizationId, ownerId, planId, repositoryId, workerId };
+    return { memberId, organizationId, ownerId, planId, repositoryId, runId, workerId };
   });
   return {
     ids,
@@ -234,6 +235,44 @@ async function readStoredCoordinates(fixture: Awaited<ReturnType<typeof createFi
 }
 
 describe("Cloudflare Worker stored coordinates", () => {
+  it("stops an old creation retry before it can migrate Worker Previews", async () => {
+    const fixture = await createFixture();
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.patch(fixture.ids.runId, { state: "running" });
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId: fixture.ids.repositoryId,
+        owner: { kind: "managed_run", runId: fixture.ids.runId },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: Date.now(),
+      });
+    });
+    await expect(
+      fixture.t.action(internal.repository.cloudflare.configureWorkersBuildsForGitHubForWorkflow, {
+        repositoryId: fixture.ids.repositoryId,
+        runId: fixture.ids.runId,
+        userId: fixture.ids.ownerId,
+        workerId: fixture.ids.workerId,
+      }),
+    ).rejects.toThrow(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
+    expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
+
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.patch(fixture.ids.planId, { starterBuildContract: "native_worker_previews" });
+    });
+    await expect(
+      fixture.t.query(
+        internal.repository.cloudflareMutations.readManagedWorkerConfigurationContext,
+        {
+          repositoryId: fixture.ids.repositoryId,
+          runId: fixture.ids.runId,
+          userId: fixture.ids.ownerId,
+          workerId: fixture.ids.workerId,
+        },
+      ),
+    ).resolves.toMatchObject({ workerTag: "worker-tag", buildTokenUuid: "build-token" });
+  });
+
   it("returns an existing Worker name conflict to the client", async () => {
     const fixture = await createFixture();
     providerMocks.requestCloudflareApiOrThrow.mockImplementation(

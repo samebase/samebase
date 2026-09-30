@@ -190,7 +190,10 @@ describe("preview personal repository authorization", () => {
       })),
     ).resolves.toMatchObject({
       authorizationCount: 0,
-      plan: { convex: { deploymentRegion: "aws-us-east-1" } },
+      plan: {
+        starterBuildContract: "native_worker_previews",
+        convex: { deploymentRegion: "aws-us-east-1" },
+      },
       run: { organizationId, trigger: "create" },
       repository: { organizationId, githubMode: "create_repository" },
     });

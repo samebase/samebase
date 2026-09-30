@@ -48,6 +48,7 @@ import {
   AppResourceNameConflictError,
   validateAppResourceName,
 } from "../../shared/appResourceNames";
+import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudflareWorkerPreviews";
 import { buildRepositoryCloudflareBuildConfigForRootDirectory } from "./model";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
@@ -934,6 +935,9 @@ async function prepareConvexDeployKeyRotation(
       expectedRepoId: context.githubRepositoryDatabaseId,
       defaultBranch: repository.defaultBranch,
     });
+    if (discovery.state === "ready" && discovery.builds.state === "legacy_previews") {
+      throw new Error(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
+    }
     if (discovery.state !== "ready" || discovery.builds.state !== "available") {
       throw new Error(
         "Configure this Worker's native GitHub Builds settings before rotating Convex deploy keys.",

@@ -48,6 +48,7 @@ import {
   observedWorkerRuntimePreview,
 } from "./cloudflareApi/fixtures/observedWorkerPreviews";
 import type { components, Readable } from "./cloudflareApi/types.generated";
+import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../shared/cloudflareWorkerPreviews";
 
 type RecordedCloudflareRequest = {
   method: string;
@@ -953,20 +954,20 @@ describe("native Worker Builds", () => {
           },
           previews_enabled: true,
           production_settings: {
-            build_caching_enabled: true,
             build_token_uuid: buildTokenUuid,
             build_command: "pnpm run build",
             deploy_command: "pnpm run deploy",
             root_directory: "/",
+            build_caching_enabled: true,
             path_includes: ["*"],
             path_excludes: [],
           },
           previews_base_config: {
-            build_caching_enabled: true,
             build_token_uuid: buildTokenUuid,
             build_command: "pnpm run build",
             deploy_command: "pnpm run deploy:preview",
             root_directory: "/",
+            build_caching_enabled: true,
             path_includes: ["*"],
             path_excludes: [],
           },
@@ -1025,7 +1026,7 @@ describe("native Worker Builds", () => {
   it("does not migrate a pre-existing Worker during manual configuration", async () => {
     const requests = stubNativeBuilds({ settings: observedCreatedWorkerBuildSettings });
     await expect(configureCloudflareWorkerBuildsForGitHub(buildConfigureArgs())).rejects.toThrow(
-      "Enable native Worker Previews",
+      WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE,
     );
     expect(requests.filter((request) => request.method !== "GET")).toEqual([]);
   });
@@ -1050,7 +1051,7 @@ describe("native Worker Builds", () => {
         ...buildConfigureArgs(),
         githubRepositoryDatabaseId: observedLegacyWorkerBuildSettings.git_repository.repo_id,
       }),
-    ).rejects.toThrow("Enable native Worker Previews");
+    ).rejects.toThrow(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
     expect(requests.filter((request) => request.method !== "GET")).toEqual([]);
   });
 
@@ -1084,7 +1085,7 @@ describe("native Worker Builds", () => {
         expectedRepoId: observedLegacyWorkerBuildSettings.git_repository.repo_id,
       }),
     ).resolves.toEqual({
-      repository: { state: "ready", rootDirectory: "/", builds: { state: "not_available" } },
+      repository: { state: "ready", rootDirectory: "/", builds: { state: "legacy_previews" } },
       builds: { state: "not_connected" },
     });
   });
@@ -1137,7 +1138,7 @@ describe("native Worker Builds", () => {
         ...buildRotationArgs(),
         expectedRepoId: observedLegacyWorkerBuildSettings.git_repository.repo_id,
       }),
-    ).rejects.toThrow("native Builds settings");
+    ).rejects.toThrow(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
     expect(requests.filter((request) => request.method !== "GET")).toEqual([]);
   });
 

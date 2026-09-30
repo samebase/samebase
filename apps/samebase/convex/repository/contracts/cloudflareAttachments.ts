@@ -23,6 +23,7 @@ export const vCloudflareWorkerBuildSettingsStatus = union(
   object({
     state: literal("available"),
   }),
+  object({ state: literal("legacy_previews") }),
   object({ state: literal("not_available") }),
   object({ state: literal("ambiguous") }),
 );

@@ -83,6 +83,7 @@ export type RepositorySettingsResource = {
   provider: "cloudflare" | "convex";
   resourceId: string;
   state: "available" | "checking" | "failed" | "loading" | "missing" | "setting_up";
+  workerPreviewsMigrationRequired?: true;
   warning?: string;
 };
 
@@ -574,6 +575,16 @@ function buildCloudflareRow({
         };
       }
 
+      if (
+        buildsObservation.repository.state === "ready" &&
+        buildsObservation.repository.builds.state === "legacy_previews"
+      ) {
+        return {
+          ...availableBase,
+          description: previewDescription,
+          workerPreviewsMigrationRequired: true,
+        };
+      }
       const repositoryState = formatCloudflareRepositoryState(buildsObservation);
       if (repositoryState.canConnect) {
         const isConfiguring =

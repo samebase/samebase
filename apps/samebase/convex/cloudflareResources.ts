@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createUrlSearchParams, readUrlSearchParamsRecord } from "../shared/urlSearchParams";
 import { AppResourceNameConflictError } from "../shared/appResourceNames";
 import { normalizeCloudflareWorkerPreviewUrl } from "../shared/cloudflareResourceUrls";
+import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../shared/cloudflareWorkerPreviews";
 import {
   requestCloudflareApi,
   requestCloudflareApiOrThrow,
@@ -234,6 +235,7 @@ export type CloudflareWorkerInventory = {
 
 export type CloudflareWorkerBuildSettingsStatus =
   | { state: "available" }
+  | { state: "legacy_previews" }
   | { state: "not_available" }
   | { state: "ambiguous" };
 
@@ -615,11 +617,13 @@ export function classifyCloudflareWorkerRepositoryDiscovery(args: {
     state: "ready",
     rootDirectory,
     builds:
-      settings.previews_enabled &&
-      settings.previews_base_config &&
-      repository.branch === args.defaultBranch
-        ? { state: "available" }
-        : { state: "not_available" },
+      settings.previews_enabled === false
+        ? { state: "legacy_previews" }
+        : settings.previews_enabled &&
+            settings.previews_base_config &&
+            repository.branch === args.defaultBranch
+          ? { state: "available" }
+          : { state: "not_available" },
   };
 }
 
@@ -1062,6 +1066,9 @@ function assertWorkerBuildSettingsTarget(args: {
     expectedRepoId: args.expectedRepoId,
     defaultBranch: args.defaultBranch,
   });
+  if (discovery.state === "ready" && discovery.builds.state === "legacy_previews") {
+    throw new Error(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
+  }
   if (
     !args.settings ||
     discovery.state !== "ready" ||
@@ -1293,15 +1300,12 @@ async function configureCloudflareWorkerBuilds(
     !existing?.previews_enabled &&
     args.existingBuilds !== "initialize_created_worker"
   ) {
-    throw new Error(
-      "Enable native Worker Previews before configuring this existing Builds connection.",
-    );
+    throw new Error(WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE);
   }
   const common = {
     build_token_uuid: buildTokenUuid,
     build_command: args.buildConfig.buildCommand,
     root_directory: args.buildConfig.rootDir,
-    build_caching_enabled: true,
     path_includes: args.buildConfig.pathIncludes,
     path_excludes: args.buildConfig.pathExcludes,
   };
@@ -1330,8 +1334,8 @@ async function configureCloudflareWorkerBuilds(
               repo_id: args.githubRepositoryDatabaseId,
               repo_name: args.repo,
             },
-            production_settings: productionSettings,
-            previews_base_config: previewSettings,
+            production_settings: { ...productionSettings, build_caching_enabled: true },
+            previews_base_config: { ...previewSettings, build_caching_enabled: true },
             previews_enabled: true,
           },
         }),
