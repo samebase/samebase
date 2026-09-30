@@ -170,7 +170,7 @@ async function resolveCloudflareConnectionForManualProviderWrite(
   },
 ): Promise<CloudflareActionConnection> {
   const connection = await ctx.runAction(
-    internal.cloudflareMcpOAuth.resolveConnectionForManualProviderWrite,
+    internal.cloudflareOAuth.resolveConnectionForManualProviderWrite,
     {
       userId: args.userId,
       repositoryId: args.repositoryId,
