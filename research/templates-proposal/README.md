@@ -4,10 +4,11 @@ September 30, 2026. See the
 [proposal](../../rfcs/2026-09-30-templates-and-components.md#recommendation) for the research and
 recommended contract.
 
-## Screens
+## Earlier screens
 
-These are screenshots of the interactive proposal in the existing Samebase shell. They are design
-evidence, not accepted screenshot-test baselines.
+These screenshots record the first version. The current page removes the study labels, component
+tab, detail panel, and explanatory text. It shows three template rows with direct setup actions. The
+images below are historical evidence, not the current UI or screenshot-test baselines.
 
 | Screen                              | Desktop                              | Phone                              |
 | ----------------------------------- | ------------------------------------ | ---------------------------------- |
@@ -19,17 +20,15 @@ evidence, not accepted screenshot-test baselines.
 
 1. Run `pnpm run dev` in this worktree.
 2. Open `/templates-preview?prod-ui` at the frontend URL printed by the command.
-3. Select Base, Mail, and Samebase. Samebase should offer a source link without a setup action.
-4. Select PostHog in Mail's proposed contents. Open its integration steps.
-5. Select `samebase/mail` in the example list.
-6. Select **Preview setup**. Enter a repository name and select **Review setup**.
-7. Return to Templates. Keyboard focus should move to the Mail heading.
+3. Check the three rows. Samebase should offer a source link without a setup action.
+4. Select **Preview setup** for Base or Mail. Enter a repository name and select **Review setup**.
+5. Return to Templates. Keyboard focus should move to the Templates heading.
 
-The study creates no provider resources. Catalog data shows proposed composition. Mail component
-extraction and shared PostHog setup are future work. Setup choices reset when the setup view closes.
-The route is available in local and preview environments and is blocked in production.
+The study creates no provider resources. Mail component extraction and shared PostHog setup remain
+research topics. Setup choices reset when the setup view closes. The route is available in local and
+preview environments and is blocked in production.
 
-## Checks completed
+## Checks completed on the first version
 
 - `pnpm --filter samebase exec tsgo --noEmit` passed.
 - Focused Vite+ lint and format checks passed for the changed source and proposal.
@@ -43,6 +42,10 @@ The route is available in local and preview environments and is blocked in produ
 
 The checks cover the design study. They do not prove provider creation, component installation,
 email delivery, or production deployment. Those flows are described in the proposal.
+
+The current revision removes the component UI and reduces the setup form. See the PR for its checks.
+Browser access was blocked by the automation security policy, so the current revision has no new
+browser screenshots.
 
 ## Review
 

@@ -14,9 +14,8 @@ Use a small checked template definition. Keep build commands in package scripts 
 configuration in the existing provider files. Keep resource creation in Samebase's Convex workflows.
 Use AI to adapt code and prepare changes for review.
 
-The first UI should serve people who create apps in Samebase. The same template and component
-details can be public. Keep the selected template when a visitor signs in and selects an
-organization.
+The first UI should serve people who create apps in Samebase. Show templates in one list. Keep the
+selected template when a visitor signs in and selects an organization.
 
 ## What exists today
 
@@ -104,7 +103,7 @@ normal workflow. This proposal does not need a new in-app chat.
 
 ## Components and shared defaults
 
-Use one readable "Included" list, with precise types in its details:
+Keep these distinctions in the template definitions and source documentation:
 
 - A Convex component owns backend state and exposes an API.
 - A library supplies code, such as Convex Auth.
@@ -139,19 +138,20 @@ Resource removal is a separate action from a source update.
 
 ## UI proposal
 
-Use a short list of templates beside the selected detail. With three entries, a large gallery,
-search field, and filters would add work without helping selection.
+Show one Templates heading and three rows. Each row contains the repository name, one short
+description, and its available actions. Base and Mail offer a setup preview. Samebase links to its
+source until an installable release is ready.
 
-The detail contains a description, source link, setup action, included parts, and required services.
-Each part opens a component detail. That detail links back to its example apps and explains how to
-use the part in an existing app. Show publication and readiness states next to the relevant item.
+Show resources after the user selects a template. Keep component research, shared-default policy,
+and update rules in the documentation. The template chooser has no component tab, detail panel,
+status labels, introductory copy, or study labels.
 
 The production entry points should be:
 
 - **New App:** choose a template, then continue to the existing organization and provider setup.
   Preselect Base to preserve the shortest current path.
-- **Public Templates:** browse the same details before sign-in. Preserve the selection through
-  sign-in. Public entries need public source or an access-aware source link.
+- **Public Templates:** browse the same list before sign-in. Preserve the selection through sign-in.
+  Public entries need public source or an access-aware source link.
 - **An existing repository:** ask an agent to add a component using its documented setup. Prepare a
   PR before changing the app. Start with documentation and MCP discovery; add a browser action once
   the install contract is proven.
@@ -165,8 +165,9 @@ repo. On failure, retain completed resource records and offer a retry of the sam
 
 | Direction                                         | Assessment                                                                                     |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Template list with linked component details       | Recommended. It supports both starting an app and finding reusable code.                       |
-| Component catalog as the main page                | Useful later. It gives a new user more assembly work before a working app exists.              |
+| Template list with direct setup actions           | Recommended. It keeps selection clear and shows setup details when needed.                     |
+| Template list with linked component details       | Defer. The first version needs a clear template choice.                                        |
+| Component catalog as the main page                | Defer. It gives a new user more assembly work before a working app exists.                     |
 | A component picker that generates any combination | Defer. It needs compatibility rules, composition tests, and clear ownership of generated code. |
 | AI-only setup from a repository URL               | Useful for preparation. Provider writes still need a checked plan and reliable retries.        |
 
@@ -213,9 +214,8 @@ The interactive study is at `/templates-preview?prod-ui` in local and preview en
 reuses Samebase's button, input, theme, and route shell. It is hidden from route suggestions and
 blocked on the production environment. It makes no provider writes.
 
-Try selecting all three templates, opening Mail or PostHog from the contents list, following an
-example back to its template, and reviewing Mail setup. The setup form records only temporary UI
-state. The study shows proposed contents, not an installed-component inventory.
+Try the setup preview for Base and Mail. Enter a repository name, review the resources, then return
+to Templates. The form records only temporary UI state and creates no resources.
 
-The screenshots in [the study folder](../research/templates-proposal/) are design evidence. They are
-not accepted screenshot-test baselines. The PR records the actual checks run.
+The screenshots in [the study folder](../research/templates-proposal/) record the earlier design,
+before its explanatory text and component views were removed. The PR records current validation.
