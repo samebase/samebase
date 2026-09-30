@@ -67,11 +67,11 @@ export const toolJustifications = {
   },
   repository_cloudflare_createWorker: {
     read_only_justification:
-      "Creates one Cloudflare Worker, records it as a repository attachment, configures its Workers Builds triggers, and requests an initial production build.",
+      "Creates one Cloudflare Worker, records it as a repository attachment, configures its Workers Builds production and Previews Base settings, and requests an initial production build.",
     open_world_justification:
       "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository.",
     destructive_justification:
-      "Rejects existing Worker names and existing Workers Builds connections. It does not overwrite or delete a Worker, trigger, repository, deployment, or user data.",
+      "Rejects existing Worker names and existing Workers Builds connections. It initializes native previews only on its new Worker. It does not overwrite or delete an existing Worker, repository, deployment, or user data.",
   },
   repository_cloudflare_discoverWorkers: {
     read_only_justification:
@@ -96,17 +96,17 @@ export const toolJustifications = {
   },
   repository_cloudflare_configureWorkersBuildsForGitHub: {
     read_only_justification:
-      "Creates or updates the app's own Workers Builds production and preview triggers with the selected token UUID, then starts a production build.",
+      "Creates or updates the app's own Workers Builds production and Previews Base settings with the selected token UUID, then starts a production build.",
     open_world_justification:
-      "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository, then starts a production build.",
+      "Creates or patches build settings on the caller's own Cloudflare account for the caller's own repository, then starts a production build.",
     destructive_justification:
-      "May overwrite the app's existing production and preview build trigger configuration, including repository roots and commands, before starting a production build. It does not delete user data, repositories, deployments, or Workers.",
+      "May overwrite the app's production, Previews Base, and existing preview build settings, including repository roots and commands, before starting a production build. Existing Workers must already use native previews. It does not delete user data, repositories, deployments, or Workers.",
   },
   repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds: {
     read_only_justification:
-      "Rotates the app's Convex deploy keys, writes them into its Workers Builds trigger variables, and starts a production build.",
+      "Rotates the app's Convex deploy keys, writes them into its Workers Builds production, Previews Base, and existing preview variables, and starts a production build.",
     open_world_justification:
-      "Creates deploy keys on the caller's Convex deployment, sets variables on the caller's Cloudflare build triggers, and starts a production build.",
+      "Creates deploy keys on the caller's Convex project, sets variables in the caller's Cloudflare build settings, and starts a production build.",
     destructive_justification:
       "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. It then starts a production build. It does not delete user data, deployments, or Workers.",
   },
@@ -116,7 +116,7 @@ export const toolJustifications = {
     open_world_justification:
       "Resumes resource creation in GitHub, Convex, and Cloudflare on the caller's own accounts.",
     destructive_justification:
-      "Can overwrite existing Workers Builds trigger configuration and rotate or revoke previously recorded Convex deploy keys while repairing the app.",
+      "Can overwrite the created Worker's production and preview build settings, finish native preview initialization, and rotate or revoke previously recorded Convex deploy keys while repairing the app.",
   },
   create_browser_handoff: {
     read_only_justification:

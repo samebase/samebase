@@ -9,6 +9,20 @@ import {
 import { CLOUDFLARE_WORKER_PROOF_SOURCE } from "./pullRequestCloudflareWorkerProof";
 
 const accountId = "fe57d01d7ab41f60d00ba1aade20eb33";
+// Captured from GitHub CheckRun GraphQL for the clean native-preview smoke app on 2026-09-30.
+const observedNativePreviewCheck: CloudflareWorkerCheckRunInput = {
+  id: "CR_kwDOU0p4XM8AAAAZkPjNnA",
+  name: "Workers Builds: tmp-native-preview-template-native-previews",
+  status: "COMPLETED",
+  conclusion: "SUCCESS",
+  detailsUrl:
+    "https://dash.cloudflare.com/a9dfbbd031cf9eda46831def8e468b4e/workers/services/view/tmp-native-preview-template-native-previews/production/previews/nicu-preview-smoke/builds/d01029fa-adf2-46de-a628-5970fbf6f88e",
+  externalId: "d01029fa-adf2-46de-a628-5970fbf6f88e",
+  title: "Workers Builds: tmp-native-preview-template-native-previews",
+  summary:
+    "\nBuild ID: [d01029fa-adf2-46de-a628-5970fbf6f88e](https://dash.cloudflare.com/a9dfbbd031cf9eda46831def8e468b4e/workers/services/view/tmp-native-preview-template-native-previews/production/previews/nicu-preview-smoke/builds/d01029fa-adf2-46de-a628-5970fbf6f88e)\nScript: [tmp-native-preview-template-native-previews](https://dash.cloudflare.com/a9dfbbd031cf9eda46831def8e468b4e/workers/services/view/tmp-native-preview-template-native-previews/production)\n",
+};
+
 const successfulCheck: CloudflareWorkerCheckRunInput = {
   id: "CR_kwDOPOZOdc8AAAAWUQUNGg",
   name: "Workers Builds: samebase",
@@ -64,6 +78,32 @@ it("selects checks as the Worker proof source", () => {
 });
 
 describe("resolveCloudflareWorkerCheckRuns", () => {
+  it("reads the emitted native Preview build URL without old preview fields", () => {
+    expect(
+      resolveCloudflareWorkerCheckRuns({
+        commits: [
+          {
+            checkRuns: [observedNativePreviewCheck],
+            branch: { name: "nicu-preview-smoke", prefix: "refs/heads/" },
+          },
+        ],
+        currentHeadBranch: "nicu-preview-smoke",
+      }),
+    ).toEqual({
+      state: "available",
+      workers: [
+        {
+          accountId: "a9dfbbd031cf9eda46831def8e468b4e",
+          buildState: "success",
+          buildUuid: observedNativePreviewCheck.externalId,
+          logsUrl: observedNativePreviewCheck.detailsUrl,
+          name: "tmp-native-preview-template-native-previews",
+          preview: { state: "absent" },
+        },
+      ],
+    });
+  });
+
   it("keeps the newest check for each Worker across current commits", () => {
     expect(
       resolveCloudflareWorkerCheckRuns({

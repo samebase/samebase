@@ -21,10 +21,11 @@ build of one branch keeps its Convex data and login session.
 5. Check variable names without displaying secret values. Production has `CONVEX_DEPLOY_KEY` and
    `SAMEBASE_CONVEX_PROJECT`. Previews Base has only `CONVEX_DEPLOY_KEY`.
 6. Create a branch and PR with a small README change. Wait for its Cloudflare preview build.
-7. Open the preview URL with `?prod-ui`. Create a test account and add one todo.
+7. Open the preview URL with `?prod-ui`. Select **Continue as guest** and add one todo.
 8. Push a second README change to the same branch. Wait for the second preview build.
-9. Reload the preview. Check that the test account is still signed in and the todo is still present.
-10. Rotate the app's Convex deploy keys through Samebase. Build the same preview branch again.
+9. Reload the preview. Check that the guest is still signed in and the todo is still present.
+10. Use Samebase's **Rotate Convex deploy keys for Workers Builds** action for the app's attached
+    Worker and Convex project. Build the same preview branch again.
 
 ## Expected Results
 
