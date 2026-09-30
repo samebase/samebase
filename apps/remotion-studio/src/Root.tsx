@@ -223,7 +223,7 @@ export function RemotionRoot() {
       <Composition
         id="SamebaseLookAgainRisoVideo"
         component={SamebaseFilmV4}
-        // The same film without sound, for a machine without the local-only music files.
+        // The same film without sound. The music can be added later from the riso preview.
         defaultProps={{ fold: filmFold, from: 0, sound: false, style: "riso", variant: "look" }}
         durationInFrames={filmV4Seconds.look * filmV4Fps}
         fps={filmV4Fps}

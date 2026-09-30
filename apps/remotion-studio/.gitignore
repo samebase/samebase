@@ -4,4 +4,9 @@ public/media/*
 !public/media/.gitkeep
 !public/media/*.mp4
 !public/media/*.srt
+!public/media/samebase-film-v3.mp3
+!public/media/samebase-film-v3-close.mp3
+!public/media/samebase-film-v3-drag.mp3
+!public/media/samebase-film-v3-lift.mp3
+!public/media/samebase-film-v3-reveal.mp3
 public/media/founder-demo.mp4

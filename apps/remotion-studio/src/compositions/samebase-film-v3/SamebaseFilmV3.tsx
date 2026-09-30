@@ -29,7 +29,7 @@ export type SamebaseFilmV3Props = {
   sampleGrid: number;
 };
 
-/** The v3 brand film. The music is local only: `public/media/samebase-film-v3.mp3`. */
+/** The v3 brand film. The music is `public/media/samebase-film-v3.mp3`, in Git LFS. */
 export function SamebaseFilmV3({
   cut,
   format,

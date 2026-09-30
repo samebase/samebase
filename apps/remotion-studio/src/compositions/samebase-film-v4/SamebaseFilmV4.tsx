@@ -219,8 +219,8 @@ export type SamebaseFilmV4Props = {
   /** Film seconds at the first frame: 0 for the films, later for the fourth face beat clips. */
   from: number;
   /**
-  Plays the music and the sound effects. A video-only render leaves them out, so it runs on a
-  machine without the local-only media files, and the music is added to the result later.
+  Plays the music and the sound effects. A video-only render leaves them out, and the music is
+  added to the result later.
   */
   sound: boolean;
   /** The colors of the look variant. The other variants keep the landing haze. */
@@ -229,8 +229,8 @@ export type SamebaseFilmV4Props = {
 };
 
 /**
-The v4 brand films. The music and the sound effects are local only: `public/media/samebase-film-v3*.mp3`
-from v3.5.
+The v4 brand films. The music and the sound effects are `public/media/samebase-film-v3*.mp3` from
+v3.5, in Git LFS.
 */
 export function SamebaseFilmV4({ fold, from, sound, style, variant }: SamebaseFilmV4Props) {
   const frame = useCurrentFrame();
@@ -250,12 +250,7 @@ export function SamebaseFilmV4({ fold, from, sound, style, variant }: SamebaseFi
           <StudyLayer frame={layer.frame} key={layer.id} opacity={layer.opacity} />
         ),
       )}
-      <OverlayLayer
-        outlines={v4.outlines}
-        overlay={v4.overlay}
-        texts={v4.texts}
-        veil={v4.veil}
-      />
+      <OverlayLayer outlines={v4.outlines} overlay={v4.overlay} texts={v4.texts} veil={v4.veil} />
       {cuts.map((cut, index) => (
         <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
       ))}
