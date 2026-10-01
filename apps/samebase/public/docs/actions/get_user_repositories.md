@@ -47,9 +47,6 @@ JSON Schema for the tool's `structuredContent`:
           "repositoryId": {
             "type": "string"
           },
-          "convexTeamId": {
-            "type": "string"
-          },
           "cloudflareAccountId": {
             "type": "string"
           },
@@ -65,67 +62,26 @@ JSON Schema for the tool's `structuredContent`:
           "githubRepositoryFullName": {
             "type": "string"
           },
-          "defaultBranch": {
-            "type": "string"
-          },
           "sourceSetup": {
             "anyOf": [
               {
                 "type": "object",
                 "properties": {
                   "status": {
-                    "const": "not_applicable"
-                  }
-                },
-                "required": ["status"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "ready"
-                  }
-                },
-                "required": ["status"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "running"
-                  },
-                  "step": {
                     "anyOf": [
                       {
-                        "const": "run_created"
+                        "const": "not_applicable"
                       },
                       {
-                        "const": "initialize_repository"
+                        "const": "ready"
                       },
                       {
-                        "const": "validate_connections"
-                      },
-                      {
-                        "const": "create_github_repository"
-                      },
-                      {
-                        "const": "fetch_github_repository"
-                      },
-                      {
-                        "const": "seed_starter"
-                      },
-                      {
-                        "const": "connect_github_repository"
-                      },
-                      {
-                        "const": "sync_tree"
+                        "const": "running"
                       }
                     ]
                   }
                 },
-                "required": ["status", "step"],
+                "required": ["status"],
                 "additionalProperties": false
               },
               {
@@ -134,39 +90,11 @@ JSON Schema for the tool's `structuredContent`:
                   "status": {
                     "const": "failed"
                   },
-                  "step": {
-                    "anyOf": [
-                      {
-                        "const": "run_created"
-                      },
-                      {
-                        "const": "initialize_repository"
-                      },
-                      {
-                        "const": "validate_connections"
-                      },
-                      {
-                        "const": "create_github_repository"
-                      },
-                      {
-                        "const": "fetch_github_repository"
-                      },
-                      {
-                        "const": "seed_starter"
-                      },
-                      {
-                        "const": "connect_github_repository"
-                      },
-                      {
-                        "const": "sync_tree"
-                      }
-                    ]
-                  },
                   "message": {
                     "type": "string"
                   }
                 },
-                "required": ["status", "step", "message"],
+                "required": ["status", "message"],
                 "additionalProperties": false
               }
             ]
@@ -177,62 +105,20 @@ JSON Schema for the tool's `structuredContent`:
                 "type": "object",
                 "properties": {
                   "status": {
-                    "const": "not_applicable"
-                  }
-                },
-                "required": ["status"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "ready"
-                  }
-                },
-                "required": ["status"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "running"
-                  },
-                  "provider": {
                     "anyOf": [
                       {
-                        "const": "convex"
+                        "const": "not_applicable"
                       },
                       {
-                        "const": "cloudflare"
-                      }
-                    ]
-                  },
-                  "step": {
-                    "anyOf": [
-                      {
-                        "const": "claim_infra"
+                        "const": "ready"
                       },
                       {
-                        "const": "attach_convex"
-                      },
-                      {
-                        "const": "attach_worker"
-                      },
-                      {
-                        "const": "configure_workers_builds_for_github"
-                      },
-                      {
-                        "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "finish"
+                        "const": "running"
                       }
                     ]
                   }
                 },
-                "required": ["status", "provider", "step"],
+                "required": ["status"],
                 "additionalProperties": false
               },
               {
@@ -251,33 +137,11 @@ JSON Schema for the tool's `structuredContent`:
                       }
                     ]
                   },
-                  "step": {
-                    "anyOf": [
-                      {
-                        "const": "claim_infra"
-                      },
-                      {
-                        "const": "attach_convex"
-                      },
-                      {
-                        "const": "attach_worker"
-                      },
-                      {
-                        "const": "configure_workers_builds_for_github"
-                      },
-                      {
-                        "const": "rotate_convex_deploy_keys_for_workers_builds"
-                      },
-                      {
-                        "const": "finish"
-                      }
-                    ]
-                  },
                   "message": {
                     "type": "string"
                   }
                 },
-                "required": ["status", "provider", "step", "message"],
+                "required": ["status", "provider", "message"],
                 "additionalProperties": false
               }
             ]
@@ -305,185 +169,7 @@ JSON Schema for the tool's `structuredContent`:
               }
             ]
           },
-          "providerWrite": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "idle"
-                  }
-                },
-                "required": ["status"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "active"
-                  },
-                  "owner": {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "const": "managed_run"
-                      }
-                    },
-                    "required": ["kind"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["status", "owner"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "const": "active"
-                  },
-                  "owner": {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "const": "manual_provider_write"
-                      }
-                    },
-                    "required": ["kind"],
-                    "additionalProperties": false
-                  },
-                  "affectedProviders": {
-                    "type": "array",
-                    "items": {
-                      "anyOf": [
-                        {
-                          "const": "convex"
-                        },
-                        {
-                          "const": "cloudflare"
-                        }
-                      ]
-                    }
-                  }
-                },
-                "required": ["status", "owner", "affectedProviders"],
-                "additionalProperties": false
-              }
-            ]
-          },
-          "deletion": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "not_deleting"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "deleting"
-                  },
-                  "currentStep": {
-                    "anyOf": [
-                      {
-                        "const": "initialize_deletion"
-                      },
-                      {
-                        "const": "lock_repository"
-                      },
-                      {
-                        "const": "delete_cloudflare"
-                      },
-                      {
-                        "const": "delete_convex"
-                      },
-                      {
-                        "const": "delete_github_repository"
-                      },
-                      {
-                        "const": "cleanup_editor_state"
-                      },
-                      {
-                        "const": "cleanup_source_caches"
-                      },
-                      {
-                        "const": "cleanup_runtime_state"
-                      },
-                      {
-                        "const": "cleanup_provisioning_history"
-                      },
-                      {
-                        "const": "remove_repository"
-                      },
-                      {
-                        "const": "finish"
-                      }
-                    ]
-                  }
-                },
-                "required": ["state", "currentStep"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "delete_failed"
-                  },
-                  "currentStep": {
-                    "anyOf": [
-                      {
-                        "const": "initialize_deletion"
-                      },
-                      {
-                        "const": "lock_repository"
-                      },
-                      {
-                        "const": "delete_cloudflare"
-                      },
-                      {
-                        "const": "delete_convex"
-                      },
-                      {
-                        "const": "delete_github_repository"
-                      },
-                      {
-                        "const": "cleanup_editor_state"
-                      },
-                      {
-                        "const": "cleanup_source_caches"
-                      },
-                      {
-                        "const": "cleanup_runtime_state"
-                      },
-                      {
-                        "const": "cleanup_provisioning_history"
-                      },
-                      {
-                        "const": "remove_repository"
-                      },
-                      {
-                        "const": "finish"
-                      }
-                    ]
-                  }
-                },
-                "required": ["state", "currentStep"],
-                "additionalProperties": false
-              }
-            ]
-          },
           "isSamebaseManaged": {
-            "type": "boolean"
-          },
-          "hasConnectedGitHubRepository": {
             "type": "boolean"
           },
           "cloudflareWorkers": {
@@ -569,10 +255,7 @@ JSON Schema for the tool's `structuredContent`:
           "sourceSetup",
           "providerSetup",
           "pendingCloudflareSetup",
-          "providerWrite",
-          "deletion",
           "isSamebaseManaged",
-          "hasConnectedGitHubRepository",
           "cloudflareWorkers",
           "convexProjects"
         ],
