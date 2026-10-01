@@ -1470,6 +1470,18 @@ describe("MCP tools/call access enforcement", () => {
         return cloudflareResponse([workerDetails()]);
       }
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
+        return cloudflareResponse([
+          {
+            trigger_uuid: "created-trigger-1",
+            external_script_id: "mcp-worker-tag",
+            branch_includes: ["main"],
+            branch_excludes: [],
+            repo_connection: { repo_id: "123", provider_type: "github" },
+            root_directory: "apps/web",
+          },
+        ]);
+      }
+      if (method === "GET" && url.pathname.endsWith("/builds/workers/mcp-worker-tag")) {
         if (failWorkerDiscovery) {
           return jsonResponse(
             {
@@ -1483,18 +1495,6 @@ describe("MCP tools/call access enforcement", () => {
             500,
           );
         }
-        return cloudflareResponse([
-          {
-            trigger_uuid: "created-trigger-1",
-            external_script_id: "mcp-worker-tag",
-            branch_includes: ["main"],
-            branch_excludes: [],
-            repo_connection: { repo_id: "123", provider_type: "github" },
-            root_directory: "apps/web",
-          },
-        ]);
-      }
-      if (method === "GET" && url.pathname.endsWith("/builds/workers/mcp-worker-tag")) {
         return buildSettings
           ? cloudflareResponse(buildSettings)
           : jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
