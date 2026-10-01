@@ -86,3 +86,51 @@ Two read-only reviews checked annotations and privacy. The privacy reviewer then
 bounded changes on `nicu-plugin-review-privacy-worker` in an isolated worktree. The main task owns
 integration, submission text, public skill changes, and final verification on
 `nicu-plugin-review-fixes`.
+
+## October 1 review fixes
+
+The [follow-up review](https://github.com/samebase/samebase/pull/1616#issuecomment-5930024719)
+identified five improvements. Candidate plugin `0.2.40`, at commit `7a93dac99`, includes these
+changes:
+
+- Browser handoff metadata and MCP server instructions require a clickable returned link. They state
+  that the link works once, expires after five minutes, and must remain private. A client without a
+  browser action must not claim that it opened the dashboard. This rule does not depend on a
+  packaged skill.
+- MCP inventory no longer returns the stored `providerPlan`. For incomplete tokenless setup, it
+  returns `pendingCloudflareSetup` with only the planned Worker name, root directory, and exact
+  attached Convex project ID. The dashboard keeps its existing plan. The inventory test checks exact
+  attachment selection, omission of historical token UUIDs, and null results when recovery does not
+  apply.
+- Creation case 4 now requires an available current last-used build token and sufficient reviewer
+  organization capacity. Its expected result includes the private repository, Convex attachment,
+  Worker attachment, Builds configuration, and requested production build. The prompt asks for setup
+  status. Ready setup does not prove that the build succeeded or that the app is live.
+- Authentication metadata calls the returned permission names "permissions". The existing
+  `accessKeys` response field remains unchanged.
+- Shared MCP instructions no longer include a Codex marketplace upgrade paragraph.
+
+All 74 focused tests passed across seven MCP, runtime, error, catalog, authentication, handoff, and
+generated-documentation test files. TypeScript, plugin checks, commit lint and format checks, and
+local Convex setup and function deployment passed. Generated-action-doc verification passed after
+the source and output were committed. No frontend preview was started.
+
+Fresh GPT-6 Luna low and GPT-6.1 Sol low subjects read one frozen bundle of MCP server instructions
+and generated action docs, without the packaged skill or expected results. The bundle SHA-256 was
+`0aee950b12d2ce8ceac60404d8c355693c0566478bcdd113e4094d169956094f`. The exact submitted creation and
+dashboard prompts were checked with synthetic tool results:
+
+- Both selected `create_browser_handoff` directly, showed the returned clickable link, and did not
+  claim that a browser opened.
+- Sol produced valid creation arguments using the available last-used token, `private: true`, and
+  `convexDeploymentRegion: "aws-us-east-1"`. It polled again while provider setup was running and
+  reported ready setup separately from deployment success.
+- Luna selected the correct token and sequence but wrote `cloudflareDeploymentRegion` in its first
+  call text, then named the correct field in the same answer. After a simulated schema rejection, it
+  used `convexDeploymentRegion` but kept placeholder names. It did poll again while provider setup
+  was running and did not claim a live deployment. This was not a clean creation payload pass.
+
+These were focused planned-call checks for two prompts. They did not create provider resources,
+redeem a handoff, run the full eight-case suite, or execute ChatGPT web or mobile. The release
+checks above remain required before resubmission. Two bounded review workers supplied metadata and
+inventory changes; the main task integrated them on `nicu-plugin-review-fixes`.

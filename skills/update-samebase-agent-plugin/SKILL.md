@@ -47,7 +47,28 @@ browser-link redemption.
 8. Update the last-run record below. Include the date, tested artifact commit, models, and result.
    Also put this result in the pull request.
 
-## Last focused browser handoff check
+## Last focused MCP-only review checks
+
+- Date: 2026-10-01
+- Artifact commit: `7a93dac99`, candidate plugin version `0.2.40`
+- Models: GPT-6 Luna low and GPT-6.1 Sol low
+- Input: identical frozen MCP server instructions and generated action docs, without the packaged
+  skill. Fresh subjects received the exact submitted creation and dashboard-opening prompts.
+  Expected results were withheld. Follow-up tool responses were synthetic.
+- Result: both subjects selected the handoff tool directly and showed a clickable returned URL
+  without claiming that a browser opened. Sol supplied valid private US East creation arguments with
+  the available last-used token. Both polled again while provider setup was running and reported
+  setup without claiming a live deployment.
+- Luna's first creation call text used the wrong region field, although its answer named the correct
+  field afterward. After simulated schema rejection, it corrected the field but retained placeholder
+  names. Do not count that creation payload as a clean pass.
+- Frozen MCP bundle SHA-256: `0aee950b12d2ce8ceac60404d8c355693c0566478bcdd113e4094d169956094f`.
+- Scope: two focused planned-call checks. The full eight-case suite and actual ChatGPT web and
+  mobile execution were not run. No provider resources were created and no handoff was redeemed.
+- Evidence:
+  [October 1 review fixes](../../research/2026-09-18-plugin-review-remediation.md#october-1-review-fixes).
+
+## Earlier focused browser handoff check
 
 - Date: 2026-09-18
 - Candidate plugin version: `0.2.35`
