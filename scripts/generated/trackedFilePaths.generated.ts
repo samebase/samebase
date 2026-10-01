@@ -372,6 +372,8 @@ export const trackedFilePaths = [
   "apps/samebase/convex/repository/cloudflareMutations.ts",
   "apps/samebase/convex/repository/cloudflareResourceNames.convex.test.ts",
   "apps/samebase/convex/repository/cloudflareWorkerCoordinates.convex.test.ts",
+  "apps/samebase/convex/repository/cloudflareWorkerDiscovery.test.ts",
+  "apps/samebase/convex/repository/cloudflareWorkerDiscovery.ts",
   "apps/samebase/convex/repository/contracts/cloudflareAttachments.ts",
   "apps/samebase/convex/repository/contracts/cloudflareBuildTokens.ts",
   "apps/samebase/convex/repository/contracts/cloudflareConfigureWorkersBuildsForGitHub.ts",
