@@ -5,21 +5,7 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 const { array, id, literal, object, string, union } = v;
 const providerConnectionAccess = "access_provider_connections" as const;
 
-export const vCloudflareConvexProjectReference = object({
-  teamId: string(),
-  projectId: string(),
-});
-
-export const vCloudflareConvexBuildAccess = union(
-  object({ state: literal("not_configured") }),
-  object({ state: literal("configured"), convexProject: vCloudflareConvexProjectReference }),
-  object({ state: literal("incomplete"), convexProject: vCloudflareConvexProjectReference }),
-  object({ state: literal("target_unknown") }),
-  object({ state: literal("invalid") }),
-  object({ state: literal("unavailable") }),
-);
-
-export const vCloudflareWorkerBuildSettingsStatus = union(
+const vCloudflareWorkerBuildSettingsStatus = union(
   object({
     state: literal("available"),
   }),

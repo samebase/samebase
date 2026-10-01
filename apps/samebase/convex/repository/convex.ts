@@ -1,5 +1,6 @@
 "use node";
 
+import { notEmpty } from "@samebase/dependent/main";
 import { ConvexError, type Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
@@ -7,7 +8,10 @@ import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
-import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
+import {
+  discoverCloudflareWorkersForRepository,
+  readCloudflareWorkerConvexBuildAccess,
+} from "../cloudflareResources";
 import {
   isConvexCloudDeployment,
   listConvexManagementDefaultProductionDeployments,
@@ -402,35 +406,49 @@ async function readConvexWorkerReferences(
     if (!connection || !token || connection.account.accountId !== accountId) {
       return new Map();
     }
+    const transport = resolveCloudflareApiTransport(connection.auth.method);
     const discovery = await discoverCloudflareWorkersForRepository({
       token,
-      transport: resolveCloudflareApiTransport(connection.auth.method),
+      transport,
       accountId,
       expectedRepoId: args.context.githubRepositoryDatabaseId,
       defaultBranch: args.defaultBranch,
     });
+    const markedWorkers = await Promise.all(
+      discovery.workers.map(async (worker) => {
+        if (worker.repository.state !== "ready" || worker.repository.builds.state !== "available") {
+          return null;
+        }
+        const convexBuildAccess = await readCloudflareWorkerConvexBuildAccess({
+          token,
+          transport,
+          accountId,
+          workerTag: worker.workerTag,
+        }).catch(() => ({ state: "unavailable" as const }));
+        if (convexBuildAccess.state !== "configured" && convexBuildAccess.state !== "incomplete") {
+          return null;
+        }
+        return {
+          projectId: convexBuildAccess.convexProject.projectId,
+          reference: {
+            accountId,
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+            rootDirectory: worker.repository.rootDirectory,
+            markerTeamId: convexBuildAccess.convexProject.teamId,
+            access: convexBuildAccess.state,
+          },
+        };
+      }),
+    );
+
     const references = new Map<string, ConvexWorkerReference[]>();
-    for (const worker of discovery.workers) {
-      if (
-        worker.repository.state !== "ready" ||
-        (worker.convexBuildAccess.state !== "configured" &&
-          worker.convexBuildAccess.state !== "incomplete")
-      ) {
-        continue;
-      }
-      const projectReferences = references.get(worker.convexBuildAccess.convexProject.projectId);
-      const reference = {
-        accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-        rootDirectory: worker.repository.rootDirectory,
-        markerTeamId: worker.convexBuildAccess.convexProject.teamId,
-        access: worker.convexBuildAccess.state,
-      };
+    for (const { projectId, reference } of markedWorkers.filter(notEmpty)) {
+      const projectReferences = references.get(projectId);
       if (projectReferences) {
         projectReferences.push(reference);
       } else {
-        references.set(worker.convexBuildAccess.convexProject.projectId, [reference]);
+        references.set(projectId, [reference]);
       }
     }
     for (const projectReferences of references.values()) {
