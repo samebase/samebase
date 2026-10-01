@@ -6,16 +6,15 @@
   "type": "module",
   "scripts": {
     "build": "wrangler deploy --dry-run",
-    "check": "pnpm run typecheck && pnpm run deploy:dry-run && pnpm run deploy:preview:dry-run",
+    "check": "pnpm run typecheck && pnpm run deploy:dry-run",
     "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler versions upload",
+    "deploy:preview": "wrangler preview",
     "deploy:dry-run": "wrangler deploy --dry-run",
-    "deploy:preview:dry-run": "wrangler versions upload --dry-run",
     "dev": "wrangler dev",
     "typecheck": "pnpm --dir ../.. exec tsgo -p apps/posthog-proxy/tsconfig.json --pretty false"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "4.20260515.1",
-    "wrangler": "4.90.0"
+    "@cloudflare/workers-types": "5.20260921.1",
+    "wrangler": "4.136.2"
   }
 }
