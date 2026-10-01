@@ -727,7 +727,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(payload).toMatchObject({
       result: {
         instructions: expect.stringContaining(
-          "say that the user can do it in the Samebase dashboard and offer to open it with create_browser_handoff. Do not call a tool until the user accepts. Do not claim that the operation finished.",
+          "For these requests only, say that the user can do it in the Samebase dashboard and offer to open it with create_browser_handoff. Do not call a tool until the user accepts. Do not claim that the operation finished. Do not send provider state to the dashboard: use provider-native tools for logs, environment values, migrations, custom domains, and deployment and build status.",
         ),
       },
     });
