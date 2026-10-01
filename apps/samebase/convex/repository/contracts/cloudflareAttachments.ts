@@ -75,9 +75,9 @@ export const cloudflareDiscoverWorkersContract = {
     name: "repository_cloudflare_discoverWorkers",
     description:
       "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Workers in the Samebase repository's stored Cloudflare account and observe which ones are connected to its GitHub repository and live Workers Builds roots.",
-    safety: "write",
+    safety: "read_only",
     annotations: {
-      readOnlyHint: false,
+      readOnlyHint: true,
       openWorldHint: false,
       destructiveHint: false,
     },

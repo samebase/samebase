@@ -20,7 +20,6 @@ import {
   readMcpMethodForUsage,
   readMcpToolNameForUsage,
 } from "./http";
-import codexPluginManifest from "../../../../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 
 function mcpRequestHeaders(args: {
   accessToken?: string;
@@ -274,9 +273,8 @@ describe("MCP tool listing access", () => {
           type: "object",
           properties: {
             repositoryId: { type: "string" },
-            runId: { type: "string" },
           },
-          required: ["repositoryId", "runId"],
+          required: ["repositoryId"],
           additionalProperties: false,
         },
       },
@@ -288,10 +286,9 @@ describe("MCP tool listing access", () => {
         type: "object",
         properties: {
           repositoryId: { type: "string" },
-          runId: { type: "string" },
           githubRepositoryFullName: { type: "string" },
         },
-        required: ["repositoryId", "runId", "githubRepositoryFullName"],
+        required: ["repositoryId", "githubRepositoryFullName"],
         additionalProperties: false,
       },
     });
@@ -300,7 +297,7 @@ describe("MCP tool listing access", () => {
       title: "List Cloudflare Workers Builds tokens",
       annotations: {
         readOnlyHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
         destructiveHint: false,
       },
       outputSchema: {
@@ -376,6 +373,7 @@ describe("MCP tool listing access", () => {
       ["repository_cloudflare_configureWorkersBuildsForGitHub", true],
       ["repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds", true],
       ["repository_actions_retryInfrastructureProvisioning", true],
+      ["samebase_feedback_submit", true],
     ] as const;
 
     for (const [name, destructiveHint] of expectedSafety) {
@@ -384,6 +382,28 @@ describe("MCP tool listing access", () => {
           readOnlyHint: false,
           openWorldHint: true,
           destructiveHint,
+        },
+      });
+    }
+  });
+
+  it("marks account reads and provider discovery as bounded read-only tools", () => {
+    const tools = listMcpToolsForAccess({
+      grantedScopes: [...ACCESS_KEYS],
+      currentAccessKeys: [...ACCESS_KEYS],
+    });
+    for (const name of [
+      "samebase_auth_getAuthenticationStatus",
+      "repository_dashboard_getUserRepositories",
+      "cloudflare_listWorkersBuildTokens",
+      "repository_convex_discoverProjects",
+      "repository_cloudflare_discoverWorkers",
+    ]) {
+      expect(tools.find((tool) => tool.name === name)).toMatchObject({
+        annotations: {
+          readOnlyHint: true,
+          openWorldHint: false,
+          destructiveHint: false,
         },
       });
     }
@@ -693,17 +713,18 @@ describe("MCP tools/call access enforcement", () => {
         capabilities: { tools: {} },
         serverInfo: { name: "Samebase", version: "0.2.0" },
         instructions: expect.stringMatching(
-          /^In Codex, the latest Samebase plugin version available from the direct Samebase marketplace is .*[\s\S]*loaded Samebase skill path contains a lower numeric major\.minor\.patch version[\s\S]*tell the user once before the first Samebase tool call[\s\S]*codex plugin marketplace upgrade samebase[\s\S]*codex plugin add samebase@samebase[\s\S]*start a new task after the update\.[\s\S]*Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If the user chooses US, pass aws-us-east-1[\s\S]*If the user chooses EU, pass aws-eu-west-1[\s\S]*omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call repository_cloudflare_createWorker[\s\S]*call repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If the user chooses US, pass aws-us-east-1[\s\S]*If the user chooses EU, pass aws-eu-west-1[\s\S]*omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call repository_cloudflare_createWorker[\s\S]*call repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
       },
     });
     expect(payload).toMatchObject({
       result: {
         instructions: expect.stringContaining(
-          `latest Samebase plugin version available from the direct Samebase marketplace is ${codexPluginManifest.version}.`,
+          "Show its returned URL to the user as a clickable link.",
         ),
       },
     });
+    expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
   });
 
@@ -1280,6 +1301,30 @@ describe("MCP tools/call access enforcement", () => {
     expect(payload.result).not.toHaveProperty("resultType");
     expect(payload.result).not.toHaveProperty("_meta");
     expect(JSON.stringify(payload)).not.toContain("_creationTime");
+    expect(JSON.stringify(payload)).not.toContain("runId");
+    expect(JSON.stringify(payload)).not.toContain("updatedAt");
+  });
+
+  it("does not expose Convex validation diagnostics in tool errors", async () => {
+    const { callTool } = await seedMcpBearer({ isApproved: true });
+    const payload = await callTool("repository_actions_createRepository", {
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "test-app",
+      convexProjectName: "test-app",
+      cloudflareWorkerName: "test-app",
+      cloudflareBuildTokenUuid: null,
+      unexpectedDiagnostic: "private-diagnostic@example.com",
+    });
+
+    expect(payload.result).toEqual({
+      content: [
+        {
+          type: "text",
+          text: "Samebase could not complete this request. Check the app in Samebase before retrying.",
+        },
+      ],
+      isError: true,
+    });
   });
 
   it("creates a Worker with the repository account from inventory, then returns it in inventory", async () => {
@@ -1330,6 +1375,7 @@ describe("MCP tools/call access enforcement", () => {
       },
     };
     let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
+    let failWorkerDiscovery = false;
 
     function jsonResponse(result: unknown, status = 200): Response {
       return new Response(JSON.stringify(result), {
@@ -1420,6 +1466,9 @@ describe("MCP tools/call access enforcement", () => {
       if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
         return cloudflareResponse(workerDetails());
       }
+      if (method === "GET" && url.pathname.endsWith("/workers/workers")) {
+        return cloudflareResponse([workerDetails()]);
+      }
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
         return cloudflareResponse([
           {
@@ -1433,6 +1482,19 @@ describe("MCP tools/call access enforcement", () => {
         ]);
       }
       if (method === "GET" && url.pathname.endsWith("/builds/workers/mcp-worker-tag")) {
+        if (failWorkerDiscovery) {
+          return jsonResponse(
+            {
+              success: false,
+              errors: [
+                { code: 1000, message: "private-diagnostic@example.com provider debug detail" },
+              ],
+              messages: [],
+              result: null,
+            },
+            500,
+          );
+        }
         return buildSettings
           ? cloudflareResponse(buildSettings)
           : jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
@@ -1602,8 +1664,6 @@ describe("MCP tools/call access enforcement", () => {
           repositories: [
             expect.objectContaining({
               repositoryId,
-              hasCloudflareProvision: true,
-              canRemoveCloudflareProvision: true,
               cloudflareWorkers: [
                 {
                   workerId: attachment._id,
@@ -1674,6 +1734,24 @@ describe("MCP tools/call access enforcement", () => {
       branch: "main",
       commit_hash: defaultBranchCommitSha,
     });
+
+    failWorkerDiscovery = true;
+    const discovery = await callTool("repository_cloudflare_discoverWorkers", {
+      repositoryId,
+      accountId: cloudflareAccountId,
+    });
+    expect(discovery.result.structuredContent.workers).toEqual([
+      {
+        workerName: "mcp-worker",
+        workerTag: "mcp-worker-tag",
+        repository: {
+          state: "failed",
+          message: "Could not read this Worker's repository connection. Check it in Cloudflare.",
+        },
+        convexBuildAccess: { state: "unavailable" },
+      },
+    ]);
+    expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {

@@ -1,6 +1,12 @@
 "use node";
 
-import { v, type Infer, type ObjectType, type PropertyValidators } from "convex/values";
+import {
+  ConvexError,
+  v,
+  type Infer,
+  type ObjectType,
+  type PropertyValidators,
+} from "convex/values";
 import type { ReturnValueForOptionalValidator } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
@@ -50,6 +56,7 @@ import { mcpScopeAllowsAccess } from "./mcpScopes";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
 import { sendEmail } from "../email";
+import { publicMcpErrorMessage } from "../mcp/publicErrors";
 
 const { array, id, literal, object, string, union } = v;
 const vToolInvocationArgs = {
@@ -123,10 +130,9 @@ function defineMcpTool<
           status: "ok",
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Tool execution failed.";
         return {
           status: "error",
-          text: message,
+          text: publicMcpErrorMessage(error),
         };
       }
     },
@@ -141,10 +147,11 @@ export const createRepositoryTool = defineMcpTool({
   },
   run: async (ctx, args) => {
     const { githubOwnerLogin, ...createArgs } = args;
-    const structuredContent = await createAppForUser(ctx, {
+    const result = await createAppForUser(ctx, {
       ...createArgs,
       target: { kind: "owner", githubOwnerLogin },
     });
+    const structuredContent = { repositoryId: result.repositoryId };
     return {
       text: JSON.stringify(structuredContent, null, 2),
       structuredContent,
@@ -189,9 +196,91 @@ export const getUserRepositoriesTool = defineMcpTool({
     );
     const repositories: Infer<
       typeof getUserRepositoriesContract.structuredContent
-    >["repositories"] = repositoriesWithOrganizationIds.map(
-      ({ organizationId: _organizationId, ...repository }) => repository,
-    );
+    >["repositories"] = repositoriesWithOrganizationIds.map((repository) => {
+      const plan = repository.providerPlan;
+      let pendingCloudflareSetup: Infer<
+        typeof getUserRepositoriesContract.structuredContent
+      >["repositories"][number]["pendingCloudflareSetup"] = null;
+      if (
+        plan &&
+        plan.cloudflare.state === "planned" &&
+        plan.cloudflare.buildTokenUuid === null &&
+        plan.convex.state === "created" &&
+        repository.cloudflareWorkers.length === 0
+      ) {
+        const plannedProjectId = plan.convex.projectId;
+        const plannedTeamId = plan.convex.teamId;
+        const project = repository.convexProjects.find(
+          (attachment) =>
+            attachment.projectId === plannedProjectId &&
+            attachment.teamId === plannedTeamId &&
+            attachment.codeLocation.kind === "config" &&
+            attachment.codeLocation.convexConfigPath === plan.convexConfigPath,
+        );
+        if (project) {
+          pendingCloudflareSetup = {
+            workerName: plan.cloudflare.workerName,
+            rootDirectory: plan.cloudflare.rootDirectory,
+            convexProjectId: project.convexProjectId,
+          };
+        }
+      }
+
+      return {
+        repositoryId: repository.repositoryId,
+        convexTeamId: repository.convexTeamId,
+        cloudflareAccountId: repository.cloudflareAccountId,
+        githubOwnerLogin: repository.githubOwnerLogin,
+        githubRepositoryName: repository.githubRepositoryName,
+        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
+        githubRepositoryFullName: repository.githubRepositoryFullName,
+        defaultBranch: repository.defaultBranch,
+        sourceSetup:
+          repository.sourceSetup.status === "failed"
+            ? {
+                status: repository.sourceSetup.status,
+                step: repository.sourceSetup.step,
+                message: "Source setup failed. Check this app in Samebase for recovery steps.",
+              }
+            : repository.sourceSetup.status === "running"
+              ? { status: repository.sourceSetup.status, step: repository.sourceSetup.step }
+              : { status: repository.sourceSetup.status },
+        providerSetup:
+          repository.providerSetup.status === "failed"
+            ? {
+                status: repository.providerSetup.status,
+                provider: repository.providerSetup.provider,
+                step: repository.providerSetup.step,
+                message: "Provider setup failed. Check this app in Samebase before retrying.",
+              }
+            : repository.providerSetup.status === "running"
+              ? {
+                  status: repository.providerSetup.status,
+                  provider: repository.providerSetup.provider,
+                  step: repository.providerSetup.step,
+                }
+              : { status: repository.providerSetup.status },
+        pendingCloudflareSetup,
+        providerWrite:
+          repository.providerWrite.status === "active"
+            ? "affectedProviders" in repository.providerWrite
+              ? {
+                  status: repository.providerWrite.status,
+                  owner: repository.providerWrite.owner,
+                  affectedProviders: repository.providerWrite.affectedProviders,
+                }
+              : { status: repository.providerWrite.status, owner: repository.providerWrite.owner }
+            : { status: repository.providerWrite.status },
+        deletion:
+          repository.deletion.state === "not_deleting"
+            ? { state: repository.deletion.state }
+            : { state: repository.deletion.state, currentStep: repository.deletion.currentStep },
+        isSamebaseManaged: repository.isSamebaseManaged,
+        hasConnectedGitHubRepository: repository.hasConnectedGitHubRepository,
+        cloudflareWorkers: repository.cloudflareWorkers,
+        convexProjects: repository.convexProjects,
+      };
+    });
     return {
       text: `Found ${repositories.length} ${repositories.length === 1 ? "repository" : "repositories"}.`,
       structuredContent: { repositories },
@@ -206,11 +295,15 @@ export const connectRepositoryTool = defineMcpTool({
     structuredContent: connectRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await connectRepositoryForUser(ctx, {
+    const result = await connectRepositoryForUser(ctx, {
       userId: args.userId,
       target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
       githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
     });
+    const structuredContent = {
+      repositoryId: result.repositoryId,
+      githubRepositoryFullName: result.githubRepositoryFullName,
+    };
     return {
       text: JSON.stringify(structuredContent, null, 2),
       structuredContent,
@@ -255,7 +348,21 @@ export const cloudflareDiscoverWorkersTool = defineMcpTool({
     structuredContent: cloudflareDiscoverWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await discoverCloudflareWorkersForUser(ctx, args);
+    const result = await discoverCloudflareWorkersForUser(ctx, args);
+    const structuredContent = {
+      inventoryState: result.inventoryState,
+      workers: result.workers.map((worker) => ({
+        ...worker,
+        repository:
+          worker.repository.state === "failed"
+            ? {
+                state: "failed" as const,
+                message:
+                  "Could not read this Worker's repository connection. Check it in Cloudflare.",
+              }
+            : worker.repository,
+      })),
+    };
     return {
       text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory.`,
       structuredContent,
@@ -331,10 +438,12 @@ export const submitFeedbackTool = defineMcpTool({
   successFields: {},
   run: async (ctx, args) => {
     if (args.report.trim().length === 0) {
-      throw new Error("Feedback report cannot be empty.");
+      throw new ConvexError("Feedback report cannot be empty.");
     }
     if (args.report.length > MAX_FEEDBACK_REPORT_LENGTH) {
-      throw new Error(`Feedback report must be ${MAX_FEEDBACK_REPORT_LENGTH} characters or fewer.`);
+      throw new ConvexError(
+        `Feedback report must be ${MAX_FEEDBACK_REPORT_LENGTH} characters or fewer.`,
+      );
     }
 
     await ctx.runMutation(internal.mcp.feedback.reserveFeedbackSend, {
@@ -346,7 +455,7 @@ export const submitFeedbackTool = defineMcpTool({
       text: args.report,
     });
     if (emailResult === "skipped") {
-      throw new Error("Feedback email is not configured in local development.");
+      throw new ConvexError("Feedback email is not configured in local development.");
     }
     return { text: "Feedback submitted to Samebase." };
   },
@@ -399,10 +508,9 @@ export const createBrowserHandoffTool = internalAction({
         token,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid SITE_URL.";
       return {
         status: "error",
-        text: message,
+        text: publicMcpErrorMessage(error),
       };
     }
 

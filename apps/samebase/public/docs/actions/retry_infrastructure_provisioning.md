@@ -4,9 +4,12 @@
 
 MCP tool `repository_actions_retryInfrastructureProvisioning` · scope `access_app_create` · write
 
-Retries failed Samebase-managed infrastructure setup: starts a fresh managed provisioning run that
-re-reads the app's current infrastructure state and skips the blocks whose resources already exist,
-so completed work is not redone. It does not require or inspect a prior failed run.
+Starts a fresh Samebase-managed infrastructure setup run. It re-reads the app's current state,
+reuses attached Convex projects and Cloudflare Workers, and creates missing resources. When the
+managed plan requests Cloudflare, it configures Workers Builds and rotates Convex deploy keys even
+when those resources are already attached. Those steps can overwrite trigger settings, revoke
+recorded deploy keys, and start production builds. It does not require or inspect a prior failed
+run.
 
 Only valid for live Samebase-managed apps, which are apps created by
 `repository_actions_createRepository`; imported repositories repair through the explicit manual

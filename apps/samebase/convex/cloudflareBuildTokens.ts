@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
@@ -23,7 +24,7 @@ export async function listWorkersBuildTokensForUser(
   const token = connection?.auth.credential.trim();
   const accountId = connection?.account.accountId.trim();
   if (!connection || !token || !accountId) {
-    throw new Error("Cloudflare connection is required.");
+    throw new ConvexError("Cloudflare connection is required.");
   }
   const tokens = await listCloudflareBuildTokens({
     token,

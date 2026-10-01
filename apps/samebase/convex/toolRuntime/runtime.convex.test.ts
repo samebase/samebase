@@ -106,7 +106,13 @@ describe("MCP tool runtime boundaries", () => {
 
   it("lists repositories across every current organization membership", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
-    const { authorizedRepositoryId, otherRunRepositoryId } = await t.run(async (ctx) => {
+    const {
+      authorizedRepositoryId,
+      otherRunRepositoryId,
+      pendingRepositoryId,
+      pendingPlanId,
+      pendingConvexProjectId,
+    } = await t.run(async (ctx) => {
       const authorizedRepositoryId = await ctx.db.insert("repositories", {
         organizationId,
         convexTeamId: "convex-team",
@@ -121,8 +127,9 @@ describe("MCP tool runtime boundaries", () => {
         repositoryId: authorizedRepositoryId,
         githubRepositoryFullName: "tool-runtime-owner/authorized",
         trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
+        state: "failed",
+        currentStep: "seed_starter",
+        lastError: "private-diagnostic@example.com source failure",
         createdAt: 1,
         updatedAt: 1,
         completedAt: 1,
@@ -168,8 +175,9 @@ describe("MCP tool runtime boundaries", () => {
         repositoryId: otherRunRepositoryId,
         githubRepositoryFullName: "other-owner/hidden",
         trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
+        state: "failed",
+        currentStep: "attach_convex",
+        lastError: "private-diagnostic@example.com provider failure",
         createdAt: 1,
         updatedAt: 1,
         completedAt: 1,
@@ -189,7 +197,89 @@ describe("MCP tool runtime boundaries", () => {
         connectedAt: 1,
         createdAt: 1,
       });
-      return { authorizedRepositoryId, otherRunRepositoryId };
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId: otherRunRepositoryId,
+        owner: { kind: "managed_run", runId: otherRunId },
+        state: "failed",
+        lastWriteAt: { convex: 1 },
+        updatedAt: 1,
+      });
+      const pendingRepositoryId = await ctx.db.insert("repositories", {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "account_1",
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+        createdAt: 1,
+      });
+      const pendingRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+        organizationId,
+        userId,
+        repositoryId: pendingRepositoryId,
+        githubRepositoryFullName: "tool-runtime-owner/pending-app",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      await ctx.db.replace(pendingRepositoryId, {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "account_1",
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: pendingRunId,
+        githubRepositoryDatabaseId: "pending-repository",
+        githubRepositoryName: "pending-app",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+        createdAt: 1,
+      });
+      const pendingPlanId = await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        repositoryId: pendingRepositoryId,
+        convexConfigPath: "apps/web/convex.json",
+        convex: {
+          state: "created",
+          projectName: "pending-app",
+          deploymentRegion: "aws-us-east-1",
+          projectId: "pending-provider-project",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "pending-worker",
+          rootDirectory: "apps/web",
+          buildTokenUuid: null,
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: pendingRepositoryId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "unrelated-provider-project",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+      const pendingConvexProjectId = await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: pendingRepositoryId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "pending-provider-project",
+        convexConfigPath: "apps/web/convex.json",
+        origin: "provisioned",
+      });
+      return {
+        authorizedRepositoryId,
+        otherRunRepositoryId,
+        pendingRepositoryId,
+        pendingPlanId,
+        pendingConvexProjectId,
+      };
     });
 
     const result = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
@@ -209,7 +299,201 @@ describe("MCP tool runtime boundaries", () => {
     );
     for (const repository of result.structuredContent.repositories) {
       expect(repository).not.toHaveProperty("organizationId");
+      expect(repository).not.toHaveProperty("fileCount");
+      expect(repository).not.toHaveProperty("lastEditTime");
+      expect(repository).not.toHaveProperty("canRemoveConvexProvision");
+      expect(repository).not.toHaveProperty("canRemoveCloudflareProvision");
+      expect(repository).not.toHaveProperty("providerPlan");
     }
+    expect(result.structuredContent.repositories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          repositoryId: authorizedRepositoryId,
+          pendingCloudflareSetup: null,
+          sourceSetup: {
+            status: "failed",
+            step: "seed_starter",
+            message: "Source setup failed. Check this app in Samebase for recovery steps.",
+          },
+        }),
+        expect.objectContaining({
+          repositoryId: otherRunRepositoryId,
+          pendingCloudflareSetup: null,
+          providerSetup: {
+            status: "failed",
+            provider: "convex",
+            step: "attach_convex",
+            message: "Provider setup failed. Check this app in Samebase before retrying.",
+          },
+        }),
+        expect.objectContaining({
+          repositoryId: pendingRepositoryId,
+          pendingCloudflareSetup: {
+            workerName: "pending-worker",
+            rootDirectory: "apps/web",
+            convexProjectId: pendingConvexProjectId,
+          },
+        }),
+      ]),
+    );
+    const output = JSON.stringify(result);
+    expect(output).not.toContain("private-diagnostic@example.com");
+    expect(output).not.toContain('"runId"');
+    expect(output).not.toContain('"updatedAt"');
+    expect(output).not.toContain('"lastWriteAt"');
+    expect(output).not.toContain('"buildTokenUuid"');
+    expect(output).not.toContain('"deploymentRegion"');
+    const webRepositories = await t.query(
+      internal.repository.dashboard.getUserRepositoriesForUser,
+      {
+        userId,
+      },
+    );
+    expect(
+      webRepositories.find((repository) => repository.repositoryId === authorizedRepositoryId),
+    ).toMatchObject({
+      organizationId,
+      sourceSetup: {
+        runId: expect.any(String),
+        updatedAt: 1,
+        message: "private-diagnostic@example.com source failure",
+      },
+    });
+    expect(
+      webRepositories.find((repository) => repository.repositoryId === pendingRepositoryId),
+    ).toMatchObject({
+      providerPlan: {
+        convexConfigPath: "apps/web/convex.json",
+        convex: {
+          state: "created",
+          teamId: "convex-team",
+          projectId: "pending-provider-project",
+        },
+        cloudflare: { accountId: "account_1", buildTokenUuid: null },
+      },
+    });
+
+    for (const scenario of [
+      {
+        convexState: "created",
+        projectId: "pending-provider-project",
+        buildTokenUuid: "historical-build-token-uuid",
+      },
+      {
+        convexState: "planned",
+        projectId: null,
+        buildTokenUuid: null,
+      },
+      {
+        convexState: "created",
+        projectId: "missing-provider-project",
+        buildTokenUuid: null,
+      },
+    ] as const) {
+      await t.run(async (ctx) => {
+        await ctx.db.patch(pendingPlanId, {
+          convex:
+            scenario.convexState === "created"
+              ? {
+                  state: scenario.convexState,
+                  projectName: "pending-app",
+                  deploymentRegion: "aws-us-east-1",
+                  projectId: scenario.projectId,
+                }
+              : {
+                  state: scenario.convexState,
+                  projectName: "pending-app",
+                  deploymentRegion: "aws-us-east-1",
+                },
+          cloudflare: {
+            state: "planned",
+            workerName: "pending-worker",
+            rootDirectory: "apps/web",
+            buildTokenUuid: scenario.buildTokenUuid,
+          },
+        });
+      });
+      const unavailable = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+        userId,
+        grantedScopes: ["access_dashboard"],
+      });
+      expect(unavailable.status).toBe("ok");
+      if (unavailable.status !== "ok") {
+        throw new Error(unavailable.text);
+      }
+      expect(
+        unavailable.structuredContent.repositories.find(
+          (repository) => repository.repositoryId === pendingRepositoryId,
+        ),
+      ).toMatchObject({ pendingCloudflareSetup: null });
+      expect(JSON.stringify(unavailable)).not.toContain("historical-build-token-uuid");
+    }
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(pendingPlanId, {
+        convex: {
+          state: "created",
+          projectName: "pending-app",
+          deploymentRegion: "aws-us-east-1",
+          projectId: "pending-provider-project",
+        },
+      });
+      await ctx.db.insert("repositoryCloudflareWorkers", {
+        repositoryId: pendingRepositoryId,
+        organizationId,
+        accountId: "account_1",
+        workerName: "existing-worker",
+        workerTag: "existing-worker-tag",
+        rootDirectory: "apps/web",
+        origin: "selected_existing",
+      });
+    });
+    const withWorker = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+      userId,
+      grantedScopes: ["access_dashboard"],
+    });
+    expect(withWorker.status).toBe("ok");
+    if (withWorker.status !== "ok") {
+      throw new Error(withWorker.text);
+    }
+    expect(
+      withWorker.structuredContent.repositories.find(
+        (repository) => repository.repositoryId === pendingRepositoryId,
+      ),
+    ).toMatchObject({ pendingCloudflareSetup: null });
+  });
+
+  it("does not expose provider response details from failed feedback", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:samebase");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              errors: [
+                { code: 1000, message: "private-diagnostic@example.com provider debug detail" },
+              ],
+            }),
+            { status: 500 },
+          ),
+      ),
+    );
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report: "The app failed to load.",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Samebase could not complete this request. Check the app in Samebase before retrying.",
+    });
   });
 
   it.each([
@@ -334,6 +618,16 @@ describe("MCP tool runtime boundaries", () => {
         userId,
       }),
     ).rejects.toThrow("Feedback rate limit reached. Try again later.");
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report: "The app failed to load.",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Feedback rate limit reached. Try again later.",
+    });
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {

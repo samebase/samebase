@@ -25,23 +25,23 @@ const noDestructiveActions =
 export const toolJustifications = {
   samebase_auth_getAuthenticationStatus: {
     read_only_justification:
-      "Reports the authenticated Samebase account, current role, access keys, and MCP token scopes. Request authentication and usage bookkeeping can update private Samebase records.",
+      "Only reads the authenticated Samebase account, role, permissions, and granted MCP scopes.",
     open_world_justification:
-      "Does not create, publish, or modify public internet state or third-party provider resources.",
+      "Reads only the current caller's private Samebase account and authorization.",
     destructive_justification: noDestructiveActions,
   },
   repository_dashboard_getUserRepositories: {
     read_only_justification:
-      "Lists the authenticated user's Samebase apps with repository metadata, setup state, and stable identifiers for attached provider resources. Request authentication and usage bookkeeping can update private Samebase records.",
+      "Only lists the caller's Samebase apps, setup state, and attached resource identities.",
     open_world_justification:
-      "Does not create, publish, or modify public internet state or third-party systems.",
+      "Reads only apps in Samebase workspaces where the caller is a current member.",
     destructive_justification: noDestructiveActions,
   },
   cloudflare_listWorkersBuildTokens: {
     read_only_justification:
-      "Lists non-secret Workers Builds token names and UUIDs from the Cloudflare account connected to the selected Samebase organization. Request authentication and connection refresh bookkeeping can update private Samebase records.",
+      "Only lists non-secret Workers Builds token names and UUIDs, without creating or changing tokens.",
     open_world_justification:
-      "Reads the Cloudflare API; it does not create, publish, or modify Cloudflare resources or public internet state.",
+      "Reads only the Cloudflare account connected to the selected Samebase workspace.",
     destructive_justification: noDestructiveActions,
   },
   repository_actions_createRepository: {
@@ -55,14 +55,14 @@ export const toolJustifications = {
     read_only_justification:
       "Creates the repository-backed Samebase repository and starts a tree sync; provider resources are not modified.",
     open_world_justification:
-      "Reads repository metadata from GitHub; creates no external resources beyond Samebase's own record.",
+      "Reads only a repository within the selected workspace's authorized GitHub installation and records its Samebase connection.",
     destructive_justification: noDestructiveActions,
   },
   repository_convex_discoverProjects: {
     read_only_justification:
-      "Discovers exact convex.json files and readable Convex projects, and may refresh private Samebase connection bookkeeping while reading provider state.",
+      "Only reads repository code locations, connected Convex projects, and Cloudflare Worker markers.",
     open_world_justification:
-      "Reads GitHub, Convex, and available Cloudflare Worker markers; it does not change provider or public internet state.",
+      "Reads only the selected repository and its workspace's connected Convex team and Cloudflare account.",
     destructive_justification: noDestructiveActions,
   },
   repository_cloudflare_createWorker: {
@@ -75,23 +75,23 @@ export const toolJustifications = {
   },
   repository_cloudflare_discoverWorkers: {
     read_only_justification:
-      "Lists Workers and their live repository roots, and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
+      "Only lists existing Workers and reads their repository connections, build roots, and Convex project markers.",
     open_world_justification:
-      "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
+      "Reads only Workers in the selected repository's connected Cloudflare account.",
     destructive_justification: noDestructiveActions,
   },
   repository_convex_attachProjects: {
     read_only_justification:
       "Records selected existing Convex projects and confirmed convex.json paths as repository attachments.",
     open_world_justification:
-      "Re-reads the selected projects from Convex and exact config blobs from GitHub, then records Samebase state; provider resources are not modified.",
+      "Reads only the workspace's authorized GitHub repository and connected Convex projects, then records attachments in Samebase.",
     destructive_justification: noDestructiveActions,
   },
   repository_cloudflare_attachWorkers: {
     read_only_justification:
       "Records selected existing Cloudflare Workers as repository attachments; Workers without a verified root for this repository are rejected.",
     open_world_justification:
-      "Re-reads Worker identity and live repository roots from Cloudflare, then records Samebase state; provider resources are not modified.",
+      "Reads only the workspace's connected Cloudflare account, then records verified repository attachments in Samebase.",
     destructive_justification: noDestructiveActions,
   },
   repository_cloudflare_configureWorkersBuildsForGitHub: {
@@ -108,13 +108,13 @@ export const toolJustifications = {
     open_world_justification:
       "Creates deploy keys on the caller's Convex project, sets variables in the caller's Cloudflare build settings, and starts a production build.",
     destructive_justification:
-      "Rotates the app's own build deploy keys: previously recorded keys are deleted once replacements are installed, and its own new keys are cleaned up on failure. It then starts a production build. It does not delete user data, deployments, or Workers.",
+      "Revokes recorded Convex deploy keys before creating replacements and updating build variables, so a failure can leave build access unavailable.",
   },
   repository_actions_retryInfrastructureProvisioning: {
     read_only_justification:
-      "Restarts a failed managed provisioning run from its failed step, which can create the provider resources the failed run had not completed.",
+      "Starts a fresh provisioning run that reuses attached resources, creates missing ones, and configures Workers Builds and rotates deploy keys when Cloudflare is requested.",
     open_world_justification:
-      "Resumes resource creation in GitHub, Convex, and Cloudflare on the caller's own accounts.",
+      "Creates missing Convex and Cloudflare resources and starts production builds that can publish the app.",
     destructive_justification:
       "Can overwrite the created Worker's production and preview build settings, finish native preview initialization, and rotate or revoke previously recorded Convex deploy keys while repairing the app.",
   },
@@ -131,7 +131,8 @@ export const toolJustifications = {
       "Sends one user-approved feedback report to a fixed Samebase staff mailbox and updates an account-linked submission-attempt counter.",
     open_world_justification:
       "Uses Cloudflare Email Sending and the Samebase staff mailbox. It does not publish the report or modify user-owned provider resources.",
-    destructive_justification: noDestructiveActions,
+    destructive_justification:
+      "Sends the exact report approved by the user to Samebase staff by email, which cannot be recalled after delivery.",
   },
 } as const satisfies Record<string, ToolJustifications>;
 
@@ -201,9 +202,9 @@ export const testCases = [
   },
   {
     description:
-      "Create one private app with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections.",
+      "Create one private app with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections. This fixture requires an available lastUsedBuildTokenUuid in the current Workers Builds token list and enough organization connection capacity.",
     user_prompt:
-      "Create a private Samebase app under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
+      "Create a private Samebase app under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Report its repository and provider setup status.",
     file_attachment_urls: null,
     tools_triggered: [
       "repository_dashboard_getUserRepositories",
@@ -211,7 +212,7 @@ export const testCases = [
       "repository_actions_createRepository",
     ],
     expected_output:
-      "Reads inventory and passes aws-us-east-1 as the requested Convex production region without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",
+      "Reads inventory and the connected Cloudflare account's current Workers Builds tokens, then uses the available lastUsedBuildTokenUuid without asking. Calls creation once with private true, aws-us-east-1, and that exact cloudflareBuildTokenUuid, without changing the saved organization default. Returns the new Samebase repository ID and polls inventory for that app's source and provider setup status. The expected completed setup is a private GitHub repository, an attached Convex project in US East, and an attached Cloudflare Worker with Workers Builds configured and a production build requested. Reports ready only when both setup states are ready; reports any failed setup accurately. The initial creation response and ready setup do not prove that a build succeeded or the app is live. A missing current last-used token means the reviewer fixture must be repaired before this case can pass.",
     expected_output_url: null,
   },
   {
@@ -221,7 +222,7 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: ["create_browser_handoff"],
     expected_output:
-      "Creates and presents one short-lived Samebase sign-in URL for the current MCP account. It does not create or modify GitHub, Convex, or Cloudflare resources.",
+      "Returns a one-time Samebase sign-in URL for the current MCP account and shows it as a clickable link on ChatGPT web and mobile. The private link expires after five minutes. When a browser-opening action is available, it opens that URL; otherwise it does not claim the dashboard opened. Opening the link before expiry signs in to the reviewer dashboard. No provider resource changes.",
     expected_output_url: null,
   },
 ] as const satisfies SubmissionTestCases;

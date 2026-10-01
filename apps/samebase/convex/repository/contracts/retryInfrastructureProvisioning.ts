@@ -16,7 +16,7 @@ export const retryInfrastructureProvisioningContract = {
     title: "Retry infrastructure provisioning",
     name: "repository_actions_retryInfrastructureProvisioning",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Retry a failed managed provisioning run for a Samebase-managed app, resuming from the failed step.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Start a fresh infrastructure setup run that reuses attached resources and creates missing ones. When Cloudflare is requested, it reconfigures Workers Builds and rotates Convex deploy keys.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -27,10 +27,12 @@ export const retryInfrastructureProvisioningContract = {
       repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
     },
   } as const satisfies AppFunctionMcpMetadata,
-  doc: `Retries failed Samebase-managed infrastructure setup: starts a fresh
-managed provisioning run that re-reads the app's current infrastructure state and skips the blocks
-whose resources already exist, so completed work is not redone. It does not require or inspect a
-prior failed run.
+  doc: `Starts a fresh Samebase-managed infrastructure setup run. It re-reads the app's current
+state, reuses attached Convex projects and Cloudflare Workers, and creates missing resources.
+When the managed plan requests Cloudflare, it configures Workers Builds and rotates Convex deploy
+keys even when those resources are already attached. Those steps can overwrite trigger settings,
+revoke recorded deploy keys, and start production builds. It does not require or inspect a prior
+failed run.
 
 Only valid for live Samebase-managed apps, which are apps created by \`repository_actions_createRepository\`; imported
 repositories repair through the explicit manual attachment and provider-configuration actions

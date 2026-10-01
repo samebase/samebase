@@ -39,10 +39,10 @@ export const getAuthenticationStatusContract = {
     title: "Get authentication status",
     name: "samebase_auth_getAuthenticationStatus",
     description:
-      "Read the caller's current Samebase MCP authentication state: account identity, role, access keys, and OAuth token scopes.",
-    safety: "write",
+      "Read the caller's current Samebase MCP authentication state: account identity, role, permissions, and granted OAuth scopes.",
+    safety: "read_only",
     annotations: {
-      readOnlyHint: false,
+      readOnlyHint: true,
       openWorldHint: false,
       destructiveHint: false,
     },
@@ -50,7 +50,7 @@ export const getAuthenticationStatusContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns the current MCP caller's Samebase authentication state for the bearer token used
 on the request: whether it still resolves to an active Samebase account, the account identity,
-the current Samebase role and access keys, and the OAuth scopes granted to this MCP token.
+the current Samebase role and permissions, and the granted OAuth scopes.
 
 Use this first when an MCP client needs to explain "am I connected, which account am I connected
 as, and what can this token currently do?" A valid token for a deleted or otherwise unresolved

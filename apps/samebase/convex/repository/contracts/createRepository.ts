@@ -33,12 +33,12 @@ export const createRepositoryContract = {
     ...createRepositoryFields,
   },
   returns: vCreateRepositoryResult,
-  structuredContent: vCreateRepositoryResult,
+  structuredContent: object({ repositoryId: id("repositories") }),
   mcp: {
     title: "Create Samebase app",
     name: "repository_actions_createRepository",
     description:
-      "Create a new Samebase app. A current Workers Builds token provisions GitHub, Convex, and Cloudflare; a confirmed empty token list provisions GitHub and Convex and leaves Cloudflare pending.",
+      "Create a new Samebase app. A current Workers Builds token provisions GitHub, Convex, and Cloudflare; a confirmed empty token list provisions GitHub and Convex and leaves Cloudflare pending. Returns a repository ID while setup runs. Read repository_dashboard_getUserRepositories for progress. Ready setup does not prove that the app is live.",
     safety: "write",
     annotations: {
       readOnlyHint: false,

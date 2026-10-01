@@ -26,7 +26,10 @@ export const connectRepositoryContract = {
     ...connectRepositoryFields,
   },
   returns: vConnectRepositoryResult,
-  structuredContent: vConnectRepositoryResult,
+  structuredContent: object({
+    repositoryId: id("repositories"),
+    githubRepositoryFullName: string(),
+  }),
   mcp: {
     title: "Connect existing repository",
     name: "repository_actions_connectRepository",

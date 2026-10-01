@@ -92,9 +92,9 @@ export const convexDiscoverProjectsContract = {
     name: "repository_convex_discoverProjects",
     description:
       "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team.",
-    safety: "write",
+    safety: "read_only",
     annotations: {
-      readOnlyHint: false,
+      readOnlyHint: true,
       openWorldHint: false,
       destructiveHint: false,
     },

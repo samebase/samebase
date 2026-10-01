@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import { internalMutation } from "../_generated/server";
 
@@ -18,7 +18,7 @@ export const reserveFeedbackSend = internalMutation({
 
     if (rateLimit && rateLimit._creationTime + FEEDBACK_SEND_WINDOW_MS > Date.now()) {
       if (rateLimit.count >= FEEDBACK_SEND_LIMIT) {
-        throw new Error("Feedback rate limit reached. Try again later.");
+        throw new ConvexError("Feedback rate limit reached. Try again later.");
       }
       await ctx.db.patch(rateLimit._id, { count: rateLimit.count + 1 });
       return null;

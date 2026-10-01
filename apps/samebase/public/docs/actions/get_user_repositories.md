@@ -2,7 +2,7 @@
 
 # List Samebase repositories (`get_user_repositories`)
 
-MCP tool `repository_dashboard_getUserRepositories` · scope `access_dashboard` · write
+MCP tool `repository_dashboard_getUserRepositories` · scope `access_dashboard` · read_only
 
 Returns every repository the authenticated account can see in the web app. An MCP call returns
 repositories across all organizations where that account is a current member. Repository connection,
@@ -10,14 +10,18 @@ source setup, provider setup, and deletion are independent axes; a source-setup 
 revoke an already connected repository. Provider setup status reports the managed work that was
 requested. It does not prove that every provider is attached.
 
-For a managed plan whose providerPlan.cloudflare.buildTokenUuid is null, a ready providerSetup means
-the GitHub and Convex work finished. When the exact Convex project from the plan is attached and
-cloudflareWorkers is empty, report Cloudflare setup as pending, not complete. Give the user
+The MCP result replaces the stored provider plan with pendingCloudflareSetup. This field is null
+unless a managed plan selected no build token, its exact created Convex project is attached, and
+cloudflareWorkers is empty. The object contains only the planned workerName, rootDirectory, and the
+attached convexProjectId needed to complete setup. In this case, a ready providerSetup means the
+GitHub and Convex work finished. Report Cloudflare setup as pending and give the user
 https://samebase.com/docs/cloudflare-setup. After the user creates the first account token through
 Cloudflare's standard repository setup and deletes the temporary Worker, list the current tokens and
-use repository_cloudflare_createWorker to create and configure the real Worker. Do not attach the
-temporary Worker or retry the completed managed run. If a Worker is already attached, keep that
-Worker and use its existing Builds repair after token setup. Do not create another Worker.
+use repository_cloudflare_createWorker with the planned workerName and rootDirectory. Reread
+inventory, then use repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker
+and the pending setup's convexProjectId. Do not attach the temporary Worker or retry the completed
+managed run. If a Worker is already attached, keep that Worker and use its existing Builds repair
+after token setup. Do not create another Worker.
 
 Provider resources are stable identities only. Current Cloudflare and Convex state, including the
 Worker-to-project marker, is loaded from those providers when a relevant view opens; it is not
@@ -64,12 +68,6 @@ JSON Schema for the tool's `structuredContent`:
           "defaultBranch": {
             "type": "string"
           },
-          "fileCount": {
-            "type": "number"
-          },
-          "lastEditTime": {
-            "type": "number"
-          },
           "sourceSetup": {
             "anyOf": [
               {
@@ -98,9 +96,6 @@ JSON Schema for the tool's `structuredContent`:
                   "status": {
                     "const": "running"
                   },
-                  "runId": {
-                    "type": "string"
-                  },
                   "step": {
                     "anyOf": [
                       {
@@ -128,12 +123,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "sync_tree"
                       }
                     ]
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "runId", "step", "updatedAt"],
+                "required": ["status", "step"],
                 "additionalProperties": false
               },
               {
@@ -141,9 +133,6 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "status": {
                     "const": "failed"
-                  },
-                  "runId": {
-                    "type": "string"
                   },
                   "step": {
                     "anyOf": [
@@ -175,12 +164,9 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   "message": {
                     "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "runId", "step", "message", "updatedAt"],
+                "required": ["status", "step", "message"],
                 "additionalProperties": false
               }
             ]
@@ -223,9 +209,6 @@ JSON Schema for the tool's `structuredContent`:
                       }
                     ]
                   },
-                  "runId": {
-                    "type": "string"
-                  },
                   "step": {
                     "anyOf": [
                       {
@@ -247,12 +230,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "finish"
                       }
                     ]
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "provider", "runId", "step", "updatedAt"],
+                "required": ["status", "provider", "step"],
                 "additionalProperties": false
               },
               {
@@ -270,9 +250,6 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "cloudflare"
                       }
                     ]
-                  },
-                  "runId": {
-                    "type": "string"
                   },
                   "step": {
                     "anyOf": [
@@ -298,17 +275,14 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   "message": {
                     "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["status", "provider", "runId", "step", "message", "updatedAt"],
+                "required": ["status", "provider", "step", "message"],
                 "additionalProperties": false
               }
             ]
           },
-          "providerPlan": {
+          "pendingCloudflareSetup": {
             "anyOf": [
               {
                 "type": "null"
@@ -316,219 +290,17 @@ JSON Schema for the tool's `structuredContent`:
               {
                 "type": "object",
                 "properties": {
-                  "convexConfigPath": {
+                  "workerName": {
                     "type": "string"
                   },
-                  "convex": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "planned"
-                          },
-                          "projectName": {
-                            "type": "string"
-                          },
-                          "deploymentRegion": {
-                            "anyOf": [
-                              {
-                                "const": "aws-us-east-1"
-                              },
-                              {
-                                "const": "aws-eu-west-1"
-                              },
-                              {
-                                "const": "aws-ca-central-1"
-                              },
-                              {
-                                "const": "aws-ap-southeast-2"
-                              }
-                            ]
-                          },
-                          "teamId": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["state", "projectName", "deploymentRegion", "teamId"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "creating"
-                          },
-                          "projectName": {
-                            "type": "string"
-                          },
-                          "deploymentRegion": {
-                            "anyOf": [
-                              {
-                                "const": "aws-us-east-1"
-                              },
-                              {
-                                "const": "aws-eu-west-1"
-                              },
-                              {
-                                "const": "aws-ca-central-1"
-                              },
-                              {
-                                "const": "aws-ap-southeast-2"
-                              }
-                            ]
-                          },
-                          "teamId": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["state", "projectName", "deploymentRegion", "teamId"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "created"
-                          },
-                          "projectName": {
-                            "type": "string"
-                          },
-                          "deploymentRegion": {
-                            "anyOf": [
-                              {
-                                "const": "aws-us-east-1"
-                              },
-                              {
-                                "const": "aws-eu-west-1"
-                              },
-                              {
-                                "const": "aws-ca-central-1"
-                              },
-                              {
-                                "const": "aws-ap-southeast-2"
-                              }
-                            ]
-                          },
-                          "teamId": {
-                            "type": "string"
-                          },
-                          "projectId": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "state",
-                          "projectName",
-                          "deploymentRegion",
-                          "teamId",
-                          "projectId"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                  "rootDirectory": {
+                    "type": "string"
                   },
-                  "cloudflare": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "planned"
-                          },
-                          "accountId": {
-                            "type": "string"
-                          },
-                          "workerName": {
-                            "type": "string"
-                          },
-                          "rootDirectory": {
-                            "type": "string"
-                          },
-                          "buildTokenUuid": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "state",
-                          "accountId",
-                          "workerName",
-                          "rootDirectory",
-                          "buildTokenUuid"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "creating"
-                          },
-                          "accountId": {
-                            "type": "string"
-                          },
-                          "workerName": {
-                            "type": "string"
-                          },
-                          "rootDirectory": {
-                            "type": "string"
-                          },
-                          "buildTokenUuid": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "state",
-                          "accountId",
-                          "workerName",
-                          "rootDirectory",
-                          "buildTokenUuid"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "created"
-                          },
-                          "accountId": {
-                            "type": "string"
-                          },
-                          "workerName": {
-                            "type": "string"
-                          },
-                          "workerTag": {
-                            "type": "string"
-                          },
-                          "rootDirectory": {
-                            "type": "string"
-                          },
-                          "buildTokenUuid": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "state",
-                          "accountId",
-                          "workerName",
-                          "workerTag",
-                          "rootDirectory",
-                          "buildTokenUuid"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                  "convexProjectId": {
+                    "type": "string"
                   }
                 },
-                "required": ["convexConfigPath", "convex", "cloudflare"],
+                "required": ["workerName", "rootDirectory", "convexProjectId"],
                 "additionalProperties": false
               }
             ]
@@ -540,21 +312,9 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "status": {
                     "const": "idle"
-                  },
-                  "lastWriteAt": {
-                    "type": "object",
-                    "properties": {
-                      "convex": {
-                        "type": "number"
-                      },
-                      "cloudflare": {
-                        "type": "number"
-                      }
-                    },
-                    "additionalProperties": false
                   }
                 },
-                "required": ["status", "lastWriteAt"],
+                "required": ["status"],
                 "additionalProperties": false
               },
               {
@@ -572,21 +332,9 @@ JSON Schema for the tool's `structuredContent`:
                     },
                     "required": ["kind"],
                     "additionalProperties": false
-                  },
-                  "lastWriteAt": {
-                    "type": "object",
-                    "properties": {
-                      "convex": {
-                        "type": "number"
-                      },
-                      "cloudflare": {
-                        "type": "number"
-                      }
-                    },
-                    "additionalProperties": false
                   }
                 },
-                "required": ["status", "owner", "lastWriteAt"],
+                "required": ["status", "owner"],
                 "additionalProperties": false
               },
               {
@@ -617,21 +365,9 @@ JSON Schema for the tool's `structuredContent`:
                         }
                       ]
                     }
-                  },
-                  "lastWriteAt": {
-                    "type": "object",
-                    "properties": {
-                      "convex": {
-                        "type": "number"
-                      },
-                      "cloudflare": {
-                        "type": "number"
-                      }
-                    },
-                    "additionalProperties": false
                   }
                 },
-                "required": ["status", "owner", "affectedProviders", "lastWriteAt"],
+                "required": ["status", "owner", "affectedProviders"],
                 "additionalProperties": false
               }
             ]
@@ -643,36 +379,9 @@ JSON Schema for the tool's `structuredContent`:
                 "properties": {
                   "state": {
                     "const": "not_deleting"
-                  },
-                  "deleteAction": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "available"
-                          }
-                        },
-                        "required": ["state"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "disabled"
-                          },
-                          "reason": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["state", "reason"],
-                        "additionalProperties": false
-                      }
-                    ]
                   }
                 },
-                "required": ["state", "deleteAction"],
+                "required": ["state"],
                 "additionalProperties": false
               },
               {
@@ -681,12 +390,6 @@ JSON Schema for the tool's `structuredContent`:
                   "state": {
                     "const": "deleting"
                   },
-                  "runId": {
-                    "type": "string"
-                  },
-                  "requestedAt": {
-                    "type": "number"
-                  },
                   "currentStep": {
                     "anyOf": [
                       {
@@ -723,22 +426,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "finish"
                       }
                     ]
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": [
-                  "state",
-                  "runId",
-                  "requestedAt",
-                  "currentStep",
-                  "message",
-                  "updatedAt"
-                ],
+                "required": ["state", "currentStep"],
                 "additionalProperties": false
               },
               {
@@ -747,12 +437,6 @@ JSON Schema for the tool's `structuredContent`:
                   "state": {
                     "const": "delete_failed"
                   },
-                  "runId": {
-                    "type": "string"
-                  },
-                  "failedAt": {
-                    "type": "number"
-                  },
                   "currentStep": {
                     "anyOf": [
                       {
@@ -789,15 +473,9 @@ JSON Schema for the tool's `structuredContent`:
                         "const": "finish"
                       }
                     ]
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "updatedAt": {
-                    "type": "number"
                   }
                 },
-                "required": ["state", "runId", "failedAt", "currentStep", "message", "updatedAt"],
+                "required": ["state", "currentStep"],
                 "additionalProperties": false
               }
             ]
@@ -806,18 +484,6 @@ JSON Schema for the tool's `structuredContent`:
             "type": "boolean"
           },
           "hasConnectedGitHubRepository": {
-            "type": "boolean"
-          },
-          "hasConvexProvision": {
-            "type": "boolean"
-          },
-          "hasCloudflareProvision": {
-            "type": "boolean"
-          },
-          "canRemoveConvexProvision": {
-            "type": "boolean"
-          },
-          "canRemoveCloudflareProvision": {
             "type": "boolean"
           },
           "cloudflareWorkers": {
@@ -900,18 +566,13 @@ JSON Schema for the tool's `structuredContent`:
           "githubOwnerLogin",
           "githubRepositoryName",
           "githubRepositoryFullName",
-          "fileCount",
           "sourceSetup",
           "providerSetup",
-          "providerPlan",
+          "pendingCloudflareSetup",
           "providerWrite",
           "deletion",
           "isSamebaseManaged",
           "hasConnectedGitHubRepository",
-          "hasConvexProvision",
-          "hasCloudflareProvision",
-          "canRemoveConvexProvision",
-          "canRemoveCloudflareProvision",
           "cloudflareWorkers",
           "convexProjects"
         ],

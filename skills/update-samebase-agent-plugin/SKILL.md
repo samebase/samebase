@@ -23,6 +23,13 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Forward-test
 
+Planned tool calls check routing only. They do not prove that a submitted test passes in ChatGPT.
+Before resubmission, run every submitted case with the reviewer account in each client required by
+the review. Record web and mobile results separately. Leave an unavailable client marked untested.
+Do not mark a case passed from a successful HTTP request, an initial creation response, or a model's
+intended call sequence. Verify the result described in the test, including nested failure output and
+browser-link redemption.
+
 1. Take only the eight `user_prompt` values from `chatgpt-app-submission.json`.
 2. Start a fresh agent with no prior discussion. Give it the public skill, live tool descriptions,
    and one prompt at a time. Freeze one identical input bundle for every prompt. If the bundle uses
@@ -39,6 +46,39 @@ not copy tool schemas or general coding instructions into the skill.
 7. If a case fails, simplify the public skill and rerun the full suite on the smallest agent.
 8. Update the last-run record below. Include the date, tested artifact commit, models, and result.
    Also put this result in the pull request.
+
+## Last focused MCP-only review checks
+
+- Date: 2026-10-01
+- Artifact commit: `7a93dac99`, candidate plugin version `0.2.40`
+- Models: GPT-6 Luna low and GPT-6.1 Sol low
+- Input: identical frozen MCP server instructions and generated action docs, without the packaged
+  skill. Fresh subjects received the exact submitted creation and dashboard-opening prompts.
+  Expected results were withheld. Follow-up tool responses were synthetic.
+- Result: both subjects selected the handoff tool directly and showed a clickable returned URL
+  without claiming that a browser opened. Sol supplied valid private US East creation arguments with
+  the available last-used token. Both polled again while provider setup was running and reported
+  setup without claiming a live deployment.
+- Luna's first creation call text used the wrong region field, although its answer named the correct
+  field afterward. After simulated schema rejection, it corrected the field but retained placeholder
+  names. Do not count that creation payload as a clean pass.
+- Frozen MCP bundle SHA-256: `0aee950b12d2ce8ceac60404d8c355693c0566478bcdd113e4094d169956094f`.
+- Scope: two focused planned-call checks. The full eight-case suite and actual ChatGPT web and
+  mobile execution were not run. No provider resources were created and no handoff was redeemed.
+- Evidence:
+  [October 1 review fixes](../../research/2026-09-18-plugin-review-remediation.md#october-1-review-fixes).
+
+## Earlier focused browser handoff check
+
+- Date: 2026-09-18
+- Candidate plugin version: `0.2.35`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Input: the same public skill and action docs, an authorized ChatGPT mobile account, no browser
+  action, and the submitted dashboard-opening prompt. Expected results were withheld.
+- Result: both subjects selected only `create_browser_handoff` with default arguments, then a
+  clickable returned URL. Neither claimed that a browser opened.
+- Public skill SHA-256: `990f15d44c702d911ab956950e20b42181e6c9738c026ea3c7614e8517d737c4`.
+- This was a planned-call check for one prompt. It did not run ChatGPT mobile or redeem a link.
 
 ## Last full run
 

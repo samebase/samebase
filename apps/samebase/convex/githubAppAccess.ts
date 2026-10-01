@@ -1,5 +1,5 @@
 import type { Octokit } from "@octokit/rest";
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -92,7 +92,7 @@ async function loadInstallationAccessForOrganization(
     throw new Error("Organization not found.");
   }
   if (organization.githubInstallationId.trim().length === 0) {
-    throw new Error("GitHub App installation is not connected.");
+    throw new ConvexError("GitHub App installation is not connected.");
   }
 
   return {
@@ -125,7 +125,7 @@ export const loadInstallationAccess = internalQuery({
       case "owner": {
         const githubOwnerLoginNormalized = args.target.githubOwnerLogin.trim().toLowerCase();
         if (githubOwnerLoginNormalized.length === 0) {
-          throw new Error("GitHub owner login is required.");
+          throw new ConvexError("GitHub owner login is required.");
         }
         const organization = await ctx.db
           .query("organizations")
@@ -134,7 +134,7 @@ export const loadInstallationAccess = internalQuery({
           )
           .unique();
         if (organization === null) {
-          throw new Error("GitHub owner is not available to this user.");
+          throw new ConvexError("GitHub owner is not available to this user.");
         }
         await requireOrganizationAccessContext(ctx.db, {
           userId: args.userId,

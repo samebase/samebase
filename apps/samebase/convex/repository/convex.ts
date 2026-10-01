@@ -31,7 +31,6 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import {
-  getConvexCodeLocationPath,
   normalizeConvexDirectoryPath,
   type ConvexCodeLocation,
 } from "../../shared/convexCodeLocation";
@@ -73,7 +72,7 @@ type ConvexWorkerReference = ConvexAttachmentProject["workerReferences"][number]
 
 function requireConvexTeamId(context: ProviderAttachmentRepositoryContext): string {
   if (context.convexTeamId === undefined) {
-    throw new Error("Convex connection is required before adding a project.");
+    throw new ConvexError("Convex connection is required before adding a project.");
   }
   return context.convexTeamId;
 }
@@ -92,11 +91,11 @@ async function resolveConvexConnectionForTeam(
   );
   const credential = connection?.credential;
   if (!connection || !credential) {
-    throw new Error("Convex connection is required for the attached project team.");
+    throw new ConvexError("Convex connection is required for the attached project team.");
   }
   const token = credential.auth.credential.trim();
   if (!token) {
-    throw new Error("Convex connection is required for the attached project team.");
+    throw new ConvexError("Convex connection is required for the attached project team.");
   }
   return {
     organizationId: args.organizationId,
@@ -226,8 +225,8 @@ function requireVerifiedConvexCodeLocation(
     }
   });
   if (!candidate) {
-    throw new Error(
-      `GitHub no longer has the selected Convex code location at ${getConvexCodeLocationPath(removeConvexCodeLocationEvidence(normalized))}. Scan the repository again.`,
+    throw new ConvexError(
+      "The selected Convex code location changed. Discover code locations again before attaching.",
     );
   }
 }
@@ -491,7 +490,7 @@ export async function attachExistingProjectsForUser(
   },
 ): Promise<Array<Id<"repositoryConvexProjects">>> {
   if (args.projects.length === 0) {
-    throw new Error("Select at least one Convex project.");
+    throw new ConvexError("Select at least one Convex project.");
   }
   const normalizedProjects = args.projects.map((project) => ({
     projectId: project.projectId.trim(),
@@ -502,7 +501,7 @@ export async function attachExistingProjectsForUser(
     new Set(normalizedProjects.map((project) => project.projectId)).size !==
       normalizedProjects.length
   ) {
-    throw new Error("Each selected Convex project must have one unique project id.");
+    throw new ConvexError("Each selected Convex project must have one unique project id.");
   }
 
   const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
