@@ -264,7 +264,14 @@ const vMcpUserRepositoriesResult = array(
         message: string(),
       }),
     ),
-    providerPlan: userRepositoryFields.providerPlan,
+    pendingCloudflareSetup: union(
+      v.null(),
+      object({
+        workerName: string(),
+        rootDirectory: string(),
+        convexProjectId: id("repositoryConvexProjects"),
+      }),
+    ),
     providerWrite: union(
       object({ status: literal("idle") }),
       object({ status: literal("active"), owner: vManagedProviderWriteOwner }),
@@ -311,14 +318,18 @@ source setup, provider setup, and deletion are independent axes; a source-setup 
 revoke an already connected repository. Provider setup status reports the managed work that was
 requested. It does not prove that every provider is attached.
 
-For a managed plan whose providerPlan.cloudflare.buildTokenUuid is null, a ready providerSetup
-means the GitHub and Convex work finished. When the exact Convex project from the plan is attached
-and cloudflareWorkers is empty, report Cloudflare setup as pending, not complete. Give the user
+The MCP result replaces the stored provider plan with pendingCloudflareSetup. This field is null
+unless a managed plan selected no build token, its exact created Convex project is attached, and
+cloudflareWorkers is empty. The object contains only the planned workerName, rootDirectory, and
+the attached convexProjectId needed to complete setup. In this case, a ready providerSetup means
+the GitHub and Convex work finished. Report Cloudflare setup as pending and give the user
 https://samebase.com/docs/cloudflare-setup. After the user creates the first account token through
 Cloudflare's standard repository setup and deletes the temporary Worker, list the current tokens and
-use repository_cloudflare_createWorker to create and configure the real Worker. Do not attach the
-temporary Worker or retry the completed managed run. If a Worker is already attached, keep that
-Worker and use its existing Builds repair after token setup. Do not create another Worker.
+use repository_cloudflare_createWorker with the planned workerName and rootDirectory. Reread
+inventory, then use repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new
+Worker and the pending setup's convexProjectId. Do not attach the temporary Worker or retry the
+completed managed run. If a Worker is already attached, keep that Worker and use its existing
+Builds repair after token setup. Do not create another Worker.
 
 Provider resources are stable identities only. Current Cloudflare and Convex state, including the
 Worker-to-project marker, is loaded from those providers when a relevant view opens; it is not

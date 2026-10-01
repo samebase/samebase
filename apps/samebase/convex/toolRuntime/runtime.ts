@@ -196,60 +196,91 @@ export const getUserRepositoriesTool = defineMcpTool({
     );
     const repositories: Infer<
       typeof getUserRepositoriesContract.structuredContent
-    >["repositories"] = repositoriesWithOrganizationIds.map((repository) => ({
-      repositoryId: repository.repositoryId,
-      convexTeamId: repository.convexTeamId,
-      cloudflareAccountId: repository.cloudflareAccountId,
-      githubOwnerLogin: repository.githubOwnerLogin,
-      githubRepositoryName: repository.githubRepositoryName,
-      githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-      githubRepositoryFullName: repository.githubRepositoryFullName,
-      defaultBranch: repository.defaultBranch,
-      sourceSetup:
-        repository.sourceSetup.status === "failed"
-          ? {
-              status: repository.sourceSetup.status,
-              step: repository.sourceSetup.step,
-              message: "Source setup failed. Check this app in Samebase for recovery steps.",
-            }
-          : repository.sourceSetup.status === "running"
-            ? { status: repository.sourceSetup.status, step: repository.sourceSetup.step }
-            : { status: repository.sourceSetup.status },
-      providerSetup:
-        repository.providerSetup.status === "failed"
-          ? {
-              status: repository.providerSetup.status,
-              provider: repository.providerSetup.provider,
-              step: repository.providerSetup.step,
-              message: "Provider setup failed. Check this app in Samebase before retrying.",
-            }
-          : repository.providerSetup.status === "running"
+    >["repositories"] = repositoriesWithOrganizationIds.map((repository) => {
+      const plan = repository.providerPlan;
+      let pendingCloudflareSetup: Infer<
+        typeof getUserRepositoriesContract.structuredContent
+      >["repositories"][number]["pendingCloudflareSetup"] = null;
+      if (
+        plan &&
+        plan.cloudflare.state === "planned" &&
+        plan.cloudflare.buildTokenUuid === null &&
+        plan.convex.state === "created" &&
+        repository.cloudflareWorkers.length === 0
+      ) {
+        const plannedProjectId = plan.convex.projectId;
+        const plannedTeamId = plan.convex.teamId;
+        const project = repository.convexProjects.find(
+          (attachment) =>
+            attachment.projectId === plannedProjectId &&
+            attachment.teamId === plannedTeamId &&
+            attachment.codeLocation.kind === "config" &&
+            attachment.codeLocation.convexConfigPath === plan.convexConfigPath,
+        );
+        if (project) {
+          pendingCloudflareSetup = {
+            workerName: plan.cloudflare.workerName,
+            rootDirectory: plan.cloudflare.rootDirectory,
+            convexProjectId: project.convexProjectId,
+          };
+        }
+      }
+
+      return {
+        repositoryId: repository.repositoryId,
+        convexTeamId: repository.convexTeamId,
+        cloudflareAccountId: repository.cloudflareAccountId,
+        githubOwnerLogin: repository.githubOwnerLogin,
+        githubRepositoryName: repository.githubRepositoryName,
+        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
+        githubRepositoryFullName: repository.githubRepositoryFullName,
+        defaultBranch: repository.defaultBranch,
+        sourceSetup:
+          repository.sourceSetup.status === "failed"
+            ? {
+                status: repository.sourceSetup.status,
+                step: repository.sourceSetup.step,
+                message: "Source setup failed. Check this app in Samebase for recovery steps.",
+              }
+            : repository.sourceSetup.status === "running"
+              ? { status: repository.sourceSetup.status, step: repository.sourceSetup.step }
+              : { status: repository.sourceSetup.status },
+        providerSetup:
+          repository.providerSetup.status === "failed"
             ? {
                 status: repository.providerSetup.status,
                 provider: repository.providerSetup.provider,
                 step: repository.providerSetup.step,
+                message: "Provider setup failed. Check this app in Samebase before retrying.",
               }
-            : { status: repository.providerSetup.status },
-      providerPlan: repository.providerPlan,
-      providerWrite:
-        repository.providerWrite.status === "active"
-          ? "affectedProviders" in repository.providerWrite
-            ? {
-                status: repository.providerWrite.status,
-                owner: repository.providerWrite.owner,
-                affectedProviders: repository.providerWrite.affectedProviders,
-              }
-            : { status: repository.providerWrite.status, owner: repository.providerWrite.owner }
-          : { status: repository.providerWrite.status },
-      deletion:
-        repository.deletion.state === "not_deleting"
-          ? { state: repository.deletion.state }
-          : { state: repository.deletion.state, currentStep: repository.deletion.currentStep },
-      isSamebaseManaged: repository.isSamebaseManaged,
-      hasConnectedGitHubRepository: repository.hasConnectedGitHubRepository,
-      cloudflareWorkers: repository.cloudflareWorkers,
-      convexProjects: repository.convexProjects,
-    }));
+            : repository.providerSetup.status === "running"
+              ? {
+                  status: repository.providerSetup.status,
+                  provider: repository.providerSetup.provider,
+                  step: repository.providerSetup.step,
+                }
+              : { status: repository.providerSetup.status },
+        pendingCloudflareSetup,
+        providerWrite:
+          repository.providerWrite.status === "active"
+            ? "affectedProviders" in repository.providerWrite
+              ? {
+                  status: repository.providerWrite.status,
+                  owner: repository.providerWrite.owner,
+                  affectedProviders: repository.providerWrite.affectedProviders,
+                }
+              : { status: repository.providerWrite.status, owner: repository.providerWrite.owner }
+            : { status: repository.providerWrite.status },
+        deletion:
+          repository.deletion.state === "not_deleting"
+            ? { state: repository.deletion.state }
+            : { state: repository.deletion.state, currentStep: repository.deletion.currentStep },
+        isSamebaseManaged: repository.isSamebaseManaged,
+        hasConnectedGitHubRepository: repository.hasConnectedGitHubRepository,
+        cloudflareWorkers: repository.cloudflareWorkers,
+        convexProjects: repository.convexProjects,
+      };
+    });
     return {
       text: `Found ${repositories.length} ${repositories.length === 1 ? "repository" : "repositories"}.`,
       structuredContent: { repositories },

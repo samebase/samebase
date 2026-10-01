@@ -6,7 +6,7 @@ MCP tool `samebase_auth_getAuthenticationStatus` · scope `access_public` · rea
 
 Returns the current MCP caller's Samebase authentication state for the bearer token used on the
 request: whether it still resolves to an active Samebase account, the account identity, the current
-Samebase role and access keys, and the OAuth scopes granted to this MCP token.
+Samebase role and permissions, and the granted OAuth scopes.
 
 Use this first when an MCP client needs to explain "am I connected, which account am I connected as,
 and what can this token currently do?" A valid token for a deleted or otherwise unresolved account

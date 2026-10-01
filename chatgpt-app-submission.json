@@ -215,11 +215,11 @@
       "expected_output_url": null
     },
     {
-      "description": "Create one private app with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections.",
-      "user_prompt": "Create a private Samebase app under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
+      "description": "Create one private app with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections. This fixture requires an available lastUsedBuildTokenUuid in the current Workers Builds token list and enough organization connection capacity.",
+      "user_prompt": "Create a private Samebase app under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Report its repository and provider setup status.",
       "file_attachment_urls": null,
       "tools_triggered": "repository_dashboard_getUserRepositories, cloudflare_listWorkersBuildTokens, repository_actions_createRepository",
-      "expected_output": "Reads inventory and passes aws-us-east-1 as the requested Convex production region without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial creation response as completion.",
+      "expected_output": "Reads inventory and the connected Cloudflare account's current Workers Builds tokens, then uses the available lastUsedBuildTokenUuid without asking. Calls creation once with private true, aws-us-east-1, and that exact cloudflareBuildTokenUuid, without changing the saved organization default. Returns the new Samebase repository ID and polls inventory for that app's source and provider setup status. The expected completed setup is a private GitHub repository, an attached Convex project in US East, and an attached Cloudflare Worker with Workers Builds configured and a production build requested. Reports ready only when both setup states are ready; reports any failed setup accurately. The initial creation response and ready setup do not prove that a build succeeded or the app is live. A missing current last-used token means the reviewer fixture must be repaired before this case can pass.",
       "expected_output_url": null
     },
     {
@@ -227,7 +227,7 @@
       "user_prompt": "Open my Samebase dashboard in the browser.",
       "file_attachment_urls": null,
       "tools_triggered": "create_browser_handoff",
-      "expected_output": "Returns a short-lived Samebase sign-in URL for the current MCP account. The response provides a clickable link on ChatGPT web and mobile. When a browser-opening action is available, it opens that URL; otherwise it does not claim the dashboard opened. The link signs in to the reviewer dashboard before expiry. No provider resource changes.",
+      "expected_output": "Returns a one-time Samebase sign-in URL for the current MCP account and shows it as a clickable link on ChatGPT web and mobile. The private link expires after five minutes. When a browser-opening action is available, it opens that URL; otherwise it does not claim the dashboard opened. Opening the link before expiry signs in to the reviewer dashboard. No provider resource changes.",
       "expected_output_url": null
     }
   ],

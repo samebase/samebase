@@ -20,7 +20,6 @@ import {
   readMcpMethodForUsage,
   readMcpToolNameForUsage,
 } from "./http";
-import codexPluginManifest from "../../../../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 
 function mcpRequestHeaders(args: {
   accessToken?: string;
@@ -714,17 +713,18 @@ describe("MCP tools/call access enforcement", () => {
         capabilities: { tools: {} },
         serverInfo: { name: "Samebase", version: "0.2.0" },
         instructions: expect.stringMatching(
-          /^In Codex, the latest Samebase plugin version available from the direct Samebase marketplace is .*[\s\S]*loaded Samebase skill path contains a lower numeric major\.minor\.patch version[\s\S]*tell the user once before the first Samebase tool call[\s\S]*codex plugin marketplace upgrade samebase[\s\S]*codex plugin add samebase@samebase[\s\S]*start a new task after the update\.[\s\S]*Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If the user chooses US, pass aws-us-east-1[\s\S]*If the user chooses EU, pass aws-eu-west-1[\s\S]*omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call repository_cloudflare_createWorker[\s\S]*call repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If the user chooses US, pass aws-us-east-1[\s\S]*If the user chooses EU, pass aws-eu-west-1[\s\S]*omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call repository_cloudflare_createWorker[\s\S]*call repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
       },
     });
     expect(payload).toMatchObject({
       result: {
         instructions: expect.stringContaining(
-          `latest Samebase plugin version available from the direct Samebase marketplace is ${codexPluginManifest.version}.`,
+          "Show its returned URL to the user as a clickable link.",
         ),
       },
     });
+    expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
   });
 

@@ -22,7 +22,7 @@ export const createBrowserHandoffContract = {
     title: "Create browser handoff",
     name: "create_browser_handoff",
     description:
-      "Create a short-lived one-time Samebase browser sign-in URL for the MCP grant's current user. The URL is sensitive and expires quickly.",
+      "Create a one-time Samebase browser sign-in URL for the MCP grant's current user. Show the returned URL to the user as a clickable link. It expires after 5 minutes. Keep the link private. Only claim that the dashboard opened when a browser action confirms it.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -43,6 +43,8 @@ must still be active, and the user must still have current access to browser han
 returns MCP access tokens, MCP refresh tokens, Convex Auth JWTs, or Convex Auth refresh tokens.
 
 The returned URL carries only a one-time bearer fragment and an optional Samebase-relative return
-path. Treat it as sensitive and open it promptly; the backend stores only a token hash and consumes
-the handoff on successful redemption or account mismatch.`,
+path. Show the returned URL to the user as a clickable link. It expires after 5 minutes. Keep the
+link private and open it promptly. Only claim that the dashboard opened when a browser action
+confirms it. The backend stores only a token hash and consumes the handoff on successful redemption
+or account mismatch.`,
 } as const;

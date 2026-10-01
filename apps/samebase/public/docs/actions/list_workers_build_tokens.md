@@ -19,12 +19,13 @@ Manual Worker creation and Workers Builds configuration require one exact UUID f
 current list. When the list is empty, do not call those writes. Use current repository inventory to
 select the next action:
 
-- For a managed plan with a null build token, no attached Worker, and the exact planned Convex
-  project attached, give the user https://samebase.com/docs/cloudflare-setup. After the user creates
-  the first account token and deletes the temporary Worker, list tokens again and call
-  repository_cloudflare_createWorker with a current exact UUID. Reread inventory, then call
-  repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker and attached
-  project.
+- When inventory returns pendingCloudflareSetup, give the user
+  https://samebase.com/docs/cloudflare-setup. Keep its workerName, rootDirectory, and
+  convexProjectId for completing setup. After the user creates the first account token and deletes
+  the temporary Worker, list tokens again and call repository_cloudflare_createWorker with a current
+  exact UUID and the pending Worker name and root. Reread inventory, then call
+  repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker and the saved
+  convexProjectId.
 - When a Worker is already attached, keep it. After the user completes token setup, list tokens
   again and call repository_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not
   create another Worker.
