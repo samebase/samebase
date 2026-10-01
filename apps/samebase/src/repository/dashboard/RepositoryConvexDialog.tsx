@@ -459,10 +459,13 @@ export function RepositoryConvexDialog({
   const createDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
 
   const resourcesQuery = useQuery({
+    // Discovery marks the projects attached to this repository, so a cached result is valid only
+    // for the attachment list that it was read with.
     queryKey: [
       "repository-provider-discovery",
       repository.repositoryId,
       "convex-projects",
+      repository.convexProjects.map((project) => project.projectId),
       repository.providerWrite.lastWriteAt.convex,
     ],
     queryFn: () => discoverProjects({ repositoryId: repository.repositoryId }),
@@ -477,7 +480,6 @@ export function RepositoryConvexDialog({
   const createCodeLocationKey =
     selectedCreateCodeLocationKey ||
     (codeLocations[0] ? getConvexCodeLocationOptionKey(codeLocations[0]) : "");
-  const attachedProjectIds = new Set(repository.convexProjects.map((project) => project.projectId));
   const allProjects = resourcesQuery.data?.projects ?? [];
   const unavailableProjectNames = new Set(
     allProjects.flatMap((project) => [project.projectName, project.projectSlug]),
@@ -498,7 +500,7 @@ export function RepositoryConvexDialog({
           }),
         }
       : null;
-  const projects = allProjects.filter((project) => !attachedProjectIds.has(project.projectId));
+  const projects = allProjects.filter((project) => project.attachment === "attachable");
   const resourceError = resourcesQuery.error ? "Could not discover Convex projects." : null;
 
   const handleSubmit = async () => {

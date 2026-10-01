@@ -50,12 +50,14 @@ import {
 } from "../../shared/appResourceNames";
 import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudflareWorkerPreviews";
 import { buildRepositoryCloudflareBuildConfigForRootDirectory } from "./model";
+import { toCloudflareWorkerDiscovery } from "./cloudflareWorkerDiscovery";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
   WorkerConfigurationContext,
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
 import { readConvexProductionDeployment } from "./convexProjectResources";
+import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
 import {
   cloudflareAttachWorkersContract,
   cloudflareConnectWorkerContract,
@@ -1244,15 +1246,33 @@ export async function discoverCloudflareWorkersForUser(
     repositoryId: Id<"repositories">;
     accountId: string;
   },
-): Promise<Awaited<ReturnType<typeof discoverCloudflareWorkersForRepository>>> {
+): Promise<Infer<typeof cloudflareDiscoverWorkersContract.returns>> {
   const resolved = await resolveCloudflareRepositoryContext(ctx, args);
-  return await discoverCloudflareWorkersForRepository({
+  const discovery = await discoverCloudflareWorkersForRepository({
     token: resolved.connection.token,
     transport: resolved.connection.transport,
     accountId: resolved.account.accountId,
     expectedRepoId: resolved.context.githubRepositoryDatabaseId,
     defaultBranch: resolved.githubDefaultBranch,
   });
+  const attachments: RepositoryProviderObservationContext = await ctx.runQuery(
+    internal.repository.providerObservationQueries.readRepositoryProviderObservationContext,
+    { repositoryId: args.repositoryId, userId: args.userId },
+  );
+
+  const attachedWorkerTags = new Set(
+    attachments.cloudflareWorkers.map((worker) => worker.workerTag),
+  );
+  return {
+    inventoryState: discovery.inventoryState,
+    workers: discovery.workers
+      .map((worker) => toCloudflareWorkerDiscovery(worker, attachedWorkerTags))
+      .sort(
+        (left, right) =>
+          left.workerName.localeCompare(right.workerName) ||
+          left.workerTag.localeCompare(right.workerTag),
+      ),
+  };
 }
 
 async function connectWorkerForUser(

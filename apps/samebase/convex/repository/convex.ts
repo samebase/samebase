@@ -48,6 +48,7 @@ import {
   attemptManualProviderWriteFailureRecord,
   requireManualProviderActionDeadline,
 } from "./infrastructureOperation";
+import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
 
 const { id } = v;
 
@@ -244,10 +245,12 @@ function compareConvexAttachmentProject(
 
 function toConvexAttachmentProject(
   project: ProjectResponse,
+  attachedProjectIds: ReadonlySet<string>,
   workerReferences: ConvexWorkerReference[],
   productionDeployment: ConvexCloudDeployment | undefined,
 ): ConvexAttachmentProject {
   return {
+    attachment: attachedProjectIds.has(project.id) ? "attached" : "attachable",
     teamId: project.teamId,
     projectId: project.id,
     projectName: project.name,
@@ -444,7 +447,7 @@ async function readConvexWorkerReferences(
 export async function discoverProjectsForUser(
   ctx: ActionCtx,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
-) {
+): Promise<Infer<typeof convexDiscoverProjectsContract.returns>> {
   const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
   const connection = await resolveConvexConnectionForTeam(ctx, {
     userId: args.userId,
@@ -463,6 +466,14 @@ export async function discoverProjectsForUser(
       defaultBranch: sourceDiscovery.source.defaultBranch,
     }),
   ]);
+  const attachments: RepositoryProviderObservationContext = await ctx.runQuery(
+    internal.repository.providerObservationQueries.readRepositoryProviderObservationContext,
+    { repositoryId: args.repositoryId, userId: args.userId },
+  );
+
+  const attachedProjectIds = new Set(
+    attachments.convexProjects.map((project) => project.projectId),
+  );
   const productionDeploymentByProjectId = new Map<string, ConvexCloudDeployment>();
   for (const deployment of productionDeployments) {
     if (isConvexCloudDeployment(deployment)) {
@@ -473,6 +484,7 @@ export async function discoverProjectsForUser(
     .map((project) =>
       toConvexAttachmentProject(
         project,
+        attachedProjectIds,
         workerReferences.get(project.id) ?? [],
         productionDeploymentByProjectId.get(project.id),
       ),

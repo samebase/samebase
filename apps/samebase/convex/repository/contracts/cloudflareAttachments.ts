@@ -49,12 +49,37 @@ export const vCloudflareWorkerRepositoryDiscovery = union(
   object({ state: literal("failed"), message: string() }),
 );
 
-export const vCloudflareWorkerDiscovery = object({
-  workerName: string(),
-  workerTag: string(),
-  repository: vCloudflareWorkerRepositoryDiscovery,
-  convexBuildAccess: vCloudflareConvexBuildAccess,
-});
+/**
+attached = already recorded on this Samebase app.
+
+attachable = connected to this repository in Cloudflare and not attached yet. This is the only
+status that attachWorkers accepts.
+
+connectable = not connected to any repository in Cloudflare. Only the Samebase dashboard can
+connect it.
+
+connected_elsewhere = connected to another repository in Cloudflare.
+
+unavailable = Samebase could not verify one repository root for this Worker.
+*/
+export const vCloudflareWorkerDiscovery = union(
+  object({
+    attachment: literal("attachable"),
+    workerName: string(),
+    workerTag: string(),
+    rootDirectory: string(),
+  }),
+  object({
+    attachment: union(
+      literal("attached"),
+      literal("connectable"),
+      literal("connected_elsewhere"),
+      literal("unavailable"),
+    ),
+    workerName: string(),
+    workerTag: string(),
+  }),
+);
 
 const vCloudflareWorkerDiscoveryResult = object({
   inventoryState: union(literal("complete"), literal("partial")),

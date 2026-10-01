@@ -319,8 +319,11 @@ export const convexDiscoverProjectsTool = defineMcpTool({
   },
   run: async (ctx, args) => {
     const structuredContent = await discoverProjectsForUser(ctx, args);
+    const attachableCount = structuredContent.projects.filter(
+      (project) => project.attachment === "attachable",
+    ).length;
     return {
-      text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
+      text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} (${attachableCount} attachable) and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
       structuredContent,
     };
   },
@@ -348,23 +351,12 @@ export const cloudflareDiscoverWorkersTool = defineMcpTool({
     structuredContent: cloudflareDiscoverWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const result = await discoverCloudflareWorkersForUser(ctx, args);
-    const structuredContent = {
-      inventoryState: result.inventoryState,
-      workers: result.workers.map((worker) => ({
-        ...worker,
-        repository:
-          worker.repository.state === "failed"
-            ? {
-                state: "failed" as const,
-                message:
-                  "Could not read this Worker's repository connection. Check it in Cloudflare.",
-              }
-            : worker.repository,
-      })),
-    };
+    const structuredContent = await discoverCloudflareWorkersForUser(ctx, args);
+    const attachableCount = structuredContent.workers.filter(
+      (worker) => worker.attachment === "attachable",
+    ).length;
     return {
-      text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory.`,
+      text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory, ${attachableCount} attachable.`,
       structuredContent,
     };
   },

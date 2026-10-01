@@ -57,7 +57,12 @@ export const vConvexWorkerReference = object({
   access: union(literal("configured"), literal("incomplete")),
 });
 
+/**
+attachment: attached = already recorded on this Samebase app. attachable = can be passed to
+attachProjects.
+*/
 export const vConvexAttachmentProject = object({
+  attachment: union(literal("attached"), literal("attachable")),
   teamId: string(),
   projectId: string(),
   projectName: string(),
