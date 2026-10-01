@@ -1383,7 +1383,13 @@ describe("MCP tools/call access enforcement", () => {
     };
     let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
     let failWorkerDiscovery = false;
-    let listOtherAppWorker = false;
+    // Workers without Builds settings that Samebase records by tag, or by name under an old tag.
+    const recordedWorkersWithoutBuilds = [
+      { id: "other-app-worker-tag", name: "other-app-worker" },
+      { id: "replaced-worker-new-tag", name: "replaced-worker" },
+      { id: "other-app-replaced-worker-new-tag", name: "other-app-replaced-worker" },
+    ];
+    let listRecordedWorkersWithoutBuilds = false;
 
     function jsonResponse(result: unknown, status = 200): Response {
       return new Response(JSON.stringify(result), {
@@ -1475,16 +1481,19 @@ describe("MCP tools/call access enforcement", () => {
         return cloudflareResponse(workerDetails());
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers")) {
-        return cloudflareResponse(
-          listOtherAppWorker
-            ? [
-                workerDetails(),
-                { ...workerDetails(), id: "other-app-worker-tag", name: "other-app-worker" },
-              ]
-            : [workerDetails()],
-        );
+        return cloudflareResponse([
+          workerDetails(),
+          ...(listRecordedWorkersWithoutBuilds
+            ? recordedWorkersWithoutBuilds.map((worker) => ({ ...workerDetails(), ...worker }))
+            : []),
+        ]);
       }
-      if (method === "GET" && url.pathname.endsWith("/builds/workers/other-app-worker-tag")) {
+      if (
+        method === "GET" &&
+        recordedWorkersWithoutBuilds.some((worker) =>
+          url.pathname.endsWith(`/builds/workers/${worker.id}`),
+        )
+      ) {
         return jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
       }
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
@@ -1771,9 +1780,27 @@ describe("MCP tools/call access enforcement", () => {
         rootDirectory: "/",
         origin: "provisioned",
       });
+      await ctx.db.insert("repositoryCloudflareWorkers", {
+        repositoryId: otherRepositoryId,
+        organizationId,
+        accountId: cloudflareAccountId,
+        workerName: "other-app-replaced-worker",
+        workerTag: "other-app-replaced-worker-old-tag",
+        rootDirectory: "/",
+        origin: "provisioned",
+      });
+      await ctx.db.insert("repositoryCloudflareWorkers", {
+        repositoryId,
+        organizationId,
+        accountId: cloudflareAccountId,
+        workerName: "replaced-worker",
+        workerTag: "replaced-worker-old-tag",
+        rootDirectory: "/",
+        origin: "selected_existing",
+      });
       return otherRepositoryId;
     });
-    listOtherAppWorker = true;
+    listRecordedWorkersWithoutBuilds = true;
     failWorkerDiscovery = true;
     const discovery = await callTool("repository_cloudflare_discoverWorkers", {
       repositoryId,
@@ -1783,12 +1810,23 @@ describe("MCP tools/call access enforcement", () => {
       { attachment: "attached", workerName: "mcp-worker", workerTag: "mcp-worker-tag" },
       {
         attachment: "attached_elsewhere",
+        workerName: "other-app-replaced-worker",
+        workerTag: "other-app-replaced-worker-new-tag",
+      },
+      {
+        attachment: "attached_elsewhere",
         workerName: "other-app-worker",
         workerTag: "other-app-worker-tag",
+      },
+      {
+        attachment: "attached",
+        workerName: "replaced-worker",
+        workerTag: "replaced-worker-new-tag",
       },
     ]);
     expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
     expect(JSON.stringify(discovery)).not.toContain(otherRepositoryId);
+    expect(JSON.stringify(discovery)).not.toContain("old-tag");
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {

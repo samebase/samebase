@@ -5,14 +5,14 @@
 MCP tool `repository_cloudflare_discoverWorkers` · scope `access_provider_connections` · read_only
 
 Reads every visible Worker in the repository's stored Cloudflare account, observes each Worker's
-current GitHub repository connection and Workers Builds root, and compares it with the Workers that
-Samebase apps already attach. Each Worker gets one attachment status: attached, attached_elsewhere,
-attachable, connectable, connected_elsewhere, or unavailable. A Worker that another Samebase app
-attaches is reported only as attached_elsewhere, without that app. Only an attachable Worker has one
-verified root for the Samebase repository's GitHub repository and can be attached. A connectable
-Worker has no repository connection yet, and only the Samebase dashboard can connect it. A partial
-inventory never proves that an unlisted Worker is absent. It may refresh private Samebase
-provider-connection bookkeeping, but it writes no attachment or provider resource.
+current GitHub repository connection and Workers Builds root, and compares its tag and name with the
+Workers that Samebase apps already attach. Each Worker gets one attachment status: attached,
+attached_elsewhere, attachable, connectable, connected_elsewhere, or unavailable. A Worker that
+another Samebase app attaches is reported only as attached_elsewhere, without that app. Only an
+attachable Worker has one verified root for the Samebase repository's GitHub repository and can be
+attached. A connectable Worker has no repository connection yet, and only the Samebase dashboard can
+connect it. A partial inventory never proves that an unlisted Worker is absent. It may refresh
+private Samebase provider-connection bookkeeping, but it writes no attachment or provider resource.
 
 ## Arguments
 

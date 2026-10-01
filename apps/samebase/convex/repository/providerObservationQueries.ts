@@ -113,13 +113,18 @@ export const readProviderAttachmentRepositoryContextForProvisioningRun = interna
   },
 });
 
-/** Reads the `by_account_and_worker_tag` rows that `attachWorkers` and `connectWorker` check. */
+/**
+Reads the `by_account_and_worker_tag` and `by_account_and_worker` rows that `readMatchingWorker`
+checks before `attachWorkers` or `connectWorker` records a Worker. Either row blocks a new record:
+the name row is still there when someone deletes a recorded Worker in Cloudflare and creates a new
+Worker with the same name and a new tag. The tag row decides the status when both rows exist.
+*/
 export const readCloudflareWorkerRecordedAttachments = internalQuery({
   args: {
     repositoryId: id("repositories"),
     userId: id("users"),
     accountId: string(),
-    workerTags: array(string()),
+    workers: array(object({ workerName: string(), workerTag: string() })),
   },
   returns: array(vCloudflareWorkerRecordedAttachment),
   handler: async (ctx, args): Promise<CloudflareWorkerRecordedAttachment[]> => {
@@ -130,22 +135,34 @@ export const readCloudflareWorkerRecordedAttachments = internalQuery({
     if (args.accountId !== repository.cloudflareAccountId) {
       throw new Error("Cloudflare account does not match the repository destination.");
     }
-    const workers = await Promise.all(
-      args.workerTags.map(
-        async (workerTag) =>
-          await ctx.db
+    const recordedAttachments = await Promise.all(
+      args.workers.map(async (worker): Promise<CloudflareWorkerRecordedAttachment | null> => {
+        const [sameTag, sameName] = await Promise.all([
+          ctx.db
             .query("repositoryCloudflareWorkers")
             .withIndex("by_account_and_worker_tag", (q) =>
-              q.eq("accountId", args.accountId).eq("workerTag", workerTag),
+              q.eq("accountId", args.accountId).eq("workerTag", worker.workerTag),
             )
             .unique(),
-      ),
+          ctx.db
+            .query("repositoryCloudflareWorkers")
+            .withIndex("by_account_and_worker", (q) =>
+              q.eq("accountId", args.accountId).eq("workerName", worker.workerName),
+            )
+            .unique(),
+        ]);
+        const record = sameTag ?? sameName;
+        if (!record) {
+          return null;
+        }
+        return {
+          workerTag: worker.workerTag,
+          attachment: record.repositoryId === repository._id ? "attached" : "attached_elsewhere",
+        };
+      }),
     );
 
-    return workers.filter(notEmpty).map((worker) => ({
-      workerTag: worker.workerTag,
-      attachment: worker.repositoryId === repository._id ? "attached" : "attached_elsewhere",
-    }));
+    return recordedAttachments.filter(notEmpty);
   },
 });
 

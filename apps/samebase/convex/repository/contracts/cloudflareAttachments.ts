@@ -36,10 +36,11 @@ export const vCloudflareWorkerRepositoryDiscovery = union(
 );
 
 /**
-attached = already recorded on this Samebase app.
+attached = this Samebase app already records a Worker with this tag or, when no record has the
+tag, this name.
 
-attached_elsewhere = another Samebase app already uses this Worker. Neither attachWorkers nor the
-dashboard can add it.
+attached_elsewhere = another Samebase app already records a Worker with this tag or name. Neither
+attachWorkers nor the dashboard can add it.
 
 attachable = connected to this repository in Cloudflare and not attached yet. This is the only
 status that attachWorkers accepts.
@@ -103,8 +104,8 @@ export const cloudflareDiscoverWorkersContract = {
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads every visible Worker in the repository's stored Cloudflare account, observes each Worker's
-current GitHub repository connection and Workers Builds root, and compares it with the Workers
-that Samebase apps already attach. Each Worker gets one attachment status: attached,
+current GitHub repository connection and Workers Builds root, and compares its tag and name with
+the Workers that Samebase apps already attach. Each Worker gets one attachment status: attached,
 attached_elsewhere, attachable, connectable, connected_elsewhere, or unavailable. A Worker that
 another Samebase app attaches is reported only as attached_elsewhere, without that app. Only an
 attachable Worker has one verified root for the Samebase repository's GitHub repository and can be

@@ -1261,7 +1261,10 @@ export async function discoverCloudflareWorkersForUser(
       repositoryId: args.repositoryId,
       userId: args.userId,
       accountId: resolved.account.accountId,
-      workerTags: discovery.workers.map((worker) => worker.workerTag),
+      workers: discovery.workers.map((worker) => ({
+        workerName: worker.workerName,
+        workerTag: worker.workerTag,
+      })),
     },
   );
 
