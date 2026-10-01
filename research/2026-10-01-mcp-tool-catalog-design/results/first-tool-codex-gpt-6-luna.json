@@ -1,0 +1,310 @@
+[
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "H-D-t1",
+    "config": {
+      "design": "H",
+      "scheme": "D",
+      "providers": true,
+      "variant": "base",
+      "trial": 1
+    },
+    "counts": {
+      "correct": 48,
+      "lenient": 6,
+      "wrong_samebase_tool": 0,
+      "wrong_server": 0,
+      "false_activation": 0,
+      "missed": 3,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "R5",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "I06",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "add_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "M1",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  }
+]

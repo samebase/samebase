@@ -1,0 +1,469 @@
+{
+  "accessed": "2026-10-01",
+  "note": "Names and descriptions are exact from the cited sources. Input schemas are omitted; the stub exposes a permissive object schema.",
+  "servers": [
+    {
+      "server": "github",
+      "source": "https://github.com/github/github-mcp-server/tree/85b0399bf214f24f5028d9cedecdd020f646c822/pkg/github/__toolsnaps__",
+      "notes": "default toolsets: context, repos, issues, pull_requests, users, copilot. Source of truth is pkg/github/tools.go, where these six toolsets carry Default: true (copilot has been Default: true since at least July 2026). The README prose list of the default toolset omits copilot; code wins. Tool membership per toolset comes from the generated README tool list (no feature flags). Excluded: ui_get (context toolset, declared _meta.ui.visibility [\"app\"], so it is hidden from the agent tool list), flag-gated tools (get_file_blame, issue_dependency_*, find_duplicate, granular issue/PR tools such as create_issue, update_issue_*, update_pull_request_*, resolve_review_thread), and the remote-only create_pull_request_with_copilot (see remoteOnlyTools). Descriptions are the exact snapshot strings from pkg/github/__toolsnaps__/<name>.snap. Non-default toolsets (actions, code_quality, code_security, dependabot, discussions, gists, git, governance, labels, notifications, orgs, projects, secret_protection, security_advisories, stargazers, copilot_issue_intents, copilot_spaces, github_support_docs_search) are not listed.",
+      "tools": [
+        {
+          "name": "get_me",
+          "description": "Get details of the authenticated GitHub user. Use this when a request is about the user's own profile for GitHub. Or when information is missing to build other tool calls.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "get_team_members",
+          "description": "Get member usernames of a specific team in an organization. Limited to organizations accessible with current credentials",
+          "readOnlyHint": true
+        },
+        {
+          "name": "get_teams",
+          "description": "Get details of the teams the user is a member of. Limited to organizations accessible with current credentials",
+          "readOnlyHint": true
+        },
+        {
+          "name": "create_branch",
+          "description": "Create a new branch in a GitHub repository",
+          "readOnlyHint": false
+        },
+        {
+          "name": "create_or_update_file",
+          "description": "Create or update a single file in a GitHub repository. \nIf updating, you should provide the SHA of the file you want to update. Use this tool to create or update a file in a GitHub repository remotely; do not use it for local file operations.\n\nTo obtain the current blob SHA before updating, call the get_file_contents tool with the same owner, repo, and path, and set its ref parameter to this tool's branch value. The first text result reports the blob SHA for the requested path.\n\nSHA MUST be provided for existing file updates.\n",
+          "readOnlyHint": false
+        },
+        {
+          "name": "create_repository",
+          "description": "Create a new GitHub repository in your account or specified organization",
+          "readOnlyHint": false
+        },
+        {
+          "name": "delete_file",
+          "description": "Delete a file from a GitHub repository",
+          "readOnlyHint": false
+        },
+        {
+          "name": "delete_repository",
+          "description": "Delete a GitHub repository after the user confirms the exact owner/repository name",
+          "readOnlyHint": false
+        },
+        {
+          "name": "fork_repository",
+          "description": "Fork a GitHub repository to your account or specified organization",
+          "readOnlyHint": false
+        },
+        {
+          "name": "get_commit",
+          "description": "Get details for a commit from a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "get_file_contents",
+          "description": "Get the contents of a file or directory from a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "get_latest_release",
+          "description": "Get the latest release in a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "get_release_by_tag",
+          "description": "Get a specific release by its tag name in a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "get_tag",
+          "description": "Get details about a specific git tag in a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_branches",
+          "description": "List branches in a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_commits",
+          "description": "Get list of commits of a branch in a GitHub repository. Returns at least 30 results per page by default, but can return more if specified using the perPage parameter (up to 100).",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_releases",
+          "description": "List releases in a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_repository_collaborators",
+          "description": "List collaborators of a GitHub repository. Results are paginated; the response includes `nextPage`, `prevPage`, `firstPage`, and `lastPage` fields. To get the next page, use the `nextPage` value as the `page` parameter.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_tags",
+          "description": "List git tags in a GitHub repository",
+          "readOnlyHint": true
+        },
+        {
+          "name": "push_files",
+          "description": "Push multiple files to a GitHub repository in a single commit",
+          "readOnlyHint": false
+        },
+        {
+          "name": "search_code",
+          "description": "Fast and precise code search across ALL GitHub repositories using GitHub's native search engine. Best for finding exact symbols, functions, classes, or specific code patterns.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "search_commits",
+          "description": "Search for commits across GitHub repositories using GitHub's commit search syntax. Useful for finding specific changes, authors, or messages across one or many repositories. Searches the default branch only.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "search_repositories",
+          "description": "Find GitHub repositories by name, description, readme, topics, or other metadata. Perfect for discovering projects, finding examples, or locating specific repositories across GitHub.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "add_issue_comment",
+          "description": "Add a comment and/or reaction to a specific issue or issue comment in a GitHub repository. Use this tool with pull requests as well (in this case pass pull request number as issue_number), but only if user is not asking specifically to add or react to review comments. At least one of body or reaction is required.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "get_label",
+          "description": "Get a specific label from a repository.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "issue_read",
+          "description": "Get information about a specific issue in a GitHub repository.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "issue_write",
+          "description": "Create a new or update an existing issue in a GitHub repository.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "list_issue_fields",
+          "description": "List issue fields for a repository or organization. Returns field definitions including name, type (text, number, date, single_select), and for single_select fields the list of valid option names. When repo is omitted, returns org-level fields directly.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_issue_types",
+          "description": "List supported issue types for a repository or its owner organization. When repo is omitted, returns org-level issue types directly.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "list_issues",
+          "description": "List issues in a GitHub repository. For pagination, use the 'endCursor' from the previous response's 'pageInfo' in the 'after' parameter.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "search_issues",
+          "description": "Search issues using natural-language semantic matching. Best for conceptual or paraphrased queries (e.g. \"login fails after password reset\"). Already scoped to is:issue.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "sub_issue_write",
+          "description": "Add a sub-issue to a parent issue in a GitHub repository.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "update_issue_comment",
+          "description": "Update the body of an existing issue or pull request conversation comment. This tool cannot update pull request review comments.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "add_comment_to_pending_review",
+          "description": "Add review comment to the requester's latest pending pull request review. A pending review needs to already exist to call this (check with the user if not sure).",
+          "readOnlyHint": false
+        },
+        {
+          "name": "add_reply_to_pull_request_comment",
+          "description": "Add a reply and/or reaction to an existing pull request comment. This can create a new comment linked as a reply to the specified comment, add an emoji reaction to the specified comment, or do both. At least one of body or reaction is required.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "create_pull_request",
+          "description": "Create a new pull request in a GitHub repository.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "list_pull_requests",
+          "description": "List pull requests in a GitHub repository. If the user specifies an author, then DO NOT use this tool and use the search_pull_requests tool instead.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "merge_pull_request",
+          "description": "Merge a pull request in a GitHub repository.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "pull_request_read",
+          "description": "Get information on a specific pull request in GitHub repository.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "pull_request_review_write",
+          "description": "Create and/or submit, delete review of a pull request.\n\nAvailable methods:\n- create: Create a new review of a pull request. If \"event\" parameter is provided, the review is submitted. If \"event\" is omitted, a pending review is created.\n- submit_pending: Submit an existing pending review of a pull request. This requires that a pending review exists for the current user on the specified pull request. The \"body\" and \"event\" parameters are used when submitting the review.\n- delete_pending: Delete an existing pending review of a pull request. This requires that a pending review exists for the current user on the specified pull request.\n- resolve_thread: Resolve a review thread. Requires only \"threadId\" parameter with the thread's node ID (e.g., PRRT_kwDOxxx). The owner, repo, and pullNumber parameters are not used for this method. Resolving an already-resolved thread is a no-op.\n- unresolve_thread: Unresolve a previously resolved review thread. Requires only \"threadId\" parameter. The owner, repo, and pullNumber parameters are not used for this method. Unresolving an already-unresolved thread is a no-op.\n",
+          "readOnlyHint": false
+        },
+        {
+          "name": "search_pull_requests",
+          "description": "Search for pull requests in GitHub repositories using issues search syntax already scoped to is:pr",
+          "readOnlyHint": true
+        },
+        {
+          "name": "update_pull_request",
+          "description": "Update an existing pull request in a GitHub repository.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "update_pull_request_branch",
+          "description": "Update the branch of a pull request with the latest changes from the base branch.",
+          "readOnlyHint": false
+        },
+        {
+          "name": "search_users",
+          "description": "Find GitHub users by username, real name, or other profile information. Useful for locating developers, contributors, or team members.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "assign_copilot_to_issue",
+          "description": "Assign Copilot to a specific issue in a GitHub repository.\n\nThis tool can help with the following outcomes:\n- a Pull Request created with source code changes to resolve the issue\n\n\nMore information can be found at:\n- https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent\n",
+          "readOnlyHint": false
+        },
+        {
+          "name": "request_copilot_review",
+          "description": "Request a GitHub Copilot code review for a pull request. Use this for automated feedback on pull requests, usually before requesting a human reviewer.",
+          "readOnlyHint": false
+        }
+      ]
+    },
+    {
+      "server": "cloudflare-bindings",
+      "source": "https://github.com/cloudflare/mcp-server-cloudflare/blob/ab883e51663df955316ec3191afb5b718bf4b54c/apps/workers-bindings/src/bindings.app.ts",
+      "notes": "Registration order: KV, Workers, R2, D1, Hyperdrive, docs. toolset is the source module group, not an upstream concept. hyperdrive_config_create is declared in HYPERDRIVE_TOOLS but is not registered. Descriptions keep the exact whitespace of the source template literals (kv_namespaces_list and kv_namespace_get send leading newlines and tabs). Every account-scoped tool (all tools except search_cloudflare_documentation and migrate_pages_to_workers_guide) gains an optional account_id input when the OAuth token spans several accounts and no cf-account-id header is set. The older accounts_list and set_active_account tools were removed in cloudflare/mcp-server-cloudflare#384 (commit f625075fd0d9, 2026-06-01); they do not exist at this commit.",
+      "tools": [
+        {
+          "name": "kv_namespaces_list",
+          "description": "\n\t\t\tList all of the kv namespaces in your Cloudflare account.\n\t\t\tUse this tool when you need to list all of the kv namespaces in your Cloudflare account.\n\t\t\tReturns a list of kv namespaces with the following properties:\n\t\t\t- id: The id of the kv namespace.\n\t\t\t- title: The title of the kv namespace.\n\t\t\t",
+          "readOnlyHint": true
+        },
+        {
+          "name": "kv_namespace_create",
+          "description": "Create a new kv namespace in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "kv_namespace_delete",
+          "description": "Delete a kv namespace in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "kv_namespace_get",
+          "description": "Get details of a kv namespace in your Cloudflare account.\n\t\tUse this tool when you need to get details of a specific kv namespace in your Cloudflare account.\n\t\tReturns a kv namespace with the following properties:\n\t\t\t- id: The id of the kv namespace.\n\t\t\t- title: The title of the kv namespace.\n\t\t\t- supports_url_encoding: Whether the kv namespace supports url encoding.\n\t\t\t- beta: Whether the kv namespace is in beta.\n\t\t",
+          "readOnlyHint": true
+        },
+        {
+          "name": "kv_namespace_update",
+          "description": "Update the title of a kv namespace in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "workers_list",
+          "description": "List all Workers in your Cloudflare account.\n\nIf you only need details of a single Worker, use workers_get_worker.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_get_worker",
+          "description": "Get the details of the Cloudflare Worker.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_get_worker_code",
+          "description": "Get the source code of a Cloudflare Worker. Note: This may be a bundled version of the worker.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "r2_buckets_list",
+          "description": "List r2 buckets in your Cloudflare account",
+          "readOnlyHint": true
+        },
+        {
+          "name": "r2_bucket_create",
+          "description": "Create a new r2 bucket in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "r2_bucket_get",
+          "description": "Get details about a specific R2 bucket",
+          "readOnlyHint": true
+        },
+        {
+          "name": "r2_bucket_delete",
+          "description": "Delete an R2 bucket",
+          "readOnlyHint": false
+        },
+        {
+          "name": "d1_databases_list",
+          "description": "List all of the D1 databases in your Cloudflare account",
+          "readOnlyHint": true
+        },
+        {
+          "name": "d1_database_create",
+          "description": "Create a new D1 database in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "d1_database_delete",
+          "description": "Delete a d1 database in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "d1_database_get",
+          "description": "Get a D1 database in your Cloudflare account",
+          "readOnlyHint": true
+        },
+        {
+          "name": "d1_database_query",
+          "description": "Query a D1 database in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "hyperdrive_configs_list",
+          "description": "List Hyperdrive configurations in your Cloudflare account",
+          "readOnlyHint": true
+        },
+        {
+          "name": "hyperdrive_config_delete",
+          "description": "Delete a Hyperdrive configuration in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "hyperdrive_config_get",
+          "description": "Get details of a specific Hyperdrive configuration in your Cloudflare account",
+          "readOnlyHint": true
+        },
+        {
+          "name": "hyperdrive_config_edit",
+          "description": "Edit (patch) a Hyperdrive configuration in your Cloudflare account",
+          "readOnlyHint": false
+        },
+        {
+          "name": "search_cloudflare_documentation",
+          "description": "Search the Cloudflare documentation.\n\n\t\tThis tool should be used to answer any question about Cloudflare products or features, including:\n\t\t- Workers, Pages, R2, Images, Stream, D1, Durable Objects, KV, Workflows, Hyperdrive, Queues\n\t\t- AI Search, Workers AI, Vectorize, AI Gateway, Browser Run\n\t\t- Zero Trust, Access, Tunnel, Gateway, Browser Isolation, WARP, DDOS, Magic Transit, Magic WAN\n\t\t- CDN, Cache, DNS, Zaraz, Argo, Rulesets, Terraform, Account and Billing\n\n\t\tResults are returned as semantically similar chunks to the query.\n\t\t",
+          "readOnlyHint": true
+        },
+        {
+          "name": "migrate_pages_to_workers_guide",
+          "description": "ALWAYS read this guide before migrating Pages projects to Workers.",
+          "readOnlyHint": true
+        }
+      ]
+    },
+    {
+      "server": "cloudflare-builds",
+      "source": "https://github.com/cloudflare/mcp-server-cloudflare/blob/ab883e51663df955316ec3191afb5b718bf4b54c/apps/workers-builds/src/workers-builds.app.ts",
+      "notes": "Registers the shared workers_* tools, then the three workers_builds_* tools. The older workers_builds_set_active_worker tool no longer exists; builds tools take workerId or buildUUID explicitly. Server instructions tell the model to start with workers_list. Every account-scoped tool (all tools except search_cloudflare_documentation and migrate_pages_to_workers_guide) gains an optional account_id input when the OAuth token spans several accounts and no cf-account-id header is set. The older accounts_list and set_active_account tools were removed in cloudflare/mcp-server-cloudflare#384 (commit f625075fd0d9, 2026-06-01); they do not exist at this commit.",
+      "tools": [
+        {
+          "name": "workers_list",
+          "description": "List all Workers in your Cloudflare account.\n\nIf you only need details of a single Worker, use workers_get_worker.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_get_worker",
+          "description": "Get the details of the Cloudflare Worker.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_get_worker_code",
+          "description": "Get the source code of a Cloudflare Worker. Note: This may be a bundled version of the worker.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_builds_list_builds",
+          "description": "Use the Workers Builds API to list builds for a Cloudflare Worker.\n\nworkerId is required. Use workers_list to find a Worker's ID when needed.",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_builds_get_build",
+          "description": "Get details for a specific build by its UUID.\nIncludes build and deploy commands for the build (useful for debugging build failures).",
+          "readOnlyHint": true
+        },
+        {
+          "name": "workers_builds_get_build_logs",
+          "description": "Get logs for a Cloudflare Workers build by its explicit UUID.",
+          "readOnlyHint": true
+        }
+      ]
+    },
+    {
+      "server": "convex",
+      "source": "npm convex@1.45.0 src/cli/lib/mcp/tools (npx convex mcp start)",
+      "notes": "local stdio server",
+      "tools": [
+        {
+          "name": "status",
+          "description": "Get all available deployments for a given Convex project directory.\n\nUse this tool to find the deployment selector, URL, and dashboard URL for each\ndeployment associated with the project. Pass the deployment selector to other\ntools to target a specific deployment.\n\nWhen deployed to Convex Cloud, projects have a development ({\"kind\": \"ownDev\"}) and\nproduction ({\"kind\": \"prod\"}) deployment. Generally default to using the development\ndeployment unless you'd specifically like to debug issues in production.\n\nWhen running locally, there will be a single \"urlWithAdminKey\" deployment.\n\nIf a deployment has \"readOnly: true\", it can only be used with read-only tools\nthat don't expose PII (`insights`, `functionSpec`, `tables`). Tools that read\nuser data (`data`, `logs`, `runOneoffQuery`) and mutating tools will reject it.\n\nIf \"readOnly\" is false or absent, all tools can be used with the deployment.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "data",
+          "description": "Read a page of data from a table in the project's Convex deployment.\n\nOutput:\n- page: A page of results from the table.\n- isDone: Whether there are more results to read.\n- continueCursor: The cursor to use to read the next page of results.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "tables",
+          "description": "List all tables in a particular Convex deployment and their inferred and declared schema.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "functionSpec",
+          "description": "Get the function metadata from a Convex deployment.\n\nReturns an array of structured objects for each function the deployment. Each function's\nmetadata contains its identifier (which is its path within the convex/ folder joined\nwith its exported name), its argument validator, its return value validator, its type\n(i.e. is it a query, mutation, or action), and its visibility (i.e. is it public or\ninternal).",
+          "readOnlyHint": null
+        },
+        {
+          "name": "run",
+          "description": "Run a Convex function (query, mutation, or action) on your deployment.\n\nReturns the result and any log lines generated by the function.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "envList",
+          "description": "List all environment variables in your Convex deployment.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "envGet",
+          "description": "Get a specific environment variable from your Convex deployment.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "envSet",
+          "description": "Set an environment variable in your Convex deployment.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "envRemove",
+          "description": "Remove an environment variable from your Convex deployment.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "runOneoffQuery",
+          "description": "Run a one-off readonly query on your Convex deployment.\n\nThis tool executes a JavaScript string as a query in your Convex deployment.\nThe query should follow Convex guidelines and use the following setup:\n\n```js\nimport { query, internalQuery } from \"convex:/_system/repl/wrappers.js\";\n\nexport default query({\n  handler: async (ctx) => {\n    console.log(\"Write and test your query function here!\");\n  },\n});\n```\n\nNote that there are no imports available in this environment. The only import\nyou can use is the built-in \"convex:/_system/repl/wrappers.js\" module in the\ntemplate.\n\nThe function call is also completely sandboxed, so it can only read data and\ncannot modify the database or access the network.\n\nReturns the result and any log lines generated by the query.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "logs",
+          "description": "Fetch a chunk of recent log entries from your Convex deployment.\n\nReturns a batch of UDF execution log entries and a new cursor you can use to\nrequest the next batch. This tool does not tail; it performs a single fetch.\n\nTo see only errors and exceptions, set status to \"failure\". This filters to\nexecutions where a function threw an error, which is useful for debugging\ndeployment issues. Each failed entry includes the error message and stack trace.",
+          "readOnlyHint": null
+        },
+        {
+          "name": "insights",
+          "description": "Fetch health insights for a Convex deployment over the last 72 hours.\n\nReturns OCC (Optimistic Concurrency Control) conflicts and resource limit issues\nthat may indicate performance problems or failing functions.\n\n**OCC insights** (occRetried, occFailedPermanently):\n  Mutations that conflict on the same document. To fix: restructure mutations to\n  touch fewer shared documents, split hot documents, or reduce transaction scope.\n\n**Resource limit insights** (bytesReadLimit, documentsReadLimit, bytesReadThreshold, documentsReadThreshold):\n  Functions reading too much data. To fix: add indexes to avoid full table scans,\n  use pagination, or filter data more precisely in queries.\n\nSeverity levels:\n  - \"error\": Function executions are failing (permanent OCC failures or hard limits hit)\n  - \"warning\": Function executions succeed but are at risk (retried OCCs or approaching limits)\n\nUse the logs tool with status \"failure\" to see individual error messages and stack traces.\n\nOnly available for Convex cloud deployments when logged in as a user.",
+          "readOnlyHint": null
+        }
+      ]
+    }
+  ]
+}
