@@ -236,33 +236,18 @@ const vUserRepositoriesResult = array(
 const vMcpUserRepositoriesResult = array(
   object({
     repositoryId: userRepositoryFields.repositoryId,
-    convexTeamId: userRepositoryFields.convexTeamId,
     cloudflareAccountId: userRepositoryFields.cloudflareAccountId,
     githubOwnerLogin: userRepositoryFields.githubOwnerLogin,
     githubRepositoryName: userRepositoryFields.githubRepositoryName,
     githubRepositoryDatabaseId: userRepositoryFields.githubRepositoryDatabaseId,
     githubRepositoryFullName: userRepositoryFields.githubRepositoryFullName,
-    defaultBranch: userRepositoryFields.defaultBranch,
     sourceSetup: union(
-      object({ status: literal("not_applicable") }),
-      object({ status: literal("ready") }),
-      object({ status: literal("running"), step: vSourceSetupStep }),
-      object({ status: literal("failed"), step: vSourceSetupStep, message: string() }),
+      object({ status: union(literal("not_applicable"), literal("ready"), literal("running")) }),
+      object({ status: literal("failed"), message: string() }),
     ),
     providerSetup: union(
-      object({ status: literal("not_applicable") }),
-      object({ status: literal("ready") }),
-      object({
-        status: literal("running"),
-        provider: providerSetupProvider,
-        step: vProviderSetupStep,
-      }),
-      object({
-        status: literal("failed"),
-        provider: providerSetupProvider,
-        step: vProviderSetupStep,
-        message: string(),
-      }),
+      object({ status: union(literal("not_applicable"), literal("ready"), literal("running")) }),
+      object({ status: literal("failed"), provider: providerSetupProvider, message: string() }),
     ),
     pendingCloudflareSetup: union(
       v.null(),
@@ -272,22 +257,7 @@ const vMcpUserRepositoriesResult = array(
         convexProjectId: id("repositoryConvexProjects"),
       }),
     ),
-    providerWrite: union(
-      object({ status: literal("idle") }),
-      object({ status: literal("active"), owner: vManagedProviderWriteOwner }),
-      object({
-        status: literal("active"),
-        owner: vManualProviderWriteOwner,
-        affectedProviders: vProviderWriteProviders,
-      }),
-    ),
-    deletion: union(
-      object({ state: literal("not_deleting") }),
-      object({ state: literal("deleting"), currentStep: vRepositoryDeletionStep }),
-      object({ state: literal("delete_failed"), currentStep: vRepositoryDeletionStep }),
-    ),
     isSamebaseManaged: userRepositoryFields.isSamebaseManaged,
-    hasConnectedGitHubRepository: userRepositoryFields.hasConnectedGitHubRepository,
     cloudflareWorkers: userRepositoryFields.cloudflareWorkers,
     convexProjects: userRepositoryFields.convexProjects,
   }),

@@ -228,55 +228,28 @@ export const getUserRepositoriesTool = defineMcpTool({
 
       return {
         repositoryId: repository.repositoryId,
-        convexTeamId: repository.convexTeamId,
         cloudflareAccountId: repository.cloudflareAccountId,
         githubOwnerLogin: repository.githubOwnerLogin,
         githubRepositoryName: repository.githubRepositoryName,
         githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
         githubRepositoryFullName: repository.githubRepositoryFullName,
-        defaultBranch: repository.defaultBranch,
         sourceSetup:
           repository.sourceSetup.status === "failed"
             ? {
                 status: repository.sourceSetup.status,
-                step: repository.sourceSetup.step,
                 message: "Source setup failed. Check this app in Samebase for recovery steps.",
               }
-            : repository.sourceSetup.status === "running"
-              ? { status: repository.sourceSetup.status, step: repository.sourceSetup.step }
-              : { status: repository.sourceSetup.status },
+            : { status: repository.sourceSetup.status },
         providerSetup:
           repository.providerSetup.status === "failed"
             ? {
                 status: repository.providerSetup.status,
                 provider: repository.providerSetup.provider,
-                step: repository.providerSetup.step,
                 message: "Provider setup failed. Check this app in Samebase before retrying.",
               }
-            : repository.providerSetup.status === "running"
-              ? {
-                  status: repository.providerSetup.status,
-                  provider: repository.providerSetup.provider,
-                  step: repository.providerSetup.step,
-                }
-              : { status: repository.providerSetup.status },
+            : { status: repository.providerSetup.status },
         pendingCloudflareSetup,
-        providerWrite:
-          repository.providerWrite.status === "active"
-            ? "affectedProviders" in repository.providerWrite
-              ? {
-                  status: repository.providerWrite.status,
-                  owner: repository.providerWrite.owner,
-                  affectedProviders: repository.providerWrite.affectedProviders,
-                }
-              : { status: repository.providerWrite.status, owner: repository.providerWrite.owner }
-            : { status: repository.providerWrite.status },
-        deletion:
-          repository.deletion.state === "not_deleting"
-            ? { state: repository.deletion.state }
-            : { state: repository.deletion.state, currentStep: repository.deletion.currentStep },
         isSamebaseManaged: repository.isSamebaseManaged,
-        hasConnectedGitHubRepository: repository.hasConnectedGitHubRepository,
         cloudflareWorkers: repository.cloudflareWorkers,
         convexProjects: repository.convexProjects,
       };
@@ -318,7 +291,33 @@ export const convexDiscoverProjectsTool = defineMcpTool({
     structuredContent: convexDiscoverProjectsContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await discoverProjectsForUser(ctx, args);
+    const discovery = await discoverProjectsForUser(ctx, args);
+    const structuredContent: Infer<typeof convexDiscoverProjectsContract.structuredContent> = {
+      source: {
+        completeness: discovery.source.completeness,
+        locations: discovery.source.locations.map((location) =>
+          location.kind === "config"
+            ? {
+                kind: location.kind,
+                convexConfigPath: location.convexConfigPath,
+                blobSha: location.blobSha,
+              }
+            : {
+                kind: location.kind,
+                convexDirectoryPath: location.convexDirectoryPath,
+                convexDirectoryTreeSha: location.convexDirectoryTreeSha,
+                packageJsonBlobSha: location.packageJsonBlobSha,
+              },
+        ),
+      },
+      projects: discovery.projects.map((project) => ({
+        attachment: project.attachment,
+        teamId: project.teamId,
+        projectId: project.projectId,
+        projectName: project.projectName,
+        productionDeployment: project.productionDeployment,
+      })),
+    };
     const attachableCount = structuredContent.projects.filter(
       (project) => project.attachment === "attachable",
     ).length;

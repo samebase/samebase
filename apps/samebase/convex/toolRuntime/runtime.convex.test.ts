@@ -304,6 +304,11 @@ describe("MCP tool runtime boundaries", () => {
       expect(repository).not.toHaveProperty("canRemoveConvexProvision");
       expect(repository).not.toHaveProperty("canRemoveCloudflareProvision");
       expect(repository).not.toHaveProperty("providerPlan");
+      expect(repository).not.toHaveProperty("providerWrite");
+      expect(repository).not.toHaveProperty("deletion");
+      expect(repository).not.toHaveProperty("convexTeamId");
+      expect(repository).not.toHaveProperty("defaultBranch");
+      expect(repository).not.toHaveProperty("hasConnectedGitHubRepository");
     }
     expect(result.structuredContent.repositories).toEqual(
       expect.arrayContaining([
@@ -312,7 +317,6 @@ describe("MCP tool runtime boundaries", () => {
           pendingCloudflareSetup: null,
           sourceSetup: {
             status: "failed",
-            step: "seed_starter",
             message: "Source setup failed. Check this app in Samebase for recovery steps.",
           },
         }),
@@ -322,7 +326,6 @@ describe("MCP tool runtime boundaries", () => {
           providerSetup: {
             status: "failed",
             provider: "convex",
-            step: "attach_convex",
             message: "Provider setup failed. Check this app in Samebase before retrying.",
           },
         }),
@@ -339,6 +342,7 @@ describe("MCP tool runtime boundaries", () => {
     const output = JSON.stringify(result);
     expect(output).not.toContain("private-diagnostic@example.com");
     expect(output).not.toContain('"runId"');
+    expect(output).not.toContain('"step"');
     expect(output).not.toContain('"updatedAt"');
     expect(output).not.toContain('"lastWriteAt"');
     expect(output).not.toContain('"buildTokenUuid"');

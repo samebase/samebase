@@ -18,9 +18,9 @@ describe("get authentication status MCP contract", () => {
     }>();
   });
 
-  it("keeps the unauthenticated user state null", () => {
+  it("keeps the unauthenticated state free of account fields", () => {
     const unauthenticatedStatus = getAuthenticationStatusContract.returns.members[1];
 
-    expect(unauthenticatedStatus.fields.user.kind).toBe("null");
+    expect(Object.keys(unauthenticatedStatus.fields)).toEqual(["authenticated"]);
   });
 });

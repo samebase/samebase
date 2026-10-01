@@ -1848,12 +1848,12 @@ describe("MCP tools/call access enforcement", () => {
               email: "ada@example.com",
             },
             role: "role_member",
-            accessKeys: expect.arrayContaining(["access_public", "access_mcp"]),
             grantedScopes: ["access_dashboard", "access_app_create"],
           },
         },
       },
     });
+    expect(payload.result.structuredContent.authentication).not.toHaveProperty("accessKeys");
     expect(JSON.stringify(payload)).not.toContain('"name":"Ada"');
     expect(JSON.stringify(payload)).not.toContain("userId");
   });
