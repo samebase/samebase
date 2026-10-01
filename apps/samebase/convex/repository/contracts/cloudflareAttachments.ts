@@ -52,6 +52,9 @@ export const vCloudflareWorkerRepositoryDiscovery = union(
 /**
 attached = already recorded on this Samebase app.
 
+attached_elsewhere = another Samebase app already uses this Worker. Neither attachWorkers nor the
+dashboard can add it.
+
 attachable = connected to this repository in Cloudflare and not attached yet. This is the only
 status that attachWorkers accepts.
 
@@ -72,6 +75,7 @@ export const vCloudflareWorkerDiscovery = union(
   object({
     attachment: union(
       literal("attached"),
+      literal("attached_elsewhere"),
       literal("connectable"),
       literal("connected_elsewhere"),
       literal("unavailable"),
@@ -99,7 +103,7 @@ export const cloudflareDiscoverWorkersContract = {
     title: "Discover Cloudflare Workers",
     name: "repository_cloudflare_discoverWorkers",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. List Workers in the Samebase repository's stored Cloudflare account with one attachment status each. attached: already on this Samebase app. attachable: connected to this repository in Cloudflare; only these Workers can be passed to repository_cloudflare_attachWorkers. connectable: not connected to any repository yet; the user can connect it in the Samebase dashboard, not through MCP. connected_elsewhere and unavailable: cannot be attached.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. List Workers in the Samebase repository's stored Cloudflare account with one attachment status each. attached: already on this Samebase app. attached_elsewhere: another Samebase app already uses it; it cannot be attached or connected here. attachable: connected to this repository in Cloudflare; only these Workers can be passed to repository_cloudflare_attachWorkers. connectable: not connected to any repository yet; the user can connect it in the Samebase dashboard, not through MCP. connected_elsewhere and unavailable: cannot be attached.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -114,12 +118,13 @@ export const cloudflareDiscoverWorkersContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads every visible Worker in the repository's stored Cloudflare account, observes each Worker's
 current GitHub repository connection and Workers Builds root, and compares it with the Workers
-already attached to this Samebase repository. Each Worker gets one attachment status: attached,
-attachable, connectable, connected_elsewhere, or unavailable. Only an attachable Worker has one
-verified root for the Samebase repository's GitHub repository and can be attached. A connectable
-Worker has no repository connection yet, and only the Samebase dashboard can connect it. A partial
-inventory never proves that an unlisted Worker is absent. It may refresh private Samebase
-provider-connection bookkeeping, but it writes no attachment or provider resource.`,
+that Samebase apps already attach. Each Worker gets one attachment status: attached,
+attached_elsewhere, attachable, connectable, connected_elsewhere, or unavailable. A Worker that
+another Samebase app attaches is reported only as attached_elsewhere, without that app. Only an
+attachable Worker has one verified root for the Samebase repository's GitHub repository and can be
+attached. A connectable Worker has no repository connection yet, and only the Samebase dashboard
+can connect it. A partial inventory never proves that an unlisted Worker is absent. It may refresh
+private Samebase provider-connection bookkeeping, but it writes no attachment or provider resource.`,
 } as const;
 
 export const cloudflareAttachWorkersContract = {
@@ -159,8 +164,9 @@ export const cloudflareAttachWorkersContract = {
   doc: `Re-reads every selected Worker and requires one current root for the repository's immutable
 GitHub repository identity before writing any attachment. Only Workers that discovery reports as
 attachable pass this check. A connectable Worker is rejected because it has no repository
-connection yet. The final Samebase mutation is atomic: either every selected Worker is attached or
-none are. Cloudflare configuration is not changed.`,
+connection yet, and a Worker that another Samebase app attaches is rejected too. The final
+Samebase mutation is atomic: either every selected Worker is attached or none are. Cloudflare
+configuration is not changed.`,
 } as const;
 
 export const cloudflareConnectWorkerContract = {

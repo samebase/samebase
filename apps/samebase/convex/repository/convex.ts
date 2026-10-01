@@ -48,7 +48,10 @@ import {
   attemptManualProviderWriteFailureRecord,
   requireManualProviderActionDeadline,
 } from "./infrastructureOperation";
-import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
+import type {
+  ConvexProjectRecordedAttachment,
+  RecordedProviderAttachment,
+} from "./providerObservationQueries";
 
 const { id } = v;
 
@@ -245,12 +248,12 @@ function compareConvexAttachmentProject(
 
 function toConvexAttachmentProject(
   project: ProjectResponse,
-  attachedProjectIds: ReadonlySet<string>,
+  recordedAttachment: RecordedProviderAttachment | undefined,
   workerReferences: ConvexWorkerReference[],
   productionDeployment: ConvexCloudDeployment | undefined,
 ): ConvexAttachmentProject {
   return {
-    attachment: attachedProjectIds.has(project.id) ? "attached" : "attachable",
+    attachment: recordedAttachment ?? "attachable",
     teamId: project.teamId,
     projectId: project.id,
     projectName: project.name,
@@ -466,13 +469,17 @@ export async function discoverProjectsForUser(
       defaultBranch: sourceDiscovery.source.defaultBranch,
     }),
   ]);
-  const attachments: RepositoryProviderObservationContext = await ctx.runQuery(
-    internal.repository.providerObservationQueries.readRepositoryProviderObservationContext,
-    { repositoryId: args.repositoryId, userId: args.userId },
+  const recordedAttachments: ConvexProjectRecordedAttachment[] = await ctx.runQuery(
+    internal.repository.providerObservationQueries.readConvexProjectRecordedAttachments,
+    {
+      repositoryId: args.repositoryId,
+      userId: args.userId,
+      projectIds: providerProjects.map((project) => project.id),
+    },
   );
 
-  const attachedProjectIds = new Set(
-    attachments.convexProjects.map((project) => project.projectId),
+  const recordedAttachmentByProjectId = new Map(
+    recordedAttachments.map((project) => [project.projectId, project.attachment]),
   );
   const productionDeploymentByProjectId = new Map<string, ConvexCloudDeployment>();
   for (const deployment of productionDeployments) {
@@ -484,7 +491,7 @@ export async function discoverProjectsForUser(
     .map((project) =>
       toConvexAttachmentProject(
         project,
-        attachedProjectIds,
+        recordedAttachmentByProjectId.get(project.id),
         workerReferences.get(project.id) ?? [],
         productionDeploymentByProjectId.get(project.id),
       ),

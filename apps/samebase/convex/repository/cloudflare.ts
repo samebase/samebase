@@ -57,7 +57,7 @@ import type {
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
 import { readConvexProductionDeployment } from "./convexProjectResources";
-import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
+import type { CloudflareWorkerRecordedAttachment } from "./providerObservationQueries";
 import {
   cloudflareAttachWorkersContract,
   cloudflareConnectWorkerContract,
@@ -1255,18 +1255,25 @@ export async function discoverCloudflareWorkersForUser(
     expectedRepoId: resolved.context.githubRepositoryDatabaseId,
     defaultBranch: resolved.githubDefaultBranch,
   });
-  const attachments: RepositoryProviderObservationContext = await ctx.runQuery(
-    internal.repository.providerObservationQueries.readRepositoryProviderObservationContext,
-    { repositoryId: args.repositoryId, userId: args.userId },
+  const recordedAttachments: CloudflareWorkerRecordedAttachment[] = await ctx.runQuery(
+    internal.repository.providerObservationQueries.readCloudflareWorkerRecordedAttachments,
+    {
+      repositoryId: args.repositoryId,
+      userId: args.userId,
+      accountId: resolved.account.accountId,
+      workerTags: discovery.workers.map((worker) => worker.workerTag),
+    },
   );
 
-  const attachedWorkerTags = new Set(
-    attachments.cloudflareWorkers.map((worker) => worker.workerTag),
+  const recordedAttachmentByWorkerTag = new Map(
+    recordedAttachments.map((worker) => [worker.workerTag, worker.attachment]),
   );
   return {
     inventoryState: discovery.inventoryState,
     workers: discovery.workers
-      .map((worker) => toCloudflareWorkerDiscovery(worker, attachedWorkerTags))
+      .map((worker) =>
+        toCloudflareWorkerDiscovery(worker, recordedAttachmentByWorkerTag.get(worker.workerTag)),
+      )
       .sort(
         (left, right) =>
           left.workerName.localeCompare(right.workerName) ||

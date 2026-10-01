@@ -2,18 +2,24 @@ import type { Infer } from "convex/values";
 
 import type { CloudflareWorkerDiscoveryItem } from "../cloudflareResources";
 import type { vCloudflareWorkerDiscovery } from "./contracts/cloudflareAttachments";
+import type { RecordedProviderAttachment } from "./providerObservationQueries";
 
 /**
 Decides the attachment status that the dashboard and MCP both show for one Worker observed in the
-repository's Cloudflare account. A Worker recorded on this Samebase app is attached whatever
-Cloudflare reports now.
+repository's Cloudflare account. A Worker that a Samebase app records, this app or another one,
+keeps that status whatever Cloudflare reports now, because the attach and connect mutations check
+the recorded attachment first.
 */
 export function toCloudflareWorkerDiscovery(
   worker: CloudflareWorkerDiscoveryItem,
-  attachedWorkerTags: ReadonlySet<string>,
+  recordedAttachment: RecordedProviderAttachment | undefined,
 ): Infer<typeof vCloudflareWorkerDiscovery> {
-  if (attachedWorkerTags.has(worker.workerTag)) {
-    return { attachment: "attached", workerName: worker.workerName, workerTag: worker.workerTag };
+  if (recordedAttachment) {
+    return {
+      attachment: recordedAttachment,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+    };
   }
 
   switch (worker.repository.state) {
