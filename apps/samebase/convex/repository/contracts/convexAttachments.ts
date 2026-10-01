@@ -96,7 +96,7 @@ export const convexDiscoverProjectsContract = {
     title: "Discover Convex projects",
     name: "repository_convex_discoverProjects",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team. Each project has one attachment status. attached: already on this Samebase app. attachable: only these projects can be passed to repository_convex_attachProjects.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -111,9 +111,10 @@ export const convexDiscoverProjectsContract = {
 default package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object
 SHAs only. It does not read or validate convex.json or package.json contents. It also lists projects
 available through the connected Convex team and annotates current Cloudflare Worker marker
-references when available. A partial source scan never proves that an unlisted code location is
-absent. It may refresh private Samebase provider-connection bookkeeping, but it does not change
-GitHub, Convex, Cloudflare, or public internet state.`,
+references when available. Each project gets one attachment status: attached when this Samebase
+repository already records it, otherwise attachable. A partial source scan never proves that an
+unlisted code location is absent. It may refresh private Samebase provider-connection bookkeeping,
+but it does not change GitHub, Convex, Cloudflare, or public internet state.`,
 } as const;
 
 const vConvexProjectCodeLocationSelection = object({
@@ -134,7 +135,7 @@ export const convexAttachProjectsContract = {
     title: "Attach Convex projects",
     name: "repository_convex_attachProjects",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach selected existing Convex projects to a Samebase repository at discovered repository code locations.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach existing Convex projects that repository_convex_discoverProjects returned with attachment attachable, each at a discovered repository code location. Only attachable projects can be attached.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -144,7 +145,7 @@ export const convexAttachProjectsContract = {
     inputDescriptions: {
       repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
       projects:
-        "One or more project id and code location selections returned by repository_convex_discoverProjects.",
+        "One or more project id and code location selections from repository_convex_discoverProjects. Use only projects with attachment attachable.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads every selected Convex project and exact repository code location before writing

@@ -4,11 +4,14 @@
 
 MCP tool `repository_cloudflare_discoverWorkers` · scope `access_provider_connections` · read_only
 
-Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
-current GitHub repository, production and Previews Base Builds settings, root, and Convex marker.
-Only a Worker with one verified root for the Samebase repository's GitHub repository is eligible for
-attachment. A partial inventory never proves that an unlisted Worker is absent. It may refresh
-private Samebase provider-connection bookkeeping, but it writes no attachment or provider resource.
+Reads every visible Worker in the repository's stored Cloudflare account, observes each Worker's
+current GitHub repository connection and Workers Builds root, and compares it with the Workers
+already attached to this Samebase repository. Each Worker gets one attachment status: attached,
+attachable, connectable, connected_elsewhere, or unavailable. Only an attachable Worker has one
+verified root for the Samebase repository's GitHub repository and can be attached. A connectable
+Worker has no repository connection yet, and only the Samebase dashboard can connect it. A partial
+inventory never proves that an unlisted Worker is absent. It may refresh private Samebase
+provider-connection bookkeeping, but it writes no attachment or provider resource.
 
 ## Arguments
 
@@ -38,230 +41,56 @@ JSON Schema for the tool's `structuredContent`:
     "workers": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "workerName": {
-            "type": "string"
-          },
-          "workerTag": {
-            "type": "string"
-          },
-          "repository": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "ready"
-                  },
-                  "rootDirectory": {
-                    "type": "string"
-                  },
-                  "builds": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "available"
-                          }
-                        },
-                        "required": ["state"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "legacy_previews"
-                          }
-                        },
-                        "required": ["state"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "not_available"
-                          }
-                        },
-                        "required": ["state"],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "state": {
-                            "const": "ambiguous"
-                          }
-                        },
-                        "required": ["state"],
-                        "additionalProperties": false
-                      }
-                    ]
-                  }
-                },
-                "required": ["state", "rootDirectory", "builds"],
-                "additionalProperties": false
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "attachment": {
+                "const": "attachable"
               },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "not_connected"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
+              "workerName": {
+                "type": "string"
               },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "connected_elsewhere"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
+              "workerTag": {
+                "type": "string"
               },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "ambiguous"
-                  },
-                  "reason": {
-                    "anyOf": [
-                      {
-                        "const": "deleted_repository_connection"
-                      },
-                      {
-                        "const": "missing_provider_type"
-                      },
-                      {
-                        "const": "missing_repo_id"
-                      },
-                      {
-                        "const": "missing_root_directory"
-                      },
-                      {
-                        "const": "multiple_root_directories"
-                      }
-                    ]
-                  }
-                },
-                "required": ["state", "reason"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "failed"
-                  },
-                  "message": {
-                    "type": "string"
-                  }
-                },
-                "required": ["state", "message"],
-                "additionalProperties": false
+              "rootDirectory": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["attachment", "workerName", "workerTag", "rootDirectory"],
+            "additionalProperties": false
           },
-          "convexBuildAccess": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "not_configured"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "configured"
+          {
+            "type": "object",
+            "properties": {
+              "attachment": {
+                "anyOf": [
+                  {
+                    "const": "attached"
                   },
-                  "convexProject": {
-                    "type": "object",
-                    "properties": {
-                      "teamId": {
-                        "type": "string"
-                      },
-                      "projectId": {
-                        "type": "string"
-                      }
-                    },
-                    "required": ["teamId", "projectId"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["state", "convexProject"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "incomplete"
+                  {
+                    "const": "connectable"
                   },
-                  "convexProject": {
-                    "type": "object",
-                    "properties": {
-                      "teamId": {
-                        "type": "string"
-                      },
-                      "projectId": {
-                        "type": "string"
-                      }
-                    },
-                    "required": ["teamId", "projectId"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["state", "convexProject"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "target_unknown"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "invalid"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
+                  {
+                    "const": "connected_elsewhere"
+                  },
+                  {
                     "const": "unavailable"
                   }
-                },
-                "required": ["state"],
-                "additionalProperties": false
+                ]
+              },
+              "workerName": {
+                "type": "string"
+              },
+              "workerTag": {
+                "type": "string"
               }
-            ]
+            },
+            "required": ["attachment", "workerName", "workerTag"],
+            "additionalProperties": false
           }
-        },
-        "required": ["workerName", "workerTag", "repository", "convexBuildAccess"],
-        "additionalProperties": false
+        ]
       }
     }
   },

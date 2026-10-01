@@ -5,8 +5,10 @@
 MCP tool `repository_cloudflare_attachWorkers` · scope `access_provider_connections` · write
 
 Re-reads every selected Worker and requires one current root for the repository's immutable GitHub
-repository identity before writing any attachment. The final Samebase mutation is atomic: either
-every selected Worker is attached or none are. Cloudflare configuration is not changed.
+repository identity before writing any attachment. Only Workers that discovery reports as attachable
+pass this check. A connectable Worker is rejected because it has no repository connection yet. The
+final Samebase mutation is atomic: either every selected Worker is attached or none are. Cloudflare
+configuration is not changed.
 
 ## Arguments
 
@@ -14,8 +16,8 @@ every selected Worker is attached or none are. Cloudflare configuration is not c
   repository_dashboard_getUserRepositories.
 - `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
   repository_dashboard_getUserRepositories and used for the preceding Worker discovery.
-- `workers` (array, required): One or more Worker name and stable tag pairs returned by
-  repository_cloudflare_discoverWorkers.
+- `workers` (array, required): One or more Worker name and stable tag pairs that
+  repository_cloudflare_discoverWorkers returned with attachment attachable.
 
 ## Returns
 

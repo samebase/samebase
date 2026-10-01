@@ -99,7 +99,7 @@ export const cloudflareDiscoverWorkersContract = {
     title: "Discover Cloudflare Workers",
     name: "repository_cloudflare_discoverWorkers",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Workers in the Samebase repository's stored Cloudflare account and observe which ones are connected to its GitHub repository and live Workers Builds roots.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. List Workers in the Samebase repository's stored Cloudflare account with one attachment status each. attached: already on this Samebase app. attachable: connected to this repository in Cloudflare; only these Workers can be passed to repository_cloudflare_attachWorkers. connectable: not connected to any repository yet; the user can connect it in the Samebase dashboard, not through MCP. connected_elsewhere and unavailable: cannot be attached.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -112,11 +112,14 @@ export const cloudflareDiscoverWorkersContract = {
         "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
     },
   } as const satisfies AppFunctionMcpMetadata,
-  doc: `Reads every visible Worker in the repository's stored Cloudflare account and observes each Worker's
-current GitHub repository, production and Previews Base Builds settings, root, and Convex marker. Only a Worker with
-one verified root for the Samebase repository's GitHub repository is eligible for attachment. A partial inventory never
-proves that an unlisted Worker is absent. It may refresh private Samebase provider-connection
-bookkeeping, but it writes no attachment or provider resource.`,
+  doc: `Reads every visible Worker in the repository's stored Cloudflare account, observes each Worker's
+current GitHub repository connection and Workers Builds root, and compares it with the Workers
+already attached to this Samebase repository. Each Worker gets one attachment status: attached,
+attachable, connectable, connected_elsewhere, or unavailable. Only an attachable Worker has one
+verified root for the Samebase repository's GitHub repository and can be attached. A connectable
+Worker has no repository connection yet, and only the Samebase dashboard can connect it. A partial
+inventory never proves that an unlisted Worker is absent. It may refresh private Samebase
+provider-connection bookkeeping, but it writes no attachment or provider resource.`,
 } as const;
 
 export const cloudflareAttachWorkersContract = {
@@ -138,7 +141,7 @@ export const cloudflareAttachWorkersContract = {
     title: "Attach Cloudflare Workers",
     name: "repository_cloudflare_attachWorkers",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach selected existing Cloudflare Workers to a Samebase repository after re-verifying their identities and live GitHub repository roots.",
+      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach existing Cloudflare Workers that repository_cloudflare_discoverWorkers returned with attachment attachable. Only attachable Workers can be attached. Samebase re-verifies each Worker's identity and live GitHub repository root before it writes the attachment.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -150,12 +153,14 @@ export const cloudflareAttachWorkersContract = {
       accountId:
         "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories and used for the preceding Worker discovery.",
       workers:
-        "One or more Worker name and stable tag pairs returned by repository_cloudflare_discoverWorkers.",
+        "One or more Worker name and stable tag pairs that repository_cloudflare_discoverWorkers returned with attachment attachable.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads every selected Worker and requires one current root for the repository's immutable
-GitHub repository identity before writing any attachment. The final Samebase mutation is atomic:
-either every selected Worker is attached or none are. Cloudflare configuration is not changed.`,
+GitHub repository identity before writing any attachment. Only Workers that discovery reports as
+attachable pass this check. A connectable Worker is rejected because it has no repository
+connection yet. The final Samebase mutation is atomic: either every selected Worker is attached or
+none are. Cloudflare configuration is not changed.`,
 } as const;
 
 export const cloudflareConnectWorkerContract = {

@@ -12,8 +12,8 @@ location is attached or none are. Convex projects and GitHub files are not modif
 
 - `repositoryId` (string, required): Samebase repository ID returned by
   repository_dashboard_getUserRepositories.
-- `projects` (array, required): One or more project id and code location selections returned by
-  repository_convex_discoverProjects.
+- `projects` (array, required): One or more project id and code location selections from
+  repository_convex_discoverProjects. Use only projects with attachment attachable.
 
 ## Returns
 
