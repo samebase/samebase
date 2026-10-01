@@ -39,7 +39,7 @@ import {
 
 export type Scheme = "A" | "B" | "C" | "D" | "E";
 export const SCHEMES: readonly Scheme[] = ["A", "B", "C", "D", "E"];
-export type DesignId = "P" | "W" | "H";
+export type DesignId = "P" | "W" | "H" | "R" | "RV1" | "RV2" | "RV3" | "RV4";
 export type Annotations = {
   readOnlyHint: boolean;
   openWorldHint: boolean;
@@ -1858,7 +1858,258 @@ const wTools: ToolSpec[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------------------------
+// Design R: H as recommended in the research note (16 tools), plus confirmation variants V1-V4
+// for its three destructive app tools (connect a Worker, repair, detach).
+
+type ConfirmationVariant = "recommended" | "V1" | "V2" | "V3" | "V4";
+
+function hTool(key: string): ToolSpec {
+  const spec = hTools.find((tool) => tool.key === key);
+  if (!spec) throw new Error(`H has no tool ${key}.`);
+  return spec;
+}
+
+const APPROVAL_SENTENCE =
+  " Before calling, tell the user this effect and get their approval, unless their request already approves it.";
+
+/** The exact acceptance phrase a V3 tool requires, built from the call's own arguments. */
+function acceptancePhrase(key: string, app: string, args: Args): string {
+  if (key === "connect_worker")
+    return `I accept to connect ${readString(args, "workerName")} to ${app} and replace its current deployment`;
+  if (key === "repair")
+    return `I accept to repair ${app} and replace its Workers Builds settings and Convex deploy keys`;
+  return `I accept to detach ${readString(args, "resourceName")} from ${app}`;
+}
+
+const PHRASE_PATTERNS: Record<string, string> = {
+  connect_worker:
+    "I accept to connect <workerName> to <app owner/name> and replace its current deployment",
+  repair:
+    "I accept to repair <app owner/name> and replace its Workers Builds settings and Convex deploy keys",
+  detach: "I accept to detach <resourceName> from <app owner/name>",
+};
+
+function effectsOf(key: string, state: State, app: App, args: Args): string {
+  if (key === "connect_worker")
+    return `Connects ${readString(args, "workerName")} to ${fullName(app)}, configures Workers Builds, installs the Convex deploy key, and starts a production build that replaces what ${readString(args, "workerName")} serves now.`;
+  if (key === "repair")
+    return `Runs these repairs, which overwrite Workers Builds settings or replace Convex deploy keys and start a production build: ${attention(
+      state,
+      app,
+    )
+      .map((item) => item.problem)
+      .join(" ")}`;
+  return `Removes ${readString(args, "resourceName")} from ${fullName(app)} in Samebase. The resource itself does not change.`;
+}
+
+function confirmationToken(key: string, app: App, args: Args): string {
+  const resource =
+    readOptionalString(args, "workerName") ?? readOptionalString(args, "resourceName") ?? "";
+  const subject = `${key}:${fullName(app)}:${resource}`;
+  let hash = 2166136261;
+  for (const character of subject) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  return `cf_${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+function withConfirmation(spec: ToolSpec, variant: ConfirmationVariant): ToolSpec {
+  if (variant === "recommended") return spec;
+  const plain = spec.description.replace(" Tell the user that before calling.", "");
+  if (variant === "V1") return { ...spec, description: plain };
+  if (variant === "V2") return { ...spec, description: `${plain}${APPROVAL_SENTENCE}` };
+  const properties = readRecord(spec.inputSchema.properties, "properties");
+  const required = Array.isArray(spec.inputSchema.required) ? spec.inputSchema.required : [];
+  if (variant === "V3") {
+    return {
+      ...spec,
+      description: `${plain} Requires confirmation: the user's acceptance, exactly "${PHRASE_PATTERNS[spec.key]}".`,
+      inputSchema: object(
+        {
+          ...properties,
+          confirmation: str(`The user's acceptance, exactly: ${PHRASE_PATTERNS[spec.key]}`),
+        },
+        [...required.filter((entry) => typeof entry === "string"), "confirmation"],
+      ),
+      handler: (state, args, names) => {
+        const app = findApp(state, readString(args, "app"));
+        const expected = acceptancePhrase(spec.key, fullName(app), args);
+        if (readOptionalString(args, "confirmation")?.replace(/\s+/g, " ") !== expected) {
+          throw new Error(
+            `confirmation must be exactly "${expected}". Get the user's acceptance of this effect first.`,
+          );
+        }
+        return spec.handler(state, args, names);
+      },
+    };
+  }
+  return {
+    ...spec,
+    description: `${plain} The first call only returns needs_confirmation with the effects and a confirmationToken; nothing changes. Call again with confirmationToken after the user approves.`,
+    inputSchema: object(
+      {
+        ...properties,
+        confirmationToken: str(
+          "Token from the needs_confirmation result, after the user approves.",
+        ),
+      },
+      required.filter((entry) => typeof entry === "string"),
+    ),
+    handler: (state, args, names) => {
+      const app = findApp(state, readString(args, "app"));
+      const token = confirmationToken(spec.key, app, args);
+      const given = readOptionalString(args, "confirmationToken");
+      if (given === undefined) {
+        if (!state.confirmations.includes(token)) state.confirmations.push(token);
+        return {
+          status: "needs_confirmation",
+          effects: effectsOf(spec.key, state, app, args),
+          confirmationToken: token,
+          expiresInSeconds: 300,
+          next: "Show these effects to the user. Call again with confirmationToken only after the user approves.",
+        };
+      }
+      if (given !== token || !state.confirmations.includes(token)) {
+        throw new Error("Unknown or expired confirmationToken. Call without it to get a new one.");
+      }
+      return spec.handler(state, args, names);
+    },
+  };
+}
+
+function recommendedTools(variant: ConfirmationVariant): ToolSpec[] {
+  const listApps = hTool("list_apps");
+  return [
+    hTool("auth_status"),
+    hTool("sign_in_link"),
+    hTool("submit_feedback"),
+    {
+      ...listApps,
+      output: "apps[]: repositoryId, owner/name, setup, pending Cloudflare, attachment names",
+      handler: (state) => {
+        for (const app of state.apps) readApp(state, app);
+        return {
+          apps: appRows(state).map((row, index) => ({
+            repositoryId: state.apps[index].repositoryId,
+            ...row,
+          })),
+        };
+      },
+    },
+    hTool("app_status"),
+    hTool("create_app"),
+    hTool("connect_app"),
+    hTool("find_workers"),
+    hTool("attach_workers"),
+    withConfirmation(hTool("connect_worker"), variant),
+    hTool("create_worker"),
+    hTool("find_convex"),
+    {
+      key: "attach_convex",
+      names: {
+        A: "repository_convex_attachProjects",
+        B: "repository_convex_attachProject",
+        C: "attach_convex_project",
+        D: "samebase_attach_convex_project",
+        E: "samebase_attach_convex_project",
+      },
+      description:
+        "Attach an existing Convex project from the connected Convex team to this app by name. Uses the repository's only Convex code location unless codeLocation is given. Records the attachment in Samebase only.",
+      when: "Use this when the user wants an existing Convex project on a Samebase app.",
+      inputSchema: object(
+        {
+          app: appInput,
+          projectName: str("Convex project name."),
+          codeLocation: str("Optional code location path from {{find_convex}}."),
+        },
+        ["app", "projectName"],
+      ),
+      annotations: WRITE_CLOSED,
+      output: "attached project name, code location",
+      dashboard: "repository.convex.attachProjects",
+      handler: (state, args) =>
+        addConvex(
+          state,
+          findApp(state, readString(args, "app")),
+          { ...args, create: false },
+          false,
+        ),
+    },
+    {
+      key: "create_convex",
+      names: {
+        A: "repository_convex_createProject",
+        B: "repository_convex_createProject",
+        C: "create_convex_project",
+        D: "samebase_create_convex_project",
+        E: "samebase_create_convex_project",
+      },
+      description:
+        "Create a new Convex project with a production deployment in the connected Convex team and attach it to this app. Uses the repository's only Convex code location unless codeLocation is given.",
+      when: "Use this when the user wants a new Convex project for a Samebase app.",
+      inputSchema: object(
+        {
+          app: appInput,
+          projectName: str("Name for the new Convex project."),
+          convexDeploymentRegion: regionSchema,
+          codeLocation: str("Optional code location path from {{find_convex}}."),
+        },
+        ["app", "projectName"],
+      ),
+      annotations: WRITE_OPEN,
+      output: "created project name, code location",
+      dashboard: "repository.convex.createProject",
+      handler: (state, args) =>
+        addConvex(state, findApp(state, readString(args, "app")), { ...args, create: true }, false),
+    },
+    withConfirmation(
+      {
+        ...hTool("repair"),
+        names: {
+          A: "repository_actions_repairInfrastructureProvisioning",
+          B: "repository_repair",
+          C: "repair_app",
+          D: "samebase_repair_app",
+          E: "samebase_repair_repository",
+        },
+      },
+      variant,
+    ),
+    withConfirmation(
+      {
+        ...hTool("detach"),
+        names: {
+          A: "repository_actions_detachProviderResource",
+          B: "repository_detachResource",
+          C: "detach_resource",
+          D: "samebase_detach_resource",
+          E: "samebase_detach_resource",
+        },
+      },
+      variant,
+    ),
+  ];
+}
+
+const R_INSTRUCTIONS = H_INSTRUCTIONS.replace(
+  "follow its attention items",
+  "follow its attention items with {{repair}}. For a request to open the Samebase dashboard, call {{sign_in_link}} directly",
+);
+
+function recommendedDesign(id: DesignId, variant: ConfirmationVariant): Design {
+  return {
+    id,
+    label: `recommended H, 16 tools${variant === "recommended" ? "" : `, confirmation ${variant}`}`,
+    instructions: R_INSTRUCTIONS,
+    tools: recommendedTools(variant),
+  };
+}
+
 export const DESIGNS: Record<DesignId, Design> = {
+  R: recommendedDesign("R", "recommended"),
+  RV1: recommendedDesign("RV1", "V1"),
+  RV2: recommendedDesign("RV2", "V2"),
+  RV3: recommendedDesign("RV3", "V3"),
+  RV4: recommendedDesign("RV4", "V4"),
   P: {
     id: "P",
     label: "primitive mirror (RFC 125, 21 tools)",

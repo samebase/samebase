@@ -34,7 +34,7 @@ export type Task = {
   authorizedDestructive: string[];
   check: (input: CheckInput) => CheckResult;
   oracleAnswer: string;
-  oracle: Record<DesignId, OracleStep[]>;
+  oracle: Record<"P" | "W" | "H", OracleStep[]>;
 };
 
 export const WRITE_KEYS = new Set([

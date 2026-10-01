@@ -21,6 +21,8 @@ export type FirstToolPrompt = {
   prompt: string;
   P: Expect;
   H: Expect;
+  /** Design R (H split attach and create for Convex). Absent: same as H. Added on 2026-10-02 before any R run. */
+  R?: Expect;
 };
 
 const app = "samebase-live-tests/tmp-my-cool-app2";
@@ -295,6 +297,7 @@ export const FIRST_TOOL_PROMPTS: FirstToolPrompt[] = [
     prompt: `Attach the Convex project weather-data to ${app}.`,
     P: { strict: listP },
     H: { strict: ["add_convex"], lenient: ["find_convex", ...listH] },
+    R: { strict: ["attach_convex"], lenient: ["find_convex", ...listH] },
   },
   {
     id: "I18",
@@ -302,6 +305,7 @@ export const FIRST_TOOL_PROMPTS: FirstToolPrompt[] = [
     prompt: "Use my existing weather-data backend for the Samebase app tmp-my-cool-app2.",
     P: { strict: listP },
     H: { strict: ["add_convex"], lenient: ["find_convex", ...listH] },
+    R: { strict: ["attach_convex"], lenient: ["find_convex", ...listH] },
   },
   {
     id: "D19",
@@ -309,6 +313,7 @@ export const FIRST_TOOL_PROMPTS: FirstToolPrompt[] = [
     prompt: `Create a new Convex project named tmp-my-cool-app2-analytics for ${app}.`,
     P: { strict: listP },
     H: { strict: ["add_convex"], lenient: ["find_convex", ...listH] },
+    R: { strict: ["create_convex"], lenient: ["find_convex", ...listH] },
   },
   {
     id: "D20",
