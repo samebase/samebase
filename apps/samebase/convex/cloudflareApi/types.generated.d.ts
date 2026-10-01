@@ -4360,6 +4360,7 @@ export interface components {
       | components["schemas"]["workers_binding_kind_ai_search_namespace"]
       | components["schemas"]["workers_binding_kind_messaging"]
       | components["schemas"]["workers_binding_kind_analytics_engine"]
+      | components["schemas"]["workers_binding_kind_artifacts"]
       | components["schemas"]["workers_binding_kind_assets"]
       | components["schemas"]["workers_binding_kind_browser"]
       | components["schemas"]["workers_binding_kind_d1"]
@@ -4461,6 +4462,19 @@ export interface components {
        * @enum {string}
        */
       type: "analytics_engine";
+    };
+    workers_binding_kind_artifacts: {
+      name: components["schemas"]["workers_binding_name"];
+      /**
+       * @description The Artifacts namespace exposed to the Worker in the Worker's account. Must be 2-63 characters, start with an ASCII alphanumeric character, contain only ASCII alphanumeric characters, dots, underscores, and hyphens, and must not end with a hyphen. The namespace does not need to be created before binding it.
+       * @example agent-workspace
+       */
+      namespace: string;
+      /**
+       * @description The kind of resource that the binding provides. (enum property replaced by openapi-typescript)
+       * @enum {string}
+       */
+      type: "artifacts";
     };
     workers_binding_kind_assets: {
       name: components["schemas"]["workers_binding_name"];
@@ -5881,28 +5895,42 @@ export interface components {
       /** @description Aggregated calculation results. Present when the query view is 'calculations'. Contains computed metrics (count, avg, p99, etc.) with optional group-by breakdowns and time-series data. */
       calculations?: {
         aggregates: {
+          /** @description Estimated number of matching events: the sum of the sample intervals of the stored events. It equals the number of stored events when sampleInterval is 1. */
           count: number;
           groups?: {
             key: string;
             value: string | number | boolean;
           }[];
+          /**
+           * @deprecated
+           * @description Deprecated alias of sampleInterval. Always has the same value; use sampleInterval instead.
+           */
           interval: number;
+          /** @description Average sample interval of the matched events. Each stored event has a sample interval of 1 / (the sampling rate applied when it was ingested): the Worker's head_sampling_rate multiplied by any platform sampling applied to the account or script. A value of 1 means none of the matched events were sampled. A value above 1 means count and value are estimated from sampled data, not exact. This is independent of statistics.abr_level. */
           sampleInterval: number;
+          /** @description Result of the calculation. count, sum, avg, median, and percentiles are weighted by each event's sample interval */
           value: number;
         }[];
         alias?: string;
         calculation: string;
         series: {
           data: {
+            /** @description Estimated number of matching events: the sum of the sample intervals of the stored events. It equals the number of stored events when sampleInterval is 1. */
             count: number;
             firstSeen?: string;
             groups?: {
               key: string;
               value: string | number | boolean;
             }[];
+            /**
+             * @deprecated
+             * @description Deprecated alias of sampleInterval. Always has the same value; use sampleInterval instead.
+             */
             interval: number;
             lastSeen?: string;
+            /** @description Average sample interval of the matched events. Each stored event has a sample interval of 1 / (the sampling rate applied when it was ingested): the Worker's head_sampling_rate multiplied by any platform sampling applied to the account or script. A value of 1 means none of the matched events were sampled. A value above 1 means count and value are estimated from sampled data, not exact. This is independent of statistics.abr_level. */
             sampleInterval: number;
+            /** @description Result of the calculation. count, sum, avg, median, and percentiles are weighted by each event's sample interval */
             value: number;
           }[];
           time: string;
@@ -5911,28 +5939,42 @@ export interface components {
       /** @description Comparison calculation results from the previous time period. Present when the compare option is enabled. Same structure as calculations. */
       compare?: {
         aggregates: {
+          /** @description Estimated number of matching events: the sum of the sample intervals of the stored events. It equals the number of stored events when sampleInterval is 1. */
           count: number;
           groups?: {
             key: string;
             value: string | number | boolean;
           }[];
+          /**
+           * @deprecated
+           * @description Deprecated alias of sampleInterval. Always has the same value; use sampleInterval instead.
+           */
           interval: number;
+          /** @description Average sample interval of the matched events. Each stored event has a sample interval of 1 / (the sampling rate applied when it was ingested): the Worker's head_sampling_rate multiplied by any platform sampling applied to the account or script. A value of 1 means none of the matched events were sampled. A value above 1 means count and value are estimated from sampled data, not exact. This is independent of statistics.abr_level. */
           sampleInterval: number;
+          /** @description Result of the calculation. count, sum, avg, median, and percentiles are weighted by each event's sample interval */
           value: number;
         }[];
         alias?: string;
         calculation: string;
         series: {
           data: {
+            /** @description Estimated number of matching events: the sum of the sample intervals of the stored events. It equals the number of stored events when sampleInterval is 1. */
             count: number;
             firstSeen?: string;
             groups?: {
               key: string;
               value: string | number | boolean;
             }[];
+            /**
+             * @deprecated
+             * @description Deprecated alias of sampleInterval. Always has the same value; use sampleInterval instead.
+             */
             interval: number;
             lastSeen?: string;
+            /** @description Average sample interval of the matched events. Each stored event has a sample interval of 1 / (the sampling rate applied when it was ingested): the Worker's head_sampling_rate multiplied by any platform sampling applied to the account or script. A value of 1 means none of the matched events were sampled. A value above 1 means count and value are estimated from sampled data, not exact. This is independent of statistics.abr_level. */
             sampleInterval: number;
+            /** @description Result of the calculation. count, sum, avg, median, and percentiles are weighted by each event's sample interval */
             value: number;
           }[];
           time: string;
@@ -5967,13 +6009,19 @@ export interface components {
               /** @deprecated */
               bin?: Record<string, unknown>;
             };
+            /** @description Estimated number of matching events: the sum of the sample intervals of the stored events. It equals the number of stored events when sampleInterval is 1. */
             count: number;
             errors?: number;
             /** @description Groups in the query results. */
             groups?: {
               [key: string]: string | number | boolean;
             };
+            /**
+             * @deprecated
+             * @description Deprecated alias of sampleInterval. Always has the same value; use sampleInterval instead.
+             */
             interval: number;
+            /** @description Average sample interval of the matched events. Each stored event has a sample interval of 1 / (the sampling rate applied when it was ingested): the Worker's head_sampling_rate multiplied by any platform sampling applied to the account or script. A value of 1 means none of the matched events were sampled. A value above 1 means count and value are estimated from sampled data, not exact. This is independent of statistics.abr_level. */
             sampleInterval: number;
           }[];
           time: string;
@@ -8305,6 +8353,7 @@ export type WorkersBindingKindAiSearchNamespace =
 export type WorkersBindingKindMessaging = components["schemas"]["workers_binding_kind_messaging"];
 export type WorkersBindingKindAnalyticsEngine =
   components["schemas"]["workers_binding_kind_analytics_engine"];
+export type WorkersBindingKindArtifacts = components["schemas"]["workers_binding_kind_artifacts"];
 export type WorkersBindingKindAssets = components["schemas"]["workers_binding_kind_assets"];
 export type WorkersBindingKindBrowser = components["schemas"]["workers_binding_kind_browser"];
 export type WorkersBindingKindD1 = components["schemas"]["workers_binding_kind_d1"];
