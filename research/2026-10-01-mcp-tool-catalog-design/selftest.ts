@@ -12,8 +12,9 @@ import { DESIGNS, type DesignId } from "./designs.ts";
 import { dispatch, loadState, readCalls, readConfig, writeConfig } from "./runtime.ts";
 import { TASKS, keyFor } from "./tasks.ts";
 
-const designs: DesignId[] = ["P", "W", "H"];
-const lengths: Record<string, Record<DesignId, number>> = {};
+type MeasuredDesign = Extract<DesignId, "P" | "W" | "H">;
+const designs: MeasuredDesign[] = ["P", "W", "H"];
+const lengths: Record<string, Record<MeasuredDesign, number>> = {};
 let failures = 0;
 for (const task of TASKS) {
   lengths[task.id] = { P: 0, W: 0, H: 0 };
@@ -54,7 +55,7 @@ console.log("Shortest Samebase call path (oracle) per task:");
 console.log("task                               P  W  H");
 for (const [id, row] of Object.entries(lengths))
   console.log(`${id.padEnd(34)} ${row.P}  ${row.W}  ${row.H}`);
-const total = (design: DesignId) =>
+const total = (design: MeasuredDesign) =>
   Object.values(lengths).reduce((sum, row) => sum + row[design], 0);
 console.log(`total                              ${total("P")} ${total("W")} ${total("H")}`);
 console.log(failures === 0 ? "selftest passed" : `selftest failed: ${failures}`);

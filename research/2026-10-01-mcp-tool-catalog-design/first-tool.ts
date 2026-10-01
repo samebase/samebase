@@ -15,6 +15,7 @@ import path from "node:path";
 import { DESIGNS, type DesignId, type Scheme } from "./designs.ts";
 import { FIRST_TOOL_PROMPTS, type Expect, type FirstToolPrompt } from "./first-tool-prompts.ts";
 import { catalogTextFor } from "./catalog-text.ts";
+import { runCodexText } from "./codex-text.ts";
 import { serverCatalogs, type RunConfig, type ServerTools } from "./runtime.ts";
 
 function option(name: string, fallback: string): string {
@@ -22,7 +23,7 @@ function option(name: string, fallback: string): string {
   return index >= 0 ? (process.argv[index + 1] ?? fallback) : fallback;
 }
 
-const DESIGN_IDS: readonly DesignId[] = ["P", "W", "H"];
+const DESIGN_IDS: readonly DesignId[] = ["P", "W", "H", "R"];
 const SCHEME_IDS: readonly Scheme[] = ["A", "B", "C", "D", "E"];
 
 /** Deterministic shuffle (mulberry32) so each trial has a different, reproducible order. */
@@ -168,67 +169,6 @@ async function claude(): Promise<void> {
   }
 }
 
-function runCodexBatch(dir: string, model: string, effort: string, prompt: string): Promise<void> {
-  return new Promise((resolve) => {
-    const disabled = [
-      "apps",
-      "plugins",
-      "remote_plugin",
-      "browser_use",
-      "browser_use_external",
-      "computer_use",
-      "in_app_browser",
-      "multi_agent",
-      "image_generation",
-      "shell_tool",
-      "unified_exec",
-      "tool_suggest",
-      "skill_search",
-      "skill_mcp_dependency_install",
-      "goals",
-      "sleep_tool",
-    ];
-    const work = path.join(dir, "work");
-    mkdirSync(work, { recursive: true });
-    const args = [
-      "exec",
-      "--ignore-user-config",
-      "--skip-git-repo-check",
-      "--ephemeral",
-      "--json",
-      "-m",
-      model,
-      ...disabled.flatMap((feature) => ["--disable", feature]),
-      "-c",
-      `model_reasoning_effort="${effort}"`,
-      "-c",
-      `approval_policy="never"`,
-      "-c",
-      `sandbox_mode="read-only"`,
-      "-C",
-      work,
-      "-o",
-      path.join(dir, "answer.json"),
-      "-",
-    ];
-    const child = spawn("codex", args, { cwd: work, stdio: ["pipe", "pipe", "pipe"] });
-    let stdout = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stdin.end(prompt);
-    child.on("close", () => {
-      const usage =
-        stdout
-          .split("\n")
-          .filter((line) => line.includes('"turn.completed"'))
-          .pop() ?? "";
-      writeFileSync(path.join(dir, "usage.json"), usage);
-      resolve();
-    });
-  });
-}
-
 async function codex(): Promise<void> {
   const model = option("model", "gpt-6-luna");
   const effort = option("effort", "low");
@@ -238,7 +178,7 @@ async function codex(): Promise<void> {
     if (existsSync(path.join(dir, "answer.json"))) return;
     mkdirSync(dir, { recursive: true });
     writeFileSync(path.join(dir, "batch.json"), JSON.stringify(config, null, 2));
-    await runCodexBatch(dir, model, effort, batchPrompt(config, "Reply with only the JSON array."));
+    await runCodexText(dir, model, effort, batchPrompt(config, "Reply with only the JSON array."));
     console.log(`${batchName(config)} done`);
   });
   let next = 0;
@@ -270,7 +210,8 @@ function classify(
   answer: { server: unknown; tool: unknown } | undefined,
 ): { outcome: Outcome; key: string } {
   if (!answer) return { outcome: "unanswered", key: "" };
-  const expect = config.design === "P" ? item.P : item.H;
+  const expect =
+    config.design === "P" ? item.P : config.design === "R" ? (item.R ?? item.H) : item.H;
   const runConfig: RunConfig = {
     design: config.design,
     scheme: config.scheme,

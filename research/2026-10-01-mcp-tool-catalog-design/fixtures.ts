@@ -77,9 +77,11 @@ export type State = {
   signInLinks: number;
   feedback: string[];
   counter: number;
+  /** Confirmation tokens issued by two-step destructive tools (variant V4). */
+  confirmations: string[];
 };
 
-export type FixtureId = "A" | "A_rotated" | "B" | "C";
+export type FixtureId = "A" | "A_rotated" | "B" | "C" | "D";
 
 const ACCOUNT = "9f2e4c1a7b3d5e6f8a9b0c1d2e3f4a5b";
 const TOKEN_OLD = "5f0c2b7e-1d3a-4c8b-9e6f-0a1b2c3d4e5f";
@@ -294,7 +296,21 @@ function reviewerFixture(): State {
     signInLinks: 0,
     feedback: [],
     counter: 0,
+    confirmations: [],
   };
+}
+
+/** Fixture A where tmp-blog-demo's Worker shared-api lost its Convex deploy key, so repair rotates keys. */
+function destructiveFixture(): State {
+  const state = reviewerFixture();
+  state.fixture = "D";
+  for (const worker of state.workers) {
+    if (worker.name === "shared-api") {
+      worker.convexKeys = "missing";
+      worker.lastBuild = "failure";
+    }
+  }
+  return state;
 }
 
 function rotatedTokenFixture(): State {
@@ -336,6 +352,7 @@ function newAccountFixture(): State {
     signInLinks: 0,
     feedback: [],
     counter: 0,
+    confirmations: [],
   };
 }
 
@@ -402,6 +419,8 @@ export function buildFixture(id: FixtureId): State {
       return newAccountFixture();
     case "C":
       return pendingSetupFixture();
+    case "D":
+      return destructiveFixture();
     default:
       return id satisfies never;
   }

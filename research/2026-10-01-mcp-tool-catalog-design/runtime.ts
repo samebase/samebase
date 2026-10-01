@@ -60,9 +60,9 @@ export function loadProviders(): ProviderServer[] {
   });
 }
 
-const DESIGN_IDS: readonly DesignId[] = ["P", "W", "H"];
+const DESIGN_IDS: readonly DesignId[] = ["P", "W", "H", "R", "RV1", "RV2", "RV3", "RV4"];
 const SCHEME_IDS: readonly Scheme[] = ["A", "B", "C", "D", "E"];
-const FIXTURE_IDS: readonly FixtureId[] = ["A", "A_rotated", "B", "C"];
+const FIXTURE_IDS: readonly FixtureId[] = ["A", "A_rotated", "B", "C", "D"];
 
 export function readConfig(runDir: string): RunConfig {
   const raw = readJson(path.join(runDir, "config.json"));

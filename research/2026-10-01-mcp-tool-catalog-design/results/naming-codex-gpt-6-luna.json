@@ -1,0 +1,3698 @@
+[
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-A-t1",
+    "config": {
+      "design": "R",
+      "scheme": "A",
+      "providers": true,
+      "variant": "base",
+      "trial": 1
+    },
+    "counts": {
+      "correct": 41,
+      "lenient": 7,
+      "wrong_samebase_tool": 6,
+      "wrong_server": 0,
+      "false_activation": 1,
+      "missed": 2,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D13",
+        "outcome": "wrong_samebase_tool",
+        "key": "create_app"
+      },
+      {
+        "id": "I13",
+        "outcome": "wrong_samebase_tool",
+        "key": "create_app"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "correct",
+        "key": "attach_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-A-t2",
+    "config": {
+      "design": "R",
+      "scheme": "A",
+      "providers": true,
+      "variant": "base",
+      "trial": 2
+    },
+    "counts": {
+      "correct": 40,
+      "lenient": 9,
+      "wrong_samebase_tool": 5,
+      "wrong_server": 0,
+      "false_activation": 0,
+      "missed": 2,
+      "malformed": 0,
+      "unanswered": 1
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "unanswered",
+        "key": ""
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D13",
+        "outcome": "wrong_samebase_tool",
+        "key": "create_app"
+      },
+      {
+        "id": "I13",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-A-t3",
+    "config": {
+      "design": "R",
+      "scheme": "A",
+      "providers": true,
+      "variant": "base",
+      "trial": 3
+    },
+    "counts": {
+      "correct": 42,
+      "lenient": 8,
+      "wrong_samebase_tool": 4,
+      "wrong_server": 0,
+      "false_activation": 1,
+      "missed": 2,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D13",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "correct",
+        "key": "attach_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-B-t1",
+    "config": {
+      "design": "R",
+      "scheme": "B",
+      "providers": true,
+      "variant": "base",
+      "trial": 1
+    },
+    "counts": {
+      "correct": 47,
+      "lenient": 7,
+      "wrong_samebase_tool": 1,
+      "wrong_server": 0,
+      "false_activation": 0,
+      "missed": 2,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "correct",
+        "key": "attach_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-B-t2",
+    "config": {
+      "design": "R",
+      "scheme": "B",
+      "providers": true,
+      "variant": "base",
+      "trial": 2
+    },
+    "counts": {
+      "correct": 40,
+      "lenient": 8,
+      "wrong_samebase_tool": 5,
+      "wrong_server": 0,
+      "false_activation": 0,
+      "missed": 2,
+      "malformed": 0,
+      "unanswered": 2
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "unanswered",
+        "key": ""
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "unanswered",
+        "key": ""
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-B-t3",
+    "config": {
+      "design": "R",
+      "scheme": "B",
+      "providers": true,
+      "variant": "base",
+      "trial": 3
+    },
+    "counts": {
+      "correct": 42,
+      "lenient": 11,
+      "wrong_samebase_tool": 3,
+      "wrong_server": 0,
+      "false_activation": 0,
+      "missed": 1,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-C-t1",
+    "config": {
+      "design": "R",
+      "scheme": "C",
+      "providers": true,
+      "variant": "base",
+      "trial": 1
+    },
+    "counts": {
+      "correct": 46,
+      "lenient": 6,
+      "wrong_samebase_tool": 1,
+      "wrong_server": 0,
+      "false_activation": 1,
+      "missed": 3,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "R5",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "I06",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "correct",
+        "key": "attach_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "correct",
+        "key": "attach_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "M1",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "X3",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-C-t2",
+    "config": {
+      "design": "R",
+      "scheme": "C",
+      "providers": true,
+      "variant": "base",
+      "trial": 2
+    },
+    "counts": {
+      "correct": 43,
+      "lenient": 5,
+      "wrong_samebase_tool": 6,
+      "wrong_server": 0,
+      "false_activation": 2,
+      "missed": 0,
+      "malformed": 0,
+      "unanswered": 1
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "correct",
+        "key": "submit_feedback"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "D09",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "correct",
+        "key": "attach_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "unanswered",
+        "key": ""
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "false_activation",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "false_activation",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-C-t3",
+    "config": {
+      "design": "R",
+      "scheme": "C",
+      "providers": true,
+      "variant": "base",
+      "trial": 3
+    },
+    "counts": {
+      "correct": 36,
+      "lenient": 10,
+      "wrong_samebase_tool": 9,
+      "wrong_server": 0,
+      "false_activation": 1,
+      "missed": 1,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D13",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "I13",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_workers"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-D-t1",
+    "config": {
+      "design": "R",
+      "scheme": "D",
+      "providers": true,
+      "variant": "base",
+      "trial": 1
+    },
+    "counts": {
+      "correct": 37,
+      "lenient": 8,
+      "wrong_samebase_tool": 5,
+      "wrong_server": 0,
+      "false_activation": 1,
+      "missed": 6,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "correct",
+        "key": "attach_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "X3",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X6",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-D-t2",
+    "config": {
+      "design": "R",
+      "scheme": "D",
+      "providers": true,
+      "variant": "base",
+      "trial": 2
+    },
+    "counts": {
+      "correct": 44,
+      "lenient": 6,
+      "wrong_samebase_tool": 3,
+      "wrong_server": 0,
+      "false_activation": 2,
+      "missed": 2,
+      "malformed": 0,
+      "unanswered": 0
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "D03",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "I03",
+        "outcome": "false_activation",
+        "key": "submit_feedback"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "correct",
+        "key": "create_app"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "correct",
+        "key": "attach_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "I13",
+        "outcome": "correct",
+        "key": "create_worker"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "correct",
+        "key": "attach_convex"
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "correct",
+        "key": "create_convex"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "find_convex"
+      },
+      {
+        "id": "D21",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D22",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  },
+  {
+    "subject": "codex-gpt-6-luna",
+    "batch": "R-D-t3",
+    "config": {
+      "design": "R",
+      "scheme": "D",
+      "providers": true,
+      "variant": "base",
+      "trial": 3
+    },
+    "counts": {
+      "correct": 38,
+      "lenient": 7,
+      "wrong_samebase_tool": 8,
+      "wrong_server": 0,
+      "false_activation": 2,
+      "missed": 1,
+      "malformed": 0,
+      "unanswered": 1
+    },
+    "details": [
+      {
+        "id": "R1",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "R2",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "R3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "R4",
+        "outcome": "lenient",
+        "key": "auth_status"
+      },
+      {
+        "id": "R5",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "R6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "R7",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "R8",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "D01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "I01",
+        "outcome": "correct",
+        "key": "auth_status"
+      },
+      {
+        "id": "D02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "I02",
+        "outcome": "correct",
+        "key": "sign_in_link"
+      },
+      {
+        "id": "D03",
+        "outcome": "correct",
+        "key": "submit_feedback"
+      },
+      {
+        "id": "I03",
+        "outcome": "false_activation",
+        "key": "submit_feedback"
+      },
+      {
+        "id": "D04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "I04",
+        "outcome": "correct",
+        "key": "list_apps"
+      },
+      {
+        "id": "D05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "I05",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "I06",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "D07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "I07",
+        "outcome": "correct",
+        "key": "connect_app"
+      },
+      {
+        "id": "D08",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "I08",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "D09",
+        "outcome": "false_activation",
+        "key": "auth_status"
+      },
+      {
+        "id": "D10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "I10",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "D11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "I11",
+        "outcome": "lenient",
+        "key": "find_workers"
+      },
+      {
+        "id": "D12",
+        "outcome": "correct",
+        "key": "connect_worker"
+      },
+      {
+        "id": "D13",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "I13",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D14",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D15",
+        "outcome": "lenient",
+        "key": "app_status"
+      },
+      {
+        "id": "D16",
+        "outcome": "correct",
+        "key": "detach"
+      },
+      {
+        "id": "D17",
+        "outcome": "correct",
+        "key": "find_convex"
+      },
+      {
+        "id": "D18",
+        "outcome": "unanswered",
+        "key": ""
+      },
+      {
+        "id": "I18",
+        "outcome": "lenient",
+        "key": "find_convex"
+      },
+      {
+        "id": "D19",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D20",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D21",
+        "outcome": "wrong_samebase_tool",
+        "key": "app_status"
+      },
+      {
+        "id": "D22",
+        "outcome": "correct",
+        "key": "repair"
+      },
+      {
+        "id": "M1",
+        "outcome": "wrong_samebase_tool",
+        "key": "auth_status"
+      },
+      {
+        "id": "M2",
+        "outcome": "correct",
+        "key": "app_status"
+      },
+      {
+        "id": "M3",
+        "outcome": "correct",
+        "key": "find_workers"
+      },
+      {
+        "id": "X1",
+        "outcome": "correct",
+        "key": "provider:cloudflare-builds"
+      },
+      {
+        "id": "X2",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X3",
+        "outcome": "correct",
+        "key": "provider:convex"
+      },
+      {
+        "id": "X4",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X5",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X6",
+        "outcome": "correct",
+        "key": "provider:github"
+      },
+      {
+        "id": "X7",
+        "outcome": "correct",
+        "key": "provider:cloudflare-bindings"
+      },
+      {
+        "id": "X8",
+        "outcome": "missed",
+        "key": "none"
+      },
+      {
+        "id": "U1",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U2",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U3",
+        "outcome": "correct",
+        "key": "none"
+      },
+      {
+        "id": "U4",
+        "outcome": "correct",
+        "key": "none"
+      }
+    ]
+  }
+]
