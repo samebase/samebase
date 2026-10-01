@@ -5,15 +5,16 @@
 MCP tool `repository_convex_attachProjects` · scope `access_provider_connections` · write
 
 Re-reads every selected Convex project and exact repository code location before writing any
-attachment. The final Samebase mutation is atomic: either every selected project and confirmed
-location is attached or none are. Convex projects and GitHub files are not modified.
+attachment. A project that another Samebase app attaches is rejected. The final Samebase mutation is
+atomic: either every selected project and confirmed location is attached or none are. Convex
+projects and GitHub files are not modified.
 
 ## Arguments
 
 - `repositoryId` (string, required): Samebase repository ID returned by
   repository_dashboard_getUserRepositories.
-- `projects` (array, required): One or more project id and code location selections returned by
-  repository_convex_discoverProjects.
+- `projects` (array, required): One or more project id and code location selections from
+  repository_convex_discoverProjects. Use only projects with attachment attachable.
 
 ## Returns
 

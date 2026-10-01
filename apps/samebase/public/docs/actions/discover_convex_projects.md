@@ -8,9 +8,12 @@ Reads the repository's exact default-branch Git tree to find explicit convex.jso
 package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object SHAs
 only. It does not read or validate convex.json or package.json contents. It also lists projects
 available through the connected Convex team and annotates current Cloudflare Worker marker
-references when available. A partial source scan never proves that an unlisted code location is
-absent. It may refresh private Samebase provider-connection bookkeeping, but it does not change
-GitHub, Convex, Cloudflare, or public internet state.
+references when available. Each project gets one attachment status: attached when this Samebase
+repository already records it, attached_elsewhere when another Samebase repository records it,
+otherwise attachable. attached_elsewhere never names the other repository. A partial source scan
+never proves that an unlisted code location is absent. It may refresh private Samebase
+provider-connection bookkeeping, but it does not change GitHub, Convex, Cloudflare, or public
+internet state.
 
 ## Arguments
 
@@ -114,6 +117,19 @@ JSON Schema for the tool's `structuredContent`:
       "items": {
         "type": "object",
         "properties": {
+          "attachment": {
+            "anyOf": [
+              {
+                "const": "attached"
+              },
+              {
+                "const": "attached_elsewhere"
+              },
+              {
+                "const": "attachable"
+              }
+            ]
+          },
           "teamId": {
             "type": "string"
           },
@@ -213,6 +229,7 @@ JSON Schema for the tool's `structuredContent`:
           }
         },
         "required": [
+          "attachment",
           "teamId",
           "projectId",
           "projectName",

@@ -108,14 +108,14 @@ export function RepositoryCloudflareDialogContent({
   const dialogContentRef = useRef<HTMLDivElement>(null);
   const workersByRoot = new Map<string, CloudflareWorkerOption[]>();
   for (const worker of workers) {
-    if (worker.repository.state !== "ready") {
+    if (worker.attachment !== "attachable") {
       continue;
     }
-    const workersAtRoot = workersByRoot.get(worker.repository.rootDirectory);
+    const workersAtRoot = workersByRoot.get(worker.rootDirectory);
     if (workersAtRoot) {
       workersAtRoot.push(worker);
     } else {
-      workersByRoot.set(worker.repository.rootDirectory, [worker]);
+      workersByRoot.set(worker.rootDirectory, [worker]);
     }
   }
   const workerGroups = [...workersByRoot.entries()]
@@ -140,7 +140,7 @@ export function RepositoryCloudflareDialogContent({
       ),
     }));
   const unconnectedWorkers = workers
-    .filter((worker) => worker.repository.state === "not_connected")
+    .filter((worker) => worker.attachment === "connectable")
     .sort(
       (left, right) =>
         left.workerName.localeCompare(right.workerName) ||
@@ -459,7 +459,7 @@ export function RepositoryCloudflareDialog({
   const [workerToConnect, setWorkerToConnect] = useState<CloudflareWorkerConnectTarget | null>(
     null,
   );
-  const [connectedWorkerTags, setConnectedWorkerTags] = useState<readonly string[]>([]);
+  const [didAddWorker, setDidAddWorker] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createWorkerConflictName, setCreateWorkerConflictName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -486,17 +486,15 @@ export function RepositoryCloudflareDialog({
   const buildTokenUuid = buildTokenSelection.selectedUuid;
   const writesWorkersBuilds = Boolean(repairWorker || workerToConnect || mode === "create");
   const hasSelectedBuildToken = buildTokenSelection.canWrite;
-  const attachedWorkerTags = repository.cloudflareWorkers
-    .filter((worker) => worker.accountId === cloudflareAccountId)
-    .map((worker) => worker.workerTag)
-    .sort((left, right) => left.localeCompare(right));
   const workersQuery = useTanStackQuery({
+    // Discovery marks the Workers attached to this repository, so a cached result is valid only
+    // for the attachment list that it was read with.
     queryKey: [
       "repository-provider-discovery",
       repository.repositoryId,
       "cloudflare-workers",
       cloudflareAccountId,
-      attachedWorkerTags,
+      repository.cloudflareWorkers.map((worker) => worker.workerTag),
       repository.providerWrite.lastWriteAt.cloudflare,
     ],
     queryFn: async () => {
@@ -511,9 +509,8 @@ export function RepositoryCloudflareDialog({
     enabled: !repairWorker && cloudflareAccountId !== undefined,
     retry: false,
   });
-  const unavailableWorkerTags = new Set([...attachedWorkerTags, ...connectedWorkerTags]);
-  const allWorkers = workersQuery.data?.workers ?? [];
-  const unavailableWorkerNames = new Set(allWorkers.map((worker) => worker.workerName));
+  const workers = workersQuery.data?.workers ?? [];
+  const unavailableWorkerNames = new Set(workers.map((worker) => worker.workerName));
   if (createWorkerConflictName) {
     unavailableWorkerNames.add(createWorkerConflictName);
   }
@@ -529,9 +526,8 @@ export function RepositoryCloudflareDialog({
           }),
         }
       : null;
-  const workers = allWorkers.filter((worker) => !unavailableWorkerTags.has(worker.workerTag));
   const defaultSelectedWorkerTags = workers
-    .filter((worker) => worker.repository.state === "ready")
+    .filter((worker) => worker.attachment === "attachable")
     .map((worker) => worker.workerTag);
   const selectedWorkerTags = workerSelection ?? defaultSelectedWorkerTags;
   const inventoryState = workersQuery.data?.inventoryState ?? null;
@@ -568,7 +564,7 @@ export function RepositoryCloudflareDialog({
           rootDirectory: createRootDirectory,
           buildTokenUuid,
         });
-        setConnectedWorkerTags((current) => [...current, workerToConnect.workerTag]);
+        setDidAddWorker(true);
         setMode("existing");
         setWorkerSelection(
           selectedWorkerTags.filter((candidate) => candidate !== workerToConnect.workerTag),
@@ -582,7 +578,7 @@ export function RepositoryCloudflareDialog({
       } else if (mode === "existing") {
         const selectedWorkers = selectedWorkerTags.map((workerTag) => {
           const worker = workers.find((candidate) => candidate.workerTag === workerTag);
-          if (!worker || worker.repository.state !== "ready") {
+          if (!worker || worker.attachment !== "attachable") {
             throw new Error("Choose Workers connected to this repository.");
           }
           return {
@@ -669,7 +665,7 @@ export function RepositoryCloudflareDialog({
       createRootDirectory={createRootDirectory}
       createWorkerNameConflict={createWorkerNameConflict}
       createWorkerName={createWorkerName}
-      didAddWorker={connectedWorkerTags.length > 0}
+      didAddWorker={didAddWorker}
       error={submitError ?? resourceError}
       folderSuggestions={folderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS}
       hasSelectedBuildToken={hasSelectedBuildToken}

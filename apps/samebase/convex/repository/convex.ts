@@ -1,5 +1,6 @@
 "use node";
 
+import { notEmpty } from "@samebase/dependent/main";
 import { ConvexError, type Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
@@ -7,7 +8,10 @@ import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
-import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
+import {
+  discoverCloudflareWorkersForRepository,
+  readCloudflareWorkerConvexBuildAccess,
+} from "../cloudflareResources";
 import {
   isConvexCloudDeployment,
   listConvexManagementDefaultProductionDeployments,
@@ -48,6 +52,10 @@ import {
   attemptManualProviderWriteFailureRecord,
   requireManualProviderActionDeadline,
 } from "./infrastructureOperation";
+import type {
+  ConvexProjectRecordedAttachment,
+  RecordedProviderAttachment,
+} from "./providerObservationQueries";
 
 const { id } = v;
 
@@ -244,10 +252,12 @@ function compareConvexAttachmentProject(
 
 function toConvexAttachmentProject(
   project: ProjectResponse,
+  recordedAttachment: RecordedProviderAttachment | undefined,
   workerReferences: ConvexWorkerReference[],
   productionDeployment: ConvexCloudDeployment | undefined,
 ): ConvexAttachmentProject {
   return {
+    attachment: recordedAttachment ?? "attachable",
     teamId: project.teamId,
     projectId: project.id,
     projectName: project.name,
@@ -396,35 +406,49 @@ async function readConvexWorkerReferences(
     if (!connection || !token || connection.account.accountId !== accountId) {
       return new Map();
     }
+    const transport = resolveCloudflareApiTransport(connection.auth.method);
     const discovery = await discoverCloudflareWorkersForRepository({
       token,
-      transport: resolveCloudflareApiTransport(connection.auth.method),
+      transport,
       accountId,
       expectedRepoId: args.context.githubRepositoryDatabaseId,
       defaultBranch: args.defaultBranch,
     });
+    const markedWorkers = await Promise.all(
+      discovery.workers.map(async (worker) => {
+        if (worker.repository.state !== "ready" || worker.repository.builds.state !== "available") {
+          return null;
+        }
+        const convexBuildAccess = await readCloudflareWorkerConvexBuildAccess({
+          token,
+          transport,
+          accountId,
+          workerTag: worker.workerTag,
+        }).catch(() => ({ state: "unavailable" as const }));
+        if (convexBuildAccess.state !== "configured" && convexBuildAccess.state !== "incomplete") {
+          return null;
+        }
+        return {
+          projectId: convexBuildAccess.convexProject.projectId,
+          reference: {
+            accountId,
+            workerName: worker.workerName,
+            workerTag: worker.workerTag,
+            rootDirectory: worker.repository.rootDirectory,
+            markerTeamId: convexBuildAccess.convexProject.teamId,
+            access: convexBuildAccess.state,
+          },
+        };
+      }),
+    );
+
     const references = new Map<string, ConvexWorkerReference[]>();
-    for (const worker of discovery.workers) {
-      if (
-        worker.repository.state !== "ready" ||
-        (worker.convexBuildAccess.state !== "configured" &&
-          worker.convexBuildAccess.state !== "incomplete")
-      ) {
-        continue;
-      }
-      const projectReferences = references.get(worker.convexBuildAccess.convexProject.projectId);
-      const reference = {
-        accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-        rootDirectory: worker.repository.rootDirectory,
-        markerTeamId: worker.convexBuildAccess.convexProject.teamId,
-        access: worker.convexBuildAccess.state,
-      };
+    for (const { projectId, reference } of markedWorkers.filter(notEmpty)) {
+      const projectReferences = references.get(projectId);
       if (projectReferences) {
         projectReferences.push(reference);
       } else {
-        references.set(worker.convexBuildAccess.convexProject.projectId, [reference]);
+        references.set(projectId, [reference]);
       }
     }
     for (const projectReferences of references.values()) {
@@ -444,7 +468,7 @@ async function readConvexWorkerReferences(
 export async function discoverProjectsForUser(
   ctx: ActionCtx,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
-) {
+): Promise<Infer<typeof convexDiscoverProjectsContract.returns>> {
   const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
   const connection = await resolveConvexConnectionForTeam(ctx, {
     userId: args.userId,
@@ -463,6 +487,18 @@ export async function discoverProjectsForUser(
       defaultBranch: sourceDiscovery.source.defaultBranch,
     }),
   ]);
+  const recordedAttachments: ConvexProjectRecordedAttachment[] = await ctx.runQuery(
+    internal.repository.providerObservationQueries.readConvexProjectRecordedAttachments,
+    {
+      repositoryId: args.repositoryId,
+      userId: args.userId,
+      projectIds: providerProjects.map((project) => project.id),
+    },
+  );
+
+  const recordedAttachmentByProjectId = new Map(
+    recordedAttachments.map((project) => [project.projectId, project.attachment]),
+  );
   const productionDeploymentByProjectId = new Map<string, ConvexCloudDeployment>();
   for (const deployment of productionDeployments) {
     if (isConvexCloudDeployment(deployment)) {
@@ -473,6 +509,7 @@ export async function discoverProjectsForUser(
     .map((project) =>
       toConvexAttachmentProject(
         project,
+        recordedAttachmentByProjectId.get(project.id),
         workerReferences.get(project.id) ?? [],
         productionDeploymentByProjectId.get(project.id),
       ),

@@ -27,16 +27,6 @@ function fakeRepositoryId(): Id<"repositories"> {
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-function cloudflareWorker(overrides: Partial<CloudflareDialogWorker>): CloudflareDialogWorker {
-  return {
-    workerName: "samebase",
-    workerTag: "worker-tag",
-    repository: { state: "not_connected" },
-    convexBuildAccess: { state: "not_configured" },
-    ...overrides,
-  };
-}
-
 const REPOSITORY = {
   githubRepositoryFullName: "samebase/shared-convex-monorepo-fixture",
 };
@@ -62,6 +52,7 @@ const CONVEX_CODE_LOCATIONS = [
 
 const CONVEX_PROJECTS = [
   {
+    attachment: "attachable" as const,
     teamId: "samebase-team",
     projectId: "portal-project",
     projectName: "Portal",
@@ -80,6 +71,7 @@ const CONVEX_PROJECTS = [
     ],
   },
   {
+    attachment: "attachable" as const,
     teamId: "samebase-team",
     projectId: "backend-project",
     projectName: "Backend",
@@ -90,38 +82,30 @@ const CONVEX_PROJECTS = [
   },
 ];
 
-const CLOUDFLARE_WORKERS = [
-  cloudflareWorker({
+const CLOUDFLARE_WORKERS: CloudflareDialogWorker[] = [
+  {
+    attachment: "attachable",
     workerName: "shared-convex-monorepo-fixture-admin",
     workerTag: "admin-worker-tag",
-    repository: {
-      state: "ready",
-      rootDirectory: "apps/admin",
-      builds: { state: "not_available" },
-    },
-  }),
-  cloudflareWorker({
+    rootDirectory: "apps/admin",
+  },
+  {
+    attachment: "attachable",
     workerName: "shared-convex-monorepo-fixture-portal",
     workerTag: "portal-worker-tag",
-    repository: {
-      state: "ready",
-      rootDirectory: "apps/portal",
-      builds: { state: "not_available" },
-    },
-  }),
-  cloudflareWorker({
+    rootDirectory: "apps/portal",
+  },
+  {
+    attachment: "attachable",
     workerName: "shared-convex-monorepo-fixture-web",
     workerTag: "web-worker-tag",
-    repository: {
-      state: "ready",
-      rootDirectory: "apps/web",
-      builds: { state: "not_available" },
-    },
-  }),
-  cloudflareWorker({
+    rootDirectory: "apps/web",
+  },
+  {
+    attachment: "connectable",
     workerName: "unconnected-worker",
     workerTag: "unconnected-worker-tag",
-  }),
+  },
 ];
 
 function DialogFixture({

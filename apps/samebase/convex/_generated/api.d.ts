@@ -118,6 +118,7 @@ import type * as repository_branches from "../repository/branches.js";
 import type * as repository_cloudflare from "../repository/cloudflare.js";
 import type * as repository_cloudflareBuildMatching from "../repository/cloudflareBuildMatching.js";
 import type * as repository_cloudflareMutations from "../repository/cloudflareMutations.js";
+import type * as repository_cloudflareWorkerDiscovery from "../repository/cloudflareWorkerDiscovery.js";
 import type * as repository_contracts_cloudflareAttachments from "../repository/contracts/cloudflareAttachments.js";
 import type * as repository_contracts_cloudflareBuildTokens from "../repository/contracts/cloudflareBuildTokens.js";
 import type * as repository_contracts_cloudflareConfigureWorkersBuildsForGitHub from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub.js";
@@ -300,6 +301,7 @@ declare const fullApi: ApiFromModules<{
   "repository/cloudflare": typeof repository_cloudflare;
   "repository/cloudflareBuildMatching": typeof repository_cloudflareBuildMatching;
   "repository/cloudflareMutations": typeof repository_cloudflareMutations;
+  "repository/cloudflareWorkerDiscovery": typeof repository_cloudflareWorkerDiscovery;
   "repository/contracts/cloudflareAttachments": typeof repository_contracts_cloudflareAttachments;
   "repository/contracts/cloudflareBuildTokens": typeof repository_contracts_cloudflareBuildTokens;
   "repository/contracts/cloudflareConfigureWorkersBuildsForGitHub": typeof repository_contracts_cloudflareConfigureWorkersBuildsForGitHub;

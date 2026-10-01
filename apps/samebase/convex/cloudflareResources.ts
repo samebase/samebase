@@ -261,10 +261,6 @@ export type CloudflareWorkerDiscoveryItem = CloudflareWorkerInventoryItem & {
   repository: CloudflareWorkerRepositoryDiscovery | { state: "failed"; message: string };
 };
 
-export type CloudflareWorkerProviderDiscoveryItem = CloudflareWorkerDiscoveryItem & {
-  convexBuildAccess: CloudflareConvexBuildAccessObservation | { state: "unavailable" };
-};
-
 export function buildCloudflareWorkerCreateBody(workerName: string): CloudflareWorkerCreateBody {
   return {
     name: workerName,
@@ -720,39 +716,26 @@ export async function discoverCloudflareWorkersForRepository(
   } & CloudflareApiCallOptions,
 ): Promise<{
   inventoryState: "complete" | "partial";
-  workers: CloudflareWorkerProviderDiscoveryItem[];
+  workers: CloudflareWorkerDiscoveryItem[];
 }> {
   const inventory = await listCloudflareWorkerInventory(args);
-  const discoveredWorkers: CloudflareWorkerProviderDiscoveryItem[] = [];
+  const discoveredWorkers: CloudflareWorkerDiscoveryItem[] = [];
   const chunkSize = 10;
   for (let start = 0; start < inventory.workers.length; start += chunkSize) {
     const chunk = inventory.workers.slice(start, start + chunkSize);
     const chunkResults = await Promise.all(
-      chunk.map(async (worker) => {
-        const discovery = await readCloudflareWorkerDiscoveryForInventoryItem({
-          token: args.token,
-          transport: args.transport,
-          accountId: args.accountId,
-          worker,
-          expectedRepoId: args.expectedRepoId,
-          defaultBranch: args.defaultBranch,
-          recordApiCall: args.recordApiCall,
-        });
-        if (
-          discovery.repository.state !== "ready" ||
-          discovery.repository.builds.state !== "available"
-        ) {
-          return { ...discovery, convexBuildAccess: { state: "unavailable" as const } };
-        }
-        const convexBuildAccess = await readCloudflareWorkerConvexBuildAccess({
-          token: args.token,
-          transport: args.transport,
-          accountId: args.accountId,
-          workerTag: worker.workerTag,
-          recordApiCall: args.recordApiCall,
-        }).catch(() => ({ state: "unavailable" as const }));
-        return { ...discovery, convexBuildAccess };
-      }),
+      chunk.map(
+        async (worker) =>
+          await readCloudflareWorkerDiscoveryForInventoryItem({
+            token: args.token,
+            transport: args.transport,
+            accountId: args.accountId,
+            worker,
+            expectedRepoId: args.expectedRepoId,
+            defaultBranch: args.defaultBranch,
+            recordApiCall: args.recordApiCall,
+          }),
+      ),
     );
     discoveredWorkers.push(...chunkResults);
   }

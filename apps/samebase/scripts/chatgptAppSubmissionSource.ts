@@ -197,7 +197,7 @@ export const testCases = [
       "repository_cloudflare_discoverWorkers",
     ],
     expected_output:
-      "Reads the app inventory, passes that repository's cloudflareAccountId to Worker discovery, and reports Workers from only that account. It does not select another account or create a Cloudflare resource.",
+      "Reads the app inventory, passes that repository's cloudflareAccountId to Worker discovery, and reports Workers from only that account. Reports that no Worker is left to attach: tmp-my-cool-app is already attached to this app, and no other Worker has attachment attachable. A connectable Worker can be connected only in the Samebase dashboard. It does not attach, connect, or create a Cloudflare resource, and it does not select another account.",
     expected_output_url: null,
   },
   {
