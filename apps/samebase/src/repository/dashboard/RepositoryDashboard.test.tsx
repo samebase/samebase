@@ -129,22 +129,6 @@ function fakeDeletionRunId(): Id<"workflow_repositoryDeletion_runs"> {
   return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
-type CloudflareDialogWorker = Parameters<
-  typeof RepositoryCloudflareDialogContent
->[0]["workers"][number];
-
-function makeCloudflareDialogWorker(
-  overrides: Partial<CloudflareDialogWorker>,
-): CloudflareDialogWorker {
-  return {
-    workerName: "demo-worker",
-    workerTag: "worker-tag-1",
-    repository: { state: "not_connected" },
-    convexBuildAccess: { state: "not_configured" },
-    ...overrides,
-  };
-}
-
 type RepositorySettingsBuilderRepository = Parameters<
   typeof buildRepositorySettingsState
 >[0]["repository"];
@@ -2138,6 +2122,7 @@ describe("RepositoryConvexDialogContent", () => {
 
   const projects = [
     {
+      attachment: "attachable" as const,
       teamId: "team-1",
       projectId: "project-1",
       projectName: "Web",
@@ -2156,6 +2141,7 @@ describe("RepositoryConvexDialogContent", () => {
       ],
     },
     {
+      attachment: "attachable" as const,
       teamId: "team-1",
       projectId: "project-2",
       projectName: "API",
@@ -2632,34 +2618,30 @@ describe("RepositoryCloudflareDialogContent", () => {
         repository={repository}
         workerToConnect={null}
         workers={[
-          makeCloudflareDialogWorker({
+          {
+            attachment: "attachable",
             workerName: "root-worker",
             workerTag: "root-tag",
-            repository: {
-              state: "ready",
-              rootDirectory: "/",
-              builds: { state: "not_available" },
-            },
-          }),
-          makeCloudflareDialogWorker({
+            rootDirectory: "/",
+          },
+          {
+            attachment: "attachable",
             workerName: "web-worker",
             workerTag: "web-tag",
-            repository: {
-              state: "ready",
-              rootDirectory: "apps/web",
-              builds: { state: "not_available" },
-            },
-          }),
-          makeCloudflareDialogWorker({
-            workerName: "portal-worker",
-            workerTag: "portal-tag",
-            repository: { state: "not_connected" },
-          }),
-          makeCloudflareDialogWorker({
+            rootDirectory: "apps/web",
+          },
+          { attachment: "connectable", workerName: "portal-worker", workerTag: "portal-tag" },
+          {
+            attachment: "connected_elsewhere",
             workerName: "other-repository",
             workerTag: "other-tag",
-            repository: { state: "connected_elsewhere" },
-          }),
+          },
+          { attachment: "attached", workerName: "attached-worker", workerTag: "attached-tag" },
+          {
+            attachment: "unavailable",
+            workerName: "unverified-worker",
+            workerTag: "unverified-tag",
+          },
         ]}
       />,
     );
@@ -2674,6 +2656,8 @@ describe("RepositoryCloudflareDialogContent", () => {
     expect(markup).not.toContain("Done");
     expect(markup).not.toContain("portal-worker");
     expect(markup).not.toContain("other-repository");
+    expect(markup).not.toContain("attached-worker");
+    expect(markup).not.toContain("unverified-worker");
     expect(markup).not.toContain("App root");
   });
 
@@ -2681,11 +2665,11 @@ describe("RepositoryCloudflareDialogContent", () => {
     const discoverWorkers = vi.fn(async () => ({
       inventoryState: "complete" as const,
       workers: [
-        makeCloudflareDialogWorker({
+        {
+          attachment: "connectable" as const,
           workerName: "portal-worker",
           workerTag: "portal-tag",
-          repository: { state: "not_connected" },
-        }),
+        },
       ],
     }));
     const listBuildTokens = vi.fn(async () => ({

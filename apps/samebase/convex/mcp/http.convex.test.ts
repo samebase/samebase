@@ -724,6 +724,13 @@ describe("MCP tools/call access enforcement", () => {
         ),
       },
     });
+    expect(payload).toMatchObject({
+      result: {
+        instructions: expect.stringContaining(
+          "say that the user can do it in the Samebase dashboard and offer to open it with create_browser_handoff. Do not call a tool until the user accepts. Do not claim that the operation finished.",
+        ),
+      },
+    });
     expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
   });
@@ -1741,15 +1748,7 @@ describe("MCP tools/call access enforcement", () => {
       accountId: cloudflareAccountId,
     });
     expect(discovery.result.structuredContent.workers).toEqual([
-      {
-        workerName: "mcp-worker",
-        workerTag: "mcp-worker-tag",
-        repository: {
-          state: "failed",
-          message: "Could not read this Worker's repository connection. Check it in Cloudflare.",
-        },
-        convexBuildAccess: { state: "unavailable" },
-      },
+      { attachment: "attached", workerName: "mcp-worker", workerTag: "mcp-worker-tag" },
     ]);
     expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
   });

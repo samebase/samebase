@@ -437,4 +437,45 @@ describe("Convex project regions", () => {
       ],
     });
   });
+
+  it("marks only the projects recorded on this repository as attached", async () => {
+    const { t, organizationId, repositoryId, viewer } = await createManualRegionFixture();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "attached-project",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+    });
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      {
+        createTime: 1,
+        id: "attached-project",
+        name: "Attached app",
+        slug: "attached-app",
+        teamId: "convex-team",
+        teamSlug: "manual-region-owner",
+      },
+      {
+        createTime: 2,
+        id: "free-project",
+        name: "Free app",
+        slug: "free-app",
+        teamId: "convex-team",
+        teamSlug: "manual-region-owner",
+      },
+    ]);
+
+    const discovery = await viewer.action(api.repository.convex.discoverProjects, {
+      repositoryId,
+    });
+
+    expect(discovery.projects.map((project) => [project.projectId, project.attachment])).toEqual([
+      ["attached-project", "attached"],
+      ["free-project", "attachable"],
+    ]);
+  });
 });
