@@ -505,3 +505,75 @@ describe("Convex project regions", () => {
     expect(JSON.stringify(discovery)).not.toContain(otherRepositoryId);
   });
 });
+
+describe("Convex project discovery for MCP", () => {
+  it("returns only the fields that attachProjects needs", async () => {
+    const { repositoryId, t, userId } = await createManualRegionFixture();
+    githubMocks.fetchGitHubConvexCodeLocationDiscovery.mockResolvedValue({
+      completeness: "partial",
+      defaultBranch: "main",
+      commitSha: "commit-sha",
+      treeSha: "tree-sha",
+      locations: [
+        {
+          kind: "config",
+          convexConfigPath: "convex.json",
+          rootDirectory: "/",
+          blobSha: "convex-json-sha",
+        },
+        {
+          kind: "directory",
+          convexDirectoryPath: "apps/web/convex",
+          rootDirectory: "apps/web",
+          convexDirectoryTreeSha: "convex-directory-sha",
+          packageJsonPath: "apps/web/package.json",
+          packageJsonBlobSha: "package-json-sha",
+        },
+      ],
+    });
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      {
+        createTime: 1,
+        id: "convex-project",
+        name: "Manual region app",
+        slug: "manual-region-app",
+        teamId: "convex-team",
+        teamSlug: "manual-region-owner",
+      },
+    ]);
+
+    const result = await t.action(internal.toolRuntime.runtime.convexDiscoverProjectsTool, {
+      userId,
+      grantedScopes: ["access_provider_connections"],
+      repositoryId,
+    });
+
+    expect(result).toEqual({
+      status: "ok",
+      text: "Found 1 project (1 attachable) and 2 code locations.",
+      structuredContent: {
+        source: {
+          completeness: "partial",
+          locations: [
+            { kind: "config", convexConfigPath: "convex.json", blobSha: "convex-json-sha" },
+            {
+              kind: "directory",
+              convexDirectoryPath: "apps/web/convex",
+              convexDirectoryTreeSha: "convex-directory-sha",
+              packageJsonBlobSha: "package-json-sha",
+            },
+          ],
+        },
+        projects: [
+          {
+            attachment: "attachable",
+            teamId: "convex-team",
+            projectId: "convex-project",
+            projectName: "Manual region app",
+            productionDeployment: { state: "missing" },
+          },
+        ],
+      },
+    });
+  });
+});

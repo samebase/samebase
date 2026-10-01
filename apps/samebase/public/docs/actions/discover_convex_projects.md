@@ -7,11 +7,11 @@ MCP tool `repository_convex_discoverProjects` · scope `access_provider_connecti
 Reads the repository's exact default-branch Git tree to find explicit convex.json files and default
 package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object SHAs
 only. It does not read or validate convex.json or package.json contents. It also lists projects
-available through the connected Convex team and annotates current Cloudflare Worker marker
-references when available. Each project gets one attachment status: attached when this Samebase
-repository already records it, attached_elsewhere when another Samebase repository records it,
-otherwise attachable. attached_elsewhere never names the other repository. A partial source scan
-never proves that an unlisted code location is absent. It may refresh private Samebase
+available through the connected Convex team. Each project gets one attachment status: attached when
+this Samebase repository already records it, attached_elsewhere when another Samebase repository
+records it, otherwise attachable. attached_elsewhere never names the other repository. Each code
+location has the exact selection shape that repository_convex_attachProjects accepts. A partial
+source scan never proves that an unlisted code location is absent. It may refresh private Samebase
 provider-connection bookkeeping, but it does not change GitHub, Convex, Cloudflare, or public
 internet state.
 
@@ -41,15 +41,6 @@ JSON Schema for the tool's `structuredContent`:
             }
           ]
         },
-        "defaultBranch": {
-          "type": "string"
-        },
-        "commitSha": {
-          "type": "string"
-        },
-        "treeSha": {
-          "type": "string"
-        },
         "locations": {
           "type": "array",
           "items": {
@@ -63,14 +54,11 @@ JSON Schema for the tool's `structuredContent`:
                   "convexConfigPath": {
                     "type": "string"
                   },
-                  "rootDirectory": {
-                    "type": "string"
-                  },
                   "blobSha": {
                     "type": "string"
                   }
                 },
-                "required": ["kind", "convexConfigPath", "rootDirectory", "blobSha"],
+                "required": ["kind", "convexConfigPath", "blobSha"],
                 "additionalProperties": false
               },
               {
@@ -82,13 +70,7 @@ JSON Schema for the tool's `structuredContent`:
                   "convexDirectoryPath": {
                     "type": "string"
                   },
-                  "rootDirectory": {
-                    "type": "string"
-                  },
                   "convexDirectoryTreeSha": {
-                    "type": "string"
-                  },
-                  "packageJsonPath": {
                     "type": "string"
                   },
                   "packageJsonBlobSha": {
@@ -98,9 +80,7 @@ JSON Schema for the tool's `structuredContent`:
                 "required": [
                   "kind",
                   "convexDirectoryPath",
-                  "rootDirectory",
                   "convexDirectoryTreeSha",
-                  "packageJsonPath",
                   "packageJsonBlobSha"
                 ],
                 "additionalProperties": false
@@ -109,7 +89,7 @@ JSON Schema for the tool's `structuredContent`:
           }
         }
       },
-      "required": ["completeness", "defaultBranch", "commitSha", "treeSha", "locations"],
+      "required": ["completeness", "locations"],
       "additionalProperties": false
     },
     "projects": {
@@ -137,12 +117,6 @@ JSON Schema for the tool's `structuredContent`:
             "type": "string"
           },
           "projectName": {
-            "type": "string"
-          },
-          "projectSlug": {
-            "type": "string"
-          },
-          "teamSlug": {
             "type": "string"
           },
           "productionDeployment": {
@@ -184,60 +158,9 @@ JSON Schema for the tool's `structuredContent`:
                 "additionalProperties": false
               }
             ]
-          },
-          "workerReferences": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "accountId": {
-                  "type": "string"
-                },
-                "workerName": {
-                  "type": "string"
-                },
-                "workerTag": {
-                  "type": "string"
-                },
-                "rootDirectory": {
-                  "type": "string"
-                },
-                "markerTeamId": {
-                  "type": "string"
-                },
-                "access": {
-                  "anyOf": [
-                    {
-                      "const": "configured"
-                    },
-                    {
-                      "const": "incomplete"
-                    }
-                  ]
-                }
-              },
-              "required": [
-                "accountId",
-                "workerName",
-                "workerTag",
-                "rootDirectory",
-                "markerTeamId",
-                "access"
-              ],
-              "additionalProperties": false
-            }
           }
         },
-        "required": [
-          "attachment",
-          "teamId",
-          "projectId",
-          "projectName",
-          "projectSlug",
-          "teamSlug",
-          "productionDeployment",
-          "workerReferences"
-        ],
+        "required": ["attachment", "teamId", "projectId", "projectName", "productionDeployment"],
         "additionalProperties": false
       }
     }

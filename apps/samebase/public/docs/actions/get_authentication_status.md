@@ -6,12 +6,12 @@ MCP tool `samebase_auth_getAuthenticationStatus` · scope `access_public` · rea
 
 Returns the current MCP caller's Samebase authentication state for the bearer token used on the
 request: whether it still resolves to an active Samebase account, the account identity, the current
-Samebase role and permissions, and the granted OAuth scopes.
+Samebase role, and the granted OAuth scopes.
 
 Use this first when an MCP client needs to explain "am I connected, which account am I connected as,
 and what can this token currently do?" A valid token for a deleted or otherwise unresolved account
-returns `authenticated: false` with the current public access shape; invalid or missing tokens are
-rejected by the MCP HTTP endpoint before any tool runs.
+returns only `authenticated: false`; invalid or missing tokens are rejected by the MCP HTTP endpoint
+before any tool runs.
 
 ## Arguments
 
@@ -47,84 +47,7 @@ JSON Schema for the tool's `structuredContent`:
               "additionalProperties": false
             },
             "role": {
-              "anyOf": [
-                {
-                  "const": "role_anonymous"
-                },
-                {
-                  "const": "role_deleting"
-                },
-                {
-                  "const": "role_pending_access"
-                },
-                {
-                  "const": "role_terms_pending"
-                },
-                {
-                  "const": "role_member"
-                },
-                {
-                  "const": "role_staff"
-                }
-              ]
-            },
-            "accessKeys": {
-              "type": "array",
-              "items": {
-                "anyOf": [
-                  {
-                    "const": "access_public"
-                  },
-                  {
-                    "const": "access_account_deletion"
-                  },
-                  {
-                    "const": "access_account_settings"
-                  },
-                  {
-                    "const": "access_organization_invitation_accept"
-                  },
-                  {
-                    "const": "access_user_preferences"
-                  },
-                  {
-                    "const": "access_dashboard"
-                  },
-                  {
-                    "const": "access_provider_connections"
-                  },
-                  {
-                    "const": "access_repo_connect"
-                  },
-                  {
-                    "const": "access_app_create"
-                  },
-                  {
-                    "const": "access_app_refresh"
-                  },
-                  {
-                    "const": "access_files_read"
-                  },
-                  {
-                    "const": "access_files_write"
-                  },
-                  {
-                    "const": "access_mcp"
-                  },
-                  {
-                    "const": "access_feedback_submit"
-                  },
-                  {
-                    "const": "access_browser_login_handoff"
-                  },
-                  {
-                    "const": "access_schema_graph"
-                  },
-                  {
-                    "const": "access_admin"
-                  }
-                ]
-              }
+              "type": "string"
             },
             "grantedScopes": {
               "type": "array",
@@ -133,7 +56,7 @@ JSON Schema for the tool's `structuredContent`:
               }
             }
           },
-          "required": ["authenticated", "user", "role", "accessKeys", "grantedScopes"],
+          "required": ["authenticated", "user", "role", "grantedScopes"],
           "additionalProperties": false
         },
         {
@@ -141,98 +64,9 @@ JSON Schema for the tool's `structuredContent`:
           "properties": {
             "authenticated": {
               "const": false
-            },
-            "user": {
-              "type": "null"
-            },
-            "role": {
-              "anyOf": [
-                {
-                  "const": "role_anonymous"
-                },
-                {
-                  "const": "role_deleting"
-                },
-                {
-                  "const": "role_pending_access"
-                },
-                {
-                  "const": "role_terms_pending"
-                },
-                {
-                  "const": "role_member"
-                },
-                {
-                  "const": "role_staff"
-                }
-              ]
-            },
-            "accessKeys": {
-              "type": "array",
-              "items": {
-                "anyOf": [
-                  {
-                    "const": "access_public"
-                  },
-                  {
-                    "const": "access_account_deletion"
-                  },
-                  {
-                    "const": "access_account_settings"
-                  },
-                  {
-                    "const": "access_organization_invitation_accept"
-                  },
-                  {
-                    "const": "access_user_preferences"
-                  },
-                  {
-                    "const": "access_dashboard"
-                  },
-                  {
-                    "const": "access_provider_connections"
-                  },
-                  {
-                    "const": "access_repo_connect"
-                  },
-                  {
-                    "const": "access_app_create"
-                  },
-                  {
-                    "const": "access_app_refresh"
-                  },
-                  {
-                    "const": "access_files_read"
-                  },
-                  {
-                    "const": "access_files_write"
-                  },
-                  {
-                    "const": "access_mcp"
-                  },
-                  {
-                    "const": "access_feedback_submit"
-                  },
-                  {
-                    "const": "access_browser_login_handoff"
-                  },
-                  {
-                    "const": "access_schema_graph"
-                  },
-                  {
-                    "const": "access_admin"
-                  }
-                ]
-              }
-            },
-            "grantedScopes": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
             }
           },
-          "required": ["authenticated", "user", "role", "accessKeys", "grantedScopes"],
+          "required": ["authenticated"],
           "additionalProperties": false
         }
       ]

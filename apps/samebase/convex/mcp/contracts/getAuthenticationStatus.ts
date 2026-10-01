@@ -1,31 +1,21 @@
 import { v, type Infer } from "convex/values";
 
-import { vAccessKey, vViewerRole } from "../../identity/accessValidators";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
 const { array, literal, object, optional, string, union } = v;
 
-const vMcpAuthenticationStatusUser = object({
-  name: optional(string()),
-  email: string(),
-});
-
-const mcpAuthenticationStatusFields = {
-  role: vViewerRole,
-  accessKeys: array(vAccessKey),
-  grantedScopes: array(string()),
-} as const;
-
 const vMcpAuthenticationStatus = union(
   object({
     authenticated: literal(true),
-    user: vMcpAuthenticationStatusUser,
-    ...mcpAuthenticationStatusFields,
+    user: object({
+      name: optional(string()),
+      email: string(),
+    }),
+    role: string(),
+    grantedScopes: array(string()),
   }),
   object({
     authenticated: literal(false),
-    user: v.null(),
-    ...mcpAuthenticationStatusFields,
   }),
 );
 
@@ -39,7 +29,7 @@ export const getAuthenticationStatusContract = {
     title: "Get authentication status",
     name: "samebase_auth_getAuthenticationStatus",
     description:
-      "Read the caller's current Samebase MCP authentication state: account identity, role, permissions, and granted OAuth scopes.",
+      "Read the caller's current Samebase MCP authentication state: account identity, role, and granted OAuth scopes.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -50,12 +40,12 @@ export const getAuthenticationStatusContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns the current MCP caller's Samebase authentication state for the bearer token used
 on the request: whether it still resolves to an active Samebase account, the account identity,
-the current Samebase role and permissions, and the granted OAuth scopes.
+the current Samebase role, and the granted OAuth scopes.
 
 Use this first when an MCP client needs to explain "am I connected, which account am I connected
 as, and what can this token currently do?" A valid token for a deleted or otherwise unresolved
-account returns \`authenticated: false\` with the current public access shape; invalid or missing
-tokens are rejected by the MCP HTTP endpoint before any tool runs.`,
+account returns only \`authenticated: false\`; invalid or missing tokens are rejected by the MCP
+HTTP endpoint before any tool runs.`,
 } as const;
 
 export type McpAuthenticationStatus = Infer<typeof vMcpAuthenticationStatus>;

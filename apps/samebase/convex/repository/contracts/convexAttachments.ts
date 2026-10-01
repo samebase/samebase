@@ -87,12 +87,28 @@ const vConvexProjectDiscoveryResult = object({
   projects: array(vConvexAttachmentProject),
 });
 
+const vMcpConvexProjectDiscoveryResult = object({
+  source: object({
+    completeness: vConvexProjectDiscoveryResult.fields.source.fields.completeness,
+    locations: array(vConvexCodeLocationSelection),
+  }),
+  projects: array(
+    object({
+      attachment: vConvexAttachmentProject.fields.attachment,
+      teamId: vConvexAttachmentProject.fields.teamId,
+      projectId: vConvexAttachmentProject.fields.projectId,
+      projectName: vConvexAttachmentProject.fields.projectName,
+      productionDeployment: vConvexAttachmentProject.fields.productionDeployment,
+    }),
+  ),
+});
+
 export const convexDiscoverProjectsContract = {
   id: "discover_convex_projects",
   access: providerConnectionAccess,
   args: { repositoryId: id("repositories") },
   returns: vConvexProjectDiscoveryResult,
-  structuredContent: vConvexProjectDiscoveryResult,
+  structuredContent: vMcpConvexProjectDiscoveryResult,
   mcp: {
     title: "Discover Convex projects",
     name: "repository_convex_discoverProjects",
@@ -111,11 +127,11 @@ export const convexDiscoverProjectsContract = {
   doc: `Reads the repository's exact default-branch Git tree to find explicit convex.json files and
 default package.json plus convex/ layouts. Discovery uses exact tree entry types, paths, and object
 SHAs only. It does not read or validate convex.json or package.json contents. It also lists projects
-available through the connected Convex team and annotates current Cloudflare Worker marker
-references when available. Each project gets one attachment status: attached when this Samebase
-repository already records it, attached_elsewhere when another Samebase repository records it,
-otherwise attachable. attached_elsewhere never names the other repository. A partial source scan
-never proves that an unlisted code location is absent. It may refresh private Samebase provider-connection bookkeeping,
+available through the connected Convex team. Each project gets one attachment status: attached when
+this Samebase repository already records it, attached_elsewhere when another Samebase repository
+records it, otherwise attachable. attached_elsewhere never names the other repository. Each code
+location has the exact selection shape that repository_convex_attachProjects accepts. A partial
+source scan never proves that an unlisted code location is absent. It may refresh private Samebase provider-connection bookkeeping,
 but it does not change GitHub, Convex, Cloudflare, or public internet state.`,
 } as const;
 

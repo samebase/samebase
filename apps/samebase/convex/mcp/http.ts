@@ -146,13 +146,7 @@ function callGetAuthenticationStatusMcpTool(
 ): McpToolResult {
   const viewerUser = invocation.viewer.user;
   if (viewerUser === null) {
-    const authentication: McpAuthenticationStatus = {
-      authenticated: false,
-      user: null,
-      role: invocation.viewer.role,
-      accessKeys: invocation.viewer.accessKeys,
-      grantedScopes: invocation.grantedScopes,
-    };
+    const authentication: McpAuthenticationStatus = { authenticated: false };
     return {
       status: "ok",
       text: "MCP token is valid, but its Samebase account is no longer active.",
@@ -172,7 +166,6 @@ function callGetAuthenticationStatusMcpTool(
       email: normalizedEmail,
     },
     role: invocation.viewer.role,
-    accessKeys: invocation.viewer.accessKeys,
     grantedScopes: invocation.grantedScopes,
   };
   return {

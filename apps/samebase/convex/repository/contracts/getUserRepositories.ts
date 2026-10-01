@@ -236,33 +236,18 @@ const vUserRepositoriesResult = array(
 const vMcpUserRepositoriesResult = array(
   object({
     repositoryId: userRepositoryFields.repositoryId,
-    convexTeamId: userRepositoryFields.convexTeamId,
     cloudflareAccountId: userRepositoryFields.cloudflareAccountId,
     githubOwnerLogin: userRepositoryFields.githubOwnerLogin,
     githubRepositoryName: userRepositoryFields.githubRepositoryName,
     githubRepositoryDatabaseId: userRepositoryFields.githubRepositoryDatabaseId,
     githubRepositoryFullName: userRepositoryFields.githubRepositoryFullName,
-    defaultBranch: userRepositoryFields.defaultBranch,
     sourceSetup: union(
-      object({ status: literal("not_applicable") }),
-      object({ status: literal("ready") }),
-      object({ status: literal("running"), step: vSourceSetupStep }),
-      object({ status: literal("failed"), step: vSourceSetupStep, message: string() }),
+      object({ status: union(literal("not_applicable"), literal("ready"), literal("running")) }),
+      object({ status: literal("failed"), message: string() }),
     ),
     providerSetup: union(
-      object({ status: literal("not_applicable") }),
-      object({ status: literal("ready") }),
-      object({
-        status: literal("running"),
-        provider: providerSetupProvider,
-        step: vProviderSetupStep,
-      }),
-      object({
-        status: literal("failed"),
-        provider: providerSetupProvider,
-        step: vProviderSetupStep,
-        message: string(),
-      }),
+      object({ status: union(literal("not_applicable"), literal("ready"), literal("running")) }),
+      object({ status: literal("failed"), provider: providerSetupProvider, message: string() }),
     ),
     pendingCloudflareSetup: union(
       v.null(),
@@ -272,22 +257,10 @@ const vMcpUserRepositoriesResult = array(
         convexProjectId: id("repositoryConvexProjects"),
       }),
     ),
-    providerWrite: union(
-      object({ status: literal("idle") }),
-      object({ status: literal("active"), owner: vManagedProviderWriteOwner }),
-      object({
-        status: literal("active"),
-        owner: vManualProviderWriteOwner,
-        affectedProviders: vProviderWriteProviders,
-      }),
-    ),
-    deletion: union(
-      object({ state: literal("not_deleting") }),
-      object({ state: literal("deleting"), currentStep: vRepositoryDeletionStep }),
-      object({ state: literal("delete_failed"), currentStep: vRepositoryDeletionStep }),
-    ),
+    deletion: object({
+      state: union(literal("not_deleting"), literal("deleting"), literal("delete_failed")),
+    }),
     isSamebaseManaged: userRepositoryFields.isSamebaseManaged,
-    hasConnectedGitHubRepository: userRepositoryFields.hasConnectedGitHubRepository,
     cloudflareWorkers: userRepositoryFields.cloudflareWorkers,
     convexProjects: userRepositoryFields.convexProjects,
   }),
@@ -313,10 +286,11 @@ export const getUserRepositoriesContract = {
     inputDescriptions: {},
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns every repository the authenticated account can see in the web app. An MCP call returns
-repositories across all organizations where that account is a current member. Repository connection,
-source setup, provider setup, and deletion are independent axes; a source-setup failure does not
-revoke an already connected repository. Provider setup status reports the managed work that was
-requested. It does not prove that every provider is attached.
+repositories across all organizations where that account is a current member. Source setup, provider
+setup, and deletion are independent states. While deletion.state is deleting or delete_failed,
+source and provider setup are not_applicable. Do not change that app's repository or providers. The
+user can retry a failed deletion in the Samebase dashboard. Provider setup status reports the
+managed work that was requested. It does not prove that every provider is attached.
 
 The MCP result replaces the stored provider plan with pendingCloudflareSetup. This field is null
 unless a managed plan selected no build token, its exact created Convex project is attached, and

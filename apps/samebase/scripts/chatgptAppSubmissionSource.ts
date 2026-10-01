@@ -25,7 +25,7 @@ const noDestructiveActions =
 export const toolJustifications = {
   samebase_auth_getAuthenticationStatus: {
     read_only_justification:
-      "Only reads the authenticated Samebase account, role, permissions, and granted MCP scopes.",
+      "Only reads the authenticated Samebase account, role, and granted MCP scopes.",
     open_world_justification:
       "Reads only the current caller's private Samebase account and authorization.",
     destructive_justification: noDestructiveActions,
@@ -183,7 +183,7 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: ["repository_dashboard_getUserRepositories"],
     expected_output:
-      "Returns one summary per visible app. Each summary includes its repository and independent source and provider setup states. It can include the default branch and attached resource names or identifiers when available, but must not claim that inventory is live provider state.",
+      "Returns one summary per visible app. Each summary includes its repository and independent source and provider setup states. It can include attached resource names or identifiers when available, but must not claim that inventory is live provider state.",
     expected_output_url: null,
   },
   {
