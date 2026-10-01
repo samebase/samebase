@@ -249,6 +249,7 @@ export const getUserRepositoriesTool = defineMcpTool({
               }
             : { status: repository.providerSetup.status },
         pendingCloudflareSetup,
+        deletion: { state: repository.deletion.state },
         isSamebaseManaged: repository.isSamebaseManaged,
         cloudflareWorkers: repository.cloudflareWorkers,
         convexProjects: repository.convexProjects,

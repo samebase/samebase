@@ -257,6 +257,9 @@ const vMcpUserRepositoriesResult = array(
         convexProjectId: id("repositoryConvexProjects"),
       }),
     ),
+    deletion: object({
+      state: union(literal("not_deleting"), literal("deleting"), literal("delete_failed")),
+    }),
     isSamebaseManaged: userRepositoryFields.isSamebaseManaged,
     cloudflareWorkers: userRepositoryFields.cloudflareWorkers,
     convexProjects: userRepositoryFields.convexProjects,
@@ -283,10 +286,11 @@ export const getUserRepositoriesContract = {
     inputDescriptions: {},
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns every repository the authenticated account can see in the web app. An MCP call returns
-repositories across all organizations where that account is a current member. Repository connection,
-source setup, provider setup, and deletion are independent axes; a source-setup failure does not
-revoke an already connected repository. Provider setup status reports the managed work that was
-requested. It does not prove that every provider is attached.
+repositories across all organizations where that account is a current member. Source setup, provider
+setup, and deletion are independent states. While deletion.state is deleting or delete_failed,
+source and provider setup are not_applicable. Do not change that app's repository or providers. The
+user can retry a failed deletion in the Samebase dashboard. Provider setup status reports the
+managed work that was requested. It does not prove that every provider is attached.
 
 The MCP result replaces the stored provider plan with pendingCloudflareSetup. This field is null
 unless a managed plan selected no build token, its exact created Convex project is attached, and

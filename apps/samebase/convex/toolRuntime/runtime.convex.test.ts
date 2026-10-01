@@ -305,7 +305,6 @@ describe("MCP tool runtime boundaries", () => {
       expect(repository).not.toHaveProperty("canRemoveCloudflareProvision");
       expect(repository).not.toHaveProperty("providerPlan");
       expect(repository).not.toHaveProperty("providerWrite");
-      expect(repository).not.toHaveProperty("deletion");
       expect(repository).not.toHaveProperty("convexTeamId");
       expect(repository).not.toHaveProperty("defaultBranch");
       expect(repository).not.toHaveProperty("hasConnectedGitHubRepository");
@@ -465,6 +464,73 @@ describe("MCP tool runtime boundaries", () => {
         (repository) => repository.repositoryId === pendingRepositoryId,
       ),
     ).toMatchObject({ pendingCloudflareSetup: null });
+
+    await t.run(async (ctx) => {
+      const deletionRun = {
+        organizationId,
+        userId,
+        githubRepositoryFullName: "tool-runtime-owner/authorized",
+        createdAt: 1,
+        updatedAt: 1,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "tool-runtime-deletion" },
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "existing_repository",
+              githubRepositoryDatabaseId: "authorized-repository",
+              githubOwnerLogin: "tool-runtime-owner",
+              githubRepositoryName: "authorized",
+              githubRepositoryFullName: "tool-runtime-owner/authorized",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+      } as const;
+      const deletingRunId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
+        ...deletionRun,
+        state: "running",
+        repositoryId: authorizedRepositoryId,
+        currentStep: "delete_github_repository",
+      });
+      const failedRunId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
+        ...deletionRun,
+        state: "failed",
+        repositoryId: pendingRepositoryId,
+        currentStep: "delete_convex",
+        lastError: "Convex deletion failed.",
+        completedAt: 1,
+      });
+      await ctx.db.patch(authorizedRepositoryId, {
+        deletion: { state: "deleting", runId: deletingRunId, requestedAt: 1 },
+      });
+      await ctx.db.patch(pendingRepositoryId, {
+        deletion: { state: "delete_failed", runId: failedRunId, failedAt: 1 },
+      });
+    });
+    const withDeletions = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+      userId,
+      grantedScopes: ["access_dashboard"],
+    });
+    expect(withDeletions.status).toBe("ok");
+    if (withDeletions.status !== "ok") {
+      throw new Error(withDeletions.text);
+    }
+    expect(
+      withDeletions.structuredContent.repositories.map((repository) => [
+        repository.repositoryId,
+        repository.deletion,
+      ]),
+    ).toEqual(
+      expect.arrayContaining([
+        [authorizedRepositoryId, { state: "deleting" }],
+        [otherRunRepositoryId, { state: "not_deleting" }],
+        [pendingRepositoryId, { state: "delete_failed" }],
+      ]),
+    );
   });
 
   it("does not expose provider response details from failed feedback", async () => {
