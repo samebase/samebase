@@ -1383,6 +1383,7 @@ describe("MCP tools/call access enforcement", () => {
     };
     let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
     let failWorkerDiscovery = false;
+    let listOtherAppWorker = false;
 
     function jsonResponse(result: unknown, status = 200): Response {
       return new Response(JSON.stringify(result), {
@@ -1474,7 +1475,17 @@ describe("MCP tools/call access enforcement", () => {
         return cloudflareResponse(workerDetails());
       }
       if (method === "GET" && url.pathname.endsWith("/workers/workers")) {
-        return cloudflareResponse([workerDetails()]);
+        return cloudflareResponse(
+          listOtherAppWorker
+            ? [
+                workerDetails(),
+                { ...workerDetails(), id: "other-app-worker-tag", name: "other-app-worker" },
+              ]
+            : [workerDetails()],
+        );
+      }
+      if (method === "GET" && url.pathname.endsWith("/builds/workers/other-app-worker-tag")) {
+        return jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
       }
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
         return cloudflareResponse([
@@ -1742,6 +1753,27 @@ describe("MCP tools/call access enforcement", () => {
       commit_hash: defaultBranchCommitSha,
     });
 
+    const otherRepositoryId = await t.run(async (ctx) => {
+      const otherRepositoryId = await ctx.db.insert("repositories", {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+        createdAt: 3,
+      });
+      await ctx.db.insert("repositoryCloudflareWorkers", {
+        repositoryId: otherRepositoryId,
+        organizationId,
+        accountId: cloudflareAccountId,
+        workerName: "other-app-worker",
+        workerTag: "other-app-worker-tag",
+        rootDirectory: "/",
+        origin: "provisioned",
+      });
+      return otherRepositoryId;
+    });
+    listOtherAppWorker = true;
     failWorkerDiscovery = true;
     const discovery = await callTool("repository_cloudflare_discoverWorkers", {
       repositoryId,
@@ -1749,8 +1781,14 @@ describe("MCP tools/call access enforcement", () => {
     });
     expect(discovery.result.structuredContent.workers).toEqual([
       { attachment: "attached", workerName: "mcp-worker", workerTag: "mcp-worker-tag" },
+      {
+        attachment: "attached_elsewhere",
+        workerName: "other-app-worker",
+        workerTag: "other-app-worker-tag",
+      },
     ]);
     expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
+    expect(JSON.stringify(discovery)).not.toContain(otherRepositoryId);
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {

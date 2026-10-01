@@ -2638,6 +2638,11 @@ describe("RepositoryCloudflareDialogContent", () => {
           },
           { attachment: "attached", workerName: "attached-worker", workerTag: "attached-tag" },
           {
+            attachment: "attached_elsewhere",
+            workerName: "other-app-worker",
+            workerTag: "other-app-tag",
+          },
+          {
             attachment: "unavailable",
             workerName: "unverified-worker",
             workerTag: "unverified-tag",
@@ -2657,6 +2662,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     expect(markup).not.toContain("portal-worker");
     expect(markup).not.toContain("other-repository");
     expect(markup).not.toContain("attached-worker");
+    expect(markup).not.toContain("other-app-worker");
     expect(markup).not.toContain("unverified-worker");
     expect(markup).not.toContain("App root");
   });

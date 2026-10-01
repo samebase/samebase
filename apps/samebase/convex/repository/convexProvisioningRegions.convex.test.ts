@@ -438,9 +438,9 @@ describe("Convex project regions", () => {
     });
   });
 
-  it("marks only the projects recorded on this repository as attached", async () => {
+  it("marks the projects that this app or another Samebase app records", async () => {
     const { t, organizationId, repositoryId, viewer } = await createManualRegionFixture();
-    await t.run(async (ctx) => {
+    const otherRepositoryId = await t.run(async (ctx) => {
       await ctx.db.insert("repositoryConvexProjects", {
         repositoryId,
         organizationId,
@@ -449,6 +449,22 @@ describe("Convex project regions", () => {
         convexConfigPath: "convex.json",
         origin: "selected_existing",
       });
+      const otherRepositoryId = await ctx.db.insert("repositories", {
+        organizationId,
+        convexTeamId: "convex-team",
+        deletion: { state: "not_deleting" },
+        createdAt: 2,
+        state: "not_connected",
+      });
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: otherRepositoryId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "other-app-project",
+        convexConfigPath: "convex.json",
+        origin: "provisioned",
+      });
+      return otherRepositoryId;
     });
     providerMocks.listConvexManagementProjects.mockResolvedValue([
       {
@@ -467,6 +483,14 @@ describe("Convex project regions", () => {
         teamId: "convex-team",
         teamSlug: "manual-region-owner",
       },
+      {
+        createTime: 3,
+        id: "other-app-project",
+        name: "Other app",
+        slug: "other-app",
+        teamId: "convex-team",
+        teamSlug: "manual-region-owner",
+      },
     ]);
 
     const discovery = await viewer.action(api.repository.convex.discoverProjects, {
@@ -476,6 +500,8 @@ describe("Convex project regions", () => {
     expect(discovery.projects.map((project) => [project.projectId, project.attachment])).toEqual([
       ["attached-project", "attached"],
       ["free-project", "attachable"],
+      ["other-app-project", "attached_elsewhere"],
     ]);
+    expect(JSON.stringify(discovery)).not.toContain(otherRepositoryId);
   });
 });

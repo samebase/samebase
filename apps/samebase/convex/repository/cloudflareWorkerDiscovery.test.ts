@@ -2,40 +2,45 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { toCloudflareWorkerDiscovery } from "./cloudflareWorkerDiscovery";
 
-// State axes: recorded on this Samebase app (yes or no) x Cloudflare repository discovery state.
+// State axes: Samebase record (none, this app, another app) x Cloudflare repository discovery state.
 const cases = [
   {
     repository: { state: "ready", rootDirectory: "apps/web", builds: { state: "available" } },
-    unattached: { attachment: "attachable", rootDirectory: "apps/web" },
+    unrecorded: { attachment: "attachable", rootDirectory: "apps/web" },
   },
-  { repository: { state: "not_connected" }, unattached: { attachment: "connectable" } },
+  { repository: { state: "not_connected" }, unrecorded: { attachment: "connectable" } },
   {
     repository: { state: "connected_elsewhere" },
-    unattached: { attachment: "connected_elsewhere" },
+    unrecorded: { attachment: "connected_elsewhere" },
   },
   {
     repository: { state: "ambiguous", reason: "multiple_root_directories" },
-    unattached: { attachment: "unavailable" },
+    unrecorded: { attachment: "unavailable" },
   },
   {
     repository: { state: "failed", message: "Cloudflare API request failed." },
-    unattached: { attachment: "unavailable" },
+    unrecorded: { attachment: "unavailable" },
   },
 ] as const;
 
 describe("toCloudflareWorkerDiscovery", () => {
   it.each(cases)(
     "decides the attachment status of a $repository.state Worker",
-    ({ repository, unattached }) => {
+    ({ repository, unrecorded }) => {
       const worker = { workerName: "web", workerTag: "web-tag", repository };
 
-      expect(toCloudflareWorkerDiscovery(worker, new Set(["web-tag"]))).toEqual({
+      expect(toCloudflareWorkerDiscovery(worker, undefined)).toEqual({
+        ...unrecorded,
+        workerName: "web",
+        workerTag: "web-tag",
+      });
+      expect(toCloudflareWorkerDiscovery(worker, "attached")).toEqual({
         attachment: "attached",
         workerName: "web",
         workerTag: "web-tag",
       });
-      expect(toCloudflareWorkerDiscovery(worker, new Set(["other-tag"]))).toEqual({
-        ...unattached,
+      expect(toCloudflareWorkerDiscovery(worker, "attached_elsewhere")).toEqual({
+        attachment: "attached_elsewhere",
         workerName: "web",
         workerTag: "web-tag",
       });
