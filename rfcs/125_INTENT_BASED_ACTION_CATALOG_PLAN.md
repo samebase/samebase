@@ -12,18 +12,21 @@
   [PR #1616](https://github.com/samebase/samebase/pull/1616),
   [PR #1661](https://github.com/samebase/samebase/pull/1661),
   [PR #1662](https://github.com/samebase/samebase/pull/1662)
-- Supersedes on acceptance: the tool-name table and the "write tool descriptions say call the list
-  tool first" rule in the `Final MCP Contract` section of
+- Prior naming context: the `Final MCP Contract` section of
   `rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md` (moved to `archive/` by
-  [PR #1582](https://github.com/samebase/samebase/pull/1582)).
+  [PR #1582](https://github.com/samebase/samebase/pull/1582)). This RFC does not replace it.
+- Pending research: `research/2026-10-01-mcp-tool-catalog-design.md` decides the tool set, tool
+  granularity, arguments, outputs, and names. The catalog in this RFC is a candidate.
 
 ## Summary
 
 1. Samebase has one contract per action, and one handler serves the dashboard and MCP. Only 15
    contracts are MCP tools. Five dashboard dialog actions and every live status read are missing.
-2. This RFC proposes 21 tools: 15 renamed and 6 new. All names use `samebase_<verb>_<object>`.
-3. The new tool `samebase_get_repository_status` returns what the repository overview shows. For a
-   typical app, the MCP result is about 2.9 KB.
+2. This RFC lists a candidate catalog of 21 capabilities: the 15 current tools and 6 new ones. The
+   tool list and the names are not final. They wait for
+   `research/2026-10-01-mcp-tool-catalog-design.md`. Names in this RFC are placeholders.
+3. A new status read returns what the repository overview shows. For a typical app, the MCP result
+   is about 2.9 KB.
 4. Discovery returns rows only for resources that the user or agent can act on.
 5. Five implementation PRs land before one OpenAI submission. The last PR rewrites the 8 submitted
    test cases against the final names.
@@ -81,27 +84,24 @@ page, and dashboard view state (folders, collapse state, filters).
 
 ### Naming rule
 
-- Every tool name is `samebase_<verb>_<object>`, in lowercase snake_case, with at most 40
-  characters.
-- Verbs come from one closed set: `get`, `list`, `discover`, `create`, `connect`, `attach`,
-  `detach`, `configure`, `rotate`, `retry`, `change`, `submit`.
-- The object is singular when the tool acts on one item and plural when it takes or returns a list.
-  Provider resources keep the provider name: `cloudflare_worker`, `convex_project`,
-  `workers_builds`, `convex_deploy_keys`.
-- The Samebase object is `repository`, as `rfcs/123` requires. Arguments already say `repositoryId`.
-- `mcp.name` equals `samebase_` plus the contract `id`. A catalog test enforces it. Then the
-  contract `id`, the docs URL `/docs/actions/<id>.md`, and the tool name are one vocabulary.
-- The `samebase_` prefix prevents collisions in hosts that put tools from several servers in one
-  list, such as a GitHub server that also has `list_repositories`.
+Undecided, pending research note `research/2026-10-01-mcp-tool-catalog-design.md`.
+
+Every tool name in this RFC, including names in later sections, is a placeholder. The
+`samebase_<verb>_<object>` shape of the placeholders is not a proposal. The current names in
+`rfcs/123` are prior context for that research, not a rule that this RFC keeps or replaces.
 
 ### Catalog
+
+Candidate, pending research note `research/2026-10-01-mcp-tool-catalog-design.md`. The research
+decides which tools exist, their granularity, their arguments, and their outputs. Each row below is
+one capability and the contract that it maps to. The names in the first column are placeholders.
 
 Hints are `readOnlyHint / openWorldHint / destructiveHint`. `openWorldHint: no` means that the tool
 reads or writes only Samebase and the provider accounts that the user connected to Samebase. This is
 the current convention
 ([submission source L25](../apps/samebase/scripts/chatgptAppSubmissionSource.ts#L25)).
 
-| Tool                                   | Contract (`id`)               | Args                                                                                      | Output                                                     | Hints          | Hint reason                                                                  | Change  |
+| Placeholder name                       | Contract (`id`)               | Args                                                                                      | Output                                                     | Hints          | Hint reason                                                                  | Change  |
 | -------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------- | ------- |
 | `samebase_get_authentication_status`   | `get_authentication_status`   | none                                                                                      | account, role, scopes                                      | yes / no / no  | Reads the caller's own grant.                                                | renamed |
 | `samebase_create_sign_in_link`         | `create_sign_in_link`         | `returnToPath?`                                                                           | one-time URL, `expiresAt`                                  | no / no / no   | Writes only Samebase handoff state.                                          | renamed |
@@ -265,7 +265,9 @@ Skill ([SKILL.md](../packages/plugin/plugins/samebase/skills/samebase/SKILL.md))
 
 ## Rename map
 
-| Current name                                                   | New name                               | Contract `id` change                                                          |
+Placeholder. The right column only shows the scope of a rename. The research note decides the names.
+
+| Current name                                                   | Placeholder name                       | Contract `id` change                                                          |
 | -------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------- |
 | `samebase_auth_getAuthenticationStatus`                        | `samebase_get_authentication_status`   | none                                                                          |
 | `create_browser_handoff`                                       | `samebase_create_sign_in_link`         | `create_browser_handoff` to `create_sign_in_link`                             |
@@ -303,15 +305,15 @@ Blast radius (counts on `0a8596197`):
 
 ## Rollout
 
-| PR  | Scope                                                                                                                                              | Size                              | Before submission run |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------- |
-| 1   | This RFC                                                                                                                                           | 1 doc                             | yes                   |
-| 2   | Rename to `samebase_<verb>_<object>`: ids, names, instructions, description prefixes, skill, spec 111, docs, tests, name test, plugin `0.3.0`      | about 50 files, mostly mechanical | yes                   |
-| 3   | Actionable discovery: Convex production-deployment rule in discover and attach; MCP rows and counts for both discoveries                           | about 250 lines                   | yes                   |
-| 4   | Dialog actions as tools: `mcp` sections for the 5 contracts, runtime wrappers, structured acknowledgements, connect by full name, justifications   | about 500 lines                   | yes                   |
-| 5   | Status read: contract, extracted `...ForUser` reads, action, MCP tool, justifications, a fixture test that keeps the typical MCP result under 4 KB | about 700 lines                   | yes                   |
-| 6   | Submission package: rewrite the 8 cases, final instructions and skill text, regenerate the submission JSON, plugin version bump                    | about 200 lines                   | yes, last             |
-| 7   | Overview page uses the status read                                                                                                                 | about 300 lines                   | no, after approval    |
+| PR  | Scope                                                                                                                                                     | Size                              | Before submission run |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------- |
+| 1   | This RFC                                                                                                                                                  | 1 doc                             | yes                   |
+| 2   | Apply the naming decision from the research note: ids, names, instructions, description prefixes, skill, spec 111, docs, tests, name test, plugin `0.3.0` | about 50 files, mostly mechanical | yes                   |
+| 3   | Actionable discovery: Convex production-deployment rule in discover and attach; MCP rows and counts for both discoveries                                  | about 250 lines                   | yes                   |
+| 4   | Dialog actions as tools: `mcp` sections for the 5 contracts, runtime wrappers, structured acknowledgements, connect by full name, justifications          | about 500 lines                   | yes                   |
+| 5   | Status read: contract, extracted `...ForUser` reads, action, MCP tool, justifications, a fixture test that keeps the typical MCP result under 4 KB        | about 700 lines                   | yes                   |
+| 6   | Submission package: rewrite the 8 cases, final instructions and skill text, regenerate the submission JSON, plugin version bump                           | about 200 lines                   | yes, last             |
+| 7   | Overview page uses the status read                                                                                                                        | about 300 lines                   | no, after approval    |
 
 The rename goes first, so the new tools start with their final names.
 
@@ -350,9 +352,9 @@ because the submitted cases describe them.
 
 ## Open questions for the operator
 
-1. **Names.** Approve `samebase_<verb>_<object>` with the noun `repository` (from `rfcs/123`),
-   although titles and test prompts say "app". Approve `samebase_create_sign_in_link` in place of
-   `create_browser_handoff`.
+1. **Catalog and names.** Undecided, pending research note
+   `research/2026-10-01-mcp-tool-catalog-design.md`. It decides the tool set, granularity,
+   arguments, outputs, and the naming rule.
 2. **Detach.** Expose both detach tools with `destructiveHint: true` (recommended), or keep them
    dashboard-only and keep the hand-off sentence.
 3. **Repository search.** Connect by `githubRepositoryFullName` with no search tool (recommended),
