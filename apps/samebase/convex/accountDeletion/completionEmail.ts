@@ -38,7 +38,13 @@ If you connected Cloudflare with OAuth, revoke Samebase in Cloudflare Connected 
 
 Deletion reference: ${args.runId}`,
       });
-      if (delivery === "queued") {
+      if (!delivery.ok) {
+        return {
+          state: "delivery_failed",
+          safeError: COMPLETION_EMAIL_SAFE_ERROR,
+        } as const;
+      }
+      if (delivery.value === "queued") {
         return {
           state: "delivery_failed",
           safeError:

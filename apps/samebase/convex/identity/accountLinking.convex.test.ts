@@ -115,7 +115,8 @@ describe("Samebase OAuth account linking", () => {
     );
 
     expect(fetch).not.toHaveBeenCalled();
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await vi.runAllTimersAsync();
+    await t.finishInProgressScheduledFunctions();
     expect(fetch).toHaveBeenCalledTimes(1);
     await expect(t.run(async (ctx) => ctx.db.get(userId))).resolves.toMatchObject({
       state: "active",

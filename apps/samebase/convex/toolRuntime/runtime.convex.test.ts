@@ -534,7 +534,14 @@ describe("MCP tool runtime boundaries", () => {
     );
   });
 
-  it("does not expose provider response details from failed feedback", async () => {
+  it.each([
+    { status: 400, text: "Samebase could not send the feedback email." },
+    {
+      status: 500,
+      text: "Feedback delivery could not be confirmed. Do not submit it again until Samebase has checked its delivery status.",
+    },
+  ])("returns a safe failure result for feedback HTTP $status", async ({ status, text }) => {
+    vi.stubGlobal("EdgeRuntime", undefined);
     const { t, userId } = await seedToolRuntimeOwner();
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
     vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
@@ -550,7 +557,7 @@ describe("MCP tool runtime boundaries", () => {
                 { code: 1000, message: "private-diagnostic@example.com provider debug detail" },
               ],
             }),
-            { status: 500 },
+            { status },
           ),
       ),
     );
@@ -563,7 +570,7 @@ describe("MCP tool runtime boundaries", () => {
       }),
     ).resolves.toEqual({
       status: "error",
-      text: "Samebase could not complete this request. Check the app in Samebase before retrying.",
+      text,
     });
   });
 
@@ -690,7 +697,6 @@ describe("MCP tool runtime boundaries", () => {
     });
     expect(messages.page).toMatchObject([{ status: "queued" }]);
     await t.finishAllScheduledFunctions(vi.runAllTimers);
-    expect(fetch).toHaveBeenCalledTimes(3);
     expect(
       await t.query(components.mail.delivery.get, {
         messageId: messages.page[0]._id,

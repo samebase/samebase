@@ -59,7 +59,10 @@ describe("Cloudflare email sending", () => {
     stubEmailConfiguration("prod:samebase");
     const fetch = stubSuccessfulSend();
 
-    await expect(t.action(internal.email.send, sendArgs)).resolves.toBeNull();
+    await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+      ok: true,
+      value: "accepted",
+    });
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(readRequestBody(fetch.mock.calls[0][1])).toMatchObject({
@@ -138,7 +141,10 @@ describe("Cloudflare email sending", () => {
       const fetch = vi.fn();
       vi.stubGlobal("fetch", fetch);
 
-      await expect(t.action(internal.email.send, sendArgs)).resolves.toBeNull();
+      await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+        ok: true,
+        value: "skipped",
+      });
       expect(fetch).not.toHaveBeenCalled();
       await expect(t.query(components.mail.inboxes.list, {})).resolves.toEqual([]);
     },
@@ -153,7 +159,7 @@ describe("Cloudflare email sending", () => {
     );
   });
 
-  it("fails rejected email without exposing the token", async () => {
+  it("returns a rejected result without exposing provider details", async () => {
     const t = makeConvexTest();
     stubEmailConfiguration("dev:samebase");
     vi.stubGlobal(
@@ -165,7 +171,7 @@ describe("Cloudflare email sending", () => {
             errors: [
               {
                 code: 10001,
-                message: "email.sending.error.invalid_request_schema",
+                message: "email-token private-diagnostic@example.com",
               },
             ],
             messages: [],
@@ -176,9 +182,10 @@ describe("Cloudflare email sending", () => {
       }),
     );
 
-    const result = t.action(internal.email.send, sendArgs);
-    await expect(result).rejects.toThrow("Cloudflare Email Sending rejected the request");
-    await expect(result).rejects.not.toThrow("email-token");
+    await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+      ok: false,
+      error: "rejected",
+    });
   });
 
   it.each([
@@ -186,16 +193,16 @@ describe("Cloudflare email sending", () => {
       label: "permanent bounce",
       permanentBounces: [sendArgs.to],
       suppressedRecipients: [],
-      error: "Cloudflare Email Sending permanently bounced for 1 recipient(s).",
+      error: "bounced",
     },
     {
       label: "suppressed recipient",
       permanentBounces: [],
       suppressedRecipients: [sendArgs.to],
-      error: "Cloudflare Email Sending suppressed the recipient.",
+      error: "suppressed",
     },
   ])(
-    "fails when Cloudflare reports a $label",
+    "returns an explicit failure when Cloudflare reports a $label",
     async ({ permanentBounces, suppressedRecipients, error }) => {
       const t = makeConvexTest();
       stubEmailConfiguration("prod:samebase");
@@ -220,7 +227,10 @@ describe("Cloudflare email sending", () => {
         }),
       );
 
-      await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(error);
+      await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+        ok: false,
+        error,
+      });
     },
   );
 
@@ -232,8 +242,9 @@ describe("Cloudflare email sending", () => {
       vi.fn(async () => new Response("Bad gateway", { status: 502 })),
     );
 
-    await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
-      "Cloudflare Email Sending delivery could not be confirmed.",
-    );
+    await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+      ok: false,
+      error: "unknown",
+    });
   });
 });

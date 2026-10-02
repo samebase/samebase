@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase application email and deployment configuration
-- Last updated: 2026-10-01
+- Last updated: 2026-10-02
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `apps/samebase/convex/deploymentProfile.ts`
@@ -101,11 +101,22 @@ The MCP feedback action is the second caller:
 5. It stores one per-user counter to enforce five submission attempts per 24 hours. The inbox stores
    the exact report and its delivery history under the shared retention contract.
 
-Cloudflare rejection, permanent bounce, or an unknown send outcome fails the calling action after
-the component records the outcome. A failed scheduled signup notification does not reject signup. A
-failed feedback send returns a tool error without private provider details. The shared component
-retries only confirmed HTTP 429 responses, at most three provider attempts. It honors Retry-After.
-HTTP 408, network failures, invalid success receipts and HTTP 5xx remain unknown and do not retry.
+The email action returns an Evolu `Result`. Successful results contain `accepted`, `queued`, or
+`skipped`. Expected failures contain `bounced`, `suppressed`, `rejected`, or `unknown`. Acceptance
+does not prove receipt in the recipient's mailbox. Unknown delivery is not a confirmed rejection.
+Provider details remain in the component's delivery records, not the application result.
+
+Each send runs one Evolu Task in a request-local Run. The Run is disposed before the request ends.
+Configuration faults and unexpected exceptions still fail the calling action. Task defects are
+re-thrown within the request instead of being reported through an uncaught microtask. Evolu does not
+retry sends. This trial uses `@evolu/common@8.10.0` without changing the published email package
+API.
+
+A failed scheduled signup notification does not reject signup. A failed feedback send returns a tool
+error without private provider details. Unknown feedback delivery tells the caller not to resubmit
+until Samebase checks the delivery status. The shared component retries only confirmed HTTP 429
+responses, at most three provider attempts. It honors Retry-After. HTTP 408, network failures,
+invalid success receipts and HTTP 5xx remain unknown and do not retry.
 
 Account deletion is the third caller. It waits for the provider result and records either `sent` or
 `delivery_failed`. Failure does not stop final account deletion. The workflow does not retry the

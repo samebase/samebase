@@ -64,6 +64,7 @@
     "@convex-dev/react-query": "^0.1.0",
     "@convex-dev/workflow": "^0.4.6",
     "@convex-dev/workpool": "^0.4.7",
+    "@evolu/common": "8.10.0",
     "@lezer-unofficial/printer": "^1.0.1",
     "@lezer/markdown": "^1.4.0",
     "@monaco-editor/react": "^4.7.0",
@@ -147,5 +148,8 @@
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "wrangler": "4.136.2"
+  },
+  "engines": {
+    "node": ">=24.20.0"
   }
 }
