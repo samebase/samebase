@@ -1008,11 +1008,19 @@ export interface paths {
     /**
      * Delete Workers for Platforms Script Tag
      * @description Delete a tag from a script uploaded to a Workers for Platforms dispatch namespace.
+     *
+     *     On `api-version` dates on or after `2026-10-01`, `tag` identifies a key and the operation returns the complete updated tag map. Deleting a missing key succeeds. Earlier versions retain the legacy string-tag behavior and return a null result.
      */
     delete: operations["namespace-worker-delete-script-tag"];
     options?: never;
     head?: never;
-    patch?: never;
+    /**
+     * Update Workers for Platforms Script Tag
+     * @description Add or update one tag key/value on a script uploaded to a Workers for Platforms dispatch namespace without replacing its other tags.
+     *
+     *     This operation requires an `api-version` on or after `2026-10-01`.
+     */
+    patch: operations["namespace-worker-patch-script-tag"];
     trace?: never;
   };
   "/accounts/{account_id}/workers/domains": {
@@ -5463,6 +5471,29 @@ export interface components {
           /** @description Array of placement targets (currently limited to single target). */
           target: components["schemas"]["workers_placement_target"][];
         };
+    /**
+     * @description A typed tag key containing only Unicode letters or numbers, underscores, periods, or hyphens. The complete UTF-8 encoded tag (the key plus `=` and the value when the value is non-empty) must not exceed 1024 bytes. Cloudflare-reserved prefixes are not accepted.
+     * @example environment
+     */
+    workers_typed_tag_key: string;
+    "workers_tags-kv-response": components["schemas"]["workers_api-response-common"] & {
+      result: components["schemas"]["workers_tags_kv"];
+    };
+    /**
+     * @description Tags associated with the Worker, as a key/value object. Each complete UTF-8 encoded tag (the key plus `=` and the value when the value is non-empty) must not exceed 1024 bytes.
+     * @example {
+     *       "environment": "production",
+     *       "team": "my-team"
+     *     }
+     */
+    workers_tags_kv: {
+      [key: string]: string;
+    };
+    /** @description The value to assign to the tag key. An empty string is valid. The complete UTF-8 encoded tag (the key plus `=` and the value when the value is non-empty) must not exceed 1024 bytes. */
+    workers_tag_patch: {
+      /** @example production */
+      value: string;
+    };
     "workers_api-response-collection": components["schemas"]["workers_api-response-common"] & {
       result_info?: {
         /**
@@ -6090,6 +6121,8 @@ export interface components {
         duration?: number;
         /** @description Span end time as a Unix epoch in milliseconds. */
         endTime?: number;
+        /** @description Span end time as a Unix epoch in nanoseconds. */
+        endTimeNs?: string;
         /** @description Error message, present when the log represents an error. */
         error?: string;
         /** @description Templatized version of the error message used for grouping similar errors. */
@@ -6128,8 +6161,12 @@ export interface components {
         stackId?: string;
         /** @description Span start time as a Unix epoch in milliseconds. */
         startTime?: number;
+        /** @description Span start time as a Unix epoch in nanoseconds. */
+        startTimeNs?: string;
         /** @description HTTP response status code returned by the Worker. */
         statusCode?: number;
+        /** @description Event time as a Unix epoch in nanoseconds. */
+        timestampNs?: string;
         /** @description Total duration of the entire trace in milliseconds. */
         traceDuration?: number;
         /** @description Distributed trace ID linking spans across services. */
@@ -8037,6 +8074,12 @@ export interface components {
     builds_ScriptTag: components["schemas"]["builds_external_script_id"];
     /** @description The script tag of the Preview, which is a Worker in its own right */
     builds_PreviewId: components["schemas"]["builds_external_script_id"];
+    /**
+     * @description Requested API compatibility date in `YYYY-MM-DD[.release]` format (UTC). The optional release suffix contains lowercase letters; for example, `2026-10-01.epoch`.
+     *
+     *     Typed Worker tag operations require a date on or after `2026-10-01`.
+     */
+    workers_api_version_header: string;
   };
   requestBodies: {
     workers_namespace_upload: {
@@ -8441,6 +8484,10 @@ export type WorkersNamespaceScriptAndVersionSettingsItem =
   components["schemas"]["workers_namespace-script-and-version-settings-item"];
 export type WorkersPlacementInfoNoStatus =
   components["schemas"]["workers_placement_info_no_status"];
+export type WorkersTypedTagKey = components["schemas"]["workers_typed_tag_key"];
+export type WorkersTagsKvResponse = components["schemas"]["workers_tags-kv-response"];
+export type WorkersTagsKv = components["schemas"]["workers_tags_kv"];
+export type WorkersTagPatch = components["schemas"]["workers_tag_patch"];
 export type WorkersApiResponseCollection = components["schemas"]["workers_api-response-collection"];
 export type WorkersDomain = components["schemas"]["workers_Domain"];
 export type WorkersNamespace = components["schemas"]["workers_namespace"];
@@ -8565,6 +8612,8 @@ export type ParameterBuildsScriptName = components["parameters"]["builds_ScriptN
 export type ParameterBuildsDeployHookUuid = components["parameters"]["builds_DeployHookUuid"];
 export type ParameterBuildsScriptTag = components["parameters"]["builds_ScriptTag"];
 export type ParameterBuildsPreviewId = components["parameters"]["builds_PreviewId"];
+export type ParameterWorkersApiVersionHeader =
+  components["parameters"]["workers_api_version_header"];
 export type RequestBodyWorkersNamespaceUpload =
   components["requestBodies"]["workers_namespace_upload"];
 export type RequestBodyWorkersScriptUpload = components["requestBodies"]["workers_script_upload"];
@@ -10838,12 +10887,19 @@ export interface operations {
   "namespace-worker-delete-script-tag": {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /**
+         * @description Requested API compatibility date in `YYYY-MM-DD[.release]` format (UTC). The optional release suffix contains lowercase letters; for example, `2026-10-01.epoch`.
+         *
+         *     Typed Worker tag operations require a date on or after `2026-10-01`.
+         */
+        "api-version"?: components["parameters"]["workers_api_version_header"];
+      };
       path: {
         account_id: components["schemas"]["workers_identifier"];
         dispatch_namespace: components["schemas"]["workers_dispatch_namespace_name"];
         script_name: components["schemas"]["workers_script_name"];
-        tag: components["schemas"]["workers_tag"];
+        tag: components["schemas"]["workers_typed_tag_key"];
       };
       cookie?: never;
     };
@@ -10852,13 +10908,65 @@ export interface operations {
       /** @description Delete script tag. */
       200: {
         headers: {
+          /** @description The resolved API compatibility date used to serve this request. */
+          "api-version"?: string;
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["workers_api-response-null-result"];
+          "application/json":
+            | components["schemas"]["workers_tags-kv-response"]
+            | components["schemas"]["workers_api-response-null-result"];
         };
       };
       /** @description Delete script tag failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  "namespace-worker-patch-script-tag": {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description Requested API compatibility date in `YYYY-MM-DD[.release]` format (UTC). The optional release suffix contains lowercase letters; for example, `2026-10-01.epoch`.
+         *
+         *     Typed Worker tag operations require a date on or after `2026-10-01`.
+         */
+        "api-version"?: components["parameters"]["workers_api_version_header"];
+      };
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        dispatch_namespace: components["schemas"]["workers_dispatch_namespace_name"];
+        script_name: components["schemas"]["workers_script_name"];
+        /** @description Tag key. Cloudflare-reserved prefixes are not accepted. */
+        tag: components["schemas"]["workers_typed_tag_key"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["workers_tag_patch"];
+      };
+    };
+    responses: {
+      /** @description The complete updated tag map. */
+      200: {
+        headers: {
+          /** @description The resolved API compatibility date used to serve this request. */
+          "api-version"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_tags-kv-response"];
+        };
+      };
+      /** @description Update script tag failure. */
       "4XX": {
         headers: {
           [name: string]: unknown;
