@@ -330,6 +330,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/settings": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-patch-script-settings"]>
     >;
+    "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/tags/{tag}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["namespace-worker-patch-script-tag"]>
+    >;
     "/accounts/{account_id}/workers/observability/destinations/{slug}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["destination.update"]>
     >;
