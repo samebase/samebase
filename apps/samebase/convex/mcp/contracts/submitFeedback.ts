@@ -35,6 +35,11 @@ to send specified feedback is already approval.
 
 The email contains only the exact report. It must not contain credentials, file contents, full logs,
 or unrelated conversation. The tool sends the email through Cloudflare Email Sending to a fixed
-Samebase staff mailbox. Samebase stores one account-linked submission-attempt counter, but it does
-not store the report in the Samebase database.`,
+Samebase staff mailbox. Samebase stores one account-linked submission-attempt counter. It also
+stores the report and delivery history in its email inbox until a trusted Samebase operator
+explicitly deletes them.
+
+Confirmed Cloudflare throttling returns a queued-delivery message. Do not submit the report again;
+the email component retries automatically, at most three provider attempts. Queued does not mean
+that staff received the email. Uncertain delivery outcomes do not retry automatically.`,
 } as const;
