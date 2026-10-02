@@ -441,13 +441,18 @@ export const submitFeedbackTool = defineMcpTool({
     await ctx.runMutation(internal.mcp.feedback.reserveFeedbackSend, {
       userId: args.userId,
     });
-    const emailResult = await sendEmail({
+    const emailResult = await sendEmail(ctx, {
       to: "contact@samebase.com",
       subject: "Samebase agent feedback",
       text: args.report,
     });
     if (emailResult === "skipped") {
       throw new ConvexError("Feedback email is not configured in local development.");
+    }
+    if (emailResult === "queued") {
+      return {
+        text: "Feedback is queued for delivery to Samebase. Cloudflare has delayed sending. Do not submit it again; the email component will retry automatically.",
+      };
     }
     return { text: "Feedback submitted to Samebase." };
   },

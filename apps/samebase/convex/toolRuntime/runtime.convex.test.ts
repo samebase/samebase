@@ -2,7 +2,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { Infer } from "convex/values";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
-import { internal } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 import { cloudflareCreateWorkerContract } from "../repository/contracts/cloudflareAttachments";
 
@@ -11,6 +11,7 @@ type CloudflareCreateWorkerToolResult = FunctionReturnType<
 >;
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -578,6 +579,8 @@ describe("MCP tool runtime boundaries", () => {
       report: "x".repeat(6_000),
     },
   ])("emails an approved $label without account metadata", async ({ expectedLength, report }) => {
+    // Convex uses V8; the edge-runtime test host lacks the SDK's Node process metadata.
+    vi.stubGlobal("EdgeRuntime", undefined);
     const { t, userId } = await seedToolRuntimeOwner();
     expect(report).toHaveLength(expectedLength);
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
@@ -592,6 +595,7 @@ describe("MCP tool runtime boundaries", () => {
             message_id: "<message-id@samebase.com>",
             permanent_bounces: [],
             queued: [],
+            suppressed_recipients: [],
           },
         }),
         { status: 200 },
@@ -615,15 +619,26 @@ describe("MCP tool runtime boundaries", () => {
     if (typeof request?.body !== "string") {
       throw new Error("Expected a JSON request body.");
     }
-    expect(JSON.parse(request.body)).toEqual({
-      to: "contact@samebase.com",
-      from: {
-        address: "notifications@samebase.com",
-        name: "Samebase",
-      },
+    expect(JSON.parse(request.body)).toMatchObject({
+      to: ["contact@samebase.com"],
       subject: "[Development] Samebase agent feedback",
       text: report,
     });
+    const threads = await t.query(components.mail.mail.listThreads, {
+      inboxId: null,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    const messages = await t.query(components.mail.mail.listMessages, {
+      threadId: threads.page[0]._id,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(messages.page).toMatchObject([
+      {
+        status: "accepted",
+        bodyText: report,
+        to: ["contact@samebase.com"],
+      },
+    ]);
     await expect(
       t.run(async (ctx) => {
         return await ctx.db
@@ -632,6 +647,55 @@ describe("MCP tool runtime boundaries", () => {
           .unique();
       }),
     ).resolves.toMatchObject({ count: 1, userId });
+  });
+
+  it("reports throttled feedback as queued without asking for another submission", async () => {
+    vi.stubGlobal("EdgeRuntime", undefined);
+    vi.useFakeTimers();
+    const { t, userId } = await seedToolRuntimeOwner();
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:samebase");
+    const fetch = vi.fn(async () =>
+      Response.json(
+        {
+          success: false,
+          errors: [{ code: 10004, message: "email.sending.error.throttled" }],
+          messages: [],
+          result: null,
+        },
+        { status: 429, headers: { "Retry-After": "30" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report: "The app failed to load.",
+      }),
+    ).resolves.toEqual({
+      status: "ok",
+      text: "Feedback is queued for delivery to Samebase. Cloudflare has delayed sending. Do not submit it again; the email component will retry automatically.",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const threads = await t.query(components.mail.mail.listThreads, {
+      inboxId: null,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    const messages = await t.query(components.mail.mail.listMessages, {
+      threadId: threads.page[0]._id,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(messages.page).toMatchObject([{ status: "queued" }]);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(
+      await t.query(components.mail.delivery.get, {
+        messageId: messages.page[0]._id,
+      }),
+    ).toMatchObject({ kind: "rejected", code: "cloudflare_http_429" });
   });
 
   it.each([" \n ", "x".repeat(6_001)])("rejects invalid feedback without email", async (report) => {

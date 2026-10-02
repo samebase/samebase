@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import workflowTest from "@convex-dev/workflow/test";
+import { register as registerEmailInbox } from "@samebase/convex-cloudflare-email-inbox/test";
 import { convexTest } from "convex-test";
 
 import type { Id } from "./_generated/dataModel";
@@ -23,6 +24,7 @@ const modules = import.meta.glob([
 export function makeConvexTest() {
   const t = convexTest(schema, modules);
   workflowTest.register(t);
+  registerEmailInbox(t, "mail");
   return t;
 }
 

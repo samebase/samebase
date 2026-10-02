@@ -1,6 +1,7 @@
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
 import workflow from "@convex-dev/workflow/convex.config";
+import mail from "@samebase/convex-cloudflare-email-inbox/convex.config.js";
 
 const app = defineApp({
   env: {
@@ -31,5 +32,11 @@ const app = defineApp({
 });
 
 app.use(workflow);
+app.use(mail, {
+  env: {
+    CLOUDFLARE_EMAIL_ACCOUNT_ID: app.env.CLOUDFLARE_EMAIL_ACCOUNT_ID,
+    CLOUDFLARE_EMAIL_API_TOKEN: app.env.CLOUDFLARE_EMAIL_API_TOKEN,
+  },
+});
 
 export default app;

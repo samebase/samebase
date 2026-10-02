@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 const sendArgs = {
@@ -10,12 +10,16 @@ const sendArgs = {
 };
 
 function stubEmailConfiguration(deployment: string) {
+  // Convex uses V8; the edge-runtime test host lacks the SDK's Node process metadata.
+  vi.stubGlobal("EdgeRuntime", undefined);
   vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
   vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
   vi.stubEnv("CONVEX_DEPLOYMENT", deployment);
 }
 
 function stubSuccessfulSend() {
+  // Cloudflare REST response fields, checked 2026-10-01:
+  // https://developers.cloudflare.com/api/resources/email_sending/methods/send/
   const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
     return new Response(
       JSON.stringify({
@@ -27,6 +31,7 @@ function stubSuccessfulSend() {
           message_id: "<message-id@samebase.com>",
           permanent_bounces: [],
           queued: [],
+          suppressed_recipients: [],
         },
       }),
       { status: 200 },
@@ -49,7 +54,7 @@ afterEach(() => {
 });
 
 describe("Cloudflare email sending", () => {
-  it("sends production email through the account-scoped REST endpoint", async () => {
+  it("stores production email and its delivery result in the configured inbox", async () => {
     const t = makeConvexTest();
     stubEmailConfiguration("prod:samebase");
     const fetch = stubSuccessfulSend();
@@ -57,25 +62,45 @@ describe("Cloudflare email sending", () => {
     await expect(t.action(internal.email.send, sendArgs)).resolves.toBeNull();
 
     expect(fetch).toHaveBeenCalledTimes(1);
-    const [input, init] = fetch.mock.calls[0];
-    expect(input).toBe(
-      "https://api.cloudflare.com/client/v4/accounts/account-id/email/sending/send",
-    );
-    expect(init).toMatchObject({
-      method: "POST",
-      headers: {
-        Authorization: "Bearer email-token",
-        "Content-Type": "application/json",
-      },
+    expect(readRequestBody(fetch.mock.calls[0][1])).toMatchObject({
+      from: { address: "notifications@samebase.com", name: "Samebase" },
     });
-    expect(readRequestBody(init)).toEqual({
-      to: "nicu@samebase.com",
-      from: {
-        address: "notifications@samebase.com",
-        name: "Samebase",
+    const inboxes = await t.query(components.mail.inboxes.list, {});
+    expect(inboxes).toMatchObject([
+      { address: "notifications@samebase.com", label: "Samebase notifications" },
+    ]);
+    const threads = await t.query(components.mail.mail.listThreads, {
+      inboxId: inboxes[0]._id,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(threads.page).toHaveLength(1);
+    const messages = await t.query(components.mail.mail.listMessages, {
+      threadId: threads.page[0]._id,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(messages.page).toMatchObject([
+      {
+        direction: "outbound",
+        from: "notifications@samebase.com",
+        to: [sendArgs.to],
+        subject: sendArgs.subject,
+        bodyText: sendArgs.text,
+        status: "accepted",
+        rawAvailable: false,
+        attachments: [],
       },
-      subject: "New Samebase signup",
-      text: "A new user signed up for Samebase.",
+    ]);
+    await expect(
+      t.query(components.mail.delivery.get, { messageId: messages.page[0]._id }),
+    ).resolves.toMatchObject({
+      kind: "accepted",
+      providerMessageId: "<message-id@samebase.com>",
+      recipientResults: {
+        delivered: [sendArgs.to],
+        permanent_bounces: [],
+        queued: [],
+        suppressed_recipients: [],
+      },
     });
   });
 
@@ -115,6 +140,7 @@ describe("Cloudflare email sending", () => {
 
       await expect(t.action(internal.email.send, sendArgs)).resolves.toBeNull();
       expect(fetch).not.toHaveBeenCalled();
+      await expect(t.query(components.mail.inboxes.list, {})).resolves.toEqual([]);
     },
   );
 
@@ -127,7 +153,7 @@ describe("Cloudflare email sending", () => {
     );
   });
 
-  it("reports Cloudflare API errors without exposing the token", async () => {
+  it("fails rejected email without exposing the token", async () => {
     const t = makeConvexTest();
     stubEmailConfiguration("dev:samebase");
     vi.stubGlobal(
@@ -138,7 +164,7 @@ describe("Cloudflare email sending", () => {
             success: false,
             errors: [
               {
-                code: "10001",
+                code: 10001,
                 message: "email.sending.error.invalid_request_schema",
               },
             ],
@@ -151,41 +177,54 @@ describe("Cloudflare email sending", () => {
     );
 
     const result = t.action(internal.email.send, sendArgs);
-    await expect(result).rejects.toThrow(
-      "Cloudflare Email Sending failed (400): 10001: email.sending.error.invalid_request_schema",
-    );
+    await expect(result).rejects.toThrow("Cloudflare Email Sending rejected the request");
     await expect(result).rejects.not.toThrow("email-token");
   });
 
-  it("fails when Cloudflare reports a permanent bounce", async () => {
-    const t = makeConvexTest();
-    stubEmailConfiguration("prod:samebase");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            errors: [],
-            messages: [],
-            result: {
-              delivered: [],
-              message_id: "<message-id@samebase.com>",
-              permanent_bounces: ["nicu@samebase.com"],
-              queued: [],
-            },
-          }),
-          { status: 200 },
-        );
-      }),
-    );
+  it.each([
+    {
+      label: "permanent bounce",
+      permanentBounces: [sendArgs.to],
+      suppressedRecipients: [],
+      error: "Cloudflare Email Sending permanently bounced for 1 recipient(s).",
+    },
+    {
+      label: "suppressed recipient",
+      permanentBounces: [],
+      suppressedRecipients: [sendArgs.to],
+      error: "Cloudflare Email Sending suppressed the recipient.",
+    },
+  ])(
+    "fails when Cloudflare reports a $label",
+    async ({ permanentBounces, suppressedRecipients, error }) => {
+      const t = makeConvexTest();
+      stubEmailConfiguration("prod:samebase");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              errors: [],
+              messages: [],
+              result: {
+                delivered: [],
+                message_id: "<message-id@samebase.com>",
+                permanent_bounces: permanentBounces,
+                queued: [],
+                suppressed_recipients: suppressedRecipients,
+              },
+            }),
+            { status: 200 },
+          );
+        }),
+      );
 
-    await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
-      "Cloudflare Email Sending permanently bounced for 1 recipient(s).",
-    );
-  });
+      await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(error);
+    },
+  );
 
-  it("preserves the status for non-JSON provider failures", async () => {
+  it("does not report success when the provider outcome is unknown", async () => {
     const t = makeConvexTest();
     stubEmailConfiguration("prod:samebase");
     vi.stubGlobal(
@@ -194,7 +233,7 @@ describe("Cloudflare email sending", () => {
     );
 
     await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
-      "Cloudflare Email Sending returned a non-JSON response (502).",
+      "Cloudflare Email Sending delivery could not be confirmed.",
     );
   });
 });

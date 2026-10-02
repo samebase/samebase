@@ -247,6 +247,9 @@ importers:
       '@prosemark/core':
         specifier: ^0.0.7
         version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.3)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.3)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.6.0)(@codemirror/view@6.43.0)
+      '@samebase/convex-cloudflare-email-inbox':
+        specifier: 0.1.0
+        version: 0.1.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@5.9.2)
       '@samebase/dependent':
         specifier: workspace:*
         version: link:../../packages/dependent
@@ -840,6 +843,10 @@ packages:
     engines: {node: '>=6.9.0'}
     peerDependencies:
       '@babel/core': 7.29.7
+
+  '@babel/runtime-corejs3@7.29.7':
+    resolution: {integrity: sha512-ppj9ouYku+RX0ljtgZd+KMO5mkM2bCqg8H2PYAFWnLsHEIKIdRojqbJ2i3eVHrisuxy7nOFCmngTDdWtUCdXUQ==}
+    engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.29.2':
     resolution: {integrity: sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g==}
@@ -2544,6 +2551,15 @@ packages:
       webpack-hot-middleware:
         optional: true
 
+  '@samebase/convex-cloudflare-email-inbox@0.1.0':
+    resolution: {integrity: sha512-1p13IQ7nq7ZVLGaoK1ow+tXT5uHAQ6dhNc0ptnlMW8P5OnlnHSGWO+pZrJWUQBuq9kw9JiXKlNv6v2mrZBJXaQ==}
+    peerDependencies:
+      convex: ^1.45.0
+      convex-test: ^0.0.56
+    peerDependenciesMeta:
+      convex-test:
+        optional: true
+
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
@@ -3844,6 +3860,10 @@ packages:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
     engines: {node: '>=12'}
 
+  cloudflare@7.2.0:
+    resolution: {integrity: sha512-Y0ieFi/VOGsUeJmOWwuzztTQZ5HgvNqa7I6IaGBf9wS4Q2xjNmRfyHls741HlveI4DSTribs7YHaTjhKvNcRsw==}
+    hasBin: true
+
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
@@ -3920,6 +3940,28 @@ packages:
       zod:
         optional: true
 
+  convex-helpers@0.1.124:
+    resolution: {integrity: sha512-Gbu/jq6I3x5Y51cXP5c7+CI3t15vX5Xi2G0tOym3rxpBtYqrI+qWwxkqZgJYrHHccY42wZudB8h6kS3fak8Aeg==}
+    hasBin: true
+    peerDependencies:
+      '@standard-schema/spec': ^1.0.0
+      convex: ^1.43.0
+      hono: 4.13.7
+      react: ^17.0.2 || ^18.0.0 || ^19.0.0
+      typescript: ^5.5 || ^6.0.0 || ^7.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@standard-schema/spec':
+        optional: true
+      hono:
+        optional: true
+      react:
+        optional: true
+      typescript:
+        optional: true
+      zod:
+        optional: true
+
   convex-test@0.0.56:
     resolution: {integrity: sha512-dLYXlQjKFoGqvjAmPzyLgb2HsYI7iLo1iuNTU2DZmSrMRLWosYk94erjSU67GG5ovfP6+MjX8RJO+ebhmL6QYA==}
     peerDependencies:
@@ -3958,6 +4000,9 @@ packages:
   cookie@1.1.1:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
     engines: {node: '>=18'}
+
+  core-js-pure@3.50.0:
+    resolution: {integrity: sha512-6GP3Pxz4IKyWjAfa747vIu/jilB5z29JWROLqH/b+pXVcpgh6tM06ZIBwSuglgVqzDYURhOK6oEzTrG0bCHitA==}
 
   core-js@3.49.0:
     resolution: {integrity: sha512-es1U2+YTtzpwkxVLwAFdSpaIMyQaq0PBgm3YD1W3Qpsn1NAmO3KSgZfu+oGSWVu6NvLHoHCV/aYcsE5wiB7ALg==}
@@ -4900,6 +4945,9 @@ packages:
   jose@6.2.2:
     resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
 
+  js-base64@3.9.4:
+    resolution: {integrity: sha512-PtOMXpEGuP0RRiRXsjzHzl44dMHxSu2CPvAhinupR1tBa88me+1DPqsobl7eupn5UukjLkln1ZnAOAOXOrYG0Q==}
+
   js-levenshtein@1.1.6:
     resolution: {integrity: sha512-X2BB11YZtrRqY4EnQcLX5Rh373zbK4alC1FW7D7MBhL2gtcC17cTnr6DmfHZeS0s2rTHjUTMMHfG7gO8SSdw+g==}
     engines: {node: '>=0.10.0'}
@@ -5365,6 +5413,9 @@ packages:
     resolution: {integrity: sha512-Lbgzdk0h4juoQ9fCKXW4by0UJqj+nOOrI9MJ1sSj4nI8aI2eo1qmvQEie4VD1glsS250n15LsWsYtCugiStS5A==}
     engines: {node: '>=18'}
 
+  mimetext@3.0.28:
+    resolution: {integrity: sha512-eQXpbNrtxLCjUtiVbR/qR09dbPgZ2o+KR1uA7QKqGhbn8QV7HIL16mXXsobBL4/8TqoYh1us31kfz+dNfCev9g==}
+
   mimic-fn@2.1.0:
     resolution: {integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==}
     engines: {node: '>=6'}
@@ -5698,6 +5749,9 @@ packages:
   pngjs@7.0.0:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
     engines: {node: '>=14.19.0'}
+
+  postal-mime@3.0.1:
+    resolution: {integrity: sha512-N86EnYOxZjW1uHQIgSXnnRdnJz+wxmtDsnk3C4R/9rQ1utj8A2znauXZ3Q3+stCHxG5ckY4/NrO09WiPU6rcdQ==}
 
   postcss-modules-extract-imports@3.1.0:
     resolution: {integrity: sha512-k3kNe0aNFQDAZGbin48pL2VNidTF0w4/eASDsxlyspobzU3wZQLOGj7L9gfRe0Jo9/4uud09DsjFNH7winGv8Q==}
@@ -6785,6 +6839,9 @@ packages:
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -7080,6 +7137,10 @@ snapshots:
       '@babel/plugin-transform-typescript': 7.28.6(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
+
+  '@babel/runtime-corejs3@7.29.7':
+    dependencies:
+      core-js-pure: 3.50.0
 
   '@babel/runtime@7.29.2': {}
 
@@ -8885,6 +8946,22 @@ snapshots:
       html-entities: 2.6.0
       react-refresh: 0.18.0
 
+  '@samebase/convex-cloudflare-email-inbox@0.1.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@5.9.2)':
+    dependencies:
+      cloudflare: 7.2.0
+      convex: 1.45.0(react@19.2.6)
+      convex-helpers: 0.1.124(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@5.9.2)(zod@4.6.5)
+      mimetext: 3.0.28
+      postal-mime: 3.0.1
+      zod: 4.6.5
+    optionalDependencies:
+      convex-test: 0.0.56(convex@1.45.0(react@19.2.6))
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+      - hono
+      - react
+      - typescript
+
   '@sec-ant/readable-stream@0.4.1': {}
 
   '@sindresorhus/is@4.6.0': {}
@@ -10243,6 +10320,8 @@ snapshots:
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
+  cloudflare@7.2.0: {}
+
   clsx@2.1.1: {}
 
   code-block-writer@13.0.3: {}
@@ -10300,6 +10379,16 @@ snapshots:
       typescript: 5.9.2
       zod: 4.3.6
 
+  convex-helpers@0.1.124(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@5.9.2)(zod@4.6.5):
+    dependencies:
+      convex: 1.45.0(react@19.2.6)
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 4.13.7
+      react: 19.2.6
+      typescript: 5.9.2
+      zod: 4.6.5
+
   convex-test@0.0.56(convex@1.45.0(react@19.2.6)):
     dependencies:
       convex: 1.45.0(react@19.2.6)
@@ -10322,6 +10411,8 @@ snapshots:
   cookie@0.7.2: {}
 
   cookie@1.1.1: {}
+
+  core-js-pure@3.50.0: {}
 
   core-js@3.49.0: {}
 
@@ -11323,6 +11414,8 @@ snapshots:
 
   jose@6.2.2: {}
 
+  js-base64@3.9.4: {}
+
   js-levenshtein@1.1.6: {}
 
   js-tokens@4.0.0: {}
@@ -11930,6 +12023,13 @@ snapshots:
     dependencies:
       mime-db: 1.54.0
 
+  mimetext@3.0.28:
+    dependencies:
+      '@babel/runtime': 7.29.2
+      '@babel/runtime-corejs3': 7.29.7
+      js-base64: 3.9.4
+      mime-types: 2.1.35
+
   mimic-fn@2.1.0: {}
 
   mimic-function@5.0.1: {}
@@ -12304,6 +12404,8 @@ snapshots:
   pluralize@8.0.0: {}
 
   pngjs@7.0.0: {}
+
+  postal-mime@3.0.1: {}
 
   postcss-modules-extract-imports@3.1.0(postcss@8.5.23):
     dependencies:
@@ -13496,6 +13598,8 @@ snapshots:
   zod@3.25.76: {}
 
   zod@4.3.6: {}
+
+  zod@4.6.5: {}
 
   zustand@4.5.7(@types/react@19.2.15)(react@19.2.6):
     dependencies:

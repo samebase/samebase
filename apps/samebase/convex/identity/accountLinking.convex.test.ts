@@ -3,7 +3,7 @@ import Google from "@auth/core/providers/google";
 import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "../_generated/api";
+import { api, components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { createOrUpdateSamebaseUser, type CreateOrUpdateAuthUserArgs } from "./accountLinking";
@@ -16,6 +16,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 function oauthArgs(args: {
@@ -76,6 +78,60 @@ async function insertLinkSession(
 }
 
 describe("Samebase OAuth account linking", () => {
+  it("keeps a new signup when its scheduled notification fails", async () => {
+    // Convex uses V8; the edge-runtime test host lacks the SDK's Node process metadata.
+    vi.stubGlobal("EdgeRuntime", undefined);
+    vi.useFakeTimers();
+    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    const fetch = vi.fn(async () => {
+      // Cloudflare REST error example, checked 2026-10-01:
+      // https://developers.cloudflare.com/email-service/api/send-emails/rest-api/
+      return new Response(
+        JSON.stringify({
+          success: false,
+          errors: [{ code: 10001, message: "email.sending.error.invalid_request_schema" }],
+          messages: [],
+          result: null,
+        }),
+        { status: 400 },
+      );
+    });
+    vi.stubGlobal("fetch", fetch);
+    const t = makeConvexTest();
+
+    const userId = await t.run(async (ctx) =>
+      createOrUpdateSamebaseUser(
+        ctx,
+        oauthArgs({
+          provider: "google",
+          providerAccountId: "google-new-notification-failure",
+          email: "new-signup@example.com",
+          existingSessionId: null,
+          existingUserId: null,
+        }),
+      ),
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(t.run(async (ctx) => ctx.db.get(userId))).resolves.toMatchObject({
+      state: "active",
+      email: "new-signup@example.com",
+    });
+    const threads = await t.query(components.mail.mail.listThreads, {
+      inboxId: null,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    const messages = await t.query(components.mail.mail.listMessages, {
+      threadId: threads.page[0]._id,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(messages.page).toMatchObject([{ status: "rejected", to: ["nicuchiciuc@gmail.com"] }]);
+  });
+
   it("returns the known user for a signed-out Google provider identity", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

@@ -72,6 +72,7 @@
     "@octokit/rest": "^22.0.0",
     "@polar-sh/sdk": "0.49.0",
     "@prosemark/core": "^0.0.7",
+    "@samebase/convex-cloudflare-email-inbox": "0.1.0",
     "@samebase/dependent": "workspace:*",
     "@samebase/logo-model": "workspace:*",
     "@samebase/sidebars": "workspace:*",
