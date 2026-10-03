@@ -525,25 +525,10 @@ describe("Cloudflare Worker stored coordinates", () => {
 
   it("rejects an MCP connection whose root directory differs from the confirmed request", async () => {
     const fixture = await createFixture();
-    const providerRequests: string[] = [];
-    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: CloudflareTestRequest) => {
-        providerRequests.push(`${request.method} ${request.path}`);
-        if (request.path === "/accounts") {
-          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-        }
-        if (request.path === "/accounts/{account_id}/builds/tokens") {
-          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          return workerResponse({ workerName: "legacy-landing", workerTag: "legacy-landing-tag" });
-        }
-        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-          return null;
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-      },
-    );
+    useCloudflareReadFixture({ workerName: "legacy-landing", workerTag: "legacy-landing-tag" });
+    cloudflareMocks.getBuildTokens.mockResolvedValue({
+      result: [{ build_token_uuid: "build-token", build_token_name: "Build token" }],
+    });
     const toolArgs = {
       userId: fixture.ids.ownerId,
       grantedScopes: ["access_provider_connections"],
@@ -575,7 +560,8 @@ describe("Cloudflare Worker stored coordinates", () => {
       status: "error",
       text: "The arguments differ from the request that the user approved, so nothing changed. Send the approved arguments, or call again without confirmation to get a new confirmation request.",
     });
-    expect(providerRequests.filter((request) => !request.startsWith("GET "))).toEqual([]);
+    expect(cloudflareMocks.createWorker).not.toHaveBeenCalled();
+    expect(cloudflareMocks.createBuildSettings).not.toHaveBeenCalled();
     await expect(
       fixture.t.run(async (ctx) => ({
         workers: await ctx.db
@@ -589,27 +575,18 @@ describe("Cloudflare Worker stored coordinates", () => {
 
   it("refuses a Worker that already builds another repository before any confirmation request", async () => {
     const fixture = await createFixture();
-    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: CloudflareTestRequest) => {
-        if (request.path === "/accounts") {
-          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-        }
-        if (request.path === "/accounts/{account_id}/builds/tokens") {
-          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          return workerResponse({ workerName: "legacy-landing", workerTag: "legacy-landing-tag" });
-        }
-        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-          return workerBuildSettings({
-            repoId: "other-repository",
-            rootDirectory: "apps/site",
-            workerTag: "legacy-landing-tag",
-          });
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-      },
-    );
+    useCloudflareReadFixture({
+      workerName: "legacy-landing",
+      workerTag: "legacy-landing-tag",
+      settings: workerBuildSettings({
+        repoId: "other-repository",
+        rootDirectory: "apps/site",
+        workerTag: "legacy-landing-tag",
+      }),
+    });
+    cloudflareMocks.getBuildTokens.mockResolvedValue({
+      result: [{ build_token_uuid: "build-token", build_token_name: "Build token" }],
+    });
 
     await expect(
       fixture.t.action(internal.toolRuntime.runtime.cloudflareConnectWorkerTool, {
@@ -646,33 +623,20 @@ describe("Cloudflare Worker stored coordinates", () => {
     async (_state, settingsAfterFailedSetup, nextStep) => {
       const fixture = await createFixture();
       let didAttemptBuildsSetup = false;
-      providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-        async (request: CloudflareTestRequest) => {
-          if (request.path === "/accounts") {
-            return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-          }
-          if (request.path === "/accounts/{account_id}/builds/tokens") {
-            return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
-          }
-          if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-            return workerResponse({
-              workerName: "provider-current-worker",
-              workerTag: "connect-worker-tag",
-            });
-          }
-          if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-            return didAttemptBuildsSetup ? settingsAfterFailedSetup : null;
-          }
-          if (
-            request.method === "POST" &&
-            request.path === "/accounts/{account_id}/builds/workers"
-          ) {
-            didAttemptBuildsSetup = true;
-            throw new Error("private-diagnostic@example.com raw Cloudflare failure");
-          }
-          throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-        },
-      );
+      useCloudflareReadFixture({
+        workerName: "provider-current-worker",
+        workerTag: "connect-worker-tag",
+      });
+      cloudflareMocks.getBuildTokens.mockResolvedValue({
+        result: [{ build_token_uuid: "build-token", build_token_name: "Build token" }],
+      });
+      cloudflareMocks.getBuildSettings.mockImplementation(async () => ({
+        result: didAttemptBuildsSetup ? settingsAfterFailedSetup : null,
+      }));
+      cloudflareMocks.createBuildSettings.mockImplementation(async () => {
+        didAttemptBuildsSetup = true;
+        throw new Error("private-diagnostic@example.com raw Cloudflare failure");
+      });
 
       const toolArgs = {
         userId: fixture.ids.ownerId,
