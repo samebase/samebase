@@ -920,6 +920,7 @@ export const trackedFilePaths = [
   "apps/samebase/shared/providerOAuthReturn.test.ts",
   "apps/samebase/shared/providerOAuthReturn.ts",
   "apps/samebase/shared/publicMediaManifest.ts",
+  "apps/samebase/shared/repositoryChecks.ts",
   "apps/samebase/shared/repositoryMedia.ts",
   "apps/samebase/shared/repositoryRootDirectory.test.ts",
   "apps/samebase/shared/repositoryRootDirectory.ts",
