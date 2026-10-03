@@ -459,9 +459,13 @@ From [`static-analysis.ts`](2026-10-01-mcp-tool-catalog-design/static-analysis.t
 | Catalog                 | Tools | Tool definitions (characters) | Instructions (characters) | About tokens |
 | ----------------------- | ----- | ----------------------------- | ------------------------- | ------------ |
 | Current production (15) | 15    | 12,983                        | 7,112                     | 5,000        |
-| P (RFC 125)             | 21    | 16,589                        | 4,380                     | 5,200        |
-| W                       | 12    | 8,898                         | 905                       | 2,500        |
-| H                       | 15    | 11,039                        | 905                       | 3,000        |
+| P (RFC 125)             | 21    | 16,644                        | 4,380                     | 5,300        |
+| W                       | 12    | 9,240                         | 905                       | 2,500        |
+| H                       | 15    | 11,668                        | 905                       | 3,100        |
+
+Sizes are after the 2026-10-03 review fixes (3.6), which added the `kind` and `convexProject`
+arguments and the production-deployment sentence. Before them, P, W, and H had 16,589, 8,898, and
+11,039 characters; the runs in 3.2 used the earlier catalogs.
 
 | Scheme                         | Max length (P / H) | Over a host limit                       | camelCase names (P / H) | Exact collision with a surveyed server |
 | ------------------------------ | ------------------ | --------------------------------------- | ----------------------- | -------------------------------------- |
@@ -483,6 +487,9 @@ From [`static-analysis.ts`](2026-10-01-mcp-tool-catalog-design/static-analysis.t
 - Follow-up (2026-10-02, separately approved: at most 30 calls and about 4M tokens): 28 text-only
   `codex exec` calls, 576k tokens (551k input, of which 200k cached; 25k output). Naming: 12 calls,
   314k tokens. Confirmations: 16 calls, 262k tokens.
+- Review fixes (2026-10-03, at most 6 calls allowed): 5 text-only `codex exec` calls, 85k tokens, to
+  rerun the four V4 batches after the token binding changed (3.8). One rerun answer was malformed
+  JSON (a missing brace); that batch was run once more instead of being repaired by hand.
 
 ### 3.6 Limits
 
@@ -509,6 +516,31 @@ From [`static-analysis.ts`](2026-10-01-mcp-tool-catalog-design/static-analysis.t
   delivered to the wrong session; none of these results are used.
 - A scoring regex bug (curly apostrophes in "couldn't") was found after the first scoring pass and
   fixed for all designs before any comparison was made.
+- Review fixes (2026-10-03,
+  [review on PR #1664](https://github.com/samebase/samebase/pull/1664#pullrequestreview-5401328014)).
+  All six findings were reproduced on the earlier stub first, then fixed; `checks.ts` now covers
+  each one:
+  1. Detach: a Worker and a Convex project can share a name (a new app gets both with the app's
+     name). The stub asked for `kind` but rejected it as an unknown argument. `kind` is now in the
+     schema, the handler, the V3 phrase, and the V4 token.
+  2. Create or connect a Worker with two attached Convex projects reported success with no deploy
+     key. The stub now takes an optional `convexProject`, uses the only attached project
+     automatically, fails before any change with the list when several are attached, and with none
+     returns `convexDeployKey: { installed: false, reason }`.
+  3. The production build commit was read from the branch head. Each Worker now stores its own build
+     commit, so a head that moved without a build no longer shows as deployed.
+  4. The T01 checker accepted one progress read and "Setup is running.". It now requires source and
+     provider setup to end `ready` and the answer to report finished setup. All 6 saved T01 traces
+     still pass (each reached `ready`), and no task verdict in 3.2 changed.
+  5. A Convex project without a production deployment could not be attached. It now can, as RFC 125
+     and the dashboard allow; deploy-key installation and rotation still reject it ("Deploy the
+     Convex project ... to production first").
+  6. The V4 token was bound to the action and resource only, so a second call with a different
+     `rootDirectory` was accepted. It is now bound to the user, the action, and the normalized
+     request; a changed argument is rejected, and the approved request is what runs. See 3.8 for the
+     rerun. None of the saved task, naming, or V1 to V3 traces exercised findings 1, 2, 3, or 5, and
+     their scores replay unchanged under the fixed stub. Descriptions shown to those subjects were
+     the earlier ones.
 
 ### 3.7 Follow-up: naming schemes (design R, all five servers)
 
@@ -570,9 +602,15 @@ effect in the request. 4 variants x 2 phrasings x 2 trials = 16 calls, 3 request
 | V1 annotations only              | 6/6                           | 0/6                       | n/a                                            | 6/6                                 | 1.5 / 1.7                                | 16k             |
 | V2 description asks for approval | 4/6                           | 2/6                       | n/a                                            | 6/6                                 | 1.2 / 1.3                                | 16k             |
 | V3 exact phrase argument         | 0/6                           | 6/6                       | 0/6                                            | 6/6                                 | 1.0 / 1.5                                | 17k             |
-| V4 two-step token                | 0/6                           | 6/6                       | 0/6                                            | 6/6                                 | 2.0 / 2.5                                | 17k             |
+| V4 two-step token                | 0/6                           | 6/6                       | 0/6                                            | 6/6                                 | 2.3 / 2.7                                | 17k             |
 
 Per trial, unacked actions were V1 3 and 3, V2 3 and 1, V3 0 and 0, V4 0 and 0.
+
+V4 rows are from the rerun after the token was bound to the normalized request (review fix 6). The
+first V4 runs gave the same counts (0/6, 6/6, 0/6, 6/6) with 2.0 / 2.5 mean calls; their answers
+cannot be replayed under the new binding because the token values changed. The experiment's
+self-test now includes a plan that changes `rootDirectory` between the two calls; the stub rejects
+it, so a subject that did this would score as not acting.
 
 - A rule in the description (V2) barely changed behavior: the model still acted in 4 of 6 requests
   where the user had not accepted the effect.
@@ -598,8 +636,9 @@ turn off `apps` (ChatGPT app connectors), `plugins`, `remote_plugin`, browser an
 `shell_tool`, and the other listed features, and that `--ignore-user-config` keeps out the 12 MCP
 servers in the user's config, including a real `samebase` server. Text-only runs configure no MCP
 server. After each call, the event log was checked to contain no tool, command, or MCP item; all 28
-logs contained only `agent_message` items. (`unified_exec` stays listed as on in codex-cli 0.159.2,
-but with `shell_tool` off no shell tool is exposed, as the earlier tool-list probe showed.)
+logs, and the 5 logs of the 2026-10-03 V4 rerun (isolation check run again first), contained only
+`agent_message` items. (`unified_exec` stays listed as on in codex-cli 0.159.2, but with
+`shell_tool` off no shell tool is exposed, as the earlier tool-list probe showed.)
 
 ## 4. Options compared
 
@@ -662,13 +701,13 @@ H as measured, with three changes that come from evidence, not from the measurem
 | `samebase_connect_app`               | githubRepositoryFullName                                                                                                            | app                                                                                                     | no / no / no   | `connectRepository` (passes the database ID it has)        |
 | `samebase_find_cloudflare_workers`   | app                                                                                                                                 | attachable, connectable, counts by reason                                                               | yes / no / no  | `discoverWorkers` (keeps all rows)                         |
 | `samebase_attach_cloudflare_workers` | app, workerNames                                                                                                                    | attached names                                                                                          | no / no / no   | `attachWorkers`                                            |
-| `samebase_connect_cloudflare_worker` | app, workerName, rootDirectory?, buildTokenUuid?, confirmationToken? (5.6)                                                          | `needs_confirmation`, then connected, deploy key installed                                              | no / yes / yes | `connectWorker`                                            |
-| `samebase_create_cloudflare_worker`  | app, workerName? (pending plan), rootDirectory?, buildTokenUuid?                                                                    | created, deploy key installed                                                                           | no / yes / no  | `createWorker`                                             |
+| `samebase_connect_cloudflare_worker` | app, workerName, rootDirectory?, buildTokenUuid?, convexProject?, confirmationToken? (5.6)                                          | `needs_confirmation`, then connected, deploy key result                                                 | no / yes / yes | `connectWorker`                                            |
+| `samebase_create_cloudflare_worker`  | app, workerName? (pending plan), rootDirectory?, buildTokenUuid?, convexProject?                                                    | created, deploy key result                                                                              | no / yes / no  | `createWorker`                                             |
 | `samebase_find_convex_projects`      | app                                                                                                                                 | code locations, attachable, counts by reason                                                            | yes / no / no  | `discoverProjects` (keeps all rows)                        |
 | `samebase_attach_convex_project`     | app, projectName, codeLocation?                                                                                                     | attached, code location                                                                                 | no / no / no   | `attachProjects`                                           |
 | `samebase_create_convex_project`     | app, projectName, convexDeploymentRegion?, codeLocation?                                                                            | created, code location                                                                                  | no / yes / no  | `createProject`                                            |
 | `samebase_repair_app`                | app, buildTokenUuid?, confirmationToken? (5.6)                                                                                      | `needs_confirmation`, then performed, remaining                                                         | no / yes / yes | Settings buttons pass an explicit step                     |
-| `samebase_detach_resource`           | app, resourceName, confirmationToken? (5.6)                                                                                         | `needs_confirmation`, then detached kind and name                                                       | no / no / yes  | `detachWorker` and `detachProject`                         |
+| `samebase_detach_resource`           | app, resourceName, kind?, confirmationToken? (5.6)                                                                                  | `needs_confirmation`, then detached kind and name                                                       | no / no / yes  | `detachWorker` and `detachProject`                         |
 
 Shared rules:
 
@@ -678,7 +717,15 @@ Shared rules:
   the app with Cloudflare pending and returns the setup guide link.
 - The Cloudflare account is the app's stored account. No tool takes `accountId`.
 - A single Convex code location is used without asking. Several return an error that lists them.
-- Connect and create a Worker install the deploy key for the app's single Convex project.
+- Connect and create a Worker install the deploy key of the Convex project named in `convexProject`,
+  else of the only attached project. Several attached projects and no choice fail before any change,
+  with the list. No attached project installs no key, and the result says so
+  (`convexDeployKey: { installed: false, reason }`); a result never reports a key it did not
+  install.
+- A Convex project without a production deployment can be attached; deploy-key installation and
+  rotation reject it until it has one.
+- Detach takes `kind` (`cloudflare_worker` or `convex_project`) when a Worker and a Convex project
+  share the name, which happens in every new app.
 - Errors say what to do next, in plain words.
 
 ### 5.2 Server instructions shrink to about 1k characters
@@ -753,11 +800,11 @@ keeps the gate and moves the human part to channels that the model cannot answer
 The server owns, per action, the effect text and one confirmation level. The handler does nothing
 without a valid confirmation, and both the dashboard and MCP call the same check:
 
-| Level       | Actions                                                                         | Server                                                                                                                                                                                  | MCP                                                                                                                                                                                                        | Web                                                                                                                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| none        | reads; attach; create app, Worker, or Convex project                            | no check                                                                                                                                                                                | annotations as in 5.1                                                                                                                                                                                      | as today                                                                                                                                                                                                 |
-| acknowledge | connect a `connectable` Worker, repair, detach                                  | Without a confirmation, return `needs_confirmation` with the effects and a sealed token (action, resource identity, 10-minute expiry). With the token, re-check the identity, then act. | Clients with 2026-07-28 elicitation get `input_required` with an accept/decline form built from the same effects. Other clients get the token in the result (V4, measured). `destructiveHint: true` stays. | The dashboard calls the same action, shows the server's effect text in a confirm dialog, and resubmits with the token. Detach, key rotation, and connect gain the confirm step they lack today (1.8).    |
-| typed       | remove an app with provider deletion, delete an organization, delete an account | The challenge also requires the exact resource name, accepted only from a human channel: the signed-in dashboard dialog or an MCP elicitation response. A relayed token is not enough.  | Stays dashboard-only and offers the sign-in link, until ChatGPT documents elicitation. Claude Code and Codex could later use an elicitation form, as GitHub's `delete_repository` does.                    | The account and organization dialogs keep their typed text, but the server issues the challenge and the expected text. The remove-app dialog asks for the typed name when provider deletion is selected. |
+| Level       | Actions                                                                         | Server                                                                                                                                                                                                                                                                                          | MCP                                                                                                                                                                                                        | Web                                                                                                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| none        | reads; attach; create app, Worker, or Convex project                            | no check                                                                                                                                                                                                                                                                                        | annotations as in 5.1                                                                                                                                                                                      | as today                                                                                                                                                                                                 |
+| acknowledge | connect a `connectable` Worker, repair, detach                                  | Without a confirmation, return `needs_confirmation` with the effects and a sealed token bound to the user, the action, and the normalized request (every argument), with a 10-minute expiry. With the token, reject any changed argument, re-check the identity, then run the approved request. | Clients with 2026-07-28 elicitation get `input_required` with an accept/decline form built from the same effects. Other clients get the token in the result (V4, measured). `destructiveHint: true` stays. | The dashboard calls the same action, shows the server's effect text in a confirm dialog, and resubmits with the token. Detach, key rotation, and connect gain the confirm step they lack today (1.8).    |
+| typed       | remove an app with provider deletion, delete an organization, delete an account | The challenge also requires the exact resource name, accepted only from a human channel: the signed-in dashboard dialog or an MCP elicitation response. A relayed token is not enough.                                                                                                          | Stays dashboard-only and offers the sign-in link, until ChatGPT documents elicitation. Claude Code and Codex could later use an elicitation form, as GitHub's `delete_repository` does.                    | The account and organization dialogs keep their typed text, but the server issues the challenge and the expected text. The remove-app dialog asks for the typed name when provider deletion is selected. |
 
 - Do not add V3. It behaves like V4 and gives a false sense of proof.
 - Add the `confirmationToken` argument (and the `needs_confirmation` result) before the OpenAI
@@ -890,6 +937,7 @@ From `research/2026-10-01-mcp-tool-catalog-design/` with Node 24:
   then `node first-tool.ts score <dir>`. `node first-tool.ts claude ...` runs `claude -p` with all
   tools off; it is untested because the CLI was not signed in.
 - `node tally-tokens.ts <dir>`: Codex token totals.
+- `node checks.ts`: offline regression checks for the six review findings of 2026-10-03.
 - `node verify-codex-isolation.ts`: checks, without a model call, that the subject flags turn off
   app connectors, plugins, and the shell, and lists the MCP servers that `--ignore-user-config`
   keeps out.
