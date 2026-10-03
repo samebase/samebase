@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { ActionConfirmationRequest } from "../../../convex/repository/contracts/actionConfirmation";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import {
   buildAvailableAppResourceNameSuggestion,
@@ -37,6 +38,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
 import { RepositoryProviderDiscoveryLoadingState } from "./RepositoryProviderDiscoveryLoadingState";
 import { RepositoryRootInput } from "./RepositoryRootInput";
 
@@ -51,6 +53,9 @@ type CloudflareWorkerOption =
   (typeof api.repository.cloudflare.findWorkers)["_returnType"]["workers"][number];
 type CloudflareInventoryState =
   (typeof api.repository.cloudflare.findWorkers)["_returnType"]["inventoryState"];
+type CloudflareConnectWorkerArgs = (typeof api.repository.cloudflare.connectWorker)["_args"];
+type CloudflareConnectWorkerResult =
+  (typeof api.repository.cloudflare.connectWorker)["_returnType"];
 export function RepositoryCloudflareDialogContent({
   blockedReason,
   cloudflareBuildTokenField,
@@ -475,6 +480,12 @@ export function RepositoryCloudflareDialog({
   const [deployKeyConvexProjectId, setDeployKeyConvexProjectId] =
     useState<Id<"repositoryConvexProjects"> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The server's challenge for the connect request in `args`; the confirm step resends `args`.
+  const [connectConfirmation, setConnectConfirmation] = useState<{
+    args: Omit<CloudflareConnectWorkerArgs, "confirmation">;
+    request: ActionConfirmationRequest;
+    worker: CloudflareWorkerConnectTarget;
+  } | null>(null);
   const cloudflareAccountId = repository.cloudflareAccountId;
   // With one attached Convex project the server installs its deploy key without a choice.
   const needsDeployKeyConvexProject = repository.convexProjects.length > 1;
@@ -540,6 +551,21 @@ export function RepositoryCloudflareDialog({
   const resourceError = workersQuery.error ? "Could not load Cloudflare resources." : null;
   const isLoading = !repairWorker && cloudflareAccountId !== undefined && workersQuery.isPending;
 
+  const finishWorkerConnection = (
+    worker: CloudflareWorkerConnectTarget,
+    result: Exclude<CloudflareConnectWorkerResult, { state: "needs_confirmation" }>,
+  ) => {
+    setDidAddWorker(true);
+    setMode("existing");
+    setWorkerSelection(selectedWorkerTags.filter((candidate) => candidate !== worker.workerTag));
+    setWorkerToConnect(null);
+    if (result.state === "added_with_notice") {
+      setSubmitError(result.message);
+    } else if (result.convexDeployKey.state === "failed") {
+      setSubmitError(result.convexDeployKey.message);
+    }
+  };
+
   const handleSubmit = async () => {
     if (cloudflareBlockedReason || isSubmitting || cloudflareAccountId === undefined) {
       return;
@@ -562,27 +588,19 @@ export function RepositoryCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        const result = await connectWorker({
+        const args = {
           repositoryId: repository.repositoryId,
           workerName: workerToConnect.workerName,
           workerTag: workerToConnect.workerTag,
           rootDirectory: createRootDirectory,
           buildTokenUuid,
           convexProjectId: deployKeyConvexProjectId ?? undefined,
-        });
+        };
+        const result = await connectWorker(args);
         if (result.state === "needs_confirmation") {
-          throw new Error("The Worker connection needs a confirmation.");
-        }
-        setDidAddWorker(true);
-        setMode("existing");
-        setWorkerSelection(
-          selectedWorkerTags.filter((candidate) => candidate !== workerToConnect.workerTag),
-        );
-        setWorkerToConnect(null);
-        if (result.state === "added_with_notice") {
-          setSubmitError(result.message);
-        } else if (result.convexDeployKey.state === "failed") {
-          setSubmitError(result.convexDeployKey.message);
+          setConnectConfirmation({ args, request: result, worker: workerToConnect });
+        } else {
+          finishWorkerConnection(workerToConnect, result);
         }
         setIsSubmitting(false);
         return;
@@ -657,6 +675,29 @@ export function RepositoryCloudflareDialog({
   const deployKeyConvexProject = repository.convexProjects.find(
     (project) => project.convexProjectId === deployKeyConvexProjectId,
   );
+
+  // The confirmation step replaces the form, so the confirmed call resends the shown request.
+  if (connectConfirmation) {
+    const { args, request, worker } = connectConfirmation;
+    return (
+      <RepositoryActionConfirmationDialog
+        key={request.token}
+        confirmLabel="Connect and add"
+        onCancel={() => {
+          setConnectConfirmation(null);
+        }}
+        onConfirm={async (confirmation) => {
+          const result = await connectWorker({ ...args, confirmation });
+          setConnectConfirmation(null);
+          if (result.state !== "needs_confirmation") {
+            finishWorkerConnection(worker, result);
+          }
+        }}
+        request={request}
+        title={`Connect ${worker.workerName} to ${repository.githubRepositoryFullName}?`}
+      />
+    );
+  }
 
   return (
     <RepositoryCloudflareDialogContent

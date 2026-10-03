@@ -4,6 +4,10 @@ import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type {
+  ActionConfirmation,
+  ActionConfirmationRequest,
+} from "../../../convex/repository/contracts/actionConfirmation";
 import { toast } from "@/components/ui/use-toast";
 import { useCloudflareBuildTokens } from "@/repository/setup/useCloudflareBuildTokens";
 import {
@@ -25,6 +29,15 @@ import {
   type RepositorySettingsPendingAction,
 } from "./repositorySettingsState";
 import type { RepositoryWorkspaceSelected as RepositoryWorkspace } from "./repositoryWorkspaceModel";
+import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
+
+type PendingConfirmation = {
+  title: string;
+  confirmLabel: string;
+  request: ActionConfirmationRequest;
+  /** The gated call. Without a confirmation it returns the request; with one it performs it. */
+  run: (confirmation: ActionConfirmation | undefined) => Promise<ActionConfirmationRequest | null>;
+};
 
 export function RepositorySelectedWorkspace({
   developerToolsVisible,
@@ -52,6 +65,7 @@ export function RepositorySelectedWorkspace({
   const [providerActionInFlight, setProviderActionInFlight] =
     useState<RepositorySettingsPendingAction | null>(null);
   const [isRetryingRepositoryAction, setIsRetryingRepositoryAction] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
   const repository = workspace.repository;
   const deleteModeActive = rootRouteSearch.delete === true;
   const addConvexModeActive = rootRouteSearch["add-convex"] === true;
@@ -177,7 +191,17 @@ export function RepositorySelectedWorkspace({
     }
     setIsRetryingRepositoryAction(true);
     try {
-      await retryProviderSetup({ repositoryId: repository.repositoryId });
+      const run = (confirmation: ActionConfirmation | undefined) =>
+        retryProviderSetup({ repositoryId: repository.repositoryId, confirmation });
+      const request = await run(undefined);
+      if (request) {
+        setPendingConfirmation({
+          title: "Retry provider setup?",
+          confirmLabel: "Retry setup",
+          request,
+          run,
+        });
+      }
     } catch (error) {
       toast({
         title: "Could not retry infrastructure setup",
@@ -215,26 +239,58 @@ export function RepositorySelectedWorkspace({
     }
   };
 
-  const handleDetachCloudflareWorker = (workerId: Id<"repositoryCloudflareWorkers">) => {
+  /** A gated action: its first call returns the server's confirmation request, which opens the dialog. */
+  const runConfirmedProviderAction = ({
+    action,
+    errorTitle,
+    title,
+    confirmLabel,
+    run,
+  }: {
+    action: RepositorySettingsPendingAction;
+    errorTitle: string;
+    title: string;
+    confirmLabel: string;
+    run: PendingConfirmation["run"];
+  }) => {
     void runProviderAction({
+      action,
+      errorTitle,
+      run: async () => {
+        const request = await run(undefined);
+        if (request) {
+          setPendingConfirmation({ title, confirmLabel, request, run });
+        }
+      },
+    });
+  };
+
+  const handleDetachCloudflareWorker = (workerId: Id<"repositoryCloudflareWorkers">) => {
+    runConfirmedProviderAction({
       action: { kind: "detach_cloudflare_worker", workerId },
       errorTitle: "Could not remove Cloudflare attachment",
-      run: () =>
+      title: "Remove the Worker from this repository?",
+      confirmLabel: "Remove from repository",
+      run: (confirmation) =>
         detachResource({
           repositoryId: repository.repositoryId,
           resource: { kind: "cloudflare_worker", workerId },
+          confirmation,
         }),
     });
   };
 
   const handleDetachConvexProject = (convexProjectId: Id<"repositoryConvexProjects">) => {
-    void runProviderAction({
+    runConfirmedProviderAction({
       action: { kind: "detach_convex_project", convexProjectId },
       errorTitle: "Could not remove Convex attachment",
-      run: () =>
+      title: "Remove the Convex project from this repository?",
+      confirmLabel: "Remove from repository",
+      run: (confirmation) =>
         detachResource({
           repositoryId: repository.repositoryId,
           resource: { kind: "convex_project", convexProjectId },
+          confirmation,
         }),
     });
   };
@@ -279,18 +335,21 @@ export function RepositorySelectedWorkspace({
     workerId: Id<"repositoryCloudflareWorkers">,
     convexProjectId: Id<"repositoryConvexProjects">,
   ) => {
-    void runProviderAction({
+    runConfirmedProviderAction({
       action: {
         kind: "rotate_convex_deploy_keys_for_workers_builds",
         workerId,
         convexProjectId,
       },
       errorTitle: "Could not rotate Convex deploy keys for Workers Builds",
-      run: () =>
+      title: "Replace the Convex deploy keys?",
+      confirmLabel: "Replace deploy keys",
+      run: (confirmation) =>
         rotateConvexDeployKeys({
           convexProjectId,
           workerId,
           repositoryId: repository.repositoryId,
+          confirmation,
         }),
     });
   };
@@ -416,6 +475,21 @@ export function RepositorySelectedWorkspace({
           repairBuildTokenUuid={cloudflareRepairBuildTokenUuid}
           repairWorkerId={cloudflareRepairWorkerId}
           repository={repository}
+        />
+      ) : null}
+      {pendingConfirmation ? (
+        <RepositoryActionConfirmationDialog
+          key={pendingConfirmation.request.token}
+          confirmLabel={pendingConfirmation.confirmLabel}
+          onCancel={() => {
+            setPendingConfirmation(null);
+          }}
+          onConfirm={async (confirmation) => {
+            await pendingConfirmation.run(confirmation);
+            setPendingConfirmation(null);
+          }}
+          request={pendingConfirmation.request}
+          title={pendingConfirmation.title}
         />
       ) : null}
     </>
