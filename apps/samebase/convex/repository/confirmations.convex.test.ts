@@ -119,6 +119,7 @@ async function createFixture() {
     rootDirectory,
     buildTokenUuid: "build-token",
     convexProjectId: ids.convexProjectId,
+    convexProjectSlug: "scout",
   });
   const check = async (args: {
     request: ConfirmedActionRequest;
@@ -193,9 +194,9 @@ describe("action confirmation check", () => {
     ).resolves.toMatchObject({
       state: "needs_confirmation",
       effect:
-        "Samebase attaches the Worker legacy-landing to scout-owner/scout, sets its Workers Builds settings to build scout-owner/scout from root directory apps/site, installs the deploy key of the Convex project at convex.json, and starts a production build. That build replaces what the Worker serves now.",
+        "Samebase attaches the Worker legacy-landing to scout-owner/scout, sets its Workers Builds settings to build scout-owner/scout from root directory apps/site, installs the deploy key of the Convex project scout at convex.json, and starts a production build. That build replaces what the Worker serves now.",
       acknowledgement:
-        "I confirm that the user approved replacing the live deployment of Worker legacy-landing with a build of scout-owner/scout from root directory apps/site that deploys the Convex project at convex.json",
+        "I confirm that the user approved replacing the live deployment of Worker legacy-landing with a build of scout-owner/scout from root directory apps/site that deploys the Convex project scout at convex.json",
     });
   });
 

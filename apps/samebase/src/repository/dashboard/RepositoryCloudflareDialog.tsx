@@ -41,6 +41,7 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
 import { RepositoryProviderDiscoveryLoadingState } from "./RepositoryProviderDiscoveryLoadingState";
 import { RepositoryRootInput } from "./RepositoryRootInput";
+import type { RepositoryConvexProjectObservation } from "./useRepositoryProviderObservations";
 
 const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
 
@@ -435,12 +436,15 @@ export function RepositoryCloudflareDialogContent({
 
 export function RepositoryCloudflareDialog({
   blockedReason,
+  convexProjectObservations,
   onClose,
   repairBuildTokenUuid,
   repairWorkerId,
   repository,
 }: {
   blockedReason: string | null;
+  /** The live Convex reads of the overview; their slugs tell apart projects at one code location. */
+  convexProjectObservations: readonly RepositoryConvexProjectObservation[];
   onClose: () => void;
   repairBuildTokenUuid: string | null;
   repairWorkerId: Id<"repositoryCloudflareWorkers"> | null;
@@ -675,6 +679,16 @@ export function RepositoryCloudflareDialog({
   const deployKeyConvexProject = repository.convexProjects.find(
     (project) => project.convexProjectId === deployKeyConvexProjectId,
   );
+  // Several attached projects can share a code location, so a choice also shows the Convex slug.
+  const formatConvexProjectChoice = (project: UserRepositoryResult["convexProjects"][number]) => {
+    const codeLocation = getConvexCodeLocationPath(project.codeLocation);
+    const provider = convexProjectObservations.find(
+      (observation) => observation.convexProjectId === project.convexProjectId,
+    )?.provider;
+    return provider?.state === "current"
+      ? `${provider.projectSlug} (${codeLocation})`
+      : codeLocation;
+  };
 
   // The confirmation step replaces the form, so the confirmed call resends the shown request.
   if (connectConfirmation) {
@@ -721,14 +735,14 @@ export function RepositoryCloudflareDialog({
               <SelectTrigger id="cloudflare-worker-convex-project" className="w-full">
                 <SelectValue placeholder="Choose a Convex project">
                   {deployKeyConvexProject
-                    ? getConvexCodeLocationPath(deployKeyConvexProject.codeLocation)
+                    ? formatConvexProjectChoice(deployKeyConvexProject)
                     : null}
                 </SelectValue>
               </SelectTrigger>
               <AppSelectContent>
                 {repository.convexProjects.map((project) => (
                   <AppSelectItem key={project.convexProjectId} value={project.convexProjectId}>
-                    {getConvexCodeLocationPath(project.codeLocation)}
+                    {formatConvexProjectChoice(project)}
                   </AppSelectItem>
                 ))}
               </AppSelectContent>

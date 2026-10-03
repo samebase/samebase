@@ -1240,6 +1240,7 @@ export async function rotateConvexDeployKeysWithConfirmation(
       repositoryId: args.repositoryId,
       workerId: args.workerId,
       convexProjectId: args.convexProjectId,
+      convexProjectSlug: await readAttachedConvexProjectSlug(ctx, args),
     },
     confirmation: args.confirmation,
   });
@@ -1442,6 +1443,35 @@ export async function selectConvexDeployKeyTarget(
 }
 
 /**
+The live slug of an attached Convex project for a confirmation sentence, so the sentence tells apart
+projects at one code location. Null when Convex cannot be read.
+*/
+async function readAttachedConvexProjectSlug(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    convexProjectId: Id<"repositoryConvexProjects">;
+  },
+): Promise<string | null> {
+  const context: RepositoryProviderObservationContext = await ctx.runQuery(
+    internal.repository.providerObservationQueries.readRepositoryProviderObservationContext,
+    { repositoryId: args.repositoryId, userId: args.userId },
+  );
+  const project = context.convexProjects.find(
+    (candidate) => candidate.convexProjectId === args.convexProjectId,
+  );
+  if (!project) {
+    return null;
+  }
+  const teamProjectNames = await readRepositoryConvexTeamProjectNames(ctx, {
+    userId: args.userId,
+    repository: context,
+  });
+  return teamProjectNames?.get(project.projectId)?.projectSlug ?? null;
+}
+
+/**
 The deploy-key result of a new Worker before the dashboard or MCP projection. `error` is the raw
 failure: the dashboard shows its text, and MCP passes it through publicMcpErrorMessage.
 */
@@ -1560,6 +1590,14 @@ export async function connectWorkerForUser(
       rootDirectory: normalizeRepositoryRootDirectory(args.rootDirectory),
       buildTokenUuid: args.buildTokenUuid,
       convexProjectId: target.state === "selected" ? target.convexProjectId : null,
+      convexProjectSlug:
+        target.state === "selected"
+          ? await readAttachedConvexProjectSlug(ctx, {
+              userId: args.userId,
+              repositoryId: args.repositoryId,
+              convexProjectId: target.convexProjectId,
+            })
+          : null,
     },
     confirmation: args.confirmation,
   });

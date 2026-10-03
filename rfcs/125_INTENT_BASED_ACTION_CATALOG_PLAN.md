@@ -422,7 +422,8 @@ Deviations found during step 2:
    repository's stored account. The dashboard keeps passing IDs, Worker tags, and the token that it
    shows. `repository/convex:attachProject` keeps the dashboard's `projects` array (one atomic call
    for several projects); the MCP tool attaches one project. The Cloudflare dialog shows a Convex
-   project choice only when several projects are attached.
+   project choice only when several projects are attached. Each choice shows the project's slug and
+   code location, because several projects can share a code location.
 5. `rootDirectory?` of `repository_cloudflare_configureBuilds` must equal the Worker's recorded root
    directory. Changing a recorded root stays in the dashboard.
 6. `account_getAuthenticationStatus` returns the GitHub owners as `githubOwnerLogins`.
@@ -472,8 +473,11 @@ Deviations found during step 4:
    tag, or team and project ID), so the row stays readable after a detach deletes the attachment.
 3. The sentence depends on the surface. The dashboard checkbox reads "I approve ..." because the
    person ticks it; MCP reads "I confirm that the user approved ...". The rest of the sentence is
-   the same, and it names a Convex project by its code location, because the dashboard check runs in
-   a mutation that cannot read Convex names.
+   the same. Connect and rotation name a Convex project by its slug and its code location (for
+   example "the Convex project admin at convex.json"), because several projects can share a code
+   location: their actions read the slug before the check, and the request carries it, so the token
+   binds it too. Detach names a project by its code location only, because the dashboard detach is
+   one mutation that cannot read Convex.
 4. The audit row is written in the transaction that consumes the token, before the action runs.
    Detach runs the check and the detach in one mutation, so a failed detach leaves the token unused.
    Connect, rotation, and retry run provider work after the token is consumed; when that work fails,

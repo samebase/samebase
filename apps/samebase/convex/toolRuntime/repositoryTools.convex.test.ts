@@ -562,13 +562,17 @@ describe("Convex project selection for deploy keys", () => {
       status: "ok",
       structuredContent: {
         state: "needs_confirmation",
-        acknowledgement: expect.stringMatching(/the Convex project at apps\/admin\/convex\.json$/),
+        acknowledgement: expect.stringMatching(
+          /the Convex project admin at apps\/admin\/convex\.json$/,
+        ),
       },
     });
     await expect(rotate("site")).resolves.toMatchObject({
       status: "ok",
       structuredContent: {
-        acknowledgement: expect.stringMatching(/the Convex project at apps\/site\/convex\.json$/),
+        acknowledgement: expect.stringMatching(
+          /the Convex project site at apps\/site\/convex\.json$/,
+        ),
       },
     });
     await expect(rotate("control")).resolves.toEqual({
@@ -621,11 +625,46 @@ describe("Convex project selection for deploy keys", () => {
       structuredContent: {
         state: "needs_confirmation",
         acknowledgement:
-          "I confirm that the user approved revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project at convex.json",
+          "I confirm that the user approved revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project scout at convex.json",
       },
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
     expect(fetch).not.toHaveBeenCalled();
+    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("names the Convex project by slug in the challenge when two projects share convex.json", async () => {
+    const fixture = await createScoutFixture();
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      convexTeamProject("scout-project", "scout"),
+      convexTeamProject("admin-project", "admin"),
+    ]);
+    const adminProjectId = await fixture.t.run(
+      async (ctx) =>
+        await ctx.db.insert("repositoryConvexProjects", {
+          repositoryId: fixture.repositoryId,
+          organizationId: fixture.organizationId,
+          teamId: "convex-team",
+          projectId: "admin-project",
+          convexConfigPath: "convex.json",
+          origin: "selected_existing",
+        }),
+    );
+    const challenge = async (convexProjectId: typeof adminProjectId) =>
+      await fixture.viewer.action(api.repository.cloudflare.rotateConvexDeployKeys, {
+        repositoryId: fixture.repositoryId,
+        workerId: fixture.workerId,
+        convexProjectId,
+      });
+
+    await expect(challenge(adminProjectId)).resolves.toMatchObject({
+      acknowledgement:
+        "I approve revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project admin at convex.json",
+    });
+    await expect(challenge(fixture.convexProjectId)).resolves.toMatchObject({
+      acknowledgement:
+        "I approve revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project scout at convex.json",
+    });
     expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
   });
 

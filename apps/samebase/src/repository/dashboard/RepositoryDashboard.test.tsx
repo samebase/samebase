@@ -2494,6 +2494,7 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
+              convexProjectObservations={[]}
               onClose={() => {}}
               repairBuildTokenUuid="build-token"
               repairWorkerId={workerId}
@@ -2708,6 +2709,7 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
+              convexProjectObservations={[]}
               onClose={() => {}}
               repairBuildTokenUuid={null}
               repairWorkerId={null}
@@ -2767,6 +2769,106 @@ describe("RepositoryCloudflareDialogContent", () => {
         ...rootElement.querySelectorAll<HTMLButtonElement>("button"),
       ].find((button) => button.textContent === "Connect and add");
       expect(connectAndAddButton?.disabled).toBe(false);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+    }
+  });
+
+  it("names each deploy-key Convex project by its slug when two share convex.json", async () => {
+    const siteProjectId = fakeConvexProjectId("site-project-attachment");
+    const adminProjectId = fakeConvexProjectId("admin-project-attachment");
+    const discoverWorkers = vi.fn(async () => ({
+      inventoryState: "complete" as const,
+      workers: [],
+    }));
+    const listBuildTokens = vi.fn(async () => ({
+      accountId: "account-1",
+      lastUsedBuildTokenUuid: "build-token",
+      tokens: [{ name: "Build token", uuid: "build-token" }],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.repository.cloudflare.findWorkers)) {
+        return discoverWorkers;
+      }
+      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
+        return listBuildTokens;
+      }
+      return vi.fn();
+    });
+    const observation = (convexProjectId: typeof siteProjectId, projectSlug: string) => ({
+      convexProjectId,
+      projectId: `${projectSlug}-project-id`,
+      codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
+      source: { kind: "config" as const, state: "valid" as const },
+      provider: {
+        state: "current" as const,
+        projectSlug,
+        teamSlug: "ada",
+        productionDeployment: { state: "missing" as const },
+      },
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RepositoryCloudflareDialog
+              blockedReason={null}
+              convexProjectObservations={[
+                observation(siteProjectId, "site"),
+                observation(adminProjectId, "admin"),
+              ]}
+              onClose={() => {}}
+              repairBuildTokenUuid={null}
+              repairWorkerId={null}
+              repository={makeRepositorySettingsBuilderRepository({
+                convexProjects: [
+                  makeRepositorySettingsConvexProject({ convexProjectId: siteProjectId }),
+                  makeRepositorySettingsConvexProject({ convexProjectId: adminProjectId }),
+                ],
+              })}
+            />
+          </QueryClientProvider>,
+        );
+      });
+
+      const createButton = await act(() =>
+        vi.waitFor(() => {
+          const button = [...rootElement.querySelectorAll("button")].find(
+            (candidate) => candidate.textContent === "Create" && !candidate.disabled,
+          );
+          if (!button) {
+            throw new Error("Expected the Create button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => {
+        createButton.click();
+      });
+      const projectSelect = [
+        ...rootElement.querySelectorAll<HTMLButtonElement>('[role="combobox"]'),
+      ].find((button) => button.textContent.includes("Choose a Convex project"));
+      if (!projectSelect) {
+        throw new Error("Expected the Convex project select.");
+      }
+      await act(async () => {
+        projectSelect.click();
+      });
+
+      expect(
+        [...document.querySelectorAll<HTMLElement>('[role="option"]')].map(
+          (option) => option.textContent,
+        ),
+      ).toEqual(["site (convex.json)", "admin (convex.json)"]);
     } finally {
       await act(async () => root.unmount());
       queryClient.clear();

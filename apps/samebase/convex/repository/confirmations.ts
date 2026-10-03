@@ -37,8 +37,8 @@ const START_AGAIN =
 
 /**
 A gated request after the server resolved names and defaults: the repository, the Worker tag, the
-root directory, the Workers Builds token, and the Convex project (null when none is attached). A
-token approves exactly this request.
+root directory, the Workers Builds token, and the Convex project (null when none is attached) with
+its live slug (null when Convex cannot be read). A token approves exactly this request.
 */
 export const vConfirmedActionRequest = union(
   object({
@@ -49,12 +49,14 @@ export const vConfirmedActionRequest = union(
     rootDirectory: string(),
     buildTokenUuid: string(),
     convexProjectId: union(id("repositoryConvexProjects"), v.null()),
+    convexProjectSlug: union(string(), v.null()),
   }),
   object({
     action: literal(cloudflareRotateConvexDeployKeysForWorkersBuildsContract.id),
     repositoryId: id("repositories"),
     workerId: id("repositoryCloudflareWorkers"),
     convexProjectId: id("repositoryConvexProjects"),
+    convexProjectSlug: union(string(), v.null()),
   }),
   object({
     action: literal(retryInfrastructureProvisioningContract.id),
@@ -133,6 +135,16 @@ async function requireAttachedConvexProject(
   };
 }
 
+/**
+Several attached projects can share a code location, so a sentence names the project by its slug
+and its code location. Without a readable slug it names the code location only.
+*/
+function describeConvexProject(codeLocation: string, convexProjectSlug: string | null): string {
+  return convexProjectSlug
+    ? `the Convex project ${convexProjectSlug} at ${codeLocation}`
+    : `the Convex project at ${codeLocation}`;
+}
+
 function toWorkerResource(worker: Doc<"repositoryCloudflareWorkers">): ConfirmedResource {
   return {
     kind: "cloudflare_worker",
@@ -144,8 +156,9 @@ function toWorkerResource(worker: Doc<"repositoryCloudflareWorkers">): Confirmed
 
 /**
 Re-reads the repository and the resource that the request names, from local rows only, so the
-dashboard mutation can run the check. Convex projects are named by their code location, which the
-dashboard also shows; their Convex names need a provider read.
+dashboard mutation can run the check. A Convex project is named by its code location and by the
+slug that the calling action read from Convex; the detach mutation cannot read Convex, so a detached
+project is named by its code location only.
 */
 async function readConfirmationSubject(
   db: DatabaseReader,
@@ -177,6 +190,9 @@ async function readConfirmationSubject(
           ? null
           : await requireAttachedConvexProject(db, repository, request.convexProjectId);
       const { rootDirectory, workerName } = request;
+      const projectText =
+        convexProject &&
+        describeConvexProject(convexProject.codeLocation, request.convexProjectSlug);
       return {
         organizationId,
         resource: {
@@ -185,8 +201,8 @@ async function readConfirmationSubject(
           workerTag: request.workerTag,
           workerName,
         },
-        effect: `Samebase attaches the Worker ${workerName} to ${repositoryName}, sets its Workers Builds settings to build ${repositoryName} from root directory ${rootDirectory}${convexProject ? `, installs the deploy key of the Convex project at ${convexProject.codeLocation}` : ""}, and starts a production build. That build replaces what the Worker serves now.`,
-        approval: `replacing the live deployment of Worker ${workerName} with a build of ${repositoryName} from root directory ${rootDirectory}${convexProject ? ` that deploys the Convex project at ${convexProject.codeLocation}` : ""}`,
+        effect: `Samebase attaches the Worker ${workerName} to ${repositoryName}, sets its Workers Builds settings to build ${repositoryName} from root directory ${rootDirectory}${projectText ? `, installs the deploy key of ${projectText}` : ""}, and starts a production build. That build replaces what the Worker serves now.`,
+        approval: `replacing the live deployment of Worker ${workerName} with a build of ${repositoryName} from root directory ${rootDirectory}${projectText ? ` that deploys ${projectText}` : ""}`,
       };
     }
     case "rotate_convex_deploy_keys": {
@@ -196,11 +212,12 @@ async function readConfirmationSubject(
         repository,
         request.convexProjectId,
       );
+      const projectText = describeConvexProject(codeLocation, request.convexProjectSlug);
       return {
         organizationId,
         resource: toWorkerResource(worker),
-        effect: `Samebase revokes the Convex deploy keys that it recorded for the Worker ${worker.workerName}, creates new keys on the Convex project at ${codeLocation}, writes them to the Worker's Workers Builds settings, and starts a production build. If a step fails, builds of the Worker cannot deploy Convex until the keys are replaced again.`,
-        approval: `revoking and replacing the Convex deploy keys of Worker ${worker.workerName} with new keys of the Convex project at ${codeLocation}`,
+        effect: `Samebase revokes the Convex deploy keys that it recorded for the Worker ${worker.workerName}, creates new keys on ${projectText}, writes them to the Worker's Workers Builds settings, and starts a production build. If a step fails, builds of the Worker cannot deploy Convex until the keys are replaced again.`,
+        approval: `revoking and replacing the Convex deploy keys of Worker ${worker.workerName} with new keys of ${projectText}`,
       };
     }
     case "retry_provider_setup":
