@@ -128,7 +128,7 @@ async function readRepositoryForMcp(
 }
 
 /**
-The Convex project whose deploy key a Worker tool installs. MCP resolves only a given name; the
+The Convex project whose deploy key a Worker tool installs. MCP resolves only a given slug; the
 server rule selectConvexDeployKeyTarget decides the rest, before any provider request. Undefined
 means that no Convex project is attached.
 */
@@ -137,40 +137,41 @@ async function selectConvexDeployKeyProject(
   args: {
     userId: Id<"users">;
     repository: UserRepositoryResult;
-    convexProjectName: string | undefined;
+    convexProjectSlug: string | undefined;
   },
 ): Promise<Id<"repositoryConvexProjects"> | undefined> {
   const target = await selectConvexDeployKeyTarget(ctx, {
     userId: args.userId,
     repositoryId: args.repository.repositoryId,
     convexProjectId:
-      args.convexProjectName === undefined
+      args.convexProjectSlug === undefined
         ? undefined
-        : await findAttachedConvexProjectByName(ctx, {
+        : await findAttachedConvexProjectBySlug(ctx, {
             userId: args.userId,
             repository: args.repository,
-            projectName: args.convexProjectName,
+            projectSlug: args.convexProjectSlug,
           }),
   });
   return target.state === "selected" ? target.convexProjectId : undefined;
 }
 
-async function findAttachedConvexProjectByName(
+/**
+MCP names an attached Convex project by its slug only: the slug is unique inside a Convex team, while
+two projects can share a display name, and one project's name can be another project's slug.
+*/
+async function findAttachedConvexProjectBySlug(
   ctx: Pick<ActionCtx, "runQuery">,
-  args: { userId: Id<"users">; repository: UserRepositoryResult; projectName: string },
+  args: { userId: Id<"users">; repository: UserRepositoryResult; projectSlug: string },
 ): Promise<Id<"repositoryConvexProjects">> {
-  const requestedName = args.projectName.trim();
+  const requestedSlug = args.projectSlug.trim();
   const projects = nameAttachedConvexProjects(
     args.repository.convexProjects,
     await readRepositoryConvexTeamProjectNames(ctx, args),
   );
-  const project = projects.find(
-    (candidate) =>
-      candidate.projectName === requestedName || candidate.projectSlug === requestedName,
-  );
+  const project = projects.find((candidate) => candidate.projectSlug === requestedSlug);
   if (!project) {
     throw new ConvexError(
-      `No attached Convex project of ${args.repository.githubRepositoryFullName} is named ${requestedName}. Attached Convex projects: ${projects.length === 0 ? "none" : formatAttachedConvexProjects(projects)}.`,
+      `No attached Convex project of ${args.repository.githubRepositoryFullName} has the slug ${requestedSlug}. Attached Convex project slugs: ${projects.length === 0 ? "none" : formatAttachedConvexProjects(projects)}.`,
     );
   }
   return project.convexProjectId;
@@ -318,6 +319,7 @@ export const repositoryListTool = defineMcpTool({
             rootDirectory: worker.rootDirectory,
           })),
           convexProjects: (convexProjectNames[index] ?? []).map((project) => ({
+            projectSlug: project.projectSlug,
             projectName: project.projectName,
             codeLocation: project.codeLocation,
           })),
@@ -489,10 +491,10 @@ export const repositoryDetachResourceTool = defineMcpTool({
           }
         : {
             kind: "convex_project" as const,
-            convexProjectId: await findAttachedConvexProjectByName(ctx, {
+            convexProjectId: await findAttachedConvexProjectBySlug(ctx, {
               userId: args.userId,
               repository,
-              projectName: resourceName,
+              projectSlug: resourceName,
             }),
           };
 
@@ -575,7 +577,7 @@ export const cloudflareConnectWorkerTool = defineMcpTool({
     const convexProjectId = await selectConvexDeployKeyProject(ctx, {
       userId: args.userId,
       repository,
-      convexProjectName: args.convexProjectName,
+      convexProjectSlug: args.convexProjectSlug,
     });
     const buildTokenUuid = requireSelectedWorkersBuildsToken(
       await selectWorkersBuildsTokenForRepository(ctx, {
@@ -655,12 +657,12 @@ export const cloudflareCreateWorkerTool = defineMcpTool({
       args.rootDirectory ?? pendingCloudflareSetup?.rootDirectory ?? "/",
     );
     const convexProjectId =
-      args.convexProjectName === undefined && pendingCloudflareSetup
+      args.convexProjectSlug === undefined && pendingCloudflareSetup
         ? pendingCloudflareSetup.convexProjectId
         : await selectConvexDeployKeyProject(ctx, {
             userId: args.userId,
             repository,
-            convexProjectName: args.convexProjectName,
+            convexProjectSlug: args.convexProjectSlug,
           });
     const buildTokenUuid = requireSelectedWorkersBuildsToken(
       await selectWorkersBuildsTokenForRepository(ctx, {
@@ -738,7 +740,7 @@ export const cloudflareRotateConvexDeployKeysTool = defineMcpTool({
     const convexProjectId = await selectConvexDeployKeyProject(ctx, {
       userId: args.userId,
       repository,
-      convexProjectName: args.convexProjectName,
+      convexProjectSlug: args.convexProjectSlug,
     });
     if (convexProjectId === undefined) {
       throw new ConvexError(
@@ -799,18 +801,18 @@ export const convexAttachProjectTool = defineMcpTool({
         "This repository has no Convex team yet. Connect Convex to its organization in Samebase, then retry.",
       );
     }
-    const requestedName = args.projectName.trim();
+    const requestedSlug = args.convexProjectSlug.trim();
     const teamProjects = await readConvexTeamProjectNamesForUser(ctx, {
       userId: args.userId,
       organizationId: repository.organizationId,
       teamId: repository.convexTeamId,
     });
     const projectId = [...teamProjects].find(
-      ([, names]) => names.projectName === requestedName || names.projectSlug === requestedName,
+      ([, names]) => names.projectSlug === requestedSlug,
     )?.[0];
     if (projectId === undefined) {
       throw new ConvexError(
-        `The repository's Convex team has no project named ${requestedName}. Call repository_convex_findProjects to see attachable projects, or create one with repository_convex_createProject.`,
+        `The repository's Convex team has no project with the slug ${requestedSlug}. Call repository_convex_findProjects to see the slugs of attachable projects, or create one with repository_convex_createProject.`,
       );
     }
     const recordedAttachment = (
@@ -822,8 +824,8 @@ export const convexAttachProjectTool = defineMcpTool({
     if (recordedAttachment) {
       throw new ConvexError(
         recordedAttachment.attachment === "attached"
-          ? `Convex project ${requestedName} is already attached to ${repository.githubRepositoryFullName}.`
-          : `Convex project ${requestedName} is attached to another Samebase repository, so it cannot be attached here.`,
+          ? `Convex project ${requestedSlug} is already attached to ${repository.githubRepositoryFullName}.`
+          : `Convex project ${requestedSlug} is attached to another Samebase repository, so it cannot be attached here.`,
       );
     }
     const { source } = await discoverConvexCodeLocations(ctx, {
@@ -843,8 +845,8 @@ export const convexAttachProjectTool = defineMcpTool({
     });
     const codeLocationPath = getConvexCodeLocationPath(codeLocation);
     return {
-      text: `Attached Convex project ${requestedName} to ${repository.githubRepositoryFullName} at ${codeLocationPath}.`,
-      structuredContent: { projectName: requestedName, codeLocation: codeLocationPath },
+      text: `Attached Convex project ${requestedSlug} to ${repository.githubRepositoryFullName} at ${codeLocationPath}.`,
+      structuredContent: { projectSlug: requestedSlug, codeLocation: codeLocationPath },
     };
   },
 });

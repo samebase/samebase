@@ -7,9 +7,9 @@ MCP tool `repository_detachResource` · scope `access_provider_connections` · d
 Removes one attachment record from the repository: a Cloudflare Worker or a Convex project. The
 Worker or project keeps running in the user's provider account; Samebase changes no provider
 resource, key, or Builds setting. `kind` is required because a Worker and a Convex project often
-share the repository's name. The repository must have no running provider setup or other provider
-write. Removing the repository itself, with or without its provider resources, stays in the Samebase
-dashboard.
+share the repository's name. The MCP tool names a Worker by its name and a Convex project by its
+slug. The repository must have no running provider setup or other provider write. Removing the
+repository itself, with or without its provider resources, stays in the Samebase dashboard.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the
@@ -25,8 +25,8 @@ Samebase records each accepted confirmation in its audit log.
   repository_list.
 - `kind` (value, required): cloudflare_worker or convex_project. A Worker and a Convex project can
   share a name.
-- `resourceName` (string, required): Name of the attached Worker or Convex project, as
-  repository_list shows it.
+- `resourceName` (string, required): Name of the attached Worker, or slug of the attached Convex
+  project, as repository_list returns them.
 - `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
   in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 

@@ -541,11 +541,12 @@ export function nameAttachedConvexProjects(
     );
 }
 
+/** Each project as its slug, which MCP tools take, and its code location. */
 export function formatAttachedConvexProjects(
   projects: readonly AttachedConvexProjectName[],
 ): string {
   return projects
-    .map((project) => `${project.projectName ?? "unnamed"} (${project.codeLocation})`)
+    .map((project) => `${project.projectSlug ?? "slug unavailable"} (${project.codeLocation})`)
     .join(", ");
 }
 

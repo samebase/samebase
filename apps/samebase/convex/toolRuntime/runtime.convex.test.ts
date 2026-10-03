@@ -319,8 +319,8 @@ describe("MCP tool runtime boundaries", () => {
           },
           // No Convex credential is stored, so the live project names are unreadable.
           convexProjects: [
-            { projectName: null, codeLocation: "apps/web/convex.json" },
-            { projectName: null, codeLocation: "convex.json" },
+            { projectSlug: null, projectName: null, codeLocation: "apps/web/convex.json" },
+            { projectSlug: null, projectName: null, codeLocation: "convex.json" },
           ],
         }),
       ]),

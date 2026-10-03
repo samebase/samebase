@@ -13,11 +13,11 @@ production. It reads the settings back and verifies the marker and secrecy flags
 production build. The Worker must already use native Worker Previews, and the Convex project must
 have a production deployment ("Deploy the Convex project to production first").
 
-The Worker and project must both be attached to the repository. Without a project name, the MCP tool
-uses the repository's only attached Convex project. Their selection is input to this one operation,
-not a persisted dependency. Rerunning the operation revokes and replaces the Samebase-named keys.
-Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
-Convex.
+The Worker and project must both be attached to the repository. The MCP tool takes the project's
+slug; without one, it uses the repository's only attached Convex project. Their selection is input
+to this one operation, not a persisted dependency. Rerunning the operation revokes and replaces the
+Samebase-named keys. Samebase reads Convex live and stores no completed Worker-to-project, key, or
+trigger mirror in Convex.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the
@@ -32,8 +32,9 @@ Samebase records each accepted confirmation in its audit log.
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
   repository_list.
 - `workerName` (string, required): Name of the attached Worker.
-- `convexProjectName` (string, optional): Optional name of the attached Convex project. Required
-  when several Convex projects are attached.
+- `convexProjectSlug` (string, optional): Optional slug of the attached Convex project, as
+  repository_list returns it. Required when several Convex projects are attached. Only an exact slug
+  matches.
 - `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
   in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 

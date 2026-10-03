@@ -56,8 +56,8 @@ description:
 ## Name repositories and resources
 
 - Name a repository by its GitHub full name, `owner/name`, or by the `repositoryId` from
-  `repository_list`. Name Workers and Convex projects by the names that Samebase returns. Never
-  invent IDs.
+  `repository_list`. Name a Worker by the name and an existing Convex project by the `projectSlug`
+  that Samebase returns. Never invent IDs.
 - Read `repository_list` before a write when the repository can already be connected.
 - Samebase picks the Workers Builds token, the only Convex code location, and the only attached
   Convex project. When a result lists choices, ask the user and pass the choice in the next call.

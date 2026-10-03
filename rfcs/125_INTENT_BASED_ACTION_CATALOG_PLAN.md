@@ -81,7 +81,7 @@ below applies.
 | `account_getAuthenticationStatus`              | Shows the connected account                                                                | none                                                                                                                                                | account, role, GitHub owners, scopes                                                           | yes / no / no  |
 | `account_createSignInLink`                     | Opens the dashboard                                                                        | `returnToPath?`                                                                                                                                     | one-time URL, `expiresAt`                                                                      | no / no / no   |
 | `feedback_submit`                              | Sends approved feedback                                                                    | `report`                                                                                                                                            | sent                                                                                           | no / yes / yes |
-| `repository_list`                              | Lists repositories in all organizations                                                    | none                                                                                                                                                | owner/name, `repositoryId`, setup, pending Cloudflare, attachment names                        | yes / no / no  |
+| `repository_list`                              | Lists repositories in all organizations                                                    | none                                                                                                                                                | owner/name, `repositoryId`, setup, pending Cloudflare, Worker names, Convex slugs and names    | yes / no / no  |
 | `repository_getStatus`                         | Shows live repository status                                                               | `repository`                                                                                                                                        | apps with builds and URLs, Convex deployments, branch and checks, first 6 PRs, attention items | yes / no / no  |
 | `repository_create`                            | Creates a repository with its first app                                                    | `githubOwnerLogin`, `name`, `convexDeploymentRegion?`, `buildTokenUuid?`, `convexProjectName?`, `cloudflareWorkerName?`, `description?`, `private?` | repository, setup running, Cloudflare plan or pending notice                                   | no / yes / no  |
 | `repository_connect`                           | Connects an existing GitHub repository                                                     | `githubRepositoryFullName`                                                                                                                          | repository                                                                                     | no / no / no   |
@@ -89,12 +89,12 @@ below applies.
 | `repository_detachResource`                    | Removes a Worker or Convex project from the repository (gated)                             | `repository`, `kind`, `resourceName`, `confirmation?`                                                                                               | `needs_confirmation`, then detached kind and name                                              | no / no / yes  |
 | `repository_cloudflare_findWorkers`            | Finds Workers that can be added                                                            | `repository`                                                                                                                                        | attachable and connectable rows, counts by reason                                              | yes / no / no  |
 | `repository_cloudflare_attachWorkers`          | Attaches Workers already built from this repository                                        | `repository`, `workerNames`                                                                                                                         | attached names                                                                                 | no / no / no   |
-| `repository_cloudflare_connectWorker`          | Connects an unconnected Worker (gated)                                                     | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`, `convexProjectName?`, `confirmation?`                                              | `needs_confirmation`, then connected, deploy key state                                         | no / yes / yes |
-| `repository_cloudflare_createWorker`           | Creates a Worker, which adds an app                                                        | `repository`, `workerName?`, `rootDirectory?`, `buildTokenUuid?`, `convexProjectName?`                                                              | created, deploy key state                                                                      | no / yes / no  |
+| `repository_cloudflare_connectWorker`          | Connects an unconnected Worker (gated)                                                     | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`, `convexProjectSlug?`, `confirmation?`                                              | `needs_confirmation`, then connected, deploy key state                                         | no / yes / yes |
+| `repository_cloudflare_createWorker`           | Creates a Worker, which adds an app                                                        | `repository`, `workerName?`, `rootDirectory?`, `buildTokenUuid?`, `convexProjectSlug?`                                                              | created, deploy key state                                                                      | no / yes / no  |
 | `repository_cloudflare_configureBuilds`        | Rewrites a Worker's Workers Builds settings for this repository, then starts a build       | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`                                                                                     | configured, build requested                                                                    | no / yes / yes |
-| `repository_cloudflare_rotateConvexDeployKeys` | Replaces the Convex deploy keys in a Worker's Builds settings, then starts a build (gated) | `repository`, `workerName`, `convexProjectName?`, `confirmation?`                                                                                   | `needs_confirmation`, then rotated, build requested                                            | no / yes / yes |
-| `repository_convex_findProjects`               | Finds Convex projects that can be added                                                    | `repository`                                                                                                                                        | code locations, attachable rows, counts by reason                                              | yes / no / no  |
-| `repository_convex_attachProject`              | Attaches an existing Convex project                                                        | `repository`, `projectName`, `codeLocation?`                                                                                                        | attached, code location                                                                        | no / no / no   |
+| `repository_cloudflare_rotateConvexDeployKeys` | Replaces the Convex deploy keys in a Worker's Builds settings, then starts a build (gated) | `repository`, `workerName`, `convexProjectSlug?`, `confirmation?`                                                                                   | `needs_confirmation`, then rotated, build requested                                            | no / yes / yes |
+| `repository_convex_findProjects`               | Finds Convex projects that can be added                                                    | `repository`                                                                                                                                        | code locations, attachable rows with slugs, counts by reason                                   | yes / no / no  |
+| `repository_convex_attachProject`              | Attaches an existing Convex project                                                        | `repository`, `convexProjectSlug`, `codeLocation?`                                                                                                  | attached slug, code location                                                                   | no / no / no   |
 | `repository_convex_createProject`              | Creates a Convex project                                                                   | `repository`, `projectName`, `convexDeploymentRegion?`, `codeLocation?`                                                                             | created, code location                                                                         | no / yes / no  |
 
 Justifications for the three repair tools (the others are in the note, 5.1):
@@ -123,8 +123,13 @@ Shared rules:
   only token. Several tokens and no last-used one return an error that lists them. No token creates
   the repository with Cloudflare pending and returns the setup guide link. No tool takes
   `accountId`.
+- MCP names an existing Convex project by one identifier, its slug, with an exact match only. The
+  slug is unique inside a Convex team, and `repository_list`, `repository_convex_findProjects`, and
+  `repository_getStatus` return it; `projectName` is for display. A Convex project name is never
+  matched, because one project's name can be another project's slug. A slug that matches nothing
+  returns an error that lists the attached slugs.
 - The server installs the Convex deploy key after it connects or creates a Worker. The project is
-  the given `convexProjectName`, else the repository's only attached Convex project. Several
+  the given `convexProjectSlug`, else the repository's only attached Convex project. Several
   attached projects and no name fail before any provider change, with an error that lists them. With
   no attached project, the Worker is still created or connected; the result says that no key was
   installed and that `repository_cloudflare_rotateConvexDeployKeys` installs it later. A result
@@ -398,12 +403,12 @@ cases.
 
 Deviations found during step 2:
 
-1. `repository_detachResource` takes `kind`, and the Worker tools take `convexProjectName?`. The
+1. `repository_detachResource` takes `kind`, and the Worker tools take `convexProjectSlug?`. The
    catalog and the shared rules above include both.
-2. Samebase stores Convex project IDs, not names. MCP reads the names live from the repository's
-   Convex team for `repository_list`, the `convexProjectName` arguments, and
-   `repository_detachResource`. `repository_list` returns `projectName: null` when the team cannot
-   be read.
+2. Samebase stores Convex project IDs, not slugs. MCP reads the slugs and names live from the
+   repository's Convex team for `repository_list`, the `convexProjectSlug` arguments, and
+   `repository_detachResource`. `repository_list` returns `projectSlug: null` and
+   `projectName: null` when the team cannot be read.
 3. `repository:detachResource` is the dashboard's public mutation, as planned. The MCP tool resolves
    the name in the Node runtime, because a Convex name needs a provider read, then runs the internal
    mutation `repository:detachResourceForUser`, which shares the handler.
@@ -424,7 +429,7 @@ Deviations found during step 2:
 Deviations found during step 3:
 
 1. Each Convex project in the MCP result also carries `projectSlug`, so that a person or agent can
-   pass it as `convexProjectName`. The rotation attention item names the project the same way, or
+   pass it as `convexProjectSlug`. The rotation attention item names the project the same way, or
    `null` when several projects are attached and the keys name none.
 2. Facts that a provider read cannot return are `unavailable` and produce no attention item, because
    a guessed repair can be wrong. `repository_getStatus` fails with guidance only for a repository

@@ -40,7 +40,7 @@ const vRepositoryAttentionItem = union(
   object({
     tool: literal(cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name),
     workerName: string(),
-    convexProjectName: union(string(), v.null()),
+    convexProjectSlug: union(string(), v.null()),
     problem: string(),
   }),
   object({

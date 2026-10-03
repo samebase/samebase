@@ -235,8 +235,8 @@ const vUserRepositoriesResult = array(
 
 /**
 The MCP list carries names, not attachment IDs: every MCP tool takes the repository as owner/name or
-repositoryId, and resources by name. Convex project names are read live from Convex; null means that
-Samebase could not read the Convex team.
+repositoryId, a Worker by its name, and a Convex project by its slug. Convex project slugs and names
+are read live from Convex; null means that Samebase could not read the Convex team.
 */
 const vMcpUserRepositoriesResult = array(
   object({
@@ -270,6 +270,7 @@ const vMcpUserRepositoriesResult = array(
     ),
     convexProjects: array(
       object({
+        projectSlug: union(string(), v.null()),
         projectName: union(string(), v.null()),
         codeLocation: string(),
       }),
@@ -287,7 +288,7 @@ export const getUserRepositoriesContract = {
     title: "List Samebase repositories",
     name: "repository_list",
     description:
-      "List the Samebase repositories in every organization of the account: owner/name, repositoryId, setup state, pending Cloudflare setup, and the names of attached Workers and Convex projects.",
+      "List the Samebase repositories in every organization of the account: owner/name, repositoryId, setup state, pending Cloudflare setup, the names of attached Workers, and the slugs and names of attached Convex projects. Other tools take a Convex project by its slug.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -304,9 +305,10 @@ or delete_failed, source and provider setup are not_applicable. Do not change th
 providers. The user can retry a failed deletion in the Samebase dashboard. Provider setup status
 reports the managed work that was requested. It does not prove that every provider is attached.
 
-Each attached Worker shows its name and root directory. Each attached Convex project shows its name,
-read live from Convex, and its code location (a convex.json path, or a convex/ directory). The name
-is null when Samebase could not read the Convex team.
+Each attached Worker shows its name and root directory. Each attached Convex project shows its slug
+and name, read live from Convex, and its code location (a convex.json path, or a convex/ directory).
+Other MCP tools take the slug, which is unique inside a Convex team; the name is for display. Both
+are null when Samebase could not read the Convex team.
 
 pendingCloudflareSetup is null unless a managed creation had no Workers Builds token, its Convex
 project is attached, and no Worker is attached. Then a ready providerSetup means that the GitHub and

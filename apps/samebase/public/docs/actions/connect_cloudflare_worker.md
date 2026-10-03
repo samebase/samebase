@@ -10,11 +10,12 @@ writes production and Previews Base Builds settings for the requested root direc
 production build replaces the Worker's current deployment.
 
 Samebase then installs the Convex deploy key: for the chosen Convex project, else for the
-repository's only attached Convex project. With several attached Convex projects and no choice, the
-call fails before any provider change and lists them. With no attached Convex project, the Worker is
-connected, its production build starts, and no key is installed; after a project is attached, the
-deploy-key repair installs it. When a key is installed, the deploy-key step starts the production
-build. When the key cannot be installed, the result says why, and no production build starts.
+repository's only attached Convex project. The MCP tool takes the chosen project's slug. With
+several attached Convex projects and no choice, the call fails before any provider change and lists
+their slugs. With no attached Convex project, the Worker is connected, its production build starts,
+and no key is installed; after a project is attached, the deploy-key repair installs it. When a key
+is installed, the deploy-key step starts the production build. When the key cannot be installed, the
+result says why, and no production build starts.
 
 Samebase picks the Workers Builds token: the given UUID, else the available last-used token, else
 the only token. Several tokens and no last-used one return an error that lists them.
@@ -35,8 +36,9 @@ Samebase records each accepted confirmation in its audit log.
 - `rootDirectory` (string, optional): Optional repository root directory to build. Defaults to /.
 - `buildTokenUuid` (string, optional): Optional Workers Builds token UUID. Omit it: Samebase uses
   the last-used token, else the only token, and lists the tokens when it needs the user's choice.
-- `convexProjectName` (string, optional): Optional name of the attached Convex project whose deploy
-  key the Worker gets. Required when several Convex projects are attached.
+- `convexProjectSlug` (string, optional): Optional slug of the attached Convex project whose deploy
+  key the Worker gets, as repository_list returns it. Required when several Convex projects are
+  attached. Only an exact slug matches.
 - `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
   in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 

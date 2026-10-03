@@ -38,11 +38,11 @@ vi.mock("../githubRepoApi", async (importOriginal) => {
 import { api, internal } from "../_generated/api";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
-const convexTeamProject = (id: string, name: string) => ({
+const convexTeamProject = (id: string, name: string, slug = name) => ({
   createTime: 1,
   id,
   name,
-  slug: name,
+  slug,
   teamId: "convex-team",
   teamSlug: "scout-team",
 });
@@ -275,7 +275,7 @@ describe("repository_detachResource", () => {
       }),
     ).resolves.toEqual({
       status: "error",
-      text: "No attached Convex project of scout-owner/scout is named free-app. Attached Convex projects: scout (convex.json).",
+      text: "No attached Convex project of scout-owner/scout has the slug free-app. Attached Convex project slugs: scout (convex.json).",
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({
       workers: [{ workerName: "scout" }],
@@ -346,7 +346,9 @@ describe("repository_list", () => {
             repositoryId: fixture.repositoryId,
             githubRepositoryFullName: "scout-owner/scout",
             cloudflareWorkers: [{ workerName: "scout", rootDirectory: "/" }],
-            convexProjects: [{ projectName: "scout", codeLocation: "convex.json" }],
+            convexProjects: [
+              { projectSlug: "scout", projectName: "scout", codeLocation: "convex.json" },
+            ],
           },
         ],
       },
@@ -410,11 +412,15 @@ describe("repository_list", () => {
         repositories: expect.arrayContaining([
           expect.objectContaining({
             githubRepositoryFullName: "scout-owner/scout",
-            convexProjects: [{ projectName: "scout", codeLocation: "convex.json" }],
+            convexProjects: [
+              { projectSlug: "scout", projectName: "scout", codeLocation: "convex.json" },
+            ],
           }),
           expect.objectContaining({
             githubRepositoryFullName: "scout-owner/free",
-            convexProjects: [{ projectName: "free-app", codeLocation: "convex.json" }],
+            convexProjects: [
+              { projectSlug: "free-app", projectName: "free-app", codeLocation: "convex.json" },
+            ],
           }),
         ]),
       },
@@ -520,6 +526,79 @@ describe("Convex project selection for deploy keys", () => {
     expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
   });
 
+  it("selects a Convex project by its exact slug, never by a name that is another project's slug", async () => {
+    const fixture = await createScoutFixture();
+    // P1 is named admin with the slug site; P2 is named control with the slug admin.
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      convexTeamProject("site-project", "admin", "site"),
+      convexTeamProject("control-project", "control", "admin"),
+    ]);
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.delete(fixture.convexProjectId);
+      for (const [projectId, convexConfigPath] of [
+        ["site-project", "apps/site/convex.json"],
+        ["control-project", "apps/admin/convex.json"],
+      ] as const) {
+        await ctx.db.insert("repositoryConvexProjects", {
+          repositoryId: fixture.repositoryId,
+          organizationId: fixture.organizationId,
+          teamId: "convex-team",
+          projectId,
+          convexConfigPath,
+          origin: "selected_existing",
+        });
+      }
+    });
+    const rotate = async (convexProjectSlug: string) =>
+      await fixture.t.action(internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysTool, {
+        userId: fixture.userId,
+        ...mcpGrant,
+        repository: "scout-owner/scout",
+        workerName: "scout",
+        convexProjectSlug,
+      });
+
+    await expect(rotate("admin")).resolves.toMatchObject({
+      status: "ok",
+      structuredContent: {
+        state: "needs_confirmation",
+        acknowledgement: expect.stringMatching(/the Convex project at apps\/admin\/convex\.json$/),
+      },
+    });
+    await expect(rotate("site")).resolves.toMatchObject({
+      status: "ok",
+      structuredContent: {
+        acknowledgement: expect.stringMatching(/the Convex project at apps\/site\/convex\.json$/),
+      },
+    });
+    await expect(rotate("control")).resolves.toEqual({
+      status: "error",
+      text: "No attached Convex project of scout-owner/scout has the slug control. Attached Convex project slugs: admin (apps/admin/convex.json), site (apps/site/convex.json).",
+    });
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.repositoryListTool, {
+        userId: fixture.userId,
+        grantedScopes: ["access_dashboard"],
+      }),
+    ).resolves.toMatchObject({
+      structuredContent: {
+        repositories: [
+          {
+            convexProjects: [
+              {
+                projectSlug: "admin",
+                projectName: "control",
+                codeLocation: "apps/admin/convex.json",
+              },
+              { projectSlug: "site", projectName: "admin", codeLocation: "apps/site/convex.json" },
+            ],
+          },
+        ],
+      },
+    });
+    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+  });
+
   it("returns the deploy-key rotation challenge without a provider request or a write lock", async () => {
     const fixture = await createScoutFixture();
     const fetch = vi.fn();
@@ -574,7 +653,7 @@ describe("Convex project selection for deploy keys", () => {
 });
 
 describe("repository_convex tools", () => {
-  it("attaches an attachable project by name at the only code location", async () => {
+  it("attaches an attachable project by slug at the only code location", async () => {
     const fixture = await createScoutFixture();
 
     await expect(
@@ -582,17 +661,38 @@ describe("repository_convex tools", () => {
         userId: fixture.userId,
         grantedScopes: ["access_provider_connections"],
         repository: "scout-owner/scout",
-        projectName: "free-app",
+        convexProjectSlug: "free-app",
       }),
     ).resolves.toEqual({
       status: "ok",
       text: "Attached Convex project free-app to scout-owner/scout at convex.json.",
-      structuredContent: { projectName: "free-app", codeLocation: "convex.json" },
+      structuredContent: { projectSlug: "free-app", codeLocation: "convex.json" },
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({
       projects: expect.arrayContaining([
         expect.objectContaining({ projectId: "free-project", convexConfigPath: "convex.json" }),
       ]),
+    });
+  });
+
+  it("attaches the project with the exact slug when another project is named like that slug", async () => {
+    const fixture = await createScoutFixture();
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      convexTeamProject("scout-project", "scout"),
+      convexTeamProject("site-project", "admin", "site"),
+      convexTeamProject("control-project", "control", "admin"),
+    ]);
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.convexAttachProjectTool, {
+        userId: fixture.userId,
+        grantedScopes: ["access_provider_connections"],
+        repository: "scout-owner/scout",
+        convexProjectSlug: "admin",
+      }),
+    ).resolves.toMatchObject({ status: "ok", structuredContent: { projectSlug: "admin" } });
+    await expect(readAttachments(fixture)).resolves.toMatchObject({
+      projects: [{ projectId: "scout-project" }, { projectId: "control-project" }],
     });
   });
 
@@ -604,7 +704,7 @@ describe("repository_convex tools", () => {
         userId: fixture.userId,
         grantedScopes: ["access_provider_connections"],
         repository: "scout-owner/scout",
-        projectName: "scout",
+        convexProjectSlug: "scout",
       }),
     ).resolves.toEqual({
       status: "error",

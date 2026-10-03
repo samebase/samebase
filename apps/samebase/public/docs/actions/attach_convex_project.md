@@ -5,7 +5,8 @@
 MCP tool `repository_convex_attachProject` · scope `access_provider_connections` · write
 
 Re-reads the selected Convex project and the exact repository code location before writing the
-attachment. A project that another Samebase repository attaches is rejected. One discovered code
+attachment. The MCP tool takes the project's slug and matches it exactly; a project name is never
+matched. A project that another Samebase repository attaches is rejected. One discovered code
 location is used without asking; several return an error that lists them. The dashboard can attach
 several projects in one atomic call: either every selected project is attached or none are. Convex
 projects and GitHub files are not modified.
@@ -14,7 +15,8 @@ projects and GitHub files are not modified.
 
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
   repository_list.
-- `projectName` (string, required): Name of an attachable Convex project.
+- `convexProjectSlug` (string, required): Slug of an attachable Convex project, as
+  repository_convex_findProjects returns it. Only an exact slug matches.
 - `codeLocation` (string, optional): Optional code location from repository_convex_findProjects: a
   convex.json path or a convex/ directory. Omit it when the repository has one code location.
 
@@ -26,14 +28,14 @@ JSON Schema for the tool's `structuredContent`:
 {
   "type": "object",
   "properties": {
-    "projectName": {
+    "projectSlug": {
       "type": "string"
     },
     "codeLocation": {
       "type": "string"
     }
   },
-  "required": ["projectName", "codeLocation"],
+  "required": ["projectSlug", "codeLocation"],
   "additionalProperties": false
 }
 ```

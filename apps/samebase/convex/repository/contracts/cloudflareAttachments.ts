@@ -131,8 +131,8 @@ const vMcpConvexDeployKeyInstallation = union(
 
 const buildTokenUuidInputDescription =
   "Optional Workers Builds token UUID. Omit it: Samebase uses the last-used token, else the only token, and lists the tokens when it needs the user's choice.";
-const convexProjectNameInputDescription =
-  "Optional name of the attached Convex project whose deploy key the Worker gets. Required when several Convex projects are attached.";
+const convexProjectSlugInputDescription =
+  "Optional slug of the attached Convex project whose deploy key the Worker gets, as repository_list returns it. Required when several Convex projects are attached. Only an exact slug matches.";
 
 export const cloudflareDiscoverWorkersContract = {
   id: "find_cloudflare_workers",
@@ -231,7 +231,7 @@ export const cloudflareConnectWorkerContract = {
     workerName: string(),
     rootDirectory: optional(string()),
     buildTokenUuid: optional(string()),
-    convexProjectName: optional(string()),
+    convexProjectSlug: optional(string()),
     confirmation: optional(vActionConfirmation),
   },
   returns: union(
@@ -276,7 +276,7 @@ export const cloudflareConnectWorkerContract = {
       workerName: "Name of the connectable Worker.",
       rootDirectory: "Optional repository root directory to build. Defaults to /.",
       buildTokenUuid: buildTokenUuidInputDescription,
-      convexProjectName: convexProjectNameInputDescription,
+      convexProjectSlug: convexProjectSlugInputDescription,
       confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
@@ -286,8 +286,9 @@ writes production and Previews Base Builds settings for the requested root direc
 production build replaces the Worker's current deployment.
 
 Samebase then installs the Convex deploy key: for the chosen Convex project, else for the
-repository's only attached Convex project. With several attached Convex projects and no choice, the
-call fails before any provider change and lists them. With no attached Convex project, the Worker is
+repository's only attached Convex project. The MCP tool takes the chosen project's slug. With
+several attached Convex projects and no choice, the call fails before any provider change and lists
+their slugs. With no attached Convex project, the Worker is
 connected, its production build starts, and no key is installed; after a project is attached, the
 deploy-key repair installs it. When a key is installed, the deploy-key step starts the production
 build. When the key cannot be installed, the result says why, and no production build starts.
@@ -313,7 +314,7 @@ export const cloudflareCreateWorkerContract = {
     workerName: optional(string()),
     rootDirectory: optional(string()),
     buildTokenUuid: optional(string()),
-    convexProjectName: optional(string()),
+    convexProjectSlug: optional(string()),
   },
   returns: object({
     workerId: id("repositoryCloudflareWorkers"),
@@ -342,7 +343,7 @@ export const cloudflareCreateWorkerContract = {
       rootDirectory:
         "Optional repository root directory to build. Defaults to the pending Cloudflare setup's root directory, else /.",
       buildTokenUuid: buildTokenUuidInputDescription,
-      convexProjectName: convexProjectNameInputDescription,
+      convexProjectSlug: convexProjectSlugInputDescription,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates one new Worker in the repository's stored Cloudflare account. Samebase checks repository
@@ -353,8 +354,9 @@ existing Worker or Builds connection is not overwritten. If Builds setup fails a
 creation, the Worker can remain attached.
 
 Samebase then installs the Convex deploy key: for the chosen Convex project, else for the
-repository's only attached Convex project. With several attached Convex projects and no choice, the
-call fails before any provider change and lists them. With no attached Convex project, the Worker is
+repository's only attached Convex project. The MCP tool takes the chosen project's slug. With
+several attached Convex projects and no choice, the call fails before any provider change and lists
+their slugs. With no attached Convex project, the Worker is
 created, its first production build starts, and no key is installed; after a project is attached,
 the deploy-key repair installs it. When a key is installed, the deploy-key step starts the first
 production build. When the key cannot be installed, the result says why, and no production build

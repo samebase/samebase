@@ -225,7 +225,7 @@ describe("MCP tool listing access", () => {
       "repository_cloudflare_rotateConvexDeployKeys",
     ]) {
       expect(tools.find((tool) => tool.name === name)?.inputSchema.properties).toHaveProperty(
-        "convexProjectName",
+        "convexProjectSlug",
       );
     }
   });
@@ -1888,7 +1888,7 @@ describe("MCP tools/call access enforcement", () => {
             {
               type: "text",
               // No Convex connection: the names are unreadable, so the code locations identify them.
-              text: "samebase/demo has several attached Convex projects: unnamed (apps/admin/convex.json), unnamed (convex.json). Choose the project whose deploy key the Worker gets.",
+              text: "samebase/demo has several attached Convex projects: slug unavailable (apps/admin/convex.json), slug unavailable (convex.json). Choose the project whose deploy key the Worker gets.",
             },
           ],
         },

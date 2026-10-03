@@ -450,7 +450,7 @@ JSON Schema for the tool's `structuredContent`:
               "workerName": {
                 "type": "string"
               },
-              "convexProjectName": {
+              "convexProjectSlug": {
                 "anyOf": [
                   {
                     "type": "string"
@@ -464,7 +464,7 @@ JSON Schema for the tool's `structuredContent`:
                 "type": "string"
               }
             },
-            "required": ["tool", "workerName", "convexProjectName", "problem"],
+            "required": ["tool", "workerName", "convexProjectSlug", "problem"],
             "additionalProperties": false
           },
           {

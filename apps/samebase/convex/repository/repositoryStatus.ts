@@ -262,7 +262,7 @@ export function buildRepositoryAttention(args: {
         items.push({
           tool: ROTATE_CONVEX_DEPLOY_KEYS_TOOL,
           workerName,
-          convexProjectName: null,
+          convexProjectSlug: null,
           problem: `${describeConvexBuildAccessProblem(workerName, access)} Ask the user which attached Convex project the Worker deploys with.`,
         });
       }
@@ -277,7 +277,7 @@ export function buildRepositoryAttention(args: {
     items.push({
       tool: ROTATE_CONVEX_DEPLOY_KEYS_TOOL,
       workerName,
-      convexProjectName: targetProject.projectSlug,
+      convexProjectSlug: targetProject.projectSlug,
       problem: describeConvexBuildAccessProblem(workerName, access),
     });
   }

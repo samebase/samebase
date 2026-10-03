@@ -577,7 +577,7 @@ describe("buildRepositoryAttention", () => {
       {
         tool: "repository_cloudflare_rotateConvexDeployKeys",
         workerName: "chess-merge",
-        convexProjectName: "chess-merge",
+        convexProjectSlug: "chess-merge",
         problem,
       },
     ]);
@@ -606,7 +606,7 @@ describe("buildRepositoryAttention", () => {
       {
         tool: "repository_cloudflare_rotateConvexDeployKeys",
         workerName: "chess-merge",
-        convexProjectName: null,
+        convexProjectSlug: null,
         problem:
           "chess-merge has no Convex deploy keys. Ask the user which attached Convex project the Worker deploys with.",
       },

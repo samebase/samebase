@@ -24,7 +24,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   mcpArgs: {
     ...mcpRepositoryArgs,
     workerName: string(),
-    convexProjectName: optional(string()),
+    convexProjectSlug: optional(string()),
     confirmation: optional(vActionConfirmation),
   },
   returns: union(vActionConfirmationRequest, v.null()),
@@ -42,8 +42,8 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     inputDescriptions: {
       repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
       workerName: "Name of the attached Worker.",
-      convexProjectName:
-        "Optional name of the attached Convex project. Required when several Convex projects are attached.",
+      convexProjectSlug:
+        "Optional slug of the attached Convex project, as repository_list returns it. Required when several Convex projects are attached. Only an exact slug matches.",
       confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
@@ -55,8 +55,8 @@ production. It reads the settings back and verifies the marker and secrecy flags
 the production build. The Worker must already use native Worker Previews, and the Convex project
 must have a production deployment ("Deploy the Convex project to production first").
 
-The Worker and project must both be attached to the repository. Without a project name, the MCP tool
-uses the repository's only attached Convex project. Their selection is input to this one operation,
+The Worker and project must both be attached to the repository. The MCP tool takes the project's
+slug; without one, it uses the repository's only attached Convex project. Their selection is input to this one operation,
 not a persisted dependency. Rerunning the operation revokes and replaces the Samebase-named keys.
 Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
 Convex.

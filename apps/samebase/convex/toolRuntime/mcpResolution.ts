@@ -237,6 +237,7 @@ export function projectWorkerDiscoveryForMcp(discovery: CloudflareWorkerDiscover
 export function projectConvexDiscoveryForMcp(discovery: ConvexProjectDiscoveryResult) {
   const counts = { attached: 0, attachedElsewhere: 0 };
   const projects: Array<{
+    projectSlug: string;
     projectName: string;
     productionDeployment: ConvexProjectDiscoveryResult["projects"][number]["productionDeployment"];
   }> = [];
@@ -244,6 +245,7 @@ export function projectConvexDiscoveryForMcp(discovery: ConvexProjectDiscoveryRe
     switch (project.attachment) {
       case "attachable":
         projects.push({
+          projectSlug: project.projectSlug,
           projectName: project.projectName,
           productionDeployment: project.productionDeployment,
         });

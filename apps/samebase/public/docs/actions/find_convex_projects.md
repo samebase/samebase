@@ -11,12 +11,13 @@ available through the connected Convex team. Each project gets one attachment st
 this Samebase repository already records it, attached_elsewhere when another Samebase repository
 records it, otherwise attachable. attached_elsewhere never names the other repository.
 
-The MCP result lists the code location paths, the attachable projects with their production
-deployment, and a count of the other projects. A project without a production deployment can be
-attached, but its deploy key cannot be installed until it is deployed to production. A partial
-source scan never proves that an unlisted code location is absent. Discovery may refresh private
-Samebase provider-connection bookkeeping, but it does not change GitHub, Convex, Cloudflare, or
-public internet state.
+The MCP result lists the code location paths, the attachable projects with their slug, name, and
+production deployment, and a count of the other projects. MCP tools name a Convex project by its
+slug, which is unique inside a Convex team; the name is for display. A project without a production
+deployment can be attached, but its deploy key cannot be installed until it is deployed to
+production. A partial source scan never proves that an unlisted code location is absent. Discovery
+may refresh private Samebase provider-connection bookkeeping, but it does not change GitHub, Convex,
+Cloudflare, or public internet state.
 
 ## Arguments
 
@@ -59,6 +60,9 @@ JSON Schema for the tool's `structuredContent`:
       "items": {
         "type": "object",
         "properties": {
+          "projectSlug": {
+            "type": "string"
+          },
           "projectName": {
             "type": "string"
           },
@@ -103,7 +107,7 @@ JSON Schema for the tool's `structuredContent`:
             ]
           }
         },
-        "required": ["projectName", "productionDeployment"],
+        "required": ["projectSlug", "projectName", "productionDeployment"],
         "additionalProperties": false
       }
     },

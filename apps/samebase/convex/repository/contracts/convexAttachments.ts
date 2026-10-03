@@ -98,6 +98,7 @@ const vMcpConvexProjectDiscoveryResult = object({
   }),
   projects: array(
     object({
+      projectSlug: string(),
       projectName: string(),
       productionDeployment: vConvexProductionDeployment,
     }),
@@ -122,7 +123,7 @@ export const convexDiscoverProjectsContract = {
     title: "Find Convex projects",
     name: "repository_convex_findProjects",
     description:
-      "Find the Convex code locations in the repository and the projects in the connected Convex team that can be attached. Lists attachable projects with their production deployment, and counts the others. Attach one with repository_convex_attachProject, or create one with repository_convex_createProject.",
+      "Find the Convex code locations in the repository and the projects in the connected Convex team that can be attached. Lists attachable projects with their slug, name, and production deployment, and counts the others. Attach one by its slug with repository_convex_attachProject, or create one with repository_convex_createProject.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -140,8 +141,9 @@ available through the connected Convex team. Each project gets one attachment st
 this Samebase repository already records it, attached_elsewhere when another Samebase repository
 records it, otherwise attachable. attached_elsewhere never names the other repository.
 
-The MCP result lists the code location paths, the attachable projects with their production
-deployment, and a count of the other projects. A project without a production deployment can be
+The MCP result lists the code location paths, the attachable projects with their slug, name, and
+production deployment, and a count of the other projects. MCP tools name a Convex project by its
+slug, which is unique inside a Convex team; the name is for display. A project without a production deployment can be
 attached, but its deploy key cannot be installed until it is deployed to production. A partial
 source scan never proves that an unlisted code location is absent. Discovery may refresh private
 Samebase provider-connection bookkeeping, but it does not change GitHub, Convex, Cloudflare, or
@@ -162,11 +164,11 @@ export const convexAttachProjectsContract = {
   },
   mcpArgs: {
     ...mcpRepositoryArgs,
-    projectName: string(),
+    convexProjectSlug: string(),
     codeLocation: optional(string()),
   },
   returns: array(id("repositoryConvexProjects")),
-  structuredContent: object({ projectName: string(), codeLocation: string() }),
+  structuredContent: object({ projectSlug: string(), codeLocation: string() }),
   mcp: {
     title: "Attach Convex project",
     name: "repository_convex_attachProject",
@@ -180,12 +182,14 @@ export const convexAttachProjectsContract = {
     },
     inputDescriptions: {
       repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
-      projectName: "Name of an attachable Convex project.",
+      convexProjectSlug:
+        "Slug of an attachable Convex project, as repository_convex_findProjects returns it. Only an exact slug matches.",
       codeLocation: codeLocationInputDescription,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads the selected Convex project and the exact repository code location before writing the
-attachment. A project that another Samebase repository attaches is rejected. One discovered code
+attachment. The MCP tool takes the project's slug and matches it exactly; a project name is never
+matched. A project that another Samebase repository attaches is rejected. One discovered code
 location is used without asking; several return an error that lists them. The dashboard can attach
 several projects in one atomic call: either every selected project is attached or none are. Convex
 projects and GitHub files are not modified.`,

@@ -62,14 +62,16 @@ export const detachResourceContract = {
     inputDescriptions: {
       repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
       kind: "cloudflare_worker or convex_project. A Worker and a Convex project can share a name.",
-      resourceName: "Name of the attached Worker or Convex project, as repository_list shows it.",
+      resourceName:
+        "Name of the attached Worker, or slug of the attached Convex project, as repository_list returns them.",
       confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Removes one attachment record from the repository: a Cloudflare Worker or a Convex project. The
 Worker or project keeps running in the user's provider account; Samebase changes no provider
 resource, key, or Builds setting. \`kind\` is required because a Worker and a Convex project often
-share the repository's name. The repository must have no running provider setup or other provider
+share the repository's name. The MCP tool names a Worker by its name and a Convex project by its
+slug. The repository must have no running provider setup or other provider
 write. Removing the repository itself, with or without its provider resources, stays in the Samebase
 dashboard.
 

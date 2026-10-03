@@ -28,9 +28,9 @@ const serverConfirmation =
 export const toolJustifications = {
   repository_list: {
     read_only_justification:
-      "Only lists the caller's Samebase repositories, their setup state, and the names of attached Workers and Convex projects.",
+      "Only lists the caller's Samebase repositories, their setup state, the names of attached Workers, and the slugs and names of attached Convex projects.",
     open_world_justification:
-      "Reads only repositories in Samebase organizations where the caller is a current member, and the names of their attached Convex projects in the connected Convex team.",
+      "Reads only repositories in Samebase organizations where the caller is a current member, and the slugs and names of their attached Convex projects in the connected Convex team.",
     destructive_justification: noDestructiveActions,
   },
   repository_getStatus: {

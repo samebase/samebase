@@ -12,9 +12,10 @@ delete_failed, source and provider setup are not_applicable. Do not change that 
 providers. The user can retry a failed deletion in the Samebase dashboard. Provider setup status
 reports the managed work that was requested. It does not prove that every provider is attached.
 
-Each attached Worker shows its name and root directory. Each attached Convex project shows its name,
-read live from Convex, and its code location (a convex.json path, or a convex/ directory). The name
-is null when Samebase could not read the Convex team.
+Each attached Worker shows its name and root directory. Each attached Convex project shows its slug
+and name, read live from Convex, and its code location (a convex.json path, or a convex/ directory).
+Other MCP tools take the slug, which is unique inside a Convex team; the name is for display. Both
+are null when Samebase could not read the Convex team.
 
 pendingCloudflareSetup is null unless a managed creation had no Workers Builds token, its Convex
 project is attached, and no Worker is attached. Then a ready providerSetup means that the GitHub and
@@ -202,6 +203,16 @@ JSON Schema for the tool's `structuredContent`:
             "items": {
               "type": "object",
               "properties": {
+                "projectSlug": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "projectName": {
                   "anyOf": [
                     {
@@ -216,7 +227,7 @@ JSON Schema for the tool's `structuredContent`:
                   "type": "string"
                 }
               },
-              "required": ["projectName", "codeLocation"],
+              "required": ["projectSlug", "projectName", "codeLocation"],
               "additionalProperties": false
             }
           }

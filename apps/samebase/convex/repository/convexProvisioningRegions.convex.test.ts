@@ -558,6 +558,7 @@ describe("Convex project discovery for MCP", () => {
         },
         projects: [
           {
+            projectSlug: "manual-region-app",
             projectName: "Manual region app",
             productionDeployment: { state: "missing" },
           },
