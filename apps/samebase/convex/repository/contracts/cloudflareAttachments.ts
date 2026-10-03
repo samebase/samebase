@@ -2,6 +2,8 @@ import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import {
+  ACTION_CONFIRMATION_DOC,
+  MCP_ACTION_CONFIRMATION_DESCRIPTION,
   MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
   vActionConfirmation,
   vActionConfirmationRequest,
@@ -262,8 +264,7 @@ export const cloudflareConnectWorkerContract = {
   mcp: {
     title: "Connect Cloudflare Worker",
     name: "repository_cloudflare_connectWorker",
-    description:
-      "Connect a Worker that repository_cloudflare_findWorkers reports as connectable: attach it, configure its Workers Builds for this repository and root directory, and install the Convex deploy key. The production build that follows replaces what the Worker serves. Tell the user this effect before you call it.",
+    description: `Connect a Worker that repository_cloudflare_findWorkers reports as connectable: attach it, configure its Workers Builds for this repository and root directory, and install the Convex deploy key. The production build that follows replaces what the Worker serves. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
     safety: "destructive",
     annotations: {
       readOnlyHint: false,
@@ -292,7 +293,9 @@ deploy-key repair installs it. When a key is installed, the deploy-key step star
 build. When the key cannot be installed, the result says why, and no production build starts.
 
 Samebase picks the Workers Builds token: the given UUID, else the available last-used token, else
-the only token. Several tokens and no last-used one return an error that lists them.`,
+the only token. Several tokens and no last-used one return an error that lists them.
+
+${ACTION_CONFIRMATION_DOC}`,
 } as const;
 
 export const cloudflareCreateWorkerContract = {

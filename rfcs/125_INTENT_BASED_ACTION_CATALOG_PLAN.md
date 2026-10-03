@@ -384,15 +384,17 @@ the reviewer account, then submit once. After approval, OpenAI picks up server c
 tool names, arguments, and annotations. A change to those, the skill, or `.mcp.json` needs a new
 review.
 
-### Steps 2 and 3 in PR #1664
+### Steps 2 to 4 in PR #1664
 
-Step N is rollout PR N. Steps 2 and 3 land in
+Step N is rollout PR N. Steps 2 to 4 land in
 [PR #1664](https://github.com/samebase/samebase/pull/1664) with this RFC. Step 2 holds the PR 2
 scope and the parts of PR 5 that the renames force, because old tool names stop working at deploy:
 the server instructions, the skill, the generated docs, the submission source with the 8 cases and
 the three reworded prompts, and plugin `0.3.0`. Step 3 adds the status read, so the catalog has 18
-tools. The confirmation gate (PR 4) is not in this PR; the gated tools already carry
-`destructiveHint: true`. PR 5 revisits the instructions and the 8 cases.
+tools. Step 4 adds the confirmation gate, with the one instruction rule and the submission
+justifications that it changes. The skill already tells the agent to state the effect and get
+approval, so it and the plugin version do not change. PR 5 revisits the instructions and the 8
+cases.
 
 Deviations found during step 2:
 
@@ -436,6 +438,36 @@ Deviations found during step 3:
    says so and names no tool. When it failed, the only item names `repository_retryProviderSetup`. A
    pending Cloudflare setup gives an item that names `repository_cloudflare_createWorker` with the
    planned Worker name and root directory; that call installs the deploy key.
+
+Deviations found during step 4:
+
+1. The token table is `actionConfirmationTokens`. It stores the token hash, the user, the action,
+   the SHA-256 digest of the normalized request (canonical JSON with sorted keys), the effect, and
+   the acknowledgement. A second call is checked against that row, so a renamed repository between
+   the two calls does not change the sentence that the user approved.
+2. The audit row stores `requestDigest` in place of `request`, `effect` in place of `effectText`,
+   and `surface` as one union (`dashboard`, or `mcp` with `grantId` and `clientId`) in place of
+   three fields. The acknowledgement names every argument that changes the effect, and the digest
+   binds the row to the exact request. `resource` keeps the provider identity (account and Worker
+   tag, or team and project ID), so the row stays readable after a detach deletes the attachment.
+3. The sentence depends on the surface. The dashboard checkbox reads "I approve ..." because the
+   person ticks it; MCP reads "I confirm that the user approved ...". The rest of the sentence is
+   the same, and it names a Convex project by its code location, because the dashboard check runs in
+   a mutation that cannot read Convex names.
+4. The audit row is written in the transaction that consumes the token, before the action runs.
+   Detach runs the check and the detach in one mutation, so a failed detach leaves the token unused.
+   Connect, rotation, and retry run provider work after the token is consumed; when that work fails,
+   the user confirms again. A rejected second call (wrong, used, expired, or another user's token,
+   another action, a changed argument, or another sentence) changes nothing and leaves the token as
+   it was.
+5. The first call still resolves names and defaults and checks the preconditions that need no
+   provider write (for example several Convex projects without a choice), so a request that cannot
+   run fails before a challenge.
+6. The gated MCP tools also receive the trusted grant and client of the bearer token, like
+   `account_createSignInLink`, for the audit row. Their success results gain a `state` (`detached`,
+   `setup_started`, `rotated`), so each output schema is one union with `needs_confirmation`.
+7. The dashboard shows the challenge in one confirmation dialog for all four actions. For connect,
+   the dialog replaces the Cloudflare form and resends the exact request that it showed.
 
 ## Alternatives considered
 

@@ -2,6 +2,8 @@ import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import {
+  ACTION_CONFIRMATION_DOC,
+  MCP_ACTION_CONFIRMATION_DESCRIPTION,
   MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
   vActionConfirmation,
   vActionConfirmationRequest,
@@ -30,8 +32,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   mcp: {
     title: "Rotate Convex deploy keys",
     name: "repository_cloudflare_rotateConvexDeployKeys",
-    description:
-      "Replace the Convex deploy keys in an attached Worker's Workers Builds settings, then start a production build. It revokes the keys that Samebase recorded before it creates new ones. Use it to install a missing key or replace a broken one.",
+    description: `Replace the Convex deploy keys in an attached Worker's Workers Builds settings, then start a production build. It revokes the keys that Samebase recorded before it creates new ones. Use it to install a missing key or replace a broken one. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -58,5 +59,7 @@ The Worker and project must both be attached to the repository. Without a projec
 uses the repository's only attached Convex project. Their selection is input to this one operation,
 not a persisted dependency. Rerunning the operation revokes and replaces the Samebase-named keys.
 Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
-Convex.`,
+Convex.
+
+${ACTION_CONFIRMATION_DOC}`,
 } as const;

@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import {
+  ACTION_CONFIRMATION_DOC,
+  MCP_ACTION_CONFIRMATION_DESCRIPTION,
   MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
   vActionConfirmation,
   vActionConfirmationRequest,
@@ -27,8 +29,7 @@ export const retryInfrastructureProvisioningContract = {
   mcp: {
     title: "Retry provider setup",
     name: "repository_retryProviderSetup",
-    description:
-      "Start a fresh managed provider setup run for a repository that Samebase created. It reuses attached resources and creates missing ones. When Cloudflare is requested, it reconfigures Workers Builds and rotates Convex deploy keys, then starts a production build.",
+    description: `Start a fresh managed provider setup run for a repository that Samebase created. It reuses attached resources and creates missing ones. When Cloudflare is requested, it reconfigures Workers Builds and rotates Convex deploy keys, then starts a production build. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -49,5 +50,7 @@ deploy keys, and start production builds. It does not require or inspect a prior
 Only valid for live Samebase-managed repositories, which are repositories created by
 \`repository_create\`; connected repositories repair through the explicit attach, connect, Builds,
 and deploy-key actions instead. Progress is readable through \`repository_list\` while the run
-executes.`,
+executes.
+
+${ACTION_CONFIRMATION_DOC}`,
 } as const;

@@ -2,6 +2,8 @@ import { v, type Infer } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import {
+  ACTION_CONFIRMATION_DOC,
+  MCP_ACTION_CONFIRMATION_DESCRIPTION,
   MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
   vActionConfirmation,
   vActionConfirmationRequest,
@@ -50,8 +52,7 @@ export const detachResourceContract = {
   mcp: {
     title: "Detach resource",
     name: "repository_detachResource",
-    description:
-      "Remove an attached Cloudflare Worker or Convex project from the repository in Samebase. The resource keeps running in its provider account and is not deleted. Tell the user this effect before you call it.",
+    description: `Remove an attached Cloudflare Worker or Convex project from the repository in Samebase. The resource keeps running in its provider account and is not deleted. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
     safety: "destructive",
     annotations: {
       readOnlyHint: false,
@@ -70,5 +71,7 @@ Worker or project keeps running in the user's provider account; Samebase changes
 resource, key, or Builds setting. \`kind\` is required because a Worker and a Convex project often
 share the repository's name. The repository must have no running provider setup or other provider
 write. Removing the repository itself, with or without its provider resources, stays in the Samebase
-dashboard.`,
+dashboard.
+
+${ACTION_CONFIRMATION_DOC}`,
 } as const;

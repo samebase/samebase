@@ -652,12 +652,13 @@ describe("MCP tools/call access enforcement", () => {
         capabilities: { tools: {} },
         serverInfo: { name: "Samebase", version: "0.3.0" },
         instructions: expect.stringMatching(
-          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects, in every organization of the signed-in account\.[\s\S]*Name a repository by its GitHub full name \(owner\/name\)\. For the builds, deployments, checks, or pull requests of a Samebase repository, call repository_getStatus and follow its attention items\.[\s\S]*For a request to open the Samebase dashboard, call account_createSignInLink directly and show the returned URL as a clickable link\.[\s\S]*call it only after the user accepts\.[\s\S]*A started setup, requested build, or Git push does not prove a successful deployment\.$/,
+          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects, in every organization of the signed-in account\.[\s\S]*Name a repository by its GitHub full name \(owner\/name\)\. For the builds, deployments, checks, or pull requests of a Samebase repository, call repository_getStatus and follow its attention items\.[\s\S]*For a request to open the Samebase dashboard, call account_createSignInLink directly and show the returned URL as a clickable link\.[\s\S]*call it only after the user accepts\.[\s\S]*A needs_confirmation result changed nothing: tell the user its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.[\s\S]*A started setup, requested build, or Git push does not prove a successful deployment\.$/,
         ),
       },
     });
-    // The server picks tokens and installs deploy keys, so the instructions stay near 1k characters.
-    expect(payload.result.instructions.length).toBeLessThan(1_200);
+    // The server picks tokens and installs deploy keys, so the instructions stay near 1k characters:
+    // routing, the catalog boundaries, and the one confirmation rule.
+    expect(payload.result.instructions.length).toBeLessThan(1_350);
     expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
   });

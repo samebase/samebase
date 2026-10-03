@@ -22,6 +22,9 @@ type ToolJustifications = {
 const noDestructiveActions =
   "Does not delete, overwrite, revoke access, or perform irreversible destructive actions.";
 
+const serverConfirmation =
+  "The server gates it: the first call changes nothing and returns the effect, an acknowledgement sentence, and a one-use token that expires after 10 minutes. Only a second call with the same arguments, that token, and the exact sentence performs it.";
+
 export const toolJustifications = {
   repository_list: {
     read_only_justification:
@@ -93,8 +96,7 @@ export const toolJustifications = {
       "Connects an existing Worker to the repository: records the attachment, writes its Workers Builds settings, installs the Convex deploy key, and starts a production build.",
     open_world_justification:
       "Writes build settings in the caller's Cloudflare account, creates deploy keys in the caller's Convex project, and starts a production build that publishes the repository's code on the Worker.",
-    destructive_justification:
-      "The production build replaces what the Worker currently serves with a build of this repository. It accepts only Workers that have no Workers Builds repository connection, and it does not delete the Worker or user data.",
+    destructive_justification: `The production build replaces what the Worker currently serves with a build of this repository. It accepts only Workers that have no Workers Builds repository connection, and it does not delete the Worker or user data. ${serverConfirmation}`,
   },
   repository_cloudflare_createWorker: {
     read_only_justification:
@@ -117,24 +119,21 @@ export const toolJustifications = {
       "Replaces the Convex deploy keys in an attached Worker's Workers Builds production, Previews Base, and existing preview variables, and starts a production build.",
     open_world_justification:
       "Creates deploy keys in the caller's Convex project, sets variables in the caller's Cloudflare build settings, and starts a production build.",
-    destructive_justification:
-      "Revokes the recorded Convex deploy keys before creating replacements and updating build variables, so a failure can leave builds without access.",
+    destructive_justification: `Revokes the recorded Convex deploy keys before creating replacements and updating build variables, so a failure can leave builds without access. ${serverConfirmation}`,
   },
   repository_retryProviderSetup: {
     read_only_justification:
       "Starts a fresh managed setup run that reuses attached resources, creates missing ones, and configures Workers Builds and rotates deploy keys when Cloudflare is requested.",
     open_world_justification:
       "Creates missing Convex and Cloudflare resources and starts production builds that can publish the repository's code.",
-    destructive_justification:
-      "When Cloudflare is requested, it reconfigures the Worker's production and preview build settings and revokes and replaces the recorded Convex deploy keys.",
+    destructive_justification: `When Cloudflare is requested, it reconfigures the Worker's production and preview build settings and revokes and replaces the recorded Convex deploy keys. ${serverConfirmation}`,
   },
   repository_detachResource: {
     read_only_justification:
       "Removes one Worker or Convex project attachment from the Samebase repository record.",
     open_world_justification:
       "Changes only Samebase state; it does not call GitHub, Convex, or Cloudflare, and the resource keeps running in the provider account.",
-    destructive_justification:
-      "Removes the Samebase attachment record, so Samebase stops managing that Worker or Convex project for the repository. It does not delete the provider resource or user data.",
+    destructive_justification: `Removes the Samebase attachment record, so Samebase stops managing that Worker or Convex project for the repository. It does not delete the provider resource or user data. ${serverConfirmation}`,
   },
   feedback_submit: {
     read_only_justification:

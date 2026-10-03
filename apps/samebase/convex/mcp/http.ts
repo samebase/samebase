@@ -82,12 +82,13 @@ const MCP_SERVER_INFO = {
   version: "0.3.0",
 } as const;
 // The server picks Workers Builds tokens, installs deploy keys, and names the next tool in its
-// errors, so the instructions keep only routing and the boundaries of the catalog.
+// errors, so the instructions keep only routing, the boundaries of the catalog, and the one rule of
+// the confirmation gate (rfcs/125).
 const MCP_SERVER_INSTRUCTIONS = `Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects, in every organization of the signed-in account. Use Samebase tools only for these repositories and their attachments. For unrelated repositories, standalone provider resources, code changes, logs, environment variables, migrations, and custom domains, use GitHub, Cloudflare, or Convex tools. Name a repository by its GitHub full name (owner/name). For the builds, deployments, checks, or pull requests of a Samebase repository, call ${getRepositoryStatusContract.mcp.name} and follow its attention items.
 
 For a request to open the Samebase dashboard, call ${createBrowserHandoffContract.mcp.name} directly and show the returned URL as a clickable link. Only the dashboard can remove a repository from Samebase, change a Convex code location, accept a Worker or GitHub rename, and manage members, organization settings, billing, and provider connections: say so, and offer the sign-in link; call it only after the user accepts.
 
-When a result asks for a choice, ask the user and pass the choice. A started setup, requested build, or Git push does not prove a successful deployment.`;
+When a result asks for a choice, ask the user and pass the choice. A needs_confirmation result changed nothing: tell the user its effect, and repeat the call with its token and exact acknowledgement only after the user approves. A started setup, requested build, or Git push does not prove a successful deployment.`;
 async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
   return await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
 }

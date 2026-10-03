@@ -19,6 +19,14 @@ build. When the key cannot be installed, the result says why, and no production 
 Samebase picks the Workers Builds token: the given UUID, else the available last-used token, else
 the only token. Several tokens and no last-used one return an error that lists them.
 
+Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
+`confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the
+exact acknowledgement sentence, and a one-use token that expires after 10 minutes. The token is
+bound to the user, the action, and the request after Samebase resolves names and defaults. The
+second call sends the same arguments and `confirmation` with the token and the exact sentence; a
+changed argument, a used or expired token, or another sentence is rejected and changes nothing.
+Samebase records each accepted confirmation in its audit log.
+
 ## Arguments
 
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
