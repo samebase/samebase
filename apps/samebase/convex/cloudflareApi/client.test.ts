@@ -357,17 +357,39 @@ describe("Cloudflare API response validators", () => {
     ).toBe(true);
   });
 
-  it("accepts an observed completed Worker build", () => {
-    const schema = zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
+  it.each([
+    { createdOn: observedCompletedWorkerBuild.created_on, valid: true },
+    { createdOn: "2026-08-02T21:45:39.403+00:00", valid: true },
+    { createdOn: "2026-08-03T00:45:39.403+03:00", valid: true },
+    { createdOn: "2026-08-02T21:45:39.403", valid: false },
+    { createdOn: "2026-08-02T21:45:39.403+25:00", valid: false },
+  ])("validates Worker build timestamp $createdOn", async ({ createdOn, valid }) => {
+    // The first three forms express the captured instant under RFC3339.
+    // https://www.rfc-editor.org/rfc/rfc3339#section-5.6
+    const envelope = {
+      success: true,
+      errors: [],
+      messages: [],
+      result: [{ ...observedCompletedWorkerBuild, created_on: createdOn }],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(envelope)),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = Cloudflare.GET[
+      "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+    ]({
+      client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
+      path: { account_id: "account-id", external_script_id: "worker-id" },
+    });
 
-    expect(
-      schema.safeParse({
-        success: true,
-        errors: [],
-        messages: [],
-        result: [observedCompletedWorkerBuild],
-      }).success,
-    ).toBe(true);
+    if (valid) {
+      expect(Date.parse(createdOn)).toBe(Date.parse(observedCompletedWorkerBuild.created_on));
+      await expect(response).resolves.toEqual(envelope);
+    } else {
+      await expect(response).rejects.toBeInstanceOf(CloudflareApiResponseError);
+    }
   });
 
   it("accepts an observed running Worker build", () => {

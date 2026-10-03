@@ -43,7 +43,7 @@ export const zIamCommonComponentsSchemasIdentifier = z.string().check(z.length(3
 export const zIamAccountType = z.enum(["standard", "enterprise"]);
 
 export const zIamAccount = z.object({
-  created_on: z.optional(z.readonly(z.iso.datetime())),
+  created_on: z.optional(z.readonly(z.iso.datetime({ offset: true }))),
   id: zIamCommonComponentsSchemasIdentifier,
   managed_by: z.optional(
     z.object({
@@ -130,7 +130,7 @@ export const zBuildsApiResponse = z.object({
 });
 
 export const zBuildsGetAccountLimitResponse = z.object({
-  build_minutes_refresh_on: z.nullish(z.iso.datetime()),
+  build_minutes_refresh_on: z.nullish(z.iso.datetime({ offset: true })),
   has_reached_build_minutes_limit: z.nullish(z.boolean()),
 });
 
@@ -211,18 +211,18 @@ export const zBuildsRootDirectory = z.string();
  */
 export const zBuildsBuildUuid = z.uuid();
 
-export const zBuildsCreatedOn = z.iso.datetime();
+export const zBuildsCreatedOn = z.iso.datetime({ offset: true });
 
 /**
  * Deploy hook name (1-58 characters).
  */
 export const zBuildsDeployHookName = z.string().check(z.minLength(1), z.maxLength(58));
 
-export const zBuildsModifiedOn = z.iso.datetime();
+export const zBuildsModifiedOn = z.iso.datetime({ offset: true });
 
 export const zBuildsBuildStatus = z.enum(["queued", "initializing", "running", "stopped"]);
 
-export const zBuildsStoppedOn = z.nullable(z.iso.datetime());
+export const zBuildsStoppedOn = z.nullable(z.iso.datetime({ offset: true }));
 
 /**
  * Branch patterns that must not start builds.
@@ -239,7 +239,7 @@ export const zBuildsBranchIncludes = z.array(z.string());
  */
 export const zBuildsBuildCachingEnabled = z.boolean();
 
-export const zBuildsDeletedOn = z.nullable(z.iso.datetime());
+export const zBuildsDeletedOn = z.nullable(z.iso.datetime({ offset: true }));
 
 /**
  * System-generated tag of the Worker. This is not the Worker name.
@@ -473,17 +473,17 @@ export const zBuildsBuildResponse = z.object({
       deploy_hook_name: z.optional(zBuildsDeployHookName),
     }),
   ),
-  initializing_on: z.nullish(z.iso.datetime()),
+  initializing_on: z.nullish(z.iso.datetime({ offset: true })),
   modified_on: z.optional(zBuildsModifiedOn),
   preview_url: z.optional(z.url()),
   pull_request: z.nullish(
     z.object({
-      closed_on: z.nullish(z.iso.datetime()),
+      closed_on: z.nullish(z.iso.datetime({ offset: true })),
       created_on: z.optional(zBuildsCreatedOn),
       pull_request_url: z.optional(z.url()),
     }),
   ),
-  running_on: z.nullish(z.iso.datetime()),
+  running_on: z.nullish(z.iso.datetime({ offset: true })),
   status: z.optional(zBuildsBuildStatus),
   stopped_on: z.optional(zBuildsStoppedOn),
   trigger: z.optional(
@@ -812,12 +812,12 @@ export const zWorkersUploadAssetsResponse = z.intersection(
 /**
  * When the script was created.
  */
-export const zWorkersCreatedOn = z.readonly(z.iso.datetime());
+export const zWorkersCreatedOn = z.readonly(z.iso.datetime({ offset: true }));
 
 /**
  * When the script was last modified.
  */
-export const zWorkersModifiedOn = z.readonly(z.iso.datetime());
+export const zWorkersModifiedOn = z.readonly(z.iso.datetime({ offset: true }));
 
 /**
  * API Resource UUID tag.
@@ -1176,7 +1176,7 @@ export const zWorkersPlacementInfo = z.intersection(
     }),
   ]),
   z.object({
-    last_analyzed_at: z.optional(z.readonly(z.iso.datetime())),
+    last_analyzed_at: z.optional(z.readonly(z.iso.datetime({ offset: true }))),
     status: z.optional(zWorkersPlacementStatus),
   }),
 );
@@ -2256,7 +2256,7 @@ export const zWorkersObservabilityFilterNode = z.union([
 
 export const zWorkersObservabilityQuery = z.object({
   adhoc: z.boolean(),
-  created: z.iso.datetime(),
+  created: z.iso.datetime({ offset: true }),
   createdBy: z.string(),
   description: z.nullable(z.string().check(z.maxLength(1000))),
   id: z.string(),
@@ -2355,7 +2355,7 @@ export const zWorkersObservabilityQuery = z.object({
       }),
     ),
   }),
-  updated: z.iso.datetime(),
+  updated: z.iso.datetime({ offset: true }),
   updatedBy: z.string(),
 });
 
@@ -2525,8 +2525,8 @@ export const zWorkersObservabilityQueryRun = z.object({
   query: z.intersection(
     zWorkersObservabilityQuery,
     z.object({
-      created: z.optional(z.union([z.string(), z.iso.datetime()])),
-      updated: z.optional(z.union([z.string(), z.iso.datetime()])),
+      created: z.optional(z.union([z.string(), z.iso.datetime({ offset: true })])),
+      updated: z.optional(z.union([z.string(), z.iso.datetime({ offset: true })])),
     }),
   ),
   statistics: z.optional(
@@ -2777,7 +2777,7 @@ export const zWorkersDeployment = z.object({
     }),
   ),
   author_email: z.optional(z.readonly(z.email())),
-  created_on: z.readonly(z.iso.datetime()),
+  created_on: z.readonly(z.iso.datetime({ offset: true })),
   id: z.readonly(z.uuid()),
   source: z.readonly(z.string()),
   strategy: z.enum(["percentage"]),
@@ -3077,8 +3077,8 @@ export const zWorkersPreviewsBaseConfig = z.object({
 });
 
 export const zWorkersWorker = z.object({
-  created_on: z.readonly(z.iso.datetime()),
-  deployed_on: z.nullish(z.readonly(z.iso.datetime())),
+  created_on: z.readonly(z.iso.datetime({ offset: true })),
+  deployed_on: z.nullish(z.readonly(z.iso.datetime({ offset: true }))),
   id: z.readonly(z.string()),
   logpush: z.boolean(),
   name: z.string().check(z.regex(/^[a-z0-9_][a-z0-9-_]*$/)),
@@ -3165,7 +3165,7 @@ export const zWorkersWorker = z.object({
       name: z.string(),
     }),
   ),
-  updated_on: z.readonly(z.iso.datetime()),
+  updated_on: z.readonly(z.iso.datetime({ offset: true })),
 });
 
 export const zWorkersErrorAuth = z.object({
@@ -3239,8 +3239,8 @@ export const zWorkersErrorWorkerNotFound = z.object({
 });
 
 export const zWorkersPreview = z.object({
-  created_on: z.readonly(z.iso.datetime()),
-  deployed_on: z.nullish(z.readonly(z.iso.datetime())),
+  created_on: z.readonly(z.iso.datetime({ offset: true })),
+  deployed_on: z.nullish(z.readonly(z.iso.datetime({ offset: true }))),
   id: z.readonly(z.string().check(z.regex(/^[0-9a-f]{32}$/))),
   logpush: z.boolean(),
   name: z
@@ -3280,7 +3280,7 @@ export const zWorkersPreview = z.object({
       name: z.string(),
     }),
   ),
-  updated_on: z.readonly(z.iso.datetime()),
+  updated_on: z.readonly(z.iso.datetime({ offset: true })),
   urls: z.readonly(z.array(z.string())),
 });
 
@@ -3377,7 +3377,7 @@ export const zWorkersPreviewDeployment = z.intersection(
   z.object({
     author_email: z.readonly(z.string()),
     author_id: z.readonly(z.string()),
-    created_on: z.readonly(z.iso.datetime()),
+    created_on: z.readonly(z.iso.datetime({ offset: true })),
     exports_reconciliation: z.optional(zWorkersExportsReconciliationResult),
     id: z.readonly(z.uuid()),
     migration_tag: z.optional(z.readonly(z.string())),
@@ -3418,7 +3418,7 @@ export const zWorkersVersion = z.object({
   compatibility_date: z.optional(zWorkersCompatibilityDate),
   compatibility_flags: z.optional(zWorkersCompatibilityFlags),
   containers: z.optional(zWorkersContainers),
-  created_on: z.readonly(z.iso.datetime()),
+  created_on: z.readonly(z.iso.datetime({ offset: true })),
   exports: z.optional(zWorkersExportsConfigMap),
   exports_reconciliation: z.optional(zWorkersExportsReconciliationResult),
   id: z.readonly(z.uuid()),
@@ -3460,7 +3460,7 @@ export const zWorkersVersion = z.object({
 /**
  * The expiration time on or after which the JWT MUST NOT be accepted for processing.
  */
-export const zIamExpiresOn = z.iso.datetime();
+export const zIamExpiresOn = z.iso.datetime({ offset: true });
 
 /**
  * Token identifier tag.
@@ -3470,7 +3470,7 @@ export const zIamTokenIdentifier = z.readonly(z.string().check(z.maxLength(32)))
 /**
  * The time before which the token MUST NOT be accepted for processing.
  */
-export const zIamNotBefore = z.iso.datetime();
+export const zIamNotBefore = z.iso.datetime({ offset: true });
 
 /**
  * Status of the token.
@@ -7758,8 +7758,8 @@ export const zGetAccountsByAccountIdWorkersScriptsByScriptNameDeploymentsPath = 
 });
 
 export const zGetAccountsByAccountIdWorkersScriptsByScriptNameDeploymentsQuery = z.object({
-  since: z.optional(z.iso.datetime()),
-  until: z.optional(z.iso.datetime()),
+  since: z.optional(z.iso.datetime({ offset: true })),
+  until: z.optional(z.iso.datetime({ offset: true })),
   page: z.optional(z.int().check(z.gte(1))),
   per_page: z.optional(z.int().check(z.gte(1), z.lte(100))),
 });

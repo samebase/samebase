@@ -441,7 +441,7 @@ await createClient({
   plugins: [
     "@hey-api/typescript",
     { name: "@hey-api/client-fetch", throwOnError: true },
-    { name: "zod", compatibilityVersion: "mini" },
+    { name: "zod", compatibilityVersion: "mini", dates: { offset: true } },
     {
       name: "@hey-api/sdk",
       validator: true,
