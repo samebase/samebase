@@ -334,6 +334,8 @@ provider schema; old placeholder IDs in tests use valid UUID values.
 - Convex Management API regeneration under TypeScript 6.0.3 passed with no diff.
 - Cloudflare regeneration with Hey API passed with no diff after the implementation commit.
 - The final client and resource checks passed: 69 tests in 374 ms.
+- CI found a stale TypeScript entry in the Sidebars example's separate lockfile. After regenerating
+  that lockfile, its frozen install, type check, and production build passed locally.
 
 These checks use recorded responses and local transports. No new live Cloudflare calls or production
 deployment were performed. Package extraction and the sure/Evolu decision remain separate work.
