@@ -1198,6 +1198,13 @@ describe("MCP tools/call access enforcement", () => {
         },
       },
     });
+    const { expiresAt, url } = payload.result.structuredContent;
+    expect(payload.result.content).toEqual([
+      {
+        type: "text",
+        text: `Open your Samebase dashboard: ${url}. The link works once and expires at ${new Date(expiresAt).toISOString()}.`,
+      },
+    ]);
 
     const rows = await t.run(
       async (ctx) =>

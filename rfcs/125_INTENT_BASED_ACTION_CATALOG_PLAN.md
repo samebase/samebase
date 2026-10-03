@@ -527,6 +527,9 @@ Deviations found during step 5:
    only when setup is ready and `repository_list` returns the attached project. It names no region,
    because no output of the case gives one. This is a smaller change than adding the planned Convex
    project name and region to the `repository_create` result.
+6. The text of `account_createSignInLink` is one sentence with the link and its expiry, not JSON.
+   The clickable-link rule stays in the tool description and the skill: the shortest form of it
+   would take the instructions over the 1,200-character bound.
 
 ## Alternatives considered
 

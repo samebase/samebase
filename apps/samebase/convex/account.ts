@@ -152,9 +152,10 @@ export const createSignInLink = internalAction({
       url,
       expiresAt,
     };
+    // A sentence, not JSON, so a client that shows only the text still shows a clickable link.
     return {
       status: "ok",
-      text: JSON.stringify(structuredContent, null, 2),
+      text: `Open your Samebase dashboard: ${url}. The link works once and expires at ${new Date(expiresAt).toISOString()}.`,
       structuredContent,
     };
   },
