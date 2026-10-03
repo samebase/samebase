@@ -30,6 +30,7 @@ const headCommitOid = "3f9c2b7e1a4d8c6f0b5e9a2d7c1f4b8e6a3d9c2f";
 const repository: RepositoryStatusRepository = {
   githubRepositoryFullName: "samebase/chess-merge",
   providerSetup: { status: "ready" },
+  providerPlan: null,
   cloudflareWorkers: [
     {
       workerId,
@@ -298,29 +299,102 @@ describe("buildRepositoryAttention", () => {
     expect(buildRepositoryAttention({ repository, observations: healthyObservations })).toEqual([]);
   });
 
-  it("names the retry tool for failed Samebase-managed setup", () => {
-    expect(
-      buildRepositoryAttention({
-        repository: {
-          ...repository,
-          providerSetup: {
-            status: "failed",
-            provider: "cloudflare",
-            // @ts-expect-error Run IDs are strings at runtime; the rule ignores them.
-            runId: "run-1",
-            step: "configure_workers_builds_for_github",
-            message: "private provider diagnostic",
-            updatedAt: 1,
-          },
-        },
-        observations: healthyObservations,
-      }),
-    ).toEqual([
-      {
-        tool: "repository_retryProviderSetup",
-        problem: "Samebase setup of the Cloudflare Worker failed.",
+  describe("reads the provider setup state before any repair", () => {
+    // @ts-expect-error Run IDs are strings at runtime; the rules ignore them.
+    const runId: Id<"workflow_repositoryProvisioning_runs"> = "run-1";
+    const providerSetups: Record<
+      RepositoryStatusRepository["providerSetup"]["status"],
+      RepositoryStatusRepository["providerSetup"]
+    > = {
+      not_applicable: { status: "not_applicable" },
+      running: {
+        status: "running",
+        provider: "cloudflare",
+        runId,
+        step: "configure_workers_builds_for_github",
+        updatedAt: 1,
       },
-    ]);
+      failed: {
+        status: "failed",
+        provider: "cloudflare",
+        runId,
+        step: "configure_workers_builds_for_github",
+        message: "private provider diagnostic",
+        updatedAt: 1,
+      },
+      ready: { status: "ready" },
+    };
+    // Builds that the managed run has not configured yet, so a repair item would follow.
+    const unconfiguredObservations = withWorkerBuilds({
+      ...readyBuilds,
+      repository: { state: "not_connected" },
+    });
+    // A creation without a Workers Builds token: Convex is attached, no Worker yet.
+    const pendingCloudflareRepository: RepositoryStatusRepository = {
+      ...repository,
+      cloudflareWorkers: [],
+      providerPlan: {
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "created",
+          projectName: "chess-merge",
+          deploymentRegion: "aws-us-east-1",
+          teamId: "41275",
+          projectId: "387501",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId,
+          workerName: "chess-merge",
+          rootDirectory: "/",
+          buildTokenUuid: null,
+        },
+      },
+    };
+    const runningItem = {
+      tool: null,
+      problem:
+        "Samebase setup of the Cloudflare Worker is running. Call repository_getStatus again when repository_list shows provider setup ready or failed.",
+    };
+    const retryItem = {
+      tool: "repository_retryProviderSetup",
+      problem: "Samebase setup of the Cloudflare Worker failed.",
+    };
+    const configureItem = {
+      tool: "repository_cloudflare_configureBuilds",
+      workerName: "chess-merge",
+      problem: "Workers Builds of chess-merge is not connected to this GitHub repository.",
+    };
+    const pendingItem = {
+      tool: "repository_cloudflare_createWorker",
+      workerName: "chess-merge",
+      rootDirectory: "/",
+      problem:
+        "Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. Give the user https://samebase.com/docs/cloudflare-setup. After the user finishes it, call repository_cloudflare_createWorker for this repository: it creates the Worker chess-merge at root directory / and installs the Convex deploy key.",
+    };
+
+    it.each([
+      ["not_applicable", "attached Worker", [configureItem]],
+      ["running", "attached Worker", [runningItem]],
+      ["failed", "attached Worker", [retryItem]],
+      ["ready", "attached Worker", [configureItem]],
+      ["not_applicable", "pending Cloudflare setup", [pendingItem]],
+      ["running", "pending Cloudflare setup", [runningItem]],
+      ["failed", "pending Cloudflare setup", [retryItem]],
+      ["ready", "pending Cloudflare setup", [pendingItem]],
+    ] as const)("provider setup %s with an %s", (status, cloudflare, expected) => {
+      expect(
+        buildRepositoryAttention({
+          repository: {
+            ...(cloudflare === "pending Cloudflare setup"
+              ? pendingCloudflareRepository
+              : repository),
+            providerSetup: providerSetups[status],
+          },
+          observations: unconfiguredObservations,
+        }),
+      ).toEqual(expected);
+    });
   });
 
   it("reports a Worker that no longer exists, and nothing for unreadable Worker facts", () => {
@@ -510,10 +584,23 @@ describe("buildRepositoryAttention", () => {
   });
 
   it("asks for the Convex project when several are attached and the keys name none", () => {
+    const observations = withConvexBuildAccess({ state: "not_configured" });
+    const [project] = observations.convexProjects;
     expect(
       buildRepositoryAttention({
         repository: { ...repository, convexProjects: [...repository.convexProjects, adminProject] },
-        observations: withConvexBuildAccess({ state: "not_configured" }),
+        observations: {
+          ...observations,
+          convexProjects: [
+            project,
+            {
+              ...project,
+              convexProjectId: adminConvexProjectId,
+              projectId: "387502",
+              codeLocation: adminProject.codeLocation,
+            },
+          ],
+        },
       }),
     ).toEqual([
       {
@@ -534,6 +621,27 @@ describe("buildRepositoryAttention", () => {
           ...withConvexBuildAccess({ state: "not_configured" }),
           convexProjects: [],
         },
+      }),
+    ).toEqual([]);
+  });
+
+  it("names no deploy-key repair when Convex cannot be read", () => {
+    const observations = withConvexBuildAccess({ state: "not_configured" });
+    const unreadableProject = {
+      ...observations.convexProjects[0],
+      provider: { state: "unavailable" as const, reason: "request_failed" as const },
+    };
+
+    expect(
+      buildRepositoryAttention({
+        repository,
+        observations: { ...observations, convexProjects: [unreadableProject] },
+      }),
+    ).toEqual([]);
+    expect(
+      buildRepositoryAttention({
+        repository: { ...repository, convexProjects: [...repository.convexProjects, adminProject] },
+        observations: { ...observations, convexProjects: [unreadableProject] },
       }),
     ).toEqual([]);
   });
@@ -696,5 +804,24 @@ describe("projectRepositoryStatusForMcp", () => {
       apps: [{ workerName: "chess-merge", productionBuild: { state: "unavailable" }, urls: [] }],
       pullRequests: [],
     });
+  });
+
+  it("reports each app of a pull request as unavailable when its Cloudflare builds are unread", () => {
+    const mcpResult = projectRepositoryStatusForMcp({
+      repository,
+      status: {
+        ...status,
+        pullRequestResources: status.pullRequestResources.map((resources) =>
+          resources.state === "available"
+            ? { ...resources, cloudflareBuilds: { state: "unavailable" as const }, workers: [] }
+            : resources,
+        ),
+      },
+    });
+
+    expect(mcpResult.pullRequests.map((pullRequest) => pullRequest.apps)).toEqual([
+      [{ workerName: "chess-merge", previewBuild: { state: "unavailable" }, previewUrl: null }],
+      [{ workerName: "chess-merge", previewBuild: { state: "unavailable" }, previewUrl: null }],
+    ]);
   });
 });

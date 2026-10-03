@@ -3,14 +3,24 @@ import { exactly } from "@samebase/dependent/main";
 import type { Id } from "../_generated/dataModel";
 import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 import { WORKER_PREVIEWS_MIGRATION_URL } from "../../shared/cloudflareWorkerPreviews";
+import {
+  CLOUDFLARE_SETUP_GUIDE_URL,
+  readPendingCloudflareSetup,
+} from "../toolRuntime/mcpResolution";
+import { cloudflareCreateWorkerContract } from "./contracts/cloudflareAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "./contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import type {
-  McpRepositoryStatus,
-  RepositoryAttentionItem,
-  RepositoryStatus,
+import {
+  getRepositoryStatusContract,
+  type McpRepositoryStatus,
+  type RepositoryAttentionItem,
+  type RepositoryStatus,
 } from "./contracts/getRepositoryStatus";
-import type { UserRepositoryResult } from "./contracts/getUserRepositories";
+import {
+  getUserRepositoriesContract,
+  type ProviderSetupSummary,
+  type UserRepositoryResult,
+} from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
 import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
@@ -22,13 +32,20 @@ it, so the rules have unit tests without provider requests.
 */
 
 const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
+const CREATE_WORKER_TOOL = cloudflareCreateWorkerContract.mcp.name;
+const LIST_TOOL = getUserRepositoriesContract.mcp.name;
 const ROTATE_CONVEX_DEPLOY_KEYS_TOOL =
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name;
 const RETRY_PROVIDER_SETUP_TOOL = retryInfrastructureProvisioningContract.mcp.name;
+const STATUS_TOOL = getRepositoryStatusContract.mcp.name;
 
 export type RepositoryStatusRepository = Pick<
   UserRepositoryResult,
-  "githubRepositoryFullName" | "providerSetup" | "cloudflareWorkers" | "convexProjects"
+  | "githubRepositoryFullName"
+  | "providerSetup"
+  | "providerPlan"
+  | "cloudflareWorkers"
+  | "convexProjects"
 >;
 export type RepositoryObservations = Omit<RepositoryStatus, "attention">;
 type ConvexBuildAccess = Extract<
@@ -60,6 +77,12 @@ function sortConvexProjects(projects: RepositoryStatusRepository["convexProjects
   );
 }
 
+function describeSetupProvider(
+  provider: Extract<ProviderSetupSummary, { status: "running" | "failed" }>["provider"],
+): string {
+  return provider === "convex" ? "Convex project" : "Cloudflare Worker";
+}
+
 function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuildAccess): string {
   switch (access.state) {
     case "configured":
@@ -81,33 +104,58 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
 }
 
 /**
-The attention items of one repository, each with the tool that fixes it. An unreadable provider fact
-gives no item: the facts report it as unavailable, and a guessed repair could be wrong.
+The attention items of one repository, each with the tool that fixes it. The provider setup state
+comes first: a running managed setup holds the provider-write lock, so every repair tool would fail,
+and a failed one is repaired only by its retry. An unreadable provider fact gives no item: the facts
+report it as unavailable, and a guessed repair could be wrong.
 */
 export function buildRepositoryAttention(args: {
   repository: RepositoryStatusRepository;
   observations: RepositoryObservations;
 }): RepositoryAttentionItem[] {
   const { repository, observations } = args;
-  const items: RepositoryAttentionItem[] = [];
+  const { providerSetup } = repository;
+  switch (providerSetup.status) {
+    case "running":
+      return [
+        {
+          tool: null,
+          problem: `Samebase setup of the ${describeSetupProvider(providerSetup.provider)} is running. Call ${STATUS_TOOL} again when ${LIST_TOOL} shows provider setup ready or failed.`,
+        },
+      ];
+    case "failed":
+      return [
+        {
+          tool: RETRY_PROVIDER_SETUP_TOOL,
+          problem: `Samebase setup of the ${describeSetupProvider(providerSetup.provider)} failed.`,
+        },
+      ];
+    case "ready":
+    case "not_applicable":
+      break;
+    default:
+      providerSetup satisfies never;
+      return [];
+  }
 
-  if (repository.providerSetup.status === "failed") {
+  const items: RepositoryAttentionItem[] = [];
+  const pendingCloudflareSetup = readPendingCloudflareSetup(repository);
+  if (pendingCloudflareSetup) {
+    const { rootDirectory, workerName } = pendingCloudflareSetup;
     items.push({
-      tool: RETRY_PROVIDER_SETUP_TOOL,
-      problem: `Samebase setup of the ${repository.providerSetup.provider === "convex" ? "Convex project" : "Cloudflare Worker"} failed.`,
+      tool: CREATE_WORKER_TOOL,
+      workerName,
+      rootDirectory,
+      problem: `Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. Give the user ${CLOUDFLARE_SETUP_GUIDE_URL}. After the user finishes it, call ${CREATE_WORKER_TOOL} for this repository: it creates the Worker ${workerName} at root directory ${rootDirectory} and installs the Convex deploy key.`,
     });
   }
 
   const convexProjectsById = new Map(
     observations.convexProjects.map((project) => [project.convexProjectId, project]),
   );
-  const convexProjectSlug = (convexProjectId: Id<"repositoryConvexProjects">): string | null => {
+  const currentConvexProject = (convexProjectId: Id<"repositoryConvexProjects">) => {
     const provider = convexProjectsById.get(convexProjectId)?.provider;
-    return provider?.state === "current" ? provider.projectSlug : null;
-  };
-  const hasNoProductionDeployment = (convexProjectId: Id<"repositoryConvexProjects">): boolean => {
-    const provider = convexProjectsById.get(convexProjectId)?.provider;
-    return provider?.state === "current" && provider.productionDeployment.state === "missing";
+    return provider?.state === "current" ? provider : null;
   };
 
   for (const worker of sortWorkers(repository.cloudflareWorkers)) {
@@ -206,18 +254,31 @@ export function buildRepositoryAttention(args: {
         : exactly(1, repository.convexProjects)
           ? repository.convexProjects[0].convexProjectId
           : null;
-    // The deploy-first item of that project names this repair; a rotation would fail before it.
-    if (targetProjectId !== null && hasNoProductionDeployment(targetProjectId)) {
+    if (targetProjectId === null) {
+      // A rotation needs the Convex team; without a readable team the facts are unavailable.
+      if (
+        repository.convexProjects.every((project) => currentConvexProject(project.convexProjectId))
+      ) {
+        items.push({
+          tool: ROTATE_CONVEX_DEPLOY_KEYS_TOOL,
+          workerName,
+          convexProjectName: null,
+          problem: `${describeConvexBuildAccessProblem(workerName, access)} Ask the user which attached Convex project the Worker deploys with.`,
+        });
+      }
+      continue;
+    }
+    const targetProject = currentConvexProject(targetProjectId);
+    // An unreadable project gives no item. A project without a production deployment gets the
+    // deploy-first item below instead, because a rotation would fail before it.
+    if (targetProject === null || targetProject.productionDeployment.state === "missing") {
       continue;
     }
     items.push({
       tool: ROTATE_CONVEX_DEPLOY_KEYS_TOOL,
       workerName,
-      convexProjectName: targetProjectId === null ? null : convexProjectSlug(targetProjectId),
-      problem:
-        targetProjectId === null
-          ? `${describeConvexBuildAccessProblem(workerName, access)} Ask the user which attached Convex project the Worker deploys with.`
-          : describeConvexBuildAccessProblem(workerName, access),
+      convexProjectName: targetProject.projectSlug,
+      problem: describeConvexBuildAccessProblem(workerName, access),
     });
   }
 
@@ -353,8 +414,9 @@ export function projectRepositoryStatusForMcp(args: {
         isDraft: pullRequest.isDraft,
         headRefName: pullRequest.headRefName,
         checks: summarizeChecksForMcp(pullRequest.statusCheckRollup),
+        // Unread Cloudflare builds list no Workers; each app is then unavailable, not absent.
         apps:
-          resources?.state === "available"
+          resources?.state === "available" && resources.cloudflareBuilds.state === "available"
             ? resources.workers.map((resource) => ({
                 workerName: resource.workerName,
                 previewBuild:

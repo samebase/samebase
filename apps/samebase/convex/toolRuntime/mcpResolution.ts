@@ -72,7 +72,9 @@ and root directory that finish the first Cloudflare setup, and the planned Conve
 new Worker deploys with. Null when the plan selected a token, its Convex project is not attached, or
 a Worker is already attached.
 */
-export function readPendingCloudflareSetup(repository: UserRepositoryResult) {
+export function readPendingCloudflareSetup(
+  repository: Pick<UserRepositoryResult, "providerPlan" | "cloudflareWorkers" | "convexProjects">,
+) {
   const plan = repository.providerPlan;
   if (
     !plan ||

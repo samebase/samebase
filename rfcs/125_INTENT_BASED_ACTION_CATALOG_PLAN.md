@@ -431,6 +431,11 @@ Deviations found during step 3:
    pull request page, and the pull request resources) plus the attention items, so the overview can
    adopt it in PR 6 without new shapes. The typical MCP result measures 2,067 bytes (1 Worker, 1
    Convex project, 3 checks per commit, 2 open PRs).
+4. The attention rules read the provider setup state first, because a running managed setup holds
+   the provider-write lock and every repair tool fails during it. While setup runs, the only item
+   says so and names no tool. When it failed, the only item names `repository_retryProviderSetup`. A
+   pending Cloudflare setup gives an item that names `repository_cloudflare_createWorker` with the
+   planned Worker name and root directory; that call installs the deploy key.
 
 ## Alternatives considered
 

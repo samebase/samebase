@@ -10,6 +10,7 @@ import {
   vConvexProjectObservation,
 } from "../providerObservationModel";
 import { vPullRequestResources, vRepositoryPullRequestPage } from "../pullRequestModel";
+import { cloudflareCreateWorkerContract } from "./cloudflareAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "./cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
@@ -24,7 +25,13 @@ export const REPOSITORY_STATUS_PULL_REQUEST_LIMIT = 6;
 One problem that the status read found, with the tool that fixes it. `tool` is null when no
 Samebase tool fixes the problem; `problem` then says what to do.
 */
-export const vRepositoryAttentionItem = union(
+const vRepositoryAttentionItem = union(
+  object({
+    tool: literal(cloudflareCreateWorkerContract.mcp.name),
+    workerName: string(),
+    rootDirectory: string(),
+    problem: string(),
+  }),
   object({
     tool: literal(cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name),
     workerName: string(),
@@ -166,15 +173,18 @@ the repository overview shows. It changes nothing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
   first 6 open pull requests, most recently updated first. Each lists its checks and, per app, the
   preview build and preview URL.
-- Attention items: each names a problem and the tool that fixes it:
-  \`repository_cloudflare_configureBuilds\` when a Worker's Workers Builds settings are missing or
-  use different tokens, \`repository_cloudflare_rotateConvexDeployKeys\` when a Worker's Convex
-  deploy key is missing or targets another project, and \`repository_retryProviderSetup\` when
-  Samebase-managed setup failed. "Deploy the Convex project to production first" means that a
+- Attention items: each names a problem and the tool that fixes it. The provider setup state comes
+  first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
+  the only item names \`repository_retryProviderSetup\`. When Cloudflare setup is pending, an item
+  gives the setup guide and names \`repository_cloudflare_createWorker\` with the planned Worker
+  name and root directory. Otherwise \`repository_cloudflare_configureBuilds\` fixes a Worker whose
+  Workers Builds settings are missing or use different tokens, and
+  \`repository_cloudflare_rotateConvexDeployKeys\` fixes a Worker whose Convex deploy key is
+  missing or targets another project. "Deploy the Convex project to production first" means that a
   project has no production deployment yet, so no deploy key can be installed.
 
 Checks list only the names of failed checks. A provider that cannot be read is reported as
-unavailable rather than failing the whole read. A successful build does not prove that the app
+unavailable rather than failing the whole read, and an unavailable fact gives no attention item. A successful build does not prove that the app
 serves the expected content.`,
 } as const;
 
