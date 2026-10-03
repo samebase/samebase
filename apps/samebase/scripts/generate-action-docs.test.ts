@@ -13,7 +13,7 @@ describe("generated action documentation", () => {
       "The repository list reports Samebase-owned workflow state and the names of attached resources.",
     );
     expect(llmsTxt).toContain(
-      "Use provider-native\ntools to verify current provider existence, configuration, deployment state, and logs",
+      "The repository status reads the live builds, URLs, Convex\ndeployments, checks, and pull requests of one repository. Use provider-native tools for logs,\nenvironment values, migrations, and domains.",
     );
   });
 

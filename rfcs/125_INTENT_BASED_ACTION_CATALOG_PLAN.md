@@ -370,14 +370,14 @@ PostHog insights that filter `mcp_tool_name`; and both plugin manifests (`0.3.0`
 
 ## Rollout
 
-| PR  | Scope                                                                                                                                                                 | Before submission  |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 1   | This RFC                                                                                                                                                              | yes                |
-| 2   | Catalog and module moves: new paths, catalog test, `repository` argument resolution, token default, deploy-key chain, the three repair tools, discovery rule          | yes                |
-| 3   | Status read: contract, `repository:getStatus`, attention items that name the repair tool, MCP projection, a fixture test that keeps the typical MCP result under 4 KB | yes                |
-| 4   | Confirmation gate: challenge and audit tables, server check in the 4 gated actions, dashboard confirm dialogs                                                         | yes                |
-| 5   | Skill, docs, about 1k instructions, submission source with the 8 cases rewritten against the final names, plugin version                                              | yes, last          |
-| 6   | Overview page reads `repository:getStatus`                                                                                                                            | no, after approval |
+| PR  | Scope                                                                                                                                                                 | Before submission  | State                                                         |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------- |
+| 1   | This RFC                                                                                                                                                              | yes                | in [PR #1664](https://github.com/samebase/samebase/pull/1664) |
+| 2   | Catalog and module moves: new paths, catalog test, `repository` argument resolution, token default, deploy-key chain, the three repair tools, discovery rule          | yes                | landed in PR #1664 as step 2                                  |
+| 3   | Status read: contract, `repository:getStatus`, attention items that name the repair tool, MCP projection, a fixture test that keeps the typical MCP result under 4 KB | yes                | landed in PR #1664 as step 3                                  |
+| 4   | Confirmation gate: challenge and audit tables, server check in the 4 gated actions, dashboard confirm dialogs                                                         | yes                | landed in PR #1664 as step 4                                  |
+| 5   | Skill, docs, about 1k instructions, submission source with the 8 cases rewritten against the final names, plugin version                                              | yes, last          | landed in PR #1664 as step 5                                  |
+| 6   | Overview page reads `repository:getStatus`                                                                                                                            | no, after approval | not started                                                   |
 
 PR 5 also changes the wording of three submitted prompts that say "app" where they mean the
 repository
@@ -395,17 +395,16 @@ the reviewer account, then submit once. After approval, OpenAI picks up server c
 tool names, arguments, and annotations. A change to those, the skill, or `.mcp.json` needs a new
 review.
 
-### Steps 2 to 4 in PR #1664
+### Steps 2 to 5 in PR #1664
 
-Step N is rollout PR N. Steps 2 to 4 land in
+Step N is rollout PR N. Steps 2 to 5 land in
 [PR #1664](https://github.com/samebase/samebase/pull/1664) with this RFC. Step 2 holds the PR 2
 scope and the parts of PR 5 that the renames force, because old tool names stop working at deploy:
 the server instructions, the skill, the generated docs, the submission source with the 8 cases and
 the three reworded prompts, and plugin `0.3.0`. Step 3 adds the status read, so the catalog has 18
 tools. Step 4 adds the confirmation gate, with the one instruction rule and the submission
-justifications that it changes. The skill already tells the agent to state the effect and get
-approval, so it and the plugin version do not change. PR 5 revisits the instructions and the 8
-cases.
+justifications that it changes. Step 5 rewrites the instructions, the skill, the 18 justifications,
+and the 8 cases against the final catalog, so the submission can follow the deploy.
 
 Deviations found during step 2:
 
@@ -495,6 +494,16 @@ Deviations found during step 4:
    object. A test validates the real `tools/list` response with the SDK's `ListToolsResultSchema`.
 7. The dashboard shows the challenge in one confirmation dialog for all four actions. For connect,
    the dialog replaces the Cloudflare form and resends the exact request that it showed.
+
+Deviations found during step 5:
+
+1. The server instructions have 1,184 characters, not about 1k. They keep five rules that the note's
+   1k draft did not need: the creation sequence with the server's token choice, the status read, the
+   confirmation rule, the dashboard hand-off, and the repository name. The test bound is 1,200.
+2. The plugin version is `0.3.1`, because the skill changed after step 2 set `0.3.0`. The MCP server
+   version stays `0.3.0`.
+3. The 8 cases keep their tools. No case calls `repository_getStatus`, because the review needs
+   exactly five positive cases and the RFC asks for none.
 
 ## Alternatives considered
 
