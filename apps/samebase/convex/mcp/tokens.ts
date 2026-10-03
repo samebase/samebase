@@ -30,6 +30,11 @@ export function createAgentBrowserHandoffTokenValue(): string {
   return createOpaqueToken("agbh");
 }
 
+/** The one-use token of a gated action's needs_confirmation result (dashboard and MCP). */
+export function createActionConfirmationTokenValue(): string {
+  return createOpaqueToken("sbcf");
+}
+
 export async function sha256Hex(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
