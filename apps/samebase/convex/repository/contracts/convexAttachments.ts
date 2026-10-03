@@ -190,7 +190,8 @@ export const convexAttachProjectsContract = {
   doc: `Re-reads the selected Convex project and the exact repository code location before writing the
 attachment. The MCP tool takes the project's slug and matches it exactly; a project name is never
 matched. A project that another Samebase repository attaches is rejected. One discovered code
-location is used without asking; several return an error that lists them. The dashboard can attach
+location is used without asking when GitHub returned the whole file tree; several, or a partial
+tree, return an error that lists the visible ones. The dashboard can attach
 several projects in one atomic call: either every selected project is attached or none are. Convex
 projects and GitHub files are not modified.`,
 } as const;
@@ -240,8 +241,9 @@ organization default region (US East when no default is saved), in the Convex te
 the repository's organization. Samebase checks the provider-write lock, the exact repository code
 location, the project name, and the organization quota before the create request, then records the
 project as an attachment at that code location. One discovered code location is used without
-asking; several return an error that lists them. An existing project name is rejected. If Samebase
-cannot record a created project, the error says so.`,
+asking when GitHub returned the whole file tree; several, or a partial tree, return an error that
+lists the visible ones. An existing project name is rejected. If Samebase cannot record a created
+project, the error says so.`,
 } as const;
 
 export const convexChangeProjectCodeLocationContract = {

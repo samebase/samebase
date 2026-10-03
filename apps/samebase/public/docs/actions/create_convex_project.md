@@ -8,9 +8,10 @@ Creates one Convex project with a production deployment in the region given, els
 organization default region (US East when no default is saved), in the Convex team connected to the
 repository's organization. Samebase checks the provider-write lock, the exact repository code
 location, the project name, and the organization quota before the create request, then records the
-project as an attachment at that code location. One discovered code location is used without asking;
-several return an error that lists them. An existing project name is rejected. If Samebase cannot
-record a created project, the error says so.
+project as an attachment at that code location. One discovered code location is used without asking
+when GitHub returned the whole file tree; several, or a partial tree, return an error that lists the
+visible ones. An existing project name is rejected. If Samebase cannot record a created project, the
+error says so.
 
 ## Arguments
 

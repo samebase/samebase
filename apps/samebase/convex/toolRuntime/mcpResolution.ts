@@ -158,11 +158,13 @@ function trimDirectorySlash(path: string): string {
 
 /**
 The `codeLocation` argument is a discovered path: a convex.json path, or a convex/ directory. One
-discovered location is used without asking.
+discovered location is used without asking only when GitHub returned the whole file tree; a partial
+tree can hide another location.
 */
 export function selectConvexCodeLocation<Location extends ConvexCodeLocation>(args: {
   repositoryFullName: string;
   locations: Location[];
+  completeness: ConvexProjectDiscoveryResult["source"]["completeness"];
   requestedPath: string | undefined;
 }): Location {
   const paths = args.locations.map(getConvexCodeLocationPath);
@@ -182,6 +184,11 @@ export function selectConvexCodeLocation<Location extends ConvexCodeLocation>(ar
   if (args.locations.length === 0) {
     throw new ConvexError(
       `No Convex code location was found on the default branch of ${args.repositoryFullName}. Add a convex.json file, or a convex/ directory next to package.json, push it, then retry.`,
+    );
+  }
+  if (args.completeness === "partial") {
+    throw new ConvexError(
+      `GitHub returned only part of the file tree of ${args.repositoryFullName}, so another Convex code location can be missing. Visible: ${formatNames(paths)}. Ask the user which one to use, then pass it as codeLocation.`,
     );
   }
   if (!exactly(1, args.locations)) {

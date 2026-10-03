@@ -912,6 +912,31 @@ describe("repository_convex tools", () => {
     });
     expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
   });
+
+  it("attaches nothing without a code location when GitHub returned a partial tree", async () => {
+    const fixture = await createScoutFixture();
+    githubMocks.fetchGitHubConvexCodeLocationDiscovery.mockResolvedValue({
+      completeness: "partial",
+      defaultBranch: "main",
+      commitSha: "commit-sha",
+      treeSha: "tree-sha",
+      locations: [configLocation("apps/first/convex.json")],
+    });
+    const attachmentsBefore = await readAttachments(fixture);
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.convexAttachProjectTool, {
+        userId: fixture.userId,
+        grantedScopes: ["access_provider_connections"],
+        repository: "scout-owner/scout",
+        convexProjectSlug: "free-app",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "GitHub returned only part of the file tree of scout-owner/scout, so another Convex code location can be missing. Visible: apps/first/convex.json. Ask the user which one to use, then pass it as codeLocation.",
+    });
+    await expect(readAttachments(fixture)).resolves.toEqual(attachmentsBefore);
+  });
 });
 
 describe("repository_cloudflare_configureBuilds", () => {

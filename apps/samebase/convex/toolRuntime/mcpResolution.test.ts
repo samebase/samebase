@@ -116,6 +116,7 @@ describe("selectConvexCodeLocation", () => {
       selectConvexCodeLocation({
         repositoryFullName: "samebase/site",
         locations: [configLocation],
+        completeness: "complete",
         requestedPath: undefined,
       }),
     ).toBe(configLocation);
@@ -123,9 +124,31 @@ describe("selectConvexCodeLocation", () => {
       selectConvexCodeLocation({
         repositoryFullName: "samebase/site",
         locations: [configLocation, directoryLocation],
+        completeness: "complete",
         requestedPath: "apps/web/convex",
       }),
     ).toBe(directoryLocation);
+  });
+
+  it("asks for the location when GitHub returned a partial tree, even with one visible location", () => {
+    expect(() =>
+      selectConvexCodeLocation({
+        repositoryFullName: "samebase/site",
+        locations: [configLocation],
+        completeness: "partial",
+        requestedPath: undefined,
+      }),
+    ).toThrow(
+      "GitHub returned only part of the file tree of samebase/site, so another Convex code location can be missing. Visible: convex.json. Ask the user which one to use, then pass it as codeLocation.",
+    );
+    expect(
+      selectConvexCodeLocation({
+        repositoryFullName: "samebase/site",
+        locations: [configLocation],
+        completeness: "partial",
+        requestedPath: "convex.json",
+      }),
+    ).toBe(configLocation);
   });
 
   it("lists the found locations when the requested one is missing", () => {
@@ -133,6 +156,7 @@ describe("selectConvexCodeLocation", () => {
       selectConvexCodeLocation({
         repositoryFullName: "samebase/site",
         locations: [configLocation, directoryLocation],
+        completeness: "complete",
         requestedPath: "apps/admin/convex.json",
       }),
     ).toThrow(
@@ -145,6 +169,7 @@ describe("selectConvexCodeLocation", () => {
       selectConvexCodeLocation({
         repositoryFullName: "samebase/site",
         locations: [],
+        completeness: "complete",
         requestedPath: undefined,
       }),
     ).toThrow("No Convex code location was found on the default branch of samebase/site.");

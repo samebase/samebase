@@ -870,6 +870,7 @@ export const convexAttachProjectTool = defineMcpTool({
     const codeLocation = selectConvexCodeLocation({
       repositoryFullName: repository.githubRepositoryFullName,
       locations: source.locations,
+      completeness: source.completeness,
       requestedPath: args.codeLocation,
     });
 
@@ -909,6 +910,7 @@ export const convexCreateProjectTool = defineMcpTool({
     const codeLocation = selectConvexCodeLocation({
       repositoryFullName: repository.githubRepositoryFullName,
       locations: source.locations,
+      completeness: source.completeness,
       requestedPath: args.codeLocation,
     });
     const deploymentRegion =
