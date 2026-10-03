@@ -191,12 +191,12 @@ describe("app provisioning retry admission", () => {
     [
       "an active managed lock",
       "active_managed_lock",
-      "Another repository infrastructure operation is active.",
+      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
     ],
     [
       "an active manual write",
       "manual_write",
-      "Another repository infrastructure operation is active.",
+      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
     ],
     ["repository removal", "deletion", "Removal from Samebase is in progress."],
   ] as const)(
@@ -221,7 +221,7 @@ describe("app provisioning retry admission", () => {
     });
 
     await expect(retry(fixture, confirmation)).rejects.toThrow(
-      "Another repository infrastructure operation is active.",
+      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
     );
     const rows = await readConfirmationRows(fixture);
     expect(rows.audit).toEqual([]);
@@ -379,9 +379,19 @@ describe("app provisioning retry admission", () => {
     });
 
     // The first call already refuses, so the user is never asked to approve a retry that cannot start.
-    await expect(retry(fixture)).rejects.toThrow(
-      "Infrastructure retry is available only after managed setup fails.",
-    );
+    // MCP shows the refusal as it is, because it holds no provider text.
+    await expect(
+      t.action(internal.toolRuntime.runtime.repositoryRetryProviderSetupTool, {
+        userId: ids.userId,
+        grantedScopes: ["access_app_create"],
+        grantId: "grant-1",
+        clientId: "client-1",
+        repository: "ada/retry-guard",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
+    });
     await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
   });
 
@@ -401,7 +411,7 @@ describe("app provisioning retry admission", () => {
     });
 
     await expect(retry(fixture)).rejects.toThrow(
-      "Infrastructure retry is available only after managed setup fails.",
+      "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
     );
   });
 
@@ -423,7 +433,7 @@ describe("app provisioning retry admission", () => {
     });
 
     await expect(retry(fixture)).rejects.toThrow(
-      "Infrastructure retry is available only after provider setup fails.",
+      "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
     );
   });
 

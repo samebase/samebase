@@ -6,7 +6,10 @@ import { internalMutation, type DatabaseReader, type MutationCtx } from "../_gen
 import { isRecord } from "../jsonUtils";
 import { createActionConfirmationTokenValue, sha256Hex } from "../mcp/tokens";
 import { requireRepositoryForUser } from "../organizationAccess";
-import { readRepositoryInfrastructureState } from "./infrastructureOperation";
+import {
+  INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE,
+  readRepositoryInfrastructureState,
+} from "./infrastructureOperation";
 import { getConvexCodeLocationPath, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
   vConfirmationSurface,
@@ -175,13 +178,14 @@ function describeConvexProject(codeLocation: string, convexProjectSlug: string |
 }
 
 /**
-Connect and rotation claim the provider-write lock only after the token is consumed, so a repository
-with a running provider operation fails here first: it gets no challenge, and a token stays unused.
+Connect and rotation claim the provider-write lock only after the token is consumed, and detach
+checks the lock again after the check, so a repository with a running provider operation fails here
+first: it gets no challenge, and a token stays unused.
 */
 async function requireNoProviderOperation(db: DatabaseReader, repository: ConnectedRepository) {
   const infrastructure = await readRepositoryInfrastructureState({ db }, repository);
   if (infrastructure.operation.kind !== "none") {
-    throw new Error("Another repository infrastructure operation is active.");
+    throw new ConvexError(INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE);
   }
 }
 
@@ -270,6 +274,7 @@ async function readConfirmationSubject(
         approval: `a new provider setup run for ${repositoryName}, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys`,
       };
     case "detach_resource": {
+      await requireNoProviderOperation(db, repository);
       if (request.resource.kind === "cloudflare_worker") {
         const worker = await requireAttachedWorker(db, repository, request.resource.workerId);
         return {

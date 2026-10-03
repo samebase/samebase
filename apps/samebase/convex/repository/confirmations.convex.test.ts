@@ -398,8 +398,8 @@ describe("action confirmation check", () => {
     ).resolves.toEqual({ state: "confirmed" });
   });
 
-  it("refuses connect and rotation while another provider operation runs, and keeps the token unused", async () => {
-    const { check, connectWorker, ids, issue, readRows, t } = await createFixture();
+  it("refuses connect, rotation, and detach while another provider operation runs, and keeps the token unused", async () => {
+    const { check, connectWorker, detachWorker, ids, issue, readRows, t } = await createFixture();
     const challenge = await issue(connectWorker("apps/site"));
     await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
       repositoryId: ids.repositoryId,
@@ -407,7 +407,8 @@ describe("action confirmation check", () => {
       actionId: "manual-repair",
       action: "create_convex_project",
     });
-    const busy = "Another repository infrastructure operation is active.";
+    const busy =
+      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.";
 
     await expect(
       check({
@@ -426,6 +427,8 @@ describe("action confirmation check", () => {
         },
       }),
     ).rejects.toThrow(busy);
+    // Detach checks the lock again after the check, so its first call refuses before a challenge.
+    await expect(check({ request: detachWorker })).rejects.toThrow(busy);
 
     const { audit, tokens } = await readRows();
     expect(audit).toEqual([]);

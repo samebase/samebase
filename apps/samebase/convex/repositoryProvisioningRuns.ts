@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -8,7 +8,10 @@ import {
   vRepositoryProvisioningRunState,
   vRepositoryProvisioningStep,
 } from "./repository/provisioningModel";
-import { readRepositoryInfrastructureState } from "./repository/infrastructureOperation";
+import {
+  INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE,
+  readRepositoryInfrastructureState,
+} from "./repository/infrastructureOperation";
 import { assertConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
 import { vConfirmationSurface } from "./repository/confirmationModel";
 import { checkActionConfirmation } from "./repository/confirmations";
@@ -79,18 +82,22 @@ async function requireRetryAdmission(
   }
   const connectedRepository = assertConnectedRepository(repository);
   if (!isSamebaseManagedRepository(connectedRepository)) {
-    throw new Error("Infrastructure retry is available only for Samebase-managed repositories.");
+    throw new ConvexError(
+      "Samebase retries provider setup only for repositories that it created, so nothing changed. Attach or create the missing Worker or Convex project instead.",
+    );
   }
   const [infrastructure, organization] = await Promise.all([
     readRepositoryInfrastructureState(ctx, connectedRepository),
     requireRepositoryOrganization(ctx.db, connectedRepository),
   ]);
   if (infrastructure.operation.kind !== "none") {
-    throw new Error("Another repository infrastructure operation is active.");
+    throw new ConvexError(INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE);
   }
   const failedWrite = infrastructure.providerWrite;
   if (!failedWrite || failedWrite.owner.kind !== "managed_run" || failedWrite.state !== "failed") {
-    throw new Error("Infrastructure retry is available only after managed setup fails.");
+    throw new ConvexError(
+      "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
+    );
   }
   const failedRun = await ctx.db.get(failedWrite.owner.runId);
   if (!failedRun || failedRun.state !== "failed" || failedRun.repositoryId !== args.repositoryId) {
@@ -101,7 +108,9 @@ async function requireRetryAdmission(
     (!isRepositoryProvisioningProviderStep(failedRun.currentStep) &&
       !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created"))
   ) {
-    throw new Error("Infrastructure retry is available only after provider setup fails.");
+    throw new ConvexError(
+      "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
+    );
   }
   return { connectedRepository, organization, failedWrite };
 }
