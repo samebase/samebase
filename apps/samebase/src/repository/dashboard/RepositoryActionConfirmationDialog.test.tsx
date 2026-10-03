@@ -91,11 +91,9 @@ describe("RepositoryActionConfirmationDialog", () => {
     }
   });
 
-  it("shows the server's rejection and lets the user cancel", async () => {
+  it("shows a failure and offers only Close, because the token can be used already", async () => {
     const onConfirm = vi.fn(async () => {
-      throw new ConvexError(
-        "This confirmation token expired. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
-      );
+      throw new ConvexError("Cloudflare did not report the configured repository root.");
     });
     const dialog = await renderDialog(onConfirm);
 
@@ -107,8 +105,17 @@ describe("RepositoryActionConfirmationDialog", () => {
         dialog.confirmButton().click();
       });
 
-      expect(dialog.rootElement.textContent).toContain("This confirmation token expired.");
-      expect(dialog.confirmButton().disabled).toBe(false);
+      expect(dialog.rootElement.textContent).toContain(
+        "Cloudflare did not report the configured repository root.",
+      );
+      expect(dialog.confirmButton().disabled).toBe(true);
+      expect(
+        [...dialog.rootElement.querySelectorAll("button")].map((button) => button.textContent),
+      ).toContain("Close");
+      await act(async () => {
+        dialog.confirmButton().click();
+      });
+      expect(onConfirm).toHaveBeenCalledTimes(1);
     } finally {
       await dialog.cleanup();
     }

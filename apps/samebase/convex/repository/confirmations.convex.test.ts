@@ -235,7 +235,7 @@ describe("action confirmation check", () => {
       }),
     ]);
     await expect(check({ request: detachWorker, confirmation })).rejects.toMatchObject({
-      data: "This confirmation token was already used. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
+      data: "This confirmation token was already used. Nothing changed. Start the action again to get a new confirmation.",
     });
     await expect(readRows()).resolves.toMatchObject({ audit: [expect.anything()] });
   });
@@ -244,7 +244,7 @@ describe("action confirmation check", () => {
     const { check, detachWorker, ids, issue, readRows, t } = await createFixture();
     const challenge = await issue(detachWorker);
     const notValid = {
-      data: "This confirmation token is not valid. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
+      data: "This confirmation token is not valid. Nothing changed. Start the action again to get a new confirmation.",
     };
 
     await expect(
@@ -274,7 +274,7 @@ describe("action confirmation check", () => {
         confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
       }),
     ).rejects.toMatchObject({
-      data: "This confirmation token expired. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
+      data: "This confirmation token expired. Nothing changed. Start the action again to get a new confirmation.",
     });
     await expect(readRows()).resolves.toMatchObject({ audit: [] });
   });
@@ -333,7 +333,7 @@ describe("action confirmation check", () => {
         },
       }),
     ).rejects.toMatchObject({
-      data: "This confirmation token belongs to another action. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
+      data: "This confirmation token belongs to another action. Nothing changed. Start the action again to get a new confirmation.",
     });
     await expect(
       check({
@@ -348,7 +348,7 @@ describe("action confirmation check", () => {
         },
       }),
     ).rejects.toMatchObject({
-      data: "The arguments differ from the request that the user approved, so nothing changed. Send the approved arguments, or call again without confirmation to get a new confirmation request.",
+      data: "The request changed after it was approved. Nothing changed. Start the action again to get a new confirmation.",
     });
     await expect(readRows()).resolves.toMatchObject({ audit: [] });
   });
@@ -363,7 +363,7 @@ describe("action confirmation check", () => {
         confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
       }),
     ).rejects.toMatchObject({
-      data: expect.stringContaining("The arguments differ from the request that the user approved"),
+      data: expect.stringContaining("The request changed after it was approved."),
     });
     await expect(
       check({

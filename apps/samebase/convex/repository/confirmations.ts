@@ -33,8 +33,11 @@ action, and normalized request, consumes the token, and writes the audit row.
 const { id, literal, object, optional, string, union } = v;
 
 const ACTION_CONFIRMATION_TTL_MS = 10 * 60 * 1000;
-const START_AGAIN =
-  "Nothing changed. Call the action again without confirmation to get a new confirmation request.";
+/** What a rejected caller does next, in the words of its surface. */
+const START_AGAIN = {
+  dashboard: "Nothing changed. Start the action again to get a new confirmation.",
+  mcp: "Nothing changed. Call the action again without confirmation to get a new confirmation request.",
+} as const satisfies Record<ConfirmationSurface["kind"], string>;
 
 /**
 A gated request after the server resolved names and defaults: the repository, the Worker tag, the
@@ -357,26 +360,29 @@ export async function checkActionConfirmation(
     .query("actionConfirmationTokens")
     .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
     .unique();
+  const startAgain = START_AGAIN[args.surface.kind];
   if (!issued || issued.userId !== args.userId) {
-    throw new ConvexError(`This confirmation token is not valid. ${START_AGAIN}`);
+    throw new ConvexError(`This confirmation token is not valid. ${startAgain}`);
   }
   // The sentence names its surface, and the audit row records the confirming surface, so a token
   // works only where it was issued: the dashboard, or the same MCP grant and client.
   if (!isSameSurface(issued.surface, args.surface)) {
-    throw new ConvexError(`This confirmation token was issued to another client. ${START_AGAIN}`);
+    throw new ConvexError(`This confirmation token was issued to another client. ${startAgain}`);
   }
   if (issued.consumedAt) {
-    throw new ConvexError(`This confirmation token was already used. ${START_AGAIN}`);
+    throw new ConvexError(`This confirmation token was already used. ${startAgain}`);
   }
   if (issued.expiresAt <= now) {
-    throw new ConvexError(`This confirmation token expired. ${START_AGAIN}`);
+    throw new ConvexError(`This confirmation token expired. ${startAgain}`);
   }
   if (issued.action !== args.request.action) {
-    throw new ConvexError(`This confirmation token belongs to another action. ${START_AGAIN}`);
+    throw new ConvexError(`This confirmation token belongs to another action. ${startAgain}`);
   }
   if (issued.requestDigest !== requestDigest) {
     throw new ConvexError(
-      "The arguments differ from the request that the user approved, so nothing changed. Send the approved arguments, or call again without confirmation to get a new confirmation request.",
+      args.surface.kind === "dashboard"
+        ? `The request changed after it was approved. ${startAgain}`
+        : "The arguments differ from the request that the user approved, so nothing changed. Send the approved arguments, or call again without confirmation to get a new confirmation request.",
     );
   }
   if (args.confirmation.acknowledgement.trim() !== issued.acknowledgement) {
