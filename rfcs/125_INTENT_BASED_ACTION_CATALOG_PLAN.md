@@ -127,7 +127,9 @@ Shared rules:
   slug is unique inside a Convex team, and `repository_list`, `repository_convex_findProjects`, and
   `repository_getStatus` return it; `projectName` is for display. A Convex project name is never
   matched, because one project's name can be another project's slug. A slug that matches nothing
-  returns an error that lists the attached slugs.
+  returns an error that lists the attached slugs. One exception: `repository_detachResource` takes
+  the recorded code location of a project whose slug cannot be read (a code location contains `.` or
+  `/`, so it never equals a slug).
 - The server installs the Convex deploy key after it connects or creates a Worker. The project is
   the given `convexProjectSlug`, else the repository's only attached Convex project. Several
   attached projects and no name fail before any provider change, with an error that lists them. With
@@ -461,10 +463,14 @@ Deviations found during step 3:
 
 Deviations found during step 4:
 
-1. The token table is `actionConfirmationTokens`. It stores the token hash, the user, the action,
-   the SHA-256 digest of the normalized request (canonical JSON with sorted keys), the effect, and
-   the acknowledgement. A second call is checked against that row, so a renamed repository between
-   the two calls does not change the sentence that the user approved.
+1. The token table is `actionConfirmationTokens`. It stores the token hash, the user, the surface
+   that received the token (the dashboard, or one MCP grant and client), the action, the SHA-256
+   digest of the normalized request (canonical JSON with sorted keys), the effect, and the
+   acknowledgement. A second call is checked against that row, so a renamed repository between the
+   two calls does not change the sentence that the user approved, and a token works only on its own
+   surface. The digest leaves out the live Convex slug: the project ID binds the target, and the
+   slug only words the sentence, so a failed Convex read on the second call does not reject an
+   unchanged request.
 2. The audit row stores `requestDigest` in place of `request`, `effect` in place of `effectText`,
    and `surface` as one union (`dashboard`, or `mcp` with `grantId` and `clientId`) in place of
    three fields. The acknowledgement names every argument that changes the effect, and the digest
@@ -474,18 +480,24 @@ Deviations found during step 4:
    person ticks it; MCP reads "I confirm that the user approved ...". The rest of the sentence is
    the same. Connect and rotation name a Convex project by its slug and its code location (for
    example "the Convex project admin at convex.json"), because several projects can share a code
-   location: their actions read the slug before the check, and the request carries it, so the token
-   binds it too. Detach names a project by its code location only, because the dashboard detach is
-   one mutation that cannot read Convex.
+   location: their actions read the slug before the check, and the request carries it for the
+   sentence. Detach names a project by its code location only, because the dashboard detach is one
+   mutation that cannot read Convex. MCP detach takes the slug, or the code location that Samebase
+   records when the slug cannot be read (the project was deleted in Convex, or the team is
+   unreadable), so such a project can still be detached.
 4. The audit row is written in the transaction that consumes the token, before the action runs.
-   Detach runs the check and the detach in one mutation, so a failed detach leaves the token unused.
-   Connect, rotation, and retry run provider work after the token is consumed; when that work fails,
-   the user confirms again. A rejected second call (wrong, used, expired, or another user's token,
-   another action, a changed argument, or another sentence) changes nothing and leaves the token as
-   it was.
+   Detach runs the check and the detach in one mutation, and retry runs its admission rules, the
+   check, and the run insert in one mutation, so a refused detach or retry leaves the token unused
+   and writes no audit row. Connect and rotation run provider work after the token is consumed;
+   their check refuses a repository with a running provider operation first, but when the provider
+   work fails, the user confirms again. A rejected second call (wrong, used, expired, or another
+   user's token, another surface, another action, a changed argument, or another sentence) changes
+   nothing and leaves the token as it was.
 5. The first call still resolves names and defaults and checks the preconditions that need no
-   provider write (for example several Convex projects without a choice), so a request that cannot
-   run fails before a challenge.
+   provider write, so a request that cannot run fails before a challenge: several Convex projects
+   without a choice, a running provider operation, the retry admission rules (managed setup failed,
+   no other operation), and, for connect, a Cloudflare read that the Worker still has no Workers
+   Builds connection. Connect repeats that read before the second check.
 6. The gated MCP tools also receive the trusted grant and client of the bearer token, like
    `account_createSignInLink`, for the audit row. Their success results gain a `state` (`detached`,
    `setup_started`, `rotated`), so each structured result is one union with `needs_confirmation`.
@@ -493,7 +505,10 @@ Deviations found during step 4:
    because the official MCP SDK rejects the whole `tools/list` result when one root is not an
    object. A test validates the real `tools/list` response with the SDK's `ListToolsResultSchema`.
 7. The dashboard shows the challenge in one confirmation dialog for all four actions. For connect,
-   the dialog replaces the Cloudflare form and resends the exact request that it showed.
+   the dialog replaces the Cloudflare form and resends the exact request that it showed. A challenge
+   allows one attempt: after a failure the dialog offers only Close, and the next attempt starts the
+   action again with a new challenge. Rejections of a dashboard call say "Start the action again"
+   instead of the MCP instruction.
 
 Deviations found during step 5:
 
