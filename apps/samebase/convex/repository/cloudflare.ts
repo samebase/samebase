@@ -1641,7 +1641,7 @@ export async function createWorkerForUser(
   }
 }
 
-export const discoverWorkers = action({
+export const findWorkers = action({
   access: cloudflareDiscoverWorkersContract.access,
   args: cloudflareDiscoverWorkersContract.args,
   returns: cloudflareDiscoverWorkersContract.returns,
@@ -1791,7 +1791,7 @@ export const updateWorkerRootDirectory = action({
   },
 });
 
-export const configureWorkersBuildsForGitHub = action({
+export const configureBuilds = action({
   access: cloudflareConfigureWorkersBuildsForGitHubContract.access,
   args: cloudflareConfigureWorkersBuildsForGitHubContract.args,
   returns: cloudflareConfigureWorkersBuildsForGitHubContract.returns,
@@ -1802,7 +1802,7 @@ export const configureWorkersBuildsForGitHub = action({
   },
 });
 
-export const rotateConvexDeployKeysForWorkersBuilds = action({
+export const rotateConvexDeployKeys = action({
   access: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.access,
   args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
   returns: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.returns,

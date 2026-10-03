@@ -1961,7 +1961,7 @@ describe("RepositoryConvexDialog", () => {
     const onSaved = vi.fn();
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
-      if (actionName === getFunctionName(api.repository.convex.discoverProjects)) {
+      if (actionName === getFunctionName(api.repository.convex.findProjects)) {
         return discoverProjects;
       }
       if (actionName === getFunctionName(api.repository.convex.createProject)) {
@@ -2476,9 +2476,7 @@ describe("RepositoryCloudflareDialogContent", () => {
       if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
         return listBuildTokens;
       }
-      if (
-        actionName === getFunctionName(api.repository.cloudflare.configureWorkersBuildsForGitHub)
-      ) {
+      if (actionName === getFunctionName(api.repository.cloudflare.configureBuilds)) {
         return configureWorkersBuilds;
       }
       return vi.fn();
@@ -2685,7 +2683,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     }));
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
-      if (actionName === getFunctionName(api.repository.cloudflare.discoverWorkers)) {
+      if (actionName === getFunctionName(api.repository.cloudflare.findWorkers)) {
         return discoverWorkers;
       }
       if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {

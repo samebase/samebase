@@ -47,9 +47,9 @@ type CloudflareWorkerConnectTarget = {
   workerTag: string;
 };
 type CloudflareWorkerOption =
-  (typeof api.repository.cloudflare.discoverWorkers)["_returnType"]["workers"][number];
+  (typeof api.repository.cloudflare.findWorkers)["_returnType"]["workers"][number];
 type CloudflareInventoryState =
-  (typeof api.repository.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
+  (typeof api.repository.cloudflare.findWorkers)["_returnType"]["inventoryState"];
 export function RepositoryCloudflareDialogContent({
   blockedReason,
   cloudflareBuildTokenField,
@@ -429,13 +429,11 @@ export function RepositoryCloudflareDialog({
   repairWorkerId: Id<"repositoryCloudflareWorkers"> | null;
   repository: UserRepositoryResult;
 }) {
-  const discoverWorkers = useAction(api.repository.cloudflare.discoverWorkers);
+  const findWorkers = useAction(api.repository.cloudflare.findWorkers);
   const attachWorkers = useAction(api.repository.cloudflare.attachWorkers);
   const connectWorker = useAction(api.repository.cloudflare.connectWorker);
   const createWorker = useAction(api.repository.cloudflare.createWorker);
-  const configureWorkersBuildsForGitHub = useAction(
-    api.repository.cloudflare.configureWorkersBuildsForGitHub,
-  );
+  const configureBuilds = useAction(api.repository.cloudflare.configureBuilds);
   const folderSuggestions = useConvexQuery(
     api.repository.dashboard.listRepositoryFolderSuggestions,
     {
@@ -501,7 +499,7 @@ export function RepositoryCloudflareDialog({
       if (cloudflareAccountId === undefined) {
         throw new Error("Cloudflare account is not configured for this repository.");
       }
-      return await discoverWorkers({
+      return await findWorkers({
         accountId: cloudflareAccountId,
         repositoryId: repository.repositoryId,
       });
@@ -546,7 +544,7 @@ export function RepositoryCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        await configureWorkersBuildsForGitHub({
+        await configureBuilds({
           buildTokenUuid,
           rootDirectory: repairWorker.rootDirectory,
           repositoryId: repository.repositoryId,

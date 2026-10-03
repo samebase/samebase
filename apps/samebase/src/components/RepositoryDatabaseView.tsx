@@ -58,7 +58,7 @@ export function RepositoryDatabaseView({
   branch,
   convexProjectId: routeConvexProjectId,
 }: RepositoryDatabaseViewProps) {
-  const repositories = useQuery(api.repository.dashboard.getUserRepositories);
+  const repositories = useQuery(api.repository.list);
   const createEmbeddedDashboardCredentials = useAction(
     api.repository.database.createEmbeddedDashboardCredentials,
   );

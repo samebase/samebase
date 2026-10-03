@@ -464,7 +464,7 @@ describe("Cloudflare Worker stored coordinates", () => {
   it("rejects a Builds repair root that differs from the stored root", async () => {
     const fixture = await createFixture();
     await expect(
-      fixture.member.action(api.repository.cloudflare.configureWorkersBuildsForGitHub, {
+      fixture.member.action(api.repository.cloudflare.configureBuilds, {
         repositoryId: fixture.ids.repositoryId,
         workerId: fixture.ids.workerId,
         rootDirectory: "apps/different",

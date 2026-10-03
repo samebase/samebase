@@ -425,7 +425,7 @@ function AuthenticatedAppRightSidebarContent({
   showAdminNavigation: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
-  const repositories = useConvexQuery(api.repository.dashboard.getUserRepositories);
+  const repositories = useConvexQuery(api.repository.list);
   const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
   const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();

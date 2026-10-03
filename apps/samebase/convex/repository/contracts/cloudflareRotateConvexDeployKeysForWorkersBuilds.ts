@@ -5,7 +5,7 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 const { id } = v;
 
 export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
-  id: "rotate_convex_deploy_keys_for_workers_builds",
+  id: "rotate_convex_deploy_keys",
   access: "access_provider_connections",
   args: {
     repositoryId: id("repositories"),
@@ -14,10 +14,10 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   },
   returns: v.null(),
   mcp: {
-    title: "Rotate Convex deploy keys for Workers Builds",
-    name: "repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
+    title: "Rotate Convex deploy keys",
+    name: "repository_cloudflare_rotateConvexDeployKeys",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Rotate Samebase-named production and preview Convex deploy keys, write each as CONVEX_DEPLOY_KEY in its Workers Builds settings, update existing previews, write SAMEBASE_CONVEX_PROJECT in production, then start a production build.",
+      "Call repository_list first and use its returned repositoryId. Rotate Samebase-named production and preview Convex deploy keys, write each as CONVEX_DEPLOY_KEY in its Workers Builds settings, update existing previews, write SAMEBASE_CONVEX_PROJECT in production, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -25,9 +25,8 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
-      workerId:
-        "Stable Samebase Worker attachment id returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
+      workerId: "Stable Samebase Worker attachment id returned by repository_list.",
       convexProjectId: "Attached Convex project selected for this deploy-key rotation.",
     },
   } as const satisfies AppFunctionMcpMetadata,

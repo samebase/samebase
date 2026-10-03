@@ -78,7 +78,7 @@ const vCloudflareWorkerDiscoveryResult = object({
 });
 
 export const cloudflareDiscoverWorkersContract = {
-  id: "discover_cloudflare_workers",
+  id: "find_cloudflare_workers",
   access: providerConnectionAccess,
   args: {
     repositoryId: id("repositories"),
@@ -87,10 +87,10 @@ export const cloudflareDiscoverWorkersContract = {
   returns: vCloudflareWorkerDiscoveryResult,
   structuredContent: vCloudflareWorkerDiscoveryResult,
   mcp: {
-    title: "Discover Cloudflare Workers",
-    name: "repository_cloudflare_discoverWorkers",
+    title: "Find Cloudflare Workers",
+    name: "repository_cloudflare_findWorkers",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. List Workers in the Samebase repository's stored Cloudflare account with one attachment status each. attached: already on this Samebase app. attached_elsewhere: another Samebase app already uses it; it cannot be attached or connected here. attachable: connected to this repository in Cloudflare; only these Workers can be passed to repository_cloudflare_attachWorkers. connectable: not connected to any repository yet; the user can connect it in the Samebase dashboard, not through MCP. connected_elsewhere and unavailable: cannot be attached.",
+      "Call repository_list first and use its returned repositoryId. List Workers in the Samebase repository's stored Cloudflare account with one attachment status each. attached: already on this Samebase app. attached_elsewhere: another Samebase app already uses it; it cannot be attached or connected here. attachable: connected to this repository in Cloudflare; only these Workers can be passed to repository_cloudflare_attachWorkers. connectable: not connected to any repository yet; the user can connect it in the Samebase dashboard, not through MCP. connected_elsewhere and unavailable: cannot be attached.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -98,9 +98,8 @@ export const cloudflareDiscoverWorkersContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
-      accountId:
-        "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
+      accountId: "The Samebase repository's cloudflareAccountId returned by repository_list.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads every visible Worker in the repository's stored Cloudflare account, observes each Worker's
@@ -133,7 +132,7 @@ export const cloudflareAttachWorkersContract = {
     title: "Attach Cloudflare Workers",
     name: "repository_cloudflare_attachWorkers",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach existing Cloudflare Workers that repository_cloudflare_discoverWorkers returned with attachment attachable. Only attachable Workers can be attached. Samebase re-verifies each Worker's identity and live GitHub repository root before it writes the attachment.",
+      "Call repository_list first and use its returned repositoryId. Attach existing Cloudflare Workers that repository_cloudflare_findWorkers returned with attachment attachable. Only attachable Workers can be attached. Samebase re-verifies each Worker's identity and live GitHub repository root before it writes the attachment.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -141,11 +140,11 @@ export const cloudflareAttachWorkersContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
       accountId:
-        "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories and used for the preceding Worker discovery.",
+        "The Samebase repository's cloudflareAccountId returned by repository_list and used for the preceding Worker discovery.",
       workers:
-        "One or more Worker name and stable tag pairs that repository_cloudflare_discoverWorkers returned with attachment attachable.",
+        "One or more Worker name and stable tag pairs that repository_cloudflare_findWorkers returned with attachment attachable.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads every selected Worker and requires one current root for the repository's immutable
@@ -192,7 +191,7 @@ export const cloudflareCreateWorkerContract = {
     title: "Create Cloudflare Worker",
     name: "repository_cloudflare_createWorker",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Create and attach a Cloudflare Worker in the Samebase repository's stored Cloudflare account, configure Workers Builds for that repository root, and request the first production build.",
+      "Call repository_list first and use its returned repositoryId. Create and attach a Cloudflare Worker in the Samebase repository's stored Cloudflare account, configure Workers Builds for that repository root, and request the first production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -200,9 +199,8 @@ export const cloudflareCreateWorkerContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
-      accountId:
-        "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
+      accountId: "The Samebase repository's cloudflareAccountId returned by repository_list.",
       workerName: "Name for the new Cloudflare Worker. An existing name is rejected.",
       rootDirectory: "Repository root for this Worker's GitHub Builds triggers.",
       buildTokenUuid: "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",

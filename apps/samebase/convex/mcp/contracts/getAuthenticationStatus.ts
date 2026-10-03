@@ -27,7 +27,7 @@ export const getAuthenticationStatusContract = {
   structuredContent: object({ authentication: vMcpAuthenticationStatus }),
   mcp: {
     title: "Get authentication status",
-    name: "samebase_auth_getAuthenticationStatus",
+    name: "account_getAuthenticationStatus",
     description:
       "Read the caller's current Samebase MCP authentication state: account identity, role, and granted OAuth scopes.",
     safety: "read_only",

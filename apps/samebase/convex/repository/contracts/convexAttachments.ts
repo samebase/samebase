@@ -104,16 +104,16 @@ const vMcpConvexProjectDiscoveryResult = object({
 });
 
 export const convexDiscoverProjectsContract = {
-  id: "discover_convex_projects",
+  id: "find_convex_projects",
   access: providerConnectionAccess,
   args: { repositoryId: id("repositories") },
   returns: vConvexProjectDiscoveryResult,
   structuredContent: vMcpConvexProjectDiscoveryResult,
   mcp: {
-    title: "Discover Convex projects",
-    name: "repository_convex_discoverProjects",
+    title: "Find Convex projects",
+    name: "repository_convex_findProjects",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team. Each project has one attachment status. attached: already on this Samebase app. attached_elsewhere: another Samebase app already uses it; it cannot be attached here. attachable: only these projects can be passed to repository_convex_attachProjects.",
+      "Call repository_list first and use its returned repositoryId. Discover Convex code locations in the Samebase repository's GitHub repository and projects available through the connected Convex team. Each project has one attachment status. attached: already on this Samebase app. attached_elsewhere: another Samebase app already uses it; it cannot be attached here. attachable: only these projects can be passed to repository_convex_attachProject.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -121,7 +121,7 @@ export const convexDiscoverProjectsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Reads the repository's exact default-branch Git tree to find explicit convex.json files and
@@ -130,7 +130,7 @@ SHAs only. It does not read or validate convex.json or package.json contents. It
 available through the connected Convex team. Each project gets one attachment status: attached when
 this Samebase repository already records it, attached_elsewhere when another Samebase repository
 records it, otherwise attachable. attached_elsewhere never names the other repository. Each code
-location has the exact selection shape that repository_convex_attachProjects accepts. A partial
+location has the exact selection shape that repository_convex_attachProject accepts. A partial
 source scan never proves that an unlisted code location is absent. It may refresh private Samebase provider-connection bookkeeping,
 but it does not change GitHub, Convex, Cloudflare, or public internet state.`,
 } as const;
@@ -141,7 +141,7 @@ const vConvexProjectCodeLocationSelection = object({
 });
 
 export const convexAttachProjectsContract = {
-  id: "attach_convex_projects",
+  id: "attach_convex_project",
   access: providerConnectionAccess,
   args: {
     repositoryId: id("repositories"),
@@ -150,10 +150,10 @@ export const convexAttachProjectsContract = {
   returns: array(id("repositoryConvexProjects")),
   structuredContent: object({ convexProjectIds: array(id("repositoryConvexProjects")) }),
   mcp: {
-    title: "Attach Convex projects",
-    name: "repository_convex_attachProjects",
+    title: "Attach Convex project",
+    name: "repository_convex_attachProject",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Attach existing Convex projects that repository_convex_discoverProjects returned with attachment attachable, each at a discovered repository code location. Only attachable projects can be attached.",
+      "Call repository_list first and use its returned repositoryId. Attach existing Convex projects that repository_convex_findProjects returned with attachment attachable, each at a discovered repository code location. Only attachable projects can be attached.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -161,9 +161,9 @@ export const convexAttachProjectsContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
       projects:
-        "One or more project id and code location selections from repository_convex_discoverProjects. Use only projects with attachment attachable.",
+        "One or more project id and code location selections from repository_convex_findProjects. Use only projects with attachment attachable.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Re-reads every selected Convex project and exact repository code location before writing

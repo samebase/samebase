@@ -50,7 +50,6 @@ export const list = action({
   access: cloudflareListWorkersBuildTokensContract.access,
   args: cloudflareListWorkersBuildTokensContract.args,
   returns: cloudflareListWorkersBuildTokensContract.returns,
-  mcp: cloudflareListWorkersBuildTokensContract.mcp,
   handler: async (ctx, args): Promise<CloudflareWorkersBuildTokens> =>
     await listWorkersBuildTokensForUser(ctx, {
       userId: ctx.viewer.userId,

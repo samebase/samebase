@@ -427,7 +427,7 @@ describe("Convex project regions", () => {
     ]);
 
     await expect(
-      viewer.action(api.repository.convex.discoverProjects, { repositoryId }),
+      viewer.action(api.repository.convex.findProjects, { repositoryId }),
     ).resolves.toMatchObject({
       projects: [
         {
@@ -493,7 +493,7 @@ describe("Convex project regions", () => {
       },
     ]);
 
-    const discovery = await viewer.action(api.repository.convex.discoverProjects, {
+    const discovery = await viewer.action(api.repository.convex.findProjects, {
       repositoryId,
     });
 
@@ -542,7 +542,7 @@ describe("Convex project discovery for MCP", () => {
       },
     ]);
 
-    const result = await t.action(internal.toolRuntime.runtime.convexDiscoverProjectsTool, {
+    const result = await t.action(internal.toolRuntime.runtime.convexFindProjectsTool, {
       userId,
       grantedScopes: ["access_provider_connections"],
       repositoryId,

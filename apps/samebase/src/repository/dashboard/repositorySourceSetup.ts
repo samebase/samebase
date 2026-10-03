@@ -1,7 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 
 type RepositoryDashboardRepository = NonNullable<
-  (typeof api.repository.dashboard.getUserRepositories)["_returnType"]
+  (typeof api.repository.list)["_returnType"]
 >[number];
 export type RepositoryDashboardSourceSetup = RepositoryDashboardRepository["sourceSetup"];
 export type RepositoryDashboardSourceSetupStep = Extract<

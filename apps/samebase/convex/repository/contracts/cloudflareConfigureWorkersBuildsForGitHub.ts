@@ -5,7 +5,7 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 const { id, string } = v;
 
 export const cloudflareConfigureWorkersBuildsForGitHubContract = {
-  id: "configure_workers_builds_for_github",
+  id: "configure_workers_builds",
   access: "access_provider_connections",
   args: {
     repositoryId: id("repositories"),
@@ -15,10 +15,10 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
   },
   returns: v.null(),
   mcp: {
-    title: "Configure Workers Builds for GitHub",
-    name: "repository_cloudflare_configureWorkersBuildsForGitHub",
+    title: "Configure Workers Builds",
+    name: "repository_cloudflare_configureBuilds",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Configure the selected Worker's production and Previews Base Builds settings for the Samebase repository's GitHub repository, then start a production build.",
+      "Call repository_list first and use its returned repositoryId. Configure the selected Worker's production and Previews Base Builds settings for the Samebase repository's GitHub repository, then start a production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -26,9 +26,8 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
-      workerId:
-        "Stable Samebase Worker attachment id returned by repository_dashboard_getUserRepositories.",
+      repositoryId: "Samebase repository ID returned by repository_list.",
+      workerId: "Stable Samebase Worker attachment id returned by repository_list.",
       rootDirectory: "Repository root to write to this Worker's GitHub Builds settings.",
       buildTokenUuid: "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
     },

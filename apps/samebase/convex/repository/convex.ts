@@ -796,7 +796,7 @@ async function createProjectForManagedWorkflow(
   }
 }
 
-export const discoverProjects = action({
+export const findProjects = action({
   access: convexDiscoverProjectsContract.access,
   args: convexDiscoverProjectsContract.args,
   returns: convexDiscoverProjectsContract.returns,
@@ -805,7 +805,7 @@ export const discoverProjects = action({
     await discoverProjectsForUser(ctx, { ...args, userId: ctx.viewer.userId }),
 });
 
-export const attachProjects = action({
+export const attachProject = action({
   access: convexAttachProjectsContract.access,
   args: convexAttachProjectsContract.args,
   returns: convexAttachProjectsContract.returns,

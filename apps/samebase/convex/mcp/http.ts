@@ -4,10 +4,6 @@ import type { Value } from "convex/values";
 import type { JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import {
-  normalizeAccountEmail,
-  resolveAccountPresentation,
-} from "../../shared/accountPresentation";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import {
@@ -19,10 +15,7 @@ import {
   type SamebaseUsageMcpMethod,
   type SamebaseUsageMcpToolName,
 } from "../usageAttribution";
-import {
-  getAuthenticationStatusContract,
-  type McpAuthenticationStatus,
-} from "./contracts/getAuthenticationStatus";
+import { getAuthenticationStatusContract } from "./contracts/getAuthenticationStatus";
 import { createRepositoryContract } from "../repository/contracts/createRepository";
 import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
@@ -40,7 +33,6 @@ import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../rep
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
-import { cloudflareListWorkersBuildTokensContract } from "../repository/contracts/cloudflareBuildTokens";
 import {
   buildMcpAuthorizationSuccessRedirectUrl,
   MCP_CONSENT_APP_PATH,
@@ -87,17 +79,17 @@ const MCP_SERVER_INFO = {
 } as const;
 const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
 
-For a request to open the Samebase dashboard, call create_browser_handoff directly. Show its returned URL to the user as a clickable link. The private sign-in link works once and expires after five minutes. Use a browser-opening action when the client provides one and the user requested it. Claim that the dashboard opened only when that action confirms it. Do not use authentication status or inventory as a preflight for this request.
+For a request to open the Samebase dashboard, call ${createBrowserHandoffContract.mcp.name} directly. Show its returned URL to the user as a clickable link. The private sign-in link works once and expires after five minutes. Use a browser-opening action when the client provides one and the user requested it. Claim that the dashboard opened only when that action confirms it. Do not use authentication status or inventory as a preflight for this request.
 
 Some Samebase app management is available only in the Samebase dashboard, and no Samebase action exposes it: deleting an app, detaching a resource, connecting a Worker that is not connected to the repository yet, creating a Convex project for an existing app, changing a Convex code location, and managing members, organization settings, and billing. For these requests only, say that the user can do it in the Samebase dashboard and offer to open it with ${createBrowserHandoffContract.mcp.name}. Do not call a tool until the user accepts. Do not claim that the operation finished. Do not send provider state to the dashboard: use provider-native tools for logs, environment values, migrations, custom domains, and deployment and build status.
 
 Keep repository identities separate. repositoryId is the opaque Samebase repository ID returned by ${getUserRepositoriesContract.mcp.name}. githubRepositoryDatabaseId is GitHub's numeric repository database ID stored as a string. Never substitute one for the other. Do not use or invent githubRepositoryId, repoId, or ghRepoId.
 
-For managed app creation, use only this closed sequence: read ${getUserRepositoriesContract.mcp.name}, call ${cloudflareListWorkersBuildTokensContract.mcp.name} with the human GitHub owner login, call ${createRepositoryContract.mcp.name}, then poll ${getUserRepositoriesContract.mcp.name}. If the user chooses US, pass aws-us-east-1. If the user chooses EU, pass aws-eu-west-1 and first say: "EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments." Link to https://www.convex.dev/pricing. If the user chooses Canada or Australia, pass the exact listed region value. Otherwise, omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved. A one-project choice does not change the organization default. When the current Workers Builds token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null. Otherwise, use an available lastUsedBuildTokenUuid without asking, use the only listed token, or ask the user to choose by the displayed name and UUID when several tokens are listed. Pass the selected exact UUID as cloudflareBuildTokenUuid. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} keeps cloudflareBuildTokenUuid required, does not accept an accountId, and uses the organization's configured provider accounts.
+For managed app creation, use only this closed sequence: read ${getUserRepositoriesContract.mcp.name}, call cloudflare_listWorkersBuildTokens with the human GitHub owner login, call ${createRepositoryContract.mcp.name}, then poll ${getUserRepositoriesContract.mcp.name}. If the user chooses US, pass aws-us-east-1. If the user chooses EU, pass aws-eu-west-1 and first say: "EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments." Link to https://www.convex.dev/pricing. If the user chooses Canada or Australia, pass the exact listed region value. Otherwise, omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved. A one-project choice does not change the organization default. When the current Workers Builds token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null. Otherwise, use an available lastUsedBuildTokenUuid without asking, use the only listed token, or ask the user to choose by the displayed name and UUID when several tokens are listed. Pass the selected exact UUID as cloudflareBuildTokenUuid. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} keeps cloudflareBuildTokenUuid required, does not accept an accountId, and uses the organization's configured provider accounts.
 
 After ${createRepositoryContract.mcp.name}, poll ${getUserRepositoriesContract.mcp.name} until source setup is ready or failed. Once source setup is ready, poll until provider setup is ready or failed. When cloudflareBuildTokenUuid was null, the managed run creates the GitHub repository and Convex project but no Cloudflare Worker. In that case, providerSetup status ready means only that the requested managed work finished. It does not mean Cloudflare setup is complete. Confirm that pendingCloudflareSetup identifies the planned Convex attachment and cloudflareWorkers is empty. Use its workerName and rootDirectory for the later Worker create. Keep its convexProjectId to select that same attachment for deploy-key rotation after the Worker is created. Report that Cloudflare setup is pending, and give the user https://samebase.com/docs/cloudflare-setup. The user completes Cloudflare's standard repository setup to create the first account token, then deletes the temporary Worker. After the user completes those steps and asks to finish the app, list tokens again and call ${cloudflareCreateWorkerContract.mcp.name} with a current exact UUID. Reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name} with the new Worker and the attached Convex project. Do not attach the temporary Worker or retry the completed managed run.
 
-For other writes, read ${getUserRepositoriesContract.mcp.name} whenever a repository may already be connected, and reuse the returned repository and attachment identifiers. Before a manual Cloudflare Worker create or Builds configuration action, call ${cloudflareListWorkersBuildTokensContract.mcp.name}. If lastUsedBuildTokenUuid is available, use that UUID without asking. If it is unavailable and the list has one result, use that result. If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID. If the token list is empty, do not call the write. A non-null pendingCloudflareSetup uses the first-app guide and supplies the exact Worker name, root directory, and Convex attachment ID for completing setup. After token setup, call ${cloudflareCreateWorkerContract.mcp.name}, reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name}. When a Worker is already attached, keep it. After token setup, list tokens again and call repository_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not create another Worker. For another manual repository, complete token setup, list tokens again, and continue only with the action that matches the request and current inventory. ${cloudflareCreateWorkerContract.mcp.name} does not install Convex deploy keys. Pass only the selected exact UUID to the write. Never pass null to a manual Worker create or Builds configuration action. For Cloudflare actions on an existing repository, pass that repository's cloudflareAccountId from ${getUserRepositoriesContract.mcp.name}. Do not discover or select another Cloudflare account through Samebase MCP. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
+For other writes, read ${getUserRepositoriesContract.mcp.name} whenever a repository may already be connected, and reuse the returned repository and attachment identifiers. Before a manual Cloudflare Worker create or Builds configuration action, call cloudflare_listWorkersBuildTokens. If lastUsedBuildTokenUuid is available, use that UUID without asking. If it is unavailable and the list has one result, use that result. If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID. If the token list is empty, do not call the write. A non-null pendingCloudflareSetup uses the first-app guide and supplies the exact Worker name, root directory, and Convex attachment ID for completing setup. After token setup, call ${cloudflareCreateWorkerContract.mcp.name}, reread inventory, then call ${cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name}. When a Worker is already attached, keep it. After token setup, list tokens again and call repository_cloudflare_configureBuilds for that attachment. Do not create another Worker. For another manual repository, complete token setup, list tokens again, and continue only with the action that matches the request and current inventory. ${cloudflareCreateWorkerContract.mcp.name} does not install Convex deploy keys. Pass only the selected exact UUID to the write. Never pass null to a manual Worker create or Builds configuration action. For Cloudflare actions on an existing repository, pass that repository's cloudflareAccountId from ${getUserRepositoriesContract.mcp.name}. Do not discover or select another Cloudflare account through Samebase MCP. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
 Inventory reports Samebase-owned workflow state and stable resource IDs. Read current provider existence, configuration, deployment state, and logs from provider-native tools unless an explicit Samebase action exposes that live read. Match the required IDs to an explicit action contract, call that action, then reread inventory.
 
@@ -106,15 +98,12 @@ async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
   return await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
 }
 
-type McpResolvedViewer = Awaited<ReturnType<typeof readMcpViewer>>;
-
 export type McpToolInvocation = {
   clientId: string;
   grantId: string;
   input: JsonRecord;
   userId: Id<"users">;
   grantedScopes: string[];
-  viewer: McpResolvedViewer;
 };
 
 export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
@@ -140,39 +129,14 @@ type McpToolCall = (
   invocation: McpToolInvocation,
 ) => McpToolResult | Promise<McpToolResult>;
 
-function callGetAuthenticationStatusMcpTool(
-  _ctx: ActionCtx,
+async function callGetAuthenticationStatusMcpTool(
+  ctx: ActionCtx,
   invocation: McpToolInvocation,
-): McpToolResult {
-  const viewerUser = invocation.viewer.user;
-  if (viewerUser === null) {
-    const authentication: McpAuthenticationStatus = { authenticated: false };
-    return {
-      status: "ok",
-      text: "MCP token is valid, but its Samebase account is no longer active.",
-      structuredContent: { authentication },
-    };
-  }
-
-  const normalizedEmail = normalizeAccountEmail(viewerUser.email);
-  const accountPresentation = resolveAccountPresentation({
-    displayName: viewerUser.displayName,
-    email: normalizedEmail,
-  });
-  const authentication: McpAuthenticationStatus = {
-    authenticated: true,
-    user: {
-      ...(accountPresentation.kind === "displayName" ? { name: accountPresentation.label } : {}),
-      email: normalizedEmail,
-    },
-    role: invocation.viewer.role,
+): Promise<McpToolResult> {
+  return await ctx.runQuery(internal.account.getAuthenticationStatus, {
+    userId: invocation.userId,
     grantedScopes: invocation.grantedScopes,
-  };
-  return {
-    status: "ok",
-    text: `Authenticated as ${accountPresentation.label}.`,
-    structuredContent: { authentication },
-  };
+  });
 }
 
 function createMcpRuntimeToolCall<
@@ -187,12 +151,12 @@ function createMcpRuntimeToolCall<
     );
 }
 
-async function callCreateBrowserHandoffMcpTool(
+async function callCreateSignInLinkMcpTool(
   ctx: ActionCtx,
   invocation: McpToolInvocation,
 ): Promise<McpToolResult> {
   // eslint-disable-next-line samebase/no-forwarded-convex-function-args -- The target action validates raw MCP input after reserved fields are replaced.
-  return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
+  return await ctx.runAction(internal.account.createSignInLink, {
     ...buildMcpToolInvocationArgs(invocation),
     grantId: invocation.grantId,
     clientId: invocation.clientId,
@@ -201,25 +165,22 @@ async function callCreateBrowserHandoffMcpTool(
 
 const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getUserRepositoriesContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.getUserRepositoriesTool,
-  ),
-  [cloudflareListWorkersBuildTokensContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareListWorkersBuildTokensTool,
-  ),
-  [createRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.createRepositoryTool,
-  ),
-  [connectRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.connectRepositoryTool,
+    internal.toolRuntime.runtime.repositoryListTool,
   ),
   [convexDiscoverProjectsContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.convexDiscoverProjectsTool,
+    internal.toolRuntime.runtime.convexFindProjectsTool,
   ),
   [cloudflareDiscoverWorkersContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareDiscoverWorkersTool,
+    internal.toolRuntime.runtime.cloudflareFindWorkersTool,
+  ),
+  [createRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.repositoryCreateTool,
+  ),
+  [connectRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.repositoryConnectTool,
   ),
   [convexAttachProjectsContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.convexAttachProjectsTool,
+    internal.toolRuntime.runtime.convexAttachProjectTool,
   ),
   [cloudflareAttachWorkersContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.cloudflareAttachWorkersTool,
@@ -228,18 +189,16 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
     internal.toolRuntime.runtime.cloudflareCreateWorkerTool,
   ),
   [cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareConfigureWorkersBuildsForGitHubTool,
+    internal.toolRuntime.runtime.cloudflareConfigureBuildsTool,
   ),
   [cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysForWorkersBuildsTool,
+    internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysTool,
   ),
   [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.retryInfrastructureProvisioningTool,
+    internal.toolRuntime.runtime.repositoryRetryProviderSetupTool,
   ),
-  [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.submitFeedbackTool,
-  ),
-  [createBrowserHandoffContract.mcp.name]: callCreateBrowserHandoffMcpTool,
+  [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(internal.feedback.submit),
+  [createBrowserHandoffContract.mcp.name]: callCreateSignInLinkMcpTool,
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
 };
 
@@ -1025,7 +984,6 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         input,
         userId: tokenValidation.userId,
         grantedScopes,
-        viewer: currentViewer,
       });
       return jsonRpcSuccessResponse({
         id: requestId,

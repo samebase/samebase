@@ -16,7 +16,7 @@ export const submitFeedbackContract = {
   returns: v.null(),
   mcp: {
     title: "Submit Samebase feedback",
-    name: "samebase_feedback_submit",
+    name: "feedback_submit",
     description:
       "Email one feedback report to Samebase staff. After a clear Samebase product or plugin problem, draft a short report that states what the user tried, what happened, and what should improve. Show the exact report and say that you can send it automatically with no form. Call only after the user approves that exact text. A direct request to send specified feedback is approval. Call once and do not retry unless the user asks. Do not include credentials, file contents, full logs, or unrelated conversation.",
     safety: "destructive",

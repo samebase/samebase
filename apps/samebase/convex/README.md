@@ -40,10 +40,10 @@ billing, and infrastructure provisioning.
 
 ### Repository Creation Paths
 
-- `createRepository` (`repository/actions.ts`): creates a repository provisioning run and starts the
-  complete create-app Workflow.
-- `connectRepository` (`repository/actions.ts`): connects an existing GitHub repository and creates
-  a Samebase repository without automatic infrastructure provisioning.
+- `create` (`repository.ts`, Node half in `repository/actions.ts`): creates a repository
+  provisioning run and starts the complete create-app Workflow.
+- `connect` (`repository.ts`, Node half in `repository/actions.ts`): connects an existing GitHub
+  repository and creates a Samebase repository without automatic infrastructure provisioning.
 
 ### Infrastructure Provisioning
 
@@ -51,7 +51,7 @@ billing, and infrastructure provisioning.
 - State tracking: `workflow_repositoryProvisioning_plans`,
   `workflow_repositoryProvisioning_writeLocks`, `repositoryConvexProjects`, and
   `repositoryCloudflareWorkers`
-- Retry path: `api.repository.actions.retryInfrastructureProvisioning`
+- Retry path: `api.repository.retryProviderSetup`
 
 ## Useful Local Commands
 

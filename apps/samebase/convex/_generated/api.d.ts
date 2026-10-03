@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as accountDeletion_authCleanup from "../accountDeletion/authCleanup.js";
 import type * as accountDeletion_cleanup from "../accountDeletion/cleanup.js";
 import type * as accountDeletion_completionEmail from "../accountDeletion/completionEmail.js";
@@ -49,6 +50,7 @@ import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
 import type * as email from "../email.js";
+import type * as feedback from "../feedback.js";
 import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingActions from "../fileStagingActions.js";
 import type * as folderExpansion from "../folderExpansion.js";
@@ -80,7 +82,6 @@ import type * as jsonUtils from "../jsonUtils.js";
 import type * as mcp_client from "../mcp/client.js";
 import type * as mcp_contracts_getAuthenticationStatus from "../mcp/contracts/getAuthenticationStatus.js";
 import type * as mcp_contracts_submitFeedback from "../mcp/contracts/submitFeedback.js";
-import type * as mcp_feedback from "../mcp/feedback.js";
 import type * as mcp_grants from "../mcp/grants.js";
 import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_model from "../mcp/model.js";
@@ -112,6 +113,7 @@ import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerAuth from "../providerAuth.js";
 import type * as providerAuthFingerprint from "../providerAuthFingerprint.js";
 import type * as providerResponseValidation from "../providerResponseValidation.js";
+import type * as repository from "../repository.js";
 import type * as repository_actions from "../repository/actions.js";
 import type * as repository_branchModel from "../repository/branchModel.js";
 import type * as repository_branches from "../repository/branches.js";
@@ -178,6 +180,7 @@ import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
 import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
+import type * as toolRuntime_mcpTool from "../toolRuntime/mcpTool.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as usageAttribution from "../usageAttribution.js";
 import type * as userPreferenceModel from "../userPreferenceModel.js";
@@ -191,6 +194,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   "accountDeletion/authCleanup": typeof accountDeletion_authCleanup;
   "accountDeletion/cleanup": typeof accountDeletion_cleanup;
   "accountDeletion/completionEmail": typeof accountDeletion_completionEmail;
@@ -232,6 +236,7 @@ declare const fullApi: ApiFromModules<{
   deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
   email: typeof email;
+  feedback: typeof feedback;
   fileStaging: typeof fileStaging;
   fileStagingActions: typeof fileStagingActions;
   folderExpansion: typeof folderExpansion;
@@ -263,7 +268,6 @@ declare const fullApi: ApiFromModules<{
   "mcp/client": typeof mcp_client;
   "mcp/contracts/getAuthenticationStatus": typeof mcp_contracts_getAuthenticationStatus;
   "mcp/contracts/submitFeedback": typeof mcp_contracts_submitFeedback;
-  "mcp/feedback": typeof mcp_feedback;
   "mcp/grants": typeof mcp_grants;
   "mcp/http": typeof mcp_http;
   "mcp/model": typeof mcp_model;
@@ -295,6 +299,7 @@ declare const fullApi: ApiFromModules<{
   providerAuth: typeof providerAuth;
   providerAuthFingerprint: typeof providerAuthFingerprint;
   providerResponseValidation: typeof providerResponseValidation;
+  repository: typeof repository;
   "repository/actions": typeof repository_actions;
   "repository/branchModel": typeof repository_branchModel;
   "repository/branches": typeof repository_branches;
@@ -361,6 +366,7 @@ declare const fullApi: ApiFromModules<{
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
   "toolRuntime/mcpScopes": typeof toolRuntime_mcpScopes;
+  "toolRuntime/mcpTool": typeof toolRuntime_mcpTool;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   usageAttribution: typeof usageAttribution;
   userPreferenceModel: typeof userPreferenceModel;

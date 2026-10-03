@@ -42,18 +42,14 @@ export function RepositorySelectedWorkspace({
   });
   const rootRouteSearch = useRootRouteSearch();
   const retryDeleteRepository = useAction(api.repository.actions.retryDeleteRepository);
-  const retryInfrastructureProvisioning = useAction(
-    api.repository.actions.retryInfrastructureProvisioning,
-  );
+  const retryProviderSetup = useAction(api.repository.retryProviderSetup);
   const detachCloudflareWorker = useAction(api.repository.cloudflare.detachWorker);
   const detachConvexProject = useAction(api.repository.convex.detachProject);
   const updateCloudflareWorkerName = useAction(api.repository.cloudflare.updateWorkerName);
   const updateCloudflareWorkerRootDirectory = useAction(
     api.repository.cloudflare.updateWorkerRootDirectory,
   );
-  const rotateConvexDeployKeysForWorkersBuilds = useAction(
-    api.repository.cloudflare.rotateConvexDeployKeysForWorkersBuilds,
-  );
+  const rotateConvexDeployKeys = useAction(api.repository.cloudflare.rotateConvexDeployKeys);
   const [providerActionInFlight, setProviderActionInFlight] =
     useState<RepositorySettingsPendingAction | null>(null);
   const [isRetryingRepositoryAction, setIsRetryingRepositoryAction] = useState(false);
@@ -182,7 +178,7 @@ export function RepositorySelectedWorkspace({
     }
     setIsRetryingRepositoryAction(true);
     try {
-      await retryInfrastructureProvisioning({ repositoryId: repository.repositoryId });
+      await retryProviderSetup({ repositoryId: repository.repositoryId });
     } catch (error) {
       toast({
         title: "Could not retry infrastructure setup",
@@ -284,7 +280,7 @@ export function RepositorySelectedWorkspace({
       },
       errorTitle: "Could not rotate Convex deploy keys for Workers Builds",
       run: () =>
-        rotateConvexDeployKeysForWorkersBuilds({
+        rotateConvexDeployKeys({
           convexProjectId,
           workerId,
           repositoryId: repository.repositoryId,

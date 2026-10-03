@@ -87,24 +87,6 @@ describe("MCP tool runtime boundaries", () => {
     });
   });
 
-  it("blocks the Workers Builds token list before organization resolution", async () => {
-    const { t, userId } = await seedToolRuntimeOwner();
-
-    const result = await t.action(
-      internal.toolRuntime.runtime.cloudflareListWorkersBuildTokensTool,
-      {
-        userId,
-        grantedScopes: [],
-        githubOwnerLogin: "tool-runtime-owner",
-      },
-    );
-
-    expect(result).toEqual({
-      status: "blocked",
-      text: "Insufficient scope for cloudflare_listWorkersBuildTokens.",
-    });
-  });
-
   it("lists repositories across every current organization membership", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
     const {
@@ -283,7 +265,7 @@ describe("MCP tool runtime boundaries", () => {
       };
     });
 
-    const result = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+    const result = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -347,12 +329,9 @@ describe("MCP tool runtime boundaries", () => {
     expect(output).not.toContain('"lastWriteAt"');
     expect(output).not.toContain('"buildTokenUuid"');
     expect(output).not.toContain('"deploymentRegion"');
-    const webRepositories = await t.query(
-      internal.repository.dashboard.getUserRepositoriesForUser,
-      {
-        userId,
-      },
-    );
+    const webRepositories = await t.query(internal.repository.listForUser, {
+      userId,
+    });
     expect(
       webRepositories.find((repository) => repository.repositoryId === authorizedRepositoryId),
     ).toMatchObject({
@@ -417,7 +396,7 @@ describe("MCP tool runtime boundaries", () => {
           },
         });
       });
-      const unavailable = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+      const unavailable = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
         userId,
         grantedScopes: ["access_dashboard"],
       });
@@ -452,7 +431,7 @@ describe("MCP tool runtime boundaries", () => {
         origin: "selected_existing",
       });
     });
-    const withWorker = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+    const withWorker = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -512,7 +491,7 @@ describe("MCP tool runtime boundaries", () => {
         deletion: { state: "delete_failed", runId: failedRunId, failedAt: 1 },
       });
     });
-    const withDeletions = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+    const withDeletions = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -563,7 +542,7 @@ describe("MCP tool runtime boundaries", () => {
     );
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "The app failed to load.",
@@ -611,7 +590,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report,
@@ -677,7 +656,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "The app failed to load.",
@@ -711,7 +690,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report,
@@ -730,7 +709,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "Samebase returned the wrong setup state.",
@@ -747,19 +726,19 @@ describe("MCP tool runtime boundaries", () => {
 
     for (let reservationNumber = 1; reservationNumber <= 5; reservationNumber += 1) {
       await expect(
-        t.mutation(internal.mcp.feedback.reserveFeedbackSend, {
+        t.mutation(internal.feedback.reserveSend, {
           userId,
         }),
       ).resolves.toBeNull();
     }
 
     await expect(
-      t.mutation(internal.mcp.feedback.reserveFeedbackSend, {
+      t.mutation(internal.feedback.reserveSend, {
         userId,
       }),
     ).rejects.toThrow("Feedback rate limit reached. Try again later.");
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "The app failed to load.",
@@ -793,7 +772,7 @@ describe("MCP tool runtime boundaries", () => {
   it("keeps browser handoff behind its dedicated trusted scope", async () => {
     const { t, userId } = await seedToolRuntimeOwner();
 
-    const result = await t.action(internal.toolRuntime.runtime.createBrowserHandoffTool, {
+    const result = await t.action(internal.account.createSignInLink, {
       userId,
       grantId: "grant_1",
       clientId: "client_1",
@@ -802,7 +781,7 @@ describe("MCP tool runtime boundaries", () => {
 
     expect(result).toEqual({
       status: "blocked",
-      text: "Insufficient scope for create_browser_handoff.",
+      text: "Insufficient scope for account_createSignInLink.",
     });
   });
 });

@@ -267,14 +267,14 @@ const vMcpUserRepositoriesResult = array(
 );
 
 export const getUserRepositoriesContract = {
-  id: "get_user_repositories",
+  id: "list_repositories",
   access: "access_dashboard",
   args: {},
   returns: vUserRepositoriesResult,
   structuredContent: object({ repositories: vMcpUserRepositoriesResult }),
   mcp: {
     title: "List Samebase repositories",
-    name: "repository_dashboard_getUserRepositories",
+    name: "repository_list",
     description:
       "List the Samebase repositories available to the authenticated user, including attached provider resources.",
     safety: "read_only",
@@ -300,7 +300,7 @@ the GitHub and Convex work finished. Report Cloudflare setup as pending and give
 https://samebase.com/docs/cloudflare-setup. After the user creates the first account token through
 Cloudflare's standard repository setup and deletes the temporary Worker, list the current tokens and
 use repository_cloudflare_createWorker with the planned workerName and rootDirectory. Reread
-inventory, then use repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new
+inventory, then use repository_cloudflare_rotateConvexDeployKeys with the new
 Worker and the pending setup's convexProjectId. Do not attach the temporary Worker or retry the
 completed managed run. If a Worker is already attached, keep that Worker and use its existing
 Builds repair after token setup. Do not create another Worker.

@@ -44,11 +44,11 @@ import {
 } from "../../../shared/convexDeploymentRegions";
 
 type ConvexProjectOption =
-  (typeof api.repository.convex.discoverProjects)["_returnType"]["projects"][number];
+  (typeof api.repository.convex.findProjects)["_returnType"]["projects"][number];
 type ConvexCodeLocationOption =
-  (typeof api.repository.convex.discoverProjects)["_returnType"]["source"]["locations"][number];
+  (typeof api.repository.convex.findProjects)["_returnType"]["source"]["locations"][number];
 type ConvexSourceCompleteness =
-  (typeof api.repository.convex.discoverProjects)["_returnType"]["source"]["completeness"];
+  (typeof api.repository.convex.findProjects)["_returnType"]["source"]["completeness"];
 type ConvexProjectConnectMode = "existing" | "create";
 
 function compareConvexProjectOption(left: ConvexProjectOption, right: ConvexProjectOption): number {
@@ -433,8 +433,8 @@ export function RepositoryConvexDialog({
   repairProjectId: Id<"repositoryConvexProjects"> | null;
   repository: UserRepositoryResult;
 }) {
-  const discoverProjects = useAction(api.repository.convex.discoverProjects);
-  const attachProjects = useAction(api.repository.convex.attachProjects);
+  const findProjects = useAction(api.repository.convex.findProjects);
+  const attachProject = useAction(api.repository.convex.attachProject);
   const changeProjectCodeLocation = useAction(api.repository.convex.changeProjectCodeLocation);
   const createProject = useAction(api.repository.convex.createProject);
   const [mode, setMode] = useState<ConvexProjectConnectMode>("existing");
@@ -468,7 +468,7 @@ export function RepositoryConvexDialog({
       repository.convexProjects.map((project) => project.projectId),
       repository.providerWrite.lastWriteAt.convex,
     ],
-    queryFn: () => discoverProjects({ repositoryId: repository.repositoryId }),
+    queryFn: () => findProjects({ repositoryId: repository.repositoryId }),
     retry: false,
   });
 
@@ -546,7 +546,7 @@ export function RepositoryConvexDialog({
         if (selectedProjects.length === 0) {
           throw new Error("Choose at least one Convex project.");
         }
-        await attachProjects({ repositoryId: repository.repositoryId, projects: selectedProjects });
+        await attachProject({ repositoryId: repository.repositoryId, projects: selectedProjects });
       } else {
         const codeLocation = codeLocationsByKey.get(createCodeLocationKey);
         if (!codeLocation) {

@@ -388,10 +388,7 @@ describe("NewAppPage", () => {
       getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
-    testState.actions.set(
-      getFunctionName(api.repository.actions.createRepository),
-      createRepository,
-    );
+    testState.actions.set(getFunctionName(api.repository.create), createRepository);
     const container = await mountPage();
     const repositoryInput = container.querySelector<HTMLInputElement>(
       "[aria-label='GitHub repository name']",
@@ -488,10 +485,7 @@ describe("NewAppPage", () => {
       getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
       checkNames,
     );
-    testState.actions.set(
-      getFunctionName(api.repository.actions.createRepository),
-      createRepository,
-    );
+    testState.actions.set(getFunctionName(api.repository.create), createRepository);
     const container = await mountPage();
     const input = container.querySelector<HTMLInputElement>(
       "[aria-label='GitHub repository name']",
