@@ -301,6 +301,75 @@ describe("repository_list", () => {
       },
     });
   });
+
+  it("reads the project names of one Convex team once for all of its repositories", async () => {
+    const fixture = await createScoutFixture();
+    await fixture.t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert("repositories", {
+        organizationId: fixture.organizationId,
+        convexTeamId: "convex-team",
+        deletion: { state: "not_deleting" },
+        createdAt: 2,
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+        organizationId: fixture.organizationId,
+        userId: fixture.userId,
+        repositoryId,
+        githubRepositoryFullName: "scout-owner/free",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 2,
+        updatedAt: 2,
+        completedAt: 2,
+      });
+      await ctx.db.replace(repositoryId, {
+        organizationId: fixture.organizationId,
+        convexTeamId: "convex-team",
+        deletion: { state: "not_deleting" },
+        createdAt: 2,
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        githubRepositoryDatabaseId: "github-repository-free",
+        githubRepositoryName: "free",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 2,
+      });
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId,
+        organizationId: fixture.organizationId,
+        teamId: "convex-team",
+        projectId: "free-project",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+    });
+
+    const result = await fixture.t.action(internal.toolRuntime.runtime.repositoryListTool, {
+      userId: fixture.userId,
+      grantedScopes: ["access_dashboard"],
+    });
+
+    expect(result).toMatchObject({
+      status: "ok",
+      structuredContent: {
+        repositories: expect.arrayContaining([
+          expect.objectContaining({
+            githubRepositoryFullName: "scout-owner/scout",
+            convexProjects: [{ projectName: "scout", codeLocation: "convex.json" }],
+          }),
+          expect.objectContaining({
+            githubRepositoryFullName: "scout-owner/free",
+            convexProjects: [{ projectName: "free-app", codeLocation: "convex.json" }],
+          }),
+        ]),
+      },
+    });
+    expect(providerMocks.listConvexManagementProjects).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("Convex project selection for deploy keys", () => {
@@ -336,11 +405,9 @@ describe("Convex project selection for deploy keys", () => {
       },
     );
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       status: "error",
-      text: expect.stringMatching(
-        /^scout-owner\/scout has several attached Convex projects: .*admin \(apps\/admin\/convex\.json\).*scout \(convex\.json\).*pass its name as convexProjectName\.$/,
-      ),
+      text: "scout-owner/scout has several attached Convex projects: admin (apps/admin/convex.json), scout (convex.json). Choose the project whose deploy key the Worker gets.",
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
     expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
@@ -361,7 +428,7 @@ describe("Convex project selection for deploy keys", () => {
       }),
     ).rejects.toMatchObject({
       name: "ConvexError",
-      data: "Several Convex projects are attached to this repository (apps/admin/convex.json, convex.json). Choose the Convex project whose deploy key the Worker gets.",
+      data: "scout-owner/scout has several attached Convex projects: admin (apps/admin/convex.json), scout (convex.json). Choose the project whose deploy key the Worker gets.",
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
     expect(fetch).not.toHaveBeenCalled();

@@ -1545,6 +1545,7 @@ describe("MCP tools/call access enforcement", () => {
       providerState,
       repositoryId,
       t,
+      userId,
     };
   }
 
@@ -1757,8 +1758,8 @@ describe("MCP tools/call access enforcement", () => {
     expect(JSON.stringify(discovery)).not.toContain("old-tag");
   });
 
-  it("defers the first build to the deploy key of the only Convex project, and reports a key it could not install", async () => {
-    const { callTool, organizationId, providerRequests, repositoryId, t } =
+  it("defers the first build to the deploy key of the only Convex project, and reports a key it could not install without the provider error", async () => {
+    const { callTool, organizationId, providerRequests, repositoryId, t, userId } =
       await seedWorkerCreateFixture();
     await t.run(async (ctx) => {
       await ctx.db.insert("repositoryConvexProjects", {
@@ -1769,29 +1770,64 @@ describe("MCP tools/call access enforcement", () => {
         convexConfigPath: "apps/web/convex.json",
         origin: "selected_existing",
       });
+      await ctx.db.patch(organizationId, { convexTeam: { teamId: "convex-team" } });
+      const credentials = await ctx.db
+        .query("organizationProviderCredentials")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .unique();
+      if (!credentials) {
+        throw new Error("Expected the fixture to store provider credentials.");
+      }
+      await ctx.db.patch(credentials._id, {
+        convex: {
+          auth: { method: "api_key", credential: "convex-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+    });
+    const providerFetch = vi.mocked(fetch);
+    const fixtureFetch = providerFetch.getMockImplementation();
+    // The deploy-key step fails after Builds setup with a raw provider error.
+    providerFetch.mockImplementation(async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.hostname === "api.convex.dev") {
+        return new Response(
+          JSON.stringify({
+            code: "InternalServerError",
+            message: "private-diagnostic@example.com provider debug detail",
+          }),
+          { status: 500, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (!fixtureFetch) {
+        throw new Error("Expected the fixture fetch mock.");
+      }
+      return await fixtureFetch(input, init);
     });
 
-    // The organization has no Convex connection, so the deploy-key step fails after Builds setup.
     const createPayload = await callTool("repository_cloudflare_createWorker", {
       repository: "samebase/demo",
       workerName: "mcp-worker",
       rootDirectory: "apps/web",
     });
 
+    const message =
+      "Samebase did not install the Convex deploy key, so no production build started. Samebase could not complete this request. Check the app in Samebase before retrying. When the cause is fixed, call repository_cloudflare_rotateConvexDeployKeys for this Worker to install the key and start the build.";
     expect(createPayload).toMatchObject({
       result: {
+        content: [
+          { type: "text", text: `Created mcp-worker for samebase/demo at apps/web. ${message}` },
+        ],
         structuredContent: {
           workerName: "mcp-worker",
-          convexDeployKey: {
-            state: "not_installed",
-            message: expect.stringMatching(
-              /^Samebase did not install the Convex deploy key, so no production build started: .+ The repair tool is repository_cloudflare_rotateConvexDeployKeys\.$/,
-            ),
-          },
+          convexDeployKey: { state: "not_installed", message },
         },
       },
     });
     expect(createPayload.result).not.toHaveProperty("isError");
+    expect(JSON.stringify(createPayload)).not.toContain("private-diagnostic@example.com");
+    expect(JSON.stringify(createPayload)).not.toContain("api.convex.dev");
     expect(
       providerRequests.filter(
         (request) => request.method === "POST" && request.path.endsWith("/builds/workers"),
@@ -1831,9 +1867,7 @@ describe("MCP tools/call access enforcement", () => {
             {
               type: "text",
               // No Convex connection: the names are unreadable, so the code locations identify them.
-              text: expect.stringMatching(
-                /^samebase\/demo has several attached Convex projects: .*\(apps\/admin\/convex\.json\).*\(convex\.json\).*pass its name as convexProjectName\.$/,
-              ),
+              text: "samebase/demo has several attached Convex projects: unnamed (apps/admin/convex.json), unnamed (convex.json). Choose the project whose deploy key the Worker gets.",
             },
           ],
         },

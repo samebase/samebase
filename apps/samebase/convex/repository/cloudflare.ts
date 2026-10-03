@@ -50,7 +50,6 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudflareWorkerPreviews";
-import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 import { buildRepositoryCloudflareBuildConfigForRootDirectory } from "./model";
 import { toCloudflareWorkerDiscovery } from "./cloudflareWorkerDiscovery";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
@@ -58,6 +57,11 @@ import type {
   WorkerConfigurationContext,
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
+import {
+  formatAttachedConvexProjects,
+  nameAttachedConvexProjects,
+  readRepositoryConvexTeamProjectNames,
+} from "./convex";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import type {
   CloudflareWorkerRecordedAttachment,
@@ -1350,11 +1354,12 @@ type ConvexDeployKeyTarget =
   | { state: "none" };
 
 /**
-Chooses the Convex project whose deploy key a new or newly connected Worker gets: the chosen
-attached project, else the repository's only attached project. Several projects without a choice
-fail before any provider change, so the Worker never builds with a guessed key.
+The one rule that chooses the Convex project whose deploy key a Worker gets: the chosen attached
+project, else the repository's only attached project. Several projects without a choice fail before
+any provider change and list the projects, so a Worker never builds with a guessed key. The
+dashboard actions and the MCP Worker tools all call it.
 */
-async function selectConvexDeployKeyTarget(
+export async function selectConvexDeployKeyTarget(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
@@ -1362,10 +1367,11 @@ async function selectConvexDeployKeyTarget(
     convexProjectId: Id<"repositoryConvexProjects"> | undefined;
   },
 ): Promise<ConvexDeployKeyTarget> {
-  const { convexProjects }: RepositoryProviderObservationContext = await ctx.runQuery(
+  const context: RepositoryProviderObservationContext = await ctx.runQuery(
     internal.repository.providerObservationQueries.readRepositoryProviderObservationContext,
     { repositoryId: args.repositoryId, userId: args.userId },
   );
+  const { convexProjects } = context;
   if (args.convexProjectId !== undefined) {
     const chosenProjectId = args.convexProjectId;
     if (!convexProjects.some((project) => project.convexProjectId === chosenProjectId)) {
@@ -1378,11 +1384,39 @@ async function selectConvexDeployKeyTarget(
     return { state: "none" };
   }
   if (!exactly(1, convexProjects)) {
+    const projects = nameAttachedConvexProjects(
+      convexProjects,
+      await readRepositoryConvexTeamProjectNames(ctx, {
+        userId: args.userId,
+        repository: context,
+      }),
+    );
     throw new ConvexError(
-      `Several Convex projects are attached to this repository (${convexProjects.map((project) => getConvexCodeLocationPath(project.codeLocation)).join(", ")}). Choose the Convex project whose deploy key the Worker gets.`,
+      `${context.githubOwnerLogin}/${context.githubRepositoryName} has several attached Convex projects: ${formatAttachedConvexProjects(projects)}. Choose the project whose deploy key the Worker gets.`,
     );
   }
   return { state: "selected", convexProjectId: convexProjects[0].convexProjectId };
+}
+
+/**
+The deploy-key result of a new Worker before the dashboard or MCP projection. `error` is the raw
+failure: the dashboard shows its text, and MCP passes it through publicMcpErrorMessage.
+*/
+export type ConvexDeployKeyOutcome =
+  | { state: "installed"; convexProjectId: Id<"repositoryConvexProjects"> }
+  | { state: "no_convex_project" }
+  | { state: "failed"; convexProjectId: Id<"repositoryConvexProjects">; error: unknown };
+
+function toDashboardConvexDeployKeyInstallation(
+  outcome: ConvexDeployKeyOutcome,
+): ConvexDeployKeyInstallation {
+  return outcome.state === "failed"
+    ? {
+        state: "failed",
+        convexProjectId: outcome.convexProjectId,
+        message: `Samebase did not install the Convex deploy key, so no production build started: ${toErrorMessage(outcome.error)} Repair the Convex deploy keys for this Worker to install the key and start the build.`,
+      }
+    : outcome;
 }
 
 /**
@@ -1398,7 +1432,7 @@ async function installConvexDeployKeyForNewWorker(
     workerId: Id<"repositoryCloudflareWorkers">;
     target: ConvexDeployKeyTarget;
   },
-): Promise<ConvexDeployKeyInstallation> {
+): Promise<ConvexDeployKeyOutcome> {
   if (args.target.state === "none") {
     return { state: "no_convex_project" };
   }
@@ -1413,13 +1447,28 @@ async function installConvexDeployKeyForNewWorker(
     });
     return { state: "installed", convexProjectId };
   } catch (error) {
-    return {
-      state: "failed",
-      convexProjectId,
-      message: `Samebase did not install the Convex deploy key, so no production build started: ${toErrorMessage(error)} Repair the Convex deploy keys for this Worker to install the key and start the build.`,
-    };
+    return { state: "failed", convexProjectId, error };
   }
 }
+
+/**
+`added_with_notice.message` is the dashboard notice and can hold raw provider text. MCP reads only
+`error` through publicMcpErrorMessage. `deployKeyPending` is true when a Convex project was selected
+but its key was not installed.
+*/
+export type ConnectWorkerOutcome =
+  | {
+      state: "ready";
+      workerId: Id<"repositoryCloudflareWorkers">;
+      convexDeployKey: ConvexDeployKeyOutcome;
+    }
+  | {
+      state: "added_with_notice";
+      workerId: Id<"repositoryCloudflareWorkers">;
+      message: string;
+      error: unknown;
+      deployKeyPending: boolean;
+    };
 
 export async function connectWorkerForUser(
   ctx: ActionCtx,
@@ -1432,7 +1481,7 @@ export async function connectWorkerForUser(
     buildTokenUuid: string;
     convexProjectId: Id<"repositoryConvexProjects"> | undefined;
   },
-): Promise<CloudflareConnectWorkerResult> {
+): Promise<ConnectWorkerOutcome> {
   const target = await selectConvexDeployKeyTarget(ctx, args);
   const connection = await connectWorkerBuildsForUser(ctx, {
     userId: args.userId,
@@ -1448,8 +1497,9 @@ export async function connectWorkerForUser(
       ? {
           ...connection,
           message: `${connection.message} Samebase did not install the Convex deploy key. Repair the Convex deploy keys for this Worker after its Builds settings are complete.`,
+          deployKeyPending: true,
         }
-      : connection;
+      : { ...connection, deployKeyPending: false };
   }
 
   return {
@@ -1477,7 +1527,12 @@ async function connectWorkerBuildsForUser(
   },
 ): Promise<
   | { state: "ready"; workerId: Id<"repositoryCloudflareWorkers"> }
-  | { state: "added_with_notice"; workerId: Id<"repositoryCloudflareWorkers">; message: string }
+  | {
+      state: "added_with_notice";
+      workerId: Id<"repositoryCloudflareWorkers">;
+      message: string;
+      error: unknown;
+    }
 > {
   const workerName = args.workerName.trim();
   const workerTag = args.workerTag.trim();
@@ -1618,6 +1673,7 @@ async function connectWorkerBuildsForUser(
         state: "added_with_notice",
         workerId,
         message: `Cloudflare Worker ${workerName} was added, but Samebase could not verify its GitHub Builds state. Refresh the repository after checking the Worker in Cloudflare. Setup error: ${toErrorMessage(error)} Verification error: ${toErrorMessage(observationError)}`,
+        error,
       };
     }
     if (
@@ -1648,6 +1704,7 @@ async function connectWorkerBuildsForUser(
         state: "added_with_notice",
         workerId,
         message: `Cloudflare Worker ${workerName} was added and GitHub Builds is connected, but Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running. Reason: ${toErrorMessage(error)}`,
+        error,
       };
     }
     await attemptManualProviderWriteFailureRecord(ctx, {
@@ -1663,6 +1720,7 @@ async function connectWorkerBuildsForUser(
         state: "added_with_notice",
         workerId,
         message: `Cloudflare Worker ${workerName} was added ${rootMessage} Reason: ${toErrorMessage(error)}`,
+        error,
       };
     }
     const nextActionMessage =
@@ -1673,6 +1731,7 @@ async function connectWorkerBuildsForUser(
       state: "added_with_notice",
       workerId,
       message: `Cloudflare Worker ${workerName} was added, but GitHub Builds setup did not complete. ${nextActionMessage} Reason: ${toErrorMessage(error)}`,
+      error,
     };
   }
   await ctx.runMutation(
@@ -1696,7 +1755,10 @@ export async function createWorkerForUser(
     buildTokenUuid: string;
     convexProjectId: Id<"repositoryConvexProjects"> | undefined;
   },
-): Promise<CloudflareCreateWorkerResult> {
+): Promise<{
+  workerId: Id<"repositoryCloudflareWorkers">;
+  convexDeployKey: ConvexDeployKeyOutcome;
+}> {
   const workerName = validateAppResourceName(args.workerName, "cloudflare");
   if (!workerName.valid) {
     throw new ConvexError(workerName.message);
@@ -1873,8 +1935,8 @@ export const connectWorker = action({
   args: cloudflareConnectWorkerContract.args,
   returns: cloudflareConnectWorkerContract.returns,
   mcp: cloudflareConnectWorkerContract.mcp,
-  handler: async (ctx, args): Promise<CloudflareConnectWorkerResult> =>
-    await connectWorkerForUser(ctx, {
+  handler: async (ctx, args): Promise<CloudflareConnectWorkerResult> => {
+    const result = await connectWorkerForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
       workerName: args.workerName,
@@ -1882,7 +1944,15 @@ export const connectWorker = action({
       rootDirectory: args.rootDirectory,
       buildTokenUuid: args.buildTokenUuid,
       convexProjectId: args.convexProjectId,
-    }),
+    });
+    return result.state === "ready"
+      ? {
+          state: "ready",
+          workerId: result.workerId,
+          convexDeployKey: toDashboardConvexDeployKeyInstallation(result.convexDeployKey),
+        }
+      : { state: "added_with_notice", workerId: result.workerId, message: result.message };
+  },
 });
 
 export const createWorker = action({
@@ -1890,15 +1960,20 @@ export const createWorker = action({
   args: cloudflareCreateWorkerContract.args,
   returns: cloudflareCreateWorkerContract.returns,
   mcp: cloudflareCreateWorkerContract.mcp,
-  handler: async (ctx, args): Promise<CloudflareCreateWorkerResult> =>
-    await createWorkerForUser(ctx, {
+  handler: async (ctx, args): Promise<CloudflareCreateWorkerResult> => {
+    const result = await createWorkerForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
       workerName: args.workerName,
       rootDirectory: args.rootDirectory,
       buildTokenUuid: args.buildTokenUuid,
       convexProjectId: args.convexProjectId,
-    }),
+    });
+    return {
+      workerId: result.workerId,
+      convexDeployKey: toDashboardConvexDeployKeyInstallation(result.convexDeployKey),
+    };
+  },
 });
 
 export const updateWorkerName = action({

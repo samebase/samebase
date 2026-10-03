@@ -35,6 +35,7 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import {
+  getConvexCodeLocationPath,
   normalizeConvexDirectoryPath,
   type ConvexCodeLocation,
 } from "../../shared/convexCodeLocation";
@@ -480,6 +481,72 @@ export async function readConvexTeamProjectNamesForUser(
       { projectName: project.name, projectSlug: project.slug },
     ]),
   );
+}
+
+type ConvexTeamProjectNames = Awaited<ReturnType<typeof readConvexTeamProjectNamesForUser>>;
+type AttachedConvexProject = {
+  convexProjectId: Id<"repositoryConvexProjects">;
+  projectId: string;
+  codeLocation: ConvexCodeLocation;
+};
+export type AttachedConvexProjectName = {
+  convexProjectId: Id<"repositoryConvexProjects">;
+  projectName: string | null;
+  projectSlug: string | null;
+  codeLocation: string;
+};
+
+/** The repository's Convex team project names, or null without a team or when Convex is unreadable. */
+export async function readRepositoryConvexTeamProjectNames(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    repository: {
+      organizationId: Id<"organizations">;
+      convexTeamId?: string;
+      convexProjects: readonly AttachedConvexProject[];
+    };
+  },
+): Promise<ConvexTeamProjectNames | null> {
+  const { convexTeamId } = args.repository;
+  if (convexTeamId === undefined || args.repository.convexProjects.length === 0) {
+    return null;
+  }
+  return await readConvexTeamProjectNamesForUser(ctx, {
+    userId: args.userId,
+    organizationId: args.repository.organizationId,
+    teamId: convexTeamId,
+  }).catch(() => null);
+}
+
+/** Names the attached projects from their team's names, sorted by code location path. */
+export function nameAttachedConvexProjects(
+  convexProjects: readonly AttachedConvexProject[],
+  teamProjectNames: ConvexTeamProjectNames | null,
+): AttachedConvexProjectName[] {
+  return convexProjects
+    .map((project) => {
+      const names = teamProjectNames?.get(project.projectId);
+      return {
+        convexProjectId: project.convexProjectId,
+        projectName: names?.projectName ?? null,
+        projectSlug: names?.projectSlug ?? null,
+        codeLocation: getConvexCodeLocationPath(project.codeLocation),
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.codeLocation.localeCompare(right.codeLocation) ||
+        left.convexProjectId.localeCompare(right.convexProjectId),
+    );
+}
+
+export function formatAttachedConvexProjects(
+  projects: readonly AttachedConvexProjectName[],
+): string {
+  return projects
+    .map((project) => `${project.projectName ?? "unnamed"} (${project.codeLocation})`)
+    .join(", ");
 }
 
 export async function discoverProjectsForUser(

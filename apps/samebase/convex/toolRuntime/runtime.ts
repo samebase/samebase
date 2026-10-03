@@ -1,6 +1,5 @@
 "use node";
 
-import { exactly } from "@samebase/dependent/main";
 import { ConvexError, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -16,7 +15,6 @@ import {
   cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
-  type vConvexDeployKeyInstallation,
 } from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
@@ -35,7 +33,10 @@ import {
   createProjectForUser,
   discoverConvexCodeLocations,
   discoverProjectsForUser,
+  formatAttachedConvexProjects,
+  nameAttachedConvexProjects,
   readConvexTeamProjectNamesForUser,
+  readRepositoryConvexTeamProjectNames,
 } from "../repository/convex";
 import {
   attachExistingCloudflareWorkersForUser,
@@ -45,7 +46,10 @@ import {
   discoverCloudflareWorkersForUser,
   readCloudflareWorkerTagsByNameForUser,
   rotateConvexDeployKeysForWorkersBuildsForUser,
+  selectConvexDeployKeyTarget,
+  type ConvexDeployKeyOutcome,
 } from "../repository/cloudflare";
+import { publicMcpErrorMessage } from "../mcp/publicErrors";
 import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
 import type { OrganizationProviderConfiguration } from "../organizationProviderCredentials";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
@@ -77,15 +81,9 @@ handler takes, then runs the same handler that the dashboard function at its too
 MCP-only tools live at their own function paths: account.ts and feedback.ts.
 */
 
-type ConvexDeployKeyInstallation = Infer<typeof vConvexDeployKeyInstallation>;
 type GitHubConvexCodeLocationCandidate = Infer<typeof vGitHubConvexCodeLocationCandidate>;
-type AttachedConvexProjectName = {
-  convexProjectId: Id<"repositoryConvexProjects">;
-  projectName: string | null;
-  projectSlug: string | null;
-  codeLocation: string;
-};
 
+const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
 const ROTATE_CONVEX_DEPLOY_KEYS_TOOL =
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name;
 
@@ -99,43 +97,12 @@ async function readRepositoryForMcp(
   return findRepositoryByReference(repositories, args.repository);
 }
 
-/** Live Convex names of the repository's attached projects; null names when Convex is unreadable. */
-async function readAttachedConvexProjectNames(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: { userId: Id<"users">; repository: UserRepositoryResult },
-): Promise<AttachedConvexProjectName[]> {
-  const { convexTeamId } = args.repository;
-  const namesByProjectId =
-    convexTeamId === undefined || args.repository.convexProjects.length === 0
-      ? null
-      : await readConvexTeamProjectNamesForUser(ctx, {
-          userId: args.userId,
-          organizationId: args.repository.organizationId,
-          teamId: convexTeamId,
-        }).catch(() => null);
-  return args.repository.convexProjects.map((project) => {
-    const names = namesByProjectId?.get(project.projectId);
-    return {
-      convexProjectId: project.convexProjectId,
-      projectName: names?.projectName ?? null,
-      projectSlug: names?.projectSlug ?? null,
-      codeLocation: getConvexCodeLocationPath(project.codeLocation),
-    };
-  });
-}
-
-function formatAttachedConvexProjects(projects: readonly AttachedConvexProjectName[]): string {
-  return projects
-    .map((project) => `${project.projectName ?? "unnamed"} (${project.codeLocation})`)
-    .join(", ");
-}
-
 /**
-The attached Convex project that a Worker tool uses: the named project, else the only attached
-project. Several projects without a name fail before any provider change. Undefined means that no
-Convex project is attached.
+The Convex project whose deploy key a Worker tool installs. MCP resolves only a given name; the
+server rule selectConvexDeployKeyTarget decides the rest, before any provider request. Undefined
+means that no Convex project is attached.
 */
-async function chooseAttachedConvexProject(
+async function selectConvexDeployKeyProject(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
@@ -143,25 +110,19 @@ async function chooseAttachedConvexProject(
     convexProjectName: string | undefined;
   },
 ): Promise<Id<"repositoryConvexProjects"> | undefined> {
-  if (args.convexProjectName !== undefined) {
-    return await findAttachedConvexProjectByName(ctx, {
-      userId: args.userId,
-      repository: args.repository,
-      projectName: args.convexProjectName,
-    });
-  }
-
-  const { convexProjects } = args.repository;
-  if (convexProjects.length === 0) {
-    return undefined;
-  }
-  if (exactly(1, convexProjects)) {
-    return convexProjects[0].convexProjectId;
-  }
-  const projects = await readAttachedConvexProjectNames(ctx, args);
-  throw new ConvexError(
-    `${args.repository.githubRepositoryFullName} has several attached Convex projects: ${formatAttachedConvexProjects(projects)}. Ask the user which project the Worker should deploy with, then pass its name as convexProjectName.`,
-  );
+  const target = await selectConvexDeployKeyTarget(ctx, {
+    userId: args.userId,
+    repositoryId: args.repository.repositoryId,
+    convexProjectId:
+      args.convexProjectName === undefined
+        ? undefined
+        : await findAttachedConvexProjectByName(ctx, {
+            userId: args.userId,
+            repository: args.repository,
+            projectName: args.convexProjectName,
+          }),
+  });
+  return target.state === "selected" ? target.convexProjectId : undefined;
 }
 
 async function findAttachedConvexProjectByName(
@@ -169,7 +130,10 @@ async function findAttachedConvexProjectByName(
   args: { userId: Id<"users">; repository: UserRepositoryResult; projectName: string },
 ): Promise<Id<"repositoryConvexProjects">> {
   const requestedName = args.projectName.trim();
-  const projects = await readAttachedConvexProjectNames(ctx, args);
+  const projects = nameAttachedConvexProjects(
+    args.repository.convexProjects,
+    await readRepositoryConvexTeamProjectNames(ctx, args),
+  );
   const project = projects.find(
     (candidate) =>
       candidate.projectName === requestedName || candidate.projectSlug === requestedName,
@@ -199,8 +163,8 @@ async function selectWorkersBuildsTokenForRepository(
   );
 }
 
-function projectConvexDeployKeyForMcp(installation: ConvexDeployKeyInstallation) {
-  switch (installation.state) {
+function projectConvexDeployKeyForMcp(outcome: ConvexDeployKeyOutcome) {
+  switch (outcome.state) {
     case "installed":
       return { state: "installed" as const };
     case "no_convex_project":
@@ -211,11 +175,11 @@ function projectConvexDeployKeyForMcp(installation: ConvexDeployKeyInstallation)
     case "failed":
       return {
         state: "not_installed" as const,
-        message: `${installation.message} The repair tool is ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL}.`,
+        message: `Samebase did not install the Convex deploy key, so no production build started. ${publicMcpErrorMessage(outcome.error)} When the cause is fixed, call ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} for this Worker to install the key and start the build.`,
       };
     default:
-      installation satisfies never;
-      throw new Error("Unsupported Convex deploy key installation.");
+      outcome satisfies never;
+      throw new Error("Unsupported Convex deploy key outcome.");
   }
 }
 
@@ -251,11 +215,23 @@ export const repositoryListTool = defineMcpTool({
       internal.repository.listForUser,
       { userId: args.userId },
     );
+    // Repositories on one Convex team share one project list, so each team is read once.
+    const teamProjectNameReads = new Map<
+      string,
+      ReturnType<typeof readRepositoryConvexTeamProjectNames>
+    >();
     const convexProjectNames = await Promise.all(
-      repositories.map(
-        async (repository) =>
-          await readAttachedConvexProjectNames(ctx, { userId: args.userId, repository }),
-      ),
+      repositories.map(async (repository) => {
+        if (repository.convexProjects.length === 0) {
+          return [];
+        }
+        const teamKey = `${repository.organizationId}/${repository.convexTeamId}`;
+        const teamProjectNames =
+          teamProjectNameReads.get(teamKey) ??
+          readRepositoryConvexTeamProjectNames(ctx, { userId: args.userId, repository });
+        teamProjectNameReads.set(teamKey, teamProjectNames);
+        return nameAttachedConvexProjects(repository.convexProjects, await teamProjectNames);
+      }),
     );
     const structuredContent: Infer<typeof getUserRepositoriesContract.structuredContent> = {
       repositories: repositories.map((repository, index) => {
@@ -489,7 +465,7 @@ export const cloudflareConnectWorkerTool = defineMcpTool({
   },
   run: async (ctx, args) => {
     const repository = await readRepositoryForMcp(ctx, args);
-    const convexProjectId = await chooseAttachedConvexProject(ctx, {
+    const convexProjectId = await selectConvexDeployKeyProject(ctx, {
       userId: args.userId,
       repository,
       convexProjectName: args.convexProjectName,
@@ -519,12 +495,13 @@ export const cloudflareConnectWorkerTool = defineMcpTool({
       convexProjectId,
     });
     if (result.state === "added_with_notice") {
+      const message = `Samebase attached ${worker.workerName}, but its Workers Builds setup did not complete. ${publicMcpErrorMessage(result.error)} When the cause is fixed, call ${CONFIGURE_BUILDS_TOOL} for this Worker${result.deployKeyPending ? `, then ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} to install the Convex deploy key` : ""}.`;
       return {
-        text: result.message,
+        text: message,
         structuredContent: {
           state: "connected_with_notice" as const,
           workerName: worker.workerName,
-          message: result.message,
+          message,
         },
       };
     }
@@ -568,7 +545,7 @@ export const cloudflareCreateWorkerTool = defineMcpTool({
     const convexProjectId =
       args.convexProjectName === undefined && pendingCloudflareSetup
         ? pendingCloudflareSetup.convexProjectId
-        : await chooseAttachedConvexProject(ctx, {
+        : await selectConvexDeployKeyProject(ctx, {
             userId: args.userId,
             repository,
             convexProjectName: args.convexProjectName,
@@ -644,7 +621,7 @@ export const cloudflareRotateConvexDeployKeysTool = defineMcpTool({
   run: async (ctx, args) => {
     const repository = await readRepositoryForMcp(ctx, args);
     const worker = findAttachedWorkerByName(repository, args.workerName);
-    const convexProjectId = await chooseAttachedConvexProject(ctx, {
+    const convexProjectId = await selectConvexDeployKeyProject(ctx, {
       userId: args.userId,
       repository,
       convexProjectName: args.convexProjectName,
