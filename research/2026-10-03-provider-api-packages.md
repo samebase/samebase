@@ -20,6 +20,27 @@ Package extraction does not require changing SDKs. Preserve the current Cloudfla
 first extraction. Keep Octokit for GitHub. Consider a shared generator only after the Cloudflare and
 Convex packages expose actual duplication worth removing.
 
+### Private-package scope
+
+The immediate benefit is code organization: one place owns Cloudflare contracts, transport,
+generation, and tests. The app consumes explicit exports and keeps its product rules. Existing
+schema maintenance continues under that package owner.
+
+For the first extraction, retain the current API coverage and `@samebase/sure`. The user wants to
+discuss its tuple result shape and a possible Evolu replacement separately. Evolu's
+[Result](https://www.evolu.dev/docs/api-reference/common/Result/type-aliases/Result) uses
+discriminated success/error objects. Choosing the result representation is separate from choosing a
+dependency; neither decision is required to organize this code into a private package.
+
+Use ESM for the package runtime. The current generated file mixes ESM exports with `require()` calls
+for AJV helpers. Native ESM rejects those calls. Generation must produce valid ESM without runtime
+`require()`; do not add a runtime compatibility shim. This is a concrete module-format check, not a
+requirement to support every JavaScript runtime.
+
+Public API stability, publishing private dependencies, registry releases, and packed external
+consumer tests belong to a later public-release milestone. Keep direct dependency declarations and
+the rule against importing app code now, because both make the internal package useful.
+
 ## Evidence and scope
 
 The current Cloudflare client imports the MCP transport, JSON helpers, a recorder type, and
