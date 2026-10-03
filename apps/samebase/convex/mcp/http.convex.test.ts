@@ -641,26 +641,14 @@ describe("MCP tools/call access enforcement", () => {
       result: {
         protocolVersion: "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "Samebase", version: "0.2.0" },
+        serverInfo: { name: "Samebase", version: "0.3.0" },
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If the user chooses US, pass aws-us-east-1[\s\S]*If the user chooses EU, pass aws-eu-west-1[\s\S]*omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call repository_cloudflare_createWorker[\s\S]*call repository_cloudflare_rotateConvexDeployKeys[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects, in every organization of the signed-in account\.[\s\S]*Name a repository by its GitHub full name \(owner\/name\)\.[\s\S]*For a request to open the Samebase dashboard, call account_createSignInLink directly and show the returned URL as a clickable link\.[\s\S]*call it only after the user accepts\.[\s\S]*A started setup, requested build, or Git push does not prove a successful deployment\.$/,
         ),
       },
     });
-    expect(payload).toMatchObject({
-      result: {
-        instructions: expect.stringContaining(
-          "Show its returned URL to the user as a clickable link.",
-        ),
-      },
-    });
-    expect(payload).toMatchObject({
-      result: {
-        instructions: expect.stringContaining(
-          "For these requests only, say that the user can do it in the Samebase dashboard and offer to open it with account_createSignInLink. Do not call a tool until the user accepts. Do not claim that the operation finished. Do not send provider state to the dashboard: use provider-native tools for logs, environment values, migrations, custom domains, and deployment and build status.",
-        ),
-      },
-    });
+    // The server picks tokens and installs deploy keys, so the instructions stay near 1k characters.
+    expect(payload.result.instructions.length).toBeLessThan(1_200);
     expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
   });

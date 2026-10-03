@@ -2,7 +2,7 @@
 
 # Submit Samebase feedback (`submit_feedback`)
 
-MCP tool `samebase_feedback_submit` · scope `access_feedback_submit` · destructive
+MCP tool `feedback_submit` · scope `access_feedback_submit` · destructive
 
 Emails one feedback report to Samebase staff. The agent must show the complete report and get the
 user's explicit approval for that exact text before it calls the tool. A direct request to send
