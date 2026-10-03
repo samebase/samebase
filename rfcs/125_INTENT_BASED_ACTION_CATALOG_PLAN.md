@@ -11,7 +11,9 @@
   [research note](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md)
   on [PR #1665](https://github.com/samebase/samebase/pull/1665) (cited below as "note")
 - Related: `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`,
-  `specs/111_AGENT_BROWSER_HANDOFF_SPEC.md`, `research/2026-09-18-plugin-review-remediation.md`,
+  `specs/111_AGENT_BROWSER_HANDOFF_SPEC.md`,
+  `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`,
+  `research/2026-09-18-plugin-review-remediation.md`,
   [PR #1616](https://github.com/samebase/samebase/pull/1616),
   [PR #1661](https://github.com/samebase/samebase/pull/1661),
   [PR #1662](https://github.com/samebase/samebase/pull/1662)
@@ -22,12 +24,14 @@
 ## Summary
 
 1. The dashboard and MCP share one contract and one handler per action. This RFC replaces today's 15
-   tools with 16 tools that match what users ask for (catalog R in the note).
-2. A new status read gives agents what the repository overview shows, in about 2.9 KB per typical
-   app. Discovery returns only rows that a user or agent can act on.
+   tools with 18 tools that match what users ask for (catalog R in the note, with three explicit
+   repair tools).
+2. A new status read gives agents what the repository overview shows: each app in the repository
+   with its own build and URLs, plus the branch, checks, and pull requests. A typical repository
+   needs about 2.9 KB. Discovery returns only rows that a user or agent can act on.
 3. A tool name is its public Convex function path with `.` replaced by `_`, for example
    `repository_list` and `repository_cloudflare_findWorkers`. A catalog test keeps them equal.
-4. Three high-impact writes pass one server-side confirmation check, which the dashboard also uses.
+4. Four high-impact writes pass one server-side confirmation check, which the dashboard also uses.
    The caller sends back a token and an explicit acknowledgement sentence, and both go to the audit
    log.
 5. Four implementation PRs land before one OpenAI submission. The last PR rewrites the 8 submitted
@@ -43,7 +47,7 @@ catalog comes first, then one submission.
    create a Convex project, change a code location, detach a Convex project) have contracts but no
    MCP tool. The instructions hand them to the dashboard
    ([http.ts L92](../apps/samebase/convex/mcp/http.ts#L92)). On 2026-10-01, Worker discovery for one
-   staff app returned 48 Workers and 0 that the agent could act on.
+   staff repository returned 48 Workers and 0 that the agent could act on.
 2. **No live read.** The overview reads live state through 6 per-repository calls; MCP has none. An
    agent cannot answer "Did my last push deploy?" through Samebase.
 3. **The model carries too much.** Today the model copies opaque IDs, Worker tags, Git SHAs, and a
@@ -55,60 +59,112 @@ catalog comes first, then one submission.
 
 ## Proposal
 
-### Catalog (16 tools)
+### Vocabulary
+
+- **Repository** means the Samebase object, and **GitHub repository** means the provider object, as
+  `rfcs/123` defines them
+  ([L52-L66](../rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md#domain-language)).
+  Repository-level tools use "repository" in their names, titles, descriptions, and arguments.
+- **App** means one deployable unit inside a repository: a Cloudflare Worker attachment and its root
+  directory. One repository can hold several apps, for example a monorepo with Workers at different
+  root directories. "App" is a descriptive word only: Samebase stores no app entity
+  ([spec 115 L29-L30](../specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md#domain-entities)),
+  and no tool takes an app argument.
+- Removal of the Samebase record is "Remove from Samebase", as `rfcs/123` requires.
+
+### Catalog (18 tools)
 
 Hints are `readOnlyHint / openWorldHint / destructiveHint`. "Gated" means the confirmation check
 below applies.
 
-| Tool                                  | Does                                                           | Arguments                                                                                                                                           | Output                                                                        | Hints          |
-| ------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------- |
-| `account_getAuthenticationStatus`     | Shows the connected account                                    | none                                                                                                                                                | account, role, GitHub owners, scopes                                          | yes / no / no  |
-| `account_createSignInLink`            | Opens the dashboard                                            | `returnToPath?`                                                                                                                                     | one-time URL, `expiresAt`                                                     | no / no / no   |
-| `feedback_submit`                     | Sends approved feedback                                        | `report`                                                                                                                                            | sent                                                                          | no / yes / yes |
-| `repository_list`                     | Lists apps in all organizations                                | none                                                                                                                                                | owner/name, `repositoryId`, setup, pending Cloudflare, attachment names       | yes / no / no  |
-| `repository_getStatus`                | Shows live app status                                          | `repository`                                                                                                                                        | branch and checks, builds and URLs, deployments, first 6 PRs, attention items | yes / no / no  |
-| `repository_create`                   | Creates an app                                                 | `githubOwnerLogin`, `name`, `convexDeploymentRegion?`, `buildTokenUuid?`, `convexProjectName?`, `cloudflareWorkerName?`, `description?`, `private?` | app, setup running, Cloudflare plan or pending notice                         | no / yes / no  |
-| `repository_connect`                  | Connects an existing GitHub repository                         | `githubRepositoryFullName`                                                                                                                          | app                                                                           | no / no / no   |
-| `repository_cloudflare_findWorkers`   | Finds Workers that can be added                                | `repository`                                                                                                                                        | attachable and connectable rows, counts by reason                             | yes / no / no  |
-| `repository_cloudflare_attachWorkers` | Attaches Workers already built from this repository            | `repository`, `workerNames`                                                                                                                         | attached names                                                                | no / no / no   |
-| `repository_cloudflare_connectWorker` | Connects an unconnected Worker (gated)                         | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`, `confirmation?`                                                                    | `needs_confirmation`, then connected, deploy key installed                    | no / yes / yes |
-| `repository_cloudflare_createWorker`  | Creates a Worker                                               | `repository`, `workerName?`, `rootDirectory?`, `buildTokenUuid?`                                                                                    | created, deploy key installed                                                 | no / yes / no  |
-| `repository_convex_findProjects`      | Finds Convex projects that can be added                        | `repository`                                                                                                                                        | code locations, attachable rows, counts by reason                             | yes / no / no  |
-| `repository_convex_attachProject`     | Attaches an existing Convex project                            | `repository`, `projectName`, `codeLocation?`                                                                                                        | attached, code location                                                       | no / no / no   |
-| `repository_convex_createProject`     | Creates a Convex project                                       | `repository`, `projectName`, `convexDeploymentRegion?`, `codeLocation?`                                                                             | created, code location                                                        | no / yes / no  |
-| `repository_repair`                   | Repairs Builds settings and deploy keys, retries setup (gated) | `repository`, `buildTokenUuid?`, `confirmation?`                                                                                                    | `needs_confirmation`, then performed steps, remaining problems                | no / yes / yes |
-| `repository_detachResource`           | Removes a Worker or Convex project from the app (gated)        | `repository`, `resourceName`, `confirmation?`                                                                                                       | `needs_confirmation`, then detached kind and name                             | no / no / yes  |
+| Tool                                           | Does                                                                                       | Arguments                                                                                                                                           | Output                                                                                         | Hints          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------- |
+| `account_getAuthenticationStatus`              | Shows the connected account                                                                | none                                                                                                                                                | account, role, GitHub owners, scopes                                                           | yes / no / no  |
+| `account_createSignInLink`                     | Opens the dashboard                                                                        | `returnToPath?`                                                                                                                                     | one-time URL, `expiresAt`                                                                      | no / no / no   |
+| `feedback_submit`                              | Sends approved feedback                                                                    | `report`                                                                                                                                            | sent                                                                                           | no / yes / yes |
+| `repository_list`                              | Lists repositories in all organizations                                                    | none                                                                                                                                                | owner/name, `repositoryId`, setup, pending Cloudflare, attachment names                        | yes / no / no  |
+| `repository_getStatus`                         | Shows live repository status                                                               | `repository`                                                                                                                                        | apps with builds and URLs, Convex deployments, branch and checks, first 6 PRs, attention items | yes / no / no  |
+| `repository_create`                            | Creates a repository with its first app                                                    | `githubOwnerLogin`, `name`, `convexDeploymentRegion?`, `buildTokenUuid?`, `convexProjectName?`, `cloudflareWorkerName?`, `description?`, `private?` | repository, setup running, Cloudflare plan or pending notice                                   | no / yes / no  |
+| `repository_connect`                           | Connects an existing GitHub repository                                                     | `githubRepositoryFullName`                                                                                                                          | repository                                                                                     | no / no / no   |
+| `repository_retryProviderSetup`                | Retries the managed provider setup of a repository (gated)                                 | `repository`, `confirmation?`                                                                                                                       | `needs_confirmation`, then setup running                                                       | no / yes / yes |
+| `repository_detachResource`                    | Removes a Worker or Convex project from the repository (gated)                             | `repository`, `resourceName`, `confirmation?`                                                                                                       | `needs_confirmation`, then detached kind and name                                              | no / no / yes  |
+| `repository_cloudflare_findWorkers`            | Finds Workers that can be added                                                            | `repository`                                                                                                                                        | attachable and connectable rows, counts by reason                                              | yes / no / no  |
+| `repository_cloudflare_attachWorkers`          | Attaches Workers already built from this repository                                        | `repository`, `workerNames`                                                                                                                         | attached names                                                                                 | no / no / no   |
+| `repository_cloudflare_connectWorker`          | Connects an unconnected Worker (gated)                                                     | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`, `confirmation?`                                                                    | `needs_confirmation`, then connected, deploy key installed                                     | no / yes / yes |
+| `repository_cloudflare_createWorker`           | Creates a Worker, which adds an app                                                        | `repository`, `workerName?`, `rootDirectory?`, `buildTokenUuid?`                                                                                    | created, deploy key installed                                                                  | no / yes / no  |
+| `repository_cloudflare_configureBuilds`        | Rewrites a Worker's Workers Builds settings for this repository, then starts a build       | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`                                                                                     | configured, build requested                                                                    | no / yes / yes |
+| `repository_cloudflare_rotateConvexDeployKeys` | Replaces the Convex deploy keys in a Worker's Builds settings, then starts a build (gated) | `repository`, `workerName`, `convexProjectName?`, `confirmation?`                                                                                   | `needs_confirmation`, then rotated, build requested                                            | no / yes / yes |
+| `repository_convex_findProjects`               | Finds Convex projects that can be added                                                    | `repository`                                                                                                                                        | code locations, attachable rows, counts by reason                                              | yes / no / no  |
+| `repository_convex_attachProject`              | Attaches an existing Convex project                                                        | `repository`, `projectName`, `codeLocation?`                                                                                                        | attached, code location                                                                        | no / no / no   |
+| `repository_convex_createProject`              | Creates a Convex project                                                                   | `repository`, `projectName`, `convexDeploymentRegion?`, `codeLocation?`                                                                             | created, code location                                                                         | no / yes / no  |
+
+Justifications for the three repair tools (the others are in the note, 5.1):
+
+- `repository_retryProviderSetup`: open world because it creates missing Convex and Cloudflare
+  resources; destructive because, when Cloudflare is requested, it reconfigures Builds and revokes
+  and rotates recorded deploy keys
+  ([retryInfrastructureProvisioning.ts L30](../apps/samebase/convex/repository/contracts/retryInfrastructureProvisioning.ts#L30)).
+  Gated, because it rotates keys.
+- `repository_cloudflare_configureBuilds`: open world because it writes the user's Cloudflare
+  account and starts a production build; destructive because it can overwrite production and preview
+  Builds settings. Not gated: it revokes no key, and the note did not measure it. Host prompts still
+  apply through `destructiveHint`.
+- `repository_cloudflare_rotateConvexDeployKeys`: open world because it creates keys in Convex and
+  writes Builds variables; destructive because it revokes the recorded keys first, so a failure can
+  leave builds without access. Gated, as the note found necessary for key rotation.
 
 Shared rules:
 
-- `repository` accepts `owner/name` or the `repositoryId` from `repository_list`. Tool titles and
-  descriptions say "app"; names and arguments use the code noun `repository` (`rfcs/123`).
+- `repository` accepts `owner/name` or the `repositoryId` from `repository_list`. One list covers
+  every organization of the account; `githubOwnerLogin` shows the organization
+  ([getUserRepositories.ts L288](../apps/samebase/convex/repository/contracts/getUserRepositories.ts#L288)).
+- `repository_create` creates the GitHub repository, its Samebase repository, and its first app: one
+  Worker when a build token exists, and one Convex project.
 - The server picks the build token: the given UUID, else the available last-used token, else the
   only token. Several tokens and no last-used one return an error that lists them. No token creates
-  the app with Cloudflare pending and returns the setup guide link. No tool takes `accountId`.
+  the repository with Cloudflare pending and returns the setup guide link. No tool takes
+  `accountId`.
 - The server installs the Convex deploy key after it connects or creates a Worker.
+- A Convex project without a production deployment stays attachable, as in the dashboard today
+  ([convex.ts L260](../apps/samebase/convex/repository/convex.ts#L260)). Key installation and
+  rotation then fail with "Deploy the Convex project to production first", in place of today's "The
+  selected Convex project has no production deployment."
+  ([cloudflare.ts L918](../apps/samebase/convex/repository/cloudflare.ts#L918)). The status read
+  gives the same attention item.
 - One Convex code location is used without asking. Several return an error that lists them.
 - Errors say what to do next, in plain words.
-- One app list covers every organization of the account; `githubOwnerLogin` shows the organization
-  ([getUserRepositories.ts L288](../apps/samebase/convex/repository/contracts/getUserRepositories.ts#L288)).
 
-`repository_repair` replaces three tools (configure Builds, rotate keys, retry provisioning). The
-dashboard's Settings buttons call it with an explicit step. The build token list stays a dashboard
-read. Left in the dashboard only: removing an app, changing a code location, accepting a Worker or
-GitHub rename, members, organization settings, billing, provider connections, and account settings.
+The dashboard keeps the build token list. Left in the dashboard only: Remove from Samebase, changing
+a code location, accepting a Worker or GitHub rename, members, organization settings, billing,
+provider connections, and account settings.
 
 ### Status read
 
-`repository_getStatus` returns only facts that the overview page shows. Its MCP output is smaller
-than the dashboard result: failed check names instead of the full check list, and no labels, line
-counts, node IDs, or head SHAs. Measured on realistic JSON (attention items not included):
+`repository_getStatus` returns only facts that the overview page shows:
 
-| Case                                              | MCP output                | Dashboard result |
-| ------------------------------------------------- | ------------------------- | ---------------- |
-| 1 Worker, 1 Convex project, 3 checks, 2 open PRs  | 2.9 KB (about 800 tokens) | 5.3 KB           |
-| Same app, no open PRs                             | 1.2 KB                    | 1.7 KB           |
-| Same app, 6 PRs (the cap)                         | 6.4 KB                    | 12.4 KB          |
-| For comparison: today's Worker discovery, 48 rows | 5.8 KB                    | 5.8 KB           |
+- Per app: the Worker name, its root directory, its production build state and logs URL, and its
+  URLs.
+- Per Convex project: its code location and its production deployment (name, dashboard URL, region),
+  or "missing".
+- For the repository: the default branch head commit and its checks, the open pull request count,
+  and the first 6 pull requests, each with its checks and the preview build and URL of each app.
+- Attention items: each names the problem and the exact tool that fixes it, for example
+  `repository_cloudflare_configureBuilds` for a Worker whose Builds settings point elsewhere, or
+  "Deploy the Convex project to production first".
+
+The overview already groups each root directory's Worker and Convex deployment
+([repositoryEnvironmentRoots.ts L149](../apps/samebase/src/repository/dashboard/repositoryEnvironmentRoots.ts#L149)).
+The MCP output is smaller than the dashboard result: failed check names instead of the full check
+list, and no labels, line counts, node IDs, or head SHAs. Measured on realistic JSON (attention
+items not included):
+
+| Case                                                     | MCP output                          | Dashboard result |
+| -------------------------------------------------------- | ----------------------------------- | ---------------- |
+| 1 app, 1 Convex project, 3 checks per commit, 2 open PRs | 2.9 KB (about 800 tokens)           | 5.3 KB           |
+| Same repository, no open PRs                             | 1.2 KB                              | 1.7 KB           |
+| Same repository, 6 PRs (the cap)                         | 6.4 KB                              | 12.4 KB          |
+| Each extra app                                           | +0.35 KB, plus 0.3 KB per listed PR | similar          |
+| For comparison: today's Worker discovery, 48 rows        | 5.8 KB                              | 5.8 KB           |
 
 The overview can replace its 6 per-repository calls with this read and show the same facts. It then
 renders in one step, and one refresh reads everything. The overview moves to it after approval.
@@ -121,11 +177,13 @@ elsewhere, connected elsewhere, and unavailable. The 48-row result drops from 5.
 KB. The dashboard keeps every row, because the Create Worker form uses all names to reject a
 conflict
 ([RepositoryCloudflareDialog.tsx L513](../apps/samebase/src/repository/dashboard/RepositoryCloudflareDialog.tsx#L513)).
+Convex rows keep `productionDeployment` so that a project with no production deployment is visible
+before it is attached.
 
 ### Names and module layout
 
 Rule: the tool name is the path of the registered Convex function that runs the tool, with `/` and
-`:` replaced by `_`. For the 13 shared tools that is the public function the dashboard calls. For
+`:` replaced by `_`. For the 15 shared tools that is the public function the dashboard calls. For
 the 3 MCP-only tools it is an internal function. A public sign-in link function would let a browser
 session mint sign-in links. Authentication status describes the calling MCP token, which a browser
 session does not have; the dashboard already lists grants through `mcp.grants.listCurrentUserGrants`
@@ -137,8 +195,10 @@ The dashboard has no feedback form.
   note
   [3.7](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#37-follow-up-naming-schemes-design-r-all-five-servers)).
 - Reasons for this scheme: one string for the code location, the dashboard call
-  (`api.repository.list`), and the PostHog `mcp_tool_name`. The longest name has 35 characters,
-  under VS Code's 64 and Gemini CLI's 63 including their prefixes (note
+  (`api.repository.list`), and the PostHog `mcp_tool_name`. The longest name,
+  `repository_cloudflare_rotateConvexDeployKeys`, has 44 characters. VS Code caps its prefix at 18
+  characters and the full name at 64, so it fits (at most 62). Gemini CLI caps `mcp_<server>_<tool>`
+  at 63, and a server named `samebase` gives 57 (note
   [1.4](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#14-other-hosts)).
 - `mcp.name` stays an explicit string, as `rfcs/089` asks
   ([L117-L119](../rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md#explicit-public-tool-names)).
@@ -156,29 +216,32 @@ Verified constraints:
 - An export must not have the name of a submodule. None of the new exports matches a file in
   `convex/repository/`.
 - A `"use node"` file holds only actions. `repository_list` is a query (the dashboard subscribes to
-  it), so `convex/repository.ts` runs in the default runtime. Its Node-backed actions call one
-  internal Node action each, which is the runtime crossing that the Convex guidelines allow. Every
-  current handler behind them lives in a `"use node"` file (`repository/actions.ts` imports
-  `@octokit/rest` at L7).
+  it), so `convex/repository.ts` runs in the default runtime. `getStatus`, `create`, and `connect`
+  call one internal Node action each, which is the runtime crossing that the Convex guidelines
+  allow; their current handlers live in `"use node"` files (`repository/actions.ts` imports
+  `@octokit/rest` at L7). `retryProviderSetup` needs no Node: today's handler runs one query and one
+  mutation ([actions.ts L876](../apps/samebase/convex/repository/actions.ts#L876)).
 
-| Tool                                  | Function path                         | File                              | Kind and runtime                           | Dashboard references that change                                                                                                                                                                                                          |
-| ------------------------------------- | ------------------------------------- | --------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `account_getAuthenticationStatus`     | `account:getAuthenticationStatus`     | `convex/account.ts` (new)         | internal query, default                    | none (computed today in [http.ts L143](../apps/samebase/convex/mcp/http.ts#L143))                                                                                                                                                         |
-| `account_createSignInLink`            | `account:createSignInLink`            | `convex/account.ts`               | internal action, default                   | none (today [runtime.ts L483](../apps/samebase/convex/toolRuntime/runtime.ts#L483))                                                                                                                                                       |
-| `feedback_submit`                     | `feedback:submit`                     | `convex/feedback.ts` (new)        | internal action, default                   | none (today [runtime.ts L427](../apps/samebase/convex/toolRuntime/runtime.ts#L427))                                                                                                                                                       |
-| `repository_list`                     | `repository:list`                     | `convex/repository.ts` (new)      | query, default                             | 8: AppRightSidebar L428, RepositoryConvexSchemaGraphView L102, RepositoryDatabaseView L61, repositoryEnvironmentRoots L18, repositorySettingsState L21, repositorySourceSetup L4, useRepositoryWorkspaceModel L31, ConnectRepository L110 |
-| `repository_getStatus`                | `repository:getStatus`                | `convex/repository.ts`            | action, default, calls a Node read         | none until the overview adopts it                                                                                                                                                                                                         |
-| `repository_create`                   | `repository:create`                   | `convex/repository.ts`            | action, default, calls Node                | NewAppPage L473                                                                                                                                                                                                                           |
-| `repository_connect`                  | `repository:connect`                  | `convex/repository.ts`            | action, default, calls Node                | ConnectRepository L115                                                                                                                                                                                                                    |
-| `repository_repair`                   | `repository:repair`                   | `convex/repository.ts`            | action, default, calls Node                | RepositorySelectedWorkspace L46 and L55, RepositoryCloudflareDialog L437                                                                                                                                                                  |
-| `repository_detachResource`           | `repository:detachResource`           | `convex/repository.ts`            | mutation, default (no provider call today) | RepositorySelectedWorkspace L48 and L49                                                                                                                                                                                                   |
-| `repository_cloudflare_findWorkers`   | `repository/cloudflare:findWorkers`   | `convex/repository/cloudflare.ts` | action, Node                               | RepositoryCloudflareDialog L50, L52, L432                                                                                                                                                                                                 |
-| `repository_cloudflare_attachWorkers` | `repository/cloudflare:attachWorkers` | same                              | action, Node                               | path unchanged; arguments change at L433                                                                                                                                                                                                  |
-| `repository_cloudflare_connectWorker` | `repository/cloudflare:connectWorker` | same                              | action, Node                               | path unchanged; arguments change at L434                                                                                                                                                                                                  |
-| `repository_cloudflare_createWorker`  | `repository/cloudflare:createWorker`  | same                              | action, Node                               | path unchanged; arguments change at L435                                                                                                                                                                                                  |
-| `repository_convex_findProjects`      | `repository/convex:findProjects`      | `convex/repository/convex.ts`     | action, Node                               | RepositoryConvexDialog L47, L49, L51, L436                                                                                                                                                                                                |
-| `repository_convex_attachProject`     | `repository/convex:attachProject`     | same                              | action, Node                               | RepositoryConvexDialog L437                                                                                                                                                                                                               |
-| `repository_convex_createProject`     | `repository/convex:createProject`     | same                              | action, Node                               | path unchanged; arguments change at L439                                                                                                                                                                                                  |
+| Tool                                           | Function path                                  | File                              | Kind and runtime                           | Dashboard references that change                                                                                                                                                                                                          |
+| ---------------------------------------------- | ---------------------------------------------- | --------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account_getAuthenticationStatus`              | `account:getAuthenticationStatus`              | `convex/account.ts` (new)         | internal query, default                    | none (computed today in [http.ts L143](../apps/samebase/convex/mcp/http.ts#L143))                                                                                                                                                         |
+| `account_createSignInLink`                     | `account:createSignInLink`                     | `convex/account.ts`               | internal action, default                   | none (today [runtime.ts L483](../apps/samebase/convex/toolRuntime/runtime.ts#L483))                                                                                                                                                       |
+| `feedback_submit`                              | `feedback:submit`                              | `convex/feedback.ts` (new)        | internal action, default                   | none (today [runtime.ts L427](../apps/samebase/convex/toolRuntime/runtime.ts#L427))                                                                                                                                                       |
+| `repository_list`                              | `repository:list`                              | `convex/repository.ts` (new)      | query, default                             | 8: AppRightSidebar L428, RepositoryConvexSchemaGraphView L102, RepositoryDatabaseView L61, repositoryEnvironmentRoots L18, repositorySettingsState L21, repositorySourceSetup L4, useRepositoryWorkspaceModel L31, ConnectRepository L110 |
+| `repository_getStatus`                         | `repository:getStatus`                         | `convex/repository.ts`            | action, default, calls a Node read         | none until the overview adopts it                                                                                                                                                                                                         |
+| `repository_create`                            | `repository:create`                            | `convex/repository.ts`            | action, default, calls Node                | NewAppPage L473                                                                                                                                                                                                                           |
+| `repository_connect`                           | `repository:connect`                           | `convex/repository.ts`            | action, default, calls Node                | ConnectRepository L115                                                                                                                                                                                                                    |
+| `repository_retryProviderSetup`                | `repository:retryProviderSetup`                | `convex/repository.ts`            | action, default                            | RepositorySelectedWorkspace L46                                                                                                                                                                                                           |
+| `repository_detachResource`                    | `repository:detachResource`                    | `convex/repository.ts`            | mutation, default (no provider call today) | RepositorySelectedWorkspace L48 and L49                                                                                                                                                                                                   |
+| `repository_cloudflare_findWorkers`            | `repository/cloudflare:findWorkers`            | `convex/repository/cloudflare.ts` | action, Node                               | RepositoryCloudflareDialog L50, L52, L432                                                                                                                                                                                                 |
+| `repository_cloudflare_attachWorkers`          | `repository/cloudflare:attachWorkers`          | same                              | action, Node                               | path unchanged; arguments change at L433                                                                                                                                                                                                  |
+| `repository_cloudflare_connectWorker`          | `repository/cloudflare:connectWorker`          | same                              | action, Node                               | path unchanged; arguments change at L434                                                                                                                                                                                                  |
+| `repository_cloudflare_createWorker`           | `repository/cloudflare:createWorker`           | same                              | action, Node                               | path unchanged; arguments change at L435                                                                                                                                                                                                  |
+| `repository_cloudflare_configureBuilds`        | `repository/cloudflare:configureBuilds`        | same                              | action, Node                               | RepositoryCloudflareDialog L437                                                                                                                                                                                                           |
+| `repository_cloudflare_rotateConvexDeployKeys` | `repository/cloudflare:rotateConvexDeployKeys` | same                              | action, Node                               | RepositorySelectedWorkspace L55                                                                                                                                                                                                           |
+| `repository_convex_findProjects`               | `repository/convex:findProjects`               | `convex/repository/convex.ts`     | action, Node                               | RepositoryConvexDialog L47, L49, L51, L436                                                                                                                                                                                                |
+| `repository_convex_attachProject`              | `repository/convex:attachProject`              | same                              | action, Node                               | RepositoryConvexDialog L437                                                                                                                                                                                                               |
+| `repository_convex_createProject`              | `repository/convex:createProject`              | same                              | action, Node                               | path unchanged; arguments change at L439                                                                                                                                                                                                  |
 
 All references are under `apps/samebase/src/`. The internal inventory read moves with
 `repository:list` ([runtime.ts L192](../apps/samebase/convex/toolRuntime/runtime.ts#L192)), and
@@ -188,10 +251,13 @@ handlers import only default-runtime modules (`mcp/tokens.ts`, `email.ts`,
 
 ### Confirmation gate
 
-One server-side check serves the dashboard and MCP for three gated actions:
-`repository_cloudflare_connectWorker` (replaces the Worker's live deployment), `repository_repair`
-(can overwrite Builds settings and revoke and rotate deploy keys), and `repository_detachResource`.
-All three keep `destructiveHint: true`.
+One server-side check serves the dashboard and MCP for four gated actions, all with
+`destructiveHint: true`:
+
+- `repository_cloudflare_connectWorker`: replaces the Worker's live deployment.
+- `repository_cloudflare_rotateConvexDeployKeys`: revokes and replaces deploy keys.
+- `repository_retryProviderSetup`: can revoke and replace deploy keys.
+- `repository_detachResource`: removes an attachment.
 
 1. A call without `confirmation` performs nothing. It returns `needs_confirmation` with the
    server-owned effect text in plain words, the exact acknowledgement sentence that names the
@@ -230,9 +296,9 @@ the description, 4 of 6; with a server gate, 0 of 6. Approved requests passed in
 variant. The two-step gate costs about one extra call per action (2.0 and 2.5 calls per request
 against 1.5 and 1.7).
 
-Typed-name confirmation (removing an app with provider deletion, deleting an organization, deleting
-an account) stays in the dashboard and, later, in MCP elicitation only. It is never a tool argument,
-and those actions stay out of MCP.
+Typed-name confirmation (Remove from Samebase with provider deletion, deleting an organization,
+deleting an account) stays in the dashboard and, later, in MCP elicitation only. It is never a tool
+argument, and those actions stay out of MCP.
 
 The `confirmation` argument and the `needs_confirmation` result must exist before the OpenAI
 submission, because an argument change needs a new review.
@@ -240,7 +306,7 @@ submission, because an argument change needs a new review.
 ### Server instructions
 
 They shrink from about 7k to about 1k characters, because the server now picks the token, installs
-keys, and diagnoses repairs (note
+keys, and names the repair tool in each attention item (note
 [5.2](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#52-server-instructions-shrink-to-about-1k-characters)).
 They keep the sentence "For a request to open the Samebase dashboard, call
 `account_createSignInLink` directly"; one batch without it missed the submitted dashboard case. The
@@ -256,33 +322,45 @@ EU price sentence moves to the `convexDeploymentRegion` input description.
 | `repository_dashboard_getUserRepositories`                     | `repository_list`                                                                                                             |
 | `repository_actions_createRepository`                          | `repository_create`                                                                                                           |
 | `repository_actions_connectRepository`                         | `repository_connect`                                                                                                          |
+| `repository_actions_retryInfrastructureProvisioning`           | `repository_retryProviderSetup`                                                                                               |
 | `cloudflare_listWorkersBuildTokens`                            | removed (the server picks the token)                                                                                          |
 | `repository_cloudflare_discoverWorkers`                        | `repository_cloudflare_findWorkers`                                                                                           |
 | `repository_cloudflare_attachWorkers`                          | `repository_cloudflare_attachWorkers`                                                                                         |
 | `repository_cloudflare_createWorker`                           | `repository_cloudflare_createWorker`                                                                                          |
-| `repository_cloudflare_configureWorkersBuildsForGitHub`        | `repository_repair`                                                                                                           |
-| `repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds` | `repository_repair`, and automatic after connect or create                                                                    |
-| `repository_actions_retryInfrastructureProvisioning`           | `repository_repair`                                                                                                           |
+| `repository_cloudflare_configureWorkersBuildsForGitHub`        | `repository_cloudflare_configureBuilds`                                                                                       |
+| `repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds` | `repository_cloudflare_rotateConvexDeployKeys`, and automatic after connect or create                                         |
 | `repository_convex_discoverProjects`                           | `repository_convex_findProjects`                                                                                              |
 | `repository_convex_attachProjects`                             | `repository_convex_attachProject`                                                                                             |
 | new                                                            | `repository_getStatus`, `repository_cloudflare_connectWorker`, `repository_convex_createProject`, `repository_detachResource` |
 
 No aliases: old names stop working at deploy. The rename also touches contract `id`s, `title`s, and
-descriptions; `mcp/http.ts` (instructions and the tool map); the public skill; generated
+descriptions (titles change from "app" to "repository" where they mean the repository, for example
+"Create Samebase app"); `mcp/http.ts` (instructions and the tool map); the public skill; generated
 `public/docs/actions/*.md` and `llms.txt`; `chatgptAppSubmissionSource.ts` and
 `chatgpt-app-submission.json`; tests that assert names; `specs/111` (tool name at L12); saved
 PostHog insights that filter `mcp_tool_name`; and both plugin manifests (`0.3.0`).
 
 ## Rollout
 
-| PR  | Scope                                                                                                                                                     | Before submission  |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 1   | This RFC                                                                                                                                                  | yes                |
-| 2   | Catalog and module moves: new paths, catalog test, `repository` argument resolution, token default, deploy-key chain, `repository_repair`, discovery rule | yes                |
-| 3   | Status read: contract, `repository:getStatus`, MCP projection, a fixture test that keeps the typical MCP result under 4 KB                                | yes                |
-| 4   | Confirmation gate: challenge and audit tables, server check in the 3 gated actions, dashboard confirm dialogs                                             | yes                |
-| 5   | Skill, docs, about 1k instructions, submission source with the 8 cases rewritten against the final names, plugin version                                  | yes, last          |
-| 6   | Overview page reads `repository:getStatus`                                                                                                                | no, after approval |
+| PR  | Scope                                                                                                                                                                 | Before submission  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 1   | This RFC                                                                                                                                                              | yes                |
+| 2   | Catalog and module moves: new paths, catalog test, `repository` argument resolution, token default, deploy-key chain, the three repair tools, discovery rule          | yes                |
+| 3   | Status read: contract, `repository:getStatus`, attention items that name the repair tool, MCP projection, a fixture test that keeps the typical MCP result under 4 KB | yes                |
+| 4   | Confirmation gate: challenge and audit tables, server check in the 4 gated actions, dashboard confirm dialogs                                                         | yes                |
+| 5   | Skill, docs, about 1k instructions, submission source with the 8 cases rewritten against the final names, plugin version                                              | yes, last          |
+| 6   | Overview page reads `repository:getStatus`                                                                                                                            | no, after approval |
+
+PR 5 also changes the wording of three submitted prompts that say "app" where they mean the
+repository
+([chatgptAppSubmissionSource.ts L182, L207, L242](../apps/samebase/scripts/chatgptAppSubmissionSource.ts#L182)):
+
+- "List my Samebase apps and their setup status." becomes "List my Samebase repositories and their
+  setup status."
+- "Create a private Samebase app under samebase-live-tests ..." becomes "Create a private Samebase
+  repository under samebase-live-tests ...".
+- "Can I delete a Samebase app and all of its resources through Samebase MCP?" becomes "Can I remove
+  a Samebase repository from Samebase and delete all of its resources through Samebase MCP?".
 
 After PR 5: deploy to production, publish the plugin, run the 8 cases in ChatGPT web and mobile with
 the reviewer account, then submit once. After approval, OpenAI picks up server changes that keep
@@ -294,6 +372,11 @@ review.
 - **Primitive mirror (one tool per dashboard action, 21 tools).** Task success was the same (28/30
   against 29/30), but the hybrid catalog used 35% fewer input tokens, and the mirror makes the model
   carry IDs, tags, SHAs, and the token choice (note 3.2). Rejected.
+- **One repair tool that picks the repair.** It saves two tools, but a reviewer can read it as
+  "operation selection" (note
+  [6](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#6-strongest-evidence-against-this-recommendation)),
+  and it needs one risk class for three different effects. Rejected; the status read names the exact
+  repair tool.
 - **`samebase_<verb>_<object>` names.** No routing gain (70% strict against 75%, 0 wrong-server
   choices in both), and it splits the vocabulary between code and tool. Rejected.
 - **Phrase-only confirmation (an exact sentence as the only check).** It stops the model as well as
@@ -303,33 +386,26 @@ review.
 
 ## Open questions for the operator
 
-1. **`repository_repair` review risk.** An OpenAI reviewer may read one repair tool as "operation
-   selection" (note
-   [6](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#6-strongest-evidence-against-this-recommendation)).
-   Fallback: three explicit repair tools whose names the attention items give (19 tools). Submit
-   with one repair tool, or with the fallback?
-2. **Convex project without a production deployment.** Discovery calls it attachable today
-   ([convex.ts L260](../apps/samebase/convex/repository/convex.ts#L260)), but the deploy-key step
-   needs one ([cloudflare.ts L918](../apps/samebase/convex/repository/cloudflare.ts#L918)). Make
-   attachable require a production deployment, or keep attach allowed and say the requirement in the
-   error and in the repair result?
+1. **The word for a deployable unit.** `rfcs/123` defines "repository" and "GitHub repository" but
+   no word for a Worker attachment and its root directory, and spec 115 says that Samebase has no
+   app entity. This RFC uses "app" for it in descriptions only. Keep "app", or choose another word?
 
 ## Appendix A: Capability map
 
-| Dashboard surface                  | Convex function today                                                                                          | Tool                                  |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Repository list                    | `repository.dashboard.getUserRepositories`                                                                     | `repository_list`                     |
-| List row checks and PR count       | `repositoryPullRequests.listRepositorySidebarSummaries`                                                        | dashboard only                        |
-| Overview production, PRs, previews | 4 `repository.providerObservations.*` reads, 2 pull request reads                                              | `repository_getStatus`                |
-| New repository                     | `repository.actions.createRepository`                                                                          | `repository_create`                   |
-| Connect repository                 | `repository.actions.connectRepository`                                                                         | `repository_connect`                  |
-| Build token list                   | `cloudflareBuildTokens.list`                                                                                   | dashboard only                        |
-| Cloudflare dialog                  | `repository.cloudflare.discoverWorkers`, `attachWorkers`, `connectWorker`, `createWorker`                      | the 4 `repository_cloudflare_*` tools |
-| Convex dialog                      | `repository.convex.discoverProjects`, `attachProjects`, `createProject`                                        | the 3 `repository_convex_*` tools     |
-| Settings repairs                   | `configureWorkersBuildsForGitHub`, `rotateConvexDeployKeysForWorkersBuilds`, `retryInfrastructureProvisioning` | `repository_repair`                   |
-| Settings remove                    | `repository.cloudflare.detachWorker`, `repository.convex.detachProject`                                        | `repository_detachResource`           |
-| Change code location, rename sync  | `repository.convex.changeProjectCodeLocation`, `updateWorkerName`, `updateWorkerRootDirectory`                 | dashboard only                        |
-| Remove from Samebase               | `repository.actions.deleteRepository`, `retryDeleteRepository`                                                 | dashboard only                        |
+| Dashboard surface                  | Convex function today                                                                                          | Tool                                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Repository list                    | `repository.dashboard.getUserRepositories`                                                                     | `repository_list`                                                                                                        |
+| List row checks and PR count       | `repositoryPullRequests.listRepositorySidebarSummaries`                                                        | dashboard only                                                                                                           |
+| Overview production, PRs, previews | 4 `repository.providerObservations.*` reads, 2 pull request reads                                              | `repository_getStatus`                                                                                                   |
+| New repository                     | `repository.actions.createRepository`                                                                          | `repository_create`                                                                                                      |
+| Connect repository                 | `repository.actions.connectRepository`                                                                         | `repository_connect`                                                                                                     |
+| Build token list                   | `cloudflareBuildTokens.list`                                                                                   | dashboard only                                                                                                           |
+| Cloudflare dialog                  | `repository.cloudflare.discoverWorkers`, `attachWorkers`, `connectWorker`, `createWorker`                      | the matching 4 `repository_cloudflare_*` tools                                                                           |
+| Convex dialog                      | `repository.convex.discoverProjects`, `attachProjects`, `createProject`                                        | the 3 `repository_convex_*` tools                                                                                        |
+| Settings repairs                   | `configureWorkersBuildsForGitHub`, `rotateConvexDeployKeysForWorkersBuilds`, `retryInfrastructureProvisioning` | `repository_cloudflare_configureBuilds`, `repository_cloudflare_rotateConvexDeployKeys`, `repository_retryProviderSetup` |
+| Settings remove                    | `repository.cloudflare.detachWorker`, `repository.convex.detachProject`                                        | `repository_detachResource`                                                                                              |
+| Change code location, rename sync  | `repository.convex.changeProjectCodeLocation`, `updateWorkerName`, `updateWorkerRootDirectory`                 | dashboard only                                                                                                           |
+| Remove from Samebase               | `repository.actions.deleteRepository`, `retryDeleteRepository`                                                 | dashboard only                                                                                                           |
 
 ## Appendix B: Dashboard confirmations today
 
@@ -337,7 +413,7 @@ Verified on `a8783524a`:
 
 | Action                 | Confirmation today                                                                                                                                                                                                                                                        | Server check                                                                                 |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Remove an app          | Modal with opt-in checkboxes, all off by default ([RepositoryDeleteDialog.tsx L91](../apps/samebase/src/repository/dashboard/RepositoryDeleteDialog.tsx#L91), [L234](../apps/samebase/src/repository/dashboard/RepositoryDeleteDialog.tsx#L234))                          | booleans only                                                                                |
+| Remove from Samebase   | Modal with opt-in checkboxes, all off by default ([RepositoryDeleteDialog.tsx L91](../apps/samebase/src/repository/dashboard/RepositoryDeleteDialog.tsx#L91), [L234](../apps/samebase/src/repository/dashboard/RepositoryDeleteDialog.tsx#L234))                          | booleans only                                                                                |
 | Detach                 | Menu item, no modal ([RepositorySelectedWorkspace.tsx L223](../apps/samebase/src/repository/dashboard/RepositorySelectedWorkspace.tsx#L223))                                                                                                                              | none                                                                                         |
 | Rotate deploy keys     | One-click button ([repositorySettingsState.ts L283](../apps/samebase/src/repository/dashboard/repositorySettingsState.ts#L283))                                                                                                                                           | none                                                                                         |
 | Connect another Worker | "Connect and add", no warning about the replaced deployment ([RepositoryCloudflareDialog.tsx L405](../apps/samebase/src/repository/dashboard/RepositoryCloudflareDialog.tsx#L405), [L559](../apps/samebase/src/repository/dashboard/RepositoryCloudflareDialog.tsx#L559)) | none                                                                                         |
