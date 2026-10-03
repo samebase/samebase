@@ -10,10 +10,10 @@ describe("generated action documentation", () => {
     expect(llmsTxt).toContain("Every Samebase action checks its own authentication.");
     expect(llmsTxt).toContain("Authentication status is a diagnostic action,\nnot a preflight.");
     expect(llmsTxt).toContain(
-      "Inventory reports Samebase-owned workflow state and stable resource IDs.",
+      "The repository list reports Samebase-owned workflow state and the names of attached resources.",
     );
     expect(llmsTxt).toContain(
-      "Use provider-native tools to verify\ncurrent provider existence, configuration, deployment state, and logs",
+      "Use provider-native\ntools to verify current provider existence, configuration, deployment state, and logs",
     );
   });
 

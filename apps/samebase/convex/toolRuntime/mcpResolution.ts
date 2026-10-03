@@ -23,10 +23,9 @@ function formatNames(names: readonly string[]): string {
 }
 
 /** The `repository` argument: the Samebase `repositoryId` or the GitHub full name `owner/name`. */
-export function findRepositoryByReference(
-  repositories: readonly UserRepositoryResult[],
-  reference: string,
-): UserRepositoryResult {
+export function findRepositoryByReference<
+  Repository extends { repositoryId: string; githubRepositoryFullName: string },
+>(repositories: readonly Repository[], reference: string): Repository {
   const trimmedReference = reference.trim();
   const repositoryById = repositories.find(
     (repository) => repository.repositoryId === trimmedReference,
