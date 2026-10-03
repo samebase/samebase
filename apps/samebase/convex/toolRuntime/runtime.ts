@@ -335,8 +335,7 @@ export const repositoryListTool = defineMcpTool({
               ? {
                   status: repository.providerSetup.status,
                   provider: repository.providerSetup.provider,
-                  message:
-                    "Provider setup failed. Check this repository in Samebase before retrying.",
+                  message: `Provider setup failed. Call ${RETRY_PROVIDER_SETUP_TOOL} to retry it.`,
                 }
               : { status: repository.providerSetup.status },
           pendingCloudflareSetup: pendingCloudflareSetup && {

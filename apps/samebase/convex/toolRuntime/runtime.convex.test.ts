@@ -307,7 +307,7 @@ describe("MCP tool runtime boundaries", () => {
           providerSetup: {
             status: "failed",
             provider: "convex",
-            message: "Provider setup failed. Check this repository in Samebase before retrying.",
+            message: "Provider setup failed. Call repository_retryProviderSetup to retry it.",
           },
         }),
         expect.objectContaining({
