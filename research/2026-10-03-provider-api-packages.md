@@ -41,6 +41,25 @@ Public API stability, publishing private dependencies, registry releases, and pa
 consumer tests belong to a later public-release milestone. Keep direct dependency declarations and
 the rule against importing app code now, because both make the internal package useful.
 
+### AJV update check
+
+The existing AJV patch addresses a different problem: it adds the named `standaloneCode` export used
+by our generator imports. [PR 795](https://github.com/samebase/samebase/pull/795) records why the
+patch was added. It does not change how standalone validators import runtime helpers.
+
+On October 3, 2026, the npm registry and GitHub identify
+[8.20.0](https://github.com/ajv-validator/ajv/releases/tag/v8.20.0) as the latest release. A
+separate installation of that unpatched version still has no named `standaloneCode` export. Its
+default export works, but generating with `code.esm: true` still emits `require()` for `ucs2length`
+with a string-length schema and for `equal` with an object-constant schema. Both generated modules
+fail native ESM import. [Upstream issue 2598](https://github.com/ajv-validator/ajv/issues/2598)
+remains open. Updating AJV alone does not resolve either issue. This probe did not change repo
+dependencies.
+
+The proposed [ESM generation fix, PR 2618](https://github.com/ajv-validator/ajv/pull/2618), is open
+and unmerged. The earlier [named-export PR 2352](https://github.com/ajv-validator/ajv/pull/2352) was
+closed without merging. These are separate upstream changes.
+
 ## Evidence and scope
 
 The current Cloudflare client imports the MCP transport, JSON helpers, a recorder type, and
