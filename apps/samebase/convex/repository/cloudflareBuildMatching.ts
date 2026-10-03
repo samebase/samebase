@@ -12,6 +12,8 @@ export type CloudflareBuildMatch =
       state: "available";
       buildUuid: string;
       buildState: CloudflareBuildState;
+      /** The built commit from build_trigger_metadata.commit_hash, or null when Cloudflare omits it. */
+      commitHash: string | null;
       createdAt: number;
       finishedAt: number | null;
     }
@@ -181,6 +183,7 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
     state: "available",
     buildUuid: agreement.buildUuid,
     buildState: classifyCloudflareBuildState(build),
+    commitHash: metadata.commit_hash?.trim() || null,
     createdAt: agreement.createdAt,
     finishedAt: agreement.finishedAt,
   };

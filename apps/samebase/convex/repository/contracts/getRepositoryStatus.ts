@@ -82,6 +82,31 @@ const vMcpBuild = union(
   object({ state: literal("unavailable") }),
 );
 
+/**
+The commit of the latest production build against the default branch head.
+
+matches_head = the build is of the current head commit.
+
+behind_head = the build is of another commit, so the latest push has no production build yet.
+
+unknown = the head or the built commit could not be read.
+*/
+const vMcpProductionBuildCommit = union(
+  literal("matches_head"),
+  literal("behind_head"),
+  literal("unknown"),
+);
+const vMcpProductionBuild = union(
+  object({
+    state: literal("available"),
+    buildState: vCloudflareBuildState,
+    commit: vMcpProductionBuildCommit,
+    logsUrl: string(),
+  }),
+  object({ state: literal("absent") }),
+  object({ state: literal("unavailable") }),
+);
+
 /** The MCP result: no labels, line counts, node IDs, head SHAs, or attachment IDs. */
 const vMcpRepositoryStatus = object({
   repository: string(),
@@ -99,7 +124,7 @@ const vMcpRepositoryStatus = object({
     object({
       workerName: string(),
       rootDirectory: string(),
-      productionBuild: vMcpBuild,
+      productionBuild: vMcpProductionBuild,
       urls: array(string()),
     }),
   ),
@@ -152,7 +177,7 @@ export const getRepositoryStatusContract = {
     title: "Get repository status",
     name: "repository_getStatus",
     description:
-      "Read the live status of a repository: each app (Worker and root directory) with its production build and URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, and attention items that name the tool that fixes each problem.",
+      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, and attention items that name the tool that fixes each problem.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -167,7 +192,11 @@ export const getRepositoryStatusContract = {
 the repository overview shows. It changes nothing.
 
 - Apps: one entry per attached Cloudflare Worker with its root directory, its latest production
-  build on the default branch (state and logs URL), and its URLs (custom domains and workers.dev).
+  build on the default branch (state, logs URL, and \`commit\`), and its URLs (custom domains and
+  workers.dev). \`commit\` compares the built commit with the default branch head:
+  \`matches_head\`, \`behind_head\` (the latest push has no production build yet), or \`unknown\`
+  when either commit cannot be read. A successful build that is \`behind_head\` does not deploy the
+  latest push.
 - Convex projects: each attached project's code location and production deployment (name,
   dashboard URL, and region), or missing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the

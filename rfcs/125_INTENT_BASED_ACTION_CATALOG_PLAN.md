@@ -442,9 +442,14 @@ Deviations found during step 3:
    without a connected GitHub repository or in removal.
 3. The dashboard result is the six existing overview reads (four provider observations, the open
    pull request page, and the pull request resources) plus the attention items, so the overview can
-   adopt it in PR 6 without new shapes. The typical MCP result measures 2,067 bytes (1 Worker, 1
+   adopt it in PR 6 without new shapes. The typical MCP result measures 2,091 bytes (1 Worker, 1
    Convex project, 3 checks per commit, 2 open PRs).
-4. The attention rules read the provider setup state first, because a running managed setup holds
+4. The production build observation keeps the commit that Cloudflare built
+   (`build_trigger_metadata.commit_hash`). The MCP result returns no SHA; each app's production
+   build carries `commit`: `matches_head`, `behind_head` (the latest push has no production build
+   yet), or `unknown` when the head or the built commit cannot be read. This answers "Did my last
+   push deploy?".
+5. The attention rules read the provider setup state first, because a running managed setup holds
    the provider-write lock and every repair tool fails during it. While setup runs, the only item
    says so and names no tool. When it failed, the only item names `repository_retryProviderSetup`. A
    pending Cloudflare setup gives an item that names `repository_cloudflare_createWorker` with the

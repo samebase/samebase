@@ -324,6 +324,7 @@ describe("buildProductionEnvironmentRoots", () => {
             productionBuild: {
               state: "available",
               buildState: "success",
+              commitHash: null,
               logsUrl:
                 "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
             },
@@ -578,6 +579,7 @@ describe("buildProductionEnvironmentRoots", () => {
             productionBuild: {
               state: "available",
               buildState: "success",
+              commitHash: null,
               logsUrl: "https://dash.cloudflare.com/samebase-build",
             },
           }),
@@ -3035,6 +3037,7 @@ describe("buildRepositorySettingsState", () => {
             productionBuild: {
               state: "available",
               buildState: "success",
+              commitHash: null,
               logsUrl: "https://dash.cloudflare.com/legacy-build",
             },
           }),

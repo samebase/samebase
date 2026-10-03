@@ -79,6 +79,7 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
       state: "available",
       buildUuid: "feb42f59-fbea-4f1f-95a1-8bf8598df55e",
       buildState: "success",
+      commitHash: "6f242965dfc3aa68e26b4207f1747ee43799a0f4",
       createdAt: Date.parse("2026-09-29T20:46:01.006Z"),
       finishedAt: Date.parse("2026-09-29T20:46:56.238Z"),
     });
@@ -112,6 +113,7 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
       state: "available",
       buildUuid: "89fa2f0f-ca7c-4f14-af5d-6f95714b68c3",
       buildState: "running",
+      commitHash: "8a83aec75b99f8474652bd51dc945735c3e397ec",
       createdAt: Date.parse("2026-08-02T21:54:36.933Z"),
       finishedAt: null,
     });

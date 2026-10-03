@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "../_generated/dataModel";
+import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
+import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
 import type { RepositoryStatus } from "./contracts/getRepositoryStatus";
 import type { RepositoryPullRequest, RepositoryStatusCheckRollup } from "./pullRequestModel";
 import {
@@ -131,6 +133,33 @@ const pullRequests = [
   }),
 ];
 
+const defaultBranch = {
+  name: "main",
+  headCommitOid,
+  headCommitTitle: "Fix the merge animation on small screens",
+  headCommitCommittedAt: "2026-10-02T17:20:44Z",
+  headCommitUrl: `https://github.com/samebase/chess-merge/commit/${headCommitOid}`,
+  statusCheckRollup: checkRollup([
+    { name: "lint", conclusion: "SUCCESS" },
+    { name: "test", conclusion: "SUCCESS" },
+    { name: "Workers Builds: chess-merge", conclusion: "SUCCESS" },
+  ]),
+};
+const githubRepository = {
+  id: "R_kgDOOx7Rcw",
+  databaseId: 1029384756,
+  nameWithOwner: "samebase/chess-merge",
+  defaultBranch,
+  pullRequests: {
+    totalCount: 2,
+    pageInfo: {
+      hasNextPage: false,
+      endCursor: "Y3Vyc29yOnYyOpK5MjAyNi0xMC0wM1QwODo0MToxMiswMzowMM6hY2Mq",
+    },
+    nodes: pullRequests,
+  },
+};
+
 const healthyObservations: RepositoryObservations = {
   workers: [
     {
@@ -154,6 +183,7 @@ const healthyObservations: RepositoryObservations = {
       productionBuild: {
         state: "available",
         buildState: "success",
+        commitHash: headCommitOid,
         logsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/chess-merge/production/builds/5e2b8c41-7d3a-4f19-b6e0-9c8a2d1f4e73`,
       },
     },
@@ -194,36 +224,7 @@ const healthyObservations: RepositoryObservations = {
       },
     },
   ],
-  pullRequests: {
-    state: "available",
-    page: {
-      repository: {
-        id: "R_kgDOOx7Rcw",
-        databaseId: 1029384756,
-        nameWithOwner: "samebase/chess-merge",
-        defaultBranch: {
-          name: "main",
-          headCommitOid,
-          headCommitTitle: "Fix the merge animation on small screens",
-          headCommitCommittedAt: "2026-10-02T17:20:44Z",
-          headCommitUrl: `https://github.com/samebase/chess-merge/commit/${headCommitOid}`,
-          statusCheckRollup: checkRollup([
-            { name: "lint", conclusion: "SUCCESS" },
-            { name: "test", conclusion: "SUCCESS" },
-            { name: "Workers Builds: chess-merge", conclusion: "SUCCESS" },
-          ]),
-        },
-        pullRequests: {
-          totalCount: 2,
-          pageInfo: {
-            hasNextPage: false,
-            endCursor: "Y3Vyc29yOnYyOpK5MjAyNi0xMC0wM1QwODo0MToxMiswMzowMM6hY2Mq",
-          },
-          nodes: pullRequests,
-        },
-      },
-    },
-  },
+  pullRequests: { state: "available", page: { repository: githubRepository } },
   pullRequestResources: pullRequests.map((read) => ({
     state: "available" as const,
     pullRequestId: read.id,
@@ -731,7 +732,7 @@ describe("projectRepositoryStatusForMcp", () => {
     const mcpResult = projectRepositoryStatusForMcp({ repository, status });
     const mcpBytes = Buffer.byteLength(JSON.stringify(mcpResult));
 
-    expect(mcpBytes).toBe(2067);
+    expect(mcpBytes).toBe(2091);
     expect(mcpBytes).toBeLessThan(4096);
     expect(mcpBytes).toBeLessThanOrEqual(Buffer.byteLength(JSON.stringify(status)));
   });
@@ -784,6 +785,65 @@ describe("projectRepositoryStatusForMcp", () => {
     ]) {
       expect(serialized).not.toContain(internalValue);
     }
+  });
+
+  it("says whether the latest production build is of the default branch head", () => {
+    // The recorded ChessMerge production build on main.
+    const build = matchLatestCloudflareWorkerBuildForBranch({
+      builds: [observedNativePreviewsProductionBuild],
+      branch: "main",
+      worker: { workerTag: "d8f877365405479ba51bd8f96fcdc156", rootDirectory: "/" },
+      githubRepositoryDatabaseId: "993742136",
+    });
+    if (build.state !== "available") {
+      throw new Error("Expected the recorded build to match the default branch.");
+    }
+    const productionBuildAtHead = (head: string | null) =>
+      projectRepositoryStatusForMcp({
+        repository,
+        status: {
+          ...status,
+          workerBuilds: [
+            {
+              ...readyBuilds,
+              productionBuild: {
+                state: "available",
+                buildState: build.buildState,
+                commitHash: build.commitHash,
+                logsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/chess-merge/production/builds/${build.buildUuid}`,
+              },
+            },
+          ],
+          pullRequests:
+            head === null
+              ? { state: "unavailable" }
+              : {
+                  state: "available",
+                  page: {
+                    repository: {
+                      ...githubRepository,
+                      defaultBranch: { ...defaultBranch, headCommitOid: head },
+                    },
+                  },
+                },
+        },
+      }).apps[0]?.productionBuild;
+
+    expect(
+      productionBuildAtHead(
+        observedNativePreviewsProductionBuild.build_trigger_metadata.commit_hash,
+      ),
+    ).toMatchObject({
+      state: "available",
+      buildState: "success",
+      commit: "matches_head",
+    });
+    // A push advances only the head: the same successful build no longer deploys it.
+    expect(productionBuildAtHead(headCommitOid)).toMatchObject({
+      buildState: "success",
+      commit: "behind_head",
+    });
+    expect(productionBuildAtHead(null)).toMatchObject({ buildState: "success", commit: "unknown" });
   });
 
   it("reports unreadable reads as unavailable", () => {

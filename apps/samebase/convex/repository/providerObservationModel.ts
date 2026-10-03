@@ -53,10 +53,15 @@ const vCloudflareProductionBuildUnavailableReason = union(
   literal("response_validation_failed"),
   literal("request_failed"),
 );
+/**
+The latest production build on the default branch. `commitHash` is the commit that Cloudflare built,
+or null when the build does not report one; the status read compares it with the branch head.
+*/
 const vCloudflareProductionBuildObservation = union(
   object({
     state: literal("available"),
     buildState: vCloudflareBuildState,
+    commitHash: union(string(), v.null()),
     logsUrl: string(),
   }),
   object({ state: literal("absent") }),

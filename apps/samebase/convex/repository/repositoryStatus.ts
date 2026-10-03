@@ -365,6 +365,13 @@ export function projectRepositoryStatusForMcp(args: {
             ? {
                 state: "available" as const,
                 buildState: productionBuild.buildState,
+                commit:
+                  !productionBuild.commitHash || !defaultBranch
+                    ? ("unknown" as const)
+                    : productionBuild.commitHash.toLowerCase() ===
+                        defaultBranch.headCommitOid.toLowerCase()
+                      ? ("matches_head" as const)
+                      : ("behind_head" as const),
                 logsUrl: productionBuild.logsUrl,
               }
             : productionBuild?.state === "absent"

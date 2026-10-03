@@ -8,7 +8,10 @@ Reads the repository's current state live from GitHub, Cloudflare, and Convex: t
 repository overview shows. It changes nothing.
 
 - Apps: one entry per attached Cloudflare Worker with its root directory, its latest production
-  build on the default branch (state and logs URL), and its URLs (custom domains and workers.dev).
+  build on the default branch (state, logs URL, and `commit`), and its URLs (custom domains and
+  workers.dev). `commit` compares the built commit with the default branch head: `matches_head`,
+  `behind_head` (the latest push has no production build yet), or `unknown` when either commit
+  cannot be read. A successful build that is `behind_head` does not deploy the latest push.
 - Convex projects: each attached project's code location and production deployment (name, dashboard
   URL, and region), or missing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
@@ -147,11 +150,24 @@ JSON Schema for the tool's `structuredContent`:
                       }
                     ]
                   },
+                  "commit": {
+                    "anyOf": [
+                      {
+                        "const": "matches_head"
+                      },
+                      {
+                        "const": "behind_head"
+                      },
+                      {
+                        "const": "unknown"
+                      }
+                    ]
+                  },
                   "logsUrl": {
                     "type": "string"
                   }
                 },
-                "required": ["state", "buildState", "logsUrl"],
+                "required": ["state", "buildState", "commit", "logsUrl"],
                 "additionalProperties": false
               },
               {

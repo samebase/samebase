@@ -312,6 +312,7 @@ export async function observeCloudflareWorkerBuildsForUser(
               ? {
                   state: "available" as const,
                   buildState: productionBuild.buildState,
+                  commitHash: productionBuild.commitHash,
                   logsUrl: buildCloudflareBuildLogsUrl({
                     accountId: worker.accountId,
                     workerName: identity.workerName,
