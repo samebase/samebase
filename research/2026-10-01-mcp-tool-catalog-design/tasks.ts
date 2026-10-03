@@ -140,6 +140,11 @@ export const TASKS: Task[] = [
         (app) => fullName(app) === "samebase-live-tests/tmp-weather-board",
       );
       if (!created) notes.push("app not created");
+      // The user asked to be told when setup is done: the reads must have reached the final states.
+      if (created && created.sourceSetup.status !== "ready")
+        notes.push(`source setup ended ${created.sourceSetup.status}, not ready`);
+      if (created && created.providerSetup.status !== "ready")
+        notes.push(`provider setup ended ${created.providerSetup.status}, not ready`);
       const createIndex = creates[0] ? calls.indexOf(creates[0]) : -1;
       const polled =
         createIndex >= 0 &&
@@ -153,8 +158,8 @@ export const TASKS: Task[] = [
               ),
           );
       if (!polled) notes.push("never read progress after create");
-      if (!/(ready|done|complete|finished|running|in progress)/i.test(answer))
-        notes.push("answer has no setup state");
+      if (!/(ready|done|complete|finished)/i.test(answer))
+        notes.push("answer does not report finished setup");
       const extra = samebaseWrites(calls).filter(
         (call) => call.key !== "create_repository" && call.key !== "create_app",
       );

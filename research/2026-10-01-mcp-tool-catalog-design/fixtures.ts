@@ -24,6 +24,8 @@ export type AccountWorker = {
   buildTokenUuid: string | null;
   convexKeys: "configured" | "missing";
   lastBuild: "success" | "failure" | "none";
+  /** Commit of the last production build. The branch head can move ahead of it without a build. */
+  lastBuildCommit: string | null;
 };
 
 export type TeamProject = {
@@ -77,8 +79,11 @@ export type State = {
   signInLinks: number;
   feedback: string[];
   counter: number;
-  /** Confirmation tokens issued by two-step destructive tools (variant V4). */
-  confirmations: string[];
+  /**
+  Open challenges of two-step destructive tools (variant V4). `request` is the normalized request
+  that the token approves; a second call must repeat it exactly.
+  */
+  confirmations: { token: string; request: string }[];
 };
 
 export type FixtureId = "A" | "A_rotated" | "B" | "C" | "D";
@@ -156,6 +161,13 @@ function reviewerFixture(): State {
     buildTokenUuid: connectedRepo ? TOKEN_OLD : null,
     convexKeys: attachedTo ? "configured" : "missing",
     lastBuild: connectedRepo ? "success" : "none",
+    lastBuildCommit: connectedRepo
+      ? connectedRepo === fullName(app2)
+        ? app2.headCommit.sha
+        : connectedRepo === fullName(blog)
+          ? blog.headCommit.sha
+          : "e1d2c3b"
+      : null,
   });
   const workers: AccountWorker[] = [
     worker(
@@ -571,6 +583,7 @@ export function connectWorker(
   worker.attachedTo = app.repositoryId;
   worker.buildTokenUuid = token;
   worker.lastBuild = "success";
+  worker.lastBuildCommit = app.headCommit.sha;
   state.lastUsedTokenUuid = token;
   const workerId = nextId(state, "kx7w");
   app.workers.push({ workerId, tag: worker.tag });
@@ -599,6 +612,7 @@ export function createWorker(
     buildTokenUuid: token,
     convexKeys: "missing",
     lastBuild: "success",
+    lastBuildCommit: app.headCommit.sha,
   };
   state.workers.push(worker);
   state.lastUsedTokenUuid = token;
@@ -630,6 +644,7 @@ export function configureBuilds(
   worker.connectedRepo = fullName(app);
   worker.buildTokenUuid = token;
   worker.lastBuild = "success";
+  worker.lastBuildCommit = app.headCommit.sha;
   state.lastUsedTokenUuid = token;
 }
 
@@ -648,11 +663,20 @@ export function rotateKeys(
       `Convex project attachment ${convexProjectId} is not attached to ${fullName(app)}.`,
     );
   const project = state.projects.find((candidate) => candidate.projectId === attached.projectId);
-  if (!project || project.prodDeployment !== "available") {
-    throw new Error("The selected Convex project has no production deployment.");
-  }
+  requireProductionDeployment(project);
   worker.convexKeys = "configured";
   worker.lastBuild = "success";
+  worker.lastBuildCommit = app.headCommit.sha;
+}
+
+/** Deploy-key installation and rotation need a production deployment; attachment does not (RFC 125). */
+export function requireProductionDeployment(project: TeamProject | undefined): void {
+  if (!project) throw new Error("The selected Convex project was not found.");
+  if (project.prodDeployment !== "available") {
+    throw new Error(
+      `Deploy the Convex project ${project.name} to production first. Workers Builds needs its production deploy key.`,
+    );
+  }
 }
 
 export function detachWorker(state: State, app: App, workerId: string): void {
@@ -661,16 +685,15 @@ export function detachWorker(state: State, app: App, workerId: string): void {
   app.workers = app.workers.filter((candidate) => candidate.workerId !== workerId);
 }
 
-export type ConvexAttachment =
-  | "attached"
-  | "attached_elsewhere"
-  | "attachable"
-  | "needs_production_deployment";
+/**
+A project without a production deployment stays attachable, as in the dashboard (RFC 125); only
+deploy-key installation and rotation reject it (requireProductionDeployment).
+*/
+export type ConvexAttachment = "attached" | "attached_elsewhere" | "attachable";
 
 export function convexAttachment(app: App, project: TeamProject): ConvexAttachment {
   if (project.attachedTo === app.repositoryId) return "attached";
   if (project.attachedTo) return "attached_elsewhere";
-  if (project.prodDeployment !== "available") return "needs_production_deployment";
   return "attachable";
 }
 
@@ -828,6 +851,7 @@ export function settle(state: State, app: App): void {
       buildTokenUuid: token,
       convexKeys: "configured",
       lastBuild: "success",
+      lastBuildCommit: app.headCommit.sha,
     };
     state.workers.push(worker);
     app.workers.push({ workerId: nextId(state, "kx7w"), tag: worker.tag });
@@ -908,10 +932,10 @@ export function liveStatus(state: State, app: App) {
               : failed
                 ? {
                     state: "failure",
-                    commit: app.headCommit.sha,
+                    commit: worker.lastBuildCommit,
                     message: "Build could not start: Workers Builds token not found.",
                   }
-                : { state: "success", commit: app.headCommit.sha },
+                : { state: "success", commit: worker?.lastBuildCommit ?? null },
         };
       }),
       convexProjects: app.convexProjects.map((attached) => {

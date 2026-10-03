@@ -30,6 +30,7 @@ import {
   fullName,
   liveStatus,
   readApp,
+  requireProductionDeployment,
   requireToken,
   rotateKeys,
   workerAttachment,
@@ -808,12 +809,12 @@ const pTools: ToolSpec[] = [
       E: "samebase_discover_convex_projects",
     },
     description:
-      "Discover Convex code locations in the Samebase repository's GitHub repository and the Convex projects in the connected Convex team that this repository can use. attachable: pass it to {{attach_convex}}. needs_production_deployment: create a production deployment in Convex first. Counts: attached (already on this app), attached_elsewhere (another Samebase app uses it).",
+      "Discover Convex code locations in the Samebase repository's GitHub repository and the Convex projects in the connected Convex team that this repository can use. attachable: pass it to {{attach_convex}}; a project whose productionDeployment is missing can be attached, but Workers Builds deploy keys need a production deployment first. Counts: attached (already on this app), attached_elsewhere (another Samebase app uses it).",
     when: "Use this when the user wants to know which Convex projects or code locations a Samebase app can use.",
     inputSchema: object({ repositoryId: repositoryIdInput }, ["repositoryId"]),
     annotations: RO,
     output:
-      "code locations with Git SHAs, rows for attachable and needs_production_deployment projects, counts",
+      "code locations with Git SHAs, rows for attachable projects with their production deployment state, counts",
     dashboard: "repository.convex.discoverProjects (dialog keeps every row)",
     handler: (state, args) => {
       const app = findAppById(state, readString(args, "repositoryId"));
@@ -1118,12 +1119,59 @@ function onlyLocation(state: State, app: App, given: string | undefined): string
   );
 }
 
-function installKeysIfOneProject(state: State, app: App, workerId: string): string {
-  if (app.convexProjects.length !== 1)
-    return "No Convex deploy key installed: the app has no single attached Convex project.";
-  rotateKeys(state, app, workerId, app.convexProjects[0].convexProjectId);
-  return "Convex deploy key installed for the app's Convex project.";
+type DeployKeyPlan =
+  | { install: true; convexProjectId: string; projectName: string }
+  | { install: false; reason: string };
+
+/**
+Chooses the Convex project whose deploy key a created or connected Worker gets, before any provider
+change: the named project, else the only attached project. Several attached projects and no choice
+fail closed with the list; a project without a production deployment fails closed too.
+*/
+function planDeployKey(state: State, app: App, given: string | undefined): DeployKeyPlan {
+  const attached = app.convexProjects.map((attachment) => ({
+    attachment,
+    project: state.projects.find((project) => project.projectId === attachment.projectId),
+  }));
+  const names = attached.map((entry) => entry.project?.name ?? entry.attachment.projectId);
+  let chosen = attached.at(0);
+  if (given) {
+    chosen = attached.find(
+      (entry) =>
+        entry.project?.name.toLowerCase() === given.toLowerCase() ||
+        entry.attachment.convexProjectId === given,
+    );
+    if (!chosen)
+      throw new Error(
+        `Convex project ${given} is not attached to ${fullName(app)}. Attached: ${names.join(", ") || "none"}. Nothing was changed.`,
+      );
+  } else if (attached.length > 1) {
+    throw new ChoiceNeeded(
+      `Several Convex projects are attached to ${fullName(app)}: ${names.join(", ")}. Ask the user which one the Worker's builds should deploy, and pass convexProject. Nothing was changed.`,
+    );
+  }
+  if (!chosen)
+    return {
+      install: false,
+      reason: `${fullName(app)} has no attached Convex project, so no Convex deploy key was installed.`,
+    };
+  requireProductionDeployment(chosen.project);
+  return {
+    install: true,
+    convexProjectId: chosen.attachment.convexProjectId,
+    projectName: chosen.project?.name ?? chosen.attachment.projectId,
+  };
 }
+
+function applyDeployKey(state: State, app: App, workerId: string, plan: DeployKeyPlan) {
+  if (!plan.install) return { installed: false, reason: plan.reason };
+  rotateKeys(state, app, workerId, plan.convexProjectId);
+  return { installed: true, convexProject: plan.projectName };
+}
+
+const convexProjectInput = str(
+  "Attached Convex project whose deploy key the Worker's builds use. Needed only when several are attached.",
+);
 
 function repair(state: State, app: App, givenToken: string | undefined) {
   const performed: string[] = [];
@@ -1184,16 +1232,37 @@ function repair(state: State, app: App, givenToken: string | undefined) {
   return { performed, remaining: attention(state, app).map((item) => item.problem) };
 }
 
-function detachByName(state: State, app: App, name: string) {
-  const row = attachedWorkerRows(state, app).find(
-    (candidate) => candidate.workerName.toLowerCase() === name.toLowerCase(),
-  );
-  const projectRow = app.convexProjects.find(
-    (attached) =>
-      state.projects
-        .find((project) => project.projectId === attached.projectId)
-        ?.name.toLowerCase() === name.toLowerCase(),
-  );
+const RESOURCE_KINDS = ["cloudflare_worker", "convex_project"];
+const resourceKindInput: JsonSchema = {
+  type: "string",
+  enum: RESOURCE_KINDS,
+  description:
+    "cloudflare_worker or convex_project. Needed only when a Worker and a Convex project share the name.",
+};
+
+function readResourceKind(args: Args): string | undefined {
+  const kind = readOptionalString(args, "kind");
+  if (kind !== undefined && !RESOURCE_KINDS.includes(kind))
+    throw new Error(`Unknown kind ${kind}. Use cloudflare_worker or convex_project.`);
+  return kind;
+}
+
+function detachByName(state: State, app: App, name: string, kind: string | undefined) {
+  const row =
+    kind === "convex_project"
+      ? undefined
+      : attachedWorkerRows(state, app).find(
+          (candidate) => candidate.workerName.toLowerCase() === name.toLowerCase(),
+        );
+  const projectRow =
+    kind === "cloudflare_worker"
+      ? undefined
+      : app.convexProjects.find(
+          (attached) =>
+            state.projects
+              .find((project) => project.projectId === attached.projectId)
+              ?.name.toLowerCase() === name.toLowerCase(),
+        );
   if (row && projectRow)
     throw new ChoiceNeeded(
       `Both a Worker and a Convex project are named ${name}. Pass kind: cloudflare_worker or convex_project.`,
@@ -1236,21 +1305,21 @@ function workerFindings(state: State, app: App) {
 
 function convexFindings(state: State, app: App) {
   const attachable: unknown[] = [];
-  const needsProductionDeployment: unknown[] = [];
   const cannotAdd = { already_on_this_app: 0, used_by_another_samebase_app: 0 };
   for (const project of state.projects) {
     const status = convexAttachment(app, project);
     if (status === "attachable")
-      attachable.push({ projectName: project.name, region: project.region });
-    else if (status === "needs_production_deployment")
-      needsProductionDeployment.push({ projectName: project.name });
+      attachable.push({
+        projectName: project.name,
+        region: project.region,
+        productionDeployment: project.prodDeployment,
+      });
     else if (status === "attached") cannotAdd.already_on_this_app += 1;
     else cannotAdd.used_by_another_samebase_app += 1;
   }
   return {
     codeLocations: (state.locations[fullName(app)] ?? []).map((location) => location.path),
     attachable,
-    needsProductionDeployment,
     cannotAdd,
   };
 }
@@ -1544,11 +1613,12 @@ const hTools: ToolSpec[] = [
         workerName: str("Name of a connectable Worker."),
         rootDirectory: str("Repository root for Workers Builds. Defaults to /."),
         buildTokenUuid: optionalTokenInput,
+        convexProject: convexProjectInput,
       },
       ["app", "workerName"],
     ),
     annotations: DESTRUCTIVE_OPEN,
-    output: "Worker name, deploy-key note",
+    output: "Worker name, convexDeployKey { installed, convexProject or reason }",
     dashboard: "repository.cloudflare.connectWorker (dialog passes the token it shows)",
     handler: (state, args) => {
       const app = findApp(state, readString(args, "app"));
@@ -1562,6 +1632,7 @@ const hTools: ToolSpec[] = [
         throw new Error(
           "The Cloudflare account has no Workers Builds token. The user must create one: https://samebase.com/docs/cloudflare-setup",
         );
+      const keyPlan = planDeployKey(state, app, readOptionalString(args, "convexProject"));
       const workerId = connectWorker(
         state,
         app,
@@ -1569,7 +1640,10 @@ const hTools: ToolSpec[] = [
         readOptionalString(args, "rootDirectory") ?? "/",
         token,
       );
-      return { connected: worker.name, note: installKeysIfOneProject(state, app, workerId) };
+      return {
+        connected: worker.name,
+        convexDeployKey: applyDeployKey(state, app, workerId, keyPlan),
+      };
     },
   },
   {
@@ -1594,11 +1668,12 @@ const hTools: ToolSpec[] = [
           "Repository root for Workers Builds. Defaults to / or the planned root.",
         ),
         buildTokenUuid: optionalTokenInput,
+        convexProject: convexProjectInput,
       },
       ["app"],
     ),
     annotations: WRITE_OPEN,
-    output: "Worker name, deploy-key note",
+    output: "Worker name, convexDeployKey { installed, convexProject or reason }",
     dashboard: "repository.cloudflare.createWorker",
     handler: (state, args) => {
       const app = findApp(state, readString(args, "app"));
@@ -1609,6 +1684,7 @@ const hTools: ToolSpec[] = [
         throw new Error(
           "The Cloudflare account has no Workers Builds token. The user must create one: https://samebase.com/docs/cloudflare-setup",
         );
+      const keyPlan = planDeployKey(state, app, readOptionalString(args, "convexProject"));
       const created = createWorker(
         state,
         app,
@@ -1616,7 +1692,10 @@ const hTools: ToolSpec[] = [
         readOptionalString(args, "rootDirectory") ?? app.pendingCloudflare?.rootDirectory ?? "/",
         token,
       );
-      return { created: name, note: installKeysIfOneProject(state, app, created.workerId) };
+      return {
+        created: name,
+        convexDeployKey: applyDeployKey(state, app, created.workerId, keyPlan),
+      };
     },
   },
   {
@@ -1629,11 +1708,11 @@ const hTools: ToolSpec[] = [
       E: "samebase_find_convex_projects",
     },
     description:
-      "List the Convex code locations in the app's repository and the Convex projects in the connected team that can be attached to this app, with counts of projects that cannot and why.",
+      "List the Convex code locations in the app's repository and the Convex projects in the connected team that can be attached to this app, with counts of projects that cannot and why. A project whose productionDeployment is missing can be attached, but Workers Builds deploy keys need a production deployment first.",
     when: "Use this when the user asks which Convex projects can be added to a Samebase app.",
     inputSchema: object({ app: appInput }, ["app"]),
     annotations: RO,
-    output: "codeLocations[], attachable[], needsProductionDeployment[], cannotAdd counts",
+    output: "codeLocations[], attachable[] with productionDeployment, cannotAdd counts",
     dashboard: "repository.convex.discoverProjects (dialog keeps every row)",
     handler: (state, args) => convexFindings(state, findApp(state, readString(args, "app"))),
   },
@@ -1686,7 +1765,11 @@ const hTools: ToolSpec[] = [
       "Detach a Worker or Convex project from this app by name. Only the Samebase record is removed; the provider resource does not change, and attaching it again undoes this.",
     when: "Use this when the user wants a Worker or Convex project removed from a Samebase app without deleting it.",
     inputSchema: object(
-      { app: appInput, resourceName: str("Name of the attached Worker or Convex project.") },
+      {
+        app: appInput,
+        resourceName: str("Name of the attached Worker or Convex project."),
+        kind: resourceKindInput,
+      },
       ["app", "resourceName"],
     ),
     annotations: DESTRUCTIVE_CLOSED,
@@ -1698,6 +1781,7 @@ const hTools: ToolSpec[] = [
         state,
         findApp(state, readString(args, "app")),
         readString(args, "resourceName"),
+        readResourceKind(args),
       ),
   },
 ];
@@ -1748,11 +1832,12 @@ const wTools: ToolSpec[] = [
           "Repository root for Workers Builds when Samebase connects or creates the Worker. Defaults to /.",
         ),
         buildTokenUuid: optionalTokenInput,
+        convexProject: convexProjectInput,
       },
       ["app", "workerName"],
     ),
     annotations: DESTRUCTIVE_OPEN,
-    output: "action attached|connected|created, Worker name, note",
+    output: "action attached|connected|created, Worker name, convexDeployKey",
     dashboard:
       "repository.cloudflare attach, connect, and create in one handler; the dialog passes its explicit mode",
     handler: (state, args) => {
@@ -1772,11 +1857,12 @@ const wTools: ToolSpec[] = [
             throw new Error(
               "The Cloudflare account has no Workers Builds token. The user must create one: https://samebase.com/docs/cloudflare-setup",
             );
+          const keyPlan = planDeployKey(state, app, readOptionalString(args, "convexProject"));
           const workerId = connectWorker(state, app, worker, root, token);
           return {
             action: "connected",
             workerName: worker.name,
-            note: installKeysIfOneProject(state, app, workerId),
+            convexDeployKey: applyDeployKey(state, app, workerId, keyPlan),
           };
         }
         throw new Error(
@@ -1788,11 +1874,12 @@ const wTools: ToolSpec[] = [
         throw new Error(
           "The Cloudflare account has no Workers Builds token. The user must create one: https://samebase.com/docs/cloudflare-setup",
         );
+      const keyPlan = planDeployKey(state, app, readOptionalString(args, "convexProject"));
       const created = createWorker(state, app, name, root, token);
       return {
         action: "created",
         workerName: name,
-        note: installKeysIfOneProject(state, app, created.workerId),
+        convexDeployKey: applyDeployKey(state, app, created.workerId, keyPlan),
       };
     },
   },
@@ -1842,7 +1929,11 @@ const wTools: ToolSpec[] = [
       "Remove a Worker or Convex project from this app by name. Only the Samebase record is removed; the provider resource does not change, and adding it again undoes this.",
     when: "Use this when the user wants a Worker or Convex project removed from a Samebase app without deleting it.",
     inputSchema: object(
-      { app: appInput, resourceName: str("Name of the attached Worker or Convex project.") },
+      {
+        app: appInput,
+        resourceName: str("Name of the attached Worker or Convex project."),
+        kind: resourceKindInput,
+      },
       ["app", "resourceName"],
     ),
     annotations: DESTRUCTIVE_CLOSED,
@@ -1854,6 +1945,7 @@ const wTools: ToolSpec[] = [
         state,
         findApp(state, readString(args, "app")),
         readString(args, "resourceName"),
+        readResourceKind(args),
       ),
   },
 ];
@@ -1879,7 +1971,14 @@ function acceptancePhrase(key: string, app: string, args: Args): string {
     return `I accept to connect ${readString(args, "workerName")} to ${app} and replace its current deployment`;
   if (key === "repair")
     return `I accept to repair ${app} and replace its Workers Builds settings and Convex deploy keys`;
-  return `I accept to detach ${readString(args, "resourceName")} from ${app}`;
+  const kind = readResourceKind(args);
+  const label =
+    kind === "cloudflare_worker"
+      ? "the Worker "
+      : kind === "convex_project"
+        ? "the Convex project "
+        : "";
+  return `I accept to detach ${label}${readString(args, "resourceName")} from ${app}`;
 }
 
 const PHRASE_PATTERNS: Record<string, string> = {
@@ -1887,12 +1986,22 @@ const PHRASE_PATTERNS: Record<string, string> = {
     "I accept to connect <workerName> to <app owner/name> and replace its current deployment",
   repair:
     "I accept to repair <app owner/name> and replace its Workers Builds settings and Convex deploy keys",
-  detach: "I accept to detach <resourceName> from <app owner/name>",
+  detach:
+    "I accept to detach <resourceName> from <app owner/name>, with 'the Worker ' or 'the Convex project ' before <resourceName> when kind is passed",
 };
 
-function effectsOf(key: string, state: State, app: App, args: Args): string {
-  if (key === "connect_worker")
-    return `Connects ${readString(args, "workerName")} to ${fullName(app)}, configures Workers Builds, installs the Convex deploy key, and starts a production build that replaces what ${readString(args, "workerName")} serves now.`;
+function effectsOf(key: string, state: State, app: App, args: Args, preview: unknown): string {
+  if (key === "connect_worker") {
+    const keyResult =
+      typeof preview === "object" && preview !== null
+        ? Object.fromEntries(Object.entries(preview)).convexDeployKey
+        : undefined;
+    const keyText =
+      typeof keyResult === "object" && keyResult !== null && "convexProject" in keyResult
+        ? `installs the Convex deploy key for ${String(keyResult.convexProject)}`
+        : "installs no Convex deploy key";
+    return `Connects ${readString(args, "workerName")} to ${fullName(app)} at ${readOptionalString(args, "rootDirectory") ?? "/"}, configures Workers Builds, ${keyText}, and starts a production build that replaces what ${readString(args, "workerName")} serves now.`;
+  }
   if (key === "repair")
     return `Runs these repairs, which overwrite Workers Builds settings or replace Convex deploy keys and start a production build: ${attention(
       state,
@@ -1903,13 +2012,40 @@ function effectsOf(key: string, state: State, app: App, args: Args): string {
   return `Removes ${readString(args, "resourceName")} from ${fullName(app)} in Samebase. The resource itself does not change.`;
 }
 
-function confirmationToken(key: string, app: App, args: Args): string {
-  const resource =
-    readOptionalString(args, "workerName") ?? readOptionalString(args, "resourceName") ?? "";
-  const subject = `${key}:${fullName(app)}:${resource}`;
+/**
+The request a V4 token approves: user, action, app, and every other argument, trimmed and sorted.
+A second call must repeat it exactly; any changed argument is rejected.
+*/
+function normalizedRequest(state: State, key: string, app: App, args: Args): string {
+  const request: Args = {};
+  for (const name of Object.keys(args).sort()) {
+    const value = args[name];
+    if (name === "app" || name === "confirmationToken") continue;
+    if (value === undefined || value === null || value === "") continue;
+    request[name] = typeof value === "string" ? value.trim() : value;
+  }
+  return JSON.stringify({
+    user: state.account.email,
+    action: key,
+    app: app.repositoryId,
+    request,
+  });
+}
+
+function requestToken(request: string): string {
   let hash = 2166136261;
-  for (const character of subject) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  for (const character of request) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
   return `cf_${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+function changedArguments(approved: string, current: string): string[] {
+  const read = (request: string) =>
+    readRecord(readRecord(JSON.parse(request), "request").request, "args");
+  const before = read(approved);
+  const after = read(current);
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((name) => JSON.stringify(before[name]) !== JSON.stringify(after[name]))
+    .sort();
 }
 
 function withConfirmation(spec: ToolSpec, variant: ConfirmationVariant): ToolSpec {
@@ -1956,22 +2092,37 @@ function withConfirmation(spec: ToolSpec, variant: ConfirmationVariant): ToolSpe
     ),
     handler: (state, args, names) => {
       const app = findApp(state, readString(args, "app"));
-      const token = confirmationToken(spec.key, app, args);
+      const request = normalizedRequest(state, spec.key, app, args);
       const given = readOptionalString(args, "confirmationToken");
       if (given === undefined) {
-        if (!state.confirmations.includes(token)) state.confirmations.push(token);
+        // Validate on a copy first, so a token is issued only for a request that would succeed.
+        const preview = spec.handler(structuredClone(state), args, names);
+        const token = requestToken(request);
+        if (!state.confirmations.some((challenge) => challenge.token === token))
+          state.confirmations.push({ token, request });
         return {
           status: "needs_confirmation",
-          effects: effectsOf(spec.key, state, app, args),
+          effects: effectsOf(spec.key, state, app, args, preview),
           confirmationToken: token,
           expiresInSeconds: 300,
-          next: "Show these effects to the user. Call again with confirmationToken only after the user approves.",
+          next: "Show these effects to the user. Call again with the same arguments and confirmationToken only after the user approves.",
         };
       }
-      if (given !== token || !state.confirmations.includes(token)) {
+      const challenge = state.confirmations.find((candidate) => candidate.token === given);
+      if (!challenge) {
         throw new Error("Unknown or expired confirmationToken. Call without it to get a new one.");
       }
-      return spec.handler(state, args, names);
+      if (challenge.request !== request) {
+        throw new Error(
+          `The request changed after confirmation (${changedArguments(challenge.request, request).join(", ")}). Nothing was changed. Call again without confirmationToken to confirm the new request.`,
+        );
+      }
+      state.confirmations = state.confirmations.filter((candidate) => candidate !== challenge);
+      const approved = readRecord(
+        readRecord(JSON.parse(challenge.request), "request").request,
+        "args",
+      );
+      return spec.handler(state, { ...approved, app: fullName(app) }, names);
     },
   };
 }
