@@ -13092,8 +13092,7 @@
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "observability.metrics-export",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       },
       "parameters": [
         {
@@ -13385,8 +13384,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "observability.metrics-export",
-        "x-fern-sdk-method-name": "upsert",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "upsert"
       }
     },
     "/accounts/{account_id}/workers/observability/queries": {
@@ -16588,8 +16586,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "observability.telemetry",
-        "x-fern-sdk-method-name": "live-tail",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "live-tail"
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/live-tail/heartbeat": {
@@ -16765,8 +16762,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "observability.telemetry",
-        "x-fern-sdk-method-name": "heartbeat",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "heartbeat"
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/query": {
@@ -18349,8 +18345,7 @@
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "observability",
-        "x-fern-sdk-method-name": "usage",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "usage"
       },
       "parameters": [
         {
