@@ -374,9 +374,48 @@ export const repositoryGetStatusTool = defineMcpTool({
       repository,
       status: await readRepositoryStatusForUser(ctx, { userId: args.userId, repository }),
     });
-    const { apps, attention, convexProjects, openPullRequestCount } = structuredContent;
+    const { apps, attention, convexProjects, defaultBranch, openPullRequestCount } =
+      structuredContent;
+
+    // An empty attention list means only that no setup repair applies: a failed build or check
+    // and an unreadable fact also keep the repository from being healthy.
+    const failures = apps.flatMap(({ workerName, productionBuild }) =>
+      productionBuild.state === "available" && productionBuild.buildState === "failure"
+        ? [`The latest production build of ${workerName} failed.`]
+        : [],
+    );
+    if (
+      defaultBranch !== null &&
+      defaultBranch.checks !== null &&
+      defaultBranch.checks.failed > 0
+    ) {
+      const { failed, failedNames, failedNamesComplete } = defaultBranch.checks;
+      failures.push(
+        `${failed} ${failed === 1 ? "check" : "checks"} failed on ${defaultBranch.name}${failedNames.length === 0 ? "" : `: ${failedNames.join(", ")}${failedNamesComplete ? "" : ", and others"}`}.`,
+      );
+    }
+    const unreadable = [
+      ...(defaultBranch === null ? ["the default branch head"] : []),
+      ...apps.flatMap(({ workerName, productionBuild }) =>
+        productionBuild.state === "unavailable" ? [`the production build of ${workerName}`] : [],
+      ),
+      ...convexProjects.flatMap(({ codeLocation, productionDeployment }) =>
+        productionDeployment.state === "unavailable"
+          ? [`the Convex production deployment at ${codeLocation}`]
+          : [],
+      ),
+    ];
+    const findings = [
+      ...(attention.length === 0
+        ? []
+        : [
+            `Needs attention: ${attention.map((item) => (item.tool === null ? item.problem : `${item.problem} Fix: ${item.tool}.`)).join(" ")}`,
+          ]),
+      ...failures,
+      ...(unreadable.length === 0 ? [] : [`Could not read ${unreadable.join(", ")}.`]),
+    ];
     return {
-      text: `${structuredContent.repository}: ${apps.length} ${apps.length === 1 ? "app" : "apps"}, ${convexProjects.length} Convex ${convexProjects.length === 1 ? "project" : "projects"}, ${openPullRequestCount === null ? "pull requests unavailable" : `${openPullRequestCount} open ${openPullRequestCount === 1 ? "pull request" : "pull requests"}`}. ${attention.length === 0 ? "Nothing needs attention." : `Needs attention: ${attention.map((item) => (item.tool === null ? item.problem : `${item.problem} Fix: ${item.tool}.`)).join(" ")}`}`,
+      text: `${structuredContent.repository}: ${apps.length} ${apps.length === 1 ? "app" : "apps"}, ${convexProjects.length} Convex ${convexProjects.length === 1 ? "project" : "projects"}, ${openPullRequestCount === null ? "pull requests unavailable" : `${openPullRequestCount} open ${openPullRequestCount === 1 ? "pull request" : "pull requests"}`}. ${findings.length === 0 ? "Nothing needs attention." : findings.join(" ")}`,
       structuredContent,
     };
   },

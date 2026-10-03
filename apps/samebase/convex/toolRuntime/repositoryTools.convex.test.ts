@@ -514,7 +514,7 @@ describe("repository_getStatus", () => {
 
     expect(result).toEqual({
       status: "ok",
-      text: "scout-owner/scout: 1 app, 1 Convex project, pull requests unavailable. Nothing needs attention.",
+      text: "scout-owner/scout: 1 app, 1 Convex project, pull requests unavailable. Could not read the default branch head, the production build of scout, the Convex production deployment at convex.json.",
       structuredContent: {
         repository: "scout-owner/scout",
         defaultBranch: null,
@@ -553,17 +553,21 @@ describe("repository_getStatus", () => {
 
   /**
   The live reads of scout with only its Worker attached. GitHub names `defaultBranch` as the default
-  branch and `heads` gives the head commit of each branch. Workers Builds builds `defaultBranch`,
-  and its latest production build is of `builtCommit` with `buildOutcome`.
+  branch, `heads` gives the head commit of each branch, and each head has the completed check runs
+  `checks`. Workers Builds builds `defaultBranch`, and its latest production build is of
+  `builtCommit` with `buildOutcome`.
   */
   async function stubLiveStatusReads(
     fixture: Awaited<ReturnType<typeof createScoutFixture>>,
     args: {
       defaultBranch: string;
       heads: Record<string, string>;
+      checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" }>;
       buildOutcome: "success" | "fail";
     },
   ) {
+    const countChecks = (conclusion: "SUCCESS" | "FAILURE") =>
+      args.checks.filter((check) => check.conclusion === conclusion).length;
     await fixture.t.run(async (ctx) => {
       await ctx.db.delete(fixture.convexProjectId);
       await ctx.db.patch(fixture.repositoryId, { githubRepositoryDatabaseId: githubRepositoryId });
@@ -604,7 +608,29 @@ describe("repository_getStatus", () => {
                   messageHeadline: `Head of ${branch}`,
                   committedDate: "2026-09-29T20:45:00Z",
                   url: `https://github.com/scout-owner/scout/commit/${head}`,
-                  statusCheckRollup: null,
+                  statusCheckRollup:
+                    args.checks.length === 0
+                      ? null
+                      : {
+                          contexts: {
+                            totalCount: args.checks.length,
+                            checkRunCount: args.checks.length,
+                            statusContextCount: 0,
+                            checkRunCountsByState: [
+                              { state: "SUCCESS", count: countChecks("SUCCESS") },
+                              { state: "FAILURE", count: countChecks("FAILURE") },
+                            ].filter((counts) => counts.count > 0),
+                            statusContextCountsByState: [],
+                            nodes: args.checks.map((check) => ({
+                              __typename: "CheckRun",
+                              name: check.name,
+                              status: "COMPLETED",
+                              conclusion: check.conclusion,
+                              detailsUrl: `https://github.com/scout-owner/scout/actions/runs/1/job/${check.name}`,
+                              title: null,
+                            })),
+                          },
+                        },
                 },
               }
             : null,
@@ -666,6 +692,7 @@ describe("repository_getStatus", () => {
     const { getRepository, graphql } = await stubLiveStatusReads(fixture, {
       defaultBranch: "release",
       heads: { main: "0".repeat(40), release: builtCommit },
+      checks: [{ name: "test", conclusion: "SUCCESS" }],
       buildOutcome: "success",
     });
 
@@ -677,9 +704,11 @@ describe("repository_getStatus", () => {
 
     expect(result).toMatchObject({
       status: "ok",
+      text: "scout-owner/scout: 1 app, 0 Convex projects, 0 open pull requests. Nothing needs attention.",
       structuredContent: {
         defaultBranch: { name: "release" },
         apps: [{ workerName: "scout", productionBuild: { commit: "matches_head" } }],
+        attention: [],
       },
     });
     expect(getRepository).toHaveBeenCalledOnce();
@@ -687,6 +716,60 @@ describe("repository_getStatus", () => {
       expect.any(String),
       expect.objectContaining({ defaultBranchRef: "refs/heads/release" }),
     );
+  });
+
+  it("names a failed production build that no setup repair fixes", async () => {
+    const fixture = await createScoutFixture();
+    await stubLiveStatusReads(fixture, {
+      defaultBranch: "main",
+      heads: { main: builtCommit },
+      checks: [],
+      buildOutcome: "fail",
+    });
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
+        userId: fixture.userId,
+        grantedScopes: ["access_dashboard"],
+        repository: "scout-owner/scout",
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      text: "scout-owner/scout: 1 app, 0 Convex projects, 0 open pull requests. The latest production build of scout failed.",
+      structuredContent: {
+        apps: [{ workerName: "scout", productionBuild: { buildState: "failure" } }],
+        attention: [],
+      },
+    });
+  });
+
+  it("names the failed checks of the default branch head", async () => {
+    const fixture = await createScoutFixture();
+    await stubLiveStatusReads(fixture, {
+      defaultBranch: "main",
+      heads: { main: builtCommit },
+      checks: [
+        { name: "lint", conclusion: "FAILURE" },
+        { name: "test", conclusion: "SUCCESS" },
+        { name: "typecheck", conclusion: "FAILURE" },
+      ],
+      buildOutcome: "success",
+    });
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
+        userId: fixture.userId,
+        grantedScopes: ["access_dashboard"],
+        repository: "scout-owner/scout",
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      text: "scout-owner/scout: 1 app, 0 Convex projects, 0 open pull requests. 2 checks failed on main: lint, typecheck.",
+      structuredContent: {
+        defaultBranch: { checks: { failed: 2, failedNames: ["lint", "typecheck"] } },
+        attention: [],
+      },
+    });
   });
 });
 
