@@ -26,6 +26,12 @@ trustPolicyExclude:
   # TODO(2026-07-10): Recheck once upstream dependencies no longer resolve
   # this trust-downgraded version.
   - "undici-types@6.21.0"
+audit:
+  ignore:
+    # TODO(2026-10-17): Remove once braces publishes a fix. No patched release
+    # exists yet (latest is 3.0.3). braces only reaches build and dev tooling
+    # through chokidar, not shipped Worker code.
+    - GHSA-vfj7-8cjw-p6xm
 overrides:
   esbuild: 0.28.1
   js-yaml: 4.3.2
