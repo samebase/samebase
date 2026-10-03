@@ -9,12 +9,19 @@ import {
   vRepositoryProvisioningStep,
 } from "./repository/provisioningModel";
 import { readRepositoryInfrastructureState } from "./repository/infrastructureOperation";
-import { assertConnectedRepository } from "./repository/state";
+import { assertConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
+import { vConfirmationSurface } from "./repository/confirmationModel";
+import { checkActionConfirmation } from "./repository/confirmations";
+import {
+  vActionConfirmation,
+  type ActionConfirmationRequest,
+} from "./repository/contracts/actionConfirmation";
+import { retryInfrastructureProvisioningContract } from "./repository/contracts/retryInfrastructureProvisioning";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
 import { requireRepositoryForUser, requireRepositoryOrganization } from "./organizationAccess";
 import { readActiveUser } from "./identity/lifecycle";
 
-const { id, literal, string, union } = v;
+const { id, literal, optional, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_REPOSITORY = 20;
 
 async function recordRepositoryFullNameForRun(
@@ -60,49 +67,74 @@ export const getById = internalQuery({
   },
 });
 
+/** The admission rules of a retry: a live Samebase-managed repository whose managed provider setup failed, with no other provider operation running. */
+async function requireRetryAdmission(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
+) {
+  const repository = await requireRepositoryForUser(ctx.db, args);
+  const user = await ctx.db.get(args.userId);
+  if (!user || readActiveUser(user) === null) {
+    throw new Error("App provisioning is unavailable during account deletion.");
+  }
+  const connectedRepository = assertConnectedRepository(repository);
+  if (!isSamebaseManagedRepository(connectedRepository)) {
+    throw new Error("Infrastructure retry is available only for Samebase-managed repositories.");
+  }
+  const [infrastructure, organization] = await Promise.all([
+    readRepositoryInfrastructureState(ctx, connectedRepository),
+    requireRepositoryOrganization(ctx.db, connectedRepository),
+  ]);
+  if (infrastructure.operation.kind !== "none") {
+    throw new Error("Another repository infrastructure operation is active.");
+  }
+  const failedWrite = infrastructure.providerWrite;
+  if (!failedWrite || failedWrite.owner.kind !== "managed_run" || failedWrite.state !== "failed") {
+    throw new Error("Infrastructure retry is available only after managed setup fails.");
+  }
+  const failedRun = await ctx.db.get(failedWrite.owner.runId);
+  if (!failedRun || failedRun.state !== "failed" || failedRun.repositoryId !== args.repositoryId) {
+    throw new Error("Failed managed setup does not match this repository.");
+  }
+  if (
+    failedRun.trigger === "connect_existing_repository" ||
+    (!isRepositoryProvisioningProviderStep(failedRun.currentStep) &&
+      !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created"))
+  ) {
+    throw new Error("Infrastructure retry is available only after provider setup fails.");
+  }
+  return { connectedRepository, organization, failedWrite };
+}
+
+/**
+The gated retry of a failed managed setup (rfcs/125). The admission rules run before the challenge,
+so a retry that cannot start gets none. With the token, the admission rules, the confirmation check,
+and the run insert share one transaction, so a refused retry leaves the token unused and writes no
+audit row.
+*/
 export const createRetryForRepository = internalMutation({
   args: {
     userId: id("users"),
     repositoryId: id("repositories"),
+    surface: vConfirmationSurface,
+    confirmation: optional(vActionConfirmation),
   },
-  returns: id("workflow_repositoryProvisioning_runs"),
-  handler: async (ctx, args) => {
-    const repository = await requireRepositoryForUser(ctx.db, args);
-    const user = await ctx.db.get(args.userId);
-    if (!user || readActiveUser(user) === null) {
-      throw new Error("App provisioning is unavailable during account deletion.");
+  returns: retryInfrastructureProvisioningContract.returns,
+  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> => {
+    const { connectedRepository, organization, failedWrite } = await requireRetryAdmission(ctx, {
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+    });
+    const confirmation = await checkActionConfirmation(ctx, {
+      userId: args.userId,
+      surface: args.surface,
+      request: { action: "retry_provider_setup", repositoryId: args.repositoryId },
+      confirmation: args.confirmation,
+    });
+    if (confirmation.state === "needs_confirmation") {
+      return confirmation;
     }
-    const connectedRepository = assertConnectedRepository(repository);
-    const [infrastructure, organization] = await Promise.all([
-      readRepositoryInfrastructureState(ctx, connectedRepository),
-      requireRepositoryOrganization(ctx.db, connectedRepository),
-    ]);
-    if (infrastructure.operation.kind !== "none") {
-      throw new Error("Another repository infrastructure operation is active.");
-    }
-    const failedWrite = infrastructure.providerWrite;
-    if (
-      !failedWrite ||
-      failedWrite.owner.kind !== "managed_run" ||
-      failedWrite.state !== "failed"
-    ) {
-      throw new Error("Infrastructure retry is available only after managed setup fails.");
-    }
-    const failedRun = await ctx.db.get(failedWrite.owner.runId);
-    if (
-      !failedRun ||
-      failedRun.state !== "failed" ||
-      failedRun.repositoryId !== args.repositoryId
-    ) {
-      throw new Error("Failed managed setup does not match this repository.");
-    }
-    if (
-      failedRun.trigger === "connect_existing_repository" ||
-      (!isRepositoryProvisioningProviderStep(failedRun.currentStep) &&
-        !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created"))
-    ) {
-      throw new Error("Infrastructure retry is available only after provider setup fails.");
-    }
+
     const now = Date.now();
     const githubRepositoryFullName = `${organization.githubOwnerLogin}/${connectedRepository.githubRepositoryName}`;
     const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
@@ -150,7 +182,7 @@ export const createRetryForRepository = internalMutation({
         documentId: crypto.randomUUID(),
       },
     });
-    return runId;
+    return null;
   },
 });
 

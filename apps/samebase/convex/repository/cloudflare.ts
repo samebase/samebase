@@ -1560,9 +1560,10 @@ type ConnectWorkerOutcome =
   | (ConnectWorkerBuildsNotice & { deployKeyPending: boolean });
 
 /**
-The gated Worker connection that the dashboard and MCP share. It resolves the deploy-key project
-first, so a request that needs a project choice fails before any challenge; the first call then
-returns the confirmation request and changes nothing.
+The gated Worker connection that the dashboard and MCP share. It resolves the deploy-key project and
+reads whether Cloudflare still lets the Worker connect before each confirmation check, so a request
+that cannot run fails before a challenge, and a second call that cannot run leaves its token unused.
+The first call then returns the confirmation request and changes nothing.
 */
 export async function connectWorkerForUser(
   ctx: ActionCtx,
@@ -1579,6 +1580,17 @@ export async function connectWorkerForUser(
   },
 ): Promise<ConnectWorkerOutcome | ActionConfirmationRequest> {
   const target = await selectConvexDeployKeyTarget(ctx, args);
+  await readConnectableWorkerIdentity(
+    await resolveCloudflareRepositoryContext(ctx, {
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+    }),
+    {
+      workerName: args.workerName.trim(),
+      workerTag: args.workerTag.trim(),
+      buildTokenUuid: args.buildTokenUuid,
+    },
+  );
   const confirmation = await ctx.runMutation(internal.repository.confirmations.check, {
     userId: args.userId,
     surface: args.surface,
@@ -1636,6 +1648,45 @@ export async function connectWorkerForUser(
   };
 }
 
+/**
+The connect preconditions that Cloudflare reads can check: the build token is in the account, the
+Worker still has its tag, and it has no Workers Builds connection.
+*/
+async function readConnectableWorkerIdentity(
+  resolved: Awaited<ReturnType<typeof resolveCloudflareRepositoryContext>>,
+  args: { workerName: string; workerTag: string; buildTokenUuid: string },
+) {
+  await requireCloudflareBuildTokenUuid({
+    token: resolved.connection.token,
+    transport: resolved.connection.transport,
+    accountId: resolved.account.accountId,
+    buildTokenUuid: args.buildTokenUuid,
+  });
+  const identity = await readCloudflareWorkerIdentityByTag({
+    token: resolved.connection.token,
+    transport: resolved.connection.transport,
+    accountId: resolved.account.accountId,
+    workerTag: args.workerTag,
+  });
+  if (!identity || identity.workerTag !== args.workerTag) {
+    throw new Error(`Cloudflare Worker ${args.workerName} changed after discovery.`);
+  }
+  const discovery = await readCloudflareWorkerRepositoryDiscoveryForIdentity({
+    token: resolved.connection.token,
+    transport: resolved.connection.transport,
+    accountId: resolved.account.accountId,
+    workerTag: identity.workerTag,
+    expectedRepoId: resolved.context.githubRepositoryDatabaseId,
+    defaultBranch: resolved.githubDefaultBranch,
+  });
+  if (discovery.state !== "not_connected") {
+    throw new ConvexError(
+      `Cloudflare Worker ${args.workerName} already has a Workers Builds connection, so it cannot be connected. Find Workers again to see its status.`,
+    );
+  }
+  return identity;
+}
+
 async function connectWorkerBuildsForUser(
   ctx: ActionCtx,
   args: {
@@ -1675,35 +1726,11 @@ async function connectWorkerBuildsForUser(
       repositoryId: args.repositoryId,
       actionId,
     });
-    await requireCloudflareBuildTokenUuid({
-      token: resolved.connection.token,
-      transport: resolved.connection.transport,
-      accountId: resolved.account.accountId,
+    identity = await readConnectableWorkerIdentity(resolved, {
+      workerName,
+      workerTag,
       buildTokenUuid: args.buildTokenUuid,
     });
-    const providerIdentity = await readCloudflareWorkerIdentityByTag({
-      token: resolved.connection.token,
-      transport: resolved.connection.transport,
-      accountId: resolved.account.accountId,
-      workerTag,
-    });
-    if (!providerIdentity || providerIdentity.workerTag !== workerTag) {
-      throw new Error(`Cloudflare Worker ${workerName} changed after discovery.`);
-    }
-    identity = providerIdentity;
-    const discovery = await readCloudflareWorkerRepositoryDiscoveryForIdentity({
-      token: resolved.connection.token,
-      transport: resolved.connection.transport,
-      accountId: resolved.account.accountId,
-      workerTag: identity.workerTag,
-      expectedRepoId: resolved.context.githubRepositoryDatabaseId,
-      defaultBranch: resolved.githubDefaultBranch,
-    });
-    if (discovery.state !== "not_connected") {
-      throw new ConvexError(
-        `Cloudflare Worker ${workerName} already has a Workers Builds connection, so it cannot be connected. Find Workers again to see its status.`,
-      );
-    }
     workerId = await ctx.runMutation(
       internal.repository.cloudflareMutations.recordManualConnectedWorker,
       {

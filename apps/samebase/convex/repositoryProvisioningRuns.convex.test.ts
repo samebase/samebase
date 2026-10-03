@@ -155,6 +155,37 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
   return { ids, t };
 }
 
+type RetryFixture = Awaited<ReturnType<typeof createRetryFixture>>;
+
+/** One dashboard retry call; without `confirmation` it asks for the confirmation. */
+async function retry(
+  { ids, t }: RetryFixture,
+  confirmation?: { token: string; acknowledgement: string },
+) {
+  return await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
+    userId: ids.userId,
+    repositoryId: ids.repositoryId,
+    surface: { kind: "dashboard" },
+    confirmation,
+  });
+}
+
+/** The approved confirmation of a retry, as the dashboard dialog sends it. */
+async function approveRetry(fixture: RetryFixture) {
+  const challenge = await retry(fixture);
+  if (!challenge) {
+    throw new Error("Expected a confirmation request.");
+  }
+  return { token: challenge.token, acknowledgement: challenge.acknowledgement };
+}
+
+async function readConfirmationRows({ t }: RetryFixture) {
+  return await t.run(async (ctx) => ({
+    tokens: await ctx.db.query("actionConfirmationTokens").collect(),
+    audit: await ctx.db.query("audit_confirmedActions_events").collect(),
+  }));
+}
+
 describe("app provisioning retry admission", () => {
   it.each([
     [
@@ -168,28 +199,42 @@ describe("app provisioning retry admission", () => {
       "Another repository infrastructure operation is active.",
     ],
     ["repository removal", "deletion", "Removal from Samebase is in progress."],
-  ] as const)("rejects retry while %s is active", async (_label, blocker, message) => {
-    const { ids, t } = await createRetryFixture(blocker);
+  ] as const)(
+    "rejects retry while %s is active, before any confirmation request",
+    async (_label, blocker, message) => {
+      const fixture = await createRetryFixture(blocker);
 
-    await expect(
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).rejects.toThrow(message);
+      await expect(retry(fixture)).rejects.toThrow(message);
+      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
+    },
+  );
+
+  it("leaves the token unused when the approved retry can no longer start", async () => {
+    const fixture = await createRetryFixture("none");
+    const { ids, t } = fixture;
+    const confirmation = await approveRetry(fixture);
+    await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
+      repositoryId: ids.repositoryId,
+      userId: ids.userId,
+      actionId: "manual-repair",
+      action: "create_convex_project",
+    });
+
+    await expect(retry(fixture, confirmation)).rejects.toThrow(
+      "Another repository infrastructure operation is active.",
+    );
+    const rows = await readConfirmationRows(fixture);
+    expect(rows.audit).toEqual([]);
+    expect(rows.tokens).toEqual([expect.objectContaining({ action: "retry_provider_setup" })]);
+    expect(rows.tokens[0]?.consumedAt).toBeUndefined();
   });
 
   it("admits only one of two simultaneous retries", async () => {
-    const { ids, t } = await createRetryFixture("none");
-    const args = {
-      userId: ids.userId,
-      repositoryId: ids.repositoryId,
-    };
+    const fixture = await createRetryFixture("none");
+    const { ids, t } = fixture;
+    const [first, second] = [await approveRetry(fixture), await approveRetry(fixture)];
 
-    const results = await Promise.allSettled([
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, args),
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, args),
-    ]);
+    const results = await Promise.allSettled([retry(fixture, first), retry(fixture, second)]);
 
     expect(results.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
     const admitted = await t.run(async (ctx) => {
@@ -216,15 +261,12 @@ describe("app provisioning retry admission", () => {
     });
   });
 
-  it("rolls back retry admission when Workflow start fails", async () => {
-    const { ids, t } = await createRetryFixture("none", convexTest(schema, modules));
+  it("rolls back retry admission and the confirmation when Workflow start fails", async () => {
+    const fixture = await createRetryFixture("none", convexTest(schema, modules));
+    const { ids, t } = fixture;
+    const confirmation = await approveRetry(fixture);
 
-    await expect(
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).rejects.toThrow();
+    await expect(retry(fixture, confirmation)).rejects.toThrow();
 
     await expect(
       t.run(async (ctx) => {
@@ -245,6 +287,9 @@ describe("app provisioning retry admission", () => {
         state: "failed",
       },
     });
+    const rows = await readConfirmationRows(fixture);
+    expect(rows.audit).toEqual([]);
+    expect(rows.tokens[0]?.consumedAt).toBeUndefined();
   });
 
   it("starts a retry over MCP only after the confirmation, and audits the confirming grant", async () => {
@@ -311,7 +356,8 @@ describe("app provisioning retry admission", () => {
   });
 
   it("rejects retry after successful managed setup", async () => {
-    const { ids, t } = await createRetryFixture("none");
+    const fixture = await createRetryFixture("none");
+    const { ids, t } = fixture;
     await t.run(async (ctx) => {
       const write = await ctx.db
         .query("workflow_repositoryProvisioning_writeLocks")
@@ -332,16 +378,16 @@ describe("app provisioning retry admission", () => {
       ]);
     });
 
-    await expect(
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).rejects.toThrow("Infrastructure retry is available only after managed setup fails.");
+    // The first call already refuses, so the user is never asked to approve a retry that cannot start.
+    await expect(retry(fixture)).rejects.toThrow(
+      "Infrastructure retry is available only after managed setup fails.",
+    );
+    await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
   });
 
   it("rejects retry after a manual action supersedes failed managed setup", async () => {
-    const { ids, t } = await createRetryFixture("none");
+    const fixture = await createRetryFixture("none");
+    const { ids, t } = fixture;
     await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
       repositoryId: ids.repositoryId,
       userId: ids.userId,
@@ -354,16 +400,14 @@ describe("app provisioning retry admission", () => {
       result: "succeeded",
     });
 
-    await expect(
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).rejects.toThrow("Infrastructure retry is available only after managed setup fails.");
+    await expect(retry(fixture)).rejects.toThrow(
+      "Infrastructure retry is available only after managed setup fails.",
+    );
   });
 
   it("rejects provider retry after source setup fails", async () => {
-    const { ids, t } = await createRetryFixture("none");
+    const fixture = await createRetryFixture("none");
+    const { ids, t } = fixture;
     await t.run(async (ctx) => {
       const write = await ctx.db
         .query("workflow_repositoryProvisioning_writeLocks")
@@ -378,22 +422,18 @@ describe("app provisioning retry admission", () => {
       });
     });
 
-    await expect(
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).rejects.toThrow("Infrastructure retry is available only after provider setup fails.");
+    await expect(retry(fixture)).rejects.toThrow(
+      "Infrastructure retry is available only after provider setup fails.",
+    );
   });
 
   it("admits only one of a retry and repository deletion", async () => {
-    const { ids, t } = await createRetryFixture("none");
+    const fixture = await createRetryFixture("none");
+    const { ids, t } = fixture;
+    const confirmation = await approveRetry(fixture);
 
     const results = await Promise.allSettled([
-      t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
+      retry(fixture, confirmation),
       t.mutation(internal.repository.deletion.runs.createInitialRun, {
         userId: ids.userId,
         repositoryId: ids.repositoryId,

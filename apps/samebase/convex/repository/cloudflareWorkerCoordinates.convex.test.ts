@@ -565,6 +565,9 @@ describe("Cloudflare Worker stored coordinates", () => {
         if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
           return workerResponse({ workerName: "legacy-landing", workerTag: "legacy-landing-tag" });
         }
+        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+          return null;
+        }
         throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
       },
     );
@@ -609,6 +612,49 @@ describe("Cloudflare Worker stored coordinates", () => {
         audit: await ctx.db.query("audit_confirmedActions_events").collect(),
       })),
     ).resolves.toMatchObject({ workers: [{ workerName: "old-worker" }], audit: [] });
+  });
+
+  it("refuses a Worker that already builds another repository before any confirmation request", async () => {
+    const fixture = await createFixture();
+    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
+      async (request: CloudflareTestRequest) => {
+        if (request.path === "/accounts") {
+          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
+        }
+        if (request.path === "/accounts/{account_id}/builds/tokens") {
+          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
+        }
+        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+          return workerResponse({ workerName: "legacy-landing", workerTag: "legacy-landing-tag" });
+        }
+        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+          return workerBuildSettings({
+            repoId: "other-repository",
+            rootDirectory: "apps/site",
+            workerTag: "legacy-landing-tag",
+          });
+        }
+        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
+      },
+    );
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.cloudflareConnectWorkerTool, {
+        userId: fixture.ids.ownerId,
+        grantedScopes: ["access_provider_connections"],
+        grantId: "grant-1",
+        clientId: "client-1",
+        repository: "samebase/app",
+        workerName: "legacy-landing",
+        rootDirectory: "apps/site",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Cloudflare Worker legacy-landing already has a Workers Builds connection, so it cannot be connected. Find Workers again to see its status.",
+    });
+    await expect(
+      fixture.t.run(async (ctx) => await ctx.db.query("actionConfirmationTokens").collect()),
+    ).resolves.toEqual([]);
   });
 
   it.each([

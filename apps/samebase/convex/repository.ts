@@ -11,7 +11,6 @@ import {
 import { action, mutation, query } from "./functions";
 import { listOrganizationIdsForUser } from "./organizationAccess";
 import { readOrganizationRepositories } from "./repository/dashboard";
-import { isLiveConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
 import { connectRepositoryContract } from "./repository/contracts/connectRepository";
 import { createRepositoryContract } from "./repository/contracts/createRepository";
 import {
@@ -123,9 +122,12 @@ export const connect = action({
     }),
 });
 
-/** The gated retry: the first call returns the confirmation request and starts nothing. */
+/**
+The gated retry: the first call returns the confirmation request and starts nothing. The annotated
+return type breaks a type cycle through `internal`, which includes this module.
+*/
 export async function retryProviderSetupForUser(
-  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  ctx: Pick<ActionCtx, "runMutation">,
   args: {
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
@@ -133,33 +135,12 @@ export async function retryProviderSetupForUser(
     confirmation: ActionConfirmation | undefined;
   },
 ): Promise<ActionConfirmationRequest | null> {
-  const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
+  return await ctx.runMutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
     userId: args.userId,
     repositoryId: args.repositoryId,
-  });
-  if (!repository) {
-    throw new Error("Repository not found");
-  }
-  if (!isLiveConnectedRepository(repository) || !isSamebaseManagedRepository(repository)) {
-    throw new Error(
-      "Infrastructure retry is available only for live Samebase-managed repositories",
-    );
-  }
-  const confirmation = await ctx.runMutation(internal.repository.confirmations.check, {
-    userId: args.userId,
     surface: args.surface,
-    request: { action: "retry_provider_setup", repositoryId: args.repositoryId },
     confirmation: args.confirmation,
   });
-  if (confirmation.state === "needs_confirmation") {
-    return confirmation;
-  }
-
-  await ctx.runMutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-    userId: args.userId,
-    repositoryId: args.repositoryId,
-  });
-  return null;
 }
 
 export const retryProviderSetup = action({

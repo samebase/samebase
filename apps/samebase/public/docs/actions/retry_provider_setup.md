@@ -8,12 +8,13 @@ Starts a fresh Samebase-managed provider setup run. It re-reads the repository's
 reuses attached Convex projects and Cloudflare Workers, and creates missing resources. When the
 managed plan requests Cloudflare, it configures Workers Builds and rotates Convex deploy keys even
 when those resources are already attached. Those steps can overwrite Builds settings, revoke
-recorded deploy keys, and start production builds. It does not require or inspect a prior failed
-run.
+recorded deploy keys, and start production builds.
 
 Only valid for live Samebase-managed repositories, which are repositories created by
-`repository_create`; connected repositories repair through the explicit attach, connect, Builds, and
-deploy-key actions instead. Progress is readable through `repository_list` while the run executes.
+`repository_create`, after their managed provider setup failed and while no other provider operation
+runs. Connected repositories repair through the explicit attach, connect, Builds, and deploy-key
+actions instead. The first call checks these rules, so a retry that cannot start returns an error,
+not a confirmation request. Progress is readable through `repository_list` while the run executes.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the

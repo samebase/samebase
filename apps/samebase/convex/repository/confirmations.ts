@@ -6,6 +6,7 @@ import { internalMutation, type DatabaseReader, type MutationCtx } from "../_gen
 import { isRecord } from "../jsonUtils";
 import { createActionConfirmationTokenValue, sha256Hex } from "../mcp/tokens";
 import { requireRepositoryForUser } from "../organizationAccess";
+import { readRepositoryInfrastructureState } from "./infrastructureOperation";
 import { getConvexCodeLocationPath, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
   vConfirmationSurface,
@@ -145,6 +146,17 @@ function describeConvexProject(codeLocation: string, convexProjectSlug: string |
     : `the Convex project at ${codeLocation}`;
 }
 
+/**
+Connect and rotation claim the provider-write lock only after the token is consumed, so a repository
+with a running provider operation fails here first: it gets no challenge, and a token stays unused.
+*/
+async function requireNoProviderOperation(db: DatabaseReader, repository: ConnectedRepository) {
+  const infrastructure = await readRepositoryInfrastructureState({ db }, repository);
+  if (infrastructure.operation.kind !== "none") {
+    throw new Error("Another repository infrastructure operation is active.");
+  }
+}
+
 function toWorkerResource(worker: Doc<"repositoryCloudflareWorkers">): ConfirmedResource {
   return {
     kind: "cloudflare_worker",
@@ -185,6 +197,7 @@ async function readConfirmationSubject(
       if (!accountId) {
         throw new ConvexError("Connect Cloudflare in Providers before adding a Worker.");
       }
+      await requireNoProviderOperation(db, repository);
       const convexProject =
         request.convexProjectId === null
           ? null
@@ -206,6 +219,7 @@ async function readConfirmationSubject(
       };
     }
     case "rotate_convex_deploy_keys": {
+      await requireNoProviderOperation(db, repository);
       const worker = await requireAttachedWorker(db, repository, request.workerId);
       const { codeLocation } = await requireAttachedConvexProject(
         db,

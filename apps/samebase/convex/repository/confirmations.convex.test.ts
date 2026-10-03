@@ -346,6 +346,41 @@ describe("action confirmation check", () => {
     ).resolves.toEqual({ state: "confirmed" });
   });
 
+  it("refuses connect and rotation while another provider operation runs, and keeps the token unused", async () => {
+    const { check, connectWorker, ids, issue, readRows, t } = await createFixture();
+    const challenge = await issue(connectWorker("apps/site"));
+    await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
+      repositoryId: ids.repositoryId,
+      userId: ids.ownerId,
+      actionId: "manual-repair",
+      action: "create_convex_project",
+    });
+    const busy = "Another repository infrastructure operation is active.";
+
+    await expect(
+      check({
+        request: connectWorker("apps/site"),
+        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
+      }),
+    ).rejects.toThrow(busy);
+    await expect(
+      check({
+        request: {
+          action: "rotate_convex_deploy_keys",
+          repositoryId: ids.repositoryId,
+          workerId: ids.workerId,
+          convexProjectId: ids.convexProjectId,
+          convexProjectSlug: "scout",
+        },
+      }),
+    ).rejects.toThrow(busy);
+
+    const { audit, tokens } = await readRows();
+    expect(audit).toEqual([]);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.consumedAt).toBeUndefined();
+  });
+
   it("deletes a token at its expiry", async () => {
     vi.useFakeTimers();
     const { detachWorker, issue, readRows, t } = await createFixture();
