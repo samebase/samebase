@@ -37,6 +37,12 @@ trustPolicyExclude:
   # these trust-downgraded transitive versions.
   - reselect@5.1.1
   - undici-types@6.21.0
+audit:
+  ignore:
+    # TODO(2026-10-17): Remove once braces publishes a fix. No patched release
+    # exists yet (latest is 3.0.3). braces only reaches build and dev tooling
+    # through chokidar and micromatch, not shipped Worker code.
+    - GHSA-vfj7-8cjw-p6xm
 overrides:
   "@samebase/sidebars": "workspace:*"
   "@babel/core": 7.29.7
