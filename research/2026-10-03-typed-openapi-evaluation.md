@@ -2,6 +2,9 @@
 
 Date: 2026-10-03. Status: Cloudflare acceptance check failed; Convex ID check passed.
 
+This section records the earlier `typed-openapi` trial. The later
+[Hey API replacement](#hey-api-replacement) implements the Cloudflare migration.
+
 ## Decision
 
 Do not replace the Cloudflare client with unmodified `typed-openapi` 4.1.0 yet. The generator
@@ -13,12 +16,9 @@ The approved order was to test the real schemas, replace Cloudflare in place, th
 package. This evaluation stopped at the first step. The application implementation, dependencies,
 `@samebase/sure`, and schema drift commands remain unchanged.
 
-The next useful change is to fix and retest the generator's handling of shared request/response
-schemas. Converting application callers or moving files into a package before that would hide the
-failed acceptance check.
-
-Follow-up: the adapter defects now have tested upstream PRs. The shared request/response reference
-limitation remains open. See the root-cause investigation below.
+Local adapter fixes were tested, but the shared request/response reference limitation still blocks
+this generator. The two upstream PRs described below were closed. Permission to fork and investigate
+did not authorize their submission. Further upstream submissions require explicit user approval.
 
 ## Scope
 
@@ -181,8 +181,9 @@ Validation of the submitted fixes:
   and `path_includes: ["*"]` when those fields are absent. The original fields survive. This is an
   adoption behavior to assess, not evidence of unchanged response payloads.
 
-No provider requests or application migration were performed. The two upstream PRs are ready and
-unmerged. The shared-reference limitation still blocks adopting the generator for Samebase.
+No provider requests or application migration were performed during this trial. Both upstream PRs
+are closed and unmerged. The shared-reference limitation still blocks adopting the generator for
+Samebase.
 
 Three follow-up agents handled upstream reports and the isolated Valibot fix, the endpoint scope
 scan, and the isolated read/write reproduction plus Zod review. The parent integrated the findings
@@ -282,3 +283,57 @@ Two agents contributed: one mapped the current Cloudflare boundary read-only, an
 isolated Convex ID probe. The parent worktree ran the Cloudflare checks. No application replacement,
 package extraction, browser test, production deployment, or merge was performed. No frontend preview
 is running.
+
+## Hey API replacement
+
+The Cloudflare implementation now uses `@hey-api/openapi-ts` 0.99.0 with its Fetch SDK and Zod Mini.
+The generator still selects all 107 paths and 176 operations in the existing provider family subset.
+Application calls use the configured endpoint interface:
+
+```ts
+const { result } = await Cloudflare.GET["/accounts/{account_id}/workers/workers"]({
+  client: createCloudflareClient({ token, transport }),
+  path: { account_id },
+});
+```
+
+Hey API generates the request types, response types, validators, and HTTP operations. Samebase keeps
+provider-specific schema corrections, direct/MCP transport, error codes, timeouts, and safe audit
+logs. The custom Cloudflare AJV emitter, validator registry, request overloads, and manual URL
+serialization are removed. Convex retains its current implementation and lossless ID handling.
+
+### Required configuration
+
+- TypeScript's JavaScript compiler API is updated from 5.9.2 to 6.0.3. The existing native checker
+  remains separate. TypeScript 7 does not provide the compiler API required by generators and
+  Monaco. See
+  [Microsoft's compatibility guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0).
+- SDK naming uses the supported method/path nesting configuration. No Hey API fork is needed.
+- Full Zod exceeded the local Convex 64 MB module-loading limit with the complete SDK. Zod Mini
+  passes the same local function deployment.
+- The SDK validates data but returns the original payload. A parser input hook therefore removes
+  schema `default` annotations before code generation. Otherwise Zod can accept a missing required
+  field through a default that the returned payload does not contain. `json-schema-traverse` limits
+  this change to schema nodes. The checked-in OpenAPI document retains its defaults, examples, and
+  properties named `default`. Response values are not rewritten.
+- The observed nullable Worker errors/messages correction now applies to the common input. Types and
+  validators derive from the same corrected document.
+
+The existing tests cover direct and MCP calls, token/account discovery, Worker creation, native
+Builds and previews, credential rotation, cleanup, authorization, provider errors, and private-data
+redaction. New boundary cases check required fields with defaults, the published secret response
+without write-only text, and unchanged observed preview payloads. UUID checks now enforce the
+provider schema; old placeholder IDs in tests use valid UUID values.
+
+### Validation
+
+- Eight affected test files: 121 tests passed in 1.22 seconds.
+- App and script type checks passed.
+- The local `pnpm run dev --once` setup and Convex function deployment passed with Zod Mini.
+- The production app build passed.
+- Convex Management API regeneration under TypeScript 6.0.3 passed with no diff.
+- Cloudflare regeneration with Hey API passed with no diff after the implementation commit.
+- The final client and resource checks passed: 69 tests in 374 ms.
+
+These checks use recorded responses and local transports. No new live Cloudflare calls or production
+deployment were performed. Package extraction and the sure/Evolu decision remain separate work.
