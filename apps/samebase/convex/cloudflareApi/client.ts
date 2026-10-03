@@ -89,7 +89,7 @@ export function createCloudflareClient(args: {
             });
           throw error;
         });
-        return new Response(text, { headers: { "Content-Type": "application/json" } });
+        return new Response(text || null, { headers: { "Content-Type": "application/json" } });
       }
 
       const controller = new AbortController();
@@ -100,7 +100,7 @@ export function createCloudflareClient(args: {
         });
         // Read the body before clearing the timer. Fetch alone only waits for headers.
         const text = await response.text();
-        return new Response(response.status === 204 ? null : text, {
+        return new Response(text || null, {
           status: response.status,
           statusText: response.statusText,
           headers: response.headers,
@@ -129,31 +129,35 @@ export function createCloudflareClient(args: {
   });
 
   client.interceptors.response.use(async (response, request, options) => {
-    let payload: unknown;
-    try {
-      payload = await response.clone().json();
-    } catch {
+    // The generated client skips validation for empty bodies.
+    if (response.body === null || response.headers.get("Content-Length") === "0")
       throw new CloudflareApiResponseError(request.method, options.url, "invalid_json");
-    }
-    if (!isRecord(payload))
-      throw new CloudflareApiResponseError(request.method, options.url, "non_object_response");
-    if (response.ok && readBoolean(payload, "success") === true) return response;
 
-    const endpoint = request.url.slice(CLOUDFLARE_API_BASE_URL.length);
-    const details = readCloudflareApiErrorDetails(payload["errors"]);
-    if (isWorkersBuildsInvalidTokenDetails({ path: endpoint, details })) {
-      throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
-    }
-    if (!response.ok && details.length === 0) {
-      throw new Error(
-        `Cloudflare API request failed for ${request.method} ${endpoint} (${response.status}).`,
-      );
-    }
-    throw new CloudflareApiError({ method: request.method, path: endpoint, details });
+    const validate = options.responseValidator;
+    // Check Cloudflare errors before the success schema, using the SDK's parsed payload.
+    options.responseValidator = async (payload) => {
+      if (!isRecord(payload))
+        throw new CloudflareApiResponseError(request.method, options.url, "non_object_response");
+      if (response.ok && readBoolean(payload, "success") === true) return await validate?.(payload);
+
+      const endpoint = request.url.slice(CLOUDFLARE_API_BASE_URL.length);
+      const details = readCloudflareApiErrorDetails(payload["errors"]);
+      if (isWorkersBuildsInvalidTokenDetails({ path: endpoint, details }))
+        throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
+      if (!response.ok && details.length === 0)
+        throw new Error(
+          `Cloudflare API request failed for ${request.method} ${endpoint} (${response.status}).`,
+        );
+      throw new CloudflareApiError({ method: request.method, path: endpoint, details });
+    };
+    if (!response.ok) await options.responseValidator(await response.json());
+    return response;
   });
 
   client.interceptors.error.use((error, response, _request, options) => {
     const method = options.method ?? "GET";
+    if (response && error instanceof SyntaxError)
+      error = new CloudflareApiResponseError(method, options.url, "invalid_json");
     if (error instanceof core.$ZodError) {
       if (!response)
         return new Error(`Cloudflare API request is invalid for ${method} ${options.url}.`);

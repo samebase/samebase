@@ -92,18 +92,26 @@ describe("Cloudflare API transport", () => {
       name: "invalid name",
       response: observedInvalidWorkerNameResponse,
       workerName: "samebase-app",
+      status: 400,
+    },
+    {
+      name: "invalid name with HTTP 200",
+      response: observedInvalidWorkerNameResponse,
+      workerName: "samebase-app",
+      status: 200,
     },
     {
       name: "preview name limit",
       response: observedPreviewWorkerNameTooLongResponse,
       workerName: "samebase-preview",
+      status: 400,
     },
-  ])("parses the observed Worker $name error", async ({ response, workerName }) => {
+  ])("parses the observed Worker $name error", async ({ response, workerName, status }) => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
         return new Response(JSON.stringify(response), {
-          status: 400,
+          status,
           headers: { "Content-Type": "application/json" },
         });
       }),
@@ -151,11 +159,14 @@ describe("Cloudflare API response validators", () => {
         preview_id: observedWorkerRuntimePreview.id,
       },
     };
+    const parse = vi.spyOn(JSON, "parse");
     await expect(
       Cloudflare.GET["/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}"](
         options,
       ),
     ).resolves.toEqual(envelope);
+    expect(parse.mock.calls.filter(([text]) => text === JSON.stringify(envelope))).toHaveLength(1);
+    parse.mockRestore();
 
     const { logpush: _logpush, ...missingLogpush } = observedWorkerRuntimePreview;
     fetch.mockImplementation(async () => Response.json({ ...envelope, result: missingLogpush }));
@@ -202,21 +213,44 @@ describe("Cloudflare API response validators", () => {
     ).resolves.toEqual(envelope);
   });
 
-  it("returns and logs a non-JSON response without its contents", async () => {
+  it.each([
+    {
+      name: "non-JSON",
+      body: "private malformed provider response",
+      status: 200,
+      reason: "invalid_json",
+    },
+    {
+      name: "non-JSON HTTP error",
+      body: "private malformed provider response",
+      status: 502,
+      reason: "invalid_json",
+    },
+    { name: "empty", body: "", status: 200, reason: "invalid_json" },
+    { name: "no-content", body: null, status: 204, reason: "invalid_json" },
+    { name: "null", body: "null", status: 200, reason: "non_object_response" },
+    { name: "null HTTP error", body: "null", status: 400, reason: "non_object_response" },
+    {
+      name: "string",
+      body: '"private malformed provider response"',
+      status: 200,
+      reason: "non_object_response",
+    },
+  ])("returns and logs a $name response without its contents", async ({ body, status, reason }) => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("private malformed provider response", { status: 200 })),
+      vi.fn(async () => new Response(body, { status })),
     );
 
     await expect(
       Cloudflare.GET["/accounts"]({
         client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
       }),
-    ).rejects.toMatchObject({ failure: "invalid_json" });
+    ).rejects.toMatchObject({ failure: reason });
     const log = String(error.mock.calls[0]?.[0]);
     expect(log).toContain("provider_response_parse_failed");
-    expect(log).toContain('"reason":"invalid_json"');
+    expect(log).toContain(`"reason":"${reason}"`);
     expect(log).not.toContain("private malformed provider response");
     expect(error).toHaveBeenCalledTimes(1);
   });
