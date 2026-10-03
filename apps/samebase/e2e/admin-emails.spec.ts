@@ -14,8 +14,46 @@ test("staff email monitor uses the authenticated app route and sidebar @opt-in",
   const monitor = page.getByTestId("admin-emails-page");
   await expect(monitor.getByRole("heading", { name: "Emails", exact: true })).toBeVisible();
   await expect(monitor.getByRole("combobox", { name: "Inbox", exact: true })).toBeVisible();
-  await expect(monitor.getByRole("combobox", { name: "Status", exact: true })).toBeVisible();
+  const statusFilter = monitor.getByRole("combobox", { name: "Status", exact: true });
+  const selectedStatus = statusFilter.locator('[data-slot="select-value"]');
+  await expect(statusFilter).toBeVisible();
   await expect(monitor).toHaveAttribute("data-posthog-block", "true");
+
+  await statusFilter.click();
+  await page.getByRole("option", { name: "Received", exact: true }).click();
+  await expect(selectedStatus).toHaveText("Received");
+  await expect(statusFilter).toBeFocused();
+  await statusFilter.press("Enter");
+  await page.getByRole("option", { name: "All statuses", exact: true }).click();
+  await expect(selectedStatus).toHaveText("All statuses");
+
+  const themeColors = await monitor.evaluate((element) => {
+    const theme = getComputedStyle(element);
+    const probe = document.createElement("span");
+    probe.style.borderBottomColor = `hsl(${theme.getPropertyValue("--border")})`;
+    probe.style.color = `hsl(${theme.getPropertyValue("--muted-foreground")})`;
+    element.append(probe);
+    try {
+      const border = getComputedStyle(probe).borderBottomColor;
+      const muted = getComputedStyle(probe).color;
+      probe.style.color = `hsl(${theme.getPropertyValue("--destructive")})`;
+      return { border, muted, destructive: getComputedStyle(probe).color };
+    } finally {
+      probe.remove();
+    }
+  });
+  const tableHeader = monitor.locator("thead");
+  const messageHeader = monitor.getByRole("columnheader", { name: "Message", exact: true });
+  await expect(tableHeader).toHaveCSS("border-bottom-width", "1px");
+  await expect(tableHeader).toHaveCSS("border-bottom-color", themeColors.border);
+  await expect(messageHeader).toHaveCSS("color", themeColors.muted);
+
+  await messageHeader.evaluate((element) => element.classList.add("text-destructive"));
+  try {
+    await expect(messageHeader).toHaveCSS("color", themeColors.destructive);
+  } finally {
+    await messageHeader.evaluate((element) => element.classList.remove("text-destructive"));
+  }
 
   const sidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(sidebar.getByTestId("dashboard-sidebar-account-section")).toBeVisible();
@@ -31,6 +69,7 @@ test("staff email monitor uses the authenticated app route and sidebar @opt-in",
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(statusFilter).toHaveCSS("font-size", "16px");
   await expect(monitor).toHaveScreenshot("admin-emails-mobile.png", {
     animations: "disabled",
     caret: "hide",
