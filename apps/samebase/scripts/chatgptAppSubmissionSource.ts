@@ -251,7 +251,7 @@ export const negativeTestCases = [
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "Calls no Samebase tool. The answer treats this as GitHub work outside Samebase: it makes the change with a GitHub tool when one is available, or says how to make it in GitHub.",
+      "Calls no Samebase tool. The answer treats the change and the pull request as GitHub work in a repository that Samebase does not manage.",
     expected_output_url: null,
   },
   {
@@ -270,7 +270,7 @@ export const negativeTestCases = [
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "Calls no Samebase tool. The answer says that a standalone Worker is outside Samebase and is created in Cloudflare: with a Cloudflare tool when one is available, or in the Cloudflare dashboard.",
+      "Calls no Samebase tool. The answer says that a standalone Worker is outside Samebase and is created in Cloudflare.",
     expected_output_url: null,
   },
 ] as const satisfies SubmissionNegativeTestCases;
