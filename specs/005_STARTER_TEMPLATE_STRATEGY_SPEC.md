@@ -196,7 +196,7 @@ git add apps/samebase/convex/starterSeedManifest.generated.ts
 
 ## Public API / Behavior Changes
 
-### `api.repository.actions.createRepository`
+### `api.repository.create`
 
 Behavioral contract for Iteration 1:
 

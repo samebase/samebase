@@ -47,7 +47,7 @@ GitHub connection, source setup, and exact tree availability are separate facts:
 
 The dashboard does not use tree-cache presence as repository readiness. It can show live pull
 requests while initial tree sync is running or failed, while editor/file controls still fail closed
-until they hydrate the exact branch tree they need. `getUserRepositories` has no top-level
+until they hydrate the exact branch tree they need. `repository.list` has no top-level
 ready/copying/failed projection; each surface derives its gate from connection, source setup,
 provider setup, and deletion state. This section and `specs/116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md`
 define the current runtime.
@@ -522,7 +522,7 @@ The repository label should be derived from GitHub state:
 1. provisioning or failed: organization owner login plus targeted `githubRepositoryName`
 2. connected: organization owner login plus current `githubRepositoryName`
 
-`not_connected` remains a schema state, but `getUserRepositories` does not return it to the current
+`not_connected` remains a schema state, but `repository.list` does not return it to the current
 dashboard.
 
 Provider rows should read from explicit boundaries:

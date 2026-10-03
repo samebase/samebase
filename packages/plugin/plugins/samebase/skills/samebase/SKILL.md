@@ -79,9 +79,10 @@ description:
 
 ## Approve provider writes
 
-- A direct request to create a Samebase repository approves one creation sequence. State the
-  repository, Convex team and production region, Cloudflare account, and effects before the call. Do
-  not ask again unless the target, effects, or scope changes.
+- A direct request to create a Samebase repository approves one creation sequence. State the GitHub
+  owner and repository name, the Convex production region you pass (or the organization default),
+  the Convex project and Worker names, and the effects before the call. Do not ask again unless the
+  target, effects, or scope changes.
 - Before a Samebase action can create or change provider resources or start a production build,
   state the repository, the resource, the expected changes, and whether Samebase attaches an
   existing resource, connects it, or creates a new one. Get explicit approval.

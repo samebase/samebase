@@ -24,8 +24,8 @@ connect those resources later from the repository dashboard.
 
 ## Public Action
 
-`repository.actions.connectRepository` accepts an organization ID and a GitHub repository database
-ID. It performs these steps:
+`repository.connect` accepts an organization ID and a GitHub repository database ID. It performs
+these steps:
 
 1. Require the current user's membership in the selected GitHub-backed organization.
 2. Create a GitHub installation client restricted to the selected repository ID.

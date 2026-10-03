@@ -98,8 +98,8 @@ Previews. Production Builds and Previews Base Builds each carry \`CONVEX_DEPLOY_
 matching Convex key. All resources live in the organization's provider accounts. Deleting the
 Samebase account does not remove or stop any of them.
 
-Progress and failure are readable through \`repository_list\`: while running, \`providerSetup\`
-carries the current step; on failure it carries the failed step and a message. Repair it with
+Progress and failure are readable through \`repository_list\`: \`providerSetup.status\` is running,
+ready, or failed; on failure it names the provider and carries a message. Repair a failure with
 \`repository_retryProviderSetup\`. Without a token, \`providerSetup.status: ready\` means that the
 requested GitHub and Convex work finished. It does not mean Cloudflare is complete. This expected
 pending state is not a failure and must not be repaired with the retry action. Cost: the created
