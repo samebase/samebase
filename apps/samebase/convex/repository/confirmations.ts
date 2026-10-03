@@ -110,6 +110,22 @@ function toCanonicalJson(request: ConfirmedActionRequest): string {
   });
 }
 
+function isSameSurface(issued: ConfirmationSurface, current: ConfirmationSurface): boolean {
+  switch (issued.kind) {
+    case "dashboard":
+      return current.kind === "dashboard";
+    case "mcp":
+      return (
+        current.kind === "mcp" &&
+        current.grantId === issued.grantId &&
+        current.clientId === issued.clientId
+      );
+    default:
+      issued satisfies never;
+      throw new Error("Unsupported confirmation surface.");
+  }
+}
+
 async function requireAttachedWorker(
   db: DatabaseReader,
   repository: ConnectedRepository,
@@ -284,10 +300,10 @@ async function readConfirmationSubject(
 }
 
 /**
-Without `confirmation`, stores a token hash bound to the user, the action, and the digest of the
-normalized request, and returns the challenge; the caller performs nothing. With `confirmation`, it
-requires that token, unused and unexpired, issued to this user for this action and an identical
-request, plus the exact acknowledgement. It then consumes the token and writes the audit row in the
+Without `confirmation`, stores a token hash bound to the user, the surface, the action, and the
+digest of the normalized request, and returns the challenge; the caller performs nothing. With
+`confirmation`, it requires that token, unused and unexpired, issued to this user on this surface
+for this action and an identical request, plus the exact acknowledgement. It then consumes the token and writes the audit row in the
 same transaction, and the caller performs the request.
 */
 export async function checkActionConfirmation(
@@ -314,6 +330,7 @@ export async function checkActionConfirmation(
     const tokenId = await ctx.db.insert("actionConfirmationTokens", {
       tokenHash: await sha256Hex(token),
       userId: args.userId,
+      surface: args.surface,
       action: args.request.action,
       requestDigest,
       effect: subject.effect,
@@ -342,6 +359,11 @@ export async function checkActionConfirmation(
     .unique();
   if (!issued || issued.userId !== args.userId) {
     throw new ConvexError(`This confirmation token is not valid. ${START_AGAIN}`);
+  }
+  // The sentence names its surface, and the audit row records the confirming surface, so a token
+  // works only where it was issued: the dashboard, or the same MCP grant and client.
+  if (!isSameSurface(issued.surface, args.surface)) {
+    throw new ConvexError(`This confirmation token was issued to another client. ${START_AGAIN}`);
   }
   if (issued.consumedAt) {
     throw new ConvexError(`This confirmation token was already used. ${START_AGAIN}`);

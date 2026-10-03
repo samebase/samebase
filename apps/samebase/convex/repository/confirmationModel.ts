@@ -48,13 +48,15 @@ export type ConfirmedResource = Infer<typeof vConfirmedResource>;
 export const repositoryConfirmationTables = {
   /**
   Hashes of one-use tokens from the needs_confirmation result of a gated action, written by
-  repository/confirmations.ts for the dashboard and MCP. Each token is bound to its user, its
-  action, and the SHA-256 digest of its normalized request, and stores the effect and the exact
-  acknowledgement that the second call must send. A scheduled mutation deletes it at expiry.
+  repository/confirmations.ts for the dashboard and MCP. Each token is bound to its user, the
+  surface that received it (the dashboard, or one MCP grant and client), its action, and the
+  SHA-256 digest of its normalized request, and stores the effect and the exact acknowledgement
+  that the second call must send. A scheduled mutation deletes it at expiry.
   */
   actionConfirmationTokens: defineTable({
     tokenHash: string(),
     userId: id("users"),
+    surface: vConfirmationSurface,
     action: vConfirmedAction,
     requestDigest: string(),
     effect: string(),

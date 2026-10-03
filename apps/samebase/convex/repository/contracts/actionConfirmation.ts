@@ -29,9 +29,10 @@ export type ActionConfirmationRequest = Infer<typeof vActionConfirmationRequest>
 export const ACTION_CONFIRMATION_DOC = `Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 \`confirmation\` changes nothing and returns \`needs_confirmation\` with the effect in plain words,
 the exact acknowledgement sentence, and a one-use token that expires after 10 minutes. The token is
-bound to the user, the action, and the request after Samebase resolves names and defaults. The
-second call sends the same arguments and \`confirmation\` with the token and the exact sentence; a
-changed argument, a used or expired token, or another sentence is rejected and changes nothing.
+bound to the user, the client that received it, the action, and the request after Samebase resolves
+names and defaults. The second call sends the same arguments and \`confirmation\` with the token and
+the exact sentence from the same client; a changed argument, a used or expired token, another
+client, or another sentence is rejected and changes nothing.
 Samebase records each accepted confirmation in its audit log.`;
 
 export const MCP_ACTION_CONFIRMATION_DESCRIPTION =

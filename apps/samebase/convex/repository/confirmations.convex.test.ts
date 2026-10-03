@@ -279,6 +279,43 @@ describe("action confirmation check", () => {
     await expect(readRows()).resolves.toMatchObject({ audit: [] });
   });
 
+  it("accepts a token only from the surface that received it", async () => {
+    const { detachWorker, ids, readRows, t } = await createFixture();
+    const checkFrom = async (
+      surface: { kind: "dashboard" } | { kind: "mcp"; grantId: string; clientId: string },
+      confirmation?: { token: string; acknowledgement: string },
+    ) =>
+      await t.mutation(internal.repository.confirmations.check, {
+        userId: ids.ownerId,
+        surface,
+        request: detachWorker,
+        confirmation,
+      });
+    const firstClient = { kind: "mcp" as const, grantId: "grant-1", clientId: "client-1" };
+    const challenge = await checkFrom(firstClient);
+    if (challenge.state !== "needs_confirmation") {
+      throw new Error("Expected a confirmation request.");
+    }
+    const confirmation = { token: challenge.token, acknowledgement: challenge.acknowledgement };
+    const anotherClient = {
+      data: "This confirmation token was issued to another client. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
+    };
+
+    await expect(
+      checkFrom({ kind: "mcp", grantId: "grant-2", clientId: "client-2" }, confirmation),
+    ).rejects.toMatchObject(anotherClient);
+    await expect(
+      checkFrom({ kind: "mcp", grantId: "grant-1", clientId: "client-2" }, confirmation),
+    ).rejects.toMatchObject(anotherClient);
+    await expect(checkFrom(dashboard, confirmation)).rejects.toMatchObject({
+      data: expect.stringContaining("This confirmation token was issued to another client."),
+    });
+    await expect(readRows()).resolves.toMatchObject({ audit: [] });
+
+    await expect(checkFrom(firstClient, confirmation)).resolves.toEqual({ state: "confirmed" });
+    await expect(readRows()).resolves.toMatchObject({ audit: [{ surface: firstClient }] });
+  });
+
   it("rejects a token for another action or another resource", async () => {
     const { check, detachWorker, ids, issue, readRows } = await createFixture();
     const retryChallenge = await issue({
