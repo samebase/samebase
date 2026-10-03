@@ -29,27 +29,9 @@ appear in Studio immediately.
 - `ScoutDemo` contains the Trail Scout submission edit at the source size, 3840×2480. It combines
   the screen, camera, and captions with a 48x wait and two-second speed ramps.
 - `TicTacToeRecording` contains the production edit used by the landing page.
-- `MengerDiveSpike` is a 5-second WebGPU ray-marched dive into an unbounded Menger sponge. It zooms
-  3x in each clip length, so it loops without a seam. It needs a WebGPU adapter. On an Apple silicon
-  Mac, the Remotion headless shell uses the Metal GPU.
-- `MarkIllusionTest` is a 10-second look test for the brand film. The flat mark turns into a lit 3D
-  cube, becomes flat at the isometric view, and then opens a fourth and fifth side with a 2D warp
-  that is the identity at three sides. `forceWarp` renders the warp in every frame for the swap
-  check.
-- `MengerScaleStill-1` to `MengerScaleStill-3` are look tests of a huge depth-7 sponge in haze: a
-  low angle up one edge, one corner out of the haze, and a near face to the horizon with the flat
-  mark for scale. Frame 0 is the still.
-- `SamebaseRisoFilm` is the 42-second riso zine brand film. It breaks the reading of the mark four
-  times: flat mark, paper cube, flat reshape, and one cell of a huge sponge. One WebGPU pass prints
-  the page plates and the ray-marched scene with halftone screens and misregistration. The
-  storyboard and music notes are in `notes/samebase-riso-film.md`.
-- `SamebaseRisoFilmPortrait` is the 1080x1350 feed cut of the same film. It has its own page layout,
-  with the type above the object, and the page turns on its left binding.
-- `SamebaseRisoLoop` is an 8-second seamless loop: an endless isometric pull back from the sponge
-  corner under the finale music.
 - `SamebaseLookAgainRiso` is the 42-second "Look again" brand film at 1920x1080, and
-  `SamebaseLookAgainRisoVertical` its 1080x1920 cut for vertical phone feeds. The delivery notes are
-  in `notes/look-again-film.md`.
+  `SamebaseLookAgainRisoVertical` its 1080x1920 cut for vertical phone feeds. It renders on the GPU
+  through WebGPU. The notes are in `notes/look-again-film.md`.
 - `ContactSheetLabel` draws the time labels for the contact sheet command.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -207,21 +189,15 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the 2160p founder
   demo while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
-- `pnpm --filter @samebase/remotion-studio render:menger-dive-spike`: render the Menger dive loop.
-- `pnpm --filter @samebase/remotion-studio render:mark-illusion-test`: render the mark illusion.
-- `pnpm --filter @samebase/remotion-studio render:menger-scale-stills`: render the three scale
-  stills.
-- `pnpm --filter @samebase/remotion-studio render:samebase-riso-film`: render the riso brand film.
-  It needs the local music file `public/media/samebase-riso-film.mp3`.
-- `pnpm --filter @samebase/remotion-studio render:samebase-riso-film-portrait`: render the 4:5 feed
-  cut.
-- `pnpm --filter @samebase/remotion-studio render:samebase-riso-loop`: render the seamless loop.
+- `pnpm --filter @samebase/remotion-studio render:look-again-riso`: render the "Look again" film.
+  `render:look-again-riso-vertical` renders the vertical cut, and `render:look-again-preview` a
+  480x270 preview.
 - `node src/scripts/analyzeMusicBeats.ts <audio> [section starts]`: print the tempo, beat grid, bar
   loudness, and strongest onsets of a music file. It needs `ffmpeg` on the `PATH`.
 - `pnpm --filter @samebase/remotion-studio render:contact-sheet <composition-id> <frames> <columns> <output.jpg>`:
   render frames (`75`) or seconds (`2.5s`) from a comma-separated list into one labeled JPEG. It
   needs `ffmpeg` on the `PATH`. Example:
-  `render:contact-sheet MengerDiveSpike 0,0.5s,1s,1.5s,2s,2.5s,3s,4s,149 3 out/menger-dive-spike-sheet.jpg`.
+  `render:contact-sheet SamebaseLookAgainRisoPreview 1s,5s,13s,23s,30s,40s 3 out/look-again-sheet.jpg`.
 - `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the 2160p onboarding demo
   for YouTube while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.

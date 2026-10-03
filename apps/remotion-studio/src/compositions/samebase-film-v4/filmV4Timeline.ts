@@ -1,9 +1,6 @@
-import type { IllusionStudyFrame } from "../illusion-studies/illusionStudyRenderer";
 import {
   add,
   checkShufflePlan,
-  easeInLongOut,
-  easeInOutCubic,
   easeInOutSine,
   type FilmV3Camera,
   type FilmV3Frame,
@@ -19,7 +16,6 @@ import {
   mix,
   noStar,
   orbitCamera,
-  orbitMoves,
   palettes,
   probeAt,
   progress,
@@ -37,52 +33,18 @@ import { contrastRatio, mixOklch } from "./oklch";
 export const filmV4Fps = 60;
 
 /**
-Three orders of the same moves. Every film is one continuous orthographic shot, and the swaps
-between the two renderers happen only while both pictures are the same.
-
-- `a`: mark to solid, local reveal, fractal shuffle, fourth face, endless pull back. Each move shows
-  one more property of the same cube: solid, deep, the same at every level, more sides than it
-  shows, and one cell of something without end.
-- `b`: mark to solid, fourth face, endless pull back. Three steps, each one larger than the last: the
-  flat mark is a solid, the solid has a fourth face, and the cube is one cell of something without
-  end.
-- `c`: mark to solid, local reveal, endless pull back. The surface opens inward, then the camera
-  pulls outward and finds the same pattern at every larger scale: one idea, in and out.
-
-- `look`: look again. The moves of A in one shot that ends on its own first frame: the zoom out
-  goes on while the camera turns back to the front view, and the giant shrinks into the flat mark.
-
-The cube or hole move is in no cut: a Menger cube and its mold look different at the key view,
-because the mold shows the ends of its channels, which the cube hides.
+Look again: one continuous orthographic shot that ends on its own first frame. The zoom out goes on
+while the camera turns back to the front view, and the giant shrinks into the flat mark.
 */
-export type FilmV4Variant = "a" | "b" | "c" | "look";
-
-/** How the new face of the fourth face move opens. */
-export type FourthFold = FilmV3Scene["faces"]["fold"];
+export const lookSeconds = 42;
 
 /**
-The fold of the films: the leaf. Its halves visibly turn in the light while the hole folds with
-them, so the move reads as a fold, and it never reaches past the square diagonal. The shear grows a
-needle twice the face side before it widens.
+One render in the stack, drawn over the layers before it. Where the sponge hands over to the
+shuffled sponge and back, the two pictures are the same up to sub-pixel edges and shading, and the
+new layer fades in over a few frames on top of the old one. `id` names the render mode, so a layer
+keeps its renderer while it lasts.
 */
-export const filmFold: FourthFold = "leaf";
-
-export const filmV4Seconds = { a: 38.5, b: 28, c: 25, look: 42 } as const satisfies Record<
-  FilmV4Variant,
-  number
->;
-
-/**
-One render in the stack, drawn over the layers before it. The film renderer draws the cube moves:
-the mark, the reveal, the shuffle, and the fourth face. The study renderer draws the endless sponge
-of the pull back. Where one render hands over to another, the two
-pictures are the same up to sub-pixel edges and shading, and the new layer fades in over a few
-frames on top of the old one. `id` names the renderer and its mode, so a layer keeps its renderer
-while it lasts.
-*/
-export type FilmV4Layer =
-  | { frame: FilmV3Frame; id: "film" | "film-shuffle"; kind: "film"; opacity: number }
-  | { frame: IllusionStudyFrame; id: "study"; kind: "study"; opacity: number };
+export type FilmV4Layer = { frame: FilmV3Frame; id: "film" | "film-shuffle"; opacity: number };
 
 /**
 The silhouette of one cell at the isometric view, drawn around the frame point `x`, `y`: a hexagon
@@ -131,7 +93,7 @@ const grain = 0.024;
 const haze = palettes.haze;
 
 /** The colors of the look film: the sky, the face tones, the shadow tint, and the words. */
-export type LookStyle = {
+type LookStyle = {
   ink: Rgb;
   /** The haze behind the words and the casing of the outlines. */
   pale: Rgb;
@@ -139,31 +101,6 @@ export type LookStyle = {
   sky: readonly [Rgb, Rgb];
   tones: FilmV3Scene["tones"];
 };
-
-/** `haze` is the landing look. The others are presentation tests. */
-export const lookStyles = {
-  haze: {
-    ink: haze.ink,
-    pale: haze.sky[1],
-    shadowTint: haze.shadowTint,
-    sky: haze.sky,
-    tones: landingTones,
-  },
-  cobalt: {
-    ink: hex(0xffffff),
-    pale: hex(0x2f55f0),
-    shadowTint: hex(0x14287a),
-    sky: [hex(0x1733c4), hex(0x2f55f0)],
-    tones: { x: hex(0xffd400), y: hex(0xffffff), z: hex(0x0b1654) },
-  },
-  sunset: {
-    ink: hex(0x1d1147),
-    pale: hex(0xff5c8a),
-    shadowTint: hex(0xb8325c),
-    sky: [hex(0xff8a3d), hex(0xff5c8a)],
-    tones: { x: hex(0x6b2bd9), y: hex(0xfff4e6), z: hex(0x1d1147) },
-  },
-} as const satisfies Record<string, LookStyle>;
 
 /** The riso look: riso inks on paper. */
 const riso = {
@@ -243,14 +180,10 @@ const risoInks = [0x0078bf, 0xf7f1e6, 0xff48b0, 0xffe800, 0x00838a].map(hex);
 const lineInks = new Map<string, Rgb>();
 
 /**
-The ink of a line over the top (0) or bottom (1) sky color: in the riso look, the riso ink with the
-best contrast over the whole time the line shows, so one line keeps one color while the sky shifts
-under it.
+The ink of a line over the top (0) or bottom (1) sky color: the riso ink with the best contrast over
+the whole time the line shows, so one line keeps one color while the sky shifts under it.
 */
-function lineInk(style: LookStyleName, row: 0 | 1, at: number, until: number): Rgb {
-  if (style !== "riso") {
-    return lookStyles[style].ink;
-  }
+function lineInk(row: 0 | 1, at: number, until: number): Rgb {
   const key = `${row} ${at} ${until}`;
   const known = lineInks.get(key);
   if (known) {
@@ -268,15 +201,6 @@ function lineInk(style: LookStyleName, row: 0 | 1, at: number, until: number): R
   }
   lineInks.set(key, best.ink);
   return best.ink;
-}
-
-export type LookStyleName = keyof typeof lookStyles | "riso";
-
-function lookThemeAt(style: LookStyleName, time: number): LookStyle {
-  if (style !== "riso") {
-    return lookStyles[style];
-  }
-  return risoThemeAt(time);
 }
 
 /** The same frame in `style`: the scene keeps its geometry, light, and camera. */
@@ -311,13 +235,6 @@ const restSponge = {
 /** With this radius every channel of the cube is fully open, which is the geometry of the shuffle. */
 const fullRevealRadius = 8;
 
-const restShuffle = {
-  depth: 3,
-  fadePixels: 1.5,
-  moveMinLevel: 0,
-  ...readShuffle(0, []),
-} as const satisfies FilmV3Scene["shuffle"];
-
 const closedFaces = {
   center: [0, 0],
   enabled: false,
@@ -341,32 +258,13 @@ const octant: Vector3 = [1, -1, -1];
 
 /**
 The zoom in ends with the frame this tall, in cube half sizes: the three faces around the near corner
-fill the whole frame with a margin, from the isometric view and from the view of C.
+fill the whole frame with a margin from the isometric view.
 */
 const deepHalfHeight = 0.6;
-
-/**
-The move from the cube to the giant. The camera zooms in toward the near corner of the cube until
-its three faces fill the frame, holds still, and zooms out from the same corner as the endless pull
-back. At `swap`, while the frame is still and shows no outline and no sky, the cube becomes the
-corner cell of the giant: every other cell of the giant is outside the frame, so the two renders
-give the same picture, and the rest of the giant then enters from the frame edges.
-*/
-type Dive = {
-  from: View;
-  start: number;
-  deep: number;
-  swap: number;
-  out: number;
-  detailFloor: number;
-  /** The zoom out slows to 40 percent over three seconds from here, under the words. */
-  slowAt: number;
-};
 
 type CubeShot = {
   /** 0 is the view, 1 the deepest point of the zoom in toward the near corner. */
   dive: number;
-  faces: FilmV3Scene["faces"];
   /** Scales the floor shadow, which also fades out near a level camera. */
   floor: number;
   mode: "shuffle" | "sponge";
@@ -392,7 +290,7 @@ function cubeScene(shot: CubeShot, size: Size): FilmV3Scene {
   const camera = cubeCamera(shot.view, shot.dive, size);
   return {
     camera,
-    faces: shot.faces,
+    faces: closedFaces,
     floor: { height: -1, strength: shot.floor * floorStrengthAt(shot.view.elevation) },
     haze: { clear: 1e6, density: 0, hidden: 2e6, start: 0 },
     light: keyLight(camera, 0.045, 1),
@@ -500,163 +398,10 @@ function revealSponge(
   };
 }
 
-/**
-Move 5: at the isometric view the two faces under the corner open like mirror doors around a fourth
-face, hold, and close with the exact reverse. The camera is still and orthographic, and at unfold 0
-the faces equal the render, so neither swap shows.
-*/
-/** The faces open for this long, hold for one beat, and close with the exact reverse. */
-const unfoldSeconds = 1.6;
-const unfoldHold = 0.5;
-
-/**
-The faces follow the zoom in toward the corner, which starts while they close: at the isometric view
-the corner lies on the view axis, so the faces keep their center and only their radius grows.
-*/
-function fourthFaces(
-  time: number,
-  lift: number,
-  { fold, halfHeight, size }: { fold: FourthFold; halfHeight: number; size: Size },
-) {
-  const closed = lift + 2 * unfoldSeconds + unfoldHold;
-  const opening = easeInOutSine(progress(time, lift, lift + unfoldSeconds));
-  const closing = easeInOutSine(progress(time, closed - unfoldSeconds, closed));
-  return {
-    center: [size.width / 2, size.height / 2],
-    enabled: time >= lift - 0.5 && time < closed + 0.02,
-    fold,
-    radius: (hexagonRadius * shortSide(size)) / (2 * halfHeight),
-    unfold: opening * (1 - closing),
-  } satisfies FilmV3Scene["faces"];
-}
-
-const isoView: View = { ...iso, halfHeight: 2.9 };
-
-// ---------- the study renderer: the endless pull back ----------
-
-/**
-Move 6. The pull back ends in a three-quarter view with lit faces, clear of the isometric symmetry,
-and nearly level, so the top face of the giant is a thin band that fades into the sky above it.
-*/
-const pullbackView = { elevation: 7, yaw: -58 } as const;
-/**
-Where the corner of the giant ends on screen, in frame half heights from the center with y up: low
-and right, so the words keep clear sky at the upper left.
-*/
-const cornerOnScreen = { x: 0.42, y: -0.25 } as const;
-const spongeHalfSize = 3 ** 5;
-/** One threefold zoom out takes this long at full speed. */
-const pullbackPeriod = 2.4;
-/**
-The zoom out speeds up from rest over this long. The zoom in slows to rest the same way, so the turn
-at the deepest point reads as one breath and not as a stop.
-*/
-const zoomOutSpeedUp = 1.2;
-/** Detail floors, in first cube units: the cube keeps one or three levels of channels. */
-export const detailFloors = { oneLevel: 0.19, threeLevels: 0.0214 } as const;
-
-function zoomSpeed(elapsed: number, slowAfter: number): number {
-  return (
-    (smoothstep(0, zoomOutSpeedUp, elapsed) / pullbackPeriod) *
-    mix(1, 0.4, smoothstep(slowAfter, slowAfter + 3, elapsed))
-  );
-}
-
-/** Log base 3 of the zoom scale, integrated from the speed with the midpoint rule. */
-function zoomLogAt(elapsed: number, slowAfter: number): number {
-  if (elapsed <= 0) {
-    return 0;
-  }
-  const steps = Math.ceil(elapsed * 240);
-  const step = elapsed / steps;
-  let sum = 0;
-  for (let index = 0; index < steps; index += 1) {
-    sum += zoomSpeed((index + 0.5) * step, slowAfter) * step;
-  }
-  return sum;
-}
-
-/**
-The pull back camera at `renderScale`. It starts at the deepest point of the zoom in, with the near
-corner at the frame center, and the frame scales about the corner while the camera turns and pans
-the corner to `cornerOnScreen`.
-*/
-function pullbackCamera(time: number, dive: Dive, renderScale: number): FilmV3Camera {
-  const turn = easeInOutSine(progress(time, dive.out, dive.out + 5));
-  const angles = {
-    elevation: mix(dive.from.elevation, pullbackView.elevation, turn),
-    halfHeight: deepHalfHeight * renderScale,
-    tan: 0,
-    yaw: mix(dive.from.yaw, pullbackView.yaw, turn),
-  };
-  const centered = orbitCamera({ ...angles, target: corner }, 1);
-  const pan = add(
-    scale(centered.right, cornerOnScreen.x * angles.halfHeight * turn),
-    scale(centered.up, cornerOnScreen.y * angles.halfHeight * turn),
-  );
-  return orbitCamera({ ...angles, target: add(corner, scale(pan, -1)) }, 120 * renderScale);
-}
-
-/**
-The frame drops the whole number of threefold zooms, the same one for the shutter open and close,
-so the zoom runs on with no loss of precision: the picture at scale `s` and at `3 s` is the same.
-*/
-function pullbackStudy(time: number, dive: Dive): IllusionStudyFrame {
-  const slowAfter = dive.slowAt - dive.out;
-  const zoomLog = zoomLogAt(time - dive.out, slowAfter);
-  const whole = Math.floor(zoomLog);
-  const cameraAt = (at: number) =>
-    pullbackCamera(at, dive, 3 ** (zoomLogAt(at - dive.out, slowAfter) - whole));
-  const renderScale = 3 ** (zoomLog - whole);
-  const camera = cameraAt(time);
-  const halfHeight = deepHalfHeight * renderScale;
-  const light = keyLight(camera, 0.045 * renderScale, 1);
-  // Depth haze in frame units, so it is the same at every scale. It starts 2.5 frame half heights
-  // behind the corner, so the cube itself never takes more than about 2 percent, and it grows in
-  // with the first zoom, so the swap frame has none, as in the film render.
-  const hazeWidth = 0.5 * halfHeight;
-  return {
-    cameras: [cameraAt(time - halfShutter), cameraAt(time + halfShutter)],
-    grain,
-    grainStep: grainStepAt(time),
-    haze: {
-      clearing: { center: corner, edge: 1, halfSize: 1, radius: 1e9, veil: 0 },
-      density: (0.45 / hazeWidth) * smoothstep(0, 1, zoomLog),
-      start: camera.rayStart + 2.5 * halfHeight,
-      width: hazeWidth,
-    },
-    light: {
-      ambient: light.ambient,
-      aoScale: light.aoScale,
-      aoStrength: 1,
-      direction: light.direction,
-      key: light.key,
-      // As in the film: no limit below the brightest possible shade.
-      shadeLimit: light.ambient + light.key,
-      shadowStrength: 1,
-    },
-    lines: { ink: haze.ink, strength: 0 },
-    sampleGrid,
-    scene: {
-      corner,
-      detailFloor: dive.detailFloor * 3 ** -whole,
-      halfSize: spongeHalfSize,
-      kind: "sponge",
-      octant,
-    },
-    sky: haze.sky,
-    tones: landingTones,
-  };
-}
-
 // ---------- the layer stack ----------
 
 function filmLayer(id: "film" | "film-shuffle", frame: FilmV3Frame, opacity: number): FilmV4Layer {
-  return { frame, id, kind: "film", opacity };
-}
-
-function studyLayer(frame: IllusionStudyFrame, opacity: number): FilmV4Layer {
-  return { frame, id: "study", kind: "study", opacity };
+  return { frame, id, opacity };
 }
 
 /** A render that takes over at `from` and fades in over `fade` seconds on top of the one before. */
@@ -683,286 +428,8 @@ function stackAt(time: number, parts: readonly [Part, ...Part[]]): FilmV4Layer[]
 
 // ---------- the words ----------
 
-type Word = { at: number; text: string };
-
 function rise(time: number, at: number): number {
   return 1 - (1 - progress(time, at, at + 0.45)) ** 5;
-}
-
-/** The end lines of the landing page, at the left over the pale haze. */
-function endWords(time: number, lines: readonly Word[], address: Word): FilmV3Text[] {
-  const ink = haze.ink;
-  return [
-    ...lines.map(({ at, text }, index) => ({
-      align: "left" as const,
-      cap: 84,
-      fit: Infinity,
-      color: ink,
-      words: [{ rise: rise(time, at), text }],
-      x: 150,
-      y: 200 + index * 124,
-    })),
-    {
-      align: "left",
-      cap: 46,
-      fit: Infinity,
-      color: ink,
-      words: [{ rise: rise(time, address.at), text: address.text }],
-      x: 152,
-      y: 540,
-    },
-  ];
-}
-
-function standardEnd(time: number, first: number, address: number): FilmV3Text[] {
-  return endWords(
-    time,
-    [
-      { at: first, text: "Same base." },
-      { at: first + 0.75, text: "Your accounts." },
-      { at: first + 1.5, text: "No magic." },
-    ],
-    { at: address, text: "samebase.com" },
-  );
-}
-
-/** The half height of the cube camera after `dive` of the zoom in toward the corner. */
-function divedHalfHeight(view: View, dive: number): number {
-  return view.halfHeight * (deepHalfHeight / view.halfHeight) ** dive;
-}
-
-// ---------- variant A ----------
-
-/**
-A plays the music from the start to its groove end at 14 s and then from the lift at 17.5 s, so the
-music never stops, and the faces open on the lift at 14 s. The mark holds one beat before it turns,
-and every move starts as the one before it settles.
-*/
-const a = {
-  turn: [0.5, 3.1],
-  reveal: { end: 6.9, spread: 5.7, start: 3.3 },
-  shuffle: 7.45,
-  settle: 12.2,
-  still: 13.5,
-  lift: 14,
-  dive: { start: 17.1, deep: 19.5, swap: 19.63, out: 19.8 },
-  words: 29.25,
-  address: 33.25,
-} as const;
-
-/** The shuffle of the v3 orbit, one second earlier. */
-const shuffleMovesA = orbitMoves.map((move) => ({ ...move, at: move.at - 1 }));
-
-function readViewA(time: number, turnStart: number): View {
-  const turned = markTurn(time, turnStart, { elevation: 24, halfHeight: 2.5, yaw: -52 }, a.turn[1]);
-  return {
-    elevation: keyed(time, turned.elevation, [
-      { at: a.turn[1], ease: easeInOutSine, to: 27, until: a.shuffle },
-      { at: a.settle, ease: easeInLongOut, to: iso.elevation, until: a.still },
-    ]),
-    halfHeight: keyed(time, turned.halfHeight, [
-      { at: a.settle, ease: easeInLongOut, to: isoView.halfHeight, until: a.still },
-    ]),
-    yaw: keyed(time, turned.yaw, [
-      { at: a.turn[1], ease: easeInOutSine, to: -38, until: a.shuffle },
-      { at: a.shuffle, ease: easeInOutSine, to: -42, until: a.settle },
-      { at: a.settle, ease: easeInLongOut, to: iso.yaw, until: a.still },
-    ]),
-  };
-}
-
-function readCubeA(
-  time: number,
-  size: Size,
-  mode: CubeShot["mode"],
-  fold: FourthFold,
-): FilmV3Scene {
-  const view = readViewA(time, a.turn[0]);
-  const dive = easeInOutSine(progress(time, a.dive.start, a.dive.deep));
-  let sponge: FilmV3Scene["sponge"] = revealSponge(time, view, size, a.reveal);
-  if (time >= a.settle) {
-    sponge = {
-      ...restSponge,
-      openness: 1 - easeInOutCubic(progress(time, a.settle + 0.1, a.settle + 0.8)),
-      revealRadius: fullRevealRadius,
-    };
-  }
-  return cubeScene(
-    {
-      dive,
-      faces: fourthFaces(time, a.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
-      // The floor shadow fades with the opening faces and stays away: the giant has no floor.
-      floor: 1 - easeInOutSine(progress(time, a.lift, a.lift + unfoldSeconds)),
-      mode,
-      shuffle: { depth: 3, fadePixels: 1.5, moveMinLevel: 0, ...readShuffle(time, shuffleMovesA) },
-      sponge,
-      view,
-    },
-    size,
-  );
-}
-
-function readFilmV4A(time: number, size: Size, fold: FourthFold): FilmV4Frame {
-  const dive: Dive = {
-    ...a.dive,
-    detailFloor: detailFloors.oneLevel,
-    from: isoView,
-    slowAt: a.words - 1.25,
-  };
-  const cube = (mode: CubeShot["mode"]) => filmFrame((at) => readCubeA(at, size, mode, fold), time);
-  return {
-    // Move 3: the shuffled sponge draws the fully open cube while cells move, and every level makes
-    // the same move at once. At rest it has the geometry of the fully open cube, so the handovers
-    // to it and back are free of motion, but its normals and occlusion read only the cells near the
-    // point, so each handover fades over six frames.
-    layers: stackAt(time, [
-      { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube("sponge"), opacity) },
-      {
-        fade: 0.1,
-        from: a.shuffle - 0.05,
-        layer: (opacity) => filmLayer("film-shuffle", cube("shuffle"), opacity),
-      },
-      {
-        fade: 0.1,
-        from: a.settle - 0.05,
-        layer: (opacity) => filmLayer("film", cube("sponge"), opacity),
-      },
-      {
-        fade: 0,
-        from: a.dive.swap,
-        layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
-      },
-    ]),
-    outlines: [],
-    overlay: { ink: haze.ink, pale: haze.sky[1] },
-    texts: standardEnd(time, a.words, a.address),
-    veil: 0,
-  };
-}
-
-// ---------- variant B ----------
-
-/**
-B plays the music from the start to 3.5 s and then from the lift at 17.5 s, so the faces open on
-the lift one beat after the turn: film time is track time minus 14 from the cut on.
-*/
-const b = {
-  turn: [0.5, 3.1],
-  lift: 3.5,
-  dive: { start: 6.6, deep: 9, swap: 9.13, out: 9.3 },
-  words: 18.75,
-  address: 22.75,
-} as const;
-
-/** The mark turns straight to the isometric view, and the faces open one beat later. */
-function readCubeB(time: number, size: Size, fold: FourthFold): FilmV3Scene {
-  const view = markTurn(time, b.turn[0], isoView, b.turn[1]);
-  const dive = easeInOutSine(progress(time, b.dive.start, b.dive.deep));
-  return cubeScene(
-    {
-      dive,
-      faces: fourthFaces(time, b.lift, { fold, halfHeight: divedHalfHeight(view, dive), size }),
-      floor: 1 - easeInOutSine(progress(time, b.lift, b.lift + unfoldSeconds)),
-      mode: "sponge",
-      shuffle: restShuffle,
-      sponge: restSponge,
-      view,
-    },
-    size,
-  );
-}
-
-function readFilmV4B(time: number, size: Size, fold: FourthFold): FilmV4Frame {
-  const dive: Dive = {
-    ...b.dive,
-    detailFloor: detailFloors.oneLevel,
-    from: isoView,
-    slowAt: b.words - 1.25,
-  };
-  const cube = () => filmFrame((at) => readCubeB(at, size, fold), time);
-  return {
-    layers: stackAt(time, [
-      { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube(), opacity) },
-      {
-        fade: 0,
-        from: b.dive.swap,
-        layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
-      },
-    ]),
-    outlines: [],
-    overlay: { ink: haze.ink, pale: haze.sky[1] },
-    texts: standardEnd(time, b.words, b.address),
-    veil: 0,
-  };
-}
-
-// ---------- variant C ----------
-
-/**
-C plays the music from the start to 8.5 s and then from the lift at 17.5 s, so the zoom toward the
-corner starts on the lift, and again from 25.5 s to 33.5 s, one phrase apart, so the words land on
-the last phrase before the ring out.
-*/
-const c = {
-  turn: [0.5, 3.1],
-  reveal: { end: 8.3, spread: 7.1, start: 3.3 },
-  settled: 8.7,
-  dive: { start: 8.3, deep: 10.7, swap: 10.83, out: 11 },
-  words: 17.25,
-  address: 20.75,
-} as const;
-
-function readViewC(time: number): View {
-  const turned = markTurn(time, c.turn[0], { elevation: 24, halfHeight: 2.5, yaw: -52 }, c.turn[1]);
-  return {
-    ...turned,
-    elevation: keyed(time, turned.elevation, [
-      { at: c.turn[1], ease: easeInOutSine, to: 27, until: c.settled },
-    ]),
-    yaw: keyed(time, turned.yaw, [
-      { at: c.turn[1], ease: easeInOutSine, to: -40, until: c.settled },
-    ]),
-  };
-}
-
-function readCubeC(time: number, size: Size): FilmV3Scene {
-  const view = readViewC(time);
-  return cubeScene(
-    {
-      dive: easeInOutSine(progress(time, c.dive.start, c.dive.deep)),
-      faces: closedFaces,
-      floor: 1 - easeInOutSine(progress(time, c.reveal.end - 0.8, c.settled)),
-      mode: "sponge",
-      shuffle: restShuffle,
-      sponge: revealSponge(time, view, size, c.reveal),
-      view,
-    },
-    size,
-  );
-}
-
-function readFilmV4C(time: number, size: Size): FilmV4Frame {
-  const dive: Dive = {
-    ...c.dive,
-    detailFloor: detailFloors.threeLevels,
-    from: readViewC(c.settled),
-    slowAt: c.words - 1.25,
-  };
-  const cube = () => filmFrame((at) => readCubeC(at, size), time);
-  return {
-    layers: stackAt(time, [
-      { fade: 0, from: 0, layer: (opacity) => filmLayer("film", cube(), opacity) },
-      {
-        fade: 0,
-        from: c.dive.swap,
-        layer: (opacity) => studyLayer(pullbackStudy(time, dive), opacity),
-      },
-    ]),
-    outlines: [],
-    overlay: { ink: haze.ink, pale: haze.sky[1] },
-    texts: standardEnd(time, c.words, c.address),
-    veil: 0,
-  };
 }
 
 // ---------- variant look: look again ----------
@@ -1164,7 +631,6 @@ function readCubeLook(at: number, size: Size, mode: CubeShot["mode"]): FilmV3Sce
   return cubeScene(
     {
       dive: easeInOutSine(progress(at, ...look.dive)),
-      faces: closedFaces,
       floor: 1 - easeInOutSine(progress(at, look.settle[0], 16.3)),
       mode,
       shuffle: lookShuffle(at, lookFadePixels),
@@ -1224,9 +690,9 @@ function lookPullScene(at: number, frameTime: number, size: Size): FilmV3Scene {
   };
 }
 
-function readFilmV4Look(time: number, size: Size, style: LookStyleName): FilmV4Frame {
-  const theme = lookThemeAt(style, time);
-  const backdrop = lookBackdropWords(time, size, style);
+export function readFilmV4Frame(time: number, size: Size): FilmV4Frame {
+  const theme = risoThemeAt(time);
+  const backdrop = lookBackdropWords(time, size);
   const cube = (mode: CubeShot["mode"]) =>
     styled(
       filmFrame(
@@ -1255,8 +721,8 @@ function readFilmV4Look(time: number, size: Size, style: LookStyleName): FilmV4F
     ]),
     outlines: lookOutlines(time, size),
     // The outline labels show while the camera zooms out.
-    overlay: { ink: lineInk(style, 1, 21.5, 28.5), pale: theme.pale },
-    texts: lookFrontWords(time, size, style),
+    overlay: { ink: lineInk(1, 21.5, 28.5), pale: theme.pale },
+    texts: lookFrontWords(time, size),
     veil: smoothstep(29, 29.5, time) * (1 - smoothstep(34.4, 34.9, time)),
   };
 }
@@ -1381,7 +847,7 @@ function risingWords(
   }));
 }
 
-function lookBackdropWords(time: number, size: Size, style: LookStyleName): FilmV3Text[] {
+function lookBackdropWords(time: number, size: Size): FilmV3Text[] {
   const { height, width } = size;
   if (height > width) {
     return lookBandLines.flatMap(({ at, tall, until }) =>
@@ -1390,7 +856,7 @@ function lookBackdropWords(time: number, size: Size, style: LookStyleName): Film
           above: index === 0,
           at: at + index * 0.22,
           cap: 0.1 * width,
-          color: lineInk(style, index === 0 ? 0 : 1, at, until),
+          color: lineInk(index === 0 ? 0 : 1, at, until),
           size,
           until: until + index * 0.08,
         }),
@@ -1401,7 +867,7 @@ function lookBackdropWords(time: number, size: Size, style: LookStyleName): Film
     rows.map((row, index) => ({
       align: "center" as const,
       cap: 0.19 * height,
-      color: lineInk(style, index === 0 ? 0 : 1, at, until),
+      color: lineInk(index === 0 ? 0 : 1, at, until),
       fit: 0.94 * width,
       words: risingWords(time, row.split(" "), at + index * 0.22, until + index * 0.08, 0.08),
       x: width / 2,
@@ -1410,7 +876,7 @@ function lookBackdropWords(time: number, size: Size, style: LookStyleName): Film
   );
 }
 
-function lookFrontWords(time: number, size: Size, style: LookStyleName): FilmV3Text[] {
+function lookFrontWords(time: number, size: Size): FilmV3Text[] {
   const { height, width } = size;
   if (height > width) {
     return [
@@ -1419,7 +885,7 @@ function lookFrontWords(time: number, size: Size, style: LookStyleName): FilmV3T
           above: false,
           at,
           cap: 0.075 * width,
-          color: lineInk(style, 1, at, until),
+          color: lineInk(1, at, until),
           size,
           until,
         }),
@@ -1427,7 +893,7 @@ function lookFrontWords(time: number, size: Size, style: LookStyleName): FilmV3T
       {
         align: "center",
         cap: 0.035 * width,
-        color: lineInk(style, 1, lookAddress.at, lookAddress.until),
+        color: lineInk(1, lookAddress.at, lookAddress.until),
         fit: width,
         words: risingWords(time, ["samebase.com"], lookAddress.at, lookAddress.until, 0),
         x: width / 2,
@@ -1439,7 +905,7 @@ function lookFrontWords(time: number, size: Size, style: LookStyleName): FilmV3T
     ...lookStarLines.map(({ at, text, until }) => ({
       align: "center" as const,
       cap: 0.13 * height,
-      color: lineInk(style, 1, at, until),
+      color: lineInk(1, at, until),
       fit: 0.94 * width,
       words: risingWords(time, text.split(" "), at, until, 0.08),
       x: width / 2,
@@ -1448,7 +914,7 @@ function lookFrontWords(time: number, size: Size, style: LookStyleName): FilmV3T
     {
       align: "center",
       cap: 0.035 * height,
-      color: lineInk(style, 1, lookAddress.at, lookAddress.until),
+      color: lineInk(1, lookAddress.at, lookAddress.until),
       fit: width,
       words: risingWords(time, ["samebase.com"], lookAddress.at, lookAddress.until, 0),
       x: width / 2,
@@ -1491,25 +957,4 @@ function lookOutlines(time: number, size: Size): FilmV4Outline[] {
       y: size.height / 2,
     };
   });
-}
-
-export function readFilmV4Frame(
-  variant: FilmV4Variant,
-  time: number,
-  size: Size,
-  fold: FourthFold,
-  style: LookStyleName,
-): FilmV4Frame {
-  switch (variant) {
-    case "a":
-      return readFilmV4A(time, size, fold);
-    case "b":
-      return readFilmV4B(time, size, fold);
-    case "c":
-      return readFilmV4C(time, size);
-    case "look":
-      return readFilmV4Look(time, size, style);
-    default:
-      return variant satisfies never;
-  }
 }

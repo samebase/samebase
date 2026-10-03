@@ -16,7 +16,7 @@ const usage = `Usage: renderContactSheet.ts <composition-id> <frames> <columns> 
 
 <frames> is a comma-separated list of frame numbers (75) or seconds (2.5s).
 The cell width defaults to 640 pixels.
-Example: renderContactSheet.ts MengerDiveSpike 0,1s,2s,149 3 out/sheet.jpg 480`;
+Example: renderContactSheet.ts SamebaseLookAgainRisoPreview 0,1s,2s,149 3 out/sheet.jpg 480`;
 const cellPadding = 8;
 const labelInset = 12;
 

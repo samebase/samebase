@@ -4,7 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { fail, runMain } from "../../../../scripts/lib/scriptRuntime.ts";
 
 const usage = `Usage: generateFilmV3Audio.ts music <output.mp3>
-       generateFilmV3Audio.ts sound <drag|reveal|lift|close> <output.mp3>
+       generateFilmV3Audio.ts sound <drag|reveal|lift> <output.mp3>
 
 Reads ELEVENLABS_API_KEY from apps/remotion-studio/.env.local. The key is never printed.`;
 
@@ -133,13 +133,6 @@ const soundRequests = new Map([
     {
       text: "A hidden fourth dimension unfolds: a short whoosh in, a deep clean sub impact, then a bright airy shimmer bloom that widens. Cinematic but clean, no music.",
       duration_seconds: 3,
-    },
-  ],
-  [
-    "close",
-    {
-      text: "A precise solid object folding back into place: a soft reversed whoosh that ends in one clean muted click-thump. Premium interface sound, no music.",
-      duration_seconds: 1.5,
     },
   ],
 ]);

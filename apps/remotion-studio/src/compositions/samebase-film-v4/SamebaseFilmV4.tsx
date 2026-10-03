@@ -12,35 +12,19 @@ import {
 } from "remotion";
 
 import { useWebGpuFrame } from "../../webgpu/useWebGpuFrame";
-import {
-  createIllusionStudyRenderer,
-  type IllusionStudyFrame,
-} from "../illusion-studies/illusionStudyRenderer";
 import { createFilmV3Renderer } from "../samebase-film-v3/filmV3Renderer";
 import { css, drawText, fontFor, waitForFilmV3Fonts } from "../samebase-film-v3/filmV3Page";
 import type { FilmV3Frame, Rgb } from "../samebase-film-v3/filmV3Timeline";
 import {
   type FilmV4Frame,
-  type LookStyleName,
   type FilmV4Outline,
-  type FilmV4Variant,
-  type FourthFold,
+  lookSeconds,
   readFilmV4Frame,
 } from "./filmV4Timeline";
 
 function FilmLayer({ frame, opacity }: { frame: FilmV3Frame; opacity: number }) {
   const { height, width } = useVideoConfig();
   const canvasRef = useWebGpuFrame(createFilmV3Renderer, frame);
-  return (
-    <AbsoluteFill style={{ opacity }}>
-      <canvas height={height} ref={canvasRef} width={width} />
-    </AbsoluteFill>
-  );
-}
-
-function StudyLayer({ frame, opacity }: { frame: IllusionStudyFrame; opacity: number }) {
-  const { height, width } = useVideoConfig();
-  const canvasRef = useWebGpuFrame(createIllusionStudyRenderer, frame);
   return (
     <AbsoluteFill style={{ opacity }}>
       <canvas height={height} ref={canvasRef} width={width} />
@@ -145,122 +129,38 @@ function OverlayLayer({ outlines, overlay, texts, veil }: Omit<FilmV4Frame, "lay
   );
 }
 
-/**
-One cut of the v3.5 music. `from` and `to` are track seconds and `at` is film seconds; each cut fades
-in and out over two frames, so a jump in the track makes no click.
-*/
-type MusicCut = { at: number; from: number; to: number };
+/** Sound effects, placed so that each peak lands on its picture hit. */
+const soundCues = [
+  { at: 0.2, name: "drag", volume: 0.3 },
+  { at: 3.05, name: "reveal", volume: 0.45 },
+  { at: 17.38, name: "lift", volume: 0.62 },
+] as const;
 
 /**
-Every cut leaves out the near-silent fall of the track from 14 s to 17.5 s: each jump lands on a
-beat, from the groove straight onto the lift, so the music never stops.
+The look again film. The music plays the whole track with no cut. The music and the sound effects
+are `public/media/samebase-film-v3*.mp3`, in Git LFS.
 */
-const music: Record<FilmV4Variant, readonly MusicCut[]> = {
-  a: [
-    { at: 0, from: 0, to: 14 },
-    { at: 14, from: 17.5, to: 42 },
-  ],
-  b: [
-    { at: 0, from: 0, to: 3.5 },
-    { at: 3.5, from: 17.5, to: 42 },
-  ],
-  c: [
-    { at: 0, from: 0, to: 8.5 },
-    { at: 8.5, from: 17.5, to: 25.5 },
-    { at: 16.5, from: 33.5, to: 42 },
-  ],
-  look: [{ at: 0, from: 0, to: 42 }],
-};
-
-/** Sound effects, placed so that each peak lands on its picture hit, as in v3.5. */
-const soundCues: Record<FilmV4Variant, readonly { at: number; name: string; volume: number }[]> = {
-  a: [
-    { at: 0.4, name: "drag", volume: 0.3 },
-    { at: 3.15, name: "reveal", volume: 0.45 },
-    { at: 13.88, name: "lift", volume: 0.62 },
-    { at: 17.5, name: "close", volume: 0.5 },
-  ],
-  b: [
-    { at: 0.4, name: "drag", volume: 0.3 },
-    { at: 3.38, name: "lift", volume: 0.62 },
-    { at: 7, name: "close", volume: 0.5 },
-  ],
-  c: [
-    { at: 0.4, name: "drag", volume: 0.3 },
-    { at: 3.15, name: "reveal", volume: 0.45 },
-  ],
-  look: [
-    { at: 0.2, name: "drag", volume: 0.3 },
-    { at: 3.05, name: "reveal", volume: 0.45 },
-    { at: 17.38, name: "lift", volume: 0.62 },
-  ],
-};
-
-const fadeFrames = 2;
-
-function MusicCutAudio({ cut, fadeOut, from }: { cut: MusicCut; fadeOut: boolean; from: number }) {
-  const { fps } = useVideoConfig();
-  const length = Math.round((cut.to - cut.from) * fps);
-  const fadeIn = cut.at > 0;
-  return (
-    <Sequence durationInFrames={length} from={Math.round((cut.at - from) * fps)}>
-      <Audio
-        src={staticFile("media/samebase-film-v3.mp3")}
-        startFrom={Math.round(cut.from * fps)}
-        endAt={Math.round(cut.to * fps)}
-        // The track peaks near 0 dBFS; this leaves headroom for the sound effects on top.
-        volume={(frame) =>
-          0.84 *
-          (fadeIn ? Math.min(frame / fadeFrames, 1) : 1) *
-          (fadeOut ? Math.min((length - frame) / fadeFrames, 1) : 1)
-        }
-      />
-    </Sequence>
-  );
-}
-
-export type SamebaseFilmV4Props = {
-  fold: FourthFold;
-  /** Film seconds at the first frame: 0 for the films, later for the fourth face beat clips. */
-  from: number;
-  /**
-  Plays the music and the sound effects. A video-only render leaves them out, and the music is
-  added to the result later.
-  */
-  sound: boolean;
-  /** The colors of the look variant. The other variants keep the landing haze. */
-  style: LookStyleName;
-  variant: FilmV4Variant;
-};
-
-/**
-The v4 brand films. The music and the sound effects are `public/media/samebase-film-v3*.mp3` from
-v3.5, in Git LFS.
-*/
-export function SamebaseFilmV4({ fold, from, sound, style, variant }: SamebaseFilmV4Props) {
+export function SamebaseFilmV4() {
   const frame = useCurrentFrame();
   const { fps, height, width } = useVideoConfig();
   const v4 = useMemo(
-    () => readFilmV4Frame(variant, from + frame / fps, { height, width }, fold, style),
-    [fold, fps, frame, from, height, style, variant, width],
+    () => readFilmV4Frame(frame / fps, { height, width }),
+    [fps, frame, height, width],
   );
-  const cuts = sound ? music[variant] : [];
-  const cues = sound ? soundCues[variant] : [];
   return (
     <AbsoluteFill style={{ backgroundColor: "#dfe4ea" }}>
-      {v4.layers.map((layer) =>
-        layer.kind === "film" ? (
-          <FilmLayer frame={layer.frame} key={layer.id} opacity={layer.opacity} />
-        ) : (
-          <StudyLayer frame={layer.frame} key={layer.id} opacity={layer.opacity} />
-        ),
-      )}
-      <OverlayLayer outlines={v4.outlines} overlay={v4.overlay} texts={v4.texts} veil={v4.veil} />
-      {cuts.map((cut, index) => (
-        <MusicCutAudio cut={cut} fadeOut={index < cuts.length - 1} from={from} key={cut.at} />
+      {v4.layers.map((layer) => (
+        <FilmLayer frame={layer.frame} key={layer.id} opacity={layer.opacity} />
       ))}
-      {cues.map(({ at, name, volume }) => (
-        <Sequence from={Math.round((at - from) * fps)} key={`${name}-${at}`}>
+      <OverlayLayer outlines={v4.outlines} overlay={v4.overlay} texts={v4.texts} veil={v4.veil} />
+      <Audio
+        src={staticFile("media/samebase-film-v3.mp3")}
+        endAt={lookSeconds * fps}
+        // The track peaks near 0 dBFS; this leaves headroom for the sound effects on top.
+        volume={0.84}
+      />
+      {soundCues.map(({ at, name, volume }) => (
+        <Sequence from={Math.round(at * fps)} key={name}>
           <Audio src={staticFile(`media/samebase-film-v3-${name}.mp3`)} volume={volume} />
         </Sequence>
       ))}

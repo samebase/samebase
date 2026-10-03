@@ -1,12 +1,31 @@
-# Look again film delivery
+# Look again film
 
-The look again film is the `look` variant of `SamebaseFilmV4`
-(`src/compositions/samebase-film-v4/filmV4Timeline.ts`).
+`SamebaseFilmV4` (`src/compositions/samebase-film-v4/`) draws the film with the WebGPU renderer and
+the motion helpers in `src/compositions/samebase-film-v3/`.
 
-- `SamebaseLookAgainRiso`: 1920x1080 at 60 fps, with sound.
-- `SamebaseLookAgainRisoVideo`: the same picture without sound.
+- `SamebaseLookAgainRiso`: 1920x1080 at 60 fps, with sound. `--muted` renders the picture alone.
 - `SamebaseLookAgainRisoVertical`: 1080x1920 at 60 fps, with sound, for vertical phone feeds.
-- `SamebaseLookAgainRisoVerticalPreview` and `SamebaseLookAgainStyle-*`: small previews at 30 fps.
+- `SamebaseLookAgainRisoPreview` (480x270) and `SamebaseLookAgainRisoVerticalPreview` (360x640):
+  previews at 30 fps.
+
+## Rules
+
+- Every frame is a pure function of time.
+- The film renders at 60 fps. Each frame spreads its 16 antialiasing samples over a half frame
+  shutter centered on the frame time, so fast moves blur a little. The grain changes 15 times a
+  second.
+- `checkShufflePlan` fails closed at load if a shuffle move leaves an empty slot, enters a filled
+  slot, shares a slot with a move in flight, runs with more than three moves in flight, or if the
+  plan does not end in the Menger layout.
+
+## Music
+
+`public/media/samebase-film-v3.mp3` (Git LFS) is an ElevenLabs `music_v2_5` composition plan from
+`src/scripts/generateFilmV3Audio.ts` at 120 BPM. The model moved the sections, so the measured track
+is the source of truth: the groove plays from 0 to 14 s, the lift lands at 17.52 s with the
+strongest onset of the track, and the music rings out to silence at 41.5 s. The film plays the whole
+track with no cut. The drag, reveal, and lift effects come from the same script, and each one is
+placed so that its peak lands on its picture hit.
 
 ## Vertical layout
 
@@ -19,7 +38,6 @@ The look again film is the `look` variant of `SamebaseFilmV4`
   right edge and the bottom fifth stay clear for the controls and captions of a phone feed.
 - The outline labels stop growing at 0.3 frame widths, so the longest label fits the width. The veil
   behind the star lines starts at 52 percent of the height and is full from 80 percent.
-- Only `look` has a tall layout. The end lines of A, B, and C have landscape pixel positions.
 
 ## Render times
 
