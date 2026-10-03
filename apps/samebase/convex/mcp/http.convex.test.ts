@@ -4,6 +4,7 @@ import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
+import { observedCompletedWorkerBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
 import {
   observedCreatedWorkerBuildSettings,
   observedMigratedWorkerBuildSettings,
@@ -1297,6 +1298,8 @@ describe("MCP tools/call access enforcement", () => {
     vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/github/callback");
 
     const cloudflareAccountId = "00000000000000000000000000000001";
+    const buildTokenUuid = observedCreatedWorkerBuildSettings.production_settings.build_token_uuid;
+    const triggerUuid = observedCompletedWorkerBuild.trigger.trigger_uuid;
     const defaultBranchCommitSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const providerRequests: Array<{ body: unknown; method: string; path: string }> = [];
     const createdBuildSettings = {
@@ -1312,12 +1315,10 @@ describe("MCP tools/call access enforcement", () => {
       production_settings: {
         ...observedCreatedWorkerBuildSettings.production_settings,
         root_directory: "apps/web",
-        build_token_uuid: "reusable-build-token",
       },
       previews_base_config: {
         ...observedCreatedWorkerBuildSettings.previews_base_config,
         root_directory: "apps/web",
-        build_token_uuid: "reusable-build-token",
       },
     };
     const nativeBuildSettings = {
@@ -1328,7 +1329,6 @@ describe("MCP tools/call access enforcement", () => {
       previews_base_config: {
         ...observedMigratedWorkerBuildSettings.previews_base_config,
         root_directory: "apps/web",
-        build_token_uuid: "reusable-build-token",
       },
     };
     let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
@@ -1448,7 +1448,7 @@ describe("MCP tools/call access enforcement", () => {
       if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
         return cloudflareResponse([
           {
-            trigger_uuid: "created-trigger-1",
+            trigger_uuid: triggerUuid,
             external_script_id: "mcp-worker-tag",
             branch_includes: ["main"],
             branch_excludes: [],
@@ -1489,13 +1489,13 @@ describe("MCP tools/call access enforcement", () => {
       if (url.pathname.endsWith("/builds/tokens")) {
         return cloudflareResponse([
           {
-            build_token_uuid: "reusable-build-token",
+            build_token_uuid: buildTokenUuid,
             build_token_name: "samebase build token",
             cloudflare_token_id: "opaque-oauth-token-id",
           },
         ]);
       }
-      if (method === "POST" && url.pathname.endsWith("/builds/triggers/created-trigger-1/builds")) {
+      if (method === "POST" && url.pathname.endsWith(`/builds/triggers/${triggerUuid}/builds`)) {
         return cloudflareResponse({});
       }
       throw new Error(`Unexpected provider request: ${method} ${url}`);
@@ -1524,7 +1524,7 @@ describe("MCP tools/call access enforcement", () => {
         cloudflareAccount: {
           accountId: cloudflareAccountId,
           accountName: "Test account",
-          lastUsedBuildTokenUuid: "reusable-build-token",
+          lastUsedBuildTokenUuid: buildTokenUuid,
         },
       });
       const repositoryId = await ctx.db.insert("repositories", {
@@ -1565,6 +1565,7 @@ describe("MCP tools/call access enforcement", () => {
       return repositoryId;
     });
     return {
+      buildTokenUuid,
       callTool,
       cloudflareAccountId,
       defaultBranchCommitSha,
@@ -1583,12 +1584,15 @@ describe("MCP tools/call access enforcement", () => {
     return providerRequests.find(
       (request) =>
         request.method === "POST" &&
-        request.path.endsWith("/builds/triggers/created-trigger-1/builds"),
+        request.path.endsWith(
+          `/builds/triggers/${observedCompletedWorkerBuild.trigger.trigger_uuid}/builds`,
+        ),
     );
   }
 
   it("creates a Worker with the repository account from inventory, then returns it in inventory", async () => {
     const {
+      buildTokenUuid,
       callTool,
       cloudflareAccountId,
       defaultBranchCommitSha,
@@ -1706,13 +1710,13 @@ describe("MCP tools/call access enforcement", () => {
           repo_name: "demo",
         },
         production_settings: expect.objectContaining({
-          build_token_uuid: "reusable-build-token",
+          build_token_uuid: buildTokenUuid,
           root_directory: "apps/web",
           build_command: "pnpm run build",
           deploy_command: "pnpm run deploy",
         }),
         previews_base_config: expect.objectContaining({
-          build_token_uuid: "reusable-build-token",
+          build_token_uuid: buildTokenUuid,
           root_directory: "apps/web",
           build_command: "pnpm run build",
           deploy_command: "pnpm run deploy:preview",
