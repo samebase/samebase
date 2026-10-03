@@ -15,7 +15,7 @@ test("staff email monitor uses the authenticated app route and sidebar @opt-in",
   await expect(monitor.getByRole("heading", { name: "Emails", exact: true })).toBeVisible();
   await expect(monitor.getByRole("combobox", { name: "Inbox", exact: true })).toBeVisible();
   await expect(monitor.getByRole("combobox", { name: "Status", exact: true })).toBeVisible();
-  await expect(monitor).toHaveAttribute("data-posthog-mask", "true");
+  await expect(monitor).toHaveAttribute("data-posthog-block", "true");
 
   const sidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(sidebar.getByTestId("dashboard-sidebar-account-section")).toBeVisible();

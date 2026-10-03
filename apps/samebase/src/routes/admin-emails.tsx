@@ -10,7 +10,7 @@ function AdminEmailsRouteComponent() {
     <AuthenticatedAppRoutePage>
       <main
         data-testid="admin-emails-page"
-        data-posthog-mask
+        data-posthog-block
         className="container mx-auto w-full max-w-6xl py-6"
       >
         <h1 className="mb-6 text-xl font-semibold @2xl:text-2xl">Emails</h1>

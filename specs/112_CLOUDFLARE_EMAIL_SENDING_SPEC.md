@@ -128,9 +128,9 @@ history by inbox and message status. These views read the existing component rec
 messages into another database.
 
 Only Samebase staff can read this history. Organization ownership does not grant access. Every query
-checks staff access before reading an inbox, message, or delivery record. Message content is masked
-from session recordings. Viewing a message does not change its read state or send it again. The
-monitor provides no compose, resend, or inbox-management controls.
+checks staff access before reading an inbox, message, or delivery record. The email monitor is
+excluded from session recordings. Viewing a message does not change its read state or send it again.
+The monitor provides no compose, resend, or inbox-management controls.
 
 ## Domain Setup Guidance
 
