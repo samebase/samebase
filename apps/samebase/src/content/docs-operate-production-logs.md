@@ -1,10 +1,10 @@
 # Operate: production logs
 
 Samebase deliberately does not wrap log reading. The providers' own tools are better, and your agent
-already has them; Samebase's job is handing over the coordinates. Get them from the app list
-(dashboard, or the `get_user_repositories` MCP tool): each app carries its Convex `teamId` and
-`projectId`, plus its Cloudflare `accountId` and `workerName`. The dashboard loads current provider
-observations separately and adds direct provider links when those reads succeed.
+already has them; Samebase's job is pointing at the right resources. The `repository_getStatus` MCP
+tool returns each app's Worker name with the logs link of its latest production build, and each
+Convex project's production deployment name with its Convex dashboard link. The Samebase dashboard
+loads the same provider reads and adds direct provider links when those reads succeed.
 
 ## Convex (backend) logs
 
@@ -16,8 +16,9 @@ CONVEX_DEPLOY_KEY= npx convex logs --prod --history 50
 
 The CLI resolves the production deployment from the repository's Convex configuration. The
 `CONVEX_DEPLOY_KEY=` prefix matters: if an env file carries a deploy key, the CLI silently targets
-that key's deployment and ignores `--prod`, so clear it for read commands. Outside a checkout,
-follow the direct link in the Samebase dashboard after its live Convex observation succeeds.
+that key's deployment and ignores `--prod`, so clear it for read commands. Outside a checkout, open
+the production deployment's dashboard link from `repository_getStatus` or from the Samebase
+dashboard.
 
 ## Cloudflare (delivery) logs
 
