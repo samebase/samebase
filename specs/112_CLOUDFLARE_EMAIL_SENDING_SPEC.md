@@ -101,16 +101,10 @@ The MCP feedback action is the second caller:
 5. It stores one per-user counter to enforce five submission attempts per 24 hours. The inbox stores
    the exact report and its delivery history under the shared retention contract.
 
-The email action returns an Evolu `Result`. Successful results contain `accepted`, `queued`, or
-`skipped`. Expected failures contain `bounced`, `suppressed`, `rejected`, or `unknown`. Acceptance
-does not prove receipt in the recipient's mailbox. Unknown delivery is not a confirmed rejection.
-Provider details remain in the component's delivery records, not the application result.
-
-Each send runs one Evolu Task in a request-local Run. The Run is disposed before the request ends.
-Configuration faults and unexpected exceptions still fail the calling action. Task defects are
-re-thrown within the request instead of being reported through an uncaught microtask. Evolu does not
-retry sends. This trial uses `@evolu/common@8.10.0` without changing the published email package
-API.
+The email action reports expected delivery failures explicitly. Acceptance does not prove receipt in
+the recipient's mailbox. Unknown delivery is not a confirmed rejection. Provider details remain in
+the component's delivery records, not the application result. Configuration faults and unexpected
+exceptions fail the calling action.
 
 A failed scheduled signup notification does not reject signup. A failed feedback send returns a tool
 error without private provider details. Unknown feedback delivery tells the caller not to resubmit
