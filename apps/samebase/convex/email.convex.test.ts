@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { components, internal } from "./_generated/api";
+import { sendEmail } from "./email";
 import { makeConvexTest } from "./test.setup";
 
 const sendArgs = {
@@ -159,7 +160,7 @@ describe("Cloudflare email sending", () => {
     );
   });
 
-  it("returns a rejected result without exposing provider details", async () => {
+  it("returns a rejected result to direct callers and fails the action without provider details", async () => {
     const t = makeConvexTest();
     stubEmailConfiguration("dev:samebase");
     vi.stubGlobal(
@@ -182,10 +183,15 @@ describe("Cloudflare email sending", () => {
       }),
     );
 
-    await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+    await expect(t.action((ctx) => sendEmail(ctx, sendArgs))).resolves.toEqual({
       ok: false,
       error: "rejected",
     });
+    await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
+      new Error(
+        "Email sending was not confirmed: rejected. Check delivery history before retrying.",
+      ),
+    );
   });
 
   it.each([
@@ -202,7 +208,7 @@ describe("Cloudflare email sending", () => {
       error: "suppressed",
     },
   ])(
-    "returns an explicit failure when Cloudflare reports a $label",
+    "returns a $label to direct callers and fails the action",
     async ({ permanentBounces, suppressedRecipients, error }) => {
       const t = makeConvexTest();
       stubEmailConfiguration("prod:samebase");
@@ -227,10 +233,15 @@ describe("Cloudflare email sending", () => {
         }),
       );
 
-      await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+      await expect(t.action((ctx) => sendEmail(ctx, sendArgs))).resolves.toEqual({
         ok: false,
         error,
       });
+      await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
+        new Error(
+          `Email sending was not confirmed: ${error}. Check delivery history before retrying.`,
+        ),
+      );
     },
   );
 
@@ -242,9 +253,14 @@ describe("Cloudflare email sending", () => {
       vi.fn(async () => new Response("Bad gateway", { status: 502 })),
     );
 
-    await expect(t.action(internal.email.send, sendArgs)).resolves.toEqual({
+    await expect(t.action((ctx) => sendEmail(ctx, sendArgs))).resolves.toEqual({
       ok: false,
       error: "unknown",
     });
+    await expect(t.action(internal.email.send, sendArgs)).rejects.toThrow(
+      new Error(
+        "Email sending was not confirmed: unknown. Check delivery history before retrying.",
+      ),
+    );
   });
 });

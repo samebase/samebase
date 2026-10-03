@@ -118,6 +118,9 @@ describe("Samebase OAuth account linking", () => {
     await vi.runAllTimersAsync();
     await t.finishInProgressScheduledFunctions();
     expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(
+      t.run(async (ctx) => ctx.db.system.query("_scheduled_functions").take(2)),
+    ).resolves.toMatchObject([{ state: { kind: "failed" } }]);
     await expect(t.run(async (ctx) => ctx.db.get(userId))).resolves.toMatchObject({
       state: "active",
       email: "new-signup@example.com",

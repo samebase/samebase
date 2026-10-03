@@ -106,11 +106,12 @@ the recipient's mailbox. Unknown delivery is not a confirmed rejection. Provider
 the component's delivery records, not the application result. Configuration faults and unexpected
 exceptions fail the calling action.
 
-A failed scheduled signup notification does not reject signup. A failed feedback send returns a tool
-error without private provider details. Unknown feedback delivery tells the caller not to resubmit
-until Samebase checks the delivery status. The shared component retries only confirmed HTTP 429
-responses, at most three provider attempts. It honors Retry-After. HTTP 408, network failures,
-invalid success receipts and HTTP 5xx remain unknown and do not retry.
+A failed scheduled signup notification is recorded as a failed function run in Convex, but does not
+reject signup. A failed feedback send returns a tool error without private provider details. Unknown
+feedback delivery tells the caller not to resubmit until Samebase checks the delivery status. The
+shared component retries only confirmed HTTP 429 responses, at most three provider attempts. It
+honors Retry-After. HTTP 408, network failures, invalid success receipts and HTTP 5xx remain unknown
+and do not retry.
 
 Account deletion is the third caller. It waits for the provider result and records either `sent` or
 `delivery_failed`. Failure does not stop final account deletion. The workflow does not retry the
