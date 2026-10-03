@@ -9,107 +9,94 @@ description:
 
 # Samebase
 
-## Choose the control surface
+## Route the request
 
-- Use Samebase actions to list repositories, read a repository status, create or connect a
-  repository, find, attach, connect, create, repair, or detach its Cloudflare Workers and Convex
+- Use Samebase tools for Samebase repositories: list them, read a repository status, create or
+  connect one, find, attach, connect, create, repair, or detach its Cloudflare Workers and Convex
   projects, and open the Samebase dashboard.
-- Use GitHub, Convex, or Cloudflare tools for direct work in those systems, including logs and
-  environment values. For a standalone provider resource, use only provider tools and do not propose
-  a Samebase workflow. A provider action does not change the Samebase repository unless the action
-  says that it does.
-- When Samebase actions are registered but no action supports the requested operation, explain where
-  the user can do it and offer to open the dashboard. Do not read the repository list or call an
-  action before the user accepts. Then call only `account_createSignInLink`. Do not claim that the
-  operation finished.
-- Choose the action from the user's request. Follow the live MCP server and tool instructions for
-  the current actions, arguments, effects, and required order.
-- If a required Samebase action is absent, read
+- Use GitHub, Convex, or Cloudflare tools for code, logs, environment values, migrations, domains,
+  and standalone provider resources. Do not propose a Samebase workflow for a standalone resource.
+- Call only the tools that the request needs. Do not read the repository list or the authentication
+  status as a preflight. For a question about the Samebase connection, call only
+  `account_getAuthenticationStatus`.
+- If a Samebase tool that the request needs is absent, read
   [Recover missing actions](references/recover-missing-actions.md).
-- For a request about Samebase connection or authentication status, call
-  `account_getAuthenticationStatus` directly. Do not read the repository list.
-- Call only the actions needed for that route. Do not read the repository list or authentication
-  state as a generic preflight.
-- Never offer feedback for a standalone GitHub, Convex, Cloudflare, or agent problem.
-- When the feedback action is available, offer once without being asked after an unexpected Samebase
-  failure, a wrong Samebase result, or clear frustration with Samebase or its plugin. Draft a short
-  report that states what the user tried, what happened, and what should improve. Show the exact
-  report, then say,
-  `I can automatically send this exact report to Samebase. No form is needed, and nothing is sent unless you approve. Send it?`
-
-## Open Samebase
-
-- For `open @samebase` or another request to open the Samebase dashboard:
-  1. If `account_createSignInLink` is absent, read
-     [Recover missing actions](references/recover-missing-actions.md).
-  2. Call `account_createSignInLink` directly. Do not call authentication status first.
-  3. If the callable action reports missing authorization or scope, explain the requirement. Ask,
-     `Would you like me to start authorization with Samebase?`
-  4. Start authorization only through the current plugin or connection flow after the user agrees.
-     Wait for it to finish, then call `account_createSignInLink` again.
-  5. In Codex, use the in-app Browser unless the user names another browser.
-  6. In ChatGPT web or mobile, present the returned URL as a clickable link. If the current client
-     provides a browser-opening action, use it when the user asks to open the dashboard.
-  7. Use only the returned URL before it expires. If no browser-opening action is available, present
-     the link without claiming that the dashboard opened.
 
 ## Name repositories and resources
 
-- Name a repository by its GitHub full name, `owner/name`, or by the `repositoryId` from
-  `repository_list`. Name a Worker by the name and an existing Convex project by the `projectSlug`
-  that Samebase returns. Never invent IDs.
-- Read `repository_list` before a write when the repository can already be connected.
+- Pass `repository` as the GitHub full name, `owner/name`, or as the `repositoryId` from
+  `repository_list`.
+- Name a Worker by its name. Name an existing Convex project by its slug, `convexProjectSlug`, as
+  `repository_list` or `repository_convex_findProjects` returns it. The project name is for display
+  only. Never invent a name, slug, or ID.
 - Samebase picks the Workers Builds token, the only Convex code location, and the only attached
-  Convex project. When a result lists choices, ask the user and pass the choice in the next call.
-- Repository creation uses these steps:
-  1. Resolve the Convex production region. Pass `aws-us-east-1` for US. Before you pass
-     `aws-eu-west-1` for EU, state,
-     `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
-     Link to [Convex pricing](https://www.convex.dev/pricing). Otherwise, omit the region; Samebase
-     uses the organization default, or US when none is saved.
-  2. Call `repository_create` once.
-  3. Poll only `repository_list` until both source and provider setup reach `ready` or `failed`.
-     Stop and report a failed state.
-  4. When the result reports Cloudflare as pending, `ready` covers only the GitHub and Convex work.
-     Report Cloudflare setup as pending and link to
-     [Cloudflare setup](https://samebase.com/docs/cloudflare-setup). After the user finishes it,
-     `repository_cloudflare_createWorker` completes the first app.
-- Source setup and provider setup are separate states. Source work can continue while provider setup
-  is incomplete or failed.
+  Convex project. When a result lists choices, ask the user and pass the choice.
 
-## Approve provider writes
+## Create a repository
 
-- A direct request to create a Samebase repository approves one creation sequence. State the GitHub
-  owner and repository name, the Convex production region you pass (or the organization default),
-  the Convex project and Worker names, and the effects before the call. Do not ask again unless the
-  target, effects, or scope changes.
-- Before a Samebase action can create or change provider resources or start a production build,
-  state the repository, the resource, the expected changes, and whether Samebase attaches an
-  existing resource, connects it, or creates a new one. Get explicit approval.
-- `repository_cloudflare_connectWorker` replaces what the Worker serves.
-  `repository_cloudflare_rotateConvexDeployKeys` and `repository_retryProviderSetup` revoke and
-  replace deploy keys. `repository_detachResource` removes an attachment. Tell the user the effect
-  and get approval before each, unless the request already approves that effect.
-- Ask again if the target, effects, or approved scope changes.
+1. A direct request to create a repository approves one creation. Before the call, state the GitHub
+   owner, the repository name and visibility, the Convex region or the organization default, and
+   that Samebase creates a Convex project and, when the Cloudflare account has a Workers Builds
+   token, a Worker.
+2. Call `repository_create` once. Pass a region or a build token only when the user names one.
+3. Poll only `repository_list` until source and provider setup are each `ready` or `failed`. Report
+   the current state while setup runs, and report a failure as it is.
+4. When `pendingCloudflareSetup` is set, `ready` covers only GitHub and Convex. Report Cloudflare
+   setup as pending and link to [Cloudflare setup](https://samebase.com/docs/cloudflare-setup).
+   After the user finishes it, `repository_cloudflare_createWorker` completes the first app.
 
-## Work in the repository
+## Confirm gated actions
 
-- Use each selected repository's GitHub repository for code work. Follow its instructions and
-  validation commands.
-- For a request to review or apply newer Samebase starter changes, read the
-  [Samebase starter changelog](references/starter-changelog.md).
-- When the request covers several or all apps, read `repository_list` once and use every returned
-  repository as the review scope. Inspect each GitHub repository separately and report each as
-  `update needed`, `already current`, `not relevant`, or `unavailable`.
-- Apply changes only when the user asks. Use GitHub tools and a separate branch and pull request for
-  each repository. The Samebase repository list selects the repositories but does not change their
-  code.
+- `repository_cloudflare_connectWorker`, `repository_cloudflare_rotateConvexDeployKeys`,
+  `repository_retryProviderSetup`, and `repository_detachResource` first return `needs_confirmation`
+  and change nothing.
+- Tell the user the returned effect and ask for approval. After the user approves, repeat the call
+  with the same arguments and `confirmation`: the returned token and the exact acknowledgement
+  sentence. Never send a confirmation that the user did not approve.
+- If the user declines or changes an argument, do not reuse the token. A changed request starts with
+  a new first call.
+- Before `repository_cloudflare_createWorker`, `repository_cloudflare_configureBuilds`, or
+  `repository_convex_createProject`, state the repository, the resource, and the effect, and get
+  approval unless the request already approves it.
+
+## Open the dashboard
+
+- For `open @samebase` or another request to open the Samebase dashboard, call
+  `account_createSignInLink` directly.
+- In Codex, open the returned URL in the in-app Browser unless the user names another browser.
+- In ChatGPT web or mobile, show the returned URL as a clickable link. Open it with a
+  browser-opening action only when the client provides one.
+- Claim that the dashboard opened only when a browser action confirms it.
+- If the tool reports missing authorization or scope, ask,
+  `Would you like me to start authorization with Samebase?` Start it only through the current
+  client's plugin or connection flow, then call `account_createSignInLink` again.
+- Only the dashboard can remove a repository from Samebase, change a Convex code location, accept a
+  Worker or GitHub rename, and manage members, organization settings, billing, and provider
+  connections. Say so and offer to open the dashboard. Call `account_createSignInLink` only after
+  the user accepts, and do not claim that the operation finished.
 
 ## Verify the result
 
-- Reread `repository_list` after an attachment, connection, creation, or repair action.
 - Call `repository_getStatus` for the builds, URLs, Convex deployments, checks, and pull requests of
-  a repository, and follow its attention items. Use provider tools for logs, environment values,
-  migrations, and domains.
-- A started run, build request, commit, or push does not prove that a deployment is live.
-- Never put credentials in Git, logs, screenshots, or responses. Report only verified state.
+  a repository. Follow its attention items: each names the tool that fixes the problem.
+- Ready setup, a requested build, a commit, or a push does not prove that the app is live. Report
+  only verified state.
+- Never put credentials in Git, logs, screenshots, or responses.
+
+## Work in the repository
+
+- Do code work in the repository's GitHub repository. Follow its instructions and checks.
+- For a request to review or apply newer Samebase starter changes, read the
+  [Samebase starter changelog](references/starter-changelog.md). For several or all repositories,
+  read `repository_list` once, inspect each GitHub repository separately, and report each as
+  `update needed`, `already current`, `not relevant`, or `unavailable`. Apply changes only when the
+  user asks, with a separate branch and pull request for each repository.
+
+## Feedback
+
+- After an unexpected Samebase failure, a wrong Samebase result, or clear frustration with Samebase
+  or its plugin, offer feedback once. Never offer it for a standalone GitHub, Convex, Cloudflare, or
+  agent problem.
+- Draft a short report that states what the user tried, what happened, and what should improve. Show
+  the exact report, then say,
+  `I can automatically send this exact report to Samebase. No form is needed, and nothing is sent unless you approve. Send it?`
