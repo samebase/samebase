@@ -1,15 +1,13 @@
 import { linkStyle } from "@/components/styles";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
-import {
-  formatRepositoryCheckSummary,
-  type RepositoryCheckSummary,
-} from "@/repository/dashboard/repositoryChecks";
+import { formatRepositoryCheckSummary } from "@/repository/dashboard/repositoryChecks";
 import { clsx } from "clsx";
 import { CircleAlert, CircleCheck, CircleDashed, CircleDot, CircleX, Loader2 } from "lucide-react";
 import {
   classifyRepositoryCheck,
   type RepositoryCheck,
   type RepositoryCheckState,
+  type RepositoryCheckSummary,
   type RepositoryStatusCheckRollup,
 } from "../../../convex/repository/pullRequestModel";
 

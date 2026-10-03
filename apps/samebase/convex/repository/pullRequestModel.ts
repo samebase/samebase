@@ -174,6 +174,23 @@ export type RepositorySidebarSummary = Infer<typeof vRepositorySidebarSummary>;
 export type RepositoryCheck = Infer<typeof checkContext>;
 export type RepositoryCheckState = "success" | "failure" | "running" | "neutral" | "unknown";
 
+type StatusCheckCounts = NonNullable<RepositoryStatusCheckCounts>;
+type CheckRunProviderState =
+  StatusCheckCounts["contexts"]["checkRunCountsByState"][number]["state"];
+type StatusContextProviderState =
+  StatusCheckCounts["contexts"]["statusContextCountsByState"][number]["state"];
+
+/** The counts of every check of one commit, from GitHub's aggregate counts by state. */
+export type RepositoryCheckSummary = {
+  state: "none" | RepositoryCheckState;
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  runningCount: number;
+  neutralCount: number;
+  unknownCount: number;
+};
+
 /** The state of one check, shared by the dashboard checks list and the status read. */
 export function classifyRepositoryCheck(check: RepositoryCheck): RepositoryCheckState {
   if (check.kind === "status_context") {
@@ -334,3 +351,119 @@ export type PullRequestResources = Omit<
   Extract<PullRequestResourceRead, { state: "available" }>,
   "state"
 >;
+
+function classifyCheckRunCount(state: CheckRunProviderState): RepositoryCheckState {
+  switch (state) {
+    case "SUCCESS":
+      return "success";
+    case "ACTION_REQUIRED":
+    case "CANCELLED":
+    case "FAILURE":
+    case "STALE":
+    case "STARTUP_FAILURE":
+    case "TIMED_OUT":
+      return "failure";
+    case "IN_PROGRESS":
+    case "PENDING":
+    case "QUEUED":
+    case "WAITING":
+      return "running";
+    case "NEUTRAL":
+    case "SKIPPED":
+      return "neutral";
+    case "COMPLETED":
+    case "UNKNOWN":
+      return "unknown";
+    default:
+      state satisfies never;
+      return "unknown";
+  }
+}
+
+function classifyStatusContextCount(state: StatusContextProviderState): RepositoryCheckState {
+  switch (state) {
+    case "SUCCESS":
+      return "success";
+    case "ERROR":
+    case "FAILURE":
+      return "failure";
+    case "EXPECTED":
+    case "PENDING":
+      return "running";
+    case "UNKNOWN":
+      return "unknown";
+    default:
+      state satisfies never;
+      return "unknown";
+  }
+}
+
+/**
+Summarizes every check of one commit from GitHub's aggregate counts. A rollup lists only its first
+100 check nodes, so the counts never come from the nodes. The dashboard and the status read share it.
+*/
+export function summarizeRepositoryChecks(
+  rollup: RepositoryStatusCheckCounts,
+): RepositoryCheckSummary {
+  if (rollup === null || rollup.contexts.totalCount === 0) {
+    return {
+      state: "none",
+      totalCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      runningCount: 0,
+      neutralCount: 0,
+      unknownCount: 0,
+    };
+  }
+
+  const totals = {
+    successCount: 0,
+    failureCount: 0,
+    runningCount: 0,
+    neutralCount: 0,
+    unknownCount: 0,
+  };
+  const add = (state: RepositoryCheckState, count: number) => {
+    switch (state) {
+      case "success":
+        totals.successCount += count;
+        break;
+      case "failure":
+        totals.failureCount += count;
+        break;
+      case "running":
+        totals.runningCount += count;
+        break;
+      case "neutral":
+        totals.neutralCount += count;
+        break;
+      case "unknown":
+        totals.unknownCount += count;
+        break;
+      default:
+        state satisfies never;
+    }
+  };
+  for (const count of rollup.contexts.checkRunCountsByState) {
+    add(classifyCheckRunCount(count.state), count.count);
+  }
+  for (const count of rollup.contexts.statusContextCountsByState) {
+    add(classifyStatusContextCount(count.state), count.count);
+  }
+
+  return {
+    state:
+      totals.failureCount > 0
+        ? "failure"
+        : totals.runningCount > 0
+          ? "running"
+          : totals.unknownCount > 0
+            ? "unknown"
+            : totals.successCount > 0
+              ? "success"
+              : "neutral",
+    totalCount: rollup.contexts.totalCount,
+    ...totals,
+  };
+}

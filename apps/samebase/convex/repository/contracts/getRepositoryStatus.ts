@@ -67,13 +67,20 @@ const vRepositoryStatus = object({
   attention: array(vRepositoryAttentionItem),
 });
 
-/** Failed check names instead of the full check list. Null when the commit has no checks. */
+/**
+The checks of one commit, null when it has none. The counts come from GitHub's aggregate counts, so
+they cover every check. GitHub lists only the first 100 checks, so failedNames can miss a failure;
+failedNamesComplete is false when it names fewer checks than `failed` counts.
+*/
 const vMcpChecks = union(
   v.null(),
   object({
     total: number(),
+    failed: number(),
     pending: number(),
-    failed: array(string()),
+    unknown: number(),
+    failedNames: array(string()),
+    failedNamesComplete: boolean(),
   }),
 );
 const vMcpBuild = union(
@@ -212,7 +219,9 @@ the repository overview shows. It changes nothing.
   missing or targets another project. "Deploy the Convex project to production first" means that a
   project has no production deployment yet, so no deploy key can be installed.
 
-Checks list only the names of failed checks. A provider that cannot be read is reported as
+Checks give the total, failed, pending, and unknown counts of every check, and the names of the
+failed checks among the first 100 that GitHub lists; \`failedNamesComplete\` is false when a
+failed check is not named. A provider that cannot be read is reported as
 unavailable rather than failing the whole read, and an unavailable fact gives no attention item. A successful build does not prove that the app
 serves the expected content.`,
 } as const;

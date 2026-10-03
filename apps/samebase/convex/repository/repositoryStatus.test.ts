@@ -58,17 +58,23 @@ const adminProject = {
   codeLocation: { kind: "config" as const, convexConfigPath: "apps/admin/convex.json" },
 };
 
+/** A rollup as GitHub returns it: aggregate counts of every check, and the first 100 nodes. */
 function checkRollup(
-  checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" | null }>,
+  checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" | "UNKNOWN" | null }>,
 ): RepositoryStatusCheckRollup {
+  const countsByState = new Map<"SUCCESS" | "FAILURE" | "UNKNOWN" | "IN_PROGRESS", number>();
+  for (const check of checks) {
+    const state = check.conclusion ?? "IN_PROGRESS";
+    countsByState.set(state, (countsByState.get(state) ?? 0) + 1);
+  }
   return {
     contexts: {
       totalCount: checks.length,
       checkRunCount: checks.length,
       statusContextCount: 0,
-      checkRunCountsByState: [],
+      checkRunCountsByState: [...countsByState].map(([state, count]) => ({ state, count })),
       statusContextCountsByState: [],
-      nodes: checks.map((check) => ({
+      nodes: checks.slice(0, 100).map((check) => ({
         kind: "check_run" as const,
         name: check.name,
         status: check.conclusion === null ? ("IN_PROGRESS" as const) : ("COMPLETED" as const),
@@ -732,7 +738,7 @@ describe("projectRepositoryStatusForMcp", () => {
     const mcpResult = projectRepositoryStatusForMcp({ repository, status });
     const mcpBytes = Buffer.byteLength(JSON.stringify(mcpResult));
 
-    expect(mcpBytes).toBe(2091);
+    expect(mcpBytes).toBe(2256);
     expect(mcpBytes).toBeLessThan(4096);
     expect(mcpBytes).toBeLessThanOrEqual(Buffer.byteLength(JSON.stringify(status)));
   });
@@ -742,7 +748,17 @@ describe("projectRepositoryStatusForMcp", () => {
 
     expect(mcpResult).toMatchObject({
       repository: "samebase/chess-merge",
-      defaultBranch: { name: "main", checks: { total: 3, pending: 0, failed: [] } },
+      defaultBranch: {
+        name: "main",
+        checks: {
+          total: 3,
+          failed: 0,
+          pending: 0,
+          unknown: 0,
+          failedNames: [],
+          failedNamesComplete: true,
+        },
+      },
       openPullRequestCount: 2,
       apps: [
         {
@@ -762,7 +778,7 @@ describe("projectRepositoryStatusForMcp", () => {
       pullRequests: [
         {
           number: 42,
-          checks: { total: 3, pending: 0, failed: ["test"] },
+          checks: { total: 3, failed: 1, pending: 0, failedNames: ["test"] },
           apps: [
             {
               workerName: "chess-merge",
@@ -771,7 +787,7 @@ describe("projectRepositoryStatusForMcp", () => {
             },
           ],
         },
-        { number: 41, checks: { total: 3, pending: 1, failed: [] } },
+        { number: 41, checks: { total: 3, failed: 0, pending: 1, failedNames: [] } },
       ],
       attention: [],
     });
@@ -844,6 +860,44 @@ describe("projectRepositoryStatusForMcp", () => {
       commit: "behind_head",
     });
     expect(productionBuildAtHead(null)).toMatchObject({ buildState: "success", commit: "unknown" });
+  });
+
+  it("counts every check from GitHub's aggregate counts, beyond the 100 listed checks", () => {
+    // 102 checks: GitHub lists the first 100, which hold one unknown check; a failure and a
+    // pending check come after them.
+    const checks = checkRollup([
+      ...Array.from({ length: 99 }, (_, index) => ({
+        name: `unit ${index + 1}`,
+        conclusion: "SUCCESS" as const,
+      })),
+      { name: "license scan", conclusion: "UNKNOWN" },
+      { name: "deploy preview", conclusion: "FAILURE" },
+      { name: "e2e", conclusion: null },
+    ]);
+    const mcpResult = projectRepositoryStatusForMcp({
+      repository,
+      status: {
+        ...status,
+        pullRequests: {
+          state: "available",
+          page: {
+            repository: {
+              ...githubRepository,
+              defaultBranch: { ...defaultBranch, statusCheckRollup: checks },
+            },
+          },
+        },
+      },
+    });
+
+    expect(mcpResult.defaultBranch?.checks).toEqual({
+      total: 102,
+      failed: 1,
+      pending: 1,
+      unknown: 1,
+      failedNames: [],
+      failedNamesComplete: false,
+    });
   });
 
   it("reports unreadable reads as unavailable", () => {

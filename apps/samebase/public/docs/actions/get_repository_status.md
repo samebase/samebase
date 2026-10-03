@@ -27,9 +27,11 @@ repository overview shows. It changes nothing.
   or targets another project. "Deploy the Convex project to production first" means that a project
   has no production deployment yet, so no deploy key can be installed.
 
-Checks list only the names of failed checks. A provider that cannot be read is reported as
-unavailable rather than failing the whole read, and an unavailable fact gives no attention item. A
-successful build does not prove that the app serves the expected content.
+Checks give the total, failed, pending, and unknown counts of every check, and the names of the
+failed checks among the first 100 that GitHub lists; `failedNamesComplete` is false when a failed
+check is not named. A provider that cannot be read is reported as unavailable rather than failing
+the whole read, and an unavailable fact gives no attention item. A successful build does not prove
+that the app serves the expected content.
 
 ## Arguments
 
@@ -75,17 +77,33 @@ JSON Schema for the tool's `structuredContent`:
                     "total": {
                       "type": "number"
                     },
+                    "failed": {
+                      "type": "number"
+                    },
                     "pending": {
                       "type": "number"
                     },
-                    "failed": {
+                    "unknown": {
+                      "type": "number"
+                    },
+                    "failedNames": {
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "failedNamesComplete": {
+                      "type": "boolean"
                     }
                   },
-                  "required": ["total", "pending", "failed"],
+                  "required": [
+                    "total",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "failedNames",
+                    "failedNamesComplete"
+                  ],
                   "additionalProperties": false
                 }
               ]
@@ -313,17 +331,33 @@ JSON Schema for the tool's `structuredContent`:
                   "total": {
                     "type": "number"
                   },
+                  "failed": {
+                    "type": "number"
+                  },
                   "pending": {
                     "type": "number"
                   },
-                  "failed": {
+                  "unknown": {
+                    "type": "number"
+                  },
+                  "failedNames": {
                     "type": "array",
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "failedNamesComplete": {
+                    "type": "boolean"
                   }
                 },
-                "required": ["total", "pending", "failed"],
+                "required": [
+                  "total",
+                  "failed",
+                  "pending",
+                  "unknown",
+                  "failedNames",
+                  "failedNamesComplete"
+                ],
                 "additionalProperties": false
               }
             ]

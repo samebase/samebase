@@ -30,10 +30,8 @@ import type {
 import type { OrganizationGitHubIdentityObservation } from "@/organization/useOrganizationGitHubIdentity";
 import { useOrganizationGitHubIdentities } from "@/organization/useOrganizationGitHubIdentity";
 import { ORGANIZATION_SETTINGS_ROUTE } from "@/organization/organizationRoutes";
-import {
-  formatRepositoryCheckSummary,
-  type RepositoryCheckSummary,
-} from "@/repository/dashboard/repositoryChecks";
+import { formatRepositoryCheckSummary } from "@/repository/dashboard/repositoryChecks";
+import type { RepositoryCheckSummary } from "../../../convex/repository/pullRequestModel";
 import { personalOrganizationsFirst } from "@/organization/organizationOrder";
 import {
   buildRepositoryDashboardRoute,

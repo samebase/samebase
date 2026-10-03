@@ -23,7 +23,11 @@ import {
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
-import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
+import {
+  classifyRepositoryCheck,
+  summarizeRepositoryChecks,
+  type RepositoryStatusCheckRollup,
+} from "./pullRequestModel";
 
 /*
 The pure parts of repository:getStatus: the attention rules and the MCP projection. The Node read in
@@ -307,28 +311,33 @@ export function buildRepositoryAttention(args: {
   return items;
 }
 
-/** Failed check names instead of the full check list. Null when the commit has no checks. */
+/**
+The counts of every check from GitHub's aggregate counts, and the names of the failed checks among
+the listed nodes. Null when the commit has no checks.
+*/
 function summarizeChecksForMcp(rollup: RepositoryStatusCheckRollup) {
   if (rollup === null || rollup.contexts.totalCount === 0) {
     return null;
   }
-  const states = rollup.contexts.nodes.map((check) => ({
-    name: check.kind === "check_run" ? check.name : check.context,
-    state: classifyRepositoryCheck(check),
-  }));
+  const summary = summarizeRepositoryChecks(rollup);
+  const failedNames = rollup.contexts.nodes
+    .filter((check) => classifyRepositoryCheck(check) === "failure")
+    .map((check) => (check.kind === "check_run" ? check.name : check.context))
+    .sort((left, right) => left.localeCompare(right));
   return {
-    total: rollup.contexts.totalCount,
-    pending: states.filter((check) => check.state === "running").length,
-    failed: states
-      .filter((check) => check.state === "failure")
-      .map((check) => check.name)
-      .sort((left, right) => left.localeCompare(right)),
+    total: summary.totalCount,
+    failed: summary.failureCount,
+    pending: summary.runningCount,
+    unknown: summary.unknownCount,
+    failedNames,
+    failedNamesComplete: failedNames.length >= summary.failureCount,
   };
 }
 
 /**
 The MCP result: what the overview shows, without labels, line counts, node IDs, head SHAs,
-attachment IDs, or provider failure reasons.
+attachment IDs, or provider failure reasons. Checks give counts and failed check names, not the
+full check list.
 */
 export function projectRepositoryStatusForMcp(args: {
   repository: RepositoryStatusRepository;

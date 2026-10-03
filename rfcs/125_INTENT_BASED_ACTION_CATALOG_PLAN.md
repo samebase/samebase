@@ -176,9 +176,9 @@ provider connections, and account settings.
 
 The overview already groups each root directory's Worker and Convex deployment
 ([repositoryEnvironmentRoots.ts L149](../apps/samebase/src/repository/dashboard/repositoryEnvironmentRoots.ts#L149)).
-The MCP output is smaller than the dashboard result: failed check names instead of the full check
-list, and no labels, line counts, node IDs, or head SHAs. Measured on realistic JSON (attention
-items not included):
+The MCP output is smaller than the dashboard result: check counts and failed check names instead of
+the full check list, and no labels, line counts, node IDs, or head SHAs. Measured on realistic JSON
+(attention items not included):
 
 | Case                                                     | MCP output                          | Dashboard result |
 | -------------------------------------------------------- | ----------------------------------- | ---------------- |
@@ -442,14 +442,18 @@ Deviations found during step 3:
    without a connected GitHub repository or in removal.
 3. The dashboard result is the six existing overview reads (four provider observations, the open
    pull request page, and the pull request resources) plus the attention items, so the overview can
-   adopt it in PR 6 without new shapes. The typical MCP result measures 2,091 bytes (1 Worker, 1
+   adopt it in PR 6 without new shapes. The typical MCP result measures 2,256 bytes (1 Worker, 1
    Convex project, 3 checks per commit, 2 open PRs).
 4. The production build observation keeps the commit that Cloudflare built
    (`build_trigger_metadata.commit_hash`). The MCP result returns no SHA; each app's production
    build carries `commit`: `matches_head`, `behind_head` (the latest push has no production build
    yet), or `unknown` when the head or the built commit cannot be read. This answers "Did my last
    push deploy?".
-5. The attention rules read the provider setup state first, because a running managed setup holds
+5. Checks give `total`, `failed`, `pending`, and `unknown` from GitHub's aggregate counts, which
+   cover every check. GitHub lists only the first 100 checks of a commit, so `failedNames` names the
+   failed checks among them, and `failedNamesComplete` is false when a counted failure is not named.
+   The dashboard summary uses the same aggregate counts.
+6. The attention rules read the provider setup state first, because a running managed setup holds
    the provider-write lock and every repair tool fails during it. While setup runs, the only item
    says so and names no tool. When it failed, the only item names `repository_retryProviderSetup`. A
    pending Cloudflare setup gives an item that names `repository_cloudflare_createWorker` with the
