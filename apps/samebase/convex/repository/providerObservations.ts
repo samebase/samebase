@@ -195,9 +195,36 @@ export const observeCloudflareWorkers = action({
     }),
 });
 
-export async function observeCloudflareWorkerBuildsForUser(
+/** GitHub's live default branch, which can differ from the default branch recorded at connect. */
+export async function readGitHubDefaultBranchForUser(
   ctx: ActionCtx,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
+): Promise<string> {
+  const context = await readObservationContext(ctx, {
+    repositoryId: args.repositoryId,
+    userId: args.userId,
+  });
+  const githubAccess = await resolveGitHubAppAccess(ctx, {
+    userId: args.userId,
+    target: { kind: "repository", repositoryId: args.repositoryId },
+  });
+  const repository = await fetchGitHubRepoIdentity({
+    octokit: githubAccess.octokit,
+    owner: context.githubOwnerLogin,
+    repo: context.githubRepositoryName,
+    expectedRepoId: context.githubRepositoryDatabaseId,
+  });
+  return repository.defaultBranch;
+}
+
+export async function observeCloudflareWorkerBuildsForUser(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    /** The branch of the production builds: GitHub's live default branch, null when unreadable. */
+    defaultBranch: string | null;
+  },
 ): Promise<CloudflareWorkerBuildsObservation[]> {
   const context = await readObservationContext(ctx, {
     repositoryId: args.repositoryId,
@@ -209,20 +236,8 @@ export async function observeCloudflareWorkerBuildsForUser(
   if (context.cloudflareAccountId === undefined) {
     throw new Error("Cloudflare account is not configured for this repository.");
   }
-  let defaultBranch: string;
-  try {
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "repository", repositoryId: args.repositoryId },
-    });
-    const repository = await fetchGitHubRepoIdentity({
-      octokit: githubAccess.octokit,
-      owner: context.githubOwnerLogin,
-      repo: context.githubRepositoryName,
-      expectedRepoId: context.githubRepositoryDatabaseId,
-    });
-    defaultBranch = repository.defaultBranch;
-  } catch {
+  const defaultBranch = args.defaultBranch;
+  if (defaultBranch === null) {
     return context.cloudflareWorkers.map((worker) => ({
       state: "failed" as const,
       workerId: worker.workerId,
@@ -359,6 +374,10 @@ export const observeCloudflareWorkerBuilds = action({
     await observeCloudflareWorkerBuildsForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
+      defaultBranch: await readGitHubDefaultBranchForUser(ctx, {
+        userId: ctx.viewer.userId,
+        repositoryId: args.repositoryId,
+      }).catch(() => null),
     }),
 });
 

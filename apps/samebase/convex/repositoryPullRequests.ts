@@ -610,6 +610,12 @@ export async function listOpenPullRequestsForUser(
   args: {
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
+    /**
+    The branch whose head commit and checks the page reports. The dashboard reads the recorded
+    default branch, which its branch label shows. repository:getStatus reads GitHub's live default
+    branch, which its production build read also uses.
+    */
+    defaultBranch: { source: "recorded" } | { source: "github"; name: string };
     first: number;
     after: string | null;
   },
@@ -624,6 +630,8 @@ export async function listOpenPullRequestsForUser(
   if (!isLiveConnectedRepository(repository)) {
     throw new Error("Repository not found.");
   }
+  const defaultBranch =
+    args.defaultBranch.source === "github" ? args.defaultBranch.name : repository.defaultBranch;
   const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
     userId: args.userId,
     target: { kind: "repository", repositoryId: repository._id },
@@ -633,7 +641,7 @@ export async function listOpenPullRequestsForUser(
     await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
       owner: githubOwnerLogin,
       name: repository.githubRepositoryName,
-      defaultBranchRef: `refs/heads/${repository.defaultBranch}`,
+      defaultBranchRef: `refs/heads/${defaultBranch}`,
       first: args.first,
       after: args.after,
       request: { signal },
@@ -647,7 +655,7 @@ export async function listOpenPullRequestsForUser(
   }
   if (
     page.repository.defaultBranch !== null &&
-    page.repository.defaultBranch.name !== repository.defaultBranch
+    page.repository.defaultBranch.name !== defaultBranch
   ) {
     throw new Error("GitHub returned another default branch ref.");
   }
@@ -666,6 +674,7 @@ export const listOpenPullRequests = action({
     await listOpenPullRequestsForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
+      defaultBranch: { source: "recorded" },
       first: args.first,
       after: args.after,
     }),

@@ -18,6 +18,7 @@ import {
   observeCloudflareWorkerConvexBuildAccessForUser,
   observeCloudflareWorkersForUser,
   observeConvexProjectsForUser,
+  readGitHubDefaultBranchForUser,
 } from "./providerObservations";
 import { getPullRequestResourcesForUser } from "./pullRequestResources";
 import { buildRepositoryAttention, type RepositoryObservations } from "./repositoryStatus";
@@ -26,8 +27,9 @@ const { id } = v;
 
 /**
 Reads what the repository overview shows with the overview's own reads: the four provider
-observations and the two pull request reads. A read that fails becomes unavailable facts, so one
-provider outage does not hide the others.
+observations and the two pull request reads. Unlike the overview, the pull request page reads the
+head of GitHub's live default branch instead of the recorded one. A read that fails becomes
+unavailable facts, so one provider outage does not hide the others.
 */
 export async function readRepositoryStatusForUser(
   ctx: ActionCtx,
@@ -53,14 +55,22 @@ export async function readRepositoryStatusForUser(
       reason: "request_failed" as const,
     }));
   const attachedWorkerIds = repository.cloudflareWorkers.map((worker) => worker.workerId);
+  // One read of GitHub's live default branch serves the production builds and the default branch
+  // head, so that the production build commit is compared with the head of the branch it builds.
+  const defaultBranchRead = readGitHubDefaultBranchForUser(ctx, { userId, repositoryId }).catch(
+    () => null,
+  );
 
   const [workers, workerBuilds, convexProjects, pullRequests] = await Promise.all([
     observeCloudflareWorkersForUser(ctx, { userId, repositoryId }).catch(() =>
       failedWorkerObservations(attachedWorkerIds),
     ),
-    observeCloudflareWorkerBuildsForUser(ctx, { userId, repositoryId }).catch(() =>
-      failedWorkerObservations(attachedWorkerIds),
-    ),
+    defaultBranchRead
+      .then(
+        async (defaultBranch) =>
+          await observeCloudflareWorkerBuildsForUser(ctx, { userId, repositoryId, defaultBranch }),
+      )
+      .catch(() => failedWorkerObservations(attachedWorkerIds)),
     observeConvexProjectsForUser(ctx, { userId, repositoryId }).catch(() =>
       repository.convexProjects.map((project) => ({
         convexProjectId: project.convexProjectId,
@@ -70,14 +80,19 @@ export async function readRepositoryStatusForUser(
         provider: { state: "unavailable" as const, reason: "request_failed" as const },
       })),
     ),
-    listOpenPullRequestsForUser(ctx, {
-      userId,
-      repositoryId,
-      first: REPOSITORY_STATUS_PULL_REQUEST_LIMIT,
-      after: null,
-    }).then(
-      (page) => ({ state: "available" as const, page }),
-      () => ({ state: "unavailable" as const }),
+    defaultBranchRead.then(async (defaultBranch) =>
+      defaultBranch === null
+        ? { state: "unavailable" as const }
+        : await listOpenPullRequestsForUser(ctx, {
+            userId,
+            repositoryId,
+            defaultBranch: { source: "github", name: defaultBranch },
+            first: REPOSITORY_STATUS_PULL_REQUEST_LIMIT,
+            after: null,
+          }).then(
+            (page) => ({ state: "available" as const, page }),
+            () => ({ state: "unavailable" as const }),
+          ),
     ),
   ]);
 

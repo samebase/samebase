@@ -10,6 +10,20 @@ const githubMocks = vi.hoisted(() => ({
   resolveGitHubAppAccess: vi.fn(),
 }));
 
+const cloudflareMocks = vi.hoisted(() => ({
+  requestCloudflareApi: vi.fn(),
+  requestCloudflareApiOrThrow: vi.fn(),
+}));
+
+vi.mock("../cloudflareApi/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../cloudflareApi/client")>();
+  return {
+    ...actual,
+    requestCloudflareApi: cloudflareMocks.requestCloudflareApi,
+    requestCloudflareApiOrThrow: cloudflareMocks.requestCloudflareApiOrThrow,
+  };
+});
+
 vi.mock("../convexManagementApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
   return {
@@ -36,6 +50,8 @@ vi.mock("../githubRepoApi", async (importOriginal) => {
 });
 
 import { api, internal } from "../_generated/api";
+import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
+import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 const convexTeamProject = (id: string, name: string, slug = name) => ({
@@ -171,6 +187,8 @@ async function readAttachments(fixture: Awaited<ReturnType<typeof createScoutFix
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cloudflareMocks.requestCloudflareApi.mockReset();
+  cloudflareMocks.requestCloudflareApiOrThrow.mockReset();
   githubMocks.resolveGitHubAppAccess.mockResolvedValue({ octokit: {} });
   githubMocks.fetchGitHubConvexCodeLocationDiscovery.mockResolvedValue({
     completeness: "complete",
@@ -527,6 +545,148 @@ describe("repository_getStatus", () => {
       pullRequestResources: [],
       attention: [],
     });
+  });
+
+  const builtCommit = observedNativePreviewsProductionBuild.build_trigger_metadata.commit_hash;
+  const workerTag = observedNativePreviewsProductionBuild.trigger.external_script_id;
+  const githubRepositoryId = observedNativePreviewsProductionBuild.trigger.repo_connection.repo_id;
+
+  /**
+  The live reads of scout with only its Worker attached. GitHub names `defaultBranch` as the default
+  branch and `heads` gives the head commit of each branch. Workers Builds builds `defaultBranch`,
+  and its latest production build is of `builtCommit` with `buildOutcome`.
+  */
+  async function stubLiveStatusReads(
+    fixture: Awaited<ReturnType<typeof createScoutFixture>>,
+    args: {
+      defaultBranch: string;
+      heads: Record<string, string>;
+      buildOutcome: "success" | "fail";
+    },
+  ) {
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.delete(fixture.convexProjectId);
+      await ctx.db.patch(fixture.repositoryId, { githubRepositoryDatabaseId: githubRepositoryId });
+      await ctx.db.patch(fixture.workerId, { workerTag });
+      const credentials = await ctx.db.query("organizationProviderCredentials").unique();
+      if (credentials === null) {
+        throw new Error("The scout fixture has provider credentials.");
+      }
+      await ctx.db.patch(credentials._id, {
+        cloudflare: {
+          auth: { method: "api_key", credential: "cloudflare-token" },
+          connectedByUserId: fixture.userId,
+          updatedAt: 1,
+        },
+      });
+    });
+    const getRepository = vi.fn(async () => ({
+      data: {
+        id: Number(githubRepositoryId),
+        owner: { id: 1 },
+        default_branch: args.defaultBranch,
+      },
+    }));
+    const graphql = vi.fn(async (_query: string, variables: { defaultBranchRef: string }) => {
+      const branch = variables.defaultBranchRef.replace(/^refs\/heads\//, "");
+      const head = args.heads[branch];
+      return {
+        repository: {
+          id: "R_scout",
+          databaseId: Number(githubRepositoryId),
+          nameWithOwner: "scout-owner/scout",
+          defaultBranch: head
+            ? {
+                name: branch,
+                target: {
+                  __typename: "Commit",
+                  oid: head,
+                  messageHeadline: `Head of ${branch}`,
+                  committedDate: "2026-09-29T20:45:00Z",
+                  url: `https://github.com/scout-owner/scout/commit/${head}`,
+                  statusCheckRollup: null,
+                },
+              }
+            : null,
+          pullRequests: {
+            totalCount: 0,
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: [],
+          },
+        },
+      };
+    });
+    githubMocks.resolveGitHubAppAccess.mockResolvedValue({
+      octokit: { rest: { repos: { get: getRepository } }, graphql },
+      githubOwnerLogin: "scout-owner",
+    });
+    cloudflareMocks.requestCloudflareApiOrThrow.mockImplementation(
+      async (request: { path: string }) => {
+        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+          return {
+            id: workerTag,
+            name: "scout",
+            references: { domains: [] },
+            subdomain: { enabled: false, previews_enabled: false },
+          };
+        }
+        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+          return {
+            ...observedNativeWorkerBuildSettings,
+            script_tag: workerTag,
+            git_repository: {
+              ...observedNativeWorkerBuildSettings.git_repository,
+              repo_id: githubRepositoryId,
+              branch: args.defaultBranch,
+            },
+          };
+        }
+        throw new Error(`Unexpected Cloudflare request: ${request.path}`);
+      },
+    );
+    cloudflareMocks.requestCloudflareApi.mockResolvedValue([
+      true,
+      [
+        {
+          ...observedNativePreviewsProductionBuild,
+          build_outcome: args.buildOutcome,
+          build_trigger_metadata: {
+            ...observedNativePreviewsProductionBuild.build_trigger_metadata,
+            branch: args.defaultBranch,
+          },
+        },
+      ],
+    ]);
+    return { getRepository, graphql };
+  }
+
+  it("compares the production build with the head of GitHub's current default branch", async () => {
+    const fixture = await createScoutFixture();
+    // The recorded default branch is still main, which keeps its own head.
+    const { getRepository, graphql } = await stubLiveStatusReads(fixture, {
+      defaultBranch: "release",
+      heads: { main: "0".repeat(40), release: builtCommit },
+      buildOutcome: "success",
+    });
+
+    const result = await fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
+      userId: fixture.userId,
+      grantedScopes: ["access_dashboard"],
+      repository: "scout-owner/scout",
+    });
+
+    expect(result).toMatchObject({
+      status: "ok",
+      structuredContent: {
+        defaultBranch: { name: "release" },
+        apps: [{ workerName: "scout", productionBuild: { commit: "matches_head" } }],
+      },
+    });
+    expect(getRepository).toHaveBeenCalledOnce();
+    expect(graphql).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ defaultBranchRef: "refs/heads/release" }),
+    );
   });
 });
 
