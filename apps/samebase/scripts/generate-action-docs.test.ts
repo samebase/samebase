@@ -3,7 +3,17 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { actionContracts } from "../convex/toolRuntime/actionCatalog";
+import { isObject } from "@samebase/sure";
+
+/** The generated submission file lists every MCP tool name; the scripts tsconfig cannot import the Convex catalog. */
+const submissionPath = new URL("../../../chatgpt-app-submission.json", import.meta.url);
+function readSubmissionToolNames(): string[] {
+  const parsed: unknown = JSON.parse(readFileSync(submissionPath, "utf8"));
+  if (!isObject(parsed) || !isObject(parsed["tools"])) {
+    throw new Error("chatgpt-app-submission.json has no tools object.");
+  }
+  return Object.keys(parsed["tools"]);
+}
 
 const llmsTxt = readFileSync(fileURLToPath(new URL("../public/llms.txt", import.meta.url)), "utf8");
 const contentDirectory = new URL("../src/content/", import.meta.url);
@@ -37,7 +47,7 @@ describe("generated action documentation", () => {
   });
 
   it("names only MCP tools of the action catalog in the corpus docs", () => {
-    const toolNames = new Set<string>(actionContracts.map((contract) => contract.mcp.name));
+    const toolNames = new Set<string>(readSubmissionToolNames());
     const namedTools = corpusDocs.flatMap(({ fileName, text }) =>
       (text.match(/`[\w-]+`(?=\s+MCP\s+tool)/g) ?? []).map((name) => ({
         fileName,
