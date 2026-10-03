@@ -247,6 +247,69 @@ describe("app provisioning retry admission", () => {
     });
   });
 
+  it("starts a retry over MCP only after the confirmation, and audits the confirming grant", async () => {
+    const { ids, t } = await createRetryFixture("none");
+    const toolArgs = {
+      userId: ids.userId,
+      grantedScopes: ["access_app_create"],
+      grantId: "grant-1",
+      clientId: "client-1",
+      repository: "ada/retry-guard",
+    };
+    const readRetryState = async () =>
+      await t.run(async (ctx) => ({
+        queuedRuns: await ctx.db
+          .query("workflow_repositoryProvisioning_runs")
+          .withIndex("by_repository_and_state", (q) =>
+            q.eq("repositoryId", ids.repositoryId).eq("state", "queued"),
+          )
+          .collect(),
+        audit: await ctx.db.query("audit_confirmedActions_events").collect(),
+      }));
+
+    const first = await t.action(
+      internal.toolRuntime.runtime.repositoryRetryProviderSetupTool,
+      toolArgs,
+    );
+    if (first.status !== "ok" || first.structuredContent.state !== "needs_confirmation") {
+      throw new Error(`Expected a confirmation request: ${JSON.stringify(first)}`);
+    }
+    expect(first.structuredContent).toEqual({
+      state: "needs_confirmation",
+      effect:
+        "Samebase starts a new provider setup run for ada/retry-guard. It creates missing Convex and Cloudflare resources. When the setup includes Cloudflare, it rewrites the Workers Builds settings of the Worker, revokes and replaces the Convex deploy keys that it recorded, and starts a production build.",
+      acknowledgement:
+        "I confirm that the user approved a new provider setup run for ada/retry-guard, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys",
+      token: expect.any(String),
+      expiresAt: expect.any(Number),
+    });
+    await expect(readRetryState()).resolves.toEqual({ queuedRuns: [], audit: [] });
+
+    const { acknowledgement, token } = first.structuredContent;
+    await expect(
+      t.action(internal.toolRuntime.runtime.repositoryRetryProviderSetupTool, {
+        ...toolArgs,
+        confirmation: { token, acknowledgement },
+      }),
+    ).resolves.toEqual({
+      status: "ok",
+      text: "Started a provider setup run for ada/retry-guard. Poll repository_list for progress.",
+      structuredContent: { state: "setup_started" },
+    });
+    await expect(readRetryState()).resolves.toMatchObject({
+      queuedRuns: [expect.objectContaining({ trigger: "retry" })],
+      audit: [
+        {
+          action: "retry_provider_setup",
+          repositoryId: ids.repositoryId,
+          resource: { kind: "repository", githubRepositoryFullName: "ada/retry-guard" },
+          acknowledgement,
+          surface: { kind: "mcp", grantId: "grant-1", clientId: "client-1" },
+        },
+      ],
+    });
+  });
+
   it("rejects retry after successful managed setup", async () => {
     const { ids, t } = await createRetryFixture("none");
     await t.run(async (ctx) => {

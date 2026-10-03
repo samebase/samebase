@@ -550,6 +550,67 @@ describe("Cloudflare Worker stored coordinates", () => {
     });
   });
 
+  it("rejects an MCP connection whose root directory differs from the confirmed request", async () => {
+    const fixture = await createFixture();
+    const providerRequests: string[] = [];
+    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
+      async (request: CloudflareTestRequest) => {
+        providerRequests.push(`${request.method} ${request.path}`);
+        if (request.path === "/accounts") {
+          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
+        }
+        if (request.path === "/accounts/{account_id}/builds/tokens") {
+          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
+        }
+        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+          return workerResponse({ workerName: "legacy-landing", workerTag: "legacy-landing-tag" });
+        }
+        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
+      },
+    );
+    const toolArgs = {
+      userId: fixture.ids.ownerId,
+      grantedScopes: ["access_provider_connections"],
+      grantId: "grant-1",
+      clientId: "client-1",
+      repository: "samebase/app",
+      workerName: "legacy-landing",
+    };
+
+    const challenge = await fixture.t.action(
+      internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
+      { ...toolArgs, rootDirectory: "apps/site" },
+    );
+    if (challenge.status !== "ok" || challenge.structuredContent.state !== "needs_confirmation") {
+      throw new Error(`Expected a confirmation request: ${JSON.stringify(challenge)}`);
+    }
+    expect(challenge.structuredContent.acknowledgement).toBe(
+      "I confirm that the user approved replacing the live deployment of Worker legacy-landing with a build of samebase/app from root directory apps/site",
+    );
+    const { acknowledgement, token } = challenge.structuredContent;
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.cloudflareConnectWorkerTool, {
+        ...toolArgs,
+        rootDirectory: "apps/admin",
+        confirmation: { token, acknowledgement },
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "The arguments differ from the request that the user approved, so nothing changed. Send the approved arguments, or call again without confirmation to get a new confirmation request.",
+    });
+    expect(providerRequests.filter((request) => !request.startsWith("GET "))).toEqual([]);
+    await expect(
+      fixture.t.run(async (ctx) => ({
+        workers: await ctx.db
+          .query("repositoryCloudflareWorkers")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", fixture.ids.repositoryId))
+          .collect(),
+        audit: await ctx.db.query("audit_confirmedActions_events").collect(),
+      })),
+    ).resolves.toMatchObject({ workers: [{ workerName: "old-worker" }], audit: [] });
+  });
+
   it.each([
     ["not connected", null, "call repository_cloudflare_configureBuilds for this Worker"],
     [

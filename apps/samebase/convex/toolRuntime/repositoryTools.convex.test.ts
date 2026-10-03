@@ -293,6 +293,12 @@ describe("repository_detachResource", () => {
     if (challenge === null) {
       throw new Error("Expected a confirmation request.");
     }
+    expect(challenge.acknowledgement).toBe(
+      "I approve removing the Convex project at convex.json from scout-owner/scout in Samebase",
+    );
+    await expect(readAttachments(fixture)).resolves.toMatchObject({
+      projects: [{ projectId: "scout-project" }],
+    });
 
     await expect(
       fixture.viewer.mutation(api.repository.detachResource, {
@@ -300,6 +306,20 @@ describe("repository_detachResource", () => {
         confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
       }),
     ).resolves.toBeNull();
+    await expect(
+      fixture.t.run(async (ctx) => await ctx.db.query("audit_confirmedActions_events").collect()),
+    ).resolves.toMatchObject([
+      {
+        action: "detach_resource",
+        resource: {
+          kind: "convex_project",
+          teamId: "convex-team",
+          projectId: "scout-project",
+          codeLocation: "convex.json",
+        },
+        surface: { kind: "dashboard" },
+      },
+    ]);
 
     await expect(readAttachments(fixture)).resolves.toMatchObject({
       workers: [{ workerName: "scout" }],
@@ -497,6 +517,36 @@ describe("Convex project selection for deploy keys", () => {
       text: "scout-owner/scout has several attached Convex projects: admin (apps/admin/convex.json), scout (convex.json). Choose the project whose deploy key the Worker gets.",
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
+    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("returns the deploy-key rotation challenge without a provider request or a write lock", async () => {
+    const fixture = await createScoutFixture();
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    const result = await fixture.t.action(
+      internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysTool,
+      {
+        userId: fixture.userId,
+        ...mcpGrant,
+        repository: "scout-owner/scout",
+        workerName: "scout",
+      },
+    );
+    vi.unstubAllGlobals();
+
+    expect(result).toMatchObject({
+      status: "ok",
+      text: expect.stringMatching(/^Nothing changed yet\. Samebase revokes the Convex deploy keys/),
+      structuredContent: {
+        state: "needs_confirmation",
+        acknowledgement:
+          "I confirm that the user approved revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project at convex.json",
+      },
+    });
+    await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
+    expect(fetch).not.toHaveBeenCalled();
     expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
   });
 
