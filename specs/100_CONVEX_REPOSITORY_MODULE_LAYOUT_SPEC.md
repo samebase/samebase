@@ -42,8 +42,9 @@ apps/samebase/convex/repository/
 ## Ownership
 
 - The root `repository.ts` owns the repository-level actions that the dashboard and MCP share
-  (`repository:list`, `create`, `connect`, `retryProviderSetup`). Their function paths are MCP tool
-  names, so the module stays at the root. It runs in the default runtime because `list` is a query.
+  (`repository:list`, `create`, `connect`, `retryProviderSetup`, `detachResource`). Their function
+  paths are MCP tool names, so the module stays at the root. It runs in the default runtime because
+  `list` is a query and `detachResource` is a mutation.
 - `actions.ts` owns the Node halves of `repository:create` and `repository:connect`, and the public
   removal actions.
 - `dashboard.ts` owns dashboard queries and persisted dashboard preferences.
