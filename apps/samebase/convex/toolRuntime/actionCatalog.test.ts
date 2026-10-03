@@ -56,6 +56,16 @@ describe("action catalog", () => {
     ]);
   });
 
+  it("labels each tool in the generated docs as its annotations describe it", () => {
+    for (const { mcp } of actionContracts) {
+      expect([mcp.name, mcp.safety === "read_only", mcp.safety === "destructive"]).toEqual([
+        mcp.name,
+        mcp.annotations.readOnlyHint,
+        mcp.annotations.destructiveHint,
+      ]);
+    }
+  });
+
   it("names each tool after the path of the Convex function that runs it", () => {
     for (const contract of actionContracts) {
       expect(getFunctionName(toolFunctions[contract.mcp.name]).replace(/[/:]/g, "_")).toBe(

@@ -2,7 +2,7 @@
 
 # Retry provider setup (`retry_provider_setup`)
 
-MCP tool `repository_retryProviderSetup` · scope `access_app_create` · write
+MCP tool `repository_retryProviderSetup` · scope `access_app_create` · destructive
 
 Starts a fresh Samebase-managed provider setup run. It re-reads the repository's current state,
 reuses attached Convex projects and Cloudflare Workers, and creates missing resources. When the

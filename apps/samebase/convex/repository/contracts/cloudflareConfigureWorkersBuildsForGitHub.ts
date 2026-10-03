@@ -26,7 +26,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     name: "repository_cloudflare_configureBuilds",
     description:
       "Rewrite an attached Worker's production and Previews Base Workers Builds settings for this repository and the Worker's root directory, then start a production build. Use it when the Worker's Builds settings point elsewhere or are missing.",
-    safety: "write",
+    safety: "destructive",
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,

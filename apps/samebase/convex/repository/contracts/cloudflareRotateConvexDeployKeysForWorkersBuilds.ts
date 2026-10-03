@@ -33,7 +33,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     title: "Rotate Convex deploy keys",
     name: "repository_cloudflare_rotateConvexDeployKeys",
     description: `Replace the Convex deploy keys in an attached Worker's Workers Builds settings, then start a production build. It revokes the keys that Samebase recorded before it creates new ones. Use it to install a missing key or replace a broken one. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
-    safety: "write",
+    safety: "destructive",
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,

@@ -30,7 +30,7 @@ export const retryInfrastructureProvisioningContract = {
     title: "Retry provider setup",
     name: "repository_retryProviderSetup",
     description: `Start a fresh managed provider setup run for a repository that Samebase created. It reuses attached resources and creates missing ones. When Cloudflare is requested, it reconfigures Workers Builds and rotates Convex deploy keys, then starts a production build. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
-    safety: "write",
+    safety: "destructive",
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,

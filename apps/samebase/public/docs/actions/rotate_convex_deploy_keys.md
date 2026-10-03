@@ -3,7 +3,7 @@
 # Rotate Convex deploy keys (`rotate_convex_deploy_keys`)
 
 MCP tool `repository_cloudflare_rotateConvexDeployKeys` · scope `access_provider_connections` ·
-write
+destructive
 
 Mints production and preview deploy keys on the selected Convex project. It writes the production
 key as `CONVEX_DEPLOY_KEY` in production Builds settings and the Preview key as `CONVEX_DEPLOY_KEY`

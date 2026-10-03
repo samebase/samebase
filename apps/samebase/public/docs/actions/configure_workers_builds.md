@@ -2,7 +2,7 @@
 
 # Configure Workers Builds (`configure_workers_builds`)
 
-MCP tool `repository_cloudflare_configureBuilds` · scope `access_provider_connections` · write
+MCP tool `repository_cloudflare_configureBuilds` · scope `access_provider_connections` · destructive
 
 Configures production and Previews Base Builds settings for an attached Worker, GitHub repository,
 and root directory, then starts a production build. It can overwrite the Worker's existing Builds
