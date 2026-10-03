@@ -72,7 +72,6 @@ describe("Cloudflare Worker name validation", () => {
     await expect(
       asUser.action(api.repository.cloudflare.createWorker, {
         repositoryId,
-        accountId: "00000000000000000000000000000001",
         workerName: "___",
         rootDirectory: "/",
         buildTokenUuid: "build-token",

@@ -86,11 +86,11 @@ below applies.
 | `repository_create`                            | Creates a repository with its first app                                                    | `githubOwnerLogin`, `name`, `convexDeploymentRegion?`, `buildTokenUuid?`, `convexProjectName?`, `cloudflareWorkerName?`, `description?`, `private?` | repository, setup running, Cloudflare plan or pending notice                                   | no / yes / no  |
 | `repository_connect`                           | Connects an existing GitHub repository                                                     | `githubRepositoryFullName`                                                                                                                          | repository                                                                                     | no / no / no   |
 | `repository_retryProviderSetup`                | Retries the managed provider setup of a repository (gated)                                 | `repository`, `confirmation?`                                                                                                                       | `needs_confirmation`, then setup running                                                       | no / yes / yes |
-| `repository_detachResource`                    | Removes a Worker or Convex project from the repository (gated)                             | `repository`, `resourceName`, `confirmation?`                                                                                                       | `needs_confirmation`, then detached kind and name                                              | no / no / yes  |
+| `repository_detachResource`                    | Removes a Worker or Convex project from the repository (gated)                             | `repository`, `kind`, `resourceName`, `confirmation?`                                                                                               | `needs_confirmation`, then detached kind and name                                              | no / no / yes  |
 | `repository_cloudflare_findWorkers`            | Finds Workers that can be added                                                            | `repository`                                                                                                                                        | attachable and connectable rows, counts by reason                                              | yes / no / no  |
 | `repository_cloudflare_attachWorkers`          | Attaches Workers already built from this repository                                        | `repository`, `workerNames`                                                                                                                         | attached names                                                                                 | no / no / no   |
-| `repository_cloudflare_connectWorker`          | Connects an unconnected Worker (gated)                                                     | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`, `confirmation?`                                                                    | `needs_confirmation`, then connected, deploy key installed                                     | no / yes / yes |
-| `repository_cloudflare_createWorker`           | Creates a Worker, which adds an app                                                        | `repository`, `workerName?`, `rootDirectory?`, `buildTokenUuid?`                                                                                    | created, deploy key installed                                                                  | no / yes / no  |
+| `repository_cloudflare_connectWorker`          | Connects an unconnected Worker (gated)                                                     | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`, `convexProjectName?`, `confirmation?`                                              | `needs_confirmation`, then connected, deploy key state                                         | no / yes / yes |
+| `repository_cloudflare_createWorker`           | Creates a Worker, which adds an app                                                        | `repository`, `workerName?`, `rootDirectory?`, `buildTokenUuid?`, `convexProjectName?`                                                              | created, deploy key state                                                                      | no / yes / no  |
 | `repository_cloudflare_configureBuilds`        | Rewrites a Worker's Workers Builds settings for this repository, then starts a build       | `repository`, `workerName`, `rootDirectory?`, `buildTokenUuid?`                                                                                     | configured, build requested                                                                    | no / yes / yes |
 | `repository_cloudflare_rotateConvexDeployKeys` | Replaces the Convex deploy keys in a Worker's Builds settings, then starts a build (gated) | `repository`, `workerName`, `convexProjectName?`, `confirmation?`                                                                                   | `needs_confirmation`, then rotated, build requested                                            | no / yes / yes |
 | `repository_convex_findProjects`               | Finds Convex projects that can be added                                                    | `repository`                                                                                                                                        | code locations, attachable rows, counts by reason                                              | yes / no / no  |
@@ -123,7 +123,19 @@ Shared rules:
   only token. Several tokens and no last-used one return an error that lists them. No token creates
   the repository with Cloudflare pending and returns the setup guide link. No tool takes
   `accountId`.
-- The server installs the Convex deploy key after it connects or creates a Worker.
+- The server installs the Convex deploy key after it connects or creates a Worker. The project is
+  the given `convexProjectName`, else the repository's only attached Convex project. Several
+  attached projects and no name fail before any provider change, with an error that lists them. With
+  no attached project, the Worker is still created or connected; the result says that no key was
+  installed and that `repository_cloudflare_rotateConvexDeployKeys` installs it later. A result
+  never reports an installed key that the server did not install. When a key is installed, the first
+  production build waits for it: the key step starts the build.
+- `repository_cloudflare_rotateConvexDeployKeys` uses the same project rule. The key rotation in
+  `repository_retryProviderSetup` uses the managed plan's own Convex project, which the run's
+  checkpoint names, so it never chooses among several projects.
+- `repository_detachResource` takes `kind` (`cloudflare_worker` or `convex_project`) with the name,
+  because a Worker and a Convex project often share the repository's name (the default names are
+  both the repository name).
 - A Convex project without a production deployment stays attachable, as in the dashboard today
   ([convex.ts L260](../apps/samebase/convex/repository/convex.ts#L260)). Key installation and
   rotation then fail with "Deploy the Convex project to production first", in place of today's "The
@@ -260,21 +272,27 @@ One server-side check serves the dashboard and MCP for four gated actions, all w
 
 1. A call without `confirmation` performs nothing. It returns `needs_confirmation` with the
    server-owned effect text in plain words, the exact acknowledgement sentence that names the
-   resource and the effect (for example "I confirm that the user approved replacing the live
-   deployment of Worker legacy-landing"), a token, and its expiry.
-2. The server stores only the token hash, bound to the user, the action, and the resource identity,
+   resource, the effect, and every argument that changes the effect (for example "I confirm that the
+   user approved replacing the live deployment of Worker legacy-landing with a build of
+   samebase/site from root directory apps/site"), a token, and its expiry.
+2. The server stores only the token hash, bound to the user, the action, the resource identity (for
+   `repository_detachResource`, the `kind` and the attachment), and the whole normalized request:
+   every argument except `confirmation`, after the server resolves names and defaults (repository,
+   Worker tag, root directory, build token, Convex project). It keeps the request or a digest of it,
    for 10 minutes and one use. This follows `mcpBrowserLoginTokens`
    ([mcp/model.ts L138](../apps/samebase/convex/mcp/model.ts#L138)).
-3. The second call sends `confirmation: { token, acknowledgement }`. The server checks the token,
-   re-reads the resource identity, requires the exact sentence, performs the action, and writes one
-   audit row.
+3. The second call sends the identical arguments plus `confirmation: { token, acknowledgement }`.
+   The server checks the token, normalizes the request again, and rejects any difference from the
+   stored request, for example a token issued for `rootDirectory: "apps/site"` presented with
+   `rootDirectory: "apps/admin"`. It then re-reads the resource identity, requires the exact
+   sentence, performs the approved request, and writes one audit row.
 4. Audit: the existing audit table is `audit_mcpAccess_events` (`grantId?`, `clientId?`, `userId?`,
    `action`, `createdAt`, `detailsJson?`;
    [mcp/model.ts L157](../apps/samebase/convex/mcp/model.ts#L157)), written by `writeAudit`
    ([agentBrowserHandoff.ts L82](../apps/samebase/convex/agentBrowserHandoff.ts#L82)) and by
    `mcp/grants.ts` and `mcp/oauth.ts`. It records MCP OAuth actions only. Add a sibling
    `audit_confirmedActions_events` with `userId`, `organizationId`, `repositoryId`, `action`,
-   `resource`, `effectText`, `acknowledgement`, `surface` (dashboard or MCP), `grantId?`,
+   `resource`, `request`, `effectText`, `acknowledgement`, `surface` (dashboard or MCP), `grantId?`,
    `clientId?`, `issuedAt`, and `confirmedAt`. As an `audit_` table, nothing reads it to authorize
    (`docs/data-modeling-vocabulary.md`). Both new tables need an account-deletion policy entry.
 5. Dashboard: the same action returns the same challenge. The confirm dialog shows the server's
@@ -365,6 +383,41 @@ After PR 5: deploy to production, publish the plugin, run the 8 cases in ChatGPT
 the reviewer account, then submit once. After approval, OpenAI picks up server changes that keep
 tool names, arguments, and annotations. A change to those, the skill, or `.mcp.json` needs a new
 review.
+
+### Step 1 in PR #1664
+
+Step 1 lands in [PR #1664](https://github.com/samebase/samebase/pull/1664) with this RFC. It holds
+the PR 2 scope and the parts of PR 5 that the renames force, because old tool names stop working at
+deploy: the server instructions, the skill, the generated docs, the submission source with the 8
+cases and the three reworded prompts, and plugin `0.3.0`. The status read (PR 3) and the
+confirmation gate (PR 4) are not in step 1, so the catalog has 17 tools; the gated tools already
+carry `destructiveHint: true`. PR 5 revisits the instructions and the 8 cases after
+`repository_getStatus` exists.
+
+Deviations found during step 1:
+
+1. `repository_detachResource` takes `kind`, and the Worker tools take `convexProjectName?`. The
+   catalog and the shared rules above include both.
+2. Samebase stores Convex project IDs, not names. MCP reads the names live from the repository's
+   Convex team for `repository_list`, the `convexProjectName` arguments, and
+   `repository_detachResource`. `repository_list` returns `projectName: null` when the team cannot
+   be read.
+3. `repository:detachResource` is the dashboard's public mutation, as planned. The MCP tool resolves
+   the name in the Node runtime, because a Convex name needs a provider read, then runs the internal
+   mutation `repository:detachResourceForUser`, which shares the handler.
+4. Dashboard arguments: the Cloudflare actions drop `accountId`, because the server uses the
+   repository's stored account. The dashboard keeps passing IDs, Worker tags, and the token that it
+   shows. `repository/convex:attachProject` keeps the dashboard's `projects` array (one atomic call
+   for several projects); the MCP tool attaches one project. The Cloudflare dialog shows a Convex
+   project choice only when several projects are attached.
+5. `rootDirectory?` of `repository_cloudflare_configureBuilds` must equal the Worker's recorded root
+   directory. Changing a recorded root stays in the dashboard.
+6. `account_getAuthenticationStatus` returns the GitHub owners as `githubOwnerLogins`.
+7. Contract IDs follow the new names (for example `list_repositories`), so the
+   `/docs/actions/<id>.md` URLs change.
+8. The catalog lists reads first (`repository_list`, then the two find tools), then create and
+   connect. `mcp/protocol.ts` derives the OAuth scope string from that order, and this order keeps
+   the string identical, so existing grants stay reusable.
 
 ## Alternatives considered
 

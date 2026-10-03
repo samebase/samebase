@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 
 import { api } from "../../../convex/_generated/api";
@@ -43,8 +43,7 @@ export function RepositorySelectedWorkspace({
   const rootRouteSearch = useRootRouteSearch();
   const retryDeleteRepository = useAction(api.repository.actions.retryDeleteRepository);
   const retryProviderSetup = useAction(api.repository.retryProviderSetup);
-  const detachCloudflareWorker = useAction(api.repository.cloudflare.detachWorker);
-  const detachConvexProject = useAction(api.repository.convex.detachProject);
+  const detachResource = useMutation(api.repository.detachResource);
   const updateCloudflareWorkerName = useAction(api.repository.cloudflare.updateWorkerName);
   const updateCloudflareWorkerRootDirectory = useAction(
     api.repository.cloudflare.updateWorkerRootDirectory,
@@ -220,7 +219,11 @@ export function RepositorySelectedWorkspace({
     void runProviderAction({
       action: { kind: "detach_cloudflare_worker", workerId },
       errorTitle: "Could not remove Cloudflare attachment",
-      run: () => detachCloudflareWorker({ repositoryId: repository.repositoryId, workerId }),
+      run: () =>
+        detachResource({
+          repositoryId: repository.repositoryId,
+          resource: { kind: "cloudflare_worker", workerId },
+        }),
     });
   };
 
@@ -228,7 +231,11 @@ export function RepositorySelectedWorkspace({
     void runProviderAction({
       action: { kind: "detach_convex_project", convexProjectId },
       errorTitle: "Could not remove Convex attachment",
-      run: () => detachConvexProject({ repositoryId: repository.repositoryId, convexProjectId }),
+      run: () =>
+        detachResource({
+          repositoryId: repository.repositoryId,
+          resource: { kind: "convex_project", convexProjectId },
+        }),
     });
   };
 

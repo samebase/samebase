@@ -43,7 +43,6 @@ import {
   convexAttachProjectsContract,
   convexChangeProjectCodeLocationContract,
   convexCreateProjectContract,
-  convexDetachProjectContract,
   convexDiscoverProjectsContract,
   vConvexAttachmentProject,
   vConvexCodeLocationSelection,
@@ -144,7 +143,7 @@ async function readProviderAttachmentRepositoryContext(
   );
 }
 
-async function discoverConvexCodeLocations(
+export async function discoverConvexCodeLocations(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ): Promise<{
@@ -465,6 +464,24 @@ async function readConvexWorkerReferences(
   }
 }
 
+/**
+Names of the projects in one connected Convex team, keyed by Convex project ID. Samebase stores
+only project IDs, so MCP tools that take a Convex project name read the names live.
+*/
+export async function readConvexTeamProjectNamesForUser(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; organizationId: Id<"organizations">; teamId: string },
+): Promise<Map<string, { projectName: string; projectSlug: string }>> {
+  const connection = await resolveConvexConnectionForTeam(ctx, args);
+  const projects = await listProjectsForConnection(connection);
+  return new Map(
+    projects.map((project) => [
+      project.id,
+      { projectName: project.name, projectSlug: project.slug },
+    ]),
+  );
+}
+
 export async function discoverProjectsForUser(
   ctx: ActionCtx,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
@@ -573,7 +590,7 @@ export async function attachExistingProjectsForUser(
   });
 }
 
-async function createProjectForUser(
+export async function createProjectForUser(
   ctx: ActionCtx,
   args: {
     repositoryId: Id<"repositories">;
@@ -818,6 +835,7 @@ export const createProject = action({
   access: convexCreateProjectContract.access,
   args: convexCreateProjectContract.args,
   returns: convexCreateProjectContract.returns,
+  mcp: convexCreateProjectContract.mcp,
   handler: async (ctx, args): Promise<Id<"repositoryConvexProjects">> =>
     await createProjectForUser(ctx, { ...args, userId: ctx.viewer.userId }),
 });
@@ -847,31 +865,6 @@ export const changeProjectCodeLocation = action({
       projectId: attachment.projectId,
       expectedCodeLocation: attachment.codeLocation,
       nextCodeLocation: removeConvexCodeLocationEvidence(codeLocation),
-    });
-    return null;
-  },
-});
-
-export const detachProject = action({
-  access: convexDetachProjectContract.access,
-  args: convexDetachProjectContract.args,
-  returns: convexDetachProjectContract.returns,
-  handler: async (ctx, args): Promise<null> => {
-    const attachment = await ctx.runQuery(
-      internal.repository.convexMutations.readProjectAttachmentContext,
-      {
-        repositoryId: args.repositoryId,
-        convexProjectId: args.convexProjectId,
-        userId: ctx.viewer.userId,
-      },
-    );
-    await ctx.runMutation(internal.repository.convexMutations.detachProject, {
-      repositoryId: args.repositoryId,
-      convexProjectId: args.convexProjectId,
-      userId: ctx.viewer.userId,
-      teamId: attachment.teamId,
-      projectId: attachment.projectId,
-      codeLocation: attachment.codeLocation,
     });
     return null;
   },

@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
 
-const { id } = v;
+const { id, optional, string } = v;
 
 export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   id: "rotate_convex_deploy_keys",
@@ -12,12 +13,17 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     workerId: id("repositoryCloudflareWorkers"),
     convexProjectId: id("repositoryConvexProjects"),
   },
+  mcpArgs: {
+    ...mcpRepositoryArgs,
+    workerName: string(),
+    convexProjectName: optional(string()),
+  },
   returns: v.null(),
   mcp: {
     title: "Rotate Convex deploy keys",
     name: "repository_cloudflare_rotateConvexDeployKeys",
     description:
-      "Call repository_list first and use its returned repositoryId. Rotate Samebase-named production and preview Convex deploy keys, write each as CONVEX_DEPLOY_KEY in its Workers Builds settings, update existing previews, write SAMEBASE_CONVEX_PROJECT in production, then start a production build.",
+      "Replace the Convex deploy keys in an attached Worker's Workers Builds settings, then start a production build. It revokes the keys that Samebase recorded before it creates new ones. Use it to install a missing key or replace a broken one.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -25,9 +31,10 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_list.",
-      workerId: "Stable Samebase Worker attachment id returned by repository_list.",
-      convexProjectId: "Attached Convex project selected for this deploy-key rotation.",
+      repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
+      workerName: "Name of the attached Worker.",
+      convexProjectName:
+        "Optional name of the attached Convex project. Required when several Convex projects are attached.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Mints production and preview deploy keys on the selected Convex project. It writes the
@@ -35,10 +42,12 @@ production key as \`CONVEX_DEPLOY_KEY\` in production Builds settings and the Pr
 \`CONVEX_DEPLOY_KEY\` in Previews Base Builds settings and all existing previews. The non-secret
 \`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>\` marker belongs only in
 production. It reads the settings back and verifies the marker and secrecy flags before starting
-the production build. The Worker must already use native Worker Previews.
+the production build. The Worker must already use native Worker Previews, and the Convex project
+must have a production deployment ("Deploy the Convex project to production first").
 
-The Worker and project must both be attached to the repository. Their selection is input to this one
-operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.
+The Worker and project must both be attached to the repository. Without a project name, the MCP tool
+uses the repository's only attached Convex project. Their selection is input to this one operation,
+not a persisted dependency. Rerunning the operation revokes and replaces the Samebase-named keys.
 Samebase reads Convex live and stores no completed Worker-to-project, key, or trigger mirror in
 Convex.`,
 } as const;

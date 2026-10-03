@@ -5,16 +5,19 @@ import { getUserRepositoriesContract } from "../repository/contracts/getUserRepo
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
+  convexCreateProjectContract,
   convexDiscoverProjectsContract,
 } from "../repository/contracts/convexAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
+import { detachResourceContract } from "../repository/contracts/detachResource";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
 /**
@@ -26,7 +29,7 @@ entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snak
 the tool, with `/` and `:` replaced by `_` (rfcs/125; actionCatalog.test.ts checks it).
 
 Order is the presentation order in generated docs: reads first (inventory, then discovery), then
-create and connect, attach, and repairs. Sign-in links stay near the end, and authentication status
+create and connect, attach, connect, and create provider resources, repairs, and detach. Sign-in links stay near the end, and authentication status
 is last because it is a diagnostic action, not a preflight. mcp/protocol.ts derives the supported
 OAuth scope order from this list, and grant reuse compares scope strings exactly, so a reorder that
 moves the first use of an access key changes the scope string that clients request.
@@ -38,11 +41,14 @@ export const actionContracts = [
   createRepositoryContract,
   connectRepositoryContract,
   convexAttachProjectsContract,
+  convexCreateProjectContract,
   cloudflareAttachWorkersContract,
+  cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
+  detachResourceContract,
   submitFeedbackContract,
   createBrowserHandoffContract,
   getAuthenticationStatusContract,

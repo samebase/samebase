@@ -186,6 +186,7 @@ function CloudflareDialogFixture({
   return (
     <DialogFixture mode={mode}>
       <RepositoryCloudflareDialogContent
+        convexProjectField={null}
         cloudflareBuildTokenField={
           showsBuildToken ? (
             <CloudflareBuildTokenField

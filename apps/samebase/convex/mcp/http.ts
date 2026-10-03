@@ -21,16 +21,19 @@ import { getUserRepositoriesContract } from "../repository/contracts/getUserRepo
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
+  convexCreateProjectContract,
   convexDiscoverProjectsContract,
 } from "../repository/contracts/convexAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
+import { detachResourceContract } from "../repository/contracts/detachResource";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
 import {
@@ -182,8 +185,14 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [convexAttachProjectsContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.convexAttachProjectTool,
   ),
+  [convexCreateProjectContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.convexCreateProjectTool,
+  ),
   [cloudflareAttachWorkersContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.cloudflareAttachWorkersTool,
+  ),
+  [cloudflareConnectWorkerContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
   ),
   [cloudflareCreateWorkerContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.cloudflareCreateWorkerTool,
@@ -196,6 +205,9 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   ),
   [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.repositoryRetryProviderSetupTool,
+  ),
+  [detachResourceContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.repositoryDetachResourceTool,
   ),
   [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(internal.feedback.submit),
   [createBrowserHandoffContract.mcp.name]: callCreateSignInLinkMcpTool,

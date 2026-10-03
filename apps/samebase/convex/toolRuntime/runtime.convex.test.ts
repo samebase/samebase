@@ -74,8 +74,7 @@ describe("MCP tool runtime boundaries", () => {
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
       grantedScopes: [],
-      repositoryId,
-      accountId: "account_1",
+      repository: repositoryId,
       workerName: "worker-new",
       rootDirectory: "/",
       buildTokenUuid: "build-token",
@@ -299,7 +298,7 @@ describe("MCP tool runtime boundaries", () => {
           pendingCloudflareSetup: null,
           sourceSetup: {
             status: "failed",
-            message: "Source setup failed. Check this app in Samebase for recovery steps.",
+            message: "Source setup failed. Check this repository in Samebase for recovery steps.",
           },
         }),
         expect.objectContaining({
@@ -308,20 +307,26 @@ describe("MCP tool runtime boundaries", () => {
           providerSetup: {
             status: "failed",
             provider: "convex",
-            message: "Provider setup failed. Check this app in Samebase before retrying.",
+            message: "Provider setup failed. Check this repository in Samebase before retrying.",
           },
         }),
         expect.objectContaining({
           repositoryId: pendingRepositoryId,
+          githubRepositoryFullName: "tool-runtime-owner/pending-app",
           pendingCloudflareSetup: {
             workerName: "pending-worker",
             rootDirectory: "apps/web",
-            convexProjectId: pendingConvexProjectId,
           },
+          // No Convex credential is stored, so the live project names are unreadable.
+          convexProjects: [
+            { projectName: null, codeLocation: "apps/web/convex.json" },
+            { projectName: null, codeLocation: "convex.json" },
+          ],
         }),
       ]),
     );
     const output = JSON.stringify(result);
+    expect(output).not.toContain(pendingConvexProjectId);
     expect(output).not.toContain("private-diagnostic@example.com");
     expect(output).not.toContain('"runId"');
     expect(output).not.toContain('"step"');
@@ -750,23 +755,22 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {
-    const { t, userId, repositoryId } = await seedToolRuntimeOwner();
+    const { t, userId } = await seedToolRuntimeOwner();
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
       grantedScopes: ["access_provider_connections"],
-      repositoryId,
-      accountId: "account_1",
-      workerName: "___",
-      rootDirectory: "/",
-      buildTokenUuid: "build-token",
+      repository: "tool-runtime-owner/missing",
+      workerName: "worker-new",
     });
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       status: "error",
-      text: expect.stringContaining("Worker name"),
+      text: "No Samebase repository matches tool-runtime-owner/missing. Pass owner/name or a repositoryId from repository_list. To add an existing GitHub repository to Samebase, call repository_connect.",
     });
-    expect(result).not.toHaveProperty("structuredContent");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("keeps browser handoff behind its dedicated trusted scope", async () => {

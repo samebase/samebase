@@ -4,41 +4,50 @@ import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
-const { boolean, id, object, optional, string, union } = v;
+const { boolean, id, literal, object, optional, string, union } = v;
 
 const vCreateRepositoryResult = object({
   repositoryId: id("repositories"),
   runId: id("workflow_repositoryProvisioning_runs"),
 });
 
-const createRepositoryFields = {
-  githubRepositoryName: string(),
-  convexProjectName: string(),
-  convexDeploymentRegion: optional(vConvexDeploymentRegion),
-  cloudflareWorkerName: string(),
-  cloudflareBuildTokenUuid: union(string(), v.null()),
-  description: optional(string()),
-  private: optional(boolean()),
-};
-
 export const createRepositoryContract = {
   id: "create_repository",
   access: ACCESS_APP_CREATE,
   args: {
     organizationId: id("organizations"),
-    ...createRepositoryFields,
+    githubRepositoryName: string(),
+    convexProjectName: string(),
+    convexDeploymentRegion: optional(vConvexDeploymentRegion),
+    cloudflareWorkerName: string(),
+    cloudflareBuildTokenUuid: union(string(), v.null()),
+    description: optional(string()),
+    private: optional(boolean()),
   },
   mcpArgs: {
     githubOwnerLogin: string(),
-    ...createRepositoryFields,
+    name: string(),
+    convexDeploymentRegion: optional(vConvexDeploymentRegion),
+    buildTokenUuid: optional(string()),
+    convexProjectName: optional(string()),
+    cloudflareWorkerName: optional(string()),
+    description: optional(string()),
+    private: optional(boolean()),
   },
   returns: vCreateRepositoryResult,
-  structuredContent: object({ repositoryId: id("repositories") }),
+  structuredContent: object({
+    repositoryId: id("repositories"),
+    githubRepositoryFullName: string(),
+    cloudflare: union(
+      object({ state: literal("planned"), workerName: string() }),
+      object({ state: literal("pending"), setupGuideUrl: string() }),
+    ),
+  }),
   mcp: {
     title: "Create Samebase repository",
     name: "repository_create",
     description:
-      "Create a new Samebase app. A current Workers Builds token provisions GitHub, Convex, and Cloudflare; a confirmed empty token list provisions GitHub and Convex and leaves Cloudflare pending. Returns a repository ID while setup runs. Read repository_list for progress. Ready setup does not prove that the app is live.",
+      "Create a GitHub repository with the Samebase starter, its Samebase repository, and its first app: one Convex project and, when the Cloudflare account has a Workers Builds token, one Cloudflare Worker. Setup keeps running after the call returns; read repository_list for progress. Ready setup does not prove that the app is live.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -46,55 +55,55 @@ export const createRepositoryContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      githubOwnerLogin: "GitHub owner login that will own the new repository.",
-      githubRepositoryName: "Name for the new GitHub repository and Samebase app.",
-      convexProjectName: "Convex project name to provision for the app.",
+      githubOwnerLogin:
+        "GitHub user or organization login that will own the new repository. Ask the user when it is unclear.",
+      name: "Name for the new GitHub repository.",
       convexDeploymentRegion:
-        "Optional production region override: aws-us-east-1, aws-eu-west-1, aws-ca-central-1, or aws-ap-southeast-2. Omit it to use the organization default, which is US East when no default is saved.",
-      cloudflareWorkerName:
-        "Cloudflare Worker name for automatic Cloudflare provisioning. This required field is ignored when cloudflareBuildTokenUuid is null.",
-      cloudflareBuildTokenUuid:
-        "Exact Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens, or null only after that current list is confirmed empty.",
+        "Optional production region: aws-us-east-1, aws-eu-west-1, aws-ca-central-1, or aws-ap-southeast-2. Omit it to use the organization default, which is US East when no default is saved. Before you pass aws-eu-west-1, tell the user: EU usage costs 1.3 times US usage, and included usage for Starter and Professional plans does not apply to EU deployments (https://www.convex.dev/pricing).",
+      buildTokenUuid:
+        "Optional Workers Builds token UUID. Omit it: Samebase uses the last-used token, else the only token, and lists the tokens when it needs the user's choice.",
+      convexProjectName: "Optional Convex project name. Defaults to the repository name.",
+      cloudflareWorkerName: "Optional Cloudflare Worker name. Defaults to the repository name.",
       description: "Optional GitHub repository description.",
       private: "Whether to create a private GitHub repository. Defaults to true.",
     },
   } as const satisfies AppFunctionMcpMetadata,
-  doc: `Creates a Samebase app in one action. It always creates a GitHub repository under the
-selected organization's verified GitHub owner, seeds the starter template, and creates a Convex
-project with one production deployment. It uses convexDeploymentRegion when supplied. Otherwise,
-it uses the organization default, which is US East when no default is saved. When
-cloudflareBuildTokenUuid is a current token UUID, it also creates a Cloudflare Worker and configures Workers Builds for the repository
-(pushes to the default branch deploy, and pull requests get preview deploys) with Convex deploy keys
-in production and Previews Base Builds settings.
+  doc: `Creates a GitHub repository under the selected organization's verified GitHub owner, seeds the
+starter template, records the Samebase repository, and starts managed setup of its first app. Setup
+always creates a Convex project with one production deployment. It uses convexDeploymentRegion when
+supplied. Otherwise, it uses the organization default, which is US East when no default is saved.
 
-Pass null only after cloudflare_listWorkersBuildTokens returns an empty current list. In that case,
-the run creates no Cloudflare Worker and stops after GitHub and Convex are ready. Cloudflare setup is
-still pending. Follow https://samebase.com/docs/cloudflare-setup: use Cloudflare's standard
-repository setup to create the first account token, delete the temporary Worker, then use
-repository_cloudflare_createWorker with a current token UUID to create and configure the real Worker.
+Samebase picks the Workers Builds token: the given buildTokenUuid, else the available last-used
+token, else the only token. Several tokens and no last-used one return an error that lists their
+names and UUIDs. With a token, setup also creates a Cloudflare Worker and configures Workers Builds
+for the repository (pushes to the default branch deploy, and pull requests get preview deploys) with
+Convex deploy keys in production and Previews Base Builds settings. The result reports
+cloudflare.state planned with the Worker name.
+
+When the Cloudflare account has no token, setup creates no Worker and stops after GitHub and Convex
+are ready. The result reports cloudflare.state pending with the setup guide,
+https://samebase.com/docs/cloudflare-setup: use Cloudflare's standard repository setup to create the
+first account token, delete the temporary Worker, then call repository_cloudflare_createWorker for
+this repository.
 
 Preconditions: the caller must be an organization member. Its GitHub App installation and selected
-Convex and Cloudflare provider connections must be available. The
-GitHub repository and Convex project names must be available. The Cloudflare Worker name must be
-available only when a token UUID requests automatic Cloudflare provisioning. A required
-cloudflareWorkerName is ignored when the token is null. A relevant name collision fails the call
-immediately before any repository or run is created, so pick a different name and call again; failures
-after provisioning starts surface through \`repository_list\` instead.
+Convex and Cloudflare provider connections must be available. The GitHub repository and Convex
+project names must be available, and the Worker name when a token is used. A name collision fails
+the call before any repository or run is created, so pick a different name and call again; failures
+after setup starts surface through \`repository_list\` instead.
 
 What it writes: one repository (private by default) and one Convex project with one production
-deployment in the resolved region. When
-\`cloudflareBuildTokenUuid\` is not null, it also writes one Worker with native Worker Previews.
-Production Builds and Previews Base Builds each carry \`CONVEX_DEPLOY_KEY\` with the matching
-Convex key. All resources live in
-the organization's provider accounts. Deleting the Samebase account does not remove or stop any of
-them.
+deployment in the resolved region. With a token, it also writes one Worker with native Worker
+Previews. Production Builds and Previews Base Builds each carry \`CONVEX_DEPLOY_KEY\` with the
+matching Convex key. All resources live in the organization's provider accounts. Deleting the
+Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through \`repository_list\`: while running, \`providerSetup\`
 carries the current step; on failure it carries the failed step and a message. Repair it with
-\`repository_retryProviderSetup\`. When the token was null, \`providerSetup.status: ready\`
-means that the requested GitHub and Convex work finished. It does not mean Cloudflare is complete.
-This expected pending state is not a failure and must not be repaired with the retry action. Cost:
-the created resources run on the providers' free tiers; an idle app costs $0/month.`,
+\`repository_retryProviderSetup\`. Without a token, \`providerSetup.status: ready\` means that the
+requested GitHub and Convex work finished. It does not mean Cloudflare is complete. This expected
+pending state is not a failure and must not be repaired with the retry action. Cost: the created
+resources run on the providers' free tiers; an idle app costs $0/month.`,
 } as const;
 
 const createRepositoryArgsValidator = object(createRepositoryContract.args);

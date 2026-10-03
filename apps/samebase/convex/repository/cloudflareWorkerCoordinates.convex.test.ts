@@ -254,7 +254,6 @@ describe("Cloudflare Worker stored coordinates", () => {
     await expect(
       fixture.owner.action(api.repository.cloudflare.createWorker, {
         repositoryId: fixture.ids.repositoryId,
-        accountId: "cloudflare-account",
         workerName: "tmp_some_new_app",
         rootDirectory: "/",
         buildTokenUuid: "build-token",
@@ -296,7 +295,6 @@ describe("Cloudflare Worker stored coordinates", () => {
     await expect(
       fixture.owner.action(api.repository.cloudflare.createWorker, {
         repositoryId: fixture.ids.repositoryId,
-        accountId: "cloudflare-account",
         workerName: "tmp_race_app",
         rootDirectory: "/",
         buildTokenUuid: "build-token",
@@ -488,7 +486,6 @@ describe("Cloudflare Worker stored coordinates", () => {
 
     const [attachedWorkerId] = await fixture.owner.action(api.repository.cloudflare.attachWorkers, {
       repositoryId: fixture.ids.repositoryId,
-      accountId: "cloudflare-account",
       workers: [{ workerName: "stale-discovery-name", workerTag: "drift-worker-tag" }],
     });
     await expect(
@@ -528,7 +525,6 @@ describe("Cloudflare Worker stored coordinates", () => {
 
     const result = await fixture.owner.action(api.repository.cloudflare.connectWorker, {
       repositoryId: fixture.ids.repositoryId,
-      accountId: "cloudflare-account",
       workerName: "stale-discovery-name",
       workerTag: "connect-worker-tag",
       rootDirectory: "apps/connect",

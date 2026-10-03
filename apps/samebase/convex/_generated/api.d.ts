@@ -128,7 +128,9 @@ import type * as repository_contracts_cloudflareRotateConvexDeployKeysForWorkers
 import type * as repository_contracts_connectRepository from "../repository/contracts/connectRepository.js";
 import type * as repository_contracts_convexAttachments from "../repository/contracts/convexAttachments.js";
 import type * as repository_contracts_createRepository from "../repository/contracts/createRepository.js";
+import type * as repository_contracts_detachResource from "../repository/contracts/detachResource.js";
 import type * as repository_contracts_getUserRepositories from "../repository/contracts/getUserRepositories.js";
+import type * as repository_contracts_repositoryReference from "../repository/contracts/repositoryReference.js";
 import type * as repository_contracts_retryInfrastructureProvisioning from "../repository/contracts/retryInfrastructureProvisioning.js";
 import type * as repository_convex from "../repository/convex.js";
 import type * as repository_convexDeployKeys from "../repository/convexDeployKeys.js";
@@ -179,6 +181,7 @@ import type * as stagingRebase from "../stagingRebase.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
+import type * as toolRuntime_mcpResolution from "../toolRuntime/mcpResolution.js";
 import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
 import type * as toolRuntime_mcpTool from "../toolRuntime/mcpTool.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
@@ -314,7 +317,9 @@ declare const fullApi: ApiFromModules<{
   "repository/contracts/connectRepository": typeof repository_contracts_connectRepository;
   "repository/contracts/convexAttachments": typeof repository_contracts_convexAttachments;
   "repository/contracts/createRepository": typeof repository_contracts_createRepository;
+  "repository/contracts/detachResource": typeof repository_contracts_detachResource;
   "repository/contracts/getUserRepositories": typeof repository_contracts_getUserRepositories;
+  "repository/contracts/repositoryReference": typeof repository_contracts_repositoryReference;
   "repository/contracts/retryInfrastructureProvisioning": typeof repository_contracts_retryInfrastructureProvisioning;
   "repository/convex": typeof repository_convex;
   "repository/convexDeployKeys": typeof repository_convexDeployKeys;
@@ -365,6 +370,7 @@ declare const fullApi: ApiFromModules<{
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
+  "toolRuntime/mcpResolution": typeof toolRuntime_mcpResolution;
   "toolRuntime/mcpScopes": typeof toolRuntime_mcpScopes;
   "toolRuntime/mcpTool": typeof toolRuntime_mcpTool;
   "toolRuntime/runtime": typeof toolRuntime_runtime;

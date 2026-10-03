@@ -2,8 +2,13 @@ import { v, type Infer } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalQuery, type ActionCtx } from "./_generated/server";
-import { action, query } from "./functions";
+import {
+  internalMutation,
+  internalQuery,
+  type ActionCtx,
+  type MutationCtx,
+} from "./_generated/server";
+import { action, mutation, query } from "./functions";
 import { listOrganizationIdsForUser } from "./organizationAccess";
 import { readOrganizationRepositories } from "./repository/dashboard";
 import { isLiveConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
@@ -14,6 +19,13 @@ import {
   type UserRepositoriesResult,
 } from "./repository/contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./repository/contracts/retryInfrastructureProvisioning";
+import {
+  detachResourceContract,
+  vDetachableResource,
+  type DetachableResource,
+} from "./repository/contracts/detachResource";
+import { detachWorkerForUser } from "./repository/cloudflareMutations";
+import { detachProjectForUser } from "./repository/convexMutations";
 import { canAccess } from "../shared/accessModel";
 
 const { id } = v;
@@ -121,5 +133,64 @@ export const retryProviderSetup = action({
     await retryProviderSetupForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
+    }),
+});
+
+async function detachRepositoryResource(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    resource: DetachableResource;
+  },
+): Promise<null> {
+  switch (args.resource.kind) {
+    case "cloudflare_worker":
+      await detachWorkerForUser(ctx, {
+        userId: args.userId,
+        repositoryId: args.repositoryId,
+        workerId: args.resource.workerId,
+      });
+      return null;
+    case "convex_project":
+      await detachProjectForUser(ctx, {
+        userId: args.userId,
+        repositoryId: args.repositoryId,
+        convexProjectId: args.resource.convexProjectId,
+      });
+      return null;
+    default:
+      args.resource satisfies never;
+      throw new Error("Unsupported repository resource.");
+  }
+}
+
+/** Removes one attachment record. No provider call: the resource keeps running. */
+export const detachResource = mutation({
+  access: detachResourceContract.access,
+  args: detachResourceContract.args,
+  returns: detachResourceContract.returns,
+  mcp: detachResourceContract.mcp,
+  handler: async (ctx, args): Promise<null> =>
+    await detachRepositoryResource(ctx, {
+      userId: ctx.viewer.userId,
+      repositoryId: args.repositoryId,
+      resource: args.resource,
+    }),
+});
+
+/** The `detachResource` write for an MCP caller, after the MCP side resolved the resource name. */
+export const detachResourceForUser = internalMutation({
+  args: {
+    userId: id("users"),
+    repositoryId: id("repositories"),
+    resource: vDetachableResource,
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+    await detachRepositoryResource(ctx, {
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+      resource: args.resource,
     }),
 });

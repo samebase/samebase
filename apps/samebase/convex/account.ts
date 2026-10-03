@@ -1,3 +1,4 @@
+import { notEmpty } from "@samebase/dependent/main";
 import { v, type Infer } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -8,12 +9,13 @@ import {
   type McpAuthenticationStatus,
 } from "./mcp/contracts/getAuthenticationStatus";
 import { publicMcpErrorMessage } from "./mcp/publicErrors";
+import { listOrganizationIdsForUser } from "./organizationAccess";
 import {
   AGENT_BROWSER_HANDOFF_TTL_MS,
   createAgentBrowserHandoffTokenValue,
   sha256Hex,
 } from "./mcp/tokens";
-import { vMcpToolFailure, vMcpToolInvocationArgs } from "./toolRuntime/mcpTool";
+import { vMcpToolFailure, mcpToolInvocationArgs } from "./toolRuntime/mcpTool";
 import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/accountPresentation";
 import { buildAgentBrowserHandoffUrl } from "../shared/agentBrowserHandoff";
 
@@ -28,7 +30,7 @@ type AuthenticationStatusToolResult = Infer<typeof vAuthenticationStatusToolResu
 
 /** MCP-only: the status describes the bearer token of the calling MCP grant. */
 export const getAuthenticationStatus = internalQuery({
-  args: vMcpToolInvocationArgs,
+  args: mcpToolInvocationArgs,
   returns: vAuthenticationStatusToolResult,
   handler: async (ctx, args): Promise<AuthenticationStatusToolResult> => {
     const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
@@ -43,6 +45,15 @@ export const getAuthenticationStatus = internalQuery({
       };
     }
 
+    const organizationIds = await listOrganizationIdsForUser(ctx.db, args.userId);
+    const organizations = await Promise.all(
+      organizationIds.map(async (organizationId) => await ctx.db.get(organizationId)),
+    );
+    const githubOwnerLogins = organizations
+      .filter(notEmpty)
+      .map((organization) => organization.githubOwnerLogin)
+      .sort((left, right) => left.localeCompare(right));
+
     const normalizedEmail = normalizeAccountEmail(viewer.user.email);
     const accountPresentation = resolveAccountPresentation({
       displayName: viewer.user.displayName,
@@ -55,6 +66,7 @@ export const getAuthenticationStatus = internalQuery({
         email: normalizedEmail,
       },
       role: viewer.role,
+      githubOwnerLogins,
       grantedScopes: args.grantedScopes,
     };
     return {
@@ -81,7 +93,7 @@ client IDs bind the handoff to the MCP grant that requested it.
 */
 export const createSignInLink = internalAction({
   args: object({
-    ...vMcpToolInvocationArgs,
+    ...mcpToolInvocationArgs,
     grantId: string(),
     clientId: string(),
     ...createBrowserHandoffContract.args,

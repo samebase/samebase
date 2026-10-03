@@ -2554,6 +2554,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
         createWorkerNameConflict={null}
@@ -2592,6 +2593,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
         createWorkerNameConflict={null}
@@ -2773,6 +2775,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={<div>API token</div>}
+        convexProjectField={null}
         hasSelectedBuildToken={false}
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
@@ -2814,6 +2817,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
@@ -2856,6 +2860,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
@@ -2894,6 +2899,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
@@ -2932,6 +2938,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
         createWorkerNameConflict={null}

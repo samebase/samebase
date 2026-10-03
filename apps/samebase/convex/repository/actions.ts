@@ -16,7 +16,10 @@ import {
 import { createGitHubRepositoryInstallationOctokit } from "../githubApp";
 import { resolveGitHubRepositoryById } from "../githubRepoApi";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
-import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
+import {
+  toSafeGitHubRepositoryName,
+  tryParseGitHubRepositoryFullName,
+} from "../../shared/githubRepositoryName";
 import { canAccess } from "../../shared/accessModel";
 import { resolveDefaultConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
@@ -673,6 +676,43 @@ export async function connectRepositoryForUser(
     runId,
     githubRepositoryFullName: `${owner}/${name}`,
   };
+}
+
+/**
+MCP callers name the GitHub repository as owner/name. The owner selects the Samebase organization,
+and its GitHub App installation reads the repository's stable database ID.
+*/
+export async function connectRepositoryByFullNameForUser(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: { userId: Id<"users">; githubRepositoryFullName: string },
+): Promise<ConnectRepositoryResult> {
+  const fullName = tryParseGitHubRepositoryFullName(args.githubRepositoryFullName);
+  if (fullName === null) {
+    throw new ConvexError("Pass the GitHub repository as owner/name.");
+  }
+  const target: GitHubAppAccessTarget = { kind: "owner", githubOwnerLogin: fullName.owner };
+  const access = await resolveGitHubAppAccess(ctx, { userId: args.userId, target });
+  let githubRepositoryDatabaseId: string;
+  try {
+    const repository = await access.octokit.rest.repos.get({
+      owner: fullName.owner,
+      repo: fullName.name,
+    });
+    githubRepositoryDatabaseId = String(repository.data.id);
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      throw new ConvexError(
+        `The Samebase GitHub App cannot read ${fullName.owner}/${fullName.name}. Check the name, or give the app access to this repository in GitHub, then retry.`,
+      );
+    }
+    throw error;
+  }
+
+  return await connectRepositoryForUser(ctx, {
+    userId: args.userId,
+    target,
+    githubRepositoryDatabaseId,
+  });
 }
 
 /** The Node half of `repository:connect`, which checks the viewer before it calls this action. */

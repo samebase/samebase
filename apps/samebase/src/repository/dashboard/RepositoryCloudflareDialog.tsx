@@ -13,6 +13,7 @@ import {
   formatAppResourceNameConflictMessage,
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
+import { getConvexCodeLocationPath } from "../../../shared/convexCodeLocation";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import {
   AppResourceNameFeedback,
@@ -53,6 +54,7 @@ type CloudflareInventoryState =
 export function RepositoryCloudflareDialogContent({
   blockedReason,
   cloudflareBuildTokenField,
+  convexProjectField,
   createRootDirectory,
   createWorkerNameConflict,
   createWorkerName,
@@ -80,6 +82,7 @@ export function RepositoryCloudflareDialogContent({
 }: {
   blockedReason?: string | null;
   cloudflareBuildTokenField: ReactNode;
+  convexProjectField: ReactNode;
   createRootDirectory: string;
   createWorkerNameConflict: { message: string; suggestion: string | null } | null;
   createWorkerName: string;
@@ -248,6 +251,7 @@ export function RepositoryCloudflareDialogContent({
                 value={createRootDirectory}
               />
               {cloudflareBuildTokenField}
+              {convexProjectField}
             </div>
           ) : (
             <>
@@ -354,6 +358,7 @@ export function RepositoryCloudflareDialogContent({
                     value={createRootDirectory}
                   />
                   {cloudflareBuildTokenField}
+                  {convexProjectField}
                 </div>
               )}
             </>
@@ -460,8 +465,12 @@ export function RepositoryCloudflareDialog({
   const [didAddWorker, setDidAddWorker] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createWorkerConflictName, setCreateWorkerConflictName] = useState<string | null>(null);
+  const [deployKeyConvexProjectId, setDeployKeyConvexProjectId] =
+    useState<Id<"repositoryConvexProjects"> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cloudflareAccountId = repository.cloudflareAccountId;
+  // With one attached Convex project the server installs its deploy key without a choice.
+  const needsDeployKeyConvexProject = repository.convexProjects.length > 1;
   const cloudflareBlockedReason =
     cloudflareAccountId === undefined
       ? "Connect Cloudflare in Providers before adding a Worker."
@@ -495,15 +504,7 @@ export function RepositoryCloudflareDialog({
       repository.cloudflareWorkers.map((worker) => worker.workerTag),
       repository.providerWrite.lastWriteAt.cloudflare,
     ],
-    queryFn: async () => {
-      if (cloudflareAccountId === undefined) {
-        throw new Error("Cloudflare account is not configured for this repository.");
-      }
-      return await findWorkers({
-        accountId: cloudflareAccountId,
-        repositoryId: repository.repositoryId,
-      });
-    },
+    queryFn: async () => await findWorkers({ repositoryId: repository.repositoryId }),
     enabled: !repairWorker && cloudflareAccountId !== undefined,
     retry: false,
   });
@@ -554,13 +555,16 @@ export function RepositoryCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
+        if (needsDeployKeyConvexProject && !deployKeyConvexProjectId) {
+          throw new Error("Choose the Convex project whose deploy key the Worker gets.");
+        }
         const result = await connectWorker({
           repositoryId: repository.repositoryId,
-          accountId: cloudflareAccountId,
           workerName: workerToConnect.workerName,
           workerTag: workerToConnect.workerTag,
           rootDirectory: createRootDirectory,
           buildTokenUuid,
+          convexProjectId: deployKeyConvexProjectId ?? undefined,
         });
         setDidAddWorker(true);
         setMode("existing");
@@ -570,6 +574,8 @@ export function RepositoryCloudflareDialog({
         setWorkerToConnect(null);
         if (result.state === "added_with_notice") {
           setSubmitError(result.message);
+        } else if (result.convexDeployKey.state === "failed") {
+          setSubmitError(result.convexDeployKey.message);
         }
         setIsSubmitting(false);
         return;
@@ -589,20 +595,29 @@ export function RepositoryCloudflareDialog({
         }
         await attachWorkers({
           repositoryId: repository.repositoryId,
-          accountId: cloudflareAccountId,
           workers: selectedWorkers,
         });
       } else {
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        await createWorker({
+        if (needsDeployKeyConvexProject && !deployKeyConvexProjectId) {
+          throw new Error("Choose the Convex project whose deploy key the Worker gets.");
+        }
+        const result = await createWorker({
           repositoryId: repository.repositoryId,
-          accountId: cloudflareAccountId,
           workerName: createWorkerName,
           rootDirectory: createRootDirectory,
           buildTokenUuid,
+          convexProjectId: deployKeyConvexProjectId ?? undefined,
         });
+        if (result.convexDeployKey.state === "failed") {
+          setDidAddWorker(true);
+          setMode("existing");
+          setSubmitError(result.convexDeployKey.message);
+          setIsSubmitting(false);
+          return;
+        }
       }
       onClose();
     } catch (error) {
@@ -635,9 +650,47 @@ export function RepositoryCloudflareDialog({
     }
   };
 
+  const deployKeyConvexProject = repository.convexProjects.find(
+    (project) => project.convexProjectId === deployKeyConvexProjectId,
+  );
+
   return (
     <RepositoryCloudflareDialogContent
       blockedReason={cloudflareBlockedReason}
+      convexProjectField={
+        needsDeployKeyConvexProject && (workerToConnect || mode === "create") ? (
+          <div className="grid gap-1.5">
+            <Label htmlFor="cloudflare-worker-convex-project">Convex project for deploy keys</Label>
+            <Select
+              value={deployKeyConvexProjectId ?? ""}
+              onValueChange={(convexProjectId) => {
+                setSubmitError(null);
+                setDeployKeyConvexProjectId(
+                  repository.convexProjects.find(
+                    (project) => project.convexProjectId === convexProjectId,
+                  )?.convexProjectId ?? null,
+                );
+              }}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger id="cloudflare-worker-convex-project" className="w-full">
+                <SelectValue placeholder="Choose a Convex project">
+                  {deployKeyConvexProject
+                    ? getConvexCodeLocationPath(deployKeyConvexProject.codeLocation)
+                    : null}
+                </SelectValue>
+              </SelectTrigger>
+              <AppSelectContent>
+                {repository.convexProjects.map((project) => (
+                  <AppSelectItem key={project.convexProjectId} value={project.convexProjectId}>
+                    {getConvexCodeLocationPath(project.codeLocation)}
+                  </AppSelectItem>
+                ))}
+              </AppSelectContent>
+            </Select>
+          </div>
+        ) : null
+      }
       cloudflareBuildTokenField={
         writesWorkersBuilds ? (
           <CloudflareBuildTokenField

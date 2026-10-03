@@ -10,7 +10,7 @@ import { mcpScopeAllowsAccess } from "./mcpScopes";
 const { array, id, literal, object, string, union } = v;
 
 /** Trusted fields that mcp/http.ts sets for every tool call after the bearer token check. */
-export const vMcpToolInvocationArgs = {
+export const mcpToolInvocationArgs = {
   userId: id("users"),
   grantedScopes: array(string()),
 };
@@ -58,7 +58,7 @@ export function defineMcpTool<
   const vToolResult = union(vToolSuccess, vMcpToolFailure);
   const vToolArgs = object({
     ...config.args,
-    ...vMcpToolInvocationArgs,
+    ...mcpToolInvocationArgs,
   });
   type ToolReturn = ReturnValueForOptionalValidator<typeof vToolResult>;
 
