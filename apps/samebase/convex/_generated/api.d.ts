@@ -158,6 +158,7 @@ import type * as repository_model from "../repository/model.js";
 import type * as repository_organizationTree from "../repository/organizationTree.js";
 import type * as repository_organizationTreeModel from "../repository/organizationTreeModel.js";
 import type * as repository_providerDashboardUrls from "../repository/providerDashboardUrls.js";
+import type * as repository_providerObservationModel from "../repository/providerObservationModel.js";
 import type * as repository_providerObservationQueries from "../repository/providerObservationQueries.js";
 import type * as repository_providerObservations from "../repository/providerObservations.js";
 import type * as repository_provisioningModel from "../repository/provisioningModel.js";
@@ -165,6 +166,7 @@ import type * as repository_pullRequestCloudflareWorkerChecks from "../repositor
 import type * as repository_pullRequestCloudflareWorkerComments from "../repository/pullRequestCloudflareWorkerComments.js";
 import type * as repository_pullRequestCloudflareWorkerProof from "../repository/pullRequestCloudflareWorkerProof.js";
 import type * as repository_pullRequestHostingPreviews from "../repository/pullRequestHostingPreviews.js";
+import type * as repository_pullRequestModel from "../repository/pullRequestModel.js";
 import type * as repository_pullRequestResources from "../repository/pullRequestResources.js";
 import type * as repository_records from "../repository/records.js";
 import type * as repository_state from "../repository/state.js";
@@ -347,6 +349,7 @@ declare const fullApi: ApiFromModules<{
   "repository/organizationTree": typeof repository_organizationTree;
   "repository/organizationTreeModel": typeof repository_organizationTreeModel;
   "repository/providerDashboardUrls": typeof repository_providerDashboardUrls;
+  "repository/providerObservationModel": typeof repository_providerObservationModel;
   "repository/providerObservationQueries": typeof repository_providerObservationQueries;
   "repository/providerObservations": typeof repository_providerObservations;
   "repository/provisioningModel": typeof repository_provisioningModel;
@@ -354,6 +357,7 @@ declare const fullApi: ApiFromModules<{
   "repository/pullRequestCloudflareWorkerComments": typeof repository_pullRequestCloudflareWorkerComments;
   "repository/pullRequestCloudflareWorkerProof": typeof repository_pullRequestCloudflareWorkerProof;
   "repository/pullRequestHostingPreviews": typeof repository_pullRequestHostingPreviews;
+  "repository/pullRequestModel": typeof repository_pullRequestModel;
   "repository/pullRequestResources": typeof repository_pullRequestResources;
   "repository/records": typeof repository_records;
   "repository/state": typeof repository_state;

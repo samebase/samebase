@@ -3,7 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   PullRequestResources,
   PullRequestWorkerResource,
-} from "../../../convex/repository/pullRequestResources";
+} from "../../../convex/repository/pullRequestModel";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import { buildRepositoryDatabaseRoute, buildRepositorySchemaRoute } from "@/lib/repositoryRoutes";

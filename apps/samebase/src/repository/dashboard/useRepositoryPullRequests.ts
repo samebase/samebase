@@ -4,12 +4,12 @@ import type {
   RepositoryPullRequest as RepositoryPullRequestPayload,
   RepositoryPullRequestPage,
   RepositoryStatusCheckRollup,
-} from "../../../convex/repositoryPullRequests";
+} from "../../../convex/repository/pullRequestModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
   PullRequestResourceRead,
   PullRequestResources,
-} from "../../../convex/repository/pullRequestResources";
+} from "../../../convex/repository/pullRequestModel";
 import {
   summarizeRepositoryChecks,
   type RepositoryCheckSummary,

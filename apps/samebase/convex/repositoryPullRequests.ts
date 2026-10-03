@@ -4,175 +4,30 @@ import { Infer, v } from "convex/values";
 import { z } from "zod";
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { ActionCtx } from "./_generated/server";
 import { action } from "./functions";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
 import type { RepositoryConnectedGitHubTarget } from "./repository/model";
+import {
+  GITHUB_CHECK_CONCLUSIONS,
+  GITHUB_CHECK_RUN_STATES,
+  GITHUB_CHECK_STATUSES,
+  GITHUB_STATUS_STATES,
+  UNKNOWN_GITHUB_STATE,
+  vRepositoryPullRequestPage,
+  vRepositorySidebarSummary,
+  type RepositoryPullRequestPage,
+  type RepositorySidebarSummary,
+  type RepositoryStatusCheckCounts,
+  type RepositoryStatusCheckRollup,
+} from "./repository/pullRequestModel";
 import { isLiveConnectedRepository } from "./repository/state";
 
-const { array, boolean, id, literal, number, object, string, union } = v;
-
-const GITHUB_CHECK_RUN_STATES = [
-  "ACTION_REQUIRED",
-  "CANCELLED",
-  "COMPLETED",
-  "FAILURE",
-  "IN_PROGRESS",
-  "NEUTRAL",
-  "PENDING",
-  "QUEUED",
-  "SKIPPED",
-  "STALE",
-  "STARTUP_FAILURE",
-  "SUCCESS",
-  "TIMED_OUT",
-  "WAITING",
-] as const;
-const GITHUB_STATUS_STATES = ["ERROR", "EXPECTED", "FAILURE", "PENDING", "SUCCESS"] as const;
-const GITHUB_CHECK_STATUSES = [
-  "REQUESTED",
-  "QUEUED",
-  "IN_PROGRESS",
-  "COMPLETED",
-  "WAITING",
-  "PENDING",
-] as const;
-const GITHUB_CHECK_CONCLUSIONS = [
-  "ACTION_REQUIRED",
-  "TIMED_OUT",
-  "CANCELLED",
-  "FAILURE",
-  "SUCCESS",
-  "NEUTRAL",
-  "SKIPPED",
-  "STARTUP_FAILURE",
-  "STALE",
-] as const;
-const UNKNOWN_GITHUB_STATE = "UNKNOWN" as const;
+const { array, id, number, object, string, union } = v;
 const REPOSITORY_SIDEBAR_SUMMARY_BATCH_SIZE = 20;
-const checkRunState = union(
-  ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
-);
-const statusState = union(
-  ...[...GITHUB_STATUS_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
-);
-const checkStatus = union(
-  ...[...GITHUB_CHECK_STATUSES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
-);
-const checkConclusion = union(
-  ...[...GITHUB_CHECK_CONCLUSIONS, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
-);
-const checkContext = union(
-  object({
-    kind: literal("check_run"),
-    name: string(),
-    status: checkStatus,
-    conclusion: union(v.null(), checkConclusion),
-    detailsUrl: union(v.null(), string()),
-    title: union(v.null(), string()),
-  }),
-  object({
-    kind: literal("status_context"),
-    context: string(),
-    state: statusState,
-    targetUrl: union(v.null(), string()),
-    description: union(v.null(), string()),
-  }),
-);
-const checkCountFields = {
-  totalCount: number(),
-  checkRunCount: number(),
-  statusContextCount: number(),
-  checkRunCountsByState: array(object({ state: checkRunState, count: number() })),
-  statusContextCountsByState: array(object({ state: statusState, count: number() })),
-};
-const vStatusCheckCounts = union(
-  v.null(),
-  object({
-    contexts: object(checkCountFields),
-  }),
-);
-const vStatusCheckRollup = union(
-  v.null(),
-  object({
-    contexts: object({
-      ...checkCountFields,
-      nodes: array(checkContext),
-    }),
-  }),
-);
-const vPullRequest = object({
-  id: string(),
-  number: number(),
-  title: string(),
-  url: string(),
-  isDraft: boolean(),
-  isCrossRepository: boolean(),
-  additions: number(),
-  deletions: number(),
-  changedFiles: number(),
-  updatedAt: string(),
-  baseRefName: string(),
-  headRefName: string(),
-  headRefOid: string(),
-  headRepository: union(
-    v.null(),
-    object({
-      id: string(),
-      nameWithOwner: string(),
-      owner: object({ login: string() }),
-    }),
-  ),
-  labels: object({
-    nodes: array(object({ name: string(), color: string() })),
-  }),
-  statusCheckRollup: vStatusCheckRollup,
-});
-const vRepositoryDefaultBranch = union(
-  v.null(),
-  object({
-    name: string(),
-    headCommitOid: string(),
-    headCommitTitle: string(),
-    headCommitCommittedAt: string(),
-    headCommitUrl: string(),
-    statusCheckRollup: vStatusCheckRollup,
-  }),
-);
-const vRepositoryPullRequestPage = object({
-  repository: union(
-    v.null(),
-    object({
-      id: string(),
-      databaseId: number(),
-      nameWithOwner: string(),
-      defaultBranch: vRepositoryDefaultBranch,
-      pullRequests: object({
-        totalCount: number(),
-        pageInfo: object({
-          hasNextPage: boolean(),
-          endCursor: union(v.null(), string()),
-        }),
-        nodes: array(vPullRequest),
-      }),
-    }),
-  ),
-});
-const vRepositorySidebarSummary = object({
-  repositoryId: id("repositories"),
-  repository: union(
-    v.null(),
-    object({
-      openPullRequestCount: number(),
-      statusCheckRollup: vStatusCheckCounts,
-    }),
-  ),
-});
-export type RepositoryPullRequestPage = Infer<typeof vRepositoryPullRequestPage>;
-export type RepositoryPullRequest = Infer<typeof vPullRequest>;
-export type RepositoryStatusCheckCounts = Infer<typeof vStatusCheckCounts>;
-export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
-export type RepositorySidebarSummary = Infer<typeof vRepositorySidebarSummary>;
+
 const vBranchPullRequest = object({
   aheadBy: number(),
   pullRequest: union(
@@ -748,6 +603,55 @@ export const listRepositorySidebarSummaries = action({
   },
 });
 
+export async function listOpenPullRequestsForUser(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    first: number;
+    after: string | null;
+  },
+): Promise<RepositoryPullRequestPage> {
+  if (!Number.isInteger(args.first) || args.first < 1 || args.first > 100) {
+    throw new Error("GitHub pull request page size must be between 1 and 100.");
+  }
+  const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+  });
+  if (!isLiveConnectedRepository(repository)) {
+    throw new Error("Repository not found.");
+  }
+  const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
+    userId: args.userId,
+    target: { kind: "repository", repositoryId: repository._id },
+  });
+  const signal = createGitHubRequestDeadlineSignal();
+  const page = normalizeGitHubPullRequestPage(
+    await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
+      owner: githubOwnerLogin,
+      name: repository.githubRepositoryName,
+      defaultBranchRef: `refs/heads/${repository.defaultBranch}`,
+      first: args.first,
+      after: args.after,
+      request: { signal },
+    }),
+  );
+  if (page.repository === null) {
+    return page;
+  }
+  if (String(page.repository.databaseId) !== repository.githubRepositoryDatabaseId) {
+    throw new Error("GitHub repository identity changed.");
+  }
+  if (
+    page.repository.defaultBranch !== null &&
+    page.repository.defaultBranch.name !== repository.defaultBranch
+  ) {
+    throw new Error("GitHub returned another default branch ref.");
+  }
+  return page;
+}
+
 export const listOpenPullRequests = action({
   access: "access_dashboard",
   args: {
@@ -756,46 +660,13 @@ export const listOpenPullRequests = action({
     after: union(string(), v.null()),
   },
   returns: vRepositoryPullRequestPage,
-  handler: async (ctx, args): Promise<RepositoryPullRequestPage> => {
-    if (!Number.isInteger(args.first) || args.first < 1 || args.first > 100) {
-      throw new Error("GitHub pull request page size must be between 1 and 100.");
-    }
-    const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
+  handler: async (ctx, args): Promise<RepositoryPullRequestPage> =>
+    await listOpenPullRequestsForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
-    });
-    if (!isLiveConnectedRepository(repository)) {
-      throw new Error("Repository not found.");
-    }
-    const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
-      userId: ctx.viewer.userId,
-      target: { kind: "repository", repositoryId: repository._id },
-    });
-    const signal = createGitHubRequestDeadlineSignal();
-    const page = normalizeGitHubPullRequestPage(
-      await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
-        owner: githubOwnerLogin,
-        name: repository.githubRepositoryName,
-        defaultBranchRef: `refs/heads/${repository.defaultBranch}`,
-        first: args.first,
-        after: args.after,
-        request: { signal },
-      }),
-    );
-    if (page.repository === null) {
-      return page;
-    }
-    if (String(page.repository.databaseId) !== repository.githubRepositoryDatabaseId) {
-      throw new Error("GitHub repository identity changed.");
-    }
-    if (
-      page.repository.defaultBranch !== null &&
-      page.repository.defaultBranch.name !== repository.defaultBranch
-    ) {
-      throw new Error("GitHub returned another default branch ref.");
-    }
-    return page;
-  },
+      first: args.first,
+      after: args.after,
+    }),
 });
 
 export const getOpenPullRequestForBranch = action({

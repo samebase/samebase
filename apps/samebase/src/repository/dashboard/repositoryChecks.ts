@@ -1,4 +1,4 @@
-import type { RepositoryStatusCheckCounts } from "../../../convex/repositoryPullRequests";
+import type { RepositoryStatusCheckCounts } from "../../../convex/repository/pullRequestModel";
 
 type CheckState = "success" | "failure" | "running" | "neutral" | "unknown";
 type StatusCheckCounts = NonNullable<RepositoryStatusCheckCounts>;

@@ -6,7 +6,7 @@ import {
 } from "@/repository/dashboard/repositoryChecks";
 import { clsx } from "clsx";
 import { CircleAlert, CircleCheck, CircleDashed, CircleDot, CircleX, Loader2 } from "lucide-react";
-import type { RepositoryStatusCheckRollup } from "../../../convex/repositoryPullRequests";
+import type { RepositoryStatusCheckRollup } from "../../../convex/repository/pullRequestModel";
 
 type RepositoryCheck = NonNullable<RepositoryStatusCheckRollup>["contexts"]["nodes"][number];
 type RepositoryCheckState = Exclude<RepositoryCheckSummary["state"], "none">;
