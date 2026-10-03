@@ -656,8 +656,14 @@ export const cloudflareCreateWorkerTool = defineMcpTool({
     const rootDirectory = normalizeRepositoryRootDirectory(
       args.rootDirectory ?? pendingCloudflareSetup?.rootDirectory ?? "/",
     );
+    // The plan's Convex project belongs to the planned app only. Another Worker name or root
+    // directory is another app, so the normal rule chooses its project before any provider change.
+    const completesPlannedApp =
+      pendingCloudflareSetup &&
+      workerName.value === pendingCloudflareSetup.workerName &&
+      rootDirectory === normalizeRepositoryRootDirectory(pendingCloudflareSetup.rootDirectory);
     const convexProjectId =
-      args.convexProjectSlug === undefined && pendingCloudflareSetup
+      args.convexProjectSlug === undefined && completesPlannedApp
         ? pendingCloudflareSetup.convexProjectId
         : await selectConvexDeployKeyProject(ctx, {
             userId: args.userId,

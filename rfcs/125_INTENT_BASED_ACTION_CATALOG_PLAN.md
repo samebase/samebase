@@ -135,6 +135,12 @@ Shared rules:
   installed and that `repository_cloudflare_rotateConvexDeployKeys` installs it later. A result
   never reports an installed key that the server did not install. When a key is installed, the first
   production build waits for it: the key step starts the build.
+- A pending Cloudflare setup (a managed creation without a Workers Builds token) names one planned
+  app: a Worker name, a root directory, and the plan's Convex project.
+  `repository_cloudflare_createWorker` uses the plan's project without a choice only when it creates
+  that exact Worker name at that exact root directory. Any other Worker is another app and follows
+  the rule above, so several attached projects without `convexProjectSlug` fail before any provider
+  change.
 - `repository_cloudflare_rotateConvexDeployKeys` uses the same project rule. The key rotation in
   `repository_retryProviderSetup` uses the managed plan's own Convex project, which the run's
   checkpoint names, so it never chooses among several projects.

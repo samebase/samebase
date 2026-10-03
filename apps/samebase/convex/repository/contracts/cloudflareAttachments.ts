@@ -363,6 +363,8 @@ production build. When the key cannot be installed, the result says why, and no 
 starts.
 
 Without a workerName, the MCP tool uses the pending Cloudflare setup's Worker name and root
-directory from repository_list, else the repository name and the repository root. Samebase picks the
+directory from repository_list, else the repository name and the repository root. The pending
+setup's Convex project gets the deploy key only when the call creates that planned Worker name at
+that planned root directory; any other Worker follows the Convex project rule above. Samebase picks the
 Workers Builds token: the given UUID, else the available last-used token, else the only token.`,
 } as const;

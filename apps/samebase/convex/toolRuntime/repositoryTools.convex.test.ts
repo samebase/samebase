@@ -650,6 +650,65 @@ describe("Convex project selection for deploy keys", () => {
     expect(fetch).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it("uses the pending plan's Convex project only for the planned Worker name and root", async () => {
+    const fixture = await createScoutFixture();
+    await addAdminProject(fixture);
+    // A managed creation without a Workers Builds token: the planned site app, its attached Convex
+    // project, and no Worker yet.
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.delete(fixture.workerId);
+      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        repositoryId: fixture.repositoryId,
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "created",
+          projectName: "scout",
+          deploymentRegion: "aws-us-east-1",
+          projectId: "scout-project",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "site",
+          rootDirectory: "apps/site",
+          buildTokenUuid: null,
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
+    const fetch = vi.fn(async () => {
+      throw new Error("Provider request failed in the test.");
+    });
+    vi.stubGlobal("fetch", fetch);
+    const createWorker = async (args: { workerName?: string; rootDirectory?: string }) =>
+      await fixture.t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
+        userId: fixture.userId,
+        grantedScopes: ["access_provider_connections"],
+        repository: "scout-owner/scout",
+        ...args,
+      });
+
+    const projectChoiceError = {
+      status: "error",
+      text: "scout-owner/scout has several attached Convex projects: admin (apps/admin/convex.json), scout (convex.json). Choose the project whose deploy key the Worker gets.",
+    };
+    await expect(
+      createWorker({ workerName: "admin", rootDirectory: "apps/admin" }),
+    ).resolves.toEqual(projectChoiceError);
+    await expect(
+      createWorker({ workerName: "site", rootDirectory: "apps/admin" }),
+    ).resolves.toEqual(projectChoiceError);
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(readAttachments(fixture)).resolves.toMatchObject({ workers: [], writeLock: null });
+
+    // The planned app keeps the plan's project and goes on to the Workers Builds token read.
+    await expect(createWorker({})).resolves.toEqual({
+      status: "error",
+      text: "Cloudflare connection is required.",
+    });
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("repository_convex tools", () => {
