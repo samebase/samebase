@@ -43,10 +43,11 @@ discriminator mapping. This happens before any request can run. The
 [Zod emitter](https://github.com/astahmer/typed-openapi/blob/929ad80bb6c2ed1a50f793b3c9860b5915d143ea/packages/typed-openapi/src/runtimes/zod/index.ts#L117)
 shows the mapping branch that emits `.extend(...)`.
 
-The supported Valibot output loads. It accepts the recorded completed, running, and retried Worker
-build responses through both generated schemas and the generated client. Mutating the trigger source
-to a number is rejected in all three cases. This resolves the import problem for that runtime; it
-does not resolve the request type problem below.
+The supported Valibot output loads. It accepts the recorded completed and running build fixtures,
+plus a reduced retry-metadata fixture, through both generated schemas and the generated client. The
+generated schemas reject a numeric trigger source in all three cases. The probe sends only valid
+payloads through the generated client. This resolves the import problem for that runtime; it does
+not resolve the request type problem below.
 
 ### Worker creation requires response-only fields
 
@@ -75,6 +76,11 @@ The generated constructor also uses a parameter property, which conflicts with t
 
 A build can compile that constructor syntax. It does not fix the request model. These findings are
 separate from the AJV CommonJS helper problem that led to this investigation.
+
+Further acceptance checks remain open: nullable Worker errors and messages, missing required
+response fields, unknown fields, error envelopes, safe logging, and defaults in partial objects. The
+failures above are sufficient to stop adoption, but fixing them would not prove these remaining
+contracts.
 
 ## Convex ID findings
 
@@ -150,7 +156,8 @@ command. It reports the four null-literal errors and the constructor syntax erro
 | -------------------------------------------------------- | ------------------------------------------- |
 | Cloudflare generation, full subset                       | 176 operations generated with both runtimes |
 | Cloudflare Zod import                                    | Failed before requests                      |
-| Cloudflare Valibot recorded build responses              | 3 accepted, 3 invalid mutations rejected    |
+| Cloudflare Valibot recorded build fixtures               | 3 accepted by schemas and client            |
+| Cloudflare Valibot invalid fixture mutations             | 3 rejected by schemas                       |
 | Existing Worker input assigned to generated request type | Failed, TS2322                              |
 | Valibot output under app TypeScript settings             | Failed, 5 diagnostics                       |
 | Convex lossless parser and generated client probe        | Passed                                      |
