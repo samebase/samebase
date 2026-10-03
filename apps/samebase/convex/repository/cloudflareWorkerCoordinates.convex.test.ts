@@ -3,16 +3,31 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 const providerMocks = vi.hoisted(() => ({
   createRepositoryOctokit: vi.fn(),
   getRepository: vi.fn(),
-  requestCloudflareApiOrThrow: vi.fn(),
 }));
 
-vi.mock("../cloudflareApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../cloudflareApi/client")>();
-  return {
-    ...actual,
-    requestCloudflareApiOrThrow: providerMocks.requestCloudflareApiOrThrow,
-  };
-});
+const cloudflareMocks = vi.hoisted(() => ({
+  getAccounts: vi.fn(),
+  getBuildTokens: vi.fn(),
+  getWorker: vi.fn(),
+  getBuildSettings: vi.fn(),
+  createWorker: vi.fn(),
+  createBuildSettings: vi.fn(),
+}));
+
+vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
+  Cloudflare: {
+    GET: {
+      "/accounts": cloudflareMocks.getAccounts,
+      "/accounts/{account_id}/builds/tokens": cloudflareMocks.getBuildTokens,
+      "/accounts/{account_id}/workers/workers/{worker_id}": cloudflareMocks.getWorker,
+      "/accounts/{account_id}/builds/workers/{script_tag}": cloudflareMocks.getBuildSettings,
+    },
+    POST: {
+      "/accounts/{account_id}/workers/workers": cloudflareMocks.createWorker,
+      "/accounts/{account_id}/builds/workers": cloudflareMocks.createBuildSettings,
+    },
+  },
+}));
 
 vi.mock("../githubApp", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../githubApp")>();
@@ -55,37 +70,24 @@ function workerBuildSettings(args: { repoId?: string; rootDirectory: string; wor
   };
 }
 
-type CloudflareTestRequest = {
-  method: string;
-  path: string;
-  token: string;
-  params?: { path?: Record<string, string> };
-};
-
 function useCloudflareReadFixture(args: {
   workerName: string;
   workerTag?: string;
   settings?: ReturnType<typeof workerBuildSettings>;
 }) {
   const workerTag = args.workerTag ?? "worker-tag";
-  providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-    async (request: CloudflareTestRequest) => {
-      if (request.path === "/accounts") {
-        return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-      }
-      if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-        return workerResponse({ workerName: args.workerName, workerTag });
-      }
-      if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-        return args.settings ?? null;
-      }
-      throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-    },
-  );
+  cloudflareMocks.getAccounts.mockResolvedValue({
+    result: [{ id: "cloudflare-account", name: "Cloudflare account" }],
+  });
+  cloudflareMocks.getWorker.mockResolvedValue({
+    result: workerResponse({ workerName: args.workerName, workerTag }),
+  });
+  cloudflareMocks.getBuildSettings.mockResolvedValue({ result: args.settings ?? null });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  for (const endpoint of Object.values(cloudflareMocks)) endpoint.mockReset();
   providerMocks.getRepository.mockResolvedValue({
     data: {
       id: "github-repository",
@@ -236,20 +238,10 @@ async function readStoredCoordinates(fixture: Awaited<ReturnType<typeof createFi
 describe("Cloudflare Worker stored coordinates", () => {
   it("returns an existing Worker name conflict to the client", async () => {
     const fixture = await createFixture();
-    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: CloudflareTestRequest) => {
-        if (request.path === "/accounts") {
-          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-        }
-        if (request.path === "/accounts/{account_id}/builds/tokens") {
-          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          return workerResponse({ workerName: "tmp-some-new-app" });
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-      },
-    );
+    useCloudflareReadFixture({ workerName: "tmp-some-new-app" });
+    cloudflareMocks.getBuildTokens.mockResolvedValue({
+      result: [{ build_token_uuid: "build-token", build_token_name: "Build token" }],
+    });
 
     await expect(
       fixture.owner.action(api.repository.cloudflare.createWorker, {
@@ -266,30 +258,25 @@ describe("Cloudflare Worker stored coordinates", () => {
 
   it("returns a public name conflict when Worker creation loses a race", async () => {
     const fixture = await createFixture();
-    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: CloudflareTestRequest) => {
-        if (request.path === "/accounts") {
-          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-        }
-        if (request.path === "/accounts/{account_id}/builds/tokens") {
-          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          throw new CloudflareApiError({
-            method: "GET",
-            path: request.path,
-            details: [{ code: "10007", message: "Worker not found" }],
-          });
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers") {
-          throw new CloudflareApiError({
-            method: "POST",
-            path: "/accounts/cloudflare-account/workers/workers",
-            details: [{ code: "10040", message: "Raw provider conflict detail." }],
-          });
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-      },
+    cloudflareMocks.getAccounts.mockResolvedValue({
+      result: [{ id: "cloudflare-account", name: "Cloudflare account" }],
+    });
+    cloudflareMocks.getBuildTokens.mockResolvedValue({
+      result: [{ build_token_uuid: "build-token", build_token_name: "Build token" }],
+    });
+    cloudflareMocks.getWorker.mockRejectedValue(
+      new CloudflareApiError({
+        method: "GET",
+        path: "/accounts/{account_id}/workers/workers/{worker_id}",
+        details: [{ code: "10007", message: "Worker not found" }],
+      }),
+    );
+    cloudflareMocks.createWorker.mockRejectedValue(
+      new CloudflareApiError({
+        method: "POST",
+        path: "/accounts/cloudflare-account/workers/workers",
+        details: [{ code: "10040", message: "Raw provider conflict detail." }],
+      }),
     );
 
     await expect(
@@ -326,12 +313,9 @@ describe("Cloudflare Worker stored coordinates", () => {
       }),
     ).resolves.toBeNull();
 
-    expect(providerMocks.requestCloudflareApiOrThrow).toHaveBeenCalledWith(
+    expect(cloudflareMocks.getWorker).toHaveBeenCalledWith(
       expect.objectContaining({
-        path: "/accounts/{account_id}/workers/workers/{worker_id}",
-        params: expect.objectContaining({
-          path: expect.objectContaining({ worker_id: "worker-tag" }),
-        }),
+        path: expect.objectContaining({ worker_id: "worker-tag" }),
       }),
     );
     await expect(readStoredCoordinates(fixture)).resolves.toMatchObject({
@@ -385,7 +369,9 @@ describe("Cloudflare Worker stored coordinates", () => {
         expectedWorkerName: "provider-current-worker",
       }),
     ).rejects.toThrow("connection is required for this account");
-    expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
+    for (const endpoint of Object.values(cloudflareMocks)) {
+      expect(endpoint).not.toHaveBeenCalled();
+    }
     await expect(readStoredCoordinates(fixture)).resolves.toEqual(before);
   });
 
@@ -469,7 +455,9 @@ describe("Cloudflare Worker stored coordinates", () => {
         buildTokenUuid: "build-token",
       }),
     ).rejects.toThrow("root changed before Workers Builds configuration");
-    expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
+    for (const endpoint of Object.values(cloudflareMocks)) {
+      expect(endpoint).not.toHaveBeenCalled();
+    }
     await expect(readStoredCoordinates(fixture)).resolves.toMatchObject({
       worker: { rootDirectory: "apps/old" },
       plan: { cloudflare: { rootDirectory: "apps/old" } },
@@ -499,29 +487,14 @@ describe("Cloudflare Worker stored coordinates", () => {
 
   it("stores the current provider name when it connects an existing Worker", async () => {
     const fixture = await createFixture();
-    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: CloudflareTestRequest) => {
-        if (request.path === "/accounts") {
-          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
-        }
-        if (request.path === "/accounts/{account_id}/builds/tokens") {
-          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          return workerResponse({
-            workerName: "provider-current-worker",
-            workerTag: "connect-worker-tag",
-          });
-        }
-        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-          return null;
-        }
-        if (request.method === "POST" && request.path === "/accounts/{account_id}/builds/workers") {
-          throw new Error("stop after attachment");
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
-      },
-    );
+    useCloudflareReadFixture({
+      workerName: "provider-current-worker",
+      workerTag: "connect-worker-tag",
+    });
+    cloudflareMocks.getBuildTokens.mockResolvedValue({
+      result: [{ build_token_uuid: "build-token", build_token_name: "Build token" }],
+    });
+    cloudflareMocks.createBuildSettings.mockRejectedValue(new Error("stop after attachment"));
 
     const args = {
       repositoryId: fixture.ids.repositoryId,

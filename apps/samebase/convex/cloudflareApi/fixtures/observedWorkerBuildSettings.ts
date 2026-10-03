@@ -1,4 +1,4 @@
-import type { components, Readable } from "../types.generated";
+import type { BuildsWorkerResponse } from "../generated/types.gen";
 
 // Captured from POST /accounts/{account_id}/builds/workers and its GET read-back on 2026-09-30.
 // The request set previews_enabled to true, but Cloudflare created legacy triggers.
@@ -35,7 +35,7 @@ export const observedCreatedWorkerBuildSettings = {
     environment_variables: {},
     proposed_deploy_command: null,
   },
-} satisfies Readable<components["schemas"]["builds_WorkerResponse"]>;
+} satisfies BuildsWorkerResponse;
 
 // Captured from the successful POST /accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews.
 export const observedMigratedWorkerBuildSettings = {
@@ -70,7 +70,7 @@ export const observedMigratedWorkerBuildSettings = {
     build_token_uuid: "37ba157d-9fb1-4cf9-8382-4d9fe7d69816",
     environment_variables: {},
   },
-} satisfies Readable<components["schemas"]["builds_WorkerResponse"]>;
+} satisfies BuildsWorkerResponse;
 
 // Captured from GET after key rotation on the same test Worker. Secret values are null.
 
@@ -123,7 +123,7 @@ export const observedNativeWorkerBuildSettings = {
       },
     },
   },
-} satisfies Readable<components["schemas"]["builds_WorkerResponse"]>;
+} satisfies BuildsWorkerResponse;
 
 // Captured from PATCH with previews_enabled=true while the legacy preview trigger still existed.
 export const observedLegacyPreviewEnableFailureResponse = {
@@ -219,4 +219,4 @@ export const observedLegacyWorkerBuildSettings = {
     },
     proposed_deploy_command: null,
   },
-} satisfies Readable<components["schemas"]["builds_WorkerResponse"]>;
+} satisfies BuildsWorkerResponse;

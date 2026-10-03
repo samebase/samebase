@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const providerMocks = vi.hoisted(() => ({
   fetchConvexTeamTokenDetails: vi.fn(),
-  requestCloudflareApiOrThrow: vi.fn(),
+  createCloudflareClient: vi.fn(),
+  getCloudflareAccounts: vi.fn(),
 }));
 
 vi.mock("./convexManagementApi/client", async (importOriginal) => {
@@ -17,9 +18,17 @@ vi.mock("./cloudflareApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./cloudflareApi/client")>();
   return {
     ...actual,
-    requestCloudflareApiOrThrow: providerMocks.requestCloudflareApiOrThrow,
+    createCloudflareClient: providerMocks.createCloudflareClient.mockImplementation(
+      actual.createCloudflareClient,
+    ),
   };
 });
+
+vi.mock("./cloudflareApi/generated/sdk.gen", () => ({
+  Cloudflare: {
+    GET: { "/accounts": providerMocks.getCloudflareAccounts },
+  },
+}));
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -243,9 +252,9 @@ async function expectCompletionResponse(
 beforeEach(() => {
   vi.clearAllMocks();
   providerMocks.fetchConvexTeamTokenDetails.mockResolvedValue({ teamId: "convex-team" });
-  providerMocks.requestCloudflareApiOrThrow.mockResolvedValue([
-    { id: "cloudflare-account", name: "Cloudflare Account" },
-  ]);
+  providerMocks.getCloudflareAccounts.mockResolvedValue({
+    result: [{ id: "cloudflare-account", name: "Cloudflare Account" }],
+  });
 });
 
 afterEach(() => {
@@ -363,7 +372,7 @@ describe("provider OAuth callback organization returns", () => {
       await expect(response.text()).resolves.toBe("Invalid OAuth state");
       expect(providerFetch).not.toHaveBeenCalled();
       expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
-      expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
+      expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();
     },
   );
 
@@ -782,7 +791,7 @@ describe("provider OAuth callback organization returns", () => {
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
-      providerMocks.requestCloudflareApiOrThrow.mockResolvedValue(scenario.accounts);
+      providerMocks.getCloudflareAccounts.mockResolvedValue({ result: scenario.accounts });
       vi.stubGlobal(
         "fetch",
         vi.fn(
@@ -806,12 +815,13 @@ describe("provider OAuth callback organization returns", () => {
           code: "target-mismatch",
         }),
       });
-      expect(providerMocks.requestCloudflareApiOrThrow).toHaveBeenCalledWith({
+      expect(providerMocks.createCloudflareClient).toHaveBeenCalledWith({
         token: scenario.tokenResponse.access_token,
         transport: scenario.provider === "cloudflare" ? "direct" : "mcp",
-        method: "GET",
-        path: "/accounts",
-        params: { query: { page: 1, per_page: 5 } },
+      });
+      expect(providerMocks.getCloudflareAccounts).toHaveBeenCalledWith({
+        client: providerMocks.createCloudflareClient.mock.results.at(-1)?.value,
+        query: { page: 1, per_page: 5 },
       });
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
@@ -1147,10 +1157,12 @@ describe("provider OAuth callback organization returns", () => {
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
-      providerMocks.requestCloudflareApiOrThrow.mockResolvedValue([
-        { id: "configured-account", name: "Configured Account" },
-        { id: "other-account", name: "Other Account" },
-      ]);
+      providerMocks.getCloudflareAccounts.mockResolvedValue({
+        result: [
+          { id: "configured-account", name: "Configured Account" },
+          { id: "other-account", name: "Other Account" },
+        ],
+      });
       vi.stubGlobal(
         "fetch",
         vi.fn(
