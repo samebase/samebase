@@ -255,7 +255,7 @@
       "user_prompt": "Create a private Samebase repository under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Report its repository and provider setup status.",
       "file_attachment_urls": null,
       "tools_triggered": "repository_create, repository_list",
-      "expected_output": "The answer names the new private repository (samebase-live-tests/tmp-plugin-review- with a unique suffix), its Convex project in US East (N. Virginia), and its Cloudflare Worker, and reports the source setup status and the provider setup status. When both are ready, it says that ready setup does not prove that the app is live. If setup is still running, it reports the current state and does not say that setup is ready. A failed setup is reported as failed.",
+      "expected_output": "The answer names the new private repository (samebase-live-tests/tmp-plugin-review- with a unique suffix) and its planned Cloudflare Worker, and reports the source setup status and the provider setup status. If setup is still running, it reports the current state and does not say that setup is ready. When both are ready, it can name the attached Convex project that repository_list returns, and it says that ready setup does not prove that the app is live. A failed setup is reported as failed.",
       "expected_output_url": null
     },
     {

@@ -522,6 +522,11 @@ Deviations found during step 5:
 4. The skill's recovery steps name no marketplace and no other client: they say to refresh or
    reconnect the Samebase connection in the current client, and to re-authorize it if an action is
    still absent. `check:plugin` rejects "marketplace" in any skill file.
+5. Case 4 expects only what its outputs show at that moment. While setup runs, the answer names the
+   repository and the planned Worker and reports the setup status. It can name the Convex project
+   only when setup is ready and `repository_list` returns the attached project. It names no region,
+   because no output of the case gives one. This is a smaller change than adding the planned Convex
+   project name and region to the `repository_create` result.
 
 ## Alternatives considered
 
