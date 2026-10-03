@@ -259,11 +259,11 @@
       "expected_output_url": null
     },
     {
-      "description": "Create a browser sign-in link for the authenticated reviewer account without changing provider resources.",
-      "user_prompt": "Give me a sign-in link to my Samebase dashboard.",
+      "description": "Read the live production status of samebase-live-tests/tmp-my-cool-app2 from GitHub, Cloudflare, and Convex without changing anything.",
+      "user_prompt": "Is samebase-live-tests/tmp-my-cool-app2 deployed? Give me its production URL, latest build state, Convex deployment, checks, and open pull requests.",
       "file_attachment_urls": null,
-      "tools_triggered": "account_createSignInLink",
-      "expected_output": "The answer shows a one-time Samebase sign-in link as a clickable link and says that it expires in about 5 minutes. Opening the link within 5 minutes in a browser that is not signed in to a different Samebase account shows the reviewer's Samebase dashboard. No provider resource changes.",
+      "tools_triggered": "repository_getStatus",
+      "expected_output": "The answer names the Worker tmp-my-cool-app and its workers.dev production URL, the latest production build state and whether its commit matches the default branch head, the check counts on the default branch, the Convex project tmp-my-cool-app with its production deployment name and region, and each open pull request with its checks and preview build state. It can list attention items. It does not say that the app serves the expected content, and it changes nothing.",
       "expected_output_url": null
     }
   ],
