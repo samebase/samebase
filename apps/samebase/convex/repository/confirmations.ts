@@ -39,7 +39,8 @@ const START_AGAIN =
 /**
 A gated request after the server resolved names and defaults: the repository, the Worker tag, the
 root directory, the Workers Builds token, and the Convex project (null when none is attached) with
-its live slug (null when Convex cannot be read). A token approves exactly this request.
+its live slug (null when Convex cannot be read). A token approves exactly this request; the slug
+only words the sentence and is not part of the digest.
 */
 export const vConfirmedActionRequest = union(
   object({
@@ -88,17 +89,25 @@ type ConfirmationSubject = {
   approval: string;
 };
 
-/** JSON with sorted object keys, so equal requests have equal digests in any key order. */
+/**
+JSON with sorted object keys, so equal requests have equal digests in any key order. The live Convex
+slug only names the project in the sentence, which the token row stores; the project ID binds the
+target. Leaving the slug out keeps a failed Convex read on the second call from rejecting an
+unchanged request.
+*/
 function toCanonicalJson(request: ConfirmedActionRequest): string {
-  return JSON.stringify(request, (_key, value: unknown) =>
-    isRecord(value)
+  return JSON.stringify(request, (key, value: unknown) => {
+    if (key === "convexProjectSlug") {
+      return undefined;
+    }
+    return isRecord(value)
       ? Object.fromEntries(
           Object.keys(value)
             .sort()
-            .map((key) => [key, value[key]]),
+            .map((name) => [name, value[name]]),
         )
-      : value,
-  );
+      : value;
+  });
 }
 
 async function requireAttachedWorker(

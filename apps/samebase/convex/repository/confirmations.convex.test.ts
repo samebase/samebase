@@ -111,7 +111,10 @@ async function createFixture() {
     repositoryId: ids.repositoryId,
     resource: { kind: "cloudflare_worker", workerId: ids.workerId },
   };
-  const connectWorker = (rootDirectory: string): ConfirmedActionRequest => ({
+  const connectWorker = (
+    rootDirectory: string,
+    convexProjectSlug: string | null = "scout",
+  ): ConfirmedActionRequest => ({
     action: "connect_cloudflare_worker",
     repositoryId: ids.repositoryId,
     workerName: "legacy-landing",
@@ -119,7 +122,7 @@ async function createFixture() {
     rootDirectory,
     buildTokenUuid: "build-token",
     convexProjectId: ids.convexProjectId,
-    convexProjectSlug: "scout",
+    convexProjectSlug,
   });
   const check = async (args: {
     request: ConfirmedActionRequest;
@@ -341,6 +344,18 @@ describe("action confirmation check", () => {
     await expect(
       check({
         request: connectWorker("apps/site"),
+        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
+      }),
+    ).resolves.toEqual({ state: "confirmed" });
+  });
+
+  it("accepts an unchanged request when the Convex slug cannot be read on the second call", async () => {
+    const { check, connectWorker, issue } = await createFixture();
+    const challenge = await issue(connectWorker("apps/site"));
+
+    await expect(
+      check({
+        request: connectWorker("apps/site", null),
         confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
       }),
     ).resolves.toEqual({ state: "confirmed" });
