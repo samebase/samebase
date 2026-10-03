@@ -10,6 +10,8 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future package releases do not bypass
 # the cooling period automatically.
 minimumReleaseAgeExclude:
+  # Reviewed first-party release. Remove after 2026-10-09.
+  - "@samebase/convex-cloudflare-email-inbox@0.1.0"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
   # 7-day cooling period.
   - "@voidzero-dev/vite-plus-core@0.3.0"
@@ -82,6 +84,7 @@ overrides:
 # script to run; `false` records that the script was seen and suppressed.
 allowBuilds:
   core-js: false
+  core-js-pure: false
   esbuild: true
   msw: false
   protobufjs: false

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: September 1, 2026
+Effective: October 2, 2026
 
 This Privacy Policy explains how Samebase handles personal information when you use samebase.com,
 the Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
@@ -92,9 +92,11 @@ Withdrawal stops new session replay.
 Samebase keeps account information until you delete your account. It keeps organization, workspace,
 and connection information while the related organization, workspace, or connection remains active.
 It keeps billing information while the related organization or subscription exists and afterward as
-needed for disputes or legal obligations. It keeps communications, feedback, logs, security records,
-records of communication choices, and limited deletion records while needed for the service,
-security, support, dispute resolution, or legal obligations.
+needed for disputes or legal obligations. It keeps email communications, feedback sent by email, and
+related delivery information until an authorized Samebase operator explicitly deletes them. Account
+deletion does not automatically remove these communication records. It keeps other logs, security
+records, records of communication choices, and limited deletion records while needed for the
+service, security, support, dispute resolution, or legal obligations.
 
 You can delete your account from Settings after you complete any required organization cleanup.
 Samebase disables the account immediately. Before you confirm, Samebase tells you when permanent

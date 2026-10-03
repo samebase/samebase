@@ -18,6 +18,10 @@ invitation, organization billing, deployment destination, repository, staged fil
 resource, observation, or organization workflow record. It deletes the organization provider
 credential document only when it clears the last credential slot.
 
+Operational email content and delivery history remain in the email component until a trusted
+application operator explicitly deletes them. This includes signup notifications, feedback, and the
+account deletion confirmation.
+
 Account deletion is rejected while any organization membership exists. A member must leave each
 shared organization first. A sole owner must remove every repository and delete the organization
 first.
@@ -71,8 +75,9 @@ keeps `_creationTime` because Convex stores this system field on every document.
 `deletedAt` to record the terminal lifecycle event. These values are retained only for referential
 integrity, corruption detection, and lifecycle timing. They are not used for authentication,
 contact, account matching, approval, organization access, or reactivation. The workflow removes the
-profile, auth, preference, provider, and other personal rows that could associate the opaque values
-with the person. Organization memberships must be absent before the workflow starts.
+profile, auth, preference, provider, and other personal account rows that could associate the opaque
+values with the person. The separately retained operational email history follows Spec 112.
+Organization memberships must be absent before the workflow starts.
 
 ## Completion And Browser Recovery
 
@@ -122,8 +127,10 @@ The workflow must:
    replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace
    the live deletion run with its scrubbed successful receipt. Use one completion time for
    `deletedAt` and the receipt.
-8. Retain only the scrubbed operation receipt in application tables. The workflow component can
-   retain an identity-free execution journal for operational recovery.
+8. Retain only the scrubbed operation receipt in account-deletion tables. The workflow component can
+   retain an identity-free execution journal for operational recovery. The email component retains
+   full message and delivery history until a trusted application operator explicitly deletes it, as
+   defined in `specs/112_CLOUDFLARE_EMAIL_SENDING_SPEC.md`.
 
 A failed required step leaves the account deletion-only and marks the run as needing staff
 attention. It never silently reactivates the account. Staff can restore or start only a queued run,
@@ -220,7 +227,8 @@ hard-deleted IDs cannot be restored.
 - Organizations, billing, repositories, staged files, attached resources, observations, and
   organization workflows survive unchanged.
 - Completion-email failure remains visible without retaining the account indefinitely.
-- Successful runs retain only the scrubbed application receipt plus identity-free workflow state.
+- Successful runs retain only the scrubbed account-deletion receipt plus identity-free workflow
+  state. Operational email history remains under the separate email retention contract.
 - The final transaction rechecks readiness and writes the deleted user variant and scrubbed receipt
   atomically. Failure leaves the user deleting, and retry can complete the same run.
 - A later signup creates a new active user ID. It does not reactivate the deleted row.

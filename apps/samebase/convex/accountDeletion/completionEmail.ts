@@ -25,7 +25,7 @@ export const sendForAccountDeletion = internalAction({
       workflowId: args.workflowId,
     });
     try {
-      await sendEmail({
+      const delivery = await sendEmail(ctx, {
         to: identity.email,
         subject: "Your Samebase account deletion is finishing",
         text: `Your Samebase workspace data and stored provider credentials have been removed. Your remaining sign-in records are being finalized. Samebase staff will finish the deletion if the last step needs attention.
@@ -38,6 +38,19 @@ If you connected Cloudflare with OAuth, revoke Samebase in Cloudflare Connected 
 
 Deletion reference: ${args.runId}`,
       });
+      if (!delivery.ok) {
+        return {
+          state: "delivery_failed",
+          safeError: COMPLETION_EMAIL_SAFE_ERROR,
+        } as const;
+      }
+      if (delivery.value === "queued") {
+        return {
+          state: "delivery_failed",
+          safeError:
+            "Completion email is queued for automatic delivery. Delivery is not yet confirmed.",
+        } as const;
+      }
       return { state: "sent" } as const;
     } catch {
       return {

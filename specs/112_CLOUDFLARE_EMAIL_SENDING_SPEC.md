@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase application email and deployment configuration
-- Last updated: 2026-08-25
+- Last updated: 2026-10-02
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `apps/samebase/convex/deploymentProfile.ts`
@@ -13,9 +13,10 @@
 
 ## Current Contract
 
-Samebase uses Cloudflare Email Sending for application-generated transactional email. Convex calls
-Cloudflare's REST API directly from internal actions. Samebase does not add an email relay Worker or
-another transactional-email provider.
+Samebase uses Cloudflare Email Sending for application-generated transactional email through the
+shared `@samebase/convex-cloudflare-email-inbox` package. Its Convex component calls Cloudflare's
+REST API and stores each message and its delivery history. Samebase does not add an email relay
+Worker or another transactional-email provider.
 
 Google Workspace continues to receive human email for `samebase.com`. Its root MX records remain
 authoritative for inbound mail. Cloudflare Email Routing must not be enabled on the root domain
@@ -63,9 +64,17 @@ default changes.
 
 ## Sending Behavior
 
-All application email goes through one shared Convex email module that owns the Cloudflare request,
-fixed sender, deployment subject prefix, response validation, and provider error handling. Internal
-action callers provide only the recipient, base subject, and text body.
+All application email uses one configured inbox, `notifications@samebase.com`, labeled
+`Samebase notifications`. The shared package owns the Cloudflare request, response validation,
+message storage, and delivery records. Samebase's Convex email module owns the fixed sender,
+deployment subject prefix, and local skip policy. Internal action callers provide only the
+recipient, base subject, and text body.
+
+Samebase retains full message content and delivery history until a trusted application operator
+explicitly deletes them. Account deletion does not automatically delete this operational email
+history. The component is available only to Samebase's server functions and trusted operators.
+Samebase adds no public inbox APIs. Sending-only use requires no R2 bucket. Mail uses the same
+package and keeps its R2 inbound-message storage.
 
 The first caller is the Convex Auth user-creation callback:
 
@@ -84,14 +93,32 @@ The MCP feedback action is the second caller:
    A client without the scope must reconnect and approve the new grant.
 2. It accepts only the exact user-approved report, with a 6,000-character maximum.
 3. It sends only the report to `contact@samebase.com`.
-4. It returns an error when Cloudflare rejects the request, reports a permanent bounce, or local
-   email sending is disabled. It does not retry automatically.
-5. It stores one per-user counter to enforce five submission attempts per 24 hours. It does not
-   store report text or add a database outbox or separate retention job.
+4. It returns an error when Cloudflare rejects the request, reports a permanent bounce or suppressed
+   recipient, cannot confirm the outcome, or local email sending is disabled. It does not retry
+   uncertain outcomes automatically. A confirmed HTTP 429 queues a bounded automatic retry and
+   returns a pending message, not a failure or a claim that mail was sent. The caller must not
+   submit the same report again while it is pending.
+5. It stores one per-user counter to enforce five submission attempts per 24 hours. The inbox stores
+   the exact report and its delivery history under the shared retention contract.
 
-Cloudflare errors fail the calling action and remain visible in Convex function logs. A failed
-scheduled signup notification does not reject signup. A failed feedback send returns a tool error.
-Neither caller adds a database outbox or automatic retry model.
+The email action reports expected delivery failures explicitly. Acceptance does not prove receipt in
+the recipient's mailbox. Unknown delivery is not a confirmed rejection. Provider details remain in
+the component's delivery records, not the application result. Configuration faults and unexpected
+exceptions fail the calling action.
+
+A failed scheduled signup notification is recorded as a failed function run in Convex, but does not
+reject signup. A failed feedback send returns a tool error without private provider details. Unknown
+feedback delivery tells the caller not to resubmit until Samebase checks the delivery status. The
+shared component retries only confirmed HTTP 429 responses, at most three provider attempts. It
+honors Retry-After. HTTP 408, network failures, invalid success receipts and HTTP 5xx remain unknown
+and do not retry.
+
+Account deletion is the third caller. It waits for the provider result and records either `sent` or
+`delivery_failed`. Failure does not stop final account deletion. The workflow does not retry the
+email itself. A throttled message remains queued in the component; the workflow records
+`delivery_failed` with an explicit pending-delivery note because acceptance is not yet confirmed.
+Final deletion continues. Its message includes the deletion reference and manual upstream revocation
+steps.
 
 ## Domain Setup Guidance
 
@@ -125,13 +152,15 @@ and receiving remains the responsibility of Google Workspace.
 
 ## Validation
 
-- Unit tests verify production, development, and preview subject handling.
-- Convex action tests verify the Cloudflare URL, bearer token, sender, recipient, text body, and
-  response validation without exposing credentials.
+- Samebase action tests verify production, development, and preview subject handling.
+- Package tests verify Cloudflare transport and provider response validation. Samebase Convex action
+  tests verify the configured inbox, sender, recipient, subject, text body, and stored delivery
+  history without exposing credentials.
 - Auth notification tests verify new-user, existing-user, and seeded-account decisions.
 - MCP runtime tests verify the fixed feedback recipient, subject, exact report, invalid-report
   rejection, and per-user limit.
 - Local and worktree tests verify that missing email configuration causes no external request.
+- Account deletion tests verify that an email failure remains visible and allows final deletion.
 - A manual production smoke test creates a fresh test account and confirms one message reaches
   `nicuchiciuc@gmail.com` with the production subject.
 - A manual production feedback smoke test submits one approved test report and confirms the exact

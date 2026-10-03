@@ -92,7 +92,7 @@ function defineMcpTool<
   run: (
     ctx: ActionCtx,
     args: McpToolArgs<Args>,
-  ) => Promise<ObjectType<SuccessFields> & { text: string }>;
+  ) => Promise<(ObjectType<SuccessFields> & { text: string }) | Infer<typeof vToolFailure>>;
 }) {
   const vToolSuccess = object({
     ...config.successFields,
@@ -126,8 +126,8 @@ function defineMcpTool<
 
       try {
         return {
-          ...(await config.run(ctx, toolArgs)),
           status: "ok",
+          ...(await config.run(ctx, toolArgs)),
         };
       } catch (error) {
         return {
@@ -441,13 +441,30 @@ export const submitFeedbackTool = defineMcpTool({
     await ctx.runMutation(internal.mcp.feedback.reserveFeedbackSend, {
       userId: args.userId,
     });
-    const emailResult = await sendEmail({
+    const emailResult = await sendEmail(ctx, {
       to: "contact@samebase.com",
       subject: "Samebase agent feedback",
       text: args.report,
     });
-    if (emailResult === "skipped") {
-      throw new ConvexError("Feedback email is not configured in local development.");
+    if (!emailResult.ok) {
+      return {
+        status: "error" as const,
+        text:
+          emailResult.error === "unknown"
+            ? "Feedback delivery could not be confirmed. Do not submit it again until Samebase has checked its delivery status."
+            : "Samebase could not send the feedback email.",
+      };
+    }
+    if (emailResult.value === "skipped") {
+      return {
+        status: "error" as const,
+        text: "Feedback email is not configured in local development.",
+      };
+    }
+    if (emailResult.value === "queued") {
+      return {
+        text: "Feedback is queued for delivery to Samebase. Cloudflare has delayed sending. Do not submit it again; the email component will retry automatically.",
+      };
     }
     return { text: "Feedback submitted to Samebase." };
   },

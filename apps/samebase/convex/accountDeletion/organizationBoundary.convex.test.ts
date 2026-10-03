@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api, internal } from "../_generated/api";
+import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../../shared/githubUserTokenRefresh";
 import { makeConvexTest } from "../test.setup";
@@ -32,6 +32,7 @@ async function generateTestJwtPrivateKey(): Promise<string> {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -809,102 +810,195 @@ describe("account deletion organization boundary", () => {
     expect(deletedUser.deletedAt).toBe(snapshot.run.completedAt);
   });
 
-  it("finalizes a staff-requested deletion without preserving a target session", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    const authIds = await t.run(async (ctx) => {
-      await ctx.db.patch(ids.runId, { initiatingSessionId: undefined });
-      const verifierId = await ctx.db.insert("authVerifiers", {
-        sessionId: ids.initiatingSessionId,
-      });
-      const refreshTokenId = await ctx.db.insert("authRefreshTokens", {
-        sessionId: ids.initiatingSessionId,
-        expirationTime: 2_000_000_000_000,
-      });
-      const accountId = await ctx.db.insert("authAccounts", {
-        userId: ids.deletingUserId,
-        provider: "google",
-        providerAccountId: "staff-requested-deletion",
-      });
-      const verificationCodeId = await ctx.db.insert("authVerificationCodes", {
-        accountId,
-        provider: "google",
-        code: "unused",
-        expirationTime: 2_000_000_000_000,
-        verifier: "unused",
-      });
-      return { accountId, refreshTokenId, verificationCodeId, verifierId };
-    });
-
-    await prepareIdentityDeletionData(t, ids.runId);
-
-    let sessionsRemoved = false;
-    for (let batch = 0; batch < 8; batch += 1) {
-      sessionsRemoved = await t.mutation(
-        internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
-        { runId: ids.runId, workflowId },
-      );
-      if (sessionsRemoved) {
-        break;
+  it.each(["accepted", "rejected", "queued"] as const)(
+    "finalizes a staff-requested deletion after %s email and keeps its history",
+    async (delivery) => {
+      // Convex uses V8; the edge-runtime test host lacks the SDK's Node process metadata.
+      vi.stubGlobal("EdgeRuntime", undefined);
+      if (delivery === "queued") {
+        vi.useFakeTimers();
       }
-    }
-    expect(sessionsRemoved).toBe(true);
+      const { ids, t } = await seedRunningDeletion();
+      const authIds = await t.run(async (ctx) => {
+        await ctx.db.patch(ids.runId, { initiatingSessionId: undefined });
+        const verifierId = await ctx.db.insert("authVerifiers", {
+          sessionId: ids.initiatingSessionId,
+        });
+        const refreshTokenId = await ctx.db.insert("authRefreshTokens", {
+          sessionId: ids.initiatingSessionId,
+          expirationTime: 2_000_000_000_000,
+        });
+        const accountId = await ctx.db.insert("authAccounts", {
+          userId: ids.deletingUserId,
+          provider: "google",
+          providerAccountId: "staff-requested-deletion",
+        });
+        const verificationCodeId = await ctx.db.insert("authVerificationCodes", {
+          accountId,
+          provider: "google",
+          code: "unused",
+          expirationTime: 2_000_000_000_000,
+          verifier: "unused",
+        });
+        return { accountId, refreshTokenId, verificationCodeId, verifierId };
+      });
 
-    let accountsRemoved = false;
-    for (let batch = 0; batch < 8; batch += 1) {
-      accountsRemoved = await t.mutation(
-        internal.accountDeletion.authCleanup.deleteAuthAccountBatch,
-        { runId: ids.runId, workflowId },
+      await prepareIdentityDeletionData(t, ids.runId);
+      vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
+      vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+      vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+      // Cloudflare REST response fields, checked 2026-10-01:
+      // https://developers.cloudflare.com/api/resources/email_sending/methods/send/
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify(
+                delivery === "accepted"
+                  ? {
+                      success: true,
+                      errors: [],
+                      messages: [],
+                      result: {
+                        delivered: ["deleting@example.invalid"],
+                        message_id: "<deletion@samebase.com>",
+                        permanent_bounces: [],
+                        queued: [],
+                        suppressed_recipients: [],
+                      },
+                    }
+                  : {
+                      success: false,
+                      errors: [
+                        { code: 10001, message: "email.sending.error.invalid_request_schema" },
+                      ],
+                      messages: [],
+                      result: null,
+                    },
+              ),
+              { status: { accepted: 200, rejected: 400, queued: 429 }[delivery] },
+            ),
+        ),
       );
-      if (accountsRemoved) {
-        break;
-      }
-    }
-    expect(accountsRemoved).toBe(true);
-    await t.mutation(internal.accountDeletion.authCleanup.deleteIdentityRateLimit, {
-      runId: ids.runId,
-      workflowId,
-    });
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
+      const email = await t.action(
+        internal.accountDeletion.completionEmail.sendForAccountDeletion,
+        {
+          runId: ids.runId,
+          workflowId,
+        },
+      );
+      expect(email).toEqual(
+        delivery === "accepted"
+          ? { state: "sent" }
+          : {
+              state: "delivery_failed",
+              safeError:
+                delivery === "queued"
+                  ? "Completion email is queued for automatic delivery. Delivery is not yet confirmed."
+                  : "Completion email delivery could not be confirmed.",
+            },
+      );
+      await t.mutation(internal.accountDeletion.workflow.recordCompletionEmailOutcome, {
         runId: ids.runId,
         workflowId,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.deleteEventBatch, {
+        outcome: email,
+      });
+
+      let sessionsRemoved = false;
+      for (let batch = 0; batch < 8; batch += 1) {
+        sessionsRemoved = await t.mutation(
+          internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
+          { runId: ids.runId, workflowId },
+        );
+        if (sessionsRemoved) {
+          break;
+        }
+      }
+      expect(sessionsRemoved).toBe(true);
+
+      let accountsRemoved = false;
+      for (let batch = 0; batch < 8; batch += 1) {
+        accountsRemoved = await t.mutation(
+          internal.accountDeletion.authCleanup.deleteAuthAccountBatch,
+          { runId: ids.runId, workflowId },
+        );
+        if (accountsRemoved) {
+          break;
+        }
+      }
+      expect(accountsRemoved).toBe(true);
+      await t.mutation(internal.accountDeletion.authCleanup.deleteIdentityRateLimit, {
         runId: ids.runId,
         workflowId,
-      }),
-    ).resolves.toBe(true);
-    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
-      runId: ids.runId,
-      workflowId,
-    });
-    await t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
-      runId: ids.runId,
-      workflowId,
-    });
+      });
+      await expect(
+        t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
+          runId: ids.runId,
+          workflowId,
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        t.mutation(internal.accountDeletion.authCleanup.deleteEventBatch, {
+          runId: ids.runId,
+          workflowId,
+        }),
+      ).resolves.toBe(true);
+      await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+        runId: ids.runId,
+        workflowId,
+      });
+      await t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+        runId: ids.runId,
+        workflowId,
+      });
 
-    await expect(
-      t.run(async (ctx) => ({
-        account: await ctx.db.get(authIds.accountId),
-        refreshToken: await ctx.db.get(authIds.refreshTokenId),
-        run: await ctx.db.get(ids.runId),
-        session: await ctx.db.get(ids.initiatingSessionId),
-        user: await ctx.db.get(ids.deletingUserId),
-        verificationCode: await ctx.db.get(authIds.verificationCodeId),
-        verifier: await ctx.db.get(authIds.verifierId),
-      })),
-    ).resolves.toMatchObject({
-      account: null,
-      refreshToken: null,
-      run: { state: "succeeded", identity: { state: "scrubbed" } },
-      session: null,
-      user: { state: "deleted" },
-      verificationCode: null,
-      verifier: null,
-    });
-  });
+      await expect(
+        t.run(async (ctx) => ({
+          account: await ctx.db.get(authIds.accountId),
+          refreshToken: await ctx.db.get(authIds.refreshTokenId),
+          run: await ctx.db.get(ids.runId),
+          session: await ctx.db.get(ids.initiatingSessionId),
+          user: await ctx.db.get(ids.deletingUserId),
+          verificationCode: await ctx.db.get(authIds.verificationCodeId),
+          verifier: await ctx.db.get(authIds.verifierId),
+        })),
+      ).resolves.toMatchObject({
+        account: null,
+        refreshToken: null,
+        run: {
+          state: "succeeded",
+          identity: { state: "scrubbed" },
+          outcomes: { completionEmail: email },
+        },
+        session: null,
+        user: { state: "deleted" },
+        verificationCode: null,
+        verifier: null,
+      });
+      const threads = await t.query(components.mail.mail.listThreads, {
+        inboxId: null,
+        paginationOpts: { numItems: 10, cursor: null },
+      });
+      const messages = await t.query(components.mail.mail.listMessages, {
+        threadId: threads.page[0]._id,
+        paginationOpts: { numItems: 10, cursor: null },
+      });
+      expect(messages.page).toMatchObject([
+        {
+          status: delivery,
+          to: ["deleting@example.invalid"],
+          bodyText: expect.stringContaining(`Deletion reference: ${ids.runId}`),
+        },
+      ]);
+      if (delivery === "queued") {
+        await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+        await expect(
+          t.query(components.mail.mail.getMessage, { messageId: messages.page[0]._id }),
+        ).resolves.toMatchObject({ status: "rejected" });
+      }
+    },
+  );
 
   it("rejects final identity deletion when an older run still has an organization membership", async () => {
     const { ids, t } = await seedRunningDeletion();

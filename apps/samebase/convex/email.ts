@@ -1,15 +1,19 @@
 import { Infer, v } from "convex/values";
-import { z } from "zod";
+import { EmailInbox } from "@samebase/convex-cloudflare-email-inbox";
+import { err, ok, type Result } from "@evolu/common";
 
-import { env, internalAction } from "./_generated/server";
+import { components } from "./_generated/api";
+import { env, internalAction, type ActionCtx } from "./_generated/server";
 import { resolveDeploymentProfile, type DeploymentProfile } from "./deploymentProfile";
 
-const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
-const EMAIL_FROM = {
-  address: "notifications@samebase.com",
-  name: "Samebase",
-};
-const { object, string } = v;
+const inbox = new EmailInbox(components.mail, {
+  defaultInbox: {
+    address: "notifications@samebase.com",
+    label: "Samebase notifications",
+    senderName: "Samebase",
+  },
+});
+const { literal, object, string, union } = v;
 
 export const vSendEmailArgs = object({
   to: string(),
@@ -18,26 +22,14 @@ export const vSendEmailArgs = object({
 });
 export type SendEmailArgs = Infer<typeof vSendEmailArgs>;
 
-const cloudflareEmailResponseSchema = z.discriminatedUnion("success", [
-  z.object({
-    success: z.literal(true),
-    result: z.object({
-      delivered: z.array(z.string()),
-      message_id: z.string(),
-      permanent_bounces: z.array(z.string()),
-      queued: z.array(z.string()),
-    }),
-  }),
-  z.object({
-    success: z.literal(false),
-    errors: z.array(
-      z.object({
-        code: z.union([z.number(), z.string()]),
-        message: z.string(),
-      }),
-    ),
-  }),
-]);
+const vSendEmailStatus = union(literal("accepted"), literal("queued"), literal("skipped"));
+const vSendEmailFailure = union(
+  literal("bounced"),
+  literal("suppressed"),
+  literal("rejected"),
+  literal("unknown"),
+);
+type SendEmailResult = Result<Infer<typeof vSendEmailStatus>, Infer<typeof vSendEmailFailure>>;
 
 function formatSubject(subject: string, deploymentProfile: DeploymentProfile): string {
   switch (deploymentProfile.kind) {
@@ -55,7 +47,7 @@ function formatSubject(subject: string, deploymentProfile: DeploymentProfile): s
   }
 }
 
-export async function sendEmail(args: SendEmailArgs): Promise<"accepted" | "skipped"> {
+export async function sendEmail(ctx: ActionCtx, args: SendEmailArgs): Promise<SendEmailResult> {
   const token = env.CLOUDFLARE_EMAIL_API_TOKEN?.trim();
   const accountId = env.CLOUDFLARE_EMAIL_ACCOUNT_ID?.trim();
   const deploymentProfile = resolveDeploymentProfile();
@@ -65,7 +57,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<"accepted" | "skip
       deploymentProfile.kind === "local_development" ||
       deploymentProfile.kind === "local_worktree"
     ) {
-      return "skipped";
+      return ok("skipped");
     }
     throw new Error(
       "CLOUDFLARE_EMAIL_API_TOKEN and CLOUDFLARE_EMAIL_ACCOUNT_ID are required for deployed email sending.",
@@ -77,55 +69,46 @@ export async function sendEmail(args: SendEmailArgs): Promise<"accepted" | "skip
     );
   }
 
-  const response = await fetch(
-    `${CLOUDFLARE_API_BASE_URL}/accounts/${encodeURIComponent(accountId)}/email/sending/send`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: args.to,
-        from: EMAIL_FROM,
-        subject: formatSubject(args.subject, deploymentProfile),
-        text: args.text,
-      }),
-    },
-  );
-  const responseText = await response.text();
-  let payload: unknown;
-  try {
-    payload = JSON.parse(responseText);
-  } catch {
-    throw new Error(`Cloudflare Email Sending returned a non-JSON response (${response.status}).`);
+  const delivery = await inbox.send(ctx, {
+    to: [args.to],
+    subject: formatSubject(args.subject, deploymentProfile),
+    text: args.text,
+    idempotencyKey: crypto.randomUUID(),
+  });
+  switch (delivery.kind) {
+    case "accepted": {
+      const recipientResults = delivery.recipientResults;
+      if (recipientResults && recipientResults.permanent_bounces.length > 0) {
+        return err("bounced");
+      }
+      if (recipientResults && (recipientResults.suppressed_recipients?.length ?? 0) > 0) {
+        return err("suppressed");
+      }
+      return ok("accepted");
+    }
+    case "rejected":
+      return err("rejected");
+    case "queued":
+    case "sending":
+      return ok("queued");
+    case "unknown":
+      return err("unknown");
+    default:
+      delivery satisfies never;
+      throw new Error("Cloudflare Email Sending delivery could not be confirmed.");
   }
-  const result = cloudflareEmailResponseSchema.safeParse(payload);
-  if (!result.success) {
-    throw new Error(
-      `Cloudflare Email Sending returned an invalid response (${response.status}): ${z.prettifyError(result.error)}`,
-    );
-  }
-  if (!result.data.success) {
-    const details = result.data.errors.map((error) => `${error.code}: ${error.message}`).join("; ");
-    throw new Error(`Cloudflare Email Sending failed (${response.status}): ${details}`);
-  }
-  if (!response.ok) {
-    throw new Error(`Cloudflare Email Sending failed (${response.status}).`);
-  }
-  if (result.data.result.permanent_bounces.length > 0) {
-    throw new Error(
-      `Cloudflare Email Sending permanently bounced for ${result.data.result.permanent_bounces.length} recipient(s).`,
-    );
-  }
-  return "accepted";
 }
 
 export const send = internalAction({
   args: vSendEmailArgs,
-  returns: v.null(),
-  handler: async (_ctx, args) => {
-    await sendEmail(args);
-    return null;
+  returns: object({ ok: literal(true), value: vSendEmailStatus }),
+  handler: async (ctx, args) => {
+    const result = await sendEmail(ctx, args);
+    if (!result.ok) {
+      throw new Error(
+        `Email sending was not confirmed: ${result.error}. Check delivery history before retrying.`,
+      );
+    }
+    return result;
   },
 });
