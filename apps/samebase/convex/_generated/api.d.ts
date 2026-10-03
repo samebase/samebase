@@ -129,6 +129,7 @@ import type * as repository_contracts_connectRepository from "../repository/cont
 import type * as repository_contracts_convexAttachments from "../repository/contracts/convexAttachments.js";
 import type * as repository_contracts_createRepository from "../repository/contracts/createRepository.js";
 import type * as repository_contracts_detachResource from "../repository/contracts/detachResource.js";
+import type * as repository_contracts_getRepositoryStatus from "../repository/contracts/getRepositoryStatus.js";
 import type * as repository_contracts_getUserRepositories from "../repository/contracts/getUserRepositories.js";
 import type * as repository_contracts_repositoryReference from "../repository/contracts/repositoryReference.js";
 import type * as repository_contracts_retryInfrastructureProvisioning from "../repository/contracts/retryInfrastructureProvisioning.js";
@@ -169,7 +170,9 @@ import type * as repository_pullRequestHostingPreviews from "../repository/pullR
 import type * as repository_pullRequestModel from "../repository/pullRequestModel.js";
 import type * as repository_pullRequestResources from "../repository/pullRequestResources.js";
 import type * as repository_records from "../repository/records.js";
+import type * as repository_repositoryStatus from "../repository/repositoryStatus.js";
 import type * as repository_state from "../repository/state.js";
+import type * as repository_status from "../repository/status.js";
 import type * as repository_workersBuildsConvexDeployKeyNames from "../repository/workersBuildsConvexDeployKeyNames.js";
 import type * as repositoryProvisioningEvents from "../repositoryProvisioningEvents.js";
 import type * as repositoryProvisioningRuns from "../repositoryProvisioningRuns.js";
@@ -320,6 +323,7 @@ declare const fullApi: ApiFromModules<{
   "repository/contracts/convexAttachments": typeof repository_contracts_convexAttachments;
   "repository/contracts/createRepository": typeof repository_contracts_createRepository;
   "repository/contracts/detachResource": typeof repository_contracts_detachResource;
+  "repository/contracts/getRepositoryStatus": typeof repository_contracts_getRepositoryStatus;
   "repository/contracts/getUserRepositories": typeof repository_contracts_getUserRepositories;
   "repository/contracts/repositoryReference": typeof repository_contracts_repositoryReference;
   "repository/contracts/retryInfrastructureProvisioning": typeof repository_contracts_retryInfrastructureProvisioning;
@@ -360,7 +364,9 @@ declare const fullApi: ApiFromModules<{
   "repository/pullRequestModel": typeof repository_pullRequestModel;
   "repository/pullRequestResources": typeof repository_pullRequestResources;
   "repository/records": typeof repository_records;
+  "repository/repositoryStatus": typeof repository_repositoryStatus;
   "repository/state": typeof repository_state;
+  "repository/status": typeof repository_status;
   "repository/workersBuildsConvexDeployKeyNames": typeof repository_workersBuildsConvexDeployKeyNames;
   repositoryProvisioningEvents: typeof repositoryProvisioningEvents;
   repositoryProvisioningRuns: typeof repositoryProvisioningRuns;

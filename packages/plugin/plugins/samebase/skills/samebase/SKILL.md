@@ -11,13 +11,13 @@ description:
 
 ## Choose the control surface
 
-- Use Samebase actions to list repositories, create or connect a repository, find, attach, connect,
-  create, repair, or detach its Cloudflare Workers and Convex projects, and open the Samebase
-  dashboard.
-- Use GitHub, Convex, or Cloudflare tools for direct work in those systems, including logs,
-  environment values, and live build and deployment state. For a standalone provider resource, use
-  only provider tools and do not propose a Samebase workflow. A provider action does not change the
-  Samebase repository unless the action says that it does.
+- Use Samebase actions to list repositories, read a repository status, create or connect a
+  repository, find, attach, connect, create, repair, or detach its Cloudflare Workers and Convex
+  projects, and open the Samebase dashboard.
+- Use GitHub, Convex, or Cloudflare tools for direct work in those systems, including logs and
+  environment values. For a standalone provider resource, use only provider tools and do not propose
+  a Samebase workflow. A provider action does not change the Samebase repository unless the action
+  says that it does.
 - When Samebase actions are registered but no action supports the requested operation, explain where
   the user can do it and offer to open the dashboard. Do not read the repository list or call an
   action before the user accepts. Then call only `account_createSignInLink`. Do not claim that the
@@ -108,7 +108,8 @@ description:
 ## Verify the result
 
 - Reread `repository_list` after an attachment, connection, creation, or repair action.
-- The repository list reports Samebase workflow state and attachment names. Use provider tools for
-  live state, logs, environment values, migrations, domains, and final build status.
+- Call `repository_getStatus` for the builds, URLs, Convex deployments, checks, and pull requests of
+  a repository, and follow its attention items. Use provider tools for logs, environment values,
+  migrations, and domains.
 - A started run, build request, commit, or push does not prove that a deployment is live.
 - Never put credentials in Git, logs, screenshots, or responses. Report only verified state.

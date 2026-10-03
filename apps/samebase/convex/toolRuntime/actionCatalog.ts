@@ -2,6 +2,7 @@ import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticat
 import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
 import { createRepositoryContract } from "../repository/contracts/createRepository";
 import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
+import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
@@ -28,7 +29,7 @@ entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snak
 `mcp.name` is the wire-level MCP tool name: the path of the registered Convex function that runs
 the tool, with `/` and `:` replaced by `_` (rfcs/125; actionCatalog.test.ts checks it).
 
-Order is the presentation order in generated docs: reads first (inventory, then discovery), then
+Order is the presentation order in generated docs: reads first (inventory, status, then discovery), then
 create and connect, attach, connect, and create provider resources, repairs, and detach. Sign-in links stay near the end, and authentication status
 is last because it is a diagnostic action, not a preflight. mcp/protocol.ts derives the supported
 OAuth scope order from this list, and grant reuse compares scope strings exactly, so a reorder that
@@ -36,6 +37,7 @@ moves the first use of an access key changes the scope string that clients reque
 */
 export const actionContracts = [
   getUserRepositoriesContract,
+  getRepositoryStatusContract,
   convexDiscoverProjectsContract,
   cloudflareDiscoverWorkersContract,
   createRepositoryContract,

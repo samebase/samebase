@@ -111,14 +111,14 @@ describe("MCP tool listing access", () => {
         grantedScopes: ["access_app_create", "access_dashboard", "access_repo_connect"],
         currentAccessKeys: ["access_dashboard"],
       }).map((tool) => tool.name),
-    ).toEqual(["repository_list"]);
+    ).toEqual(["repository_list", "repository_getStatus"]);
 
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_dashboard"],
         currentAccessKeys: ["access_dashboard", "access_app_create", "access_repo_connect"],
       }).map((tool) => tool.name),
-    ).toEqual(["repository_list"]);
+    ).toEqual(["repository_list", "repository_getStatus"]);
 
     expect(
       listMcpToolsForAccess({
@@ -272,6 +272,14 @@ describe("MCP tool listing access", () => {
         required: ["inventoryState", "workers", "counts"],
       },
     });
+    expect(tools.find((tool) => tool.name === "repository_getStatus")).toMatchObject({
+      title: "Get repository status",
+      inputSchema: { required: ["repository"] },
+      outputSchema: {
+        type: "object",
+        required: expect.arrayContaining(["apps", "convexProjects", "pullRequests", "attention"]),
+      },
+    });
     expect(tools.map((tool) => tool.name)).not.toContain("repository_cloudflare_listAccounts");
     expect(tools.map((tool) => tool.name)).not.toContain("cloudflare_listWorkersBuildTokens");
     const configureBuildsTool = tools.find(
@@ -320,7 +328,7 @@ describe("MCP tool listing access", () => {
     }
   });
 
-  it("marks account reads and provider discovery as bounded read-only tools", () => {
+  it("marks account reads, the status read, and provider discovery as bounded read-only tools", () => {
     const tools = listMcpToolsForAccess({
       grantedScopes: [...ACCESS_KEYS],
       currentAccessKeys: [...ACCESS_KEYS],
@@ -328,6 +336,7 @@ describe("MCP tool listing access", () => {
     for (const name of [
       "account_getAuthenticationStatus",
       "repository_list",
+      "repository_getStatus",
       "repository_convex_findProjects",
       "repository_cloudflare_findWorkers",
     ]) {
@@ -643,7 +652,7 @@ describe("MCP tools/call access enforcement", () => {
         capabilities: { tools: {} },
         serverInfo: { name: "Samebase", version: "0.3.0" },
         instructions: expect.stringMatching(
-          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects, in every organization of the signed-in account\.[\s\S]*Name a repository by its GitHub full name \(owner\/name\)\.[\s\S]*For a request to open the Samebase dashboard, call account_createSignInLink directly and show the returned URL as a clickable link\.[\s\S]*call it only after the user accepts\.[\s\S]*A started setup, requested build, or Git push does not prove a successful deployment\.$/,
+          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects, in every organization of the signed-in account\.[\s\S]*Name a repository by its GitHub full name \(owner\/name\)\. For the builds, deployments, checks, or pull requests of a Samebase repository, call repository_getStatus and follow its attention items\.[\s\S]*For a request to open the Samebase dashboard, call account_createSignInLink directly and show the returned URL as a clickable link\.[\s\S]*call it only after the user accepts\.[\s\S]*A started setup, requested build, or Git push does not prove a successful deployment\.$/,
         ),
       },
     });

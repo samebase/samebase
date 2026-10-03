@@ -30,6 +30,13 @@ export const toolJustifications = {
       "Reads only repositories in Samebase organizations where the caller is a current member, and the names of their attached Convex projects in the connected Convex team.",
     destructive_justification: noDestructiveActions,
   },
+  repository_getStatus: {
+    read_only_justification:
+      "Only reads the repository's Workers, builds, URLs, Convex deployments, default branch checks, and open pull requests, and derives attention items from them.",
+    open_world_justification:
+      "Reads only the selected repository in GitHub and its attached Workers and Convex projects in the organization's connected Cloudflare account and Convex team.",
+    destructive_justification: noDestructiveActions,
+  },
   repository_convex_findProjects: {
     read_only_justification:
       "Only reads repository code locations, connected Convex projects, and Cloudflare Worker markers.",

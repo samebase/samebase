@@ -26,6 +26,9 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { detachResourceContract } from "../repository/contracts/detachResource";
+import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
+import { projectRepositoryStatusForMcp } from "../repository/repositoryStatus";
+import { readRepositoryStatusForUser } from "../repository/status";
 import { retryProviderSetupForUser } from "../repository";
 import { connectRepositoryByFullNameForUser, createAppForUser } from "../repository/actions";
 import {
@@ -276,6 +279,26 @@ export const repositoryListTool = defineMcpTool({
     };
     return {
       text: `Found ${repositories.length} ${repositories.length === 1 ? "repository" : "repositories"}.`,
+      structuredContent,
+    };
+  },
+});
+
+export const repositoryGetStatusTool = defineMcpTool({
+  contract: getRepositoryStatusContract,
+  args: getRepositoryStatusContract.mcpArgs,
+  successFields: {
+    structuredContent: getRepositoryStatusContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const structuredContent = projectRepositoryStatusForMcp({
+      repository,
+      status: await readRepositoryStatusForUser(ctx, { userId: args.userId, repository }),
+    });
+    const { apps, attention, convexProjects, openPullRequestCount } = structuredContent;
+    return {
+      text: `${structuredContent.repository}: ${apps.length} ${apps.length === 1 ? "app" : "apps"}, ${convexProjects.length} Convex ${convexProjects.length === 1 ? "project" : "projects"}, ${openPullRequestCount === null ? "pull requests unavailable" : `${openPullRequestCount} open ${openPullRequestCount === 1 ? "pull request" : "pull requests"}`}. ${attention.length === 0 ? "Nothing needs attention." : `Needs attention: ${attention.map((item) => (item.tool === null ? item.problem : `${item.problem} Fix: ${item.tool}.`)).join(" ")}`}`,
       structuredContent,
     };
   },

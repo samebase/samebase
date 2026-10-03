@@ -15,6 +15,10 @@ import { isLiveConnectedRepository, isSamebaseManagedRepository } from "./reposi
 import { connectRepositoryContract } from "./repository/contracts/connectRepository";
 import { createRepositoryContract } from "./repository/contracts/createRepository";
 import {
+  getRepositoryStatusContract,
+  type RepositoryStatus,
+} from "./repository/contracts/getRepositoryStatus";
+import {
   getUserRepositoriesContract,
   type UserRepositoriesResult,
 } from "./repository/contracts/getUserRepositories";
@@ -34,8 +38,8 @@ type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.returns>;
 
 /*
 Repository-level actions for the dashboard and MCP. This module runs in the default runtime because
-`list` is a query. `create` and `connect` call one internal Node action each, because their
-handlers in repository/actions.ts use Octokit.
+`list` is a query. `getStatus`, `create`, and `connect` call one internal Node action each, because
+their handlers in repository/status.ts and repository/actions.ts use Octokit and provider clients.
 */
 
 export const list = query({
@@ -66,6 +70,18 @@ export const listForUser = internalQuery({
     const organizationIds = await listOrganizationIdsForUser(ctx.db, args.userId);
     return await readOrganizationRepositories(ctx, organizationIds);
   },
+});
+
+export const getStatus = action({
+  access: getRepositoryStatusContract.access,
+  args: getRepositoryStatusContract.args,
+  returns: getRepositoryStatusContract.returns,
+  mcp: getRepositoryStatusContract.mcp,
+  handler: async (ctx, args): Promise<RepositoryStatus> =>
+    await ctx.runAction(internal.repository.status.readForUser, {
+      userId: ctx.viewer.userId,
+      repositoryId: args.repositoryId,
+    }),
 });
 
 export const create = action({

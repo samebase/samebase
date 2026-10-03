@@ -10,6 +10,7 @@ dashboard calls; MCP-only tools name an internal function. A missing or extra ke
 */
 const toolFunctions = {
   repository_list: api.repository.list,
+  repository_getStatus: api.repository.getStatus,
   repository_convex_findProjects: api.repository.convex.findProjects,
   repository_cloudflare_findWorkers: api.repository.cloudflare.findWorkers,
   repository_create: api.repository.create,
@@ -35,6 +36,7 @@ describe("action catalog", () => {
   it("leads with reads and keeps diagnostic actions at the end", () => {
     expect(actionContracts.map((contract) => contract.id)).toEqual([
       "list_repositories",
+      "get_repository_status",
       "find_convex_projects",
       "find_cloudflare_workers",
       "create_repository",

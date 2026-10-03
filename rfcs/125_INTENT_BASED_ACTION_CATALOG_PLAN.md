@@ -384,17 +384,17 @@ the reviewer account, then submit once. After approval, OpenAI picks up server c
 tool names, arguments, and annotations. A change to those, the skill, or `.mcp.json` needs a new
 review.
 
-### Step 1 in PR #1664
+### Steps 2 and 3 in PR #1664
 
-Step 1 lands in [PR #1664](https://github.com/samebase/samebase/pull/1664) with this RFC. It holds
-the PR 2 scope and the parts of PR 5 that the renames force, because old tool names stop working at
-deploy: the server instructions, the skill, the generated docs, the submission source with the 8
-cases and the three reworded prompts, and plugin `0.3.0`. The status read (PR 3) and the
-confirmation gate (PR 4) are not in step 1, so the catalog has 17 tools; the gated tools already
-carry `destructiveHint: true`. PR 5 revisits the instructions and the 8 cases after
-`repository_getStatus` exists.
+Step N is rollout PR N. Steps 2 and 3 land in
+[PR #1664](https://github.com/samebase/samebase/pull/1664) with this RFC. Step 2 holds the PR 2
+scope and the parts of PR 5 that the renames force, because old tool names stop working at deploy:
+the server instructions, the skill, the generated docs, the submission source with the 8 cases and
+the three reworded prompts, and plugin `0.3.0`. Step 3 adds the status read, so the catalog has 18
+tools. The confirmation gate (PR 4) is not in this PR; the gated tools already carry
+`destructiveHint: true`. PR 5 revisits the instructions and the 8 cases.
 
-Deviations found during step 1:
+Deviations found during step 2:
 
 1. `repository_detachResource` takes `kind`, and the Worker tools take `convexProjectName?`. The
    catalog and the shared rules above include both.
@@ -418,6 +418,19 @@ Deviations found during step 1:
 8. The catalog lists reads first (`repository_list`, then the two find tools), then create and
    connect. `mcp/protocol.ts` derives the OAuth scope string from that order, and this order keeps
    the string identical, so existing grants stay reusable.
+
+Deviations found during step 3:
+
+1. Each Convex project in the MCP result also carries `projectSlug`, so that a person or agent can
+   pass it as `convexProjectName`. The rotation attention item names the project the same way, or
+   `null` when several projects are attached and the keys name none.
+2. Facts that a provider read cannot return are `unavailable` and produce no attention item, because
+   a guessed repair can be wrong. `repository_getStatus` fails with guidance only for a repository
+   without a connected GitHub repository or in removal.
+3. The dashboard result is the six existing overview reads (four provider observations, the open
+   pull request page, and the pull request resources) plus the attention items, so the overview can
+   adopt it in PR 6 without new shapes. The typical MCP result measures 2,067 bytes (1 Worker, 1
+   Convex project, 3 checks per commit, 2 open PRs).
 
 ## Alternatives considered
 

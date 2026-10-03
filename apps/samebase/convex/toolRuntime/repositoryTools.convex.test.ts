@@ -372,6 +372,62 @@ describe("repository_list", () => {
   });
 });
 
+describe("repository_getStatus", () => {
+  it("reads the status by repository name and reports unreadable providers as unavailable", async () => {
+    const fixture = await createScoutFixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("Provider request failed in the test.");
+      }),
+    );
+
+    const result = await fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
+      userId: fixture.userId,
+      grantedScopes: ["access_dashboard"],
+      repository: "Scout-Owner/Scout",
+    });
+    const dashboardStatus = await fixture.viewer.action(api.repository.getStatus, {
+      repositoryId: fixture.repositoryId,
+    });
+    vi.unstubAllGlobals();
+
+    expect(result).toEqual({
+      status: "ok",
+      text: "scout-owner/scout: 1 app, 1 Convex project, pull requests unavailable. Nothing needs attention.",
+      structuredContent: {
+        repository: "scout-owner/scout",
+        defaultBranch: null,
+        openPullRequestCount: null,
+        apps: [
+          {
+            workerName: "scout",
+            rootDirectory: "/",
+            productionBuild: { state: "unavailable" },
+            urls: [],
+          },
+        ],
+        convexProjects: [
+          {
+            codeLocation: "convex.json",
+            projectSlug: null,
+            productionDeployment: { state: "unavailable" },
+          },
+        ],
+        pullRequests: [],
+        attention: [],
+      },
+    });
+    expect(dashboardStatus).toMatchObject({
+      workers: [{ state: "failed", workerId: fixture.workerId }],
+      convexProjects: [{ convexProjectId: fixture.convexProjectId }],
+      pullRequests: { state: "unavailable" },
+      pullRequestResources: [],
+      attention: [],
+    });
+  });
+});
+
 describe("Convex project selection for deploy keys", () => {
   async function addAdminProject(fixture: Awaited<ReturnType<typeof createScoutFixture>>) {
     providerMocks.listConvexManagementProjects.mockResolvedValue([
