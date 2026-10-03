@@ -468,11 +468,7 @@ export function RepositorySelectedWorkspace({
       {addCloudflareWorkerModeActive ? (
         <RepositoryCloudflareDialog
           blockedReason={providerActionBlockReason}
-          convexProjectObservations={
-            workspace.convexObservations.state === "loaded"
-              ? workspace.convexObservations.observations
-              : []
-          }
+          convexObservations={workspace.convexObservations}
           key={`${repository.repositoryId}:${cloudflareRepairWorkerId ?? "add"}`}
           onClose={() => {
             closeRepositoryDashboardDialog("add-cloudflare");

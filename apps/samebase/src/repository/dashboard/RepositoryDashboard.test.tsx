@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import { act, type ComponentProps, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -2494,7 +2494,7 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
-              convexProjectObservations={[]}
+              convexObservations={{ state: "loading" }}
               onClose={() => {}}
               repairBuildTokenUuid="build-token"
               repairWorkerId={workerId}
@@ -2709,7 +2709,7 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
-              convexProjectObservations={[]}
+              convexObservations={{ state: "loading" }}
               onClose={() => {}}
               repairBuildTokenUuid={null}
               repairWorkerId={null}
@@ -2822,10 +2822,15 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
-              convexProjectObservations={[
-                observation(siteProjectId, "site"),
-                observation(adminProjectId, "admin"),
-              ]}
+              convexObservations={{
+                state: "loaded",
+                observations: [
+                  observation(siteProjectId, "site"),
+                  observation(adminProjectId, "admin"),
+                ],
+                refreshFailed: false,
+                reload: () => {},
+              }}
               onClose={() => {}}
               repairBuildTokenUuid={null}
               repairWorkerId={null}
@@ -2869,6 +2874,100 @@ describe("RepositoryCloudflareDialogContent", () => {
           (option) => option.textContent,
         ),
       ).toEqual(["site (convex.json)", "admin (convex.json)"]);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+    }
+  });
+
+  it("keeps the deploy-key Convex project choice closed until the slugs tell two projects at convex.json apart", async () => {
+    const siteProjectId = fakeConvexProjectId("site-project-attachment");
+    const adminProjectId = fakeConvexProjectId("admin-project-attachment");
+    const discoverWorkers = vi.fn(async () => ({
+      inventoryState: "complete" as const,
+      workers: [],
+    }));
+    const listBuildTokens = vi.fn(async () => ({
+      accountId: "account-1",
+      lastUsedBuildTokenUuid: "build-token",
+      tokens: [{ name: "Build token", uuid: "build-token" }],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.repository.cloudflare.findWorkers)) {
+        return discoverWorkers;
+      }
+      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
+        return listBuildTokens;
+      }
+      return vi.fn();
+    });
+    const repository = makeRepositorySettingsBuilderRepository({
+      convexProjects: [
+        makeRepositorySettingsConvexProject({ convexProjectId: siteProjectId }),
+        makeRepositorySettingsConvexProject({ convexProjectId: adminProjectId }),
+      ],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    const render = (
+      convexObservations: ComponentProps<typeof RepositoryCloudflareDialog>["convexObservations"],
+    ) =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RepositoryCloudflareDialog
+            blockedReason={null}
+            convexObservations={convexObservations}
+            onClose={() => {}}
+            repairBuildTokenUuid={null}
+            repairWorkerId={null}
+            repository={repository}
+          />
+        </QueryClientProvider>,
+      );
+    const findButton = (label: string) =>
+      [...rootElement.querySelectorAll<HTMLButtonElement>("button")].find(
+        (button) => button.textContent === label,
+      );
+    const findProjectSelect = () =>
+      [...rootElement.querySelectorAll<HTMLButtonElement>('[role="combobox"]')].find((button) =>
+        button.textContent.includes("Choose a Convex project"),
+      );
+
+    try {
+      await act(async () => {
+        render({ state: "loading" });
+      });
+      const createButton = await act(() =>
+        vi.waitFor(() => {
+          const button = findButton("Create");
+          if (!button || button.disabled) {
+            throw new Error("Expected the Create button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => {
+        createButton.click();
+      });
+
+      expect(findProjectSelect()?.disabled).toBe(true);
+      expect(findButton("Create Worker")?.disabled).toBe(true);
+      expect(rootElement.textContent).not.toContain("could not load the Convex project slugs");
+
+      await act(async () => {
+        render({ state: "failed", reload: () => {} });
+      });
+
+      expect(findProjectSelect()?.disabled).toBe(true);
+      expect(findButton("Create Worker")?.disabled).toBe(true);
+      expect(rootElement.textContent).toContain(
+        "Samebase could not load the Convex project slugs, so it cannot tell apart the projects that share a code location.",
+      );
     } finally {
       await act(async () => root.unmount());
       queryClient.clear();

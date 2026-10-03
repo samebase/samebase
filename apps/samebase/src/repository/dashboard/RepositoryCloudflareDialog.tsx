@@ -41,7 +41,10 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
 import { RepositoryProviderDiscoveryLoadingState } from "./RepositoryProviderDiscoveryLoadingState";
 import { RepositoryRootInput } from "./RepositoryRootInput";
-import type { RepositoryConvexProjectObservation } from "./useRepositoryProviderObservations";
+import type {
+  RepositoryConvexProjectObservation,
+  RepositoryProviderObservationState,
+} from "./useRepositoryProviderObservations";
 
 const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
 
@@ -436,7 +439,7 @@ export function RepositoryCloudflareDialogContent({
 
 export function RepositoryCloudflareDialog({
   blockedReason,
-  convexProjectObservations,
+  convexObservations,
   onClose,
   repairBuildTokenUuid,
   repairWorkerId,
@@ -444,7 +447,7 @@ export function RepositoryCloudflareDialog({
 }: {
   blockedReason: string | null;
   /** The live Convex reads of the overview; their slugs tell apart projects at one code location. */
-  convexProjectObservations: readonly RepositoryConvexProjectObservation[];
+  convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
   onClose: () => void;
   repairBuildTokenUuid: string | null;
   repairWorkerId: Id<"repositoryCloudflareWorkers"> | null;
@@ -682,13 +685,21 @@ export function RepositoryCloudflareDialog({
   // Several attached projects can share a code location, so a choice also shows the Convex slug.
   const formatConvexProjectChoice = (project: UserRepositoryResult["convexProjects"][number]) => {
     const codeLocation = getConvexCodeLocationPath(project.codeLocation);
-    const provider = convexProjectObservations.find(
-      (observation) => observation.convexProjectId === project.convexProjectId,
-    )?.provider;
+    const provider =
+      convexObservations.state === "loaded"
+        ? convexObservations.observations.find(
+            (observation) => observation.convexProjectId === project.convexProjectId,
+          )?.provider
+        : undefined;
     return provider?.state === "current"
       ? `${provider.projectSlug} (${codeLocation})`
       : codeLocation;
   };
+  // The chosen project's deploy key is installed without a later confirmation, so a choice opens
+  // only when every project reads differently: projects at one code location need their slugs.
+  const convexProjectChoiceLabels = repository.convexProjects.map(formatConvexProjectChoice);
+  const canTellConvexProjectsApart =
+    new Set(convexProjectChoiceLabels).size === convexProjectChoiceLabels.length;
 
   // The confirmation step replaces the form, so the confirmed call resends the shown request.
   if (connectConfirmation) {
@@ -730,7 +741,7 @@ export function RepositoryCloudflareDialog({
                   )?.convexProjectId ?? null,
                 );
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canTellConvexProjectsApart}
             >
               <SelectTrigger id="cloudflare-worker-convex-project" className="w-full">
                 <SelectValue placeholder="Choose a Convex project">
@@ -747,6 +758,14 @@ export function RepositoryCloudflareDialog({
                 ))}
               </AppSelectContent>
             </Select>
+            {canTellConvexProjectsApart ||
+            convexObservations.state === "loading" ||
+            convexObservations.state === "checking" ? null : (
+              <div className="text-sm text-muted-foreground">
+                Samebase could not load the Convex project slugs, so it cannot tell apart the
+                projects that share a code location.
+              </div>
+            )}
           </div>
         ) : null
       }
@@ -779,7 +798,10 @@ export function RepositoryCloudflareDialog({
       error={submitError ?? resourceError}
       folderSuggestions={folderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS}
       hasSelectedBuildToken={hasSelectedBuildToken}
-      hasSelectedConvexProject={!needsDeployKeyConvexProject || deployKeyConvexProjectId !== null}
+      hasSelectedConvexProject={
+        !needsDeployKeyConvexProject ||
+        (canTellConvexProjectsApart && deployKeyConvexProjectId !== null)
+      }
       isLoading={isLoading}
       isSubmitting={isSubmitting}
       inventoryState={inventoryState}
