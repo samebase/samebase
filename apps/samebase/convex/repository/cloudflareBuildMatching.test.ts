@@ -6,10 +6,8 @@ import {
   observedNativePreviewsProductionBuild,
   observedRunningWorkerBuild,
 } from "../cloudflareApi/fixtures/observedWorkerBuilds";
-import {
-  type CloudflareBuildDisagreementReason,
-  matchLatestCloudflareWorkerBuildForBranch,
-} from "./cloudflareBuildMatching";
+import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
+import type { CloudflareBuildDisagreementReason } from "./providerObservationModel";
 
 function observedCompletedCloudflareBuild(
   args: {

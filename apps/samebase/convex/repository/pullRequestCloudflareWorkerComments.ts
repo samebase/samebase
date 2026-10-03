@@ -1,4 +1,4 @@
-import type { CloudflareBuildState } from "./cloudflareBuildMatching";
+import type { CloudflareBuildState } from "./providerObservationModel";
 import {
   normalizeCloudflareWorkerPreviewUrl,
   parseCloudflareWorkerBuildLogsUrl,

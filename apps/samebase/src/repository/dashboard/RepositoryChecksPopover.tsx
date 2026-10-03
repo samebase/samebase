@@ -6,10 +6,12 @@ import {
 } from "@/repository/dashboard/repositoryChecks";
 import { clsx } from "clsx";
 import { CircleAlert, CircleCheck, CircleDashed, CircleDot, CircleX, Loader2 } from "lucide-react";
-import type { RepositoryStatusCheckRollup } from "../../../convex/repository/pullRequestModel";
-
-type RepositoryCheck = NonNullable<RepositoryStatusCheckRollup>["contexts"]["nodes"][number];
-type RepositoryCheckState = Exclude<RepositoryCheckSummary["state"], "none">;
+import {
+  classifyRepositoryCheck,
+  type RepositoryCheck,
+  type RepositoryCheckState,
+  type RepositoryStatusCheckRollup,
+} from "../../../convex/repository/pullRequestModel";
 
 function ChecksIcon({ state }: { state: RepositoryCheckSummary["state"] }) {
   switch (state) {
@@ -33,61 +35,6 @@ function ChecksIcon({ state }: { state: RepositoryCheckSummary["state"] }) {
 
 function checkName(check: RepositoryCheck): string {
   return check.kind === "check_run" ? check.name : check.context;
-}
-
-function checkState(check: RepositoryCheck): RepositoryCheckState {
-  if (check.kind === "status_context") {
-    switch (check.state) {
-      case "SUCCESS":
-        return "success";
-      case "ERROR":
-      case "FAILURE":
-        return "failure";
-      case "EXPECTED":
-      case "PENDING":
-        return "running";
-      case "UNKNOWN":
-        return "unknown";
-      default:
-        check.state satisfies never;
-        return "unknown";
-    }
-  }
-  if (check.status !== "COMPLETED") {
-    switch (check.status) {
-      case "REQUESTED":
-      case "QUEUED":
-      case "IN_PROGRESS":
-      case "WAITING":
-      case "PENDING":
-        return "running";
-      case "UNKNOWN":
-        return "unknown";
-      default:
-        check.status satisfies never;
-        return "unknown";
-    }
-  }
-  switch (check.conclusion) {
-    case "SUCCESS":
-      return "success";
-    case "ACTION_REQUIRED":
-    case "TIMED_OUT":
-    case "CANCELLED":
-    case "FAILURE":
-    case "STARTUP_FAILURE":
-    case "STALE":
-      return "failure";
-    case "NEUTRAL":
-    case "SKIPPED":
-      return "neutral";
-    case "UNKNOWN":
-    case null:
-      return "unknown";
-    default:
-      check.conclusion satisfies never;
-      return "unknown";
-  }
 }
 
 function checkStateClassName(state: RepositoryCheckSummary["state"]): string {
@@ -131,7 +78,8 @@ export function RepositoryChecksPopover({
 }) {
   const contexts = [...(statusCheckRollup?.contexts.nodes ?? [])].sort(
     (left, right) =>
-      checkStateOrder[checkState(left)] - checkStateOrder[checkState(right)] ||
+      checkStateOrder[classifyRepositoryCheck(left)] -
+        checkStateOrder[classifyRepositoryCheck(right)] ||
       checkName(left).localeCompare(checkName(right)) ||
       left.kind.localeCompare(right.kind) ||
       (left.kind === "check_run" ? left.detailsUrl : left.targetUrl)?.localeCompare(
@@ -164,7 +112,7 @@ export function RepositoryChecksPopover({
           <ul className="max-h-80 overflow-y-auto">
             {contexts.map((check, index) => {
               const name = checkName(check);
-              const state = checkState(check);
+              const state = classifyRepositoryCheck(check);
               const detailsUrl = check.kind === "check_run" ? check.detailsUrl : check.targetUrl;
               const description =
                 check.kind === "check_run"

@@ -1,4 +1,4 @@
-import type { CloudflareBuildState } from "./cloudflareBuildMatching";
+import type { CloudflareBuildState } from "./providerObservationModel";
 
 export type CloudflareWorkerProofSource = "comments" | "checks";
 export const CLOUDFLARE_WORKER_PROOF_SOURCE: CloudflareWorkerProofSource = "checks";

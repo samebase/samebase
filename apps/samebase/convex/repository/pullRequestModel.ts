@@ -1,11 +1,11 @@
 import { v, type Infer } from "convex/values";
 
-import { vCloudflareBuildState } from "./cloudflareBuildMatching";
+import { vCloudflareBuildState } from "./providerObservationModel";
 
 /*
 Result validators of the GitHub pull request reads in repositoryPullRequests.ts and
-pullRequestResources.ts. They live in this default-runtime module so that repository:getStatus can
-declare the same shapes.
+pullRequestResources.ts, and the check classification. They live in this default-runtime module so
+that repository:getStatus can declare the same shapes and classify checks like the dashboard.
 */
 
 const { array, boolean, id, literal, number, object, string, union } = v;
@@ -171,6 +171,64 @@ export type RepositoryPullRequest = Infer<typeof vPullRequest>;
 export type RepositoryStatusCheckCounts = Infer<typeof vStatusCheckCounts>;
 export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
 export type RepositorySidebarSummary = Infer<typeof vRepositorySidebarSummary>;
+export type RepositoryCheck = Infer<typeof checkContext>;
+export type RepositoryCheckState = "success" | "failure" | "running" | "neutral" | "unknown";
+
+/** The state of one check, shared by the dashboard checks list and the status read. */
+export function classifyRepositoryCheck(check: RepositoryCheck): RepositoryCheckState {
+  if (check.kind === "status_context") {
+    switch (check.state) {
+      case "SUCCESS":
+        return "success";
+      case "ERROR":
+      case "FAILURE":
+        return "failure";
+      case "EXPECTED":
+      case "PENDING":
+        return "running";
+      case "UNKNOWN":
+        return "unknown";
+      default:
+        check.state satisfies never;
+        return "unknown";
+    }
+  }
+  if (check.status !== "COMPLETED") {
+    switch (check.status) {
+      case "REQUESTED":
+      case "QUEUED":
+      case "IN_PROGRESS":
+      case "WAITING":
+      case "PENDING":
+        return "running";
+      case "UNKNOWN":
+        return "unknown";
+      default:
+        check.status satisfies never;
+        return "unknown";
+    }
+  }
+  switch (check.conclusion) {
+    case "SUCCESS":
+      return "success";
+    case "ACTION_REQUIRED":
+    case "TIMED_OUT":
+    case "CANCELLED":
+    case "FAILURE":
+    case "STARTUP_FAILURE":
+    case "STALE":
+      return "failure";
+    case "NEUTRAL":
+    case "SKIPPED":
+      return "neutral";
+    case "UNKNOWN":
+    case null:
+      return "unknown";
+    default:
+      check.conclusion satisfies never;
+      return "unknown";
+  }
+}
 
 const vPullRequestConvexResource = union(
   object({
