@@ -197,7 +197,7 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: ["account_getAuthenticationStatus"],
     expected_output:
-      "The answer names the reviewer account's email and role, the GitHub owners of its organizations, and the granted scope names. It shows no access token and no internal account ID.",
+      "The answer names the reviewer account's email and role, the GitHub owner of its organization, and the granted permissions. It shows no access token and no internal account ID.",
     expected_output_url: null,
   },
   {
@@ -218,7 +218,7 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: ["repository_cloudflare_findWorkers"],
     expected_output:
-      "The answer says that no Worker in the Cloudflare account of samebase-live-tests/tmp-my-cool-app2 can be attached as it is, and gives the counts of Workers that are already attached or cannot be added. If it lists a Worker that can be connected, it says that connecting replaces what that Worker serves and needs the user's approval. It does not say that a Worker was attached, connected, or created.",
+      "The answer lists tmp-something as a connectable Worker that is not attached to any repository, and gives the counts of Workers already attached to this repository and attached elsewhere. It may warn that connecting replaces what the Worker serves. It does not say that a Worker was attached, connected, or created.",
     expected_output_url: null,
   },
   {
@@ -235,11 +235,11 @@ export const testCases = [
   {
     description:
       "Create a browser sign-in link for the authenticated reviewer account without changing provider resources.",
-    user_prompt: "Open my Samebase dashboard in the browser.",
+    user_prompt: "Give me a sign-in link to my Samebase dashboard.",
     file_attachment_urls: null,
     tools_triggered: ["account_createSignInLink"],
     expected_output:
-      "The answer shows a one-time Samebase sign-in link as a clickable link on ChatGPT web and mobile. It does not say that the dashboard opened unless a browser action opened it. Opening the link within 5 minutes shows the reviewer's Samebase dashboard. No provider resource changes.",
+      "The answer shows a one-time Samebase sign-in link as a clickable link and says that it expires in about 5 minutes. Opening the link within 5 minutes in a browser that is not signed in to a different Samebase account shows the reviewer's Samebase dashboard. No provider resource changes.",
     expected_output_url: null,
   },
 ] as const satisfies SubmissionTestCases;
@@ -261,7 +261,7 @@ export const negativeTestCases = [
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "Calls no Samebase tool. The answer says no: Samebase MCP cannot remove a repository from Samebase or delete its resources, and removal is in the Samebase dashboard. It can offer a sign-in link, and it does not say that anything was removed.",
+      "Calls no Samebase tool. The answer says no: Samebase MCP cannot remove a repository from Samebase or delete its resources; the closest tool only detaches a resource and leaves it running. It does not say that anything was removed.",
     expected_output_url: null,
   },
   {
@@ -270,7 +270,7 @@ export const negativeTestCases = [
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "Calls no Samebase tool. The answer says that a standalone Worker is outside Samebase and is created in Cloudflare.",
+      "Calls no Samebase tool. The answer says that Samebase does not create standalone Workers: a Worker exists only inside a Samebase repository. It does not create anything.",
     expected_output_url: null,
   },
 ] as const satisfies SubmissionNegativeTestCases;
