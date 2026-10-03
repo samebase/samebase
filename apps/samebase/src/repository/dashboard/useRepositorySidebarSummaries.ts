@@ -3,7 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   summarizeRepositoryChecks,
   type RepositoryCheckSummary,
-} from "../../../convex/repository/pullRequestModel";
+} from "../../../shared/repositoryChecks";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 

@@ -1,4 +1,4 @@
-import type { RepositoryCheckSummary } from "../../../convex/repository/pullRequestModel";
+import type { RepositoryCheckSummary } from "../../../shared/repositoryChecks";
 
 export function formatRepositoryCheckSummary(checks: RepositoryCheckSummary): string {
   switch (checks.state) {

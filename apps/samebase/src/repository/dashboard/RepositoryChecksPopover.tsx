@@ -6,10 +6,12 @@ import { CircleAlert, CircleCheck, CircleDashed, CircleDot, CircleX, Loader2 } f
 import {
   classifyRepositoryCheck,
   type RepositoryCheck,
-  type RepositoryCheckState,
-  type RepositoryCheckSummary,
   type RepositoryStatusCheckRollup,
 } from "../../../convex/repository/pullRequestModel";
+import type {
+  RepositoryCheckState,
+  RepositoryCheckSummary,
+} from "../../../shared/repositoryChecks";
 
 function ChecksIcon({ state }: { state: RepositoryCheckSummary["state"] }) {
   switch (state) {

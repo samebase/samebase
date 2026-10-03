@@ -12,10 +12,7 @@ import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
 import type { RepositoryConnectedGitHubTarget } from "./repository/model";
 import {
   GITHUB_CHECK_CONCLUSIONS,
-  GITHUB_CHECK_RUN_STATES,
   GITHUB_CHECK_STATUSES,
-  GITHUB_STATUS_STATES,
-  UNKNOWN_GITHUB_STATE,
   vRepositoryPullRequestPage,
   vRepositorySidebarSummary,
   type RepositoryPullRequestPage,
@@ -24,6 +21,11 @@ import {
   type RepositoryStatusCheckRollup,
 } from "./repository/pullRequestModel";
 import { isLiveConnectedRepository } from "./repository/state";
+import {
+  GITHUB_CHECK_RUN_STATES,
+  GITHUB_STATUS_STATES,
+  UNKNOWN_GITHUB_STATE,
+} from "../shared/repositoryChecks";
 
 const { array, id, number, object, string, union } = v;
 const REPOSITORY_SIDEBAR_SUMMARY_BATCH_SIZE = 20;

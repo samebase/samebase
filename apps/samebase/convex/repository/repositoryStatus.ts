@@ -23,11 +23,8 @@ import {
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
-import {
-  classifyRepositoryCheck,
-  summarizeRepositoryChecks,
-  type RepositoryStatusCheckRollup,
-} from "./pullRequestModel";
+import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
+import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
 /*
 The pure parts of repository:getStatus: the attention rules and the MCP projection. The Node read in

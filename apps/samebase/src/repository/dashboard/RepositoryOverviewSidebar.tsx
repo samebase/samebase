@@ -31,7 +31,7 @@ import type { OrganizationGitHubIdentityObservation } from "@/organization/useOr
 import { useOrganizationGitHubIdentities } from "@/organization/useOrganizationGitHubIdentity";
 import { ORGANIZATION_SETTINGS_ROUTE } from "@/organization/organizationRoutes";
 import { formatRepositoryCheckSummary } from "@/repository/dashboard/repositoryChecks";
-import type { RepositoryCheckSummary } from "../../../convex/repository/pullRequestModel";
+import type { RepositoryCheckSummary } from "../../../shared/repositoryChecks";
 import { personalOrganizationsFirst } from "@/organization/organizationOrder";
 import {
   buildRepositoryDashboardRoute,
