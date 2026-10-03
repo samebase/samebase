@@ -275,11 +275,56 @@ describe("repository_detachResource", () => {
       }),
     ).resolves.toEqual({
       status: "error",
-      text: "No attached Convex project of scout-owner/scout has the slug free-app. Attached Convex project slugs: scout (convex.json).",
+      text: "No attached Convex project of scout-owner/scout has the slug free-app. Attached Convex projects: scout (convex.json). Pass a slug, or the code location of a project whose slug is unavailable.",
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({
       workers: [{ workerName: "scout" }],
       projects: [{ projectId: "scout-project" }],
+    });
+  });
+
+  it.each([
+    ["was deleted in Convex", () => [convexTeamProject("free-project", "free-app")]],
+    [
+      "is in an unreadable Convex team",
+      () => {
+        throw new Error("Convex is unavailable.");
+      },
+    ],
+  ])(
+    "detaches a Convex project that %s by its recorded code location",
+    async (_state, listProjects) => {
+      const fixture = await createScoutFixture();
+      providerMocks.listConvexManagementProjects.mockImplementation(async () => listProjects());
+
+      await expect(
+        callConfirmedDetach(fixture, {
+          repository: "scout-owner/scout",
+          kind: "convex_project",
+          resourceName: "convex.json",
+        }),
+      ).resolves.toMatchObject({
+        status: "ok",
+        structuredContent: { state: "detached", kind: "convex_project" },
+      });
+      await expect(readAttachments(fixture)).resolves.toMatchObject({ projects: [] });
+    },
+  );
+
+  it("does not take a code location for a Convex project whose slug is readable", async () => {
+    const fixture = await createScoutFixture();
+
+    await expect(
+      fixture.t.action(internal.toolRuntime.runtime.repositoryDetachResourceTool, {
+        userId: fixture.userId,
+        ...mcpGrant,
+        repository: "scout-owner/scout",
+        kind: "convex_project",
+        resourceName: "convex.json",
+      }),
+    ).resolves.toMatchObject({
+      status: "error",
+      text: expect.stringContaining("Attached Convex projects: scout (convex.json)."),
     });
   });
 

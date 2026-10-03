@@ -8,8 +8,10 @@ Removes one attachment record from the repository: a Cloudflare Worker or a Conv
 Worker or project keeps running in the user's provider account; Samebase changes no provider
 resource, key, or Builds setting. `kind` is required because a Worker and a Convex project often
 share the repository's name. The MCP tool names a Worker by its name and a Convex project by its
-slug. The repository must have no running provider setup or other provider write. Removing the
-repository itself, with or without its provider resources, stays in the Samebase dashboard.
+slug. A Convex project whose slug Samebase cannot read (deleted in Convex, or an unreadable team) is
+named by the code location that Samebase records. The repository must have no running provider setup
+or other provider write. Removing the repository itself, with or without its provider resources,
+stays in the Samebase dashboard.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the
@@ -27,7 +29,8 @@ confirmation in its audit log.
 - `kind` (value, required): cloudflare_worker or convex_project. A Worker and a Convex project can
   share a name.
 - `resourceName` (string, required): Name of the attached Worker, or slug of the attached Convex
-  project, as repository_list returns them.
+  project, as repository_list returns them. For a Convex project whose slug repository_list shows as
+  null, its code location.
 - `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
   in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 

@@ -177,6 +177,36 @@ async function findAttachedConvexProjectBySlug(
   return project.convexProjectId;
 }
 
+/**
+Detach names a Convex project by its slug, like the other tools. A project whose slug Samebase cannot
+read (it was deleted in Convex, or the team is unreadable) is named by its code location, which
+Samebase records, so it can still be detached.
+*/
+async function findDetachableConvexProject(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; repository: UserRepositoryResult; resourceName: string },
+): Promise<Id<"repositoryConvexProjects">> {
+  const projects = nameAttachedConvexProjects(
+    args.repository.convexProjects,
+    await readRepositoryConvexTeamProjectNames(ctx, args),
+  );
+  const bySlug = projects.find((project) => project.projectSlug === args.resourceName);
+  if (bySlug) {
+    return bySlug.convexProjectId;
+  }
+  const byCodeLocation = projects.filter(
+    (project) => project.projectSlug === null && project.codeLocation === args.resourceName,
+  );
+  if (byCodeLocation.length === 1) {
+    return byCodeLocation[0].convexProjectId;
+  }
+  throw new ConvexError(
+    byCodeLocation.length > 1
+      ? `Several attached Convex projects of ${args.repository.githubRepositoryFullName} at ${args.resourceName} have no readable slug. Remove one in the Samebase dashboard.`
+      : `No attached Convex project of ${args.repository.githubRepositoryFullName} has the slug ${args.resourceName}. Attached Convex projects: ${projects.length === 0 ? "none" : formatAttachedConvexProjects(projects)}. Pass a slug, or the code location of a project whose slug is unavailable.`,
+  );
+}
+
 async function selectWorkersBuildsTokenForRepository(
   ctx: Pick<ActionCtx, "runAction">,
   args: {
@@ -491,10 +521,10 @@ export const repositoryDetachResourceTool = defineMcpTool({
           }
         : {
             kind: "convex_project" as const,
-            convexProjectId: await findAttachedConvexProjectBySlug(ctx, {
+            convexProjectId: await findDetachableConvexProject(ctx, {
               userId: args.userId,
               repository,
-              projectSlug: resourceName,
+              resourceName,
             }),
           };
 
