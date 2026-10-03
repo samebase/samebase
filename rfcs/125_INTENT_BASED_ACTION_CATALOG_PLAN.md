@@ -515,10 +515,13 @@ Deviations found during step 5:
 1. The server instructions have 1,184 characters, not about 1k. They keep five rules that the note's
    1k draft did not need: the creation sequence with the server's token choice, the status read, the
    confirmation rule, the dashboard hand-off, and the repository name. The test bound is 1,200.
-2. The plugin version is `0.3.1`, because the skill changed after step 2 set `0.3.0`. The MCP server
-   version stays `0.3.0`.
+2. The plugin version is `0.3.2`, because the skill changed after step 2 set `0.3.0` and again after
+   the final review. The MCP server version stays `0.3.0`.
 3. The 8 cases keep their tools. No case calls `repository_getStatus`, because the review needs
    exactly five positive cases and the RFC asks for none.
+4. The skill's recovery steps name no marketplace and no other client: they say to refresh or
+   reconnect the Samebase connection in the current client, and to re-authorize it if an action is
+   still absent. `check:plugin` rejects "marketplace" in any skill file.
 
 ## Alternatives considered
 
