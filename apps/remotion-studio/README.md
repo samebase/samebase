@@ -29,6 +29,10 @@ appear in Studio immediately.
 - `ScoutDemo` contains the Trail Scout submission edit at the source size, 3840×2480. It combines
   the screen, camera, and captions with a 48x wait and two-second speed ramps.
 - `TicTacToeRecording` contains the production edit used by the landing page.
+- `SamebaseLookAgainRiso` is the 42-second "Look again" brand film at 1920x1080, and
+  `SamebaseLookAgainRisoVertical` its 1080x1920 cut for vertical phone feeds. It renders on the GPU
+  through WebGPU. The notes are in `notes/look-again-film.md`.
+- `ContactSheetLabel` draws the time labels for the contact sheet command.
 
 Each production composition owns its component, timing model, and supporting edit data under
 `src/compositions/<name>/`. Editorial reasoning lives under `notes/`.
@@ -185,6 +189,15 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the 2160p founder
   demo while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
+- `pnpm --filter @samebase/remotion-studio render:look-again-riso`: render the "Look again" film.
+  `render:look-again-riso-vertical` renders the vertical cut, and `render:look-again-preview` a
+  480x270 preview.
+- `node src/scripts/analyzeMusicBeats.ts <audio> [section starts]`: print the tempo, beat grid, bar
+  loudness, and strongest onsets of a music file. It needs `ffmpeg` on the `PATH`.
+- `pnpm --filter @samebase/remotion-studio render:contact-sheet <composition-id> <frames> <columns> <output.jpg>`:
+  render frames (`75`) or seconds (`2.5s`) from a comma-separated list into one labeled JPEG. It
+  needs `ffmpeg` on the `PATH`. Example:
+  `render:contact-sheet SamebaseLookAgainRisoPreview 1s,5s,13s,23s,30s,40s 3 out/look-again-sheet.jpg`.
 - `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the 2160p onboarding demo
   for YouTube while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.

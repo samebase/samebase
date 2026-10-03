@@ -1,6 +1,10 @@
 import { Config } from "@remotion/cli/config";
 
-Config.setChromiumOpenGlRenderer("angle");
+import { chromeMode, chromiumOptions, webpackOverride } from "./src/renderSettings.ts";
+
+Config.overrideWebpackConfig(webpackOverride);
+Config.setChromeMode(chromeMode);
+Config.setChromiumOpenGlRenderer(chromiumOptions.gl);
 Config.setCodec("h264");
 Config.setColorSpace("bt709");
 Config.setConcurrency(12);

@@ -12,27 +12,36 @@
     "generate:scout-subtitles": "node src/scripts/generateRecordedDemoSubtitles.ts scout",
     "render:founder-demo": "remotion render FounderDemo out/founder-demo-master.mp4",
     "render:founder-demo-youtube": "remotion render FounderDemoYouTube out/founder-demo-youtube.mp4",
+    "render:contact-sheet": "node src/scripts/renderContactSheet.ts",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
+    "render:look-again-riso": "remotion render SamebaseLookAgainRiso out/look-again-riso.mp4 --concurrency=1",
+    "render:look-again-riso-vertical": "remotion render SamebaseLookAgainRisoVertical out/look-again-riso-vertical.mp4 --concurrency=1",
+    "render:look-again-preview": "remotion render SamebaseLookAgainRisoPreview out/look-again-preview.mp4 --concurrency=1",
     "render:onboarding-demo": "remotion render OnboardingDemo out/onboarding-demo-youtube.mp4",
     "render:scout-demo": "remotion render ScoutDemo out/scout-demo-master.mp4",
     "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4"
   },
   "dependencies": {
     "@react-three/fiber": "9.6.1",
+    "@remotion/bundler": "4.0.489",
     "@remotion/captions": "4.0.489",
     "@remotion/cli": "4.0.489",
+    "@remotion/google-fonts": "4.0.489",
+    "@remotion/renderer": "4.0.489",
     "@remotion/three": "4.0.489",
     "@samebase/logo-model": "workspace:*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "remotion": "4.0.489",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "typegpu": "0.12.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
-    "@types/web": "0.0.166"
+    "@types/web": "0.0.166",
+    "unplugin-typegpu": "0.12.1"
   }
 }
