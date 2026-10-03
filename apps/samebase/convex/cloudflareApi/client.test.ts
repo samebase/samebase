@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { safeParse } from "valibot";
 
 import { buildCloudflareWorkerCreateBody } from "../cloudflareResources";
 import {
@@ -15,23 +16,28 @@ import {
   observedInvalidWorkerNameResponse,
   observedPreviewWorkerNameTooLongResponse,
 } from "./fixtures/observedWorkerErrors";
-import { observedWorkerRuntimePreview } from "./fixtures/observedWorkerPreviews";
+import {
+  observedPreviewWorkerBuildSettings,
+  observedWorkerRuntimePreview,
+} from "./fixtures/observedWorkerPreviews";
 import { Cloudflare } from "./generated/sdk.gen";
 import {
-  zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdTriggersResponse,
-  zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse,
-  zGetAccountsByAccountIdWorkersWorkersByWorkerIdVersionsResponse,
-} from "./generated/zod.gen";
+  vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdTriggersResponse,
+  vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse,
+  vGetAccountsByAccountIdWorkersWorkersByWorkerIdPreviewsByPreviewIdResponse,
+} from "./generated/valibot.gen";
 
 describe("Cloudflare API transport", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   it("rejects a missing required request field before fetch even when the schema has a default", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { logpush: _logpush, ...body } = buildCloudflareWorkerCreateBody("samebase-app");
     await expect(
       Cloudflare.POST["/accounts/{account_id}/workers/workers"]({
@@ -42,6 +48,13 @@ describe("Cloudflare API transport", () => {
       }),
     ).rejects.toThrow("Cloudflare API request is invalid");
     expect(fetch).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(1);
+    const log = String(error.mock.calls[0]?.[0]);
+    expect(log).toContain("provider_request_validation_failed");
+    expect(log).toContain('"type":"object"');
+    expect(log).toContain("logpush");
+    expect(log).not.toContain("samebase-app");
+    expect(log).not.toContain("cloudflare-token");
   });
 
   it.each([
@@ -50,6 +63,47 @@ describe("Cloudflare API transport", () => {
     { authMethod: "mcp_oauth", transport: "mcp" },
   ] as const)("uses $transport for $authMethod", ({ authMethod, transport }) => {
     expect(resolveCloudflareApiTransport(authMethod)).toBe(transport);
+  });
+
+  it.each([
+    { name: "set", value: { is_secret: true, value: "private-request-value" }, valid: true },
+    { name: "delete", value: null, valid: true },
+    { name: "invalid fields", value: { is_secret: "wrong", value: 12 }, valid: false },
+    { name: "array", value: [], valid: false },
+  ])("validates a build environment variable update: $name", async ({ value, valid }) => {
+    const envelope = {
+      success: true,
+      errors: [],
+      messages: [],
+      result: observedPreviewWorkerBuildSettings,
+    };
+    const fetch = vi.fn(async (_request: Request) => Response.json(envelope));
+    vi.stubGlobal("fetch", fetch);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = Cloudflare.PATCH["/accounts/{account_id}/builds/workers/{script_tag}"]({
+      client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
+      path: { account_id: "account-id", script_tag: "worker-id" },
+      body: {
+        production_settings: {
+          // @ts-expect-error Invalid values deliberately exercise the runtime request boundary.
+          environment_variables: { PRIVATE_ENVIRONMENT_VARIABLE_NAME: value },
+        },
+      },
+    });
+    if (valid) {
+      await expect(response).resolves.toEqual(envelope);
+      expect(await fetch.mock.calls[0]?.[0].json()).toEqual({
+        production_settings: {
+          environment_variables: { PRIVATE_ENVIRONMENT_VARIABLE_NAME: value },
+        },
+      });
+    } else {
+      await expect(response).rejects.toThrow("Cloudflare API request is invalid");
+      expect(fetch).not.toHaveBeenCalled();
+      const log = String(error.mock.calls[0]?.[0]);
+      expect(log).not.toContain("PRIVATE_ENVIRONMENT_VARIABLE_NAME");
+      expect(log).not.toContain("private-request-value");
+    }
   });
 
   it("times out direct response bodies after 30 seconds", async () => {
@@ -178,39 +232,74 @@ describe("Cloudflare API response validators", () => {
     ).rejects.toBeInstanceOf(CloudflareApiResponseError);
   });
 
-  it("accepts the published secrets response without write-only secret text", async () => {
-    // Published 200 response, retrieved 2026-10-03:
-    // https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/secrets/methods/list/
-    const envelope = {
-      errors: [
-        {
-          code: 1000,
-          message: "message",
-          documentation_url: "documentation_url",
-          source: { pointer: "pointer" },
-        },
-      ],
-      messages: [
-        {
-          code: 1000,
-          message: "message",
-          documentation_url: "documentation_url",
-          source: { pointer: "pointer" },
-        },
-      ],
-      success: true,
-      result: [{ name: "myBinding", type: "secret_text" }],
-    };
+  it.each([
+    { name: "result", result: [] },
+    {
+      name: "nested settings",
+      result: { ...observedPreviewWorkerBuildSettings, production_settings: [] },
+    },
+  ])("rejects an array in the $name object", async ({ result }) => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json(envelope)),
+      vi.fn(async () => Response.json({ success: true, errors: [], messages: [], result })),
     );
+    vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
-      Cloudflare.GET["/accounts/{account_id}/workers/scripts/{script_name}/secrets"]({
+      Cloudflare.GET["/accounts/{account_id}/builds/workers/{script_tag}"]({
         client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
-        path: { account_id: "account-id", script_name: "samebase-app" },
+        path: { account_id: "account-id", script_tag: "worker-id" },
       }),
-    ).resolves.toEqual(envelope);
+    ).rejects.toBeInstanceOf(CloudflareApiResponseError);
+  });
+
+  it("rejects a JSON number that overflows to Infinity", async () => {
+    const envelope = {
+      success: true,
+      errors: [],
+      messages: [],
+      result: observedWorkerRuntimePreview,
+    };
+    const body = JSON.stringify(envelope).replace(
+      /"head_sampling_rate":1/g,
+      '"head_sampling_rate":1e400',
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { headers: { "Content-Type": "application/json" } })),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(
+      Cloudflare.GET["/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}"]({
+        client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
+        path: {
+          account_id: "account-id",
+          worker_id: "worker-id",
+          preview_id: observedWorkerRuntimePreview.id,
+        },
+      }),
+    ).rejects.toBeInstanceOf(CloudflareApiResponseError);
+  });
+
+  it.each([
+    { name: "array", entry: [] },
+    { name: "null", entry: null },
+    { name: "string", entry: "invalid" },
+    { name: "invalid ID", entry: { id: 42 } },
+    { name: "invalid export", entry: { exports: { default: { type: "invalid" } } } },
+  ])("rejects $name in Worker script inventory", async ({ entry }) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ success: true, errors: [], messages: [], result: [entry] }),
+      ),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(
+      Cloudflare.GET["/accounts/{account_id}/workers/scripts"]({
+        client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
+        path: { account_id: "account-id" },
+      }),
+    ).rejects.toBeInstanceOf(CloudflareApiResponseError);
   });
 
   it.each([
@@ -295,17 +384,20 @@ describe("Cloudflare API response validators", () => {
     }).catch((error: unknown) => error);
 
     if (!(failure instanceof CloudflareApiResponseError) || typeof failure.failure === "string")
-      throw new Error("Expected Zod validation issues.");
+      throw new Error("Expected Valibot validation issues.");
     const issues = failure.failure;
     expect(issues.length).toBeGreaterThan(1);
     expect(JSON.stringify(failure)).not.toContain("PRIVATE_ENVIRONMENT_VARIABLE_NAME");
-    expect(issues.some((issue) => issue.path.includes("PRIVATE_ENVIRONMENT_VARIABLE_NAME"))).toBe(
-      true,
-    );
+    expect(
+      issues.some((issue) =>
+        issue.path?.some((item) => item.key === "PRIVATE_ENVIRONMENT_VARIABLE_NAME"),
+      ),
+    ).toBe(true);
     const log = String(error.mock.calls[0]?.[0]);
     expect(log).toContain("provider_response_validation_failed");
     expect(log).toContain('"provider":"cloudflare"');
-    expect(log).toContain('"code"');
+    expect(log).toContain('"type":"boolean"');
+    expect(log).toContain('"expected":"boolean"');
     expect(log).not.toContain("PRIVATE_ENVIRONMENT_VARIABLE_NAME");
     expect(log).not.toContain("private-provider-value");
     expect(log).not.toContain("private-account-id");
@@ -314,10 +406,10 @@ describe("Cloudflare API response validators", () => {
   });
 
   it("accepts Workers Builds trigger lists", () => {
-    const schema = zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdTriggersResponse;
+    const schema = vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdTriggersResponse;
 
     expect(
-      schema.safeParse({
+      safeParse(schema, {
         success: true,
         errors: [],
         messages: [],
@@ -327,10 +419,10 @@ describe("Cloudflare API response validators", () => {
   });
 
   it("accepts observed Workers Builds metadata", () => {
-    const schema = zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
+    const schema = vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
 
     expect(
-      schema.safeParse({
+      safeParse(schema, {
         success: true,
         errors: [],
         messages: [],
@@ -363,6 +455,9 @@ describe("Cloudflare API response validators", () => {
     { createdOn: "2026-08-03T00:45:39.403+03:00", valid: true },
     { createdOn: "2026-08-02T21:45:39.403", valid: false },
     { createdOn: "2026-08-02T21:45:39.403+25:00", valid: false },
+    { createdOn: "2026-02-31T21:45:39.403Z", valid: false },
+    { createdOn: "2026-08-02 21:45:39.403Z", valid: false },
+    { createdOn: "2026-08-02T21:45:39.403+0000", valid: false },
   ])("validates Worker build timestamp $createdOn", async ({ createdOn, valid }) => {
     // The first three forms express the captured instant under RFC3339.
     // https://www.rfc-editor.org/rfc/rfc3339#section-5.6
@@ -393,7 +488,7 @@ describe("Cloudflare API response validators", () => {
   });
 
   it("accepts an observed running Worker build", () => {
-    const schema = zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
+    const schema = vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
 
     const response = {
       success: true,
@@ -402,16 +497,43 @@ describe("Cloudflare API response validators", () => {
       result: [observedRunningWorkerBuild],
     };
     expect(
-      schema.safeParse(response).success,
+      safeParse(schema, response).success,
       "Expected response schema to accept the payload",
     ).toBe(true);
   });
 
+  it.each([
+    { totalCount: Number.MAX_SAFE_INTEGER, valid: true },
+    { totalCount: Number.MAX_SAFE_INTEGER + 1, valid: false },
+    { totalCount: 1.5, valid: false },
+  ])("validates Worker build count $totalCount", async ({ totalCount, valid }) => {
+    const envelope = {
+      success: true,
+      errors: [],
+      messages: [],
+      result: [observedCompletedWorkerBuild],
+      result_info: { total_count: totalCount },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(envelope)),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = Cloudflare.GET[
+      "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+    ]({
+      client: createCloudflareClient({ token: "cloudflare-token", transport: "direct" }),
+      path: { account_id: "account-id", external_script_id: "worker-id" },
+    });
+    if (valid) await expect(response).resolves.toEqual(envelope);
+    else await expect(response).rejects.toBeInstanceOf(CloudflareApiResponseError);
+  });
+
   it("accepts an observed retried Worker build", () => {
-    const schema = zGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
+    const schema = vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse;
 
     expect(
-      schema.safeParse({
+      safeParse(schema, {
         success: true,
         errors: [],
         messages: [],
@@ -421,22 +543,15 @@ describe("Cloudflare API response validators", () => {
     ).toBe(true);
   });
 
-  it("accepts successful Worker version lists with null message fields", () => {
-    const schema = zGetAccountsByAccountIdWorkersWorkersByWorkerIdVersionsResponse;
+  it("accepts an observed Worker preview with null message fields", () => {
+    const schema = vGetAccountsByAccountIdWorkersWorkersByWorkerIdPreviewsByPreviewIdResponse;
 
     expect(
-      schema.safeParse({
+      safeParse(schema, {
         success: true,
         errors: null,
         messages: null,
-        result: [
-          {
-            created_on: "2026-07-22T00:00:00Z",
-            id: "f9e12f48-dd63-4e28-aef7-ece63d11539d",
-            number: 17,
-            urls: ["https://a1b2c3d4-samebase.example.workers.dev"],
-          },
-        ],
+        result: observedWorkerRuntimePreview,
       }).success,
     ).toBe(true);
   });

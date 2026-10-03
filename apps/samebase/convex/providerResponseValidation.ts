@@ -1,4 +1,5 @@
-const PROVIDER_RESPONSE_VALIDATION_LOG_TOPIC = "provider_response_validation_failed";
+import type { BaseIssue } from "valibot";
+
 const PROVIDER_RESPONSE_PARSE_LOG_TOPIC = "provider_response_parse_failed";
 const PROVIDER_RESPONSE_LOG_VERSION = 1;
 
@@ -8,25 +9,30 @@ type ProviderResponseValidationIssue =
       keyword?: string;
       message?: string;
     }
-  | { code: string };
+  | Pick<BaseIssue<unknown>, "kind" | "type" | "expected">;
 
 /**
 Emit schema-derived validation details without provider values or response paths.
 
 AJV instance paths and params can contain provider data, such as environment
-variable names. Zod paths and messages can contain these values too. Log only
-issue codes for Zod.
+variable names. Valibot issues contain input values, paths, and messages too.
+Log only the schema's issue kind, type, and expected value description for Valibot.
 */
-export function logProviderResponseValidationFailure(args: {
+export function logProviderValidationFailure(args: {
   provider: "cloudflare" | "convex";
+  phase: "request" | "response";
   method: string;
   path: string;
   transport: "direct" | "mcp" | null;
   issues: readonly ProviderResponseValidationIssue[];
 }) {
+  const topic =
+    args.phase === "request"
+      ? "provider_request_validation_failed"
+      : "provider_response_validation_failed";
   console.error(
-    `${PROVIDER_RESPONSE_VALIDATION_LOG_TOPIC} ${JSON.stringify({
-      topic: PROVIDER_RESPONSE_VALIDATION_LOG_TOPIC,
+    `${topic} ${JSON.stringify({
+      topic,
       version: PROVIDER_RESPONSE_LOG_VERSION,
       provider: args.provider,
       method: args.method,
@@ -40,7 +46,7 @@ export function logProviderResponseValidationFailure(args: {
               keyword: issue.keyword ?? null,
               message: issue.message ?? null,
             }
-          : { code: issue.code },
+          : { kind: issue.kind, type: issue.type, expected: issue.expected },
       ),
     })}`,
   );

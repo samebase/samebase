@@ -244,7 +244,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/cloudflareApi/generated/index.ts",
   "apps/samebase/convex/cloudflareApi/generated/sdk.gen.ts",
   "apps/samebase/convex/cloudflareApi/generated/types.gen.ts",
-  "apps/samebase/convex/cloudflareApi/generated/zod.gen.ts",
+  "apps/samebase/convex/cloudflareApi/generated/valibot.gen.ts",
   "apps/samebase/convex/cloudflareApi/openApi.generated.json",
   "apps/samebase/convex/cloudflareBuildTokens.convex.test.ts",
   "apps/samebase/convex/cloudflareBuildTokens.ts",

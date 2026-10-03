@@ -1,4 +1,4 @@
-import { core } from "zod/mini";
+import { ValiError, type BaseIssue } from "valibot";
 import type { Unsure } from "@samebase/sure";
 import { createClient } from "./generated/client/client.gen";
 import { callCloudflareMcpTool } from "../cloudflareMcp";
@@ -12,7 +12,7 @@ import {
 import type { ProviderApiCallRecorder } from "../providerApiLog";
 import {
   logProviderResponseParseFailure,
-  logProviderResponseValidationFailure,
+  logProviderValidationFailure,
 } from "../providerResponseValidation";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
@@ -24,7 +24,7 @@ export type CloudflareApiTransport = "mcp" | "direct";
 export type CloudflareApiAuthMethod = "api_key" | "oauth" | "mcp_oauth";
 type CloudflareApiErrorDetail = { code?: string; message?: string };
 type CloudflareApiResponseFailure =
-  | readonly core.$ZodIssue[]
+  | readonly BaseIssue<unknown>[]
   | "invalid_json"
   | "non_object_response";
 export type CloudflareApiRequestResult<Response> = Unsure<CloudflareApiResponseFailure, Response>;
@@ -158,16 +158,17 @@ export function createCloudflareClient(args: {
     const method = options.method ?? "GET";
     if (response && error instanceof SyntaxError)
       error = new CloudflareApiResponseError(method, options.url, "invalid_json");
-    if (error instanceof core.$ZodError) {
-      if (!response)
-        return new Error(`Cloudflare API request is invalid for ${method} ${options.url}.`);
-      logProviderResponseValidationFailure({
+    if (error instanceof ValiError) {
+      logProviderValidationFailure({
         provider: "cloudflare",
+        phase: response ? "response" : "request",
         method,
         path: options.url,
         transport: args.transport,
         issues: error.issues,
       });
+      if (!response)
+        return new Error(`Cloudflare API request is invalid for ${method} ${options.url}.`);
       return new CloudflareApiResponseError(method, options.url, error.issues);
     }
     if (error instanceof CloudflareApiResponseError && typeof error.failure === "string") {

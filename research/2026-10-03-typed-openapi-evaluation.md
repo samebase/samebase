@@ -286,8 +286,9 @@ is running.
 
 ## Hey API replacement
 
-The Cloudflare implementation now uses `@hey-api/openapi-ts` 0.99.0 with its Fetch SDK and Zod Mini.
-The generator still selects all 107 paths and 176 operations in the existing provider family subset.
+The Cloudflare implementation uses `@hey-api/openapi-ts` 0.99.0 with its Fetch SDK and Valibot
+1.4.2. The checked-in OpenAPI document retains all 107 paths and 176 operations in the provider
+family subset. The runtime SDK and validators cover the 20 operations used by application code.
 Application calls use the configured endpoint interface:
 
 ```ts
@@ -310,22 +311,22 @@ serialization are removed. Convex retains its current implementation and lossles
   [Microsoft's compatibility guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0).
 - SDK naming uses the supported method/path nesting configuration. No Hey API fork is needed.
 - Full Zod exceeded the local Convex 64 MB module-loading limit with the complete SDK. Zod Mini
-  passes the same local function deployment.
+  passed deployment, but its measured module-loading cost led to the Valibot replacement below.
 - The SDK validates data but returns the original payload. A parser input hook therefore removes
-  schema `default` annotations before code generation. Otherwise Zod can accept a missing required
-  field through a default that the returned payload does not contain. `json-schema-traverse` limits
-  this change to schema nodes. The checked-in OpenAPI document retains its defaults, examples, and
-  properties named `default`. Response values are not rewritten.
+  schema `default` annotations before code generation. Otherwise a validator can accept a missing
+  required field through a default that the returned payload does not contain.
+  `json-schema-traverse` limits this change to schema nodes. The checked-in OpenAPI document retains
+  its defaults, examples, and properties named `default`. Response values are not rewritten.
 - The observed nullable Worker errors/messages correction now applies to the common input. Types and
   validators derive from the same corrected document.
 
 The existing tests cover direct and MCP calls, token/account discovery, Worker creation, native
 Builds and previews, credential rotation, cleanup, authorization, provider errors, and private-data
-redaction. New boundary cases check required fields with defaults, the published secret response
-without write-only text, and unchanged observed preview payloads. UUID checks now enforce the
-provider schema; old placeholder IDs in tests use valid UUID values.
+redaction. Boundary cases check required fields with defaults and unchanged observed preview
+payloads. UUID checks now enforce the provider schema; old placeholder IDs in tests use valid UUID
+values.
 
-### Validation
+### Initial Zod Mini validation
 
 - Eight affected test files: 121 tests passed in 1.22 seconds.
 - App and script type checks passed.
@@ -339,3 +340,71 @@ provider schema; old placeholder IDs in tests use valid UUID values.
 
 These checks use recorded responses and local transports. No new live Cloudflare calls or production
 deployment were performed. Package extraction and the sure/Evolu decision remain separate work.
+
+### Valibot replacement
+
+The runtime now uses Hey API's supported Valibot plugin. The generator retains the full family
+OpenAPI document for drift checks and filters SDK generation to the 20 current operations. Adding a
+new call requires adding its method and path to that filter, then regenerating the SDK. The
+generated types make omitted operations a compile error.
+
+Supported
+[Valibot resolvers](https://heyapi.dev/docs/openapi/typescript/plugins/concepts/resolvers#example-1)
+preserve existing boundary checks:
+
+- Array item schemas retain intersections and unions. Hey API 0.99.0's Valibot emitter otherwise
+  generates `array(unknown())` for composed items, including the Worker script inventory response.
+- Dictionary value schemas retain references and nullable compositions. The default emitter skips
+  values without a direct `type`, losing validation for Worker exports and environment variables.
+  The override preserves null entries that request environment-variable deletion.
+- Object schemas reject arrays before Valibot parses their fields. Valibot otherwise accepts arrays
+  as objects when all fields are optional. This applies to nested objects and dictionary values too.
+- Integer schemas use `safeInteger`, preserving rejection of fractions and values outside the
+  JavaScript safe integer range. Other number schemas use `finite`, rejecting JSON numbers such as
+  `1e400` that parse to infinity. Existing minimum and maximum rules remain in effect.
+- Date-time schemas use the existing Zod calendar and offset regex. Zod supplies the regex during
+  generation only. The generated file contains a regex literal and imports only Valibot. This avoids
+  Valibot's documented acceptance of invalid calendar dates such as February 31. The existing date
+  rule permits timestamps without seconds, so this is not a claim of strict RFC 3339 conformance.
+
+The SDK requires an explicit client through `client: false`. It cannot fall back to a shared client
+without Samebase authentication, MCP transport, or audit handling. Request and response failures use
+native Valibot issues. Logs include only their schema-derived `kind`, `type`, and `expected` fields.
+Provider values, paths, messages, and nested issues remain private. The Convex AJV logging fields
+are unchanged.
+
+The unused secrets operation test was removed with that generated operation. The nullable-message
+test now uses a captured Worker preview response from an operation the app calls.
+
+Memory was measured with Node 24.21.0 and esbuild 0.28.1. Each non-minified ESM bundle was imported
+in three fresh Node processes with `--expose-gc`, measuring `heapUsed` before import and after
+forced garbage collection. These are retained Node heap measurements, not Convex RAM measurements or
+per-request allocation estimates.
+
+| Loaded module                        |   Before |    After |
+| ------------------------------------ | -------: | -------: |
+| Generated SDK                        | 20.6 MiB | 1.46 MiB |
+| SDK plus initialized Samebase client | 21.5 MiB | 4.24 MiB |
+
+The SDK-only result also includes the removal of the eager default client. The initialized-client
+comparison includes the transport code on both sides and shows an approximately 80% reduction. The
+table uses the median of three runs. Final initialized-client runs all rounded to 4.24 MiB.
+
+Validation for the Valibot change:
+
+- 117 unit tests across the Cloudflare client, resources, MCP transport, and Convex Management
+  client passed in 311 ms. The 46 Cloudflare client tests include calendar/offset checks, safe
+  integers, finite numbers, object/array distinction, unchanged response data, required fields, and
+  safe request/response diagnostics. Three object/overflow cases and four inventory item cases
+  failed before the resolver fixes. Dictionary checks cover valid set/delete requests and rejection
+  of invalid values before fetch.
+- 113 tests across six affected Convex test files passed in 1.37 seconds.
+- App and script type checks passed.
+- `pnpm run dev --once` completed local Convex setup and function deployment.
+- A separate agent verified the supported resolver API and 89 checks for object shapes, integer
+  bounds, finite numbers, schema limits, leap dates, offsets, composed items, and dictionary values.
+  A second agent found the object, number, array-item, and dictionary regressions during review. No
+  Hey API fork or generated-file patch is needed.
+
+These checks use recorded provider responses and local transports. No live provider request or
+production deployment was performed.

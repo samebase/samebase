@@ -24,7 +24,7 @@ import { ConvexManagementApiError } from "./errors";
 import type { ProviderApiCallRecorder } from "../providerApiLog";
 import {
   logProviderResponseParseFailure,
-  logProviderResponseValidationFailure,
+  logProviderValidationFailure,
 } from "../providerResponseValidation";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
@@ -457,8 +457,9 @@ const validateConvexManagementResult = pure(
     }
 
     const issues = args.validator.errors ?? [];
-    logProviderResponseValidationFailure({
+    logProviderValidationFailure({
       provider: "convex",
+      phase: "response",
       method: args.method,
       path: args.path,
       transport: null,

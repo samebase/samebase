@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@hey-api/openapi-ts";
 import traverse from "json-schema-traverse";
+import { regexes } from "zod/v4/core";
 import { includes, isRecord } from "@samebase/dependent/main";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
@@ -394,7 +395,7 @@ function readRecordPath(root: unknown, pathSegments: readonly string[]): JsonRec
 writeFileSync(openApiDocumentOutputPath, `${JSON.stringify(subsetDocumentJson, null, 2)}\n`);
 
 // Defaults describe provider behavior. Validators must check the received data
-// because the SDK returns it without applying Zod transformations.
+// because the SDK returns it without applying validator transformations.
 function stripSchemaDefaults(schema: unknown) {
   if (isRecord(schema))
     traverse(schema, {
@@ -420,6 +421,34 @@ function visitSchemaContainers(value: unknown): void {
 await createClient({
   input: openApiDocumentOutputPath,
   parser: {
+    // Keep the family document for drift checks. Runtime code covers current callers only.
+    filters: {
+      orphans: false,
+      operations: {
+        include: [
+          "DELETE /accounts/{account_id}/builds/triggers/{trigger_uuid}",
+          "DELETE /accounts/{account_id}/workers/workers/{worker_id}",
+          "GET /accounts",
+          "GET /accounts/{account_id}/builds/account/limits",
+          "GET /accounts/{account_id}/builds/tokens",
+          "GET /accounts/{account_id}/builds/workers/{external_script_id}/builds",
+          "GET /accounts/{account_id}/builds/workers/{external_script_id}/triggers",
+          "GET /accounts/{account_id}/builds/workers/{script_tag}",
+          "GET /accounts/{account_id}/builds/workers/{script_tag}/previews",
+          "GET /accounts/{account_id}/workers/account-settings",
+          "GET /accounts/{account_id}/workers/scripts",
+          "GET /accounts/{account_id}/workers/workers",
+          "GET /accounts/{account_id}/workers/workers/{worker_id}",
+          "GET /accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}",
+          "GET /user/tokens/verify",
+          "PATCH /accounts/{account_id}/builds/workers/{script_tag}",
+          "POST /accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
+          "POST /accounts/{account_id}/builds/workers",
+          "POST /accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews",
+          "POST /accounts/{account_id}/workers/workers",
+        ],
+      },
+    },
     patch: {
       input(document) {
         if (!("components" in document))
@@ -441,9 +470,78 @@ await createClient({
   plugins: [
     "@hey-api/typescript",
     { name: "@hey-api/client-fetch", throwOnError: true },
-    { name: "zod", compatibilityVersion: "mini", dates: { offset: true } },
+    {
+      name: "valibot",
+      $resolvers: {
+        array(ctx) {
+          if (!ctx.schema.items?.length) return;
+          const { $, plugin, schema } = ctx;
+          // The default Valibot emitter drops composed item schemas to unknown.
+          ctx.nodes.base = () => {
+            const item = ctx.walk(
+              { items: schema.items, logicalOperator: schema.logicalOperator ?? "or" },
+              ctx,
+            );
+            return $(plugin.imports.v)
+              .attr("array")
+              .call(ctx.pipes.toNode(ctx.applyModifiers(item).pipes, plugin));
+          };
+        },
+        object(ctx) {
+          const { $, plugin } = ctx;
+          const { v } = plugin.imports;
+          const additional = ctx.schema.additionalProperties;
+          if (additional) {
+            // The default emitter skips referenced and composed dictionary value schemas.
+            ctx.nodes.additionalProperties = () => {
+              if (additional.type === "never") return null;
+              const child = ctx.walk(additional, {
+                path: { "~ref": [...ctx.path["~ref"], "additionalProperties"] },
+                plugin,
+              });
+              ctx._childResults.push(child);
+              return ctx.pipes.toNode(ctx.applyModifiers(child).pipes, plugin);
+            };
+          }
+          // Valibot object schemas can accept arrays. Check before they normalize the input.
+          return [
+            $(v).attr("unknown").call(),
+            $(v)
+              .attr("check")
+              .call(
+                $.func()
+                  .param("input")
+                  .do($.return($.prefix($("Array").attr("isArray").call("input")).not())),
+              ),
+            ctx.pipes.toNode(ctx.nodes.base(ctx), plugin),
+          ];
+        },
+        number(ctx) {
+          if (ctx.utils.shouldCoerceToBigInt(ctx.schema.format)) return;
+          const { $ } = ctx;
+          const { v } = ctx.plugin.imports;
+          ctx.nodes.base = () => [
+            $(v).attr("number").call(),
+            $(v)
+              .attr(ctx.schema.type === "integer" ? "safeInteger" : "finite")
+              .call(),
+          ];
+        },
+        string(ctx) {
+          if (ctx.schema.format !== "date-time") return;
+          const { $ } = ctx;
+          const { v } = ctx.plugin.imports;
+          // Emit the existing calendar/offset rule as a regex literal, without runtime Zod schemas.
+          ctx.nodes.format = () =>
+            $(v)
+              .attr("regex")
+              .call($.regexp(regexes.datetime({ offset: true }).source));
+        },
+      },
+    },
     {
       name: "@hey-api/sdk",
+      client: false,
       validator: true,
       responseStyle: "data",
       operations: {
