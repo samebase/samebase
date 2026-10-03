@@ -2556,6 +2556,7 @@ describe("RepositoryCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="/"
         createWorkerNameConflict={null}
         createWorkerName=""
@@ -2595,6 +2596,7 @@ describe("RepositoryCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="/"
         createWorkerNameConflict={null}
         createWorkerName=""
@@ -2777,6 +2779,7 @@ describe("RepositoryCloudflareDialogContent", () => {
         cloudflareBuildTokenField={<div>API token</div>}
         convexProjectField={null}
         hasSelectedBuildToken={false}
+        hasSelectedConvexProject
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
         createWorkerName="samebase-app"
@@ -2819,6 +2822,7 @@ describe("RepositoryCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
         createWorkerName="samebase_app"
@@ -2856,12 +2860,51 @@ describe("RepositoryCloudflareDialogContent", () => {
     expect(createButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
+  it("disables Create Worker until the deploy-key Convex project is chosen", () => {
+    const markup = renderToStaticMarkup(
+      <RepositoryCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        convexProjectField={<div>Convex project for deploy keys</div>}
+        hasSelectedBuildToken
+        hasSelectedConvexProject={false}
+        createRootDirectory="/"
+        createWorkerNameConflict={null}
+        createWorkerName="samebase-app"
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="complete"
+        mode="create"
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        repairWorker={null}
+        selectedWorkerTags={[]}
+        repository={repository}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+    const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
+
+    expect(markup).toContain("Convex project for deploy keys");
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
   it("shows the operation block reason and disables confirmation", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
         convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
@@ -2901,6 +2944,7 @@ describe("RepositoryCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
@@ -2940,6 +2984,7 @@ describe("RepositoryCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="/"
         createWorkerNameConflict={null}
         createWorkerName=""

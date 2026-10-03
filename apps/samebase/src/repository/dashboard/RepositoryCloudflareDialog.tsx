@@ -62,6 +62,7 @@ export function RepositoryCloudflareDialogContent({
   error,
   folderSuggestions,
   hasSelectedBuildToken,
+  hasSelectedConvexProject,
   isLoading,
   isSubmitting,
   inventoryState,
@@ -90,6 +91,8 @@ export function RepositoryCloudflareDialogContent({
   error: string | null;
   folderSuggestions: readonly string[];
   hasSelectedBuildToken: boolean;
+  /** False while several Convex projects are attached and none is chosen for the deploy key. */
+  hasSelectedConvexProject: boolean;
   isLoading: boolean;
   isSubmitting: boolean;
   inventoryState: CloudflareInventoryState | null;
@@ -168,11 +171,15 @@ export function RepositoryCloudflareDialogContent({
         (mode === "existing"
           ? selectedWorkerTags.length === 0
           : mode === "connect"
-            ? !workerToConnect || !createRootDirectory.trim() || !hasSelectedBuildToken
+            ? !workerToConnect ||
+              !createRootDirectory.trim() ||
+              !hasSelectedBuildToken ||
+              !hasSelectedConvexProject
             : !createWorkerNameValidation.valid ||
               Boolean(createWorkerNameConflict) ||
               !createRootDirectory.trim() ||
-              !hasSelectedBuildToken));
+              !hasSelectedBuildToken ||
+              !hasSelectedConvexProject));
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -555,9 +562,6 @@ export function RepositoryCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        if (needsDeployKeyConvexProject && !deployKeyConvexProjectId) {
-          throw new Error("Choose the Convex project whose deploy key the Worker gets.");
-        }
         const result = await connectWorker({
           repositoryId: repository.repositoryId,
           workerName: workerToConnect.workerName,
@@ -600,9 +604,6 @@ export function RepositoryCloudflareDialog({
       } else {
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
-        }
-        if (needsDeployKeyConvexProject && !deployKeyConvexProjectId) {
-          throw new Error("Choose the Convex project whose deploy key the Worker gets.");
         }
         const result = await createWorker({
           repositoryId: repository.repositoryId,
@@ -720,6 +721,7 @@ export function RepositoryCloudflareDialog({
       error={submitError ?? resourceError}
       folderSuggestions={folderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS}
       hasSelectedBuildToken={hasSelectedBuildToken}
+      hasSelectedConvexProject={!needsDeployKeyConvexProject || deployKeyConvexProjectId !== null}
       isLoading={isLoading}
       isSubmitting={isSubmitting}
       inventoryState={inventoryState}

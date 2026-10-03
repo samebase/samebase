@@ -210,6 +210,7 @@ function CloudflareDialogFixture({
           ) : null
         }
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerNameConflict={null}
         createWorkerName={normalizedName ? "samebase_app" : ""}
