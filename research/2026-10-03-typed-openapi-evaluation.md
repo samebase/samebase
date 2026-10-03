@@ -17,6 +17,9 @@ The next useful change is to fix and retest the generator's handling of shared r
 schemas. Converting application callers or moving files into a package before that would hide the
 failed acceptance check.
 
+Follow-up: the adapter defects now have tested upstream PRs. The shared request/response reference
+limitation remains open. See the root-cause investigation below.
+
 ## Scope
 
 - Samebase base: `92be76174c28fb3c973ab4db48638319bcefc9b7`.
@@ -81,6 +84,109 @@ Further acceptance checks remain open: nullable Worker errors and messages, miss
 response fields, unknown fields, error envelopes, safe logging, and defaults in partial objects. The
 failures above are sufficient to stop adoption, but fixing them would not prove these remaining
 contracts.
+
+## Root-cause investigation and upstream fixes
+
+### Internal dependencies and existing reports
+
+Version 4 uses `@apidevtools/swagger-parser` 12.1.0 to
+[bundle the OpenAPI input](https://github.com/astahmer/typed-openapi/blob/929ad80bb6c2ed1a50f793b3c9860b5915d143ea/packages/typed-openapi/src/generate-client-files.ts#L171).
+Its own `openApiToIr` converter builds a common schema representation. Its own TypeScript emitter
+and runtime adapters then produce the output. AJV is not involved. Version 4 replaced the earlier
+TypeBox code generator in [PR #130](https://github.com/astahmer/typed-openapi/pull/130).
+
+Before submitting fixes, searches of open and closed upstream issues and PRs found no report that
+directly covered these failures. Upstream main was the published 4.1.0 commit. The related
+[nullable-union PR #119](https://github.com/astahmer/typed-openapi/pull/119) and
+[regression fixes in PR #160](https://github.com/astahmer/typed-openapi/pull/160) were already
+merged and did not fix them. The original read/write implementation explicitly documented its
+limitation for shared references.
+
+### The affected scope is larger than one endpoint
+
+Worker creation was the first live callsite tested, not the only affected operation. A complete
+176-operation scan, followed by compile checks on generated types, confirmed ten request bodies that
+require top-level read-only fields:
+
+| Operation IDs                                                                 | Incorrect required field example |
+| ----------------------------------------------------------------------------- | -------------------------------- |
+| `workers.domains.update`                                                      | `id`                             |
+| `worker-deployments-create-deployment`                                        | `created_on`                     |
+| `createWorker`, `editWorker`, `updateWorker`                                  | `created_on`                     |
+| `workers.previews.create`, `workers.previews.edit`, `workers.previews.update` | `created_on`                     |
+| `createWorkerVersion`, `patchLatestWorkerVersion`                             | `created_on`                     |
+
+Five other request operations reach optional read-only fields in nested objects or arrays. These are
+exposure findings, not five more reproduced compile failures. Thirty-two response operations reach
+write-only fields. One confirmed response example is GET
+`/accounts/{account_id}/workers/scripts/{script_name}/secrets`: the generated `secret_text` variant
+requires the write-only `text` field. The response count is schema reachability, not 32 reproduced
+runtime failures.
+
+The broken `workers_export_config` union is referenced by 23 operations. Its declaration runs when
+the module loads, so the import failure blocks every endpoint in that generated module.
+
+### Shared references require a larger generator change
+
+`stripReadWrite` removes annotated properties from inline objects, but its `ref` branch returns
+named references unchanged. The resolver stores one schema per component. Both requests and
+responses therefore use the same validator, including fields that belong to only one direction.
+
+A minimal independent test uses a shared object with required `id` marked `readOnly`, required
+`secret` marked `writeOnly`, and required `name`. The valid request omits `id`; the valid response
+omits `secret`. Inline schemas pass. Direct references, references inside `allOf`, and references
+inside nested arrays fail for both Zod and Valibot: four passing controls and twelve failures. An
+independent declaration-sidecar compile check reports exactly the two corresponding missing-field
+errors.
+
+A correct fix needs request and response variants only for affected components. It must reserve
+names before following recursive references, rewrite nested references and discriminator mappings,
+and register the variants for dependency ordering, tree shaking, runtime output, and declaration
+sidecars. Removing fields from the shared component would break the other direction. Expanding every
+reference inline would break recursive schemas. No partial fix was submitted for this larger change.
+
+### Submitted adapter fixes
+
+The fork is [nicu-chiciuc/typed-openapi](https://github.com/nicu-chiciuc/typed-openapi), cloned
+under `~/dev/forks/typed-openapi` as requested. Separate worktrees kept the two fixes independent.
+
+- [Upstream PR #161](https://github.com/astahmer/typed-openapi/pull/161) changes two Valibot emitter
+  lines to use `v.null()` for null literals and enum members. Six regression cases cover runtime
+  behavior and strict generated consumer types, with and without sidecars. The full upstream
+  Cloudflare snapshot had 85 invalid `v.literal(null)` calls.
+- [Upstream PR #162](https://github.com/astahmer/typed-openapi/pull/162) preserves the original Zod
+  member schemas instead of calling `.extend()` with mapping keys. This fixes the nested-union
+  import crash and a second defect where numeric error code `10016` became string `"10016"`. It
+  retains fast discrimination when the original object schemas have distinct required literal
+  values. Other shapes use the existing union checks. Zod 3 multi-value numeric enums need that
+  fallback too.
+
+The Zod review caught a date-transform regression in the first candidate. The final fix retains the
+object fast path and adds checks for returned `Date` values. Compound schemas still inherit the
+existing generic `oneOf` transform limitations. Other runtime adapters still have their existing
+discriminator handling, including the numeric mapping problem. Neither PR fixes shared read/write
+references.
+
+Validation of the submitted fixes:
+
+- Valibot: 16 focused tests, strict generated consumers in both sidecar modes, package build, and
+  package typecheck passed.
+- Zod: 22 focused tests, ten snapshot cases, 24 runtime/client/type-matrix cases, package build, and
+  package typecheck passed. Both Zod 3 and Zod 4 are covered.
+- The patched Zod generator emits all 176 Samebase Cloudflare operations. The module imports under
+  the app's Zod 4.3.6. Generated TypeScript passes with `erasableSyntaxOnly` disabled for the
+  existing constructor syntax. Three recorded build fixtures are accepted through schemas and
+  client; the schemas reject three invalid trigger-source mutations.
+- The fixture check also found response default insertion: Zod adds `build_caching_enabled: false`
+  and `path_includes: ["*"]` when those fields are absent. The original fields survive. This is an
+  adoption behavior to assess, not evidence of unchanged response payloads.
+
+No provider requests or application migration were performed. The two upstream PRs are ready and
+unmerged. The shared-reference limitation still blocks adopting the generator for Samebase.
+
+Three follow-up agents handled upstream reports and the isolated Valibot fix, the endpoint scope
+scan, and the isolated read/write reproduction plus Zod review. The parent integrated the findings
+and implemented the Zod fix. The read/write prototype was retained as reproduction evidence only.
 
 ## Convex ID findings
 
