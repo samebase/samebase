@@ -192,6 +192,26 @@ function describeConvexDeployKey(installation: ReturnType<typeof projectConvexDe
     : installation.message;
 }
 
+/** The fixed MCP next step of a connected Worker whose Builds setup did not complete. */
+function describeConnectWorkerNextStep(notice: {
+  nextStep: "configure_builds" | "start_build" | "review_in_cloudflare";
+  deployKeyPending: boolean;
+}): string {
+  switch (notice.nextStep) {
+    case "configure_builds":
+      return `When the cause is fixed, call ${CONFIGURE_BUILDS_TOOL} for this Worker${notice.deployKeyPending ? `, then ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} to install the Convex deploy key` : ""}.`;
+    case "start_build":
+      return notice.deployKeyPending
+        ? `Its Workers Builds settings are connected. Call ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} for this Worker to install the Convex deploy key and start the production build.`
+        : "Its Workers Builds settings are connected. Start a production build in Cloudflare if none is running.";
+    case "review_in_cloudflare":
+      return `Its Workers Builds settings could not be verified, or they build another root directory or repository. Ask the user to review them in Cloudflare, then call ${getRepositoryStatusContract.mcp.name}.`;
+    default:
+      notice.nextStep satisfies never;
+      throw new Error("Unsupported Worker connection next step.");
+  }
+}
+
 function toConvexCodeLocationSelection(location: GitHubConvexCodeLocationCandidate) {
   return location.kind === "config"
     ? {
@@ -518,7 +538,7 @@ export const cloudflareConnectWorkerTool = defineMcpTool({
       convexProjectId,
     });
     if (result.state === "added_with_notice") {
-      const message = `Samebase attached ${worker.workerName}, but its Workers Builds setup did not complete. ${publicMcpErrorMessage(result.error)} When the cause is fixed, call ${CONFIGURE_BUILDS_TOOL} for this Worker${result.deployKeyPending ? `, then ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} to install the Convex deploy key` : ""}.`;
+      const message = `Samebase attached ${worker.workerName}, but its Workers Builds setup reported an error. ${publicMcpErrorMessage(result.error)} ${describeConnectWorkerNextStep(result)}`;
       return {
         text: message,
         structuredContent: {

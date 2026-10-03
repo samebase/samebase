@@ -539,4 +539,71 @@ describe("Cloudflare Worker stored coordinates", () => {
       rootDirectory: "apps/connect",
     });
   });
+
+  it.each([
+    ["not connected", null, "call repository_cloudflare_configureBuilds for this Worker"],
+    [
+      "connected to another repository",
+      workerBuildSettings({
+        repoId: "other-repository",
+        rootDirectory: "apps/connect",
+        workerTag: "connect-worker-tag",
+      }),
+      "Ask the user to review them in Cloudflare, then call repository_getStatus.",
+    ],
+  ])(
+    "gives MCP a fixed next step without the provider error when Builds is %s after a failed setup",
+    async (_state, settingsAfterFailedSetup, nextStep) => {
+      const fixture = await createFixture();
+      let didAttemptBuildsSetup = false;
+      providerMocks.requestCloudflareApiOrThrow.mockImplementation(
+        async (request: CloudflareTestRequest) => {
+          if (request.path === "/accounts") {
+            return [{ id: "cloudflare-account", name: "Cloudflare account" }];
+          }
+          if (request.path === "/accounts/{account_id}/builds/tokens") {
+            return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
+          }
+          if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+            return workerResponse({
+              workerName: "provider-current-worker",
+              workerTag: "connect-worker-tag",
+            });
+          }
+          if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
+            return didAttemptBuildsSetup ? settingsAfterFailedSetup : null;
+          }
+          if (
+            request.method === "POST" &&
+            request.path === "/accounts/{account_id}/builds/workers"
+          ) {
+            didAttemptBuildsSetup = true;
+            throw new Error("private-diagnostic@example.com raw Cloudflare failure");
+          }
+          throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
+        },
+      );
+
+      const result = await fixture.t.action(
+        internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
+        {
+          userId: fixture.ids.ownerId,
+          grantedScopes: ["access_provider_connections"],
+          repository: "samebase/app",
+          workerName: "provider-current-worker",
+          rootDirectory: "apps/connect",
+        },
+      );
+
+      expect(result).toMatchObject({
+        status: "ok",
+        structuredContent: {
+          state: "connected_with_notice",
+          workerName: "provider-current-worker",
+          message: expect.stringContaining(nextStep),
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain("private-diagnostic@example.com");
+    },
+  );
 });

@@ -1452,23 +1452,39 @@ async function installConvexDeployKeyForNewWorker(
 }
 
 /**
-`added_with_notice.message` is the dashboard notice and can hold raw provider text. MCP reads only
-`error` through publicMcpErrorMessage. `deployKeyPending` is true when a Convex project was selected
-but its key was not installed.
+The next step after a Worker was attached but its Builds setup did not complete.
+
+configure_builds = Builds is not connected to this repository at the requested root; the configure
+repair writes it.
+
+start_build = Builds is connected to this repository at the requested root, but Cloudflare reported
+an error after setup, so no production build may be running.
+
+review_in_cloudflare = Samebase could not verify the Builds settings, or they build another root or
+another repository; only a change in Cloudflare fixes them.
 */
-export type ConnectWorkerOutcome =
+type ConnectWorkerNoticeNextStep = "configure_builds" | "start_build" | "review_in_cloudflare";
+
+type ConnectWorkerBuildsNotice = {
+  state: "added_with_notice";
+  workerId: Id<"repositoryCloudflareWorkers">;
+  message: string;
+  error: unknown;
+  nextStep: ConnectWorkerNoticeNextStep;
+};
+
+/**
+`added_with_notice.message` is the dashboard notice and can hold raw provider text. MCP reads only
+`error` through publicMcpErrorMessage and `nextStep`. `deployKeyPending` is true when a Convex
+project was selected but its key was not installed.
+*/
+type ConnectWorkerOutcome =
   | {
       state: "ready";
       workerId: Id<"repositoryCloudflareWorkers">;
       convexDeployKey: ConvexDeployKeyOutcome;
     }
-  | {
-      state: "added_with_notice";
-      workerId: Id<"repositoryCloudflareWorkers">;
-      message: string;
-      error: unknown;
-      deployKeyPending: boolean;
-    };
+  | (ConnectWorkerBuildsNotice & { deployKeyPending: boolean });
 
 export async function connectWorkerForUser(
   ctx: ActionCtx,
@@ -1526,13 +1542,7 @@ async function connectWorkerBuildsForUser(
     initialBuild: "deferred" | "requested";
   },
 ): Promise<
-  | { state: "ready"; workerId: Id<"repositoryCloudflareWorkers"> }
-  | {
-      state: "added_with_notice";
-      workerId: Id<"repositoryCloudflareWorkers">;
-      message: string;
-      error: unknown;
-    }
+  { state: "ready"; workerId: Id<"repositoryCloudflareWorkers"> } | ConnectWorkerBuildsNotice
 > {
   const workerName = args.workerName.trim();
   const workerTag = args.workerTag.trim();
@@ -1674,6 +1684,7 @@ async function connectWorkerBuildsForUser(
         workerId,
         message: `Cloudflare Worker ${workerName} was added, but Samebase could not verify its GitHub Builds state. Refresh the repository after checking the Worker in Cloudflare. Setup error: ${toErrorMessage(error)} Verification error: ${toErrorMessage(observationError)}`,
         error,
+        nextStep: "review_in_cloudflare",
       };
     }
     if (
@@ -1705,6 +1716,7 @@ async function connectWorkerBuildsForUser(
         workerId,
         message: `Cloudflare Worker ${workerName} was added and GitHub Builds is connected, but Cloudflare reported an error after setup. Start a build from Cloudflare if one is not running. Reason: ${toErrorMessage(error)}`,
         error,
+        nextStep: "start_build",
       };
     }
     await attemptManualProviderWriteFailureRecord(ctx, {
@@ -1721,6 +1733,10 @@ async function connectWorkerBuildsForUser(
         workerId,
         message: `Cloudflare Worker ${workerName} was added ${rootMessage} Reason: ${toErrorMessage(error)}`,
         error,
+        nextStep:
+          observed.rootDirectory === buildConfig.rootDir
+            ? "configure_builds"
+            : "review_in_cloudflare",
       };
     }
     const nextActionMessage =
@@ -1732,6 +1748,7 @@ async function connectWorkerBuildsForUser(
       workerId,
       message: `Cloudflare Worker ${workerName} was added, but GitHub Builds setup did not complete. ${nextActionMessage} Reason: ${toErrorMessage(error)}`,
       error,
+      nextStep: observed.state === "not_connected" ? "configure_builds" : "review_in_cloudflare",
     };
   }
   await ctx.runMutation(
