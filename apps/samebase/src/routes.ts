@@ -83,6 +83,7 @@ export const routes = rootRoute("root.tsx", [
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/users", "admin-users.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),
+  route("/admin/emails", "admin-emails.tsx"),
   route(DASHBOARD_ROUTE, [
     index("repository-dashboard-root.tsx"),
     route("$", "repository-file.tsx"),
