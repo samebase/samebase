@@ -7,9 +7,8 @@
 - Created: 2026-10-01
 - Last updated: 2026-10-03
 - Base: `origin/main` at `a8783524a` (v2080)
-- Evidence:
-  [research note](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md)
-  on [PR #1665](https://github.com/samebase/samebase/pull/1665) (cited below as "note")
+- Evidence: [research note](../research/2026-10-01-mcp-tool-catalog-design.md) on
+  [PR #1665](https://github.com/samebase/samebase/pull/1665) (cited below as "note")
 - Related: `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`,
   `specs/111_AGENT_BROWSER_HANDOFF_SPEC.md`,
   `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`,
@@ -193,13 +192,13 @@ The dashboard has no feedback form.
 - Measurement: four schemes routed the same within noise, with 0 wrong-server choices and 0
   malformed names (path rule 72%, fixed paths 75%, `verb_object` 73%, `samebase_` prefix 70% strict;
   note
-  [3.7](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#37-follow-up-naming-schemes-design-r-all-five-servers)).
+  [3.7](../research/2026-10-01-mcp-tool-catalog-design.md#37-follow-up-naming-schemes-design-r-all-five-servers)).
 - Reasons for this scheme: one string for the code location, the dashboard call
   (`api.repository.list`), and the PostHog `mcp_tool_name`. The longest name,
   `repository_cloudflare_rotateConvexDeployKeys`, has 44 characters. VS Code caps its prefix at 18
   characters and the full name at 64, so it fits (at most 62). Gemini CLI caps `mcp_<server>_<tool>`
   at 63, and a server named `samebase` gives 57 (note
-  [1.4](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#14-other-hosts)).
+  [1.4](../research/2026-10-01-mcp-tool-catalog-design.md#14-other-hosts)).
 - `mcp.name` stays an explicit string, as `rfcs/089` asks
   ([L117-L119](../rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md#explicit-public-tool-names)).
   `apps/samebase/convex/toolRuntime/actionCatalog.test.ts` gets an exhaustive
@@ -290,7 +289,7 @@ channel where hosts support it. Because the first call is also destructive-annot
 prompts on every destructive call prompts twice.
 
 Measured in the note
-([3.8](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#38-follow-up-confirmation-for-destructive-actions)):
+([3.8](../research/2026-10-01-mcp-tool-catalog-design.md#38-follow-up-confirmation-for-destructive-actions)):
 with annotations only, the model acted without asking in 6 of 6 unapproved requests; with a rule in
 the description, 4 of 6; with a server gate, 0 of 6. Approved requests passed in 6 of 6 in every
 variant. The two-step gate costs about one extra call per action (2.0 and 2.5 calls per request
@@ -307,7 +306,7 @@ submission, because an argument change needs a new review.
 
 They shrink from about 7k to about 1k characters, because the server now picks the token, installs
 keys, and names the repair tool in each attention item (note
-[5.2](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#52-server-instructions-shrink-to-about-1k-characters)).
+[5.2](../research/2026-10-01-mcp-tool-catalog-design.md#52-server-instructions-shrink-to-about-1k-characters)).
 They keep the sentence "For a request to open the Samebase dashboard, call
 `account_createSignInLink` directly"; one batch without it missed the submitted dashboard case. The
 EU price sentence moves to the `convexDeploymentRegion` input description.
@@ -374,7 +373,7 @@ review.
   carry IDs, tags, SHAs, and the token choice (note 3.2). Rejected.
 - **One repair tool that picks the repair.** It saves two tools, but a reviewer can read it as
   "operation selection" (note
-  [6](https://github.com/samebase/samebase/blob/research-mcp-tool-catalog-design/research/2026-10-01-mcp-tool-catalog-design.md#6-strongest-evidence-against-this-recommendation)),
+  [6](../research/2026-10-01-mcp-tool-catalog-design.md#6-strongest-evidence-against-this-recommendation)),
   and it needs one risk class for three different effects. Rejected; the status read names the exact
   repair tool.
 - **`samebase_<verb>_<object>` names.** No routing gain (70% strict against 75%, 0 wrong-server
