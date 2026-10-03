@@ -465,7 +465,10 @@ Deviations found during step 4:
    run fails before a challenge.
 6. The gated MCP tools also receive the trusted grant and client of the bearer token, like
    `account_createSignInLink`, for the audit row. Their success results gain a `state` (`detached`,
-   `setup_started`, `rotated`), so each output schema is one union with `needs_confirmation`.
+   `setup_started`, `rotated`), so each structured result is one union with `needs_confirmation`.
+   Its output schema keeps `type: "object"` at the root and lists the union members in `anyOf`,
+   because the official MCP SDK rejects the whole `tools/list` result when one root is not an
+   object. A test validates the real `tools/list` response with the SDK's `ListToolsResultSchema`.
 7. The dashboard shows the challenge in one confirmation dialog for all four actions. For connect,
    the dialog replaces the Cloudflare form and resends the exact request that it showed.
 

@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from "node:crypto";
 
+import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
@@ -13,7 +14,7 @@ import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
 import { isRecord } from "../jsonUtils";
 import { sha256Hex } from "./tokens";
-import { MCP_PROTOCOL_VERSION } from "./protocol";
+import { MCP_PROTOCOL_VERSION, MCP_V1_SUPPORTED_SCOPES } from "./protocol";
 import {
   buildMcpToolInvocationArgs,
   listMcpToolsForAccess,
@@ -912,8 +913,11 @@ describe("MCP tools/call access enforcement", () => {
     }
   });
 
-  it("returns a plain tools/list result", async () => {
-    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+  it("returns a plain tools/list result that the official MCP SDK accepts", async () => {
+    const { accessToken, t } = await seedMcpBearer({
+      isApproved: true,
+      scopes: [...MCP_V1_SUPPORTED_SCOPES],
+    });
     const response = await t.fetch("/mcp", {
       method: "POST",
       headers: mcpRequestHeaders({ accessToken }),
@@ -926,13 +930,20 @@ describe("MCP tools/call access enforcement", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    const body = await response.json();
+    expect(body).toEqual({
       jsonrpc: "2.0",
       id: 1,
       result: {
         tools: expect.any(Array),
       },
     });
+    // A client that validates the catalog drops every tool when one output schema is invalid.
+    const listed = ListToolsResultSchema.safeParse(body.result);
+    expect(listed.error?.issues).toBeUndefined();
+    expect(listed.data?.tools.map((tool) => tool.name)).toEqual(
+      actionContracts.map((contract) => contract.mcp.name),
+    );
   });
 
   it("returns a plain success result for ping", async () => {

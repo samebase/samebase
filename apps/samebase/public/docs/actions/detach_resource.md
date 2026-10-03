@@ -36,6 +36,7 @@ JSON Schema for the tool's `structuredContent`:
 
 ```json
 {
+  "type": "object",
   "anyOf": [
     {
       "type": "object",
