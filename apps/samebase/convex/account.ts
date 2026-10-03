@@ -15,7 +15,7 @@ import {
   createAgentBrowserHandoffTokenValue,
   sha256Hex,
 } from "./mcp/tokens";
-import { vMcpToolFailure, mcpToolInvocationArgs } from "./toolRuntime/mcpTool";
+import { mcpGrantArgs, mcpToolInvocationArgs, vMcpToolFailure } from "./toolRuntime/mcpTool";
 import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/accountPresentation";
 import { buildAgentBrowserHandoffUrl } from "../shared/agentBrowserHandoff";
 
@@ -94,8 +94,7 @@ client IDs bind the handoff to the MCP grant that requested it.
 export const createSignInLink = internalAction({
   args: object({
     ...mcpToolInvocationArgs,
-    grantId: string(),
-    clientId: string(),
+    ...mcpGrantArgs,
     ...createBrowserHandoffContract.args,
   }),
   returns: vCreateSignInLinkToolResult,

@@ -15,6 +15,15 @@ export const mcpToolInvocationArgs = {
   grantedScopes: array(string()),
 };
 
+/**
+Trusted grant fields that mcp/http.ts adds for the tools that record the calling MCP client: the
+sign-in link binds to the grant, and a confirmed action names it in its audit row.
+*/
+export const mcpGrantArgs = {
+  grantId: string(),
+  clientId: string(),
+};
+
 export const vMcpToolFailure = object({
   status: union(literal("error"), literal("blocked")),
   text: string(),

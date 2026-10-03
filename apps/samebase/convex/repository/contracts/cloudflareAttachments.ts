@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import {
+  MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
+  vActionConfirmation,
+  vActionConfirmationRequest,
+} from "./actionConfirmation";
 import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
 
 const { array, id, literal, number, object, optional, string, union } = v;
@@ -217,6 +222,7 @@ export const cloudflareConnectWorkerContract = {
     rootDirectory: string(),
     buildTokenUuid: string(),
     convexProjectId: optional(id("repositoryConvexProjects")),
+    confirmation: optional(vActionConfirmation),
   },
   mcpArgs: {
     ...mcpRepositoryArgs,
@@ -224,8 +230,10 @@ export const cloudflareConnectWorkerContract = {
     rootDirectory: optional(string()),
     buildTokenUuid: optional(string()),
     convexProjectName: optional(string()),
+    confirmation: optional(vActionConfirmation),
   },
   returns: union(
+    vActionConfirmationRequest,
     object({
       state: literal("ready"),
       workerId: id("repositoryCloudflareWorkers"),
@@ -238,6 +246,7 @@ export const cloudflareConnectWorkerContract = {
     }),
   ),
   structuredContent: union(
+    vActionConfirmationRequest,
     object({
       state: literal("connected"),
       workerName: string(),
@@ -267,6 +276,7 @@ export const cloudflareConnectWorkerContract = {
       rootDirectory: "Optional repository root directory to build. Defaults to /.",
       buildTokenUuid: buildTokenUuidInputDescription,
       convexProjectName: convexProjectNameInputDescription,
+      confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Connects a Worker that has no Workers Builds repository connection to this repository. Samebase

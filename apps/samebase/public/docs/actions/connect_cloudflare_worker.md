@@ -29,6 +29,8 @@ the only token. Several tokens and no last-used one return an error that lists t
   the last-used token, else the only token, and lists the tokens when it needs the user's choice.
 - `convexProjectName` (string, optional): Optional name of the attached Convex project whose deploy
   key the Worker gets. Required when several Convex projects are attached.
+- `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
+  in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 
 ## Returns
 
@@ -37,6 +39,28 @@ JSON Schema for the tool's `structuredContent`:
 ```json
 {
   "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "const": "needs_confirmation"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "acknowledgement": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "number"
+        }
+      },
+      "required": ["state", "effect", "acknowledgement", "token", "expiresAt"],
+      "additionalProperties": false
+    },
     {
       "type": "object",
       "properties": {

@@ -145,16 +145,21 @@ function createMcpRuntimeToolCall<
     );
 }
 
-async function callCreateSignInLinkMcpTool(
-  ctx: ActionCtx,
-  invocation: McpToolInvocation,
-): Promise<McpToolResult> {
-  // eslint-disable-next-line samebase/no-forwarded-convex-function-args -- The target action validates raw MCP input after reserved fields are replaced.
-  return await ctx.runAction(internal.account.createSignInLink, {
-    ...buildMcpToolInvocationArgs(invocation),
-    grantId: invocation.grantId,
-    clientId: invocation.clientId,
-  });
+/** A tool that also takes the trusted grant and client of the bearer token (mcpGrantArgs). */
+function createMcpGrantToolCall<
+  Tool extends FunctionReference<"action", "internal", Record<string, Value>, McpToolResult>,
+>(tool: Tool): McpToolCall {
+  return async (ctx, invocation) =>
+    // eslint-disable-next-line samebase/no-forwarded-convex-function-args -- The target action validates raw MCP input after reserved fields are replaced.
+    await ctx.runAction(
+      tool,
+      // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+      {
+        ...buildMcpToolInvocationArgs(invocation),
+        grantId: invocation.grantId,
+        clientId: invocation.clientId,
+      },
+    );
 }
 
 const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
@@ -185,7 +190,7 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [cloudflareAttachWorkersContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.cloudflareAttachWorkersTool,
   ),
-  [cloudflareConnectWorkerContract.mcp.name]: createMcpRuntimeToolCall(
+  [cloudflareConnectWorkerContract.mcp.name]: createMcpGrantToolCall(
     internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
   ),
   [cloudflareCreateWorkerContract.mcp.name]: createMcpRuntimeToolCall(
@@ -194,17 +199,19 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.cloudflareConfigureBuildsTool,
   ),
-  [cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name]: createMcpRuntimeToolCall(
+  [cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name]: createMcpGrantToolCall(
     internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysTool,
   ),
-  [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
+  [retryInfrastructureProvisioningContract.mcp.name]: createMcpGrantToolCall(
     internal.toolRuntime.runtime.repositoryRetryProviderSetupTool,
   ),
-  [detachResourceContract.mcp.name]: createMcpRuntimeToolCall(
+  [detachResourceContract.mcp.name]: createMcpGrantToolCall(
     internal.toolRuntime.runtime.repositoryDetachResourceTool,
   ),
   [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(internal.feedback.submit),
-  [createBrowserHandoffContract.mcp.name]: callCreateSignInLinkMcpTool,
+  [createBrowserHandoffContract.mcp.name]: createMcpGrantToolCall(
+    internal.account.createSignInLink,
+  ),
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
 };
 

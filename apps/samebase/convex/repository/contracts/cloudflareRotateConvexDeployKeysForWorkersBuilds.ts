@@ -1,9 +1,14 @@
 import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import {
+  MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
+  vActionConfirmation,
+  vActionConfirmationRequest,
+} from "./actionConfirmation";
 import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
 
-const { id, optional, string } = v;
+const { id, literal, object, optional, string, union } = v;
 
 export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
   id: "rotate_convex_deploy_keys",
@@ -12,13 +17,16 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
     repositoryId: id("repositories"),
     workerId: id("repositoryCloudflareWorkers"),
     convexProjectId: id("repositoryConvexProjects"),
+    confirmation: optional(vActionConfirmation),
   },
   mcpArgs: {
     ...mcpRepositoryArgs,
     workerName: string(),
     convexProjectName: optional(string()),
+    confirmation: optional(vActionConfirmation),
   },
-  returns: v.null(),
+  returns: union(vActionConfirmationRequest, v.null()),
+  structuredContent: union(vActionConfirmationRequest, object({ state: literal("rotated") })),
   mcp: {
     title: "Rotate Convex deploy keys",
     name: "repository_cloudflare_rotateConvexDeployKeys",
@@ -35,6 +43,7 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
       workerName: "Name of the attached Worker.",
       convexProjectName:
         "Optional name of the attached Convex project. Required when several Convex projects are attached.",
+      confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Mints production and preview deploy keys on the selected Convex project. It writes the

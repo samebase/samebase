@@ -30,9 +30,16 @@ import {
 } from "./repository/contracts/detachResource";
 import { detachWorkerForUser } from "./repository/cloudflareMutations";
 import { detachProjectForUser } from "./repository/convexMutations";
+import { vConfirmationSurface, type ConfirmationSurface } from "./repository/confirmationModel";
+import { checkActionConfirmation } from "./repository/confirmations";
+import {
+  vActionConfirmation,
+  type ActionConfirmation,
+  type ActionConfirmationRequest,
+} from "./repository/contracts/actionConfirmation";
 import { canAccess } from "../shared/accessModel";
 
-const { id } = v;
+const { id, optional } = v;
 type CreateRepositoryResult = Infer<typeof createRepositoryContract.returns>;
 type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.returns>;
 
@@ -116,10 +123,16 @@ export const connect = action({
     }),
 });
 
+/** The gated retry: the first call returns the confirmation request and starts nothing. */
 export async function retryProviderSetupForUser(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
-): Promise<null> {
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    surface: ConfirmationSurface;
+    confirmation: ActionConfirmation | undefined;
+  },
+): Promise<ActionConfirmationRequest | null> {
   const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
     userId: args.userId,
     repositoryId: args.repositoryId,
@@ -131,6 +144,15 @@ export async function retryProviderSetupForUser(
     throw new Error(
       "Infrastructure retry is available only for live Samebase-managed repositories",
     );
+  }
+  const confirmation = await ctx.runMutation(internal.repository.confirmations.check, {
+    userId: args.userId,
+    surface: args.surface,
+    request: { action: "retry_provider_setup", repositoryId: args.repositoryId },
+    confirmation: args.confirmation,
+  });
+  if (confirmation.state === "needs_confirmation") {
+    return confirmation;
   }
 
   await ctx.runMutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
@@ -145,21 +167,43 @@ export const retryProviderSetup = action({
   args: retryInfrastructureProvisioningContract.args,
   returns: retryInfrastructureProvisioningContract.returns,
   mcp: retryInfrastructureProvisioningContract.mcp,
-  handler: async (ctx, args): Promise<null> =>
+  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> =>
     await retryProviderSetupForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
+      surface: { kind: "dashboard" },
+      confirmation: args.confirmation,
     }),
 });
 
+/**
+The gated detach. The check and the detach share one transaction, so a detach that fails leaves the
+token unused and writes no audit row.
+*/
 async function detachRepositoryResource(
   ctx: MutationCtx,
   args: {
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
     resource: DetachableResource;
+    surface: ConfirmationSurface;
+    confirmation: ActionConfirmation | undefined;
   },
-): Promise<null> {
+): Promise<ActionConfirmationRequest | null> {
+  const confirmation = await checkActionConfirmation(ctx, {
+    userId: args.userId,
+    surface: args.surface,
+    request: {
+      action: "detach_resource",
+      repositoryId: args.repositoryId,
+      resource: args.resource,
+    },
+    confirmation: args.confirmation,
+  });
+  if (confirmation.state === "needs_confirmation") {
+    return confirmation;
+  }
+
   switch (args.resource.kind) {
     case "cloudflare_worker":
       await detachWorkerForUser(ctx, {
@@ -187,11 +231,13 @@ export const detachResource = mutation({
   args: detachResourceContract.args,
   returns: detachResourceContract.returns,
   mcp: detachResourceContract.mcp,
-  handler: async (ctx, args): Promise<null> =>
+  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> =>
     await detachRepositoryResource(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
       resource: args.resource,
+      surface: { kind: "dashboard" },
+      confirmation: args.confirmation,
     }),
 });
 
@@ -201,12 +247,16 @@ export const detachResourceForUser = internalMutation({
     userId: id("users"),
     repositoryId: id("repositories"),
     resource: vDetachableResource,
+    surface: vConfirmationSurface,
+    confirmation: optional(vActionConfirmation),
   },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> =>
+  returns: detachResourceContract.returns,
+  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> =>
     await detachRepositoryResource(ctx, {
       userId: args.userId,
       repositoryId: args.repositoryId,
       resource: args.resource,
+      surface: args.surface,
+      confirmation: args.confirmation,
     }),
 });

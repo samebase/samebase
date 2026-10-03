@@ -50,6 +50,9 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudflareWorkerPreviews";
+import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
+import type { ConfirmationSurface } from "./confirmationModel";
+import type { ActionConfirmation, ActionConfirmationRequest } from "./contracts/actionConfirmation";
 import { buildRepositoryCloudflareBuildConfigForRootDirectory } from "./model";
 import { toCloudflareWorkerDiscovery } from "./cloudflareWorkerDiscovery";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
@@ -1213,6 +1216,46 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
   );
 }
 
+/**
+The gated deploy-key repair that the dashboard and MCP call. The key installation after a Worker
+connect or create runs rotateConvexDeployKeysForWorkersBuildsForUser directly: the connect
+confirmation covers it, and create is not gated.
+*/
+export async function rotateConvexDeployKeysWithConfirmation(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    workerId: Id<"repositoryCloudflareWorkers">;
+    convexProjectId: Id<"repositoryConvexProjects">;
+    surface: ConfirmationSurface;
+    confirmation: ActionConfirmation | undefined;
+  },
+): Promise<ActionConfirmationRequest | null> {
+  const confirmation = await ctx.runMutation(internal.repository.confirmations.check, {
+    userId: args.userId,
+    surface: args.surface,
+    request: {
+      action: "rotate_convex_deploy_keys",
+      repositoryId: args.repositoryId,
+      workerId: args.workerId,
+      convexProjectId: args.convexProjectId,
+    },
+    confirmation: args.confirmation,
+  });
+  if (confirmation.state === "needs_confirmation") {
+    return confirmation;
+  }
+
+  await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+    workerId: args.workerId,
+    convexProjectId: args.convexProjectId,
+  });
+  return null;
+}
+
 async function recordManualWorkersBuildsTokenUse(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
@@ -1486,6 +1529,11 @@ type ConnectWorkerOutcome =
     }
   | (ConnectWorkerBuildsNotice & { deployKeyPending: boolean });
 
+/**
+The gated Worker connection that the dashboard and MCP share. It resolves the deploy-key project
+first, so a request that needs a project choice fails before any challenge; the first call then
+returns the confirmation request and changes nothing.
+*/
 export async function connectWorkerForUser(
   ctx: ActionCtx,
   args: {
@@ -1496,9 +1544,29 @@ export async function connectWorkerForUser(
     rootDirectory: string;
     buildTokenUuid: string;
     convexProjectId: Id<"repositoryConvexProjects"> | undefined;
+    surface: ConfirmationSurface;
+    confirmation: ActionConfirmation | undefined;
   },
-): Promise<ConnectWorkerOutcome> {
+): Promise<ConnectWorkerOutcome | ActionConfirmationRequest> {
   const target = await selectConvexDeployKeyTarget(ctx, args);
+  const confirmation = await ctx.runMutation(internal.repository.confirmations.check, {
+    userId: args.userId,
+    surface: args.surface,
+    request: {
+      action: "connect_cloudflare_worker",
+      repositoryId: args.repositoryId,
+      workerName: args.workerName.trim(),
+      workerTag: args.workerTag.trim(),
+      rootDirectory: normalizeRepositoryRootDirectory(args.rootDirectory),
+      buildTokenUuid: args.buildTokenUuid,
+      convexProjectId: target.state === "selected" ? target.convexProjectId : null,
+    },
+    confirmation: args.confirmation,
+  });
+  if (confirmation.state === "needs_confirmation") {
+    return confirmation;
+  }
+
   const connection = await connectWorkerBuildsForUser(ctx, {
     userId: args.userId,
     repositoryId: args.repositoryId,
@@ -1961,14 +2029,24 @@ export const connectWorker = action({
       rootDirectory: args.rootDirectory,
       buildTokenUuid: args.buildTokenUuid,
       convexProjectId: args.convexProjectId,
+      surface: { kind: "dashboard" },
+      confirmation: args.confirmation,
     });
-    return result.state === "ready"
-      ? {
+    switch (result.state) {
+      case "needs_confirmation":
+        return result;
+      case "ready":
+        return {
           state: "ready",
           workerId: result.workerId,
           convexDeployKey: toDashboardConvexDeployKeyInstallation(result.convexDeployKey),
-        }
-      : { state: "added_with_notice", workerId: result.workerId, message: result.message };
+        };
+      case "added_with_notice":
+        return { state: "added_with_notice", workerId: result.workerId, message: result.message };
+      default:
+        result satisfies never;
+        throw new Error("Unsupported Worker connection result.");
+    }
   },
 });
 
@@ -2099,13 +2177,15 @@ export const rotateConvexDeployKeys = action({
   args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
   returns: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.returns,
   mcp: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp,
-  handler: async (ctx, args): Promise<null> => {
-    await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, {
-      ...args,
+  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> =>
+    await rotateConvexDeployKeysWithConfirmation(ctx, {
       userId: ctx.viewer.userId,
-    });
-    return null;
-  },
+      repositoryId: args.repositoryId,
+      workerId: args.workerId,
+      convexProjectId: args.convexProjectId,
+      surface: { kind: "dashboard" },
+      confirmation: args.confirmation,
+    }),
 });
 
 /** Used only by the explicit create-app workflow. Manual attachment actions run directly. */

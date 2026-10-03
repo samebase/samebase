@@ -523,14 +523,24 @@ describe("Cloudflare Worker stored coordinates", () => {
       },
     );
 
-    const result = await fixture.owner.action(api.repository.cloudflare.connectWorker, {
+    const args = {
       repositoryId: fixture.ids.repositoryId,
       workerName: "stale-discovery-name",
       workerTag: "connect-worker-tag",
       rootDirectory: "apps/connect",
       buildTokenUuid: "build-token",
+    };
+    const challenge = await fixture.owner.action(api.repository.cloudflare.connectWorker, args);
+    if (challenge.state !== "needs_confirmation") {
+      throw new Error("Expected a confirmation request before the Worker connection.");
+    }
+    const result = await fixture.owner.action(api.repository.cloudflare.connectWorker, {
+      ...args,
+      confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
     });
-    expect(result.state).toBe("added_with_notice");
+    if (result.state !== "added_with_notice") {
+      throw new Error(`Expected a connection notice: ${JSON.stringify(result)}`);
+    }
     await expect(
       fixture.t.run(async (ctx) => await ctx.db.get(result.workerId)),
     ).resolves.toMatchObject({
@@ -584,15 +594,26 @@ describe("Cloudflare Worker stored coordinates", () => {
         },
       );
 
+      const toolArgs = {
+        userId: fixture.ids.ownerId,
+        grantedScopes: ["access_provider_connections"],
+        grantId: "grant-1",
+        clientId: "client-1",
+        repository: "samebase/app",
+        workerName: "provider-current-worker",
+        rootDirectory: "apps/connect",
+      };
+      const challenge = await fixture.t.action(
+        internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
+        toolArgs,
+      );
+      if (challenge.status !== "ok" || challenge.structuredContent.state !== "needs_confirmation") {
+        throw new Error(`Expected a confirmation request: ${JSON.stringify(challenge)}`);
+      }
+      const { acknowledgement, token } = challenge.structuredContent;
       const result = await fixture.t.action(
         internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
-        {
-          userId: fixture.ids.ownerId,
-          grantedScopes: ["access_provider_connections"],
-          repository: "samebase/app",
-          workerName: "provider-current-worker",
-          rootDirectory: "apps/connect",
-        },
+        { ...toolArgs, confirmation: { token, acknowledgement } },
       );
 
       expect(result).toMatchObject({

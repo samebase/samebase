@@ -25,7 +25,10 @@ import {
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
-import { detachResourceContract } from "../repository/contracts/detachResource";
+import {
+  detachResourceContract,
+  type DetachableResource,
+} from "../repository/contracts/detachResource";
 import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
 import { projectRepositoryStatusForMcp } from "../repository/repositoryStatus";
 import { readRepositoryStatusForUser } from "../repository/status";
@@ -48,10 +51,15 @@ import {
   createWorkerForUser,
   discoverCloudflareWorkersForUser,
   readCloudflareWorkerTagsByNameForUser,
-  rotateConvexDeployKeysForWorkersBuildsForUser,
+  rotateConvexDeployKeysWithConfirmation,
   selectConvexDeployKeyTarget,
   type ConvexDeployKeyOutcome,
 } from "../repository/cloudflare";
+import type { ConfirmationSurface } from "../repository/confirmationModel";
+import type {
+  ActionConfirmation,
+  ActionConfirmationRequest,
+} from "../repository/contracts/actionConfirmation";
 import { publicMcpErrorMessage } from "../mcp/publicErrors";
 import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
 import type { OrganizationProviderConfiguration } from "../organizationProviderCredentials";
@@ -64,7 +72,7 @@ import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 import { resolveDefaultConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
 import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
-import { defineMcpTool } from "./mcpTool";
+import { defineMcpTool, mcpGrantArgs } from "./mcpTool";
 import {
   CLOUDFLARE_SETUP_GUIDE_URL,
   findAttachedWorkerByName,
@@ -87,8 +95,27 @@ MCP-only tools live at their own function paths: account.ts and feedback.ts.
 type GitHubConvexCodeLocationCandidate = Infer<typeof vGitHubConvexCodeLocationCandidate>;
 
 const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
+const CONNECT_WORKER_TOOL = cloudflareConnectWorkerContract.mcp.name;
+const DETACH_RESOURCE_TOOL = detachResourceContract.mcp.name;
+const RETRY_PROVIDER_SETUP_TOOL = retryInfrastructureProvisioningContract.mcp.name;
 const ROTATE_CONVEX_DEPLOY_KEYS_TOOL =
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name;
+
+/** The surface of a gated MCP call: the bearer token's grant and OAuth client. */
+function mcpConfirmationSurface(args: { grantId: string; clientId: string }) {
+  return { kind: "mcp" as const, grantId: args.grantId, clientId: args.clientId };
+}
+
+/**
+The first result of a gated tool: nothing changed. The text repeats the token and the sentence,
+because some hosts give the model only the text content.
+*/
+function requestMcpConfirmation(tool: string, request: ActionConfirmationRequest) {
+  return {
+    text: `Nothing changed yet. ${request.effect} Tell the user this effect. Only after the user approves it, call ${tool} again with the same arguments and confirmation ${JSON.stringify({ token: request.token, acknowledgement: request.acknowledgement })}. The token works once, until ${new Date(request.expiresAt).toISOString()}.`,
+    structuredContent: request,
+  };
+}
 
 async function readRepositoryForMcp(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -400,51 +427,88 @@ export const repositoryConnectTool = defineMcpTool({
 
 export const repositoryRetryProviderSetupTool = defineMcpTool({
   contract: retryInfrastructureProvisioningContract,
-  args: retryInfrastructureProvisioningContract.mcpArgs,
-  successFields: {},
+  args: { ...retryInfrastructureProvisioningContract.mcpArgs, ...mcpGrantArgs },
+  successFields: {
+    structuredContent: retryInfrastructureProvisioningContract.structuredContent,
+  },
   run: async (ctx, args) => {
     const repository = await readRepositoryForMcp(ctx, args);
-    await retryProviderSetupForUser(ctx, {
+    const confirmationRequest = await retryProviderSetupForUser(ctx, {
       userId: args.userId,
       repositoryId: repository.repositoryId,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
     });
+    if (confirmationRequest) {
+      return requestMcpConfirmation(RETRY_PROVIDER_SETUP_TOOL, confirmationRequest);
+    }
     return {
       text: `Started a provider setup run for ${repository.githubRepositoryFullName}. Poll repository_list for progress.`,
+      structuredContent: { state: "setup_started" as const },
     };
   },
 });
 
+/**
+The annotated return type breaks a type cycle: the detach tool's result would otherwise depend on
+`internal`, which includes this module.
+*/
+async function detachResourceForMcp(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    resource: DetachableResource;
+    surface: ConfirmationSurface;
+    confirmation: ActionConfirmation | undefined;
+  },
+): Promise<ActionConfirmationRequest | null> {
+  return await ctx.runMutation(internal.repository.detachResourceForUser, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+    resource: args.resource,
+    surface: args.surface,
+    confirmation: args.confirmation,
+  });
+}
+
 export const repositoryDetachResourceTool = defineMcpTool({
   contract: detachResourceContract,
-  args: detachResourceContract.mcpArgs,
+  args: { ...detachResourceContract.mcpArgs, ...mcpGrantArgs },
   successFields: {
     structuredContent: detachResourceContract.structuredContent,
   },
   run: async (ctx, args) => {
     const repository = await readRepositoryForMcp(ctx, args);
     const resourceName = args.resourceName.trim();
-    if (args.kind === "cloudflare_worker") {
-      const worker = findAttachedWorkerByName(repository, resourceName);
-      await ctx.runMutation(internal.repository.detachResourceForUser, {
-        userId: args.userId,
-        repositoryId: repository.repositoryId,
-        resource: { kind: "cloudflare_worker", workerId: worker.workerId },
-      });
-    } else {
-      const convexProjectId = await findAttachedConvexProjectByName(ctx, {
-        userId: args.userId,
-        repository,
-        projectName: resourceName,
-      });
-      await ctx.runMutation(internal.repository.detachResourceForUser, {
-        userId: args.userId,
-        repositoryId: repository.repositoryId,
-        resource: { kind: "convex_project", convexProjectId },
-      });
+    const resource =
+      args.kind === "cloudflare_worker"
+        ? {
+            kind: "cloudflare_worker" as const,
+            workerId: findAttachedWorkerByName(repository, resourceName).workerId,
+          }
+        : {
+            kind: "convex_project" as const,
+            convexProjectId: await findAttachedConvexProjectByName(ctx, {
+              userId: args.userId,
+              repository,
+              projectName: resourceName,
+            }),
+          };
+
+    const confirmationRequest = await detachResourceForMcp(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      resource,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
+    });
+    if (confirmationRequest) {
+      return requestMcpConfirmation(DETACH_RESOURCE_TOOL, confirmationRequest);
     }
     return {
       text: `Removed the ${args.kind === "cloudflare_worker" ? "Cloudflare Worker" : "Convex project"} ${resourceName} from ${repository.githubRepositoryFullName} in Samebase. It keeps running in its provider account.`,
-      structuredContent: { kind: args.kind, resourceName },
+      structuredContent: { state: "detached" as const, kind: args.kind, resourceName },
     };
   },
 });
@@ -502,7 +566,7 @@ export const cloudflareAttachWorkersTool = defineMcpTool({
 
 export const cloudflareConnectWorkerTool = defineMcpTool({
   contract: cloudflareConnectWorkerContract,
-  args: cloudflareConnectWorkerContract.mcpArgs,
+  args: { ...cloudflareConnectWorkerContract.mcpArgs, ...mcpGrantArgs },
   successFields: {
     structuredContent: cloudflareConnectWorkerContract.structuredContent,
   },
@@ -536,7 +600,12 @@ export const cloudflareConnectWorkerTool = defineMcpTool({
       rootDirectory,
       buildTokenUuid,
       convexProjectId,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
     });
+    if (result.state === "needs_confirmation") {
+      return requestMcpConfirmation(CONNECT_WORKER_TOOL, result);
+    }
     if (result.state === "added_with_notice") {
       const message = `Samebase attached ${worker.workerName}, but its Workers Builds setup reported an error. ${publicMcpErrorMessage(result.error)} ${describeConnectWorkerNextStep(result)}`;
       return {
@@ -659,8 +728,10 @@ export const cloudflareConfigureBuildsTool = defineMcpTool({
 
 export const cloudflareRotateConvexDeployKeysTool = defineMcpTool({
   contract: cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
-  args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcpArgs,
-  successFields: {},
+  args: { ...cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcpArgs, ...mcpGrantArgs },
+  successFields: {
+    structuredContent: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.structuredContent,
+  },
   run: async (ctx, args) => {
     const repository = await readRepositoryForMcp(ctx, args);
     const worker = findAttachedWorkerByName(repository, args.workerName);
@@ -675,14 +746,20 @@ export const cloudflareRotateConvexDeployKeysTool = defineMcpTool({
       );
     }
 
-    await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, {
+    const confirmationRequest = await rotateConvexDeployKeysWithConfirmation(ctx, {
       userId: args.userId,
       repositoryId: repository.repositoryId,
       workerId: worker.workerId,
       convexProjectId,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
     });
+    if (confirmationRequest) {
+      return requestMcpConfirmation(ROTATE_CONVEX_DEPLOY_KEYS_TOOL, confirmationRequest);
+    }
     return {
       text: `Replaced the Convex deploy keys for ${worker.workerName} and started a production build. A started build does not prove a successful deployment.`,
+      structuredContent: { state: "rotated" as const },
     };
   },
 });

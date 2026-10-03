@@ -19,6 +19,8 @@ dashboard.
   share a name.
 - `resourceName` (string, required): Name of the attached Worker or Convex project, as
   repository_list shows it.
+- `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
+  in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 
 ## Returns
 
@@ -26,23 +28,52 @@ JSON Schema for the tool's `structuredContent`:
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "kind": {
-      "anyOf": [
-        {
-          "const": "cloudflare_worker"
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "const": "needs_confirmation"
         },
-        {
-          "const": "convex_project"
+        "effect": {
+          "type": "string"
+        },
+        "acknowledgement": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "number"
         }
-      ]
+      },
+      "required": ["state", "effect", "acknowledgement", "token", "expiresAt"],
+      "additionalProperties": false
     },
-    "resourceName": {
-      "type": "string"
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "const": "detached"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "cloudflare_worker"
+            },
+            {
+              "const": "convex_project"
+            }
+          ]
+        },
+        "resourceName": {
+          "type": "string"
+        }
+      },
+      "required": ["state", "kind", "resourceName"],
+      "additionalProperties": false
     }
-  },
-  "required": ["kind", "resourceName"],
-  "additionalProperties": false
+  ]
 }
 ```

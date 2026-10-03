@@ -19,7 +19,48 @@ deploy-key actions instead. Progress is readable through `repository_list` while
 
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
   repository_list.
+- `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
+  in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
 
 ## Returns
 
-The reply is confirmation text only; the tool sets no `structuredContent`.
+JSON Schema for the tool's `structuredContent`:
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "const": "needs_confirmation"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "acknowledgement": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "number"
+        }
+      },
+      "required": ["state", "effect", "acknowledgement", "token", "expiresAt"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "const": "setup_started"
+        }
+      },
+      "required": ["state"],
+      "additionalProperties": false
+    }
+  ]
+}
+```

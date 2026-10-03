@@ -202,14 +202,39 @@ beforeEach(() => {
   );
 });
 
+/** The trusted grant fields that mcp/http.ts adds to a gated tool call. */
+const mcpGrant = {
+  grantedScopes: ["access_provider_connections"],
+  grantId: "grant-1",
+  clientId: "client-1",
+};
+
+/** Calls a gated MCP tool twice: once for the challenge, then with its token and sentence. */
+async function callConfirmedDetach(
+  fixture: Awaited<ReturnType<typeof createScoutFixture>>,
+  args: { repository: string; kind: "cloudflare_worker" | "convex_project"; resourceName: string },
+) {
+  const toolArgs = { userId: fixture.userId, ...mcpGrant, ...args };
+  const first = await fixture.t.action(
+    internal.toolRuntime.runtime.repositoryDetachResourceTool,
+    toolArgs,
+  );
+  if (first.status !== "ok" || first.structuredContent.state !== "needs_confirmation") {
+    throw new Error(`Expected a confirmation request: ${JSON.stringify(first)}`);
+  }
+  const { acknowledgement, token } = first.structuredContent;
+  return await fixture.t.action(internal.toolRuntime.runtime.repositoryDetachResourceTool, {
+    ...toolArgs,
+    confirmation: { token, acknowledgement },
+  });
+}
+
 describe("repository_detachResource", () => {
   it("detaches only the requested kind when a Worker and a Convex project share a name", async () => {
     const fixture = await createScoutFixture();
 
     await expect(
-      fixture.t.action(internal.toolRuntime.runtime.repositoryDetachResourceTool, {
-        userId: fixture.userId,
-        grantedScopes: ["access_provider_connections"],
+      callConfirmedDetach(fixture, {
         repository: "Scout-Owner/Scout",
         kind: "cloudflare_worker",
         resourceName: "scout",
@@ -217,7 +242,7 @@ describe("repository_detachResource", () => {
     ).resolves.toEqual({
       status: "ok",
       text: "Removed the Cloudflare Worker scout from scout-owner/scout in Samebase. It keeps running in its provider account.",
-      structuredContent: { kind: "cloudflare_worker", resourceName: "scout" },
+      structuredContent: { state: "detached", kind: "cloudflare_worker", resourceName: "scout" },
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({
       workers: [],
@@ -225,16 +250,14 @@ describe("repository_detachResource", () => {
     });
 
     await expect(
-      fixture.t.action(internal.toolRuntime.runtime.repositoryDetachResourceTool, {
-        userId: fixture.userId,
-        grantedScopes: ["access_provider_connections"],
+      callConfirmedDetach(fixture, {
         repository: fixture.repositoryId,
         kind: "convex_project",
         resourceName: "scout",
       }),
     ).resolves.toMatchObject({
       status: "ok",
-      structuredContent: { kind: "convex_project", resourceName: "scout" },
+      structuredContent: { state: "detached", kind: "convex_project", resourceName: "scout" },
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ workers: [], projects: [] });
   });
@@ -245,7 +268,7 @@ describe("repository_detachResource", () => {
     await expect(
       fixture.t.action(internal.toolRuntime.runtime.repositoryDetachResourceTool, {
         userId: fixture.userId,
-        grantedScopes: ["access_provider_connections"],
+        ...mcpGrant,
         repository: "scout-owner/scout",
         kind: "convex_project",
         resourceName: "free-app",
@@ -262,11 +285,19 @@ describe("repository_detachResource", () => {
 
   it("detaches one attachment by ID from the dashboard without a provider call", async () => {
     const fixture = await createScoutFixture();
+    const args = {
+      repositoryId: fixture.repositoryId,
+      resource: { kind: "convex_project" as const, convexProjectId: fixture.convexProjectId },
+    };
+    const challenge = await fixture.viewer.mutation(api.repository.detachResource, args);
+    if (challenge === null) {
+      throw new Error("Expected a confirmation request.");
+    }
 
     await expect(
       fixture.viewer.mutation(api.repository.detachResource, {
-        repositoryId: fixture.repositoryId,
-        resource: { kind: "convex_project", convexProjectId: fixture.convexProjectId },
+        ...args,
+        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
       }),
     ).resolves.toBeNull();
 
@@ -455,7 +486,7 @@ describe("Convex project selection for deploy keys", () => {
       internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysTool,
       {
         userId: fixture.userId,
-        grantedScopes: ["access_provider_connections"],
+        ...mcpGrant,
         repository: "scout-owner/scout",
         workerName: "scout",
       },

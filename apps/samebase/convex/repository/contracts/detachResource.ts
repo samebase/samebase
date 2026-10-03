@@ -1,9 +1,14 @@
 import { v, type Infer } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import {
+  MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
+  vActionConfirmation,
+  vActionConfirmationRequest,
+} from "./actionConfirmation";
 import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
 
-const { id, literal, object, string, union } = v;
+const { id, literal, object, optional, string, union } = v;
 
 const vDetachableResourceKind = union(literal("cloudflare_worker"), literal("convex_project"));
 
@@ -25,17 +30,23 @@ export const detachResourceContract = {
   args: {
     repositoryId: id("repositories"),
     resource: vDetachableResource,
+    confirmation: optional(vActionConfirmation),
   },
   mcpArgs: {
     ...mcpRepositoryArgs,
     kind: vDetachableResourceKind,
     resourceName: string(),
+    confirmation: optional(vActionConfirmation),
   },
-  returns: v.null(),
-  structuredContent: object({
-    kind: vDetachableResourceKind,
-    resourceName: string(),
-  }),
+  returns: union(vActionConfirmationRequest, v.null()),
+  structuredContent: union(
+    vActionConfirmationRequest,
+    object({
+      state: literal("detached"),
+      kind: vDetachableResourceKind,
+      resourceName: string(),
+    }),
+  ),
   mcp: {
     title: "Detach resource",
     name: "repository_detachResource",
@@ -51,6 +62,7 @@ export const detachResourceContract = {
       repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
       kind: "cloudflare_worker or convex_project. A Worker and a Convex project can share a name.",
       resourceName: "Name of the attached Worker or Convex project, as repository_list shows it.",
+      confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Removes one attachment record from the repository: a Cloudflare Worker or a Convex project. The

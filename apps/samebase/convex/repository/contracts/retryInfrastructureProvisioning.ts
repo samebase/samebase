@@ -2,18 +2,28 @@ import { v } from "convex/values";
 
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import {
+  MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
+  vActionConfirmation,
+  vActionConfirmationRequest,
+} from "./actionConfirmation";
 import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
 
-const { id } = v;
+const { id, literal, object, optional, union } = v;
 
 export const retryInfrastructureProvisioningContract = {
   id: "retry_provider_setup",
   access: ACCESS_APP_CREATE,
   args: {
     repositoryId: id("repositories"),
+    confirmation: optional(vActionConfirmation),
   },
-  mcpArgs: mcpRepositoryArgs,
-  returns: v.null(),
+  mcpArgs: {
+    ...mcpRepositoryArgs,
+    confirmation: optional(vActionConfirmation),
+  },
+  returns: union(vActionConfirmationRequest, v.null()),
+  structuredContent: union(vActionConfirmationRequest, object({ state: literal("setup_started") })),
   mcp: {
     title: "Retry provider setup",
     name: "repository_retryProviderSetup",
@@ -27,6 +37,7 @@ export const retryInfrastructureProvisioningContract = {
     },
     inputDescriptions: {
       repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
+      confirmation: MCP_ACTION_CONFIRMATION_INPUT_DESCRIPTION,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Starts a fresh Samebase-managed provider setup run. It re-reads the repository's current state,

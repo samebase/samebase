@@ -570,6 +570,9 @@ export function RepositoryCloudflareDialog({
           buildTokenUuid,
           convexProjectId: deployKeyConvexProjectId ?? undefined,
         });
+        if (result.state === "needs_confirmation") {
+          throw new Error("The Worker connection needs a confirmation.");
+        }
         setDidAddWorker(true);
         setMode("existing");
         setWorkerSelection(
