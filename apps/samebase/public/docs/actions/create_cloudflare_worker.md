@@ -4,26 +4,40 @@
 
 MCP tool `repository_cloudflare_createWorker` · scope `access_provider_connections` · write
 
-Creates one new Worker in the Samebase repository's stored Cloudflare account for an existing
-connected repository. Samebase checks repository ownership, live repository identity, Cloudflare
-account access, the provider-write lock, the current non-empty token list, and the Worker quota
-before the create request. It records the Worker as an attachment, creates production and preview
-Workers Builds triggers for the requested repository root, and requests the first production build
-only with a reread default branch and full commit SHA. This action does not change Convex deploy
-keys. Use the separate deploy-key action after the Worker exists. An existing Worker or Builds
-connection is not overwritten. If Builds setup fails after Worker creation, the Worker can remain
-attached. Reread inventory after every result before another write.
+Creates one new Worker in the repository's stored Cloudflare account. Samebase checks repository
+ownership, live repository identity, Cloudflare account access, the provider-write lock, the current
+token list, and the Worker quota before the create request. It records the Worker as an attachment
+and creates production and preview Workers Builds triggers for the requested root directory. An
+existing Worker or Builds connection is not overwritten. If Builds setup fails after Worker
+creation, the Worker can remain attached.
+
+Samebase then installs the Convex deploy key: for the chosen Convex project, else for the
+repository's only attached Convex project. The MCP tool takes the chosen project's slug. With
+several attached Convex projects and no choice, the call fails before any provider change and lists
+their slugs. With no attached Convex project, the Worker is created, its first production build
+starts, and no key is installed; after a project is attached, the deploy-key repair installs it.
+When a key is installed, the deploy-key step starts the first production build. When the key cannot
+be installed, the result says why, and no production build starts.
+
+Without a workerName, the MCP tool uses the pending Cloudflare setup's Worker name and root
+directory from repository_list, else the repository name and the repository root. The pending
+setup's Convex project gets the deploy key only when the call creates that planned Worker name at
+that planned root directory; any other Worker follows the Convex project rule above. Samebase picks
+the Workers Builds token: the given UUID, else the available last-used token, else the only token.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by
-  repository_dashboard_getUserRepositories.
-- `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
-  repository_dashboard_getUserRepositories.
-- `workerName` (string, required): Name for the new Cloudflare Worker. An existing name is rejected.
-- `rootDirectory` (string, required): Repository root for this Worker's GitHub Builds triggers.
-- `buildTokenUuid` (string, required): Workers Builds token UUID returned by
-  cloudflare_listWorkersBuildTokens.
+- `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
+  repository_list.
+- `workerName` (string, optional): Optional name for the new Worker. Defaults to the pending
+  Cloudflare setup's Worker name, else the repository name. An existing name is rejected.
+- `rootDirectory` (string, optional): Optional repository root directory to build. Defaults to the
+  pending Cloudflare setup's root directory, else /.
+- `buildTokenUuid` (string, optional): Optional Workers Builds token UUID. Omit it: Samebase uses
+  the last-used token, else the only token, and lists the tokens when it needs the user's choice.
+- `convexProjectSlug` (string, optional): Optional slug of the attached Convex project whose deploy
+  key the Worker gets, as repository_list returns it. Required when several Convex projects are
+  attached. Only an exact slug matches.
 
 ## Returns
 
@@ -33,11 +47,41 @@ JSON Schema for the tool's `structuredContent`:
 {
   "type": "object",
   "properties": {
-    "workerId": {
+    "workerName": {
       "type": "string"
+    },
+    "rootDirectory": {
+      "type": "string"
+    },
+    "convexDeployKey": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "installed"
+            }
+          },
+          "required": ["state"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "not_installed"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": ["state", "message"],
+          "additionalProperties": false
+        }
+      ]
     }
   },
-  "required": ["workerId"],
+  "required": ["workerName", "rootDirectory", "convexDeployKey"],
   "additionalProperties": false
 }
 ```

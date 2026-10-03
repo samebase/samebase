@@ -1,44 +1,19 @@
 import { bad, good, pure } from "@samebase/sure";
-import { type Infer, v } from "convex/values";
 
 import { normalizeCloudflareBuildRoot, type CloudflareWorkerBuild } from "../cloudflareResources";
-
-const { literal, union } = v;
-
-export const vCloudflareBuildState = union(
-  literal("queued"),
-  literal("running"),
-  literal("success"),
-  literal("failure"),
-  literal("cancelled"),
-  literal("skipped"),
-  literal("unknown"),
-);
-export type CloudflareBuildState = Infer<typeof vCloudflareBuildState>;
-
-export const vCloudflareBuildDisagreementReason = union(
-  literal("missing_trigger"),
-  literal("missing_build_uuid"),
-  literal("invalid_created_on"),
-  literal("invalid_root_directory"),
-  literal("worker_tag_mismatch"),
-  literal("repository_id_mismatch"),
-  literal("trigger_root_directory_mismatch"),
-  literal("metadata_root_directory_mismatch"),
-  literal("missing_trigger_deploy_command"),
-  literal("deploy_command_mismatch"),
-);
-export type CloudflareBuildDisagreementReason = Infer<typeof vCloudflareBuildDisagreementReason>;
-export type CloudflareBuildDisagreementReasons = [
+import type {
   CloudflareBuildDisagreementReason,
-  ...CloudflareBuildDisagreementReason[],
-];
+  CloudflareBuildDisagreementReasons,
+  CloudflareBuildState,
+} from "./providerObservationModel";
 
 export type CloudflareBuildMatch =
   | {
       state: "available";
       buildUuid: string;
       buildState: CloudflareBuildState;
+      /** The built commit from build_trigger_metadata.commit_hash, or null when Cloudflare omits it. */
+      commitHash: string | null;
       createdAt: number;
       finishedAt: number | null;
     }
@@ -208,6 +183,7 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
     state: "available",
     buildUuid: agreement.buildUuid,
     buildState: classifyCloudflareBuildState(build),
+    commitHash: metadata.commit_hash?.trim() || null,
     createdAt: agreement.createdAt,
     finishedAt: agreement.finishedAt,
   };

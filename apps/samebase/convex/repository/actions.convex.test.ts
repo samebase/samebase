@@ -126,7 +126,7 @@ describe("connect existing repository identity", () => {
   it("connects the selected ID at its current route when the old route belongs to another repo", async () => {
     const { organizationId, t, viewer } = await createConnectRepositoryFixture();
 
-    const result = await viewer.action(api.repository.actions.connectRepository, {
+    const result = await viewer.action(api.repository.connect, {
       organizationId,
       githubRepositoryDatabaseId: "1296269",
     });

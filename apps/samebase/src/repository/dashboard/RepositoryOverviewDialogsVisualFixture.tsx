@@ -186,6 +186,7 @@ function CloudflareDialogFixture({
   return (
     <DialogFixture mode={mode}>
       <RepositoryCloudflareDialogContent
+        convexProjectField={null}
         cloudflareBuildTokenField={
           showsBuildToken ? (
             <CloudflareBuildTokenField
@@ -209,6 +210,7 @@ function CloudflareDialogFixture({
           ) : null
         }
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerNameConflict={null}
         createWorkerName={normalizedName ? "samebase_app" : ""}

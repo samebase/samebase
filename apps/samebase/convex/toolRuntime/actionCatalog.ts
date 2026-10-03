@@ -2,46 +2,55 @@ import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticat
 import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
 import { createRepositoryContract } from "../repository/contracts/createRepository";
 import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
+import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
+  convexCreateProjectContract,
   convexDiscoverProjectsContract,
 } from "../repository/contracts/convexAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
+import { detachResourceContract } from "../repository/contracts/detachResource";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import { cloudflareListWorkersBuildTokensContract } from "../repository/contracts/cloudflareBuildTokens";
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
 its Convex function, and every agent-facing surface renders from this list: the MCP tool catalog,
 the supported OAuth scopes, usage attribution names, the generated /docs/actions pages, llms.txt
 entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snake_case;
-`mcp.name` is the wire-level MCP tool name.
+`mcp.name` is the wire-level MCP tool name: the path of the registered Convex function that runs
+the tool, with `/` and `:` replaced by `_` (rfcs/125; actionCatalog.test.ts checks it).
 
-Order is the presentation order in generated docs: app inventory first, then create/import,
-discovery reads, attach, and repairs. Browser handoff stays near the end, and authentication status
-is last because it is a diagnostic action, not a preflight.
+Order is the presentation order in generated docs: reads first (inventory, status, then discovery), then
+create and connect, attach, connect, and create provider resources, repairs, and detach. Sign-in links stay near the end, and authentication status
+is last because it is a diagnostic action, not a preflight. mcp/protocol.ts derives the supported
+OAuth scope order from this list, and grant reuse compares scope strings exactly, so a reorder that
+moves the first use of an access key changes the scope string that clients request.
 */
 export const actionContracts = [
   getUserRepositoriesContract,
-  cloudflareListWorkersBuildTokensContract,
-  createRepositoryContract,
-  connectRepositoryContract,
+  getRepositoryStatusContract,
   convexDiscoverProjectsContract,
   cloudflareDiscoverWorkersContract,
+  createRepositoryContract,
+  connectRepositoryContract,
   convexAttachProjectsContract,
+  convexCreateProjectContract,
   cloudflareAttachWorkersContract,
+  cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
+  detachResourceContract,
   submitFeedbackContract,
   createBrowserHandoffContract,
   getAuthenticationStatusContract,

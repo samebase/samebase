@@ -309,30 +309,19 @@ export const attachWorkers = internalMutation({
   },
 });
 
-export const detachWorker = internalMutation({
+/** Removes the attachment record only; the Worker keeps running in Cloudflare. */
+export async function detachWorkerForUser(
+  ctx: MutationCtx,
   args: {
-    repositoryId: id("repositories"),
-    userId: id("users"),
-    workerId: id("repositoryCloudflareWorkers"),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
+    repositoryId: Id<"repositories">;
+    userId: Id<"users">;
+    workerId: Id<"repositoryCloudflareWorkers">;
   },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const repository = await requireUserRepositoryInfrastructureIdle(ctx, args);
-    const worker = await requireWorker(ctx, repository, args);
-    if (
-      worker.accountId !== args.accountId ||
-      worker.workerName !== args.workerName ||
-      worker.workerTag !== args.workerTag
-    ) {
-      throw new Error("Cloudflare Worker attachment changed before removal.");
-    }
-    await ctx.db.delete(worker._id);
-    return null;
-  },
-});
+): Promise<void> {
+  const repository = await requireUserRepositoryInfrastructureIdle(ctx, args);
+  const worker = await requireWorker(ctx, repository, args);
+  await ctx.db.delete(worker._id);
+}
 
 export const updateWorkerName = internalMutation({
   args: {

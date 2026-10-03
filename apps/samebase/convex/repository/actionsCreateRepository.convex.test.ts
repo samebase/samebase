@@ -166,7 +166,7 @@ describe("preview personal repository authorization", () => {
     await expect(viewer.query(api.organizations.listForViewer, {})).resolves.toMatchObject([
       { organizationId, canCreateRepository: true },
     ]);
-    const result = await viewer.action(api.repository.actions.createRepository, {
+    const result = await viewer.action(api.repository.create, {
       organizationId,
       githubRepositoryName: "preview-personal-app",
       convexProjectName: "preview-personal-app",
@@ -220,7 +220,7 @@ describe("preview personal repository authorization", () => {
     });
 
     await expect(
-      viewer.action(api.repository.actions.createRepository, {
+      viewer.action(api.repository.create, {
         organizationId,
         githubRepositoryName: "preview-personal-app",
         convexProjectName: "preview-personal-app",
@@ -249,7 +249,7 @@ describe("create repository Workers Builds token admission", () => {
     ]);
 
     await expect(
-      viewer.action(api.repository.actions.createRepository, {
+      viewer.action(api.repository.create, {
         organizationId,
         githubRepositoryName: "new-app",
         convexProjectName: "new-app",
@@ -271,7 +271,7 @@ describe("create repository Workers Builds token admission", () => {
       await ctx.db.patch(organizationId, { defaultConvexDeploymentRegion: "aws-eu-west-1" });
     });
 
-    const result = await viewer.action(api.repository.actions.createRepository, {
+    const result = await viewer.action(api.repository.create, {
       organizationId,
       githubRepositoryName: "new-app",
       convexProjectName: "new-app",

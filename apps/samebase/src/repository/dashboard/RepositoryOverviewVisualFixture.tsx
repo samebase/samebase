@@ -633,6 +633,7 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
         productionBuild: {
           state: "available",
           buildState: "success",
+          commitHash: null,
           logsUrl:
             "https://dash.cloudflare.com/fixture-account/workers/services/view/tmp-f149-repository-loading-states/production/builds/fixture-production-build",
         },

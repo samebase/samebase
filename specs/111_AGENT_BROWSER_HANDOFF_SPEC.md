@@ -9,7 +9,7 @@ Related:
 
 ## Current Contract
 
-Samebase exposes an MCP tool named `create_browser_handoff` for clients that need to open the
+Samebase exposes an MCP tool named `account_createSignInLink` for clients that need to open the
 Samebase web UI as the same user behind the current MCP grant.
 
 The scope is an explicit full-account login capability. The handoff authenticates one Samebase user,

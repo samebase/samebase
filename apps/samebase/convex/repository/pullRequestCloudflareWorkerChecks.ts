@@ -9,7 +9,7 @@ import {
   parseCloudflareWorkerScriptUrl,
 } from "../../shared/cloudflareResourceUrls";
 import { allLimited } from "../common";
-import type { CloudflareBuildState } from "./cloudflareBuildMatching";
+import type { CloudflareBuildState } from "./providerObservationModel";
 import type {
   CloudflareWorkerPreview,
   CloudflareWorkerProof,

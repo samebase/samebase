@@ -22,6 +22,7 @@ vi.mock("convex/react", async (importOriginal) => {
   return {
     ...actual,
     useAction: () => actionState.fallback,
+    useMutation: () => actionState.fallback,
   };
 });
 vi.mock("@/components/ui/use-toast", () => ({

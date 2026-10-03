@@ -4,16 +4,16 @@ import type {
   RepositoryPullRequest as RepositoryPullRequestPayload,
   RepositoryPullRequestPage,
   RepositoryStatusCheckRollup,
-} from "../../../convex/repositoryPullRequests";
+} from "../../../convex/repository/pullRequestModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
   PullRequestResourceRead,
   PullRequestResources,
-} from "../../../convex/repository/pullRequestResources";
+} from "../../../convex/repository/pullRequestModel";
 import {
   summarizeRepositoryChecks,
   type RepositoryCheckSummary,
-} from "@/repository/dashboard/repositoryChecks";
+} from "../../../shared/repositoryChecks";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import { act, type ComponentProps, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -324,6 +324,7 @@ describe("buildProductionEnvironmentRoots", () => {
             productionBuild: {
               state: "available",
               buildState: "success",
+              commitHash: null,
               logsUrl:
                 "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
             },
@@ -578,6 +579,7 @@ describe("buildProductionEnvironmentRoots", () => {
             productionBuild: {
               state: "available",
               buildState: "success",
+              commitHash: null,
               logsUrl: "https://dash.cloudflare.com/samebase-build",
             },
           }),
@@ -1961,7 +1963,7 @@ describe("RepositoryConvexDialog", () => {
     const onSaved = vi.fn();
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
-      if (actionName === getFunctionName(api.repository.convex.discoverProjects)) {
+      if (actionName === getFunctionName(api.repository.convex.findProjects)) {
         return discoverProjects;
       }
       if (actionName === getFunctionName(api.repository.convex.createProject)) {
@@ -2476,9 +2478,7 @@ describe("RepositoryCloudflareDialogContent", () => {
       if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
         return listBuildTokens;
       }
-      if (
-        actionName === getFunctionName(api.repository.cloudflare.configureWorkersBuildsForGitHub)
-      ) {
+      if (actionName === getFunctionName(api.repository.cloudflare.configureBuilds)) {
         return configureWorkersBuilds;
       }
       return vi.fn();
@@ -2494,6 +2494,7 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
+              convexObservations={{ state: "loading" }}
               onClose={() => {}}
               repairBuildTokenUuid="build-token"
               repairWorkerId={workerId}
@@ -2556,7 +2557,9 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="/"
         createWorkerNameConflict={null}
         createWorkerName=""
@@ -2594,7 +2597,9 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="/"
         createWorkerNameConflict={null}
         createWorkerName=""
@@ -2685,7 +2690,7 @@ describe("RepositoryCloudflareDialogContent", () => {
     }));
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
-      if (actionName === getFunctionName(api.repository.cloudflare.discoverWorkers)) {
+      if (actionName === getFunctionName(api.repository.cloudflare.findWorkers)) {
         return discoverWorkers;
       }
       if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
@@ -2704,6 +2709,7 @@ describe("RepositoryCloudflareDialogContent", () => {
           <QueryClientProvider client={queryClient}>
             <RepositoryCloudflareDialog
               blockedReason={null}
+              convexObservations={{ state: "loading" }}
               onClose={() => {}}
               repairBuildTokenUuid={null}
               repairWorkerId={null}
@@ -2771,11 +2777,212 @@ describe("RepositoryCloudflareDialogContent", () => {
     }
   });
 
+  it("names each deploy-key Convex project by its slug when two share convex.json", async () => {
+    const siteProjectId = fakeConvexProjectId("site-project-attachment");
+    const adminProjectId = fakeConvexProjectId("admin-project-attachment");
+    const discoverWorkers = vi.fn(async () => ({
+      inventoryState: "complete" as const,
+      workers: [],
+    }));
+    const listBuildTokens = vi.fn(async () => ({
+      accountId: "account-1",
+      lastUsedBuildTokenUuid: "build-token",
+      tokens: [{ name: "Build token", uuid: "build-token" }],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.repository.cloudflare.findWorkers)) {
+        return discoverWorkers;
+      }
+      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
+        return listBuildTokens;
+      }
+      return vi.fn();
+    });
+    const observation = (convexProjectId: typeof siteProjectId, projectSlug: string) => ({
+      convexProjectId,
+      projectId: `${projectSlug}-project-id`,
+      codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
+      source: { kind: "config" as const, state: "valid" as const },
+      provider: {
+        state: "current" as const,
+        projectSlug,
+        teamSlug: "ada",
+        productionDeployment: { state: "missing" as const },
+      },
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RepositoryCloudflareDialog
+              blockedReason={null}
+              convexObservations={{
+                state: "loaded",
+                observations: [
+                  observation(siteProjectId, "site"),
+                  observation(adminProjectId, "admin"),
+                ],
+                refreshFailed: false,
+                reload: () => {},
+              }}
+              onClose={() => {}}
+              repairBuildTokenUuid={null}
+              repairWorkerId={null}
+              repository={makeRepositorySettingsBuilderRepository({
+                convexProjects: [
+                  makeRepositorySettingsConvexProject({ convexProjectId: siteProjectId }),
+                  makeRepositorySettingsConvexProject({ convexProjectId: adminProjectId }),
+                ],
+              })}
+            />
+          </QueryClientProvider>,
+        );
+      });
+
+      const createButton = await act(() =>
+        vi.waitFor(() => {
+          const button = [...rootElement.querySelectorAll("button")].find(
+            (candidate) => candidate.textContent === "Create" && !candidate.disabled,
+          );
+          if (!button) {
+            throw new Error("Expected the Create button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => {
+        createButton.click();
+      });
+      const projectSelect = [
+        ...rootElement.querySelectorAll<HTMLButtonElement>('[role="combobox"]'),
+      ].find((button) => button.textContent.includes("Choose a Convex project"));
+      if (!projectSelect) {
+        throw new Error("Expected the Convex project select.");
+      }
+      await act(async () => {
+        projectSelect.click();
+      });
+
+      expect(
+        [...document.querySelectorAll<HTMLElement>('[role="option"]')].map(
+          (option) => option.textContent,
+        ),
+      ).toEqual(["site (convex.json)", "admin (convex.json)"]);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+    }
+  });
+
+  it("keeps the deploy-key Convex project choice closed until the slugs tell two projects at convex.json apart", async () => {
+    const siteProjectId = fakeConvexProjectId("site-project-attachment");
+    const adminProjectId = fakeConvexProjectId("admin-project-attachment");
+    const discoverWorkers = vi.fn(async () => ({
+      inventoryState: "complete" as const,
+      workers: [],
+    }));
+    const listBuildTokens = vi.fn(async () => ({
+      accountId: "account-1",
+      lastUsedBuildTokenUuid: "build-token",
+      tokens: [{ name: "Build token", uuid: "build-token" }],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.repository.cloudflare.findWorkers)) {
+        return discoverWorkers;
+      }
+      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
+        return listBuildTokens;
+      }
+      return vi.fn();
+    });
+    const repository = makeRepositorySettingsBuilderRepository({
+      convexProjects: [
+        makeRepositorySettingsConvexProject({ convexProjectId: siteProjectId }),
+        makeRepositorySettingsConvexProject({ convexProjectId: adminProjectId }),
+      ],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    const render = (
+      convexObservations: ComponentProps<typeof RepositoryCloudflareDialog>["convexObservations"],
+    ) =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RepositoryCloudflareDialog
+            blockedReason={null}
+            convexObservations={convexObservations}
+            onClose={() => {}}
+            repairBuildTokenUuid={null}
+            repairWorkerId={null}
+            repository={repository}
+          />
+        </QueryClientProvider>,
+      );
+    const findButton = (label: string) =>
+      [...rootElement.querySelectorAll<HTMLButtonElement>("button")].find(
+        (button) => button.textContent === label,
+      );
+    const findProjectSelect = () =>
+      [...rootElement.querySelectorAll<HTMLButtonElement>('[role="combobox"]')].find((button) =>
+        button.textContent.includes("Choose a Convex project"),
+      );
+
+    try {
+      await act(async () => {
+        render({ state: "loading" });
+      });
+      const createButton = await act(() =>
+        vi.waitFor(() => {
+          const button = findButton("Create");
+          if (!button || button.disabled) {
+            throw new Error("Expected the Create button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => {
+        createButton.click();
+      });
+
+      expect(findProjectSelect()?.disabled).toBe(true);
+      expect(findButton("Create Worker")?.disabled).toBe(true);
+      expect(rootElement.textContent).not.toContain("could not load the Convex project slugs");
+
+      await act(async () => {
+        render({ state: "failed", reload: () => {} });
+      });
+
+      expect(findProjectSelect()?.disabled).toBe(true);
+      expect(findButton("Create Worker")?.disabled).toBe(true);
+      expect(rootElement.textContent).toContain(
+        "Samebase could not load the Convex project slugs, so it cannot tell apart the projects that share a code location.",
+      );
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+    }
+  });
+
   it("shows the repository root only when creating a Worker", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={<div>API token</div>}
+        convexProjectField={null}
         hasSelectedBuildToken={false}
+        hasSelectedConvexProject
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
         createWorkerName="samebase-app"
@@ -2816,7 +3023,9 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
         createWorkerName="samebase_app"
@@ -2854,11 +3063,51 @@ describe("RepositoryCloudflareDialogContent", () => {
     expect(createButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
+  it("disables Create Worker until the deploy-key Convex project is chosen", () => {
+    const markup = renderToStaticMarkup(
+      <RepositoryCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        convexProjectField={<div>Convex project for deploy keys</div>}
+        hasSelectedBuildToken
+        hasSelectedConvexProject={false}
+        createRootDirectory="/"
+        createWorkerNameConflict={null}
+        createWorkerName="samebase-app"
+        didAddWorker={false}
+        error={null}
+        folderSuggestions={[]}
+        isLoading={false}
+        isSubmitting={false}
+        inventoryState="complete"
+        mode="create"
+        onCreateRootDirectoryChange={() => {}}
+        onCreateWorkerNameChange={() => {}}
+        onConnectWorker={() => {}}
+        onConnectWorkerBack={() => {}}
+        onModeChange={() => {}}
+        onOpenChange={() => {}}
+        onSubmit={() => {}}
+        onWorkerToggle={() => {}}
+        repairWorker={null}
+        selectedWorkerTags={[]}
+        repository={repository}
+        workerToConnect={null}
+        workers={[]}
+      />,
+    );
+    const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
+
+    expect(markup).toContain("Convex project for deploy keys");
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
   it("shows the operation block reason and disables confirmation", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
@@ -2896,7 +3145,9 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
@@ -2934,7 +3185,9 @@ describe("RepositoryCloudflareDialogContent", () => {
     const markup = renderToStaticMarkup(
       <RepositoryCloudflareDialogContent
         cloudflareBuildTokenField={null}
+        convexProjectField={null}
         hasSelectedBuildToken
+        hasSelectedConvexProject
         createRootDirectory="/"
         createWorkerNameConflict={null}
         createWorkerName=""
@@ -2985,6 +3238,7 @@ describe("buildRepositorySettingsState", () => {
             productionBuild: {
               state: "available",
               buildState: "success",
+              commitHash: null,
               logsUrl: "https://dash.cloudflare.com/legacy-build",
             },
           }),

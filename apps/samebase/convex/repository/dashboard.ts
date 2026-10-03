@@ -1,13 +1,8 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
-import { internalQuery, type QueryCtx } from "../_generated/server";
+import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
-import {
-  findRepositoryForUser,
-  listOrganizationIdsForUser,
-  requireRepositoryForUser,
-} from "../organizationAccess";
+import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
 import {
   isConnectedRepository,
   isLiveConnectedRepository,
@@ -20,11 +15,9 @@ import {
 import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vRepositoryResourceLinksState } from "./dashboardModel";
-import { canAccess } from "../../shared/accessModel";
 import type { RepositoryProvisioningRunStep } from "./provisioningModel";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
-  getUserRepositoriesContract,
   type ManagedProviderPlan,
   type ProviderSetupSummary,
   type ProviderSetupStep,
@@ -618,7 +611,8 @@ function groupRepositoryRows<Row extends { repositoryId: Id<"repositories"> }>(
   return rowsByRepository;
 }
 
-async function readOrganizationRepositories(
+/** The repository list that `repository:list` and `repository:listForUser` return. */
+export async function readOrganizationRepositories(
   ctx: Pick<QueryCtx, "db">,
   organizationIds: Id<"organizations">[],
 ): Promise<UserRepositoriesResult> {
@@ -867,32 +861,3 @@ async function readOrganizationRepositories(
     })
     .map(({ sortTime: _sortTime, ...repository }) => repository);
 }
-
-export const getUserRepositories = query({
-  access: getUserRepositoriesContract.access,
-  args: getUserRepositoriesContract.args,
-  returns: getUserRepositoriesContract.returns,
-  mcp: getUserRepositoriesContract.mcp,
-  handler: async (ctx): Promise<UserRepositoriesResult> => {
-    const organizationIds = await listOrganizationIdsForUser(ctx.db, ctx.viewer.userId);
-    return await readOrganizationRepositories(ctx, organizationIds);
-  },
-});
-
-export const getUserRepositoriesForUser = internalQuery({
-  args: {
-    userId: id("users"),
-  },
-  returns: getUserRepositoriesContract.returns,
-  handler: async (ctx, args): Promise<UserRepositoriesResult> => {
-    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
-      userId: args.userId,
-    });
-    if (viewer.user === null || !canAccess(getUserRepositoriesContract.access, viewer.accessKeys)) {
-      throw new Error("Access denied");
-    }
-
-    const organizationIds = await listOrganizationIdsForUser(ctx.db, args.userId);
-    return await readOrganizationRepositories(ctx, organizationIds);
-  },
-});

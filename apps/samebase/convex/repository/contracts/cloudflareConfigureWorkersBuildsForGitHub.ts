@@ -1,11 +1,12 @@
 import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import { MCP_REPOSITORY_INPUT_DESCRIPTION, mcpRepositoryArgs } from "./repositoryReference";
 
-const { id, string } = v;
+const { id, optional, string } = v;
 
 export const cloudflareConfigureWorkersBuildsForGitHubContract = {
-  id: "configure_workers_builds_for_github",
+  id: "configure_workers_builds",
   access: "access_provider_connections",
   args: {
     repositoryId: id("repositories"),
@@ -13,29 +14,37 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     rootDirectory: string(),
     buildTokenUuid: string(),
   },
+  mcpArgs: {
+    ...mcpRepositoryArgs,
+    workerName: string(),
+    rootDirectory: optional(string()),
+    buildTokenUuid: optional(string()),
+  },
   returns: v.null(),
   mcp: {
-    title: "Configure Workers Builds for GitHub",
-    name: "repository_cloudflare_configureWorkersBuildsForGitHub",
+    title: "Configure Workers Builds",
+    name: "repository_cloudflare_configureBuilds",
     description:
-      "Call repository_dashboard_getUserRepositories first and use its returned repositoryId. Configure the selected Worker's production and Previews Base Builds settings for the Samebase repository's GitHub repository, then start a production build.",
-    safety: "write",
+      "Rewrite an attached Worker's production and Previews Base Workers Builds settings for this repository and the Worker's root directory, then start a production build. Use it when the Worker's Builds settings point elsewhere or are missing.",
+    safety: "destructive",
     annotations: {
       readOnlyHint: false,
       openWorldHint: true,
       destructiveHint: true,
     },
     inputDescriptions: {
-      repositoryId: "Samebase repository ID returned by repository_dashboard_getUserRepositories.",
-      workerId:
-        "Stable Samebase Worker attachment id returned by repository_dashboard_getUserRepositories.",
-      rootDirectory: "Repository root to write to this Worker's GitHub Builds settings.",
-      buildTokenUuid: "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
+      repository: MCP_REPOSITORY_INPUT_DESCRIPTION,
+      workerName: "Name of the attached Worker.",
+      rootDirectory:
+        "Optional root directory. It must equal the Worker's recorded root directory, which is the default.",
+      buildTokenUuid:
+        "Optional Workers Builds token UUID. Omit it: Samebase uses the last-used token, else the only token, and lists the tokens when it needs the user's choice.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Configures production and Previews Base Builds settings for an attached Worker, GitHub
-repository, and root directory, then starts a production build. New connections enable native
-Worker Previews. Existing connections must already use native Worker Previews. A connection to a
-different repository is never adopted. Samebase reads the current Worker and repository state live
-and stores no build-settings or status mirror in Convex.`,
+repository, and root directory, then starts a production build. It can overwrite the Worker's
+existing Builds settings. New connections enable native Worker Previews. Existing connections must
+already use native Worker Previews. A connection to a different repository is never adopted.
+Samebase reads the current Worker and repository state live and stores no build-settings or status
+mirror in Convex. It does not revoke or rotate Convex deploy keys.`,
 } as const;

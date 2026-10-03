@@ -11,7 +11,7 @@ const vCreateBrowserHandoffResult = object({
 });
 
 export const createBrowserHandoffContract = {
-  id: "create_browser_handoff",
+  id: "create_sign_in_link",
   access: ACCESS_BROWSER_LOGIN_HANDOFF,
   args: {
     returnToPath: optional(string()),
@@ -19,8 +19,8 @@ export const createBrowserHandoffContract = {
   returns: vCreateBrowserHandoffResult,
   structuredContent: vCreateBrowserHandoffResult,
   mcp: {
-    title: "Create browser handoff",
-    name: "create_browser_handoff",
+    title: "Create Samebase sign-in link",
+    name: "account_createSignInLink",
     description:
       "Create a one-time Samebase browser sign-in URL for the MCP grant's current user. Show the returned URL to the user as a clickable link. It expires after 5 minutes. Keep the link private. Only claim that the dashboard opened when a browser action confirms it.",
     safety: "write",

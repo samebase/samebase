@@ -4,10 +4,11 @@
 
 - Status: Accepted and implemented
 - Owner: Samebase backend
-- Last updated: 2026-09-05
+- Last updated: 2026-10-03
 - Related docs:
   - [Repository removal workflow](./098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md)
   - [Pull request provider query](./116_PULL_REQUEST_PROVIDER_QUERY_SPEC.md)
+  - [Action catalog plan](../rfcs/125_INTENT_BASED_ACTION_CATALOG_PLAN.md#names-and-module-layout)
 
 ## Current Contract
 
@@ -16,6 +17,7 @@ exceptions below. Callers import the responsible named module directly. Root re-
 catch-all `repository/index.ts` are not allowed.
 
 ```text
+apps/samebase/convex/repository.ts
 apps/samebase/convex/repository/
   actions.ts
   branches.ts
@@ -39,7 +41,12 @@ apps/samebase/convex/repository/
 
 ## Ownership
 
-- `actions.ts` owns public repository lifecycle actions.
+- The root `repository.ts` owns the repository-level actions that the dashboard and MCP share
+  (`repository:list`, `create`, `connect`, `retryProviderSetup`, `detachResource`). Their function
+  paths are MCP tool names, so the module stays at the root. It runs in the default runtime because
+  `list` is a query and `detachResource` is a mutation.
+- `actions.ts` owns the Node halves of `repository:create` and `repository:connect`, and the public
+  removal actions.
 - `dashboard.ts` owns dashboard queries and persisted dashboard preferences.
 - `records.ts` owns repository row creation, lookup, repository connection, and state transitions.
 - `branches.ts` owns only the exact branch-tree cache and its refresh coordination.

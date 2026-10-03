@@ -211,7 +211,9 @@ describe("manual provider write ownership", () => {
           actionId: "second-action",
           action: "create_cloudflare_worker",
         }),
-      ).rejects.toThrow("Another repository infrastructure operation is active.");
+      ).rejects.toThrow(
+        "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
+      );
 
       await expect(readProviderWrite(t, ids.repositoryId)).resolves.toMatchObject({
         owner: {

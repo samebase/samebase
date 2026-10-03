@@ -28,7 +28,7 @@ export function useRepositoryWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
   organizationOwner?: string,
 ): RepositoryWorkspaceModel {
-  const repositories = useCacheQuery(api.repository.dashboard.getUserRepositories);
+  const repositories = useCacheQuery(api.repository.list);
   const folderState = useCacheQuery(api.repository.folders.getRepositoryFolderState);
   const organizations = useConvexQuery(api.organizations.listForViewer);
   const organizationTreeSettings = useConvexQuery(

@@ -187,7 +187,7 @@ describe("organization-owned repositories", () => {
     ]);
 
     await expect(
-      asMember.action(api.repository.actions.createRepository, {
+      asMember.action(api.repository.create, {
         organizationId: organization.organizationId,
         githubRepositoryName: "member-app",
         convexProjectName: "member-app",
@@ -347,14 +347,12 @@ describe("organization-owned repositories", () => {
         githubRepositoryFullName: "alpha/app-a",
       }),
     ).resolves.toBeNull();
-    await expect(
-      asOtherMember.query(api.repository.dashboard.getUserRepositories),
-    ).resolves.toMatchObject([
+    await expect(asOtherMember.query(api.repository.list)).resolves.toMatchObject([
       { repositoryId: zetaRepository.repositoryId, githubRepositoryFullName: "zeta/app-z" },
     ]);
 
-    const firstDashboardRead = await asMember.query(api.repository.dashboard.getUserRepositories);
-    const secondDashboardRead = await asMember.query(api.repository.dashboard.getUserRepositories);
+    const firstDashboardRead = await asMember.query(api.repository.list);
+    const secondDashboardRead = await asMember.query(api.repository.list);
     expect(secondDashboardRead).toEqual(firstDashboardRead);
     expect(firstDashboardRead.map((repository) => repository.repositoryId).sort()).toEqual(
       [alphaRepository.repositoryId, zetaRepository.repositoryId].sort(),
@@ -465,7 +463,7 @@ describe("organization-owned repositories", () => {
       subject: `${userId}|failed-repository-identity`,
       tokenIdentifier: `test:${userId}`,
     });
-    await expect(asUser.query(api.repository.dashboard.getUserRepositories, {})).resolves.toEqual(
+    await expect(asUser.query(api.repository.list, {})).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           repositoryId: failed.repositoryId,
@@ -576,7 +574,7 @@ describe("organization-owned repositories", () => {
       subject: `${userId}|repository-rename`,
       tokenIdentifier: `test:${userId}`,
     });
-    await expect(asUser.query(api.repository.dashboard.getUserRepositories, {})).resolves.toEqual(
+    await expect(asUser.query(api.repository.list, {})).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           repositoryId: renamedRepository.repositoryId,
@@ -628,9 +626,9 @@ describe("organization-owned repositories", () => {
     await expect(
       t.query(internal.repository.records.listConnectedRepositoriesForUser, { userId }),
     ).resolves.toMatchObject([{ repositoryId, githubOwnerLogin: "after-rename" }]);
-    await expect(asUser.query(api.repository.dashboard.getUserRepositories)).resolves.toMatchObject(
-      [{ repositoryId, githubRepositoryFullName: "after-rename/rename-app" }],
-    );
+    await expect(asUser.query(api.repository.list)).resolves.toMatchObject([
+      { repositoryId, githubRepositoryFullName: "after-rename/rename-app" },
+    ]);
     await expect(t.run(async (ctx) => await ctx.db.get(repositoryId))).resolves.not.toHaveProperty(
       "owner",
     );

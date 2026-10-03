@@ -107,12 +107,12 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
 export function ConnectRepository({ organization }: { organization: ViewerOrganization }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const connectedRepositories = useQuery(api.repository.dashboard.getUserRepositories) ?? [];
+  const connectedRepositories = useQuery(api.repository.list) ?? [];
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
-  const connectRepository = useAction(api.repository.actions.connectRepository);
+  const connectRepository = useAction(api.repository.connect);
   const organizationId = organization.organizationId;
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(

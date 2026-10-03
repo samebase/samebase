@@ -1,7 +1,7 @@
 "use node";
 
 import { ConvexError, v, type Infer } from "convex/values";
-import type { ActionCtx } from "../_generated/server";
+import { internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
@@ -16,8 +16,10 @@ import {
 import { createGitHubRepositoryInstallationOctokit } from "../githubApp";
 import { resolveGitHubRepositoryById } from "../githubRepoApi";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
-import { isLiveConnectedRepository, isSamebaseManagedRepository } from "./state";
-import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
+import {
+  toSafeGitHubRepositoryName,
+  tryParseGitHubRepositoryFullName,
+} from "../../shared/githubRepositoryName";
 import { canAccess } from "../../shared/accessModel";
 import { resolveDefaultConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
@@ -36,7 +38,6 @@ import {
 } from "../../shared/appResourceNames";
 import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts/createRepository";
 import { connectRepositoryContract } from "./contracts/connectRepository";
-import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
 const { id, literal, object, string, union } = v;
 const appResourceNameAvailability = object({
@@ -677,14 +678,53 @@ export async function connectRepositoryForUser(
   };
 }
 
-export const connectRepository = action({
-  access: connectRepositoryContract.access,
-  args: connectRepositoryContract.args,
+/**
+MCP callers name the GitHub repository as owner/name. The owner selects the Samebase organization,
+and its GitHub App installation reads the repository's stable database ID.
+*/
+export async function connectRepositoryByFullNameForUser(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: { userId: Id<"users">; githubRepositoryFullName: string },
+): Promise<ConnectRepositoryResult> {
+  const fullName = tryParseGitHubRepositoryFullName(args.githubRepositoryFullName);
+  if (fullName === null) {
+    throw new ConvexError("Pass the GitHub repository as owner/name.");
+  }
+  const target: GitHubAppAccessTarget = { kind: "owner", githubOwnerLogin: fullName.owner };
+  const access = await resolveGitHubAppAccess(ctx, { userId: args.userId, target });
+  let githubRepositoryDatabaseId: string;
+  try {
+    const repository = await access.octokit.rest.repos.get({
+      owner: fullName.owner,
+      repo: fullName.name,
+    });
+    githubRepositoryDatabaseId = String(repository.data.id);
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      throw new ConvexError(
+        `The Samebase GitHub App cannot read ${fullName.owner}/${fullName.name}. Check the name, or give the app access to this repository in GitHub, then retry.`,
+      );
+    }
+    throw error;
+  }
+
+  return await connectRepositoryForUser(ctx, {
+    userId: args.userId,
+    target,
+    githubRepositoryDatabaseId,
+  });
+}
+
+/** The Node half of `repository:connect`, which checks the viewer before it calls this action. */
+export const connect = internalAction({
+  args: {
+    userId: id("users"),
+    ...connectRepositoryContract.args,
+  },
   returns: connectRepositoryContract.returns,
-  mcp: connectRepositoryContract.mcp,
   handler: async (ctx, args): Promise<ConnectRepositoryResult> => {
     return await connectRepositoryForUser(ctx, {
-      userId: ctx.viewer.userId,
+      userId: args.userId,
       target: { kind: "organization", organizationId: args.organizationId },
       githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
     });
@@ -818,16 +858,17 @@ export async function createAppForUser(
   return { repositoryId, runId };
 }
 
-// TODO: rename to createApp since we don't just create a repository
-export const createRepository = action({
-  access: createRepositoryContract.access,
-  args: createRepositoryContract.args,
+/** The Node half of `repository:create`, which checks the viewer before it calls this action. */
+export const create = internalAction({
+  args: {
+    userId: id("users"),
+    ...createRepositoryContract.args,
+  },
   returns: createRepositoryContract.returns,
-  mcp: createRepositoryContract.mcp,
   handler: async (ctx, args): Promise<CreateRepositoryResult> => {
     try {
       return await createAppForUser(ctx, {
-        userId: ctx.viewer.userId,
+        userId: args.userId,
         target: { kind: "organization", organizationId: args.organizationId },
         githubRepositoryName: args.githubRepositoryName,
         convexProjectName: args.convexProjectName,
@@ -869,44 +910,6 @@ export const checkCreateRepositoryResourceNames = action({
       convexProjectName: args.convexProjectName,
       cloudflareWorkerName: args.cloudflareWorkerName,
       cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
-    });
-  },
-});
-
-export async function retryInfrastructureProvisioningForUser(
-  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
-  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
-): Promise<null> {
-  const userId = args.userId;
-  const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
-    userId,
-    repositoryId: args.repositoryId,
-  });
-  if (!repository) {
-    throw new Error("Repository not found");
-  }
-  if (!isLiveConnectedRepository(repository) || !isSamebaseManagedRepository(repository)) {
-    throw new Error(
-      "Infrastructure retry is available only for live Samebase-managed repositories",
-    );
-  }
-  await ctx.runMutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-    userId,
-    repositoryId: args.repositoryId,
-  });
-
-  return null;
-}
-
-export const retryInfrastructureProvisioning = action({
-  access: retryInfrastructureProvisioningContract.access,
-  args: retryInfrastructureProvisioningContract.args,
-  returns: retryInfrastructureProvisioningContract.returns,
-  mcp: retryInfrastructureProvisioningContract.mcp,
-  handler: async (ctx, args): Promise<null> => {
-    return await retryInfrastructureProvisioningForUser(ctx, {
-      ...args,
-      userId: ctx.viewer.userId,
     });
   },
 });

@@ -470,7 +470,7 @@ export function NewAppProviderReadiness({
 export function NewAppPage({ organization }: { organization: ViewerOrganization }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const createRepository = useAction(api.repository.actions.createRepository);
+  const createRepository = useAction(api.repository.create);
   const checkCreateRepositoryResourceNames = useAction(
     api.repository.actions.checkCreateRepositoryResourceNames,
   );

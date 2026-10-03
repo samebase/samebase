@@ -108,8 +108,24 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
   }
 }
 
+/**
+MCP requires `type: "object"` at the root of an output schema, and the official SDK rejects the
+whole tools/list result when one tool lacks it. A union of objects (a gated tool's
+needs_confirmation result or its success) keeps its members in `anyOf` under that root.
+*/
 export function convexValidatorToToolOutputSchema(validator: unknown) {
-  return convexJsonToToolJsonSchema(readConvexValidatorJson(validator));
+  const schema = convexJsonToToolJsonSchema(readConvexValidatorJson(validator));
+  if (schema["type"] === "object") {
+    return schema;
+  }
+  const members = schema["anyOf"];
+  if (
+    !Array.isArray(members) ||
+    !members.every((member) => isRecord(member) && member["type"] === "object")
+  ) {
+    throw new Error("MCP structured content must be an object or a union of objects.");
+  }
+  return { type: "object", anyOf: members };
 }
 
 export function convexArgsToToolInputSchema<TArgs extends PropertyValidators>(

@@ -74,8 +74,7 @@ describe("MCP tool runtime boundaries", () => {
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
       grantedScopes: [],
-      repositoryId,
-      accountId: "account_1",
+      repository: repositoryId,
       workerName: "worker-new",
       rootDirectory: "/",
       buildTokenUuid: "build-token",
@@ -84,24 +83,6 @@ describe("MCP tool runtime boundaries", () => {
     expect(result).toEqual({
       status: "blocked",
       text: "Insufficient scope for repository_cloudflare_createWorker.",
-    });
-  });
-
-  it("blocks the Workers Builds token list before organization resolution", async () => {
-    const { t, userId } = await seedToolRuntimeOwner();
-
-    const result = await t.action(
-      internal.toolRuntime.runtime.cloudflareListWorkersBuildTokensTool,
-      {
-        userId,
-        grantedScopes: [],
-        githubOwnerLogin: "tool-runtime-owner",
-      },
-    );
-
-    expect(result).toEqual({
-      status: "blocked",
-      text: "Insufficient scope for cloudflare_listWorkersBuildTokens.",
     });
   });
 
@@ -283,7 +264,7 @@ describe("MCP tool runtime boundaries", () => {
       };
     });
 
-    const result = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+    const result = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -317,7 +298,7 @@ describe("MCP tool runtime boundaries", () => {
           pendingCloudflareSetup: null,
           sourceSetup: {
             status: "failed",
-            message: "Source setup failed. Check this app in Samebase for recovery steps.",
+            message: "Source setup failed. Check this repository in Samebase for recovery steps.",
           },
         }),
         expect.objectContaining({
@@ -326,20 +307,26 @@ describe("MCP tool runtime boundaries", () => {
           providerSetup: {
             status: "failed",
             provider: "convex",
-            message: "Provider setup failed. Check this app in Samebase before retrying.",
+            message: "Provider setup failed. Call repository_retryProviderSetup to retry it.",
           },
         }),
         expect.objectContaining({
           repositoryId: pendingRepositoryId,
+          githubRepositoryFullName: "tool-runtime-owner/pending-app",
           pendingCloudflareSetup: {
             workerName: "pending-worker",
             rootDirectory: "apps/web",
-            convexProjectId: pendingConvexProjectId,
           },
+          // No Convex credential is stored, so the live project names are unreadable.
+          convexProjects: [
+            { projectSlug: null, projectName: null, codeLocation: "apps/web/convex.json" },
+            { projectSlug: null, projectName: null, codeLocation: "convex.json" },
+          ],
         }),
       ]),
     );
     const output = JSON.stringify(result);
+    expect(output).not.toContain(pendingConvexProjectId);
     expect(output).not.toContain("private-diagnostic@example.com");
     expect(output).not.toContain('"runId"');
     expect(output).not.toContain('"step"');
@@ -347,12 +334,9 @@ describe("MCP tool runtime boundaries", () => {
     expect(output).not.toContain('"lastWriteAt"');
     expect(output).not.toContain('"buildTokenUuid"');
     expect(output).not.toContain('"deploymentRegion"');
-    const webRepositories = await t.query(
-      internal.repository.dashboard.getUserRepositoriesForUser,
-      {
-        userId,
-      },
-    );
+    const webRepositories = await t.query(internal.repository.listForUser, {
+      userId,
+    });
     expect(
       webRepositories.find((repository) => repository.repositoryId === authorizedRepositoryId),
     ).toMatchObject({
@@ -417,7 +401,7 @@ describe("MCP tool runtime boundaries", () => {
           },
         });
       });
-      const unavailable = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+      const unavailable = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
         userId,
         grantedScopes: ["access_dashboard"],
       });
@@ -452,7 +436,7 @@ describe("MCP tool runtime boundaries", () => {
         origin: "selected_existing",
       });
     });
-    const withWorker = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+    const withWorker = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -512,7 +496,7 @@ describe("MCP tool runtime boundaries", () => {
         deletion: { state: "delete_failed", runId: failedRunId, failedAt: 1 },
       });
     });
-    const withDeletions = await t.action(internal.toolRuntime.runtime.getUserRepositoriesTool, {
+    const withDeletions = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
       grantedScopes: ["access_dashboard"],
     });
@@ -563,7 +547,7 @@ describe("MCP tool runtime boundaries", () => {
     );
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "The app failed to load.",
@@ -611,7 +595,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report,
@@ -677,7 +661,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "The app failed to load.",
@@ -711,7 +695,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report,
@@ -730,7 +714,7 @@ describe("MCP tool runtime boundaries", () => {
     vi.stubGlobal("fetch", fetch);
 
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "Samebase returned the wrong setup state.",
@@ -747,19 +731,19 @@ describe("MCP tool runtime boundaries", () => {
 
     for (let reservationNumber = 1; reservationNumber <= 5; reservationNumber += 1) {
       await expect(
-        t.mutation(internal.mcp.feedback.reserveFeedbackSend, {
+        t.mutation(internal.feedback.reserveSend, {
           userId,
         }),
       ).resolves.toBeNull();
     }
 
     await expect(
-      t.mutation(internal.mcp.feedback.reserveFeedbackSend, {
+      t.mutation(internal.feedback.reserveSend, {
         userId,
       }),
     ).rejects.toThrow("Feedback rate limit reached. Try again later.");
     await expect(
-      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+      t.action(internal.feedback.submit, {
         userId,
         grantedScopes: ["access_feedback_submit"],
         report: "The app failed to load.",
@@ -771,29 +755,28 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {
-    const { t, userId, repositoryId } = await seedToolRuntimeOwner();
+    const { t, userId } = await seedToolRuntimeOwner();
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
 
     const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
       userId,
       grantedScopes: ["access_provider_connections"],
-      repositoryId,
-      accountId: "account_1",
-      workerName: "___",
-      rootDirectory: "/",
-      buildTokenUuid: "build-token",
+      repository: "tool-runtime-owner/missing",
+      workerName: "worker-new",
     });
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       status: "error",
-      text: expect.stringContaining("Worker name"),
+      text: "No Samebase repository matches tool-runtime-owner/missing. Pass owner/name or a repositoryId from repository_list. To add an existing GitHub repository to Samebase, call repository_connect.",
     });
-    expect(result).not.toHaveProperty("structuredContent");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("keeps browser handoff behind its dedicated trusted scope", async () => {
     const { t, userId } = await seedToolRuntimeOwner();
 
-    const result = await t.action(internal.toolRuntime.runtime.createBrowserHandoffTool, {
+    const result = await t.action(internal.account.createSignInLink, {
       userId,
       grantId: "grant_1",
       clientId: "client_1",
@@ -802,7 +785,7 @@ describe("MCP tool runtime boundaries", () => {
 
     expect(result).toEqual({
       status: "blocked",
-      text: "Insufficient scope for create_browser_handoff.",
+      text: "Insufficient scope for account_createSignInLink.",
     });
   });
 });

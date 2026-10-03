@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from "node:crypto";
 
+import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
@@ -13,7 +14,7 @@ import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
 import { isRecord } from "../jsonUtils";
 import { sha256Hex } from "./tokens";
-import { MCP_PROTOCOL_VERSION } from "./protocol";
+import { MCP_PROTOCOL_VERSION, MCP_V1_SUPPORTED_SCOPES } from "./protocol";
 import {
   buildMcpToolInvocationArgs,
   listMcpToolsForAccess,
@@ -65,10 +66,6 @@ describe("MCP HTTP tool invocation args", () => {
       });
       return { argumentUserId, tokenUserId };
     });
-    const viewer = await t.query(internal.functions.resolveViewerForUserId, {
-      userId: ids.tokenUserId,
-    });
-
     const toolArgs = buildMcpToolInvocationArgs({
       input: {
         githubRepositoryName: "test-app",
@@ -84,7 +81,6 @@ describe("MCP HTTP tool invocation args", () => {
       grantedScopes: [],
       grantId: "trusted_grant",
       clientId: "trusted_client",
-      viewer,
     });
 
     expect(toolArgs).toMatchObject({
@@ -107,7 +103,7 @@ describe("MCP tool listing access", () => {
         grantedScopes: [],
         currentAccessKeys: ["access_public"],
       }).map((tool) => tool.name),
-    ).toEqual(["samebase_auth_getAuthenticationStatus"]);
+    ).toEqual(["account_getAuthenticationStatus"]);
   });
 
   it("requires both granted scopes and current user access", () => {
@@ -116,28 +112,28 @@ describe("MCP tool listing access", () => {
         grantedScopes: ["access_app_create", "access_dashboard", "access_repo_connect"],
         currentAccessKeys: ["access_dashboard"],
       }).map((tool) => tool.name),
-    ).toEqual(["repository_dashboard_getUserRepositories"]);
+    ).toEqual(["repository_list", "repository_getStatus"]);
 
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_dashboard"],
         currentAccessKeys: ["access_dashboard", "access_app_create", "access_repo_connect"],
       }).map((tool) => tool.name),
-    ).toEqual(["repository_dashboard_getUserRepositories"]);
+    ).toEqual(["repository_list", "repository_getStatus"]);
 
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_repo_connect"],
         currentAccessKeys: ["access_dashboard", "access_app_create", "access_repo_connect"],
       }).map((tool) => tool.name),
-    ).toEqual(["repository_actions_connectRepository"]);
+    ).toEqual(["repository_connect"]);
 
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_feedback_submit"],
         currentAccessKeys: ["access_feedback_submit"],
       }).map((tool) => tool.name),
-    ).toEqual(["samebase_feedback_submit"]);
+    ).toEqual(["feedback_submit"]);
   });
 
   it("uses Claude-compatible public tool names", () => {
@@ -167,65 +163,71 @@ describe("MCP tool listing access", () => {
     );
   });
 
-  it("uses resource ids or GitHub owner names instead of Samebase organization ids", () => {
+  it("takes repositories and resources by name, never by internal ID", () => {
     const tools = listMcpToolsForAccess({
-      grantedScopes: ["access_app_create", "access_repo_connect"],
-      currentAccessKeys: ["access_app_create", "access_repo_connect"],
+      grantedScopes: [...ACCESS_KEYS],
+      currentAccessKeys: [...ACCESS_KEYS],
     });
 
     for (const tool of tools) {
-      expect(tool.inputSchema.properties).not.toHaveProperty("organizationId");
-      expect(tool.inputSchema.properties).not.toHaveProperty("vaultId");
-      expect(tool.inputSchema.properties).not.toHaveProperty("ghRepoId");
-      expect(tool.inputSchema.required ?? []).not.toContain("organizationId");
-      expect(tool.inputSchema.required ?? []).not.toContain("vaultId");
-      expect(tool.inputSchema.required ?? []).not.toContain("ghRepoId");
+      for (const internalId of [
+        "organizationId",
+        "repositoryId",
+        "accountId",
+        "workerId",
+        "workerTag",
+        "convexProjectId",
+        "githubRepositoryDatabaseId",
+        "vaultId",
+        "ghRepoId",
+      ]) {
+        expect(tool.inputSchema.properties).not.toHaveProperty(internalId);
+      }
     }
-    expect(tools.find((tool) => tool.name === "repository_actions_createRepository")).toMatchObject(
-      {
-        inputSchema: {
-          properties: {
-            githubOwnerLogin: { type: "string" },
-            githubRepositoryName: { type: "string" },
-            convexDeploymentRegion: {
-              anyOf: [
-                { const: "aws-us-east-1" },
-                { const: "aws-eu-west-1" },
-                { const: "aws-ca-central-1" },
-                { const: "aws-ap-southeast-2" },
-              ],
-            },
-            cloudflareBuildTokenUuid: {
-              anyOf: [{ type: "string" }, { type: "null" }],
-            },
-          },
-          required: expect.arrayContaining([
-            "githubOwnerLogin",
-            "githubRepositoryName",
-            "cloudflareBuildTokenUuid",
-          ]),
-        },
-      },
-    );
-    expect(
-      tools.find((tool) => tool.name === "repository_actions_createRepository")?.inputSchema
-        .required,
-    ).not.toContain("convexDeploymentRegion");
-    expect(
-      tools.find((tool) => tool.name === "repository_actions_createRepository")?.inputSchema
-        .properties,
-    ).not.toHaveProperty("name");
-    expect(
-      tools.find((tool) => tool.name === "repository_actions_connectRepository"),
-    ).toMatchObject({
+    expect(tools.find((tool) => tool.name === "repository_create")).toMatchObject({
       inputSchema: {
         properties: {
           githubOwnerLogin: { type: "string" },
-          githubRepositoryDatabaseId: { type: "string" },
+          name: { type: "string" },
+          convexDeploymentRegion: {
+            anyOf: [
+              { const: "aws-us-east-1" },
+              { const: "aws-eu-west-1" },
+              { const: "aws-ca-central-1" },
+              { const: "aws-ap-southeast-2" },
+            ],
+            description: expect.stringContaining("EU usage costs 1.3 times US usage"),
+          },
+          buildTokenUuid: { type: "string" },
         },
-        required: expect.arrayContaining(["githubOwnerLogin", "githubRepositoryDatabaseId"]),
+        required: ["githubOwnerLogin", "name"],
       },
     });
+    expect(tools.find((tool) => tool.name === "repository_connect")).toMatchObject({
+      inputSchema: {
+        properties: { githubRepositoryFullName: { type: "string" } },
+        required: ["githubRepositoryFullName"],
+      },
+    });
+    expect(tools.find((tool) => tool.name === "repository_detachResource")).toMatchObject({
+      inputSchema: {
+        properties: {
+          repository: { type: "string" },
+          kind: { anyOf: [{ const: "cloudflare_worker" }, { const: "convex_project" }] },
+          resourceName: { type: "string" },
+        },
+        required: ["repository", "kind", "resourceName"],
+      },
+    });
+    for (const name of [
+      "repository_cloudflare_connectWorker",
+      "repository_cloudflare_createWorker",
+      "repository_cloudflare_rotateConvexDeployKeys",
+    ]) {
+      expect(tools.find((tool) => tool.name === name)?.inputSchema.properties).toHaveProperty(
+        "convexProjectSlug",
+      );
+    }
   });
 
   it("publishes human titles and structured output schemas", () => {
@@ -234,24 +236,19 @@ describe("MCP tool listing access", () => {
       currentAccessKeys: [...ACCESS_KEYS],
     });
 
-    expect(
-      tools.find((tool) => tool.name === "repository_dashboard_getUserRepositories"),
-    ).toMatchObject({
+    expect(tools.find((tool) => tool.name === "repository_list")).toMatchObject({
       outputSchema: {
         type: "object",
         properties: {
           repositories: {
             type: "array",
             items: {
-              properties: {
-                repositoryId: { type: "string" },
-                githubRepositoryDatabaseId: { type: "string" },
-              },
               required: expect.arrayContaining([
                 "repositoryId",
                 "githubOwnerLogin",
-                "githubRepositoryName",
                 "githubRepositoryFullName",
+                "cloudflareWorkers",
+                "convexProjects",
               ]),
             },
           },
@@ -260,144 +257,89 @@ describe("MCP tool listing access", () => {
       },
     });
     expect(
-      JSON.stringify(
-        tools.find((tool) => tool.name === "repository_dashboard_getUserRepositories")
-          ?.outputSchema,
-      ),
-    ).not.toContain('"organizationId"');
-
-    expect(tools.find((tool) => tool.name === "repository_actions_createRepository")).toMatchObject(
-      {
-        title: "Create Samebase app",
-        outputSchema: {
-          type: "object",
-          properties: {
-            repositoryId: { type: "string" },
-          },
-          required: ["repositoryId"],
-          additionalProperties: false,
-        },
-      },
-    );
-    expect(
-      tools.find((tool) => tool.name === "repository_actions_connectRepository"),
-    ).toMatchObject({
+      JSON.stringify(tools.find((tool) => tool.name === "repository_list")?.outputSchema),
+    ).not.toMatch(/"(organizationId|accountId|workerId|workerTag|convexProjectId)"/);
+    expect(tools.find((tool) => tool.name === "repository_create")).toMatchObject({
+      title: "Create Samebase repository",
       outputSchema: {
         type: "object",
-        properties: {
-          repositoryId: { type: "string" },
-          githubRepositoryFullName: { type: "string" },
-        },
-        required: ["repositoryId", "githubRepositoryFullName"],
+        required: ["repositoryId", "githubRepositoryFullName", "cloudflare"],
         additionalProperties: false,
+      },
+    });
+    expect(tools.find((tool) => tool.name === "repository_cloudflare_findWorkers")).toMatchObject({
+      outputSchema: {
+        type: "object",
+        required: ["inventoryState", "workers", "counts"],
+      },
+    });
+    expect(tools.find((tool) => tool.name === "repository_getStatus")).toMatchObject({
+      title: "Get repository status",
+      inputSchema: { required: ["repository"] },
+      outputSchema: {
+        type: "object",
+        required: expect.arrayContaining(["apps", "convexProjects", "pullRequests", "attention"]),
       },
     });
     expect(tools.map((tool) => tool.name)).not.toContain("repository_cloudflare_listAccounts");
-    expect(tools.find((tool) => tool.name === "cloudflare_listWorkersBuildTokens")).toMatchObject({
-      title: "List Cloudflare Workers Builds tokens",
-      annotations: {
-        readOnlyHint: true,
-        openWorldHint: false,
-        destructiveHint: false,
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          accountId: { type: "string" },
-          lastUsedBuildTokenUuid: {
-            anyOf: [{ type: "string" }, { type: "null" }],
-          },
-          tokens: { type: "array" },
-        },
-        required: ["accountId", "lastUsedBuildTokenUuid", "tokens"],
-        additionalProperties: false,
-      },
-    });
-    expect(
-      tools.find((tool) => tool.name === "repository_cloudflare_discoverWorkers"),
-    ).toMatchObject({
-      description: expect.stringContaining("Samebase repository's stored Cloudflare account"),
-      inputSchema: {
-        properties: {
-          accountId: {
-            description:
-              "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
-          },
-        },
-      },
-    });
-    expect(tools.find((tool) => tool.name === "repository_cloudflare_createWorker")).toMatchObject({
-      title: "Create Cloudflare Worker",
-      description: expect.stringContaining("Samebase repository's stored Cloudflare account"),
-      inputSchema: {
-        properties: {
-          accountId: {
-            description:
-              "The Samebase repository's cloudflareAccountId returned by repository_dashboard_getUserRepositories.",
-          },
-        },
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          workerId: { type: "string" },
-        },
-        required: ["workerId"],
-        additionalProperties: false,
-      },
-    });
-    const configureWorkersBuildsTool = tools.find(
-      (tool) => tool.name === "repository_cloudflare_configureWorkersBuildsForGitHub",
+    expect(tools.map((tool) => tool.name)).not.toContain("cloudflare_listWorkersBuildTokens");
+    const configureBuildsTool = tools.find(
+      (tool) => tool.name === "repository_cloudflare_configureBuilds",
     );
-    expect(configureWorkersBuildsTool).not.toHaveProperty("outputSchema");
-    expect(configureWorkersBuildsTool).toMatchObject({
+    expect(configureBuildsTool).not.toHaveProperty("outputSchema");
+    expect(configureBuildsTool).toMatchObject({
       description: expect.stringContaining("start a production build"),
     });
     expect(
-      tools.find(
-        (tool) => tool.name === "repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
-      ),
+      tools.find((tool) => tool.name === "repository_cloudflare_rotateConvexDeployKeys"),
     ).toMatchObject({
       description: expect.stringContaining("start a production build"),
     });
   });
 
-  it("pins high-risk tool safety annotations", () => {
+  it("pins the RFC 125 hints of every write tool", () => {
     const tools = listMcpToolsForAccess({
       grantedScopes: [...ACCESS_KEYS],
       currentAccessKeys: [...ACCESS_KEYS],
     });
-    const expectedSafety = [
-      ["repository_actions_createRepository", false],
-      ["repository_cloudflare_createWorker", false],
-      ["repository_cloudflare_configureWorkersBuildsForGitHub", true],
-      ["repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds", true],
-      ["repository_actions_retryInfrastructureProvisioning", true],
-      ["samebase_feedback_submit", true],
+    const expectedHints = [
+      ["account_createSignInLink", false, false],
+      ["feedback_submit", true, true],
+      ["repository_create", true, false],
+      ["repository_connect", false, false],
+      ["repository_retryProviderSetup", true, true],
+      ["repository_detachResource", false, true],
+      ["repository_cloudflare_attachWorkers", false, false],
+      ["repository_cloudflare_connectWorker", true, true],
+      ["repository_cloudflare_createWorker", true, false],
+      ["repository_cloudflare_configureBuilds", true, true],
+      ["repository_cloudflare_rotateConvexDeployKeys", true, true],
+      ["repository_convex_attachProject", false, false],
+      ["repository_convex_createProject", true, false],
     ] as const;
 
-    for (const [name, destructiveHint] of expectedSafety) {
+    for (const [name, openWorldHint, destructiveHint] of expectedHints) {
       expect(tools.find((tool) => tool.name === name)).toMatchObject({
         annotations: {
           readOnlyHint: false,
-          openWorldHint: true,
+          openWorldHint,
           destructiveHint,
         },
       });
     }
   });
 
-  it("marks account reads and provider discovery as bounded read-only tools", () => {
+  it("marks account reads, the status read, and provider discovery as bounded read-only tools", () => {
     const tools = listMcpToolsForAccess({
       grantedScopes: [...ACCESS_KEYS],
       currentAccessKeys: [...ACCESS_KEYS],
     });
     for (const name of [
-      "samebase_auth_getAuthenticationStatus",
-      "repository_dashboard_getUserRepositories",
-      "cloudflare_listWorkersBuildTokens",
-      "repository_convex_discoverProjects",
-      "repository_cloudflare_discoverWorkers",
+      "account_getAuthenticationStatus",
+      "repository_list",
+      "repository_getStatus",
+      "repository_convex_findProjects",
+      "repository_cloudflare_findWorkers",
     ]) {
       expect(tools.find((tool) => tool.name === name)).toMatchObject({
         annotations: {
@@ -424,9 +366,7 @@ describe("MCP usage attribution dimensions", () => {
     for (const contract of actionContracts) {
       expect(readMcpToolNameForUsage({ name: contract.mcp.name })).toBe(contract.mcp.name);
     }
-    expect(readMcpToolNameForUsage({ name: " repository_actions_createRepository " })).toBe(
-      "unknown",
-    );
+    expect(readMcpToolNameForUsage({ name: " repository_create " })).toBe("unknown");
     expect(readMcpToolNameForUsage({ name: "caller controlled text" })).toBe("unknown");
     expect(readMcpToolNameForUsage({ name: "" })).toBe("unknown");
     expect(readMcpToolNameForUsage(null)).toBe("unknown");
@@ -711,26 +651,15 @@ describe("MCP tools/call access enforcement", () => {
       result: {
         protocolVersion: "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "Samebase", version: "0.2.0" },
+        serverInfo: { name: "Samebase", version: "0.3.0" },
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If the user chooses US, pass aws-us-east-1[\s\S]*If the user chooses EU, pass aws-eu-west-1[\s\S]*omit convexDeploymentRegion so Samebase uses the organization default, or US East when no default is saved[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call repository_cloudflare_createWorker[\s\S]*call repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects\.[\s\S]*Name a repository by owner\/name\.\n\nTo create a repository, call repository_create once \(Samebase picks the build token\), then poll only repository_list until source and provider setup are ready or failed\. For build, deployment, check, or pull request questions, call repository_getStatus and follow its attention items\. Ready setup, a build request, or a push does not prove that the app is live\.[\s\S]*A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.\n\nFor a request to open the Samebase dashboard, call account_createSignInLink directly\. Only the dashboard can remove a repository from Samebase[\s\S]*create it only after the user accepts\.$/,
         ),
       },
     });
-    expect(payload).toMatchObject({
-      result: {
-        instructions: expect.stringContaining(
-          "Show its returned URL to the user as a clickable link.",
-        ),
-      },
-    });
-    expect(payload).toMatchObject({
-      result: {
-        instructions: expect.stringContaining(
-          "For these requests only, say that the user can do it in the Samebase dashboard and offer to open it with create_browser_handoff. Do not call a tool until the user accepts. Do not claim that the operation finished. Do not send provider state to the dashboard: use provider-native tools for logs, environment values, migrations, custom domains, and deployment and build status.",
-        ),
-      },
-    });
+    // The server picks tokens, installs deploy keys, and names the repair tool in each attention
+    // item, so the instructions stay near 1k characters.
+    expect(payload.result.instructions.length).toBeLessThan(1_200);
     expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
   });
@@ -984,8 +913,11 @@ describe("MCP tools/call access enforcement", () => {
     }
   });
 
-  it("returns a plain tools/list result", async () => {
-    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+  it("returns a plain tools/list result that the official MCP SDK accepts", async () => {
+    const { accessToken, t } = await seedMcpBearer({
+      isApproved: true,
+      scopes: [...MCP_V1_SUPPORTED_SCOPES],
+    });
     const response = await t.fetch("/mcp", {
       method: "POST",
       headers: mcpRequestHeaders({ accessToken }),
@@ -998,13 +930,20 @@ describe("MCP tools/call access enforcement", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    const body = await response.json();
+    expect(body).toEqual({
       jsonrpc: "2.0",
       id: 1,
       result: {
         tools: expect.any(Array),
       },
     });
+    // A client that validates the catalog drops every tool when one output schema is invalid.
+    const listed = ListToolsResultSchema.safeParse(body.result);
+    expect(listed.error?.issues).toBeUndefined();
+    expect(listed.data?.tools.map((tool) => tool.name)).toEqual(
+      actionContracts.map((contract) => contract.mcp.name),
+    );
   });
 
   it("returns a plain success result for ping", async () => {
@@ -1126,7 +1065,7 @@ describe("MCP tools/call access enforcement", () => {
         jsonrpc: "2.0",
         method: "tools/call",
         params: {
-          name: "samebase_auth_getAuthenticationStatus",
+          name: "account_getAuthenticationStatus",
           arguments: "not-an-object",
         },
       }),
@@ -1144,7 +1083,7 @@ describe("MCP tools/call access enforcement", () => {
       },
       {
         params: {
-          name: "samebase_auth_getAuthenticationStatus",
+          name: "account_getAuthenticationStatus",
           arguments: "not-an-object",
         },
       },
@@ -1225,14 +1164,14 @@ describe("MCP tools/call access enforcement", () => {
     // stale-token-after-downgrade case the dispatch gate exists for.
     const { callTool } = await seedMcpBearer({ isApproved: false });
 
-    const payload = await callTool("repository_actions_createRepository");
+    const payload = await callTool("repository_create");
     expect(payload).toMatchObject({
       result: {
         isError: true,
         content: [
           {
             type: "text",
-            text: "Insufficient access for repository_actions_createRepository.",
+            text: "Insufficient access for repository_create.",
           },
         ],
       },
@@ -1246,7 +1185,7 @@ describe("MCP tools/call access enforcement", () => {
       scopes: ["access_browser_login_handoff"],
     });
 
-    const payload = await callTool("create_browser_handoff", {
+    const payload = await callTool("account_createSignInLink", {
       clientId: "raw_client",
       grantId: "raw_grant",
       returnToPath: "/repo/",
@@ -1259,6 +1198,13 @@ describe("MCP tools/call access enforcement", () => {
         },
       },
     });
+    const { expiresAt, url } = payload.result.structuredContent;
+    expect(payload.result.content).toEqual([
+      {
+        type: "text",
+        text: `Open your Samebase dashboard: ${url}. The link works once and expires at ${new Date(expiresAt).toISOString()}.`,
+      },
+    ]);
 
     const rows = await t.run(
       async (ctx) =>
@@ -1294,7 +1240,7 @@ describe("MCP tools/call access enforcement", () => {
       githubRepositoryName: "existing-app",
     });
 
-    const payload = await callTool("repository_dashboard_getUserRepositories");
+    const payload = await callTool("repository_list");
     expect(payload).toMatchObject({
       result: {
         content: [
@@ -1314,7 +1260,7 @@ describe("MCP tools/call access enforcement", () => {
 
   it("does not expose Convex validation diagnostics in tool errors", async () => {
     const { callTool } = await seedMcpBearer({ isApproved: true });
-    const payload = await callTool("repository_actions_createRepository", {
+    const payload = await callTool("repository_create", {
       githubOwnerLogin: "samebase",
       githubRepositoryName: "test-app",
       convexProjectName: "test-app",
@@ -1334,7 +1280,11 @@ describe("MCP tools/call access enforcement", () => {
     });
   });
 
-  it("creates a Worker with the repository account from inventory, then returns it in inventory", async () => {
+  /**
+  A connected repository samebase/demo whose organization has a Cloudflare OAuth connection and a
+  last-used Workers Builds token, and a provider fetch mock for one Worker named mcp-worker.
+  */
+  async function seedWorkerCreateFixture() {
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     vi.stubEnv("GITHUB_APP_ID", "123");
     vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
@@ -1382,14 +1332,13 @@ describe("MCP tools/call access enforcement", () => {
       },
     };
     let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
-    let failWorkerDiscovery = false;
     // Workers without Builds settings that Samebase records by tag, or by name under an old tag.
     const recordedWorkersWithoutBuilds = [
       { id: "other-app-worker-tag", name: "other-app-worker" },
       { id: "replaced-worker-new-tag", name: "replaced-worker" },
       { id: "other-app-replaced-worker-new-tag", name: "other-app-replaced-worker" },
     ];
-    let listRecordedWorkersWithoutBuilds = false;
+    const providerState = { failWorkerDiscovery: false, listRecordedWorkersWithoutBuilds: false };
 
     function jsonResponse(result: unknown, status = 200): Response {
       return new Response(JSON.stringify(result), {
@@ -1483,7 +1432,7 @@ describe("MCP tools/call access enforcement", () => {
       if (method === "GET" && url.pathname.endsWith("/workers/workers")) {
         return cloudflareResponse([
           workerDetails(),
-          ...(listRecordedWorkersWithoutBuilds
+          ...(providerState.listRecordedWorkersWithoutBuilds
             ? recordedWorkersWithoutBuilds.map((worker) => ({ ...workerDetails(), ...worker }))
             : []),
         ]);
@@ -1509,7 +1458,7 @@ describe("MCP tools/call access enforcement", () => {
         ]);
       }
       if (method === "GET" && url.pathname.endsWith("/builds/workers/mcp-worker-tag")) {
-        if (failWorkerDiscovery) {
+        if (providerState.failWorkerDiscovery) {
           return jsonResponse(
             {
               success: false,
@@ -1615,35 +1564,57 @@ describe("MCP tools/call access enforcement", () => {
       });
       return repositoryId;
     });
+    return {
+      callTool,
+      cloudflareAccountId,
+      defaultBranchCommitSha,
+      organizationId,
+      providerRequests,
+      providerState,
+      repositoryId,
+      t,
+      userId,
+    };
+  }
 
-    const inventoryBeforeCreate = await callTool("repository_dashboard_getUserRepositories");
+  function findInitialBuildRequest(
+    providerRequests: Array<{ body: unknown; method: string; path: string }>,
+  ) {
+    return providerRequests.find(
+      (request) =>
+        request.method === "POST" &&
+        request.path.endsWith("/builds/triggers/created-trigger-1/builds"),
+    );
+  }
+
+  it("creates a Worker with the repository account from inventory, then returns it in inventory", async () => {
+    const {
+      callTool,
+      cloudflareAccountId,
+      defaultBranchCommitSha,
+      organizationId,
+      providerRequests,
+      providerState,
+      repositoryId,
+      t,
+    } = await seedWorkerCreateFixture();
+
+    const inventoryBeforeCreate = await callTool("repository_list");
     expect(inventoryBeforeCreate).toMatchObject({
       result: {
         structuredContent: {
-          repositories: [expect.objectContaining({ repositoryId, cloudflareAccountId })],
+          repositories: [
+            expect.objectContaining({ repositoryId, githubRepositoryFullName: "samebase/demo" }),
+          ],
         },
       },
     });
 
-    const buildTokensPayload = await callTool("cloudflare_listWorkersBuildTokens", {
-      githubOwnerLogin: "samebase",
-    });
-    expect(buildTokensPayload).toMatchObject({
-      result: {
-        structuredContent: {
-          accountId: cloudflareAccountId,
-          lastUsedBuildTokenUuid: "reusable-build-token",
-          tokens: [{ name: "samebase build token", uuid: "reusable-build-token" }],
-        },
-      },
-    });
-
+    // No token UUID: Samebase uses the account's last-used Workers Builds token.
     const createPayload = await callTool("repository_cloudflare_createWorker", {
-      repositoryId,
-      accountId: cloudflareAccountId,
+      repository: "samebase/demo",
       workerName: "mcp-worker",
       rootDirectory: "apps/web",
-      buildTokenUuid: "reusable-build-token",
     });
     if (isRecord(createPayload.result) && createPayload.result["isError"] === true) {
       throw new Error(JSON.stringify(createPayload.result));
@@ -1659,10 +1630,21 @@ describe("MCP tools/call access enforcement", () => {
       throw new Error("Expected the MCP tool to record the Worker attachment.");
     }
 
+    const noDeployKeyMessage =
+      "No Convex project is attached to this repository, so no deploy key was installed. After you attach or create one, call repository_cloudflare_rotateConvexDeployKeys for this Worker.";
     expect(createPayload).toMatchObject({
       result: {
-        content: [{ type: "text", text: "Created and attached Cloudflare Worker mcp-worker." }],
-        structuredContent: { workerId: attachment._id },
+        content: [
+          {
+            type: "text",
+            text: `Created mcp-worker for samebase/demo at apps/web. ${noDeployKeyMessage}`,
+          },
+        ],
+        structuredContent: {
+          workerName: "mcp-worker",
+          rootDirectory: "apps/web",
+          convexDeployKey: { state: "not_installed", message: noDeployKeyMessage },
+        },
       },
     });
     expect(attachment).toMatchObject({
@@ -1684,22 +1666,14 @@ describe("MCP tools/call access enforcement", () => {
       lastWriteAt: { cloudflare: expect.any(Number) },
     });
 
-    const inventoryPayload = await callTool("repository_dashboard_getUserRepositories");
+    const inventoryPayload = await callTool("repository_list");
     expect(inventoryPayload).toMatchObject({
       result: {
         structuredContent: {
           repositories: [
             expect.objectContaining({
               repositoryId,
-              cloudflareWorkers: [
-                {
-                  workerId: attachment._id,
-                  accountId: cloudflareAccountId,
-                  workerName: "mcp-worker",
-                  workerTag: "mcp-worker-tag",
-                  rootDirectory: "apps/web",
-                },
-              ],
+              cloudflareWorkers: [{ workerName: "mcp-worker", rootDirectory: "apps/web" }],
             }),
           ],
         },
@@ -1717,11 +1691,7 @@ describe("MCP tools/call access enforcement", () => {
         request.method === "POST" &&
         request.path.endsWith("/builds/workers/mcp-worker-tag/migrate_to_previews"),
     );
-    const initialBuildRequest = providerRequests.find(
-      (request) =>
-        request.method === "POST" &&
-        request.path.endsWith("/builds/triggers/created-trigger-1/builds"),
-    );
+    const initialBuildRequest = findInitialBuildRequest(providerRequests);
     expect(workerCreateRequests).toHaveLength(1);
     expect(buildsCreateRequests).toHaveLength(1);
     expect(buildsCreateRequests.map((request) => request.body)).toEqual([
@@ -1800,39 +1770,155 @@ describe("MCP tools/call access enforcement", () => {
       });
       return otherRepositoryId;
     });
-    listRecordedWorkersWithoutBuilds = true;
-    failWorkerDiscovery = true;
-    const discovery = await callTool("repository_cloudflare_discoverWorkers", {
-      repositoryId,
-      accountId: cloudflareAccountId,
+    providerState.listRecordedWorkersWithoutBuilds = true;
+    providerState.failWorkerDiscovery = true;
+    const discovery = await callTool("repository_cloudflare_findWorkers", {
+      repository: repositoryId,
     });
-    expect(discovery.result.structuredContent.workers).toEqual([
-      { attachment: "attached", workerName: "mcp-worker", workerTag: "mcp-worker-tag" },
-      {
-        attachment: "attached_elsewhere",
-        workerName: "other-app-replaced-worker",
-        workerTag: "other-app-replaced-worker-new-tag",
-      },
-      {
-        attachment: "attached_elsewhere",
-        workerName: "other-app-worker",
-        workerTag: "other-app-worker-tag",
-      },
-      {
-        attachment: "attached",
-        workerName: "replaced-worker",
-        workerTag: "replaced-worker-new-tag",
-      },
-    ]);
+    // MCP discovery lists only Workers that a tool can add, and counts the others.
+    expect(discovery.result.structuredContent).toEqual({
+      inventoryState: "complete",
+      workers: [],
+      counts: { attached: 2, attachedElsewhere: 2, connectedElsewhere: 0, unavailable: 0 },
+    });
     expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
     expect(JSON.stringify(discovery)).not.toContain(otherRepositoryId);
     expect(JSON.stringify(discovery)).not.toContain("old-tag");
   });
 
+  it("defers the first build to the deploy key of the only Convex project, and reports a key it could not install without the provider error", async () => {
+    const { callTool, organizationId, providerRequests, repositoryId, t, userId } =
+      await seedWorkerCreateFixture();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        convexConfigPath: "apps/web/convex.json",
+        origin: "selected_existing",
+      });
+      await ctx.db.patch(organizationId, { convexTeam: { teamId: "convex-team" } });
+      const credentials = await ctx.db
+        .query("organizationProviderCredentials")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .unique();
+      if (!credentials) {
+        throw new Error("Expected the fixture to store provider credentials.");
+      }
+      await ctx.db.patch(credentials._id, {
+        convex: {
+          auth: { method: "api_key", credential: "convex-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+    });
+    const providerFetch = vi.mocked(fetch);
+    const fixtureFetch = providerFetch.getMockImplementation();
+    // The deploy-key step fails after Builds setup with a raw provider error.
+    providerFetch.mockImplementation(async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.hostname === "api.convex.dev") {
+        return new Response(
+          JSON.stringify({
+            code: "InternalServerError",
+            message: "private-diagnostic@example.com provider debug detail",
+          }),
+          { status: 500, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (!fixtureFetch) {
+        throw new Error("Expected the fixture fetch mock.");
+      }
+      return await fixtureFetch(input, init);
+    });
+
+    const createPayload = await callTool("repository_cloudflare_createWorker", {
+      repository: "samebase/demo",
+      workerName: "mcp-worker",
+      rootDirectory: "apps/web",
+    });
+
+    const message =
+      "Samebase did not install the Convex deploy key, so no production build started. Samebase could not complete this request. Check the app in Samebase before retrying. When the cause is fixed, call repository_cloudflare_rotateConvexDeployKeys for this Worker to install the key and start the build.";
+    expect(createPayload).toMatchObject({
+      result: {
+        content: [
+          { type: "text", text: `Created mcp-worker for samebase/demo at apps/web. ${message}` },
+        ],
+        structuredContent: {
+          workerName: "mcp-worker",
+          convexDeployKey: { state: "not_installed", message },
+        },
+      },
+    });
+    expect(createPayload.result).not.toHaveProperty("isError");
+    expect(JSON.stringify(createPayload)).not.toContain("private-diagnostic@example.com");
+    expect(JSON.stringify(createPayload)).not.toContain("api.convex.dev");
+    expect(
+      providerRequests.filter(
+        (request) => request.method === "POST" && request.path.endsWith("/builds/workers"),
+      ),
+    ).toHaveLength(1);
+    expect(findInitialBuildRequest(providerRequests)).toBeUndefined();
+  });
+
+  it("fails closed before any provider change when several Convex projects could take the deploy key", async () => {
+    const { callTool, organizationId, providerRequests, repositoryId, t } =
+      await seedWorkerCreateFixture();
+    await t.run(async (ctx) => {
+      for (const convexConfigPath of ["convex.json", "apps/admin/convex.json"]) {
+        await ctx.db.insert("repositoryConvexProjects", {
+          repositoryId,
+          organizationId,
+          teamId: "convex-team",
+          projectId: `project-${convexConfigPath}`,
+          convexConfigPath,
+          origin: "selected_existing",
+        });
+      }
+    });
+
+    for (const toolName of [
+      "repository_cloudflare_createWorker",
+      "repository_cloudflare_connectWorker",
+    ]) {
+      const payload = await callTool(toolName, {
+        repository: "samebase/demo",
+        workerName: "mcp-worker",
+      });
+      expect(payload).toMatchObject({
+        result: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              // No Convex connection: the names are unreadable, so the code locations identify them.
+              text: "samebase/demo has several attached Convex projects: slug unavailable (apps/admin/convex.json), slug unavailable (convex.json). Choose the project whose deploy key the Worker gets.",
+            },
+          ],
+        },
+      });
+    }
+    expect(providerRequests.filter((request) => request.path.startsWith("/client/v4/"))).toEqual(
+      [],
+    );
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("workflow_repositoryProvisioning_writeLocks")
+            .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
+            .unique(),
+      ),
+    ).resolves.toBeNull();
+  });
+
   it("reports authentication status for a valid MCP bearer token", async () => {
     const { callTool } = await seedMcpBearer({ isApproved: true });
 
-    const payload = await callTool("samebase_auth_getAuthenticationStatus");
+    const payload = await callTool("account_getAuthenticationStatus");
     expect(payload).toMatchObject({
       result: {
         content: [
@@ -1848,6 +1934,7 @@ describe("MCP tools/call access enforcement", () => {
               email: "ada@example.com",
             },
             role: "role_member",
+            githubOwnerLogins: ["samebase"],
             grantedScopes: ["access_dashboard", "access_app_create"],
           },
         },
@@ -1864,7 +1951,7 @@ describe("MCP tools/call access enforcement", () => {
       await ctx.db.patch(userId, { email: "not-an-email" });
     });
 
-    const payload = await callTool("samebase_auth_getAuthenticationStatus");
+    const payload = await callTool("account_getAuthenticationStatus");
     expect(payload).toMatchObject({
       result: {
         isError: true,

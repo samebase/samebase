@@ -35,6 +35,7 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import {
+  getConvexCodeLocationPath,
   normalizeConvexDirectoryPath,
   type ConvexCodeLocation,
 } from "../../shared/convexCodeLocation";
@@ -43,7 +44,6 @@ import {
   convexAttachProjectsContract,
   convexChangeProjectCodeLocationContract,
   convexCreateProjectContract,
-  convexDetachProjectContract,
   convexDiscoverProjectsContract,
   vConvexAttachmentProject,
   vConvexCodeLocationSelection,
@@ -144,7 +144,7 @@ async function readProviderAttachmentRepositoryContext(
   );
 }
 
-async function discoverConvexCodeLocations(
+export async function discoverConvexCodeLocations(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ): Promise<{
@@ -465,6 +465,91 @@ async function readConvexWorkerReferences(
   }
 }
 
+/**
+Names of the projects in one connected Convex team, keyed by Convex project ID. Samebase stores
+only project IDs, so MCP tools that take a Convex project name read the names live.
+*/
+export async function readConvexTeamProjectNamesForUser(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; organizationId: Id<"organizations">; teamId: string },
+): Promise<Map<string, { projectName: string; projectSlug: string }>> {
+  const connection = await resolveConvexConnectionForTeam(ctx, args);
+  const projects = await listProjectsForConnection(connection);
+  return new Map(
+    projects.map((project) => [
+      project.id,
+      { projectName: project.name, projectSlug: project.slug },
+    ]),
+  );
+}
+
+type ConvexTeamProjectNames = Awaited<ReturnType<typeof readConvexTeamProjectNamesForUser>>;
+type AttachedConvexProject = {
+  convexProjectId: Id<"repositoryConvexProjects">;
+  projectId: string;
+  codeLocation: ConvexCodeLocation;
+};
+export type AttachedConvexProjectName = {
+  convexProjectId: Id<"repositoryConvexProjects">;
+  projectName: string | null;
+  projectSlug: string | null;
+  codeLocation: string;
+};
+
+/** The repository's Convex team project names, or null without a team or when Convex is unreadable. */
+export async function readRepositoryConvexTeamProjectNames(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    repository: {
+      organizationId: Id<"organizations">;
+      convexTeamId?: string;
+      convexProjects: readonly AttachedConvexProject[];
+    };
+  },
+): Promise<ConvexTeamProjectNames | null> {
+  const { convexTeamId } = args.repository;
+  if (convexTeamId === undefined || args.repository.convexProjects.length === 0) {
+    return null;
+  }
+  return await readConvexTeamProjectNamesForUser(ctx, {
+    userId: args.userId,
+    organizationId: args.repository.organizationId,
+    teamId: convexTeamId,
+  }).catch(() => null);
+}
+
+/** Names the attached projects from their team's names, sorted by code location path. */
+export function nameAttachedConvexProjects(
+  convexProjects: readonly AttachedConvexProject[],
+  teamProjectNames: ConvexTeamProjectNames | null,
+): AttachedConvexProjectName[] {
+  return convexProjects
+    .map((project) => {
+      const names = teamProjectNames?.get(project.projectId);
+      return {
+        convexProjectId: project.convexProjectId,
+        projectName: names?.projectName ?? null,
+        projectSlug: names?.projectSlug ?? null,
+        codeLocation: getConvexCodeLocationPath(project.codeLocation),
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.codeLocation.localeCompare(right.codeLocation) ||
+        left.convexProjectId.localeCompare(right.convexProjectId),
+    );
+}
+
+/** Each project as its slug, which MCP tools take, and its code location. */
+export function formatAttachedConvexProjects(
+  projects: readonly AttachedConvexProjectName[],
+): string {
+  return projects
+    .map((project) => `${project.projectSlug ?? "slug unavailable"} (${project.codeLocation})`)
+    .join(", ");
+}
+
 export async function discoverProjectsForUser(
   ctx: ActionCtx,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
@@ -573,7 +658,7 @@ export async function attachExistingProjectsForUser(
   });
 }
 
-async function createProjectForUser(
+export async function createProjectForUser(
   ctx: ActionCtx,
   args: {
     repositoryId: Id<"repositories">;
@@ -796,7 +881,7 @@ async function createProjectForManagedWorkflow(
   }
 }
 
-export const discoverProjects = action({
+export const findProjects = action({
   access: convexDiscoverProjectsContract.access,
   args: convexDiscoverProjectsContract.args,
   returns: convexDiscoverProjectsContract.returns,
@@ -805,7 +890,7 @@ export const discoverProjects = action({
     await discoverProjectsForUser(ctx, { ...args, userId: ctx.viewer.userId }),
 });
 
-export const attachProjects = action({
+export const attachProject = action({
   access: convexAttachProjectsContract.access,
   args: convexAttachProjectsContract.args,
   returns: convexAttachProjectsContract.returns,
@@ -818,6 +903,7 @@ export const createProject = action({
   access: convexCreateProjectContract.access,
   args: convexCreateProjectContract.args,
   returns: convexCreateProjectContract.returns,
+  mcp: convexCreateProjectContract.mcp,
   handler: async (ctx, args): Promise<Id<"repositoryConvexProjects">> =>
     await createProjectForUser(ctx, { ...args, userId: ctx.viewer.userId }),
 });
@@ -847,31 +933,6 @@ export const changeProjectCodeLocation = action({
       projectId: attachment.projectId,
       expectedCodeLocation: attachment.codeLocation,
       nextCodeLocation: removeConvexCodeLocationEvidence(codeLocation),
-    });
-    return null;
-  },
-});
-
-export const detachProject = action({
-  access: convexDetachProjectContract.access,
-  args: convexDetachProjectContract.args,
-  returns: convexDetachProjectContract.returns,
-  handler: async (ctx, args): Promise<null> => {
-    const attachment = await ctx.runQuery(
-      internal.repository.convexMutations.readProjectAttachmentContext,
-      {
-        repositoryId: args.repositoryId,
-        convexProjectId: args.convexProjectId,
-        userId: ctx.viewer.userId,
-      },
-    );
-    await ctx.runMutation(internal.repository.convexMutations.detachProject, {
-      repositoryId: args.repositoryId,
-      convexProjectId: args.convexProjectId,
-      userId: ctx.viewer.userId,
-      teamId: attachment.teamId,
-      projectId: attachment.projectId,
-      codeLocation: attachment.codeLocation,
     });
     return null;
   },

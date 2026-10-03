@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -112,5 +112,19 @@ check(
   "The public plugin must contain only the Samebase skill.",
 );
 resolvePluginPath(skillsRoot, "samebase/SKILL.md", "Samebase skill");
+
+// The skill ships in the reviewed app bundle, so it names no marketplace.
+for (const entry of readdirSync(resolve(skillsRoot, "samebase"), {
+  recursive: true,
+  withFileTypes: true,
+})) {
+  if (entry.isFile()) {
+    const filePath = resolve(entry.parentPath, entry.name);
+    check(
+      !/marketplace/i.test(readFileSync(filePath, "utf8")),
+      `The Samebase skill must not name a marketplace: ${relative(repoRoot, filePath)}`,
+    );
+  }
+}
 
 console.log("Samebase agent plugin checks passed.");

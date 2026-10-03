@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { ActionConfirmationRequest } from "../../../convex/repository/contracts/actionConfirmation";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import {
   buildAvailableAppResourceNameSuggestion,
@@ -13,6 +14,7 @@ import {
   formatAppResourceNameConflictMessage,
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
+import { getConvexCodeLocationPath } from "../../../shared/convexCodeLocation";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import {
   AppResourceNameFeedback,
@@ -36,8 +38,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
 import { RepositoryProviderDiscoveryLoadingState } from "./RepositoryProviderDiscoveryLoadingState";
 import { RepositoryRootInput } from "./RepositoryRootInput";
+import type {
+  RepositoryConvexProjectObservation,
+  RepositoryProviderObservationState,
+} from "./useRepositoryProviderObservations";
 
 const EMPTY_REPOSITORY_FOLDER_SUGGESTIONS: readonly string[] = [];
 
@@ -47,12 +54,16 @@ type CloudflareWorkerConnectTarget = {
   workerTag: string;
 };
 type CloudflareWorkerOption =
-  (typeof api.repository.cloudflare.discoverWorkers)["_returnType"]["workers"][number];
+  (typeof api.repository.cloudflare.findWorkers)["_returnType"]["workers"][number];
 type CloudflareInventoryState =
-  (typeof api.repository.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
+  (typeof api.repository.cloudflare.findWorkers)["_returnType"]["inventoryState"];
+type CloudflareConnectWorkerArgs = (typeof api.repository.cloudflare.connectWorker)["_args"];
+type CloudflareConnectWorkerResult =
+  (typeof api.repository.cloudflare.connectWorker)["_returnType"];
 export function RepositoryCloudflareDialogContent({
   blockedReason,
   cloudflareBuildTokenField,
+  convexProjectField,
   createRootDirectory,
   createWorkerNameConflict,
   createWorkerName,
@@ -60,6 +71,7 @@ export function RepositoryCloudflareDialogContent({
   error,
   folderSuggestions,
   hasSelectedBuildToken,
+  hasSelectedConvexProject,
   isLoading,
   isSubmitting,
   inventoryState,
@@ -80,6 +92,7 @@ export function RepositoryCloudflareDialogContent({
 }: {
   blockedReason?: string | null;
   cloudflareBuildTokenField: ReactNode;
+  convexProjectField: ReactNode;
   createRootDirectory: string;
   createWorkerNameConflict: { message: string; suggestion: string | null } | null;
   createWorkerName: string;
@@ -87,6 +100,8 @@ export function RepositoryCloudflareDialogContent({
   error: string | null;
   folderSuggestions: readonly string[];
   hasSelectedBuildToken: boolean;
+  /** False while several Convex projects are attached and none is chosen for the deploy key. */
+  hasSelectedConvexProject: boolean;
   isLoading: boolean;
   isSubmitting: boolean;
   inventoryState: CloudflareInventoryState | null;
@@ -165,11 +180,15 @@ export function RepositoryCloudflareDialogContent({
         (mode === "existing"
           ? selectedWorkerTags.length === 0
           : mode === "connect"
-            ? !workerToConnect || !createRootDirectory.trim() || !hasSelectedBuildToken
+            ? !workerToConnect ||
+              !createRootDirectory.trim() ||
+              !hasSelectedBuildToken ||
+              !hasSelectedConvexProject
             : !createWorkerNameValidation.valid ||
               Boolean(createWorkerNameConflict) ||
               !createRootDirectory.trim() ||
-              !hasSelectedBuildToken));
+              !hasSelectedBuildToken ||
+              !hasSelectedConvexProject));
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -248,6 +267,7 @@ export function RepositoryCloudflareDialogContent({
                 value={createRootDirectory}
               />
               {cloudflareBuildTokenField}
+              {convexProjectField}
             </div>
           ) : (
             <>
@@ -354,6 +374,7 @@ export function RepositoryCloudflareDialogContent({
                     value={createRootDirectory}
                   />
                   {cloudflareBuildTokenField}
+                  {convexProjectField}
                 </div>
               )}
             </>
@@ -418,24 +439,25 @@ export function RepositoryCloudflareDialogContent({
 
 export function RepositoryCloudflareDialog({
   blockedReason,
+  convexObservations,
   onClose,
   repairBuildTokenUuid,
   repairWorkerId,
   repository,
 }: {
   blockedReason: string | null;
+  /** The live Convex reads of the overview; their slugs tell apart projects at one code location. */
+  convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
   onClose: () => void;
   repairBuildTokenUuid: string | null;
   repairWorkerId: Id<"repositoryCloudflareWorkers"> | null;
   repository: UserRepositoryResult;
 }) {
-  const discoverWorkers = useAction(api.repository.cloudflare.discoverWorkers);
+  const findWorkers = useAction(api.repository.cloudflare.findWorkers);
   const attachWorkers = useAction(api.repository.cloudflare.attachWorkers);
   const connectWorker = useAction(api.repository.cloudflare.connectWorker);
   const createWorker = useAction(api.repository.cloudflare.createWorker);
-  const configureWorkersBuildsForGitHub = useAction(
-    api.repository.cloudflare.configureWorkersBuildsForGitHub,
-  );
+  const configureBuilds = useAction(api.repository.cloudflare.configureBuilds);
   const folderSuggestions = useConvexQuery(
     api.repository.dashboard.listRepositoryFolderSuggestions,
     {
@@ -462,8 +484,18 @@ export function RepositoryCloudflareDialog({
   const [didAddWorker, setDidAddWorker] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createWorkerConflictName, setCreateWorkerConflictName] = useState<string | null>(null);
+  const [deployKeyConvexProjectId, setDeployKeyConvexProjectId] =
+    useState<Id<"repositoryConvexProjects"> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The server's challenge for the connect request in `args`; the confirm step resends `args`.
+  const [connectConfirmation, setConnectConfirmation] = useState<{
+    args: Omit<CloudflareConnectWorkerArgs, "confirmation">;
+    request: ActionConfirmationRequest;
+    worker: CloudflareWorkerConnectTarget;
+  } | null>(null);
   const cloudflareAccountId = repository.cloudflareAccountId;
+  // With one attached Convex project the server installs its deploy key without a choice.
+  const needsDeployKeyConvexProject = repository.convexProjects.length > 1;
   const cloudflareBlockedReason =
     cloudflareAccountId === undefined
       ? "Connect Cloudflare in Providers before adding a Worker."
@@ -497,15 +529,7 @@ export function RepositoryCloudflareDialog({
       repository.cloudflareWorkers.map((worker) => worker.workerTag),
       repository.providerWrite.lastWriteAt.cloudflare,
     ],
-    queryFn: async () => {
-      if (cloudflareAccountId === undefined) {
-        throw new Error("Cloudflare account is not configured for this repository.");
-      }
-      return await discoverWorkers({
-        accountId: cloudflareAccountId,
-        repositoryId: repository.repositoryId,
-      });
-    },
+    queryFn: async () => await findWorkers({ repositoryId: repository.repositoryId }),
     enabled: !repairWorker && cloudflareAccountId !== undefined,
     retry: false,
   });
@@ -534,6 +558,21 @@ export function RepositoryCloudflareDialog({
   const resourceError = workersQuery.error ? "Could not load Cloudflare resources." : null;
   const isLoading = !repairWorker && cloudflareAccountId !== undefined && workersQuery.isPending;
 
+  const finishWorkerConnection = (
+    worker: CloudflareWorkerConnectTarget,
+    result: Exclude<CloudflareConnectWorkerResult, { state: "needs_confirmation" }>,
+  ) => {
+    setDidAddWorker(true);
+    setMode("existing");
+    setWorkerSelection(selectedWorkerTags.filter((candidate) => candidate !== worker.workerTag));
+    setWorkerToConnect(null);
+    if (result.state === "added_with_notice") {
+      setSubmitError(result.message);
+    } else if (result.convexDeployKey.state === "failed") {
+      setSubmitError(result.convexDeployKey.message);
+    }
+  };
+
   const handleSubmit = async () => {
     if (cloudflareBlockedReason || isSubmitting || cloudflareAccountId === undefined) {
       return;
@@ -546,7 +585,7 @@ export function RepositoryCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        await configureWorkersBuildsForGitHub({
+        await configureBuilds({
           buildTokenUuid,
           rootDirectory: repairWorker.rootDirectory,
           repositoryId: repository.repositoryId,
@@ -556,22 +595,19 @@ export function RepositoryCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        const result = await connectWorker({
+        const args = {
           repositoryId: repository.repositoryId,
-          accountId: cloudflareAccountId,
           workerName: workerToConnect.workerName,
           workerTag: workerToConnect.workerTag,
           rootDirectory: createRootDirectory,
           buildTokenUuid,
-        });
-        setDidAddWorker(true);
-        setMode("existing");
-        setWorkerSelection(
-          selectedWorkerTags.filter((candidate) => candidate !== workerToConnect.workerTag),
-        );
-        setWorkerToConnect(null);
-        if (result.state === "added_with_notice") {
-          setSubmitError(result.message);
+          convexProjectId: deployKeyConvexProjectId ?? undefined,
+        };
+        const result = await connectWorker(args);
+        if (result.state === "needs_confirmation") {
+          setConnectConfirmation({ args, request: result, worker: workerToConnect });
+        } else {
+          finishWorkerConnection(workerToConnect, result);
         }
         setIsSubmitting(false);
         return;
@@ -591,20 +627,26 @@ export function RepositoryCloudflareDialog({
         }
         await attachWorkers({
           repositoryId: repository.repositoryId,
-          accountId: cloudflareAccountId,
           workers: selectedWorkers,
         });
       } else {
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        await createWorker({
+        const result = await createWorker({
           repositoryId: repository.repositoryId,
-          accountId: cloudflareAccountId,
           workerName: createWorkerName,
           rootDirectory: createRootDirectory,
           buildTokenUuid,
+          convexProjectId: deployKeyConvexProjectId ?? undefined,
         });
+        if (result.convexDeployKey.state === "failed") {
+          setDidAddWorker(true);
+          setMode("existing");
+          setSubmitError(result.convexDeployKey.message);
+          setIsSubmitting(false);
+          return;
+        }
       }
       onClose();
     } catch (error) {
@@ -637,9 +679,96 @@ export function RepositoryCloudflareDialog({
     }
   };
 
+  const deployKeyConvexProject = repository.convexProjects.find(
+    (project) => project.convexProjectId === deployKeyConvexProjectId,
+  );
+  // Several attached projects can share a code location, so a choice also shows the Convex slug.
+  const formatConvexProjectChoice = (project: UserRepositoryResult["convexProjects"][number]) => {
+    const codeLocation = getConvexCodeLocationPath(project.codeLocation);
+    const provider =
+      convexObservations.state === "loaded"
+        ? convexObservations.observations.find(
+            (observation) => observation.convexProjectId === project.convexProjectId,
+          )?.provider
+        : undefined;
+    return provider?.state === "current"
+      ? `${provider.projectSlug} (${codeLocation})`
+      : codeLocation;
+  };
+  // The chosen project's deploy key is installed without a later confirmation, so a choice opens
+  // only when every project reads differently: projects at one code location need their slugs.
+  const convexProjectChoiceLabels = repository.convexProjects.map(formatConvexProjectChoice);
+  const canTellConvexProjectsApart =
+    new Set(convexProjectChoiceLabels).size === convexProjectChoiceLabels.length;
+
+  // The confirmation step replaces the form, so the confirmed call resends the shown request.
+  if (connectConfirmation) {
+    const { args, request, worker } = connectConfirmation;
+    return (
+      <RepositoryActionConfirmationDialog
+        key={request.token}
+        confirmLabel="Connect and add"
+        onCancel={() => {
+          setConnectConfirmation(null);
+        }}
+        onConfirm={async (confirmation) => {
+          const result = await connectWorker({ ...args, confirmation });
+          setConnectConfirmation(null);
+          if (result.state !== "needs_confirmation") {
+            finishWorkerConnection(worker, result);
+          }
+        }}
+        request={request}
+        title={`Connect ${worker.workerName} to ${repository.githubRepositoryFullName}?`}
+      />
+    );
+  }
+
   return (
     <RepositoryCloudflareDialogContent
       blockedReason={cloudflareBlockedReason}
+      convexProjectField={
+        needsDeployKeyConvexProject && (workerToConnect || mode === "create") ? (
+          <div className="grid gap-1.5">
+            <Label htmlFor="cloudflare-worker-convex-project">Convex project for deploy keys</Label>
+            <Select
+              value={deployKeyConvexProjectId ?? ""}
+              onValueChange={(convexProjectId) => {
+                setSubmitError(null);
+                setDeployKeyConvexProjectId(
+                  repository.convexProjects.find(
+                    (project) => project.convexProjectId === convexProjectId,
+                  )?.convexProjectId ?? null,
+                );
+              }}
+              disabled={isSubmitting || !canTellConvexProjectsApart}
+            >
+              <SelectTrigger id="cloudflare-worker-convex-project" className="w-full">
+                <SelectValue placeholder="Choose a Convex project">
+                  {deployKeyConvexProject
+                    ? formatConvexProjectChoice(deployKeyConvexProject)
+                    : null}
+                </SelectValue>
+              </SelectTrigger>
+              <AppSelectContent>
+                {repository.convexProjects.map((project) => (
+                  <AppSelectItem key={project.convexProjectId} value={project.convexProjectId}>
+                    {formatConvexProjectChoice(project)}
+                  </AppSelectItem>
+                ))}
+              </AppSelectContent>
+            </Select>
+            {canTellConvexProjectsApart ||
+            convexObservations.state === "loading" ||
+            convexObservations.state === "checking" ? null : (
+              <div className="text-sm text-muted-foreground">
+                Samebase could not load the Convex project slugs, so it cannot tell apart the
+                projects that share a code location.
+              </div>
+            )}
+          </div>
+        ) : null
+      }
       cloudflareBuildTokenField={
         writesWorkersBuilds ? (
           <CloudflareBuildTokenField
@@ -669,6 +798,10 @@ export function RepositoryCloudflareDialog({
       error={submitError ?? resourceError}
       folderSuggestions={folderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS}
       hasSelectedBuildToken={hasSelectedBuildToken}
+      hasSelectedConvexProject={
+        !needsDeployKeyConvexProject ||
+        (canTellConvexProjectsApart && deployKeyConvexProjectId !== null)
+      }
       isLoading={isLoading}
       isSubmitting={isSubmitting}
       inventoryState={inventoryState}

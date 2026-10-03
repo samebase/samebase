@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as accountDeletion_authCleanup from "../accountDeletion/authCleanup.js";
 import type * as accountDeletion_cleanup from "../accountDeletion/cleanup.js";
 import type * as accountDeletion_completionEmail from "../accountDeletion/completionEmail.js";
@@ -49,6 +50,7 @@ import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
 import type * as email from "../email.js";
+import type * as feedback from "../feedback.js";
 import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingActions from "../fileStagingActions.js";
 import type * as folderExpansion from "../folderExpansion.js";
@@ -80,7 +82,6 @@ import type * as jsonUtils from "../jsonUtils.js";
 import type * as mcp_client from "../mcp/client.js";
 import type * as mcp_contracts_getAuthenticationStatus from "../mcp/contracts/getAuthenticationStatus.js";
 import type * as mcp_contracts_submitFeedback from "../mcp/contracts/submitFeedback.js";
-import type * as mcp_feedback from "../mcp/feedback.js";
 import type * as mcp_grants from "../mcp/grants.js";
 import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_model from "../mcp/model.js";
@@ -112,6 +113,7 @@ import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerAuth from "../providerAuth.js";
 import type * as providerAuthFingerprint from "../providerAuthFingerprint.js";
 import type * as providerResponseValidation from "../providerResponseValidation.js";
+import type * as repository from "../repository.js";
 import type * as repository_actions from "../repository/actions.js";
 import type * as repository_branchModel from "../repository/branchModel.js";
 import type * as repository_branches from "../repository/branches.js";
@@ -119,6 +121,9 @@ import type * as repository_cloudflare from "../repository/cloudflare.js";
 import type * as repository_cloudflareBuildMatching from "../repository/cloudflareBuildMatching.js";
 import type * as repository_cloudflareMutations from "../repository/cloudflareMutations.js";
 import type * as repository_cloudflareWorkerDiscovery from "../repository/cloudflareWorkerDiscovery.js";
+import type * as repository_confirmationModel from "../repository/confirmationModel.js";
+import type * as repository_confirmations from "../repository/confirmations.js";
+import type * as repository_contracts_actionConfirmation from "../repository/contracts/actionConfirmation.js";
 import type * as repository_contracts_cloudflareAttachments from "../repository/contracts/cloudflareAttachments.js";
 import type * as repository_contracts_cloudflareBuildTokens from "../repository/contracts/cloudflareBuildTokens.js";
 import type * as repository_contracts_cloudflareConfigureWorkersBuildsForGitHub from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub.js";
@@ -126,7 +131,10 @@ import type * as repository_contracts_cloudflareRotateConvexDeployKeysForWorkers
 import type * as repository_contracts_connectRepository from "../repository/contracts/connectRepository.js";
 import type * as repository_contracts_convexAttachments from "../repository/contracts/convexAttachments.js";
 import type * as repository_contracts_createRepository from "../repository/contracts/createRepository.js";
+import type * as repository_contracts_detachResource from "../repository/contracts/detachResource.js";
+import type * as repository_contracts_getRepositoryStatus from "../repository/contracts/getRepositoryStatus.js";
 import type * as repository_contracts_getUserRepositories from "../repository/contracts/getUserRepositories.js";
+import type * as repository_contracts_repositoryReference from "../repository/contracts/repositoryReference.js";
 import type * as repository_contracts_retryInfrastructureProvisioning from "../repository/contracts/retryInfrastructureProvisioning.js";
 import type * as repository_convex from "../repository/convex.js";
 import type * as repository_convexDeployKeys from "../repository/convexDeployKeys.js";
@@ -154,6 +162,7 @@ import type * as repository_model from "../repository/model.js";
 import type * as repository_organizationTree from "../repository/organizationTree.js";
 import type * as repository_organizationTreeModel from "../repository/organizationTreeModel.js";
 import type * as repository_providerDashboardUrls from "../repository/providerDashboardUrls.js";
+import type * as repository_providerObservationModel from "../repository/providerObservationModel.js";
 import type * as repository_providerObservationQueries from "../repository/providerObservationQueries.js";
 import type * as repository_providerObservations from "../repository/providerObservations.js";
 import type * as repository_provisioningModel from "../repository/provisioningModel.js";
@@ -161,9 +170,12 @@ import type * as repository_pullRequestCloudflareWorkerChecks from "../repositor
 import type * as repository_pullRequestCloudflareWorkerComments from "../repository/pullRequestCloudflareWorkerComments.js";
 import type * as repository_pullRequestCloudflareWorkerProof from "../repository/pullRequestCloudflareWorkerProof.js";
 import type * as repository_pullRequestHostingPreviews from "../repository/pullRequestHostingPreviews.js";
+import type * as repository_pullRequestModel from "../repository/pullRequestModel.js";
 import type * as repository_pullRequestResources from "../repository/pullRequestResources.js";
 import type * as repository_records from "../repository/records.js";
+import type * as repository_repositoryStatus from "../repository/repositoryStatus.js";
 import type * as repository_state from "../repository/state.js";
+import type * as repository_status from "../repository/status.js";
 import type * as repository_workersBuildsConvexDeployKeyNames from "../repository/workersBuildsConvexDeployKeyNames.js";
 import type * as repositoryProvisioningEvents from "../repositoryProvisioningEvents.js";
 import type * as repositoryProvisioningRuns from "../repositoryProvisioningRuns.js";
@@ -177,7 +189,9 @@ import type * as stagingRebase from "../stagingRebase.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
+import type * as toolRuntime_mcpResolution from "../toolRuntime/mcpResolution.js";
 import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
+import type * as toolRuntime_mcpTool from "../toolRuntime/mcpTool.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as usageAttribution from "../usageAttribution.js";
 import type * as userPreferenceModel from "../userPreferenceModel.js";
@@ -191,6 +205,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   "accountDeletion/authCleanup": typeof accountDeletion_authCleanup;
   "accountDeletion/cleanup": typeof accountDeletion_cleanup;
   "accountDeletion/completionEmail": typeof accountDeletion_completionEmail;
@@ -232,6 +247,7 @@ declare const fullApi: ApiFromModules<{
   deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
   email: typeof email;
+  feedback: typeof feedback;
   fileStaging: typeof fileStaging;
   fileStagingActions: typeof fileStagingActions;
   folderExpansion: typeof folderExpansion;
@@ -263,7 +279,6 @@ declare const fullApi: ApiFromModules<{
   "mcp/client": typeof mcp_client;
   "mcp/contracts/getAuthenticationStatus": typeof mcp_contracts_getAuthenticationStatus;
   "mcp/contracts/submitFeedback": typeof mcp_contracts_submitFeedback;
-  "mcp/feedback": typeof mcp_feedback;
   "mcp/grants": typeof mcp_grants;
   "mcp/http": typeof mcp_http;
   "mcp/model": typeof mcp_model;
@@ -295,6 +310,7 @@ declare const fullApi: ApiFromModules<{
   providerAuth: typeof providerAuth;
   providerAuthFingerprint: typeof providerAuthFingerprint;
   providerResponseValidation: typeof providerResponseValidation;
+  repository: typeof repository;
   "repository/actions": typeof repository_actions;
   "repository/branchModel": typeof repository_branchModel;
   "repository/branches": typeof repository_branches;
@@ -302,6 +318,9 @@ declare const fullApi: ApiFromModules<{
   "repository/cloudflareBuildMatching": typeof repository_cloudflareBuildMatching;
   "repository/cloudflareMutations": typeof repository_cloudflareMutations;
   "repository/cloudflareWorkerDiscovery": typeof repository_cloudflareWorkerDiscovery;
+  "repository/confirmationModel": typeof repository_confirmationModel;
+  "repository/confirmations": typeof repository_confirmations;
+  "repository/contracts/actionConfirmation": typeof repository_contracts_actionConfirmation;
   "repository/contracts/cloudflareAttachments": typeof repository_contracts_cloudflareAttachments;
   "repository/contracts/cloudflareBuildTokens": typeof repository_contracts_cloudflareBuildTokens;
   "repository/contracts/cloudflareConfigureWorkersBuildsForGitHub": typeof repository_contracts_cloudflareConfigureWorkersBuildsForGitHub;
@@ -309,7 +328,10 @@ declare const fullApi: ApiFromModules<{
   "repository/contracts/connectRepository": typeof repository_contracts_connectRepository;
   "repository/contracts/convexAttachments": typeof repository_contracts_convexAttachments;
   "repository/contracts/createRepository": typeof repository_contracts_createRepository;
+  "repository/contracts/detachResource": typeof repository_contracts_detachResource;
+  "repository/contracts/getRepositoryStatus": typeof repository_contracts_getRepositoryStatus;
   "repository/contracts/getUserRepositories": typeof repository_contracts_getUserRepositories;
+  "repository/contracts/repositoryReference": typeof repository_contracts_repositoryReference;
   "repository/contracts/retryInfrastructureProvisioning": typeof repository_contracts_retryInfrastructureProvisioning;
   "repository/convex": typeof repository_convex;
   "repository/convexDeployKeys": typeof repository_convexDeployKeys;
@@ -337,6 +359,7 @@ declare const fullApi: ApiFromModules<{
   "repository/organizationTree": typeof repository_organizationTree;
   "repository/organizationTreeModel": typeof repository_organizationTreeModel;
   "repository/providerDashboardUrls": typeof repository_providerDashboardUrls;
+  "repository/providerObservationModel": typeof repository_providerObservationModel;
   "repository/providerObservationQueries": typeof repository_providerObservationQueries;
   "repository/providerObservations": typeof repository_providerObservations;
   "repository/provisioningModel": typeof repository_provisioningModel;
@@ -344,9 +367,12 @@ declare const fullApi: ApiFromModules<{
   "repository/pullRequestCloudflareWorkerComments": typeof repository_pullRequestCloudflareWorkerComments;
   "repository/pullRequestCloudflareWorkerProof": typeof repository_pullRequestCloudflareWorkerProof;
   "repository/pullRequestHostingPreviews": typeof repository_pullRequestHostingPreviews;
+  "repository/pullRequestModel": typeof repository_pullRequestModel;
   "repository/pullRequestResources": typeof repository_pullRequestResources;
   "repository/records": typeof repository_records;
+  "repository/repositoryStatus": typeof repository_repositoryStatus;
   "repository/state": typeof repository_state;
+  "repository/status": typeof repository_status;
   "repository/workersBuildsConvexDeployKeyNames": typeof repository_workersBuildsConvexDeployKeyNames;
   repositoryProvisioningEvents: typeof repositoryProvisioningEvents;
   repositoryProvisioningRuns: typeof repositoryProvisioningRuns;
@@ -360,7 +386,9 @@ declare const fullApi: ApiFromModules<{
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
+  "toolRuntime/mcpResolution": typeof toolRuntime_mcpResolution;
   "toolRuntime/mcpScopes": typeof toolRuntime_mcpScopes;
+  "toolRuntime/mcpTool": typeof toolRuntime_mcpTool;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   usageAttribution: typeof usageAttribution;
   userPreferenceModel: typeof userPreferenceModel;

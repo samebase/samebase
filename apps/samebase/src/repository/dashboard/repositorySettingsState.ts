@@ -18,7 +18,7 @@ import type {
 } from "./useRepositoryProviderObservations";
 
 type RepositoryDashboardRepository = NonNullable<
-  (typeof api.repository.dashboard.getUserRepositories)["_returnType"]
+  (typeof api.repository.list)["_returnType"]
 >[number];
 type RepositoryDashboardCloudflareWorker =
   RepositoryDashboardRepository["cloudflareWorkers"][number];

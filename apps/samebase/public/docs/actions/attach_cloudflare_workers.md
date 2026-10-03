@@ -6,18 +6,16 @@ MCP tool `repository_cloudflare_attachWorkers` · scope `access_provider_connect
 
 Re-reads every selected Worker and requires one current root for the repository's immutable GitHub
 repository identity before writing any attachment. Only Workers that discovery reports as attachable
-pass this check. A connectable Worker is rejected because it has no repository connection yet, and a
-Worker that another Samebase app attaches is rejected too. The final Samebase mutation is atomic:
-either every selected Worker is attached or none are. Cloudflare configuration is not changed.
+pass this check. A connectable Worker is rejected because it has no repository connection yet;
+connect it instead. A Worker that another Samebase repository attaches is rejected too. The final
+Samebase mutation is atomic: either every selected Worker is attached or none are. Cloudflare
+configuration is not changed.
 
 ## Arguments
 
-- `repositoryId` (string, required): Samebase repository ID returned by
-  repository_dashboard_getUserRepositories.
-- `accountId` (string, required): The Samebase repository's cloudflareAccountId returned by
-  repository_dashboard_getUserRepositories and used for the preceding Worker discovery.
-- `workers` (array, required): One or more Worker name and stable tag pairs that
-  repository_cloudflare_discoverWorkers returned with attachment attachable.
+- `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
+  repository_list.
+- `workerNames` (array, required): Names of attachable Workers.
 
 ## Returns
 
@@ -27,14 +25,14 @@ JSON Schema for the tool's `structuredContent`:
 {
   "type": "object",
   "properties": {
-    "workerIds": {
+    "workerNames": {
       "type": "array",
       "items": {
         "type": "string"
       }
     }
   },
-  "required": ["workerIds"],
+  "required": ["workerNames"],
   "additionalProperties": false
 }
 ```

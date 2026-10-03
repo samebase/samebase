@@ -427,7 +427,7 @@ describe("Convex project regions", () => {
     ]);
 
     await expect(
-      viewer.action(api.repository.convex.discoverProjects, { repositoryId }),
+      viewer.action(api.repository.convex.findProjects, { repositoryId }),
     ).resolves.toMatchObject({
       projects: [
         {
@@ -493,7 +493,7 @@ describe("Convex project regions", () => {
       },
     ]);
 
-    const discovery = await viewer.action(api.repository.convex.discoverProjects, {
+    const discovery = await viewer.action(api.repository.convex.findProjects, {
       repositoryId,
     });
 
@@ -507,7 +507,7 @@ describe("Convex project regions", () => {
 });
 
 describe("Convex project discovery for MCP", () => {
-  it("returns only the fields that attachProjects needs", async () => {
+  it("lists code location paths and attachable projects, and counts the others", async () => {
     const { repositoryId, t, userId } = await createManualRegionFixture();
     githubMocks.fetchGitHubConvexCodeLocationDiscovery.mockResolvedValue({
       completeness: "partial",
@@ -542,37 +542,28 @@ describe("Convex project discovery for MCP", () => {
       },
     ]);
 
-    const result = await t.action(internal.toolRuntime.runtime.convexDiscoverProjectsTool, {
+    const result = await t.action(internal.toolRuntime.runtime.convexFindProjectsTool, {
       userId,
       grantedScopes: ["access_provider_connections"],
-      repositoryId,
+      repository: repositoryId,
     });
 
     expect(result).toEqual({
       status: "ok",
-      text: "Found 1 project (1 attachable) and 2 code locations.",
+      text: "Found 1 attachable Convex project and 2 code locations. Not listed: 0 already attached here, 0 used by other Samebase repositories.",
       structuredContent: {
-        source: {
+        codeLocations: {
           completeness: "partial",
-          locations: [
-            { kind: "config", convexConfigPath: "convex.json", blobSha: "convex-json-sha" },
-            {
-              kind: "directory",
-              convexDirectoryPath: "apps/web/convex",
-              convexDirectoryTreeSha: "convex-directory-sha",
-              packageJsonBlobSha: "package-json-sha",
-            },
-          ],
+          paths: ["convex.json", "apps/web/convex/"],
         },
         projects: [
           {
-            attachment: "attachable",
-            teamId: "convex-team",
-            projectId: "convex-project",
+            projectSlug: "manual-region-app",
             projectName: "Manual region app",
             productionDeployment: { state: "missing" },
           },
         ],
+        counts: { attached: 0, attachedElsewhere: 0 },
       },
     });
   });

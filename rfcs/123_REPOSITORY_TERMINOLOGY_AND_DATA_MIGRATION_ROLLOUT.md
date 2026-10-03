@@ -128,7 +128,8 @@ the agent to call the repository list tool first and use its returned `repositor
 The old MCP IDs, names, arguments, and result keys stop working at the cutover. There are no
 aliases. An MCP client must refresh its tool catalog after the cutover.
 
-The complete MCP tool-name cutover is:
+The complete MCP tool-name cutover is below. [RFC 125](./125_INTENT_BASED_ACTION_CATALOG_PLAN.md)
+replaces these contract IDs and tool names with its catalog and rename map.
 
 | Contract ID                                    | Final tool name                                                |
 | ---------------------------------------------- | -------------------------------------------------------------- |

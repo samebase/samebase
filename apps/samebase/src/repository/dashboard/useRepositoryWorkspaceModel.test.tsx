@@ -128,9 +128,7 @@ describe("useRepositoryWorkspaceModel", () => {
 
   it("treats a cached repository as unavailable after organization access is lost", async () => {
     const repository = lostAccessRepository();
-    testState.cachedQueries.set(getFunctionName(api.repository.dashboard.getUserRepositories), [
-      repository,
-    ]);
+    testState.cachedQueries.set(getFunctionName(api.repository.list), [repository]);
     testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), []);
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -176,9 +174,7 @@ describe("useRepositoryWorkspaceModel", () => {
       organizationId: repository.organizationId,
       role: "owner",
     } as const;
-    testState.cachedQueries.set(getFunctionName(api.repository.dashboard.getUserRepositories), [
-      repository,
-    ]);
+    testState.cachedQueries.set(getFunctionName(api.repository.list), [repository]);
     testState.cachedQueries.set(getFunctionName(api.organizations.listForViewer), [organization]);
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -195,7 +191,7 @@ describe("useRepositoryWorkspaceModel", () => {
 
       expect(latest).toEqual({ state: "loading" });
       expect(testState.cacheQueryCalls).toEqual([
-        getFunctionName(api.repository.dashboard.getUserRepositories),
+        getFunctionName(api.repository.list),
         getFunctionName(api.repository.folders.getRepositoryFolderState),
       ]);
       expect(testState.providerRepositories).toEqual([null]);
@@ -266,7 +262,7 @@ describe("useRepositoryWorkspaceModel", () => {
       organizationId: otherRepository.organizationId,
       role: "owner",
     } as const;
-    testState.cachedQueries.set(getFunctionName(api.repository.dashboard.getUserRepositories), [
+    testState.cachedQueries.set(getFunctionName(api.repository.list), [
       otherRepository,
       staleRepository,
       selectedRepository,
@@ -344,7 +340,7 @@ describe("useRepositoryWorkspaceModel", () => {
       organizationId: otherRepository.organizationId,
       role: "owner",
     } as const;
-    testState.cachedQueries.set(getFunctionName(api.repository.dashboard.getUserRepositories), [
+    testState.cachedQueries.set(getFunctionName(api.repository.list), [
       secondRepository,
       otherRepository,
       firstRepository,

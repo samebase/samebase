@@ -1,8 +1,8 @@
 # Operate: custom domain
 
 Samebase does not manage domains for you. The Worker is in your Cloudflare account, so Cloudflare's
-own domain tooling applies directly. Coordinates come from the app list (dashboard, or the
-`get_user_repositories` MCP tool): the app's `accountId` and `workerName`. The dashboard adds the
+own domain tooling applies directly. The `repository_getStatus` MCP tool returns each app's Worker
+name and the URLs it serves (custom domains and `workers.dev`). The Samebase dashboard adds the
 direct Cloudflare link after its live provider read succeeds.
 
 ## Attach a domain to the Worker

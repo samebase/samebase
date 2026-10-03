@@ -40,29 +40,27 @@ installs keys for one selected attached Convex project and starts the production
 
 ## Important Behavior
 
-- `api.repository.actions.createRepository` (new Samebase-managed repository) requires a selected
-  GitHub user/org owner. It resolves the Convex production region from an optional create override
-  or the organization default, with US as the fallback. A Workers Builds token is either one
-  selected UUID or `null` when the current account has no listed token. The New App page or MCP
-  caller lists the tokens before admission and sends `null` only for an empty list. Samebase
-  verifies a selected UUID. It does not repeat the provider read for `null`, which causes no
-  Cloudflare write. One admission transaction inserts the initializing repository, the create run,
-  the active managed provider lock, and the provisioning plan, then starts the Workflow and stores
-  its ID. A Workflow start failure rolls back all admission writes. The Workflow validates the
-  organization's provider credentials against the repository destinations and starts provider
-  provisioning after source setup succeeds. The Workers Builds block verifies a selected UUID again
-  before it writes provider state.
-- `api.repository.actions.connectRepository` (existing GitHub repository connection) does **not**
-  auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
-  provider lock.
+- `api.repository.create` (new Samebase-managed repository) requires a selected GitHub user/org
+  owner. It resolves the Convex production region from an optional create override or the
+  organization default, with US as the fallback. A Workers Builds token is either one selected UUID
+  or `null` when the current account has no listed token. The New App page or MCP caller lists the
+  tokens before admission and sends `null` only for an empty list. Samebase verifies a selected
+  UUID. It does not repeat the provider read for `null`, which causes no Cloudflare write. One
+  admission transaction inserts the initializing repository, the create run, the active managed
+  provider lock, and the provisioning plan, then starts the Workflow and stores its ID. A Workflow
+  start failure rolls back all admission writes. The Workflow validates the organization's provider
+  credentials against the repository destinations and starts provider provisioning after source
+  setup succeeds. The Workers Builds block verifies a selected UUID again before it writes provider
+  state.
+- `api.repository.connect` (existing GitHub repository connection) does **not** auto-provision
+  infra. Its `connect_existing_repository` run is source-only and never owns the provider lock.
 - Existing GitHub repositories can attach or create Convex resources later through the manual Convex
   deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
-- `api.repository.actions.retryInfrastructureProvisioning` uses one admission transaction to create
-  the retry run, replace the failed managed lock with its active owner, start the Workflow, and
-  store its ID. A Workflow start failure rolls back the new run and lock change. The Workflow
-  restarts the composed block sequence for a failed Samebase-managed create flow. Manual provider
-  setup failures still reopen the matching provider resource dialog instead of running the managed
-  infrastructure retry.
+- `api.repository.retryProviderSetup` uses one admission transaction to create the retry run,
+  replace the failed managed lock with its active owner, start the Workflow, and store its ID. A
+  Workflow start failure rolls back the new run and lock change. The Workflow restarts the composed
+  block sequence for a failed Samebase-managed create flow. Manual provider setup failures still
+  reopen the matching provider resource dialog instead of running the managed infrastructure retry.
 
 ## Source of Truth Files
 
@@ -338,13 +336,13 @@ Repository default branch:
 
 ### Public
 
-1. `api.repository.actions.createRepository`
+1. `api.repository.create`
 
 - Args can include `convexDeploymentRegion` as a create-only override.
 - Returns: `{ repositoryId: Id<"repositories">, runId: Id<"workflow_repositoryProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
-2. `api.repository.actions.retryInfrastructureProvisioning`
+2. `api.repository.retryProviderSetup`
 
 - Args: `{ repositoryId: Id<"repositories"> }`
 - Returns: `null`
@@ -354,7 +352,7 @@ Repository default branch:
   must have reached provider setup. A source setup failure, successful run, or later manual provider
   action does not permit provider retry.
 
-3. `api.repository.dashboard.getUserRepositories`
+3. `api.repository.list`
 
 - Returns: stable attachments, the managed `providerPlan`, and the repository `providerWrite`
   summary for the organizations of the authenticated member
@@ -386,30 +384,31 @@ Repository default branch:
 - Returns: live source-placement and provider-continuity observations for every attached project,
   including the actual region when its default production deployment is available
 
-8. `api.repository.cloudflare.discoverWorkers` and `api.repository.cloudflare.attachWorkers`
+8. `api.repository.cloudflare.findWorkers` and `api.repository.cloudflare.attachWorkers`
 
-- Discover returns Workers connected to the GitHub repository with their current verified roots.
+- Find returns Workers connected to the GitHub repository with their current verified roots.
 - Attach accepts several selected Worker identities and commits each verified name and root in the
   whole atomic selection.
 
-9. `api.repository.cloudflare.createWorker` and `api.repository.cloudflare.detachWorker`
+9. `api.repository.cloudflare.createWorker` and `api.repository.detachResource`
 
 - Create records a provisioned attachment with its approved root before later provider configuration
-  can fail. It configures Builds and requests an initial build. It does not require or change a
-  Convex attachment.
-- Detach changes only the organization's attachment intent and never deletes a selected existing
-  Worker.
+  can fail. It configures Builds, installs the deploy key of the chosen or only attached Convex
+  project, and starts the first production build. Several attached Convex projects without a choice
+  fail before any provider change. It does not change a Convex attachment.
+- `detachResource` with `kind: "cloudflare_worker"` changes only the organization's attachment
+  intent and never deletes a selected existing Worker.
 
-10. `api.repository.convex.discoverProjects` and `api.repository.convex.attachProjects`
+10. `api.repository.convex.findProjects` and `api.repository.convex.attachProject`
 
-- Discover returns provider projects plus exact discovered `convex.json` or default-layout
+- Find returns provider projects plus exact discovered `convex.json` or default-layout
   `package.json` and sibling `convex/` candidates.
 - Attach requires one verified code location per selected project and commits the batch atomically.
 
-11. `api.repository.convex.createProject` and `api.repository.convex.detachProject`
+11. `api.repository.convex.createProject` and `api.repository.detachResource`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
-- Detach changes only the organization's attachment intent.
+- `detachResource` with `kind: "convex_project"` changes only the organization's attachment intent.
 
 12. `api.repository.convex.changeProjectCodeLocation`
 
@@ -430,7 +429,7 @@ Repository default branch:
 
 ```mermaid
 sequenceDiagram
-  participant VA as "api.repository.actions.createRepository"
+  participant VA as "api.repository.create"
   participant WF as "appProvisioningWorkflow"
   participant CVXB as "Convex block"
   participant CFB as "Cloudflare blocks"
@@ -506,10 +505,10 @@ sequenceDiagram
   app creation and retry progress. Explicit manual provider attachment does not create a Workflow
   run.
 
-The dashboard derives control state from `getUserRepositories`. Backend mutations use the shared
-reader to reject conflicts. There is no separate command-availability API, generic provider
-framework, resource-level lock, manual-action Workflow run, manual-action history table, manual
-replay API, or manual Retry API.
+The dashboard derives control state from `repository.list`. Backend mutations use the shared reader
+to reject conflicts. There is no separate command-availability API, generic provider framework,
+resource-level lock, manual-action Workflow run, manual-action history table, manual replay API, or
+manual Retry API.
 
 ## UI Surface
 
@@ -520,7 +519,7 @@ In `RepositoryDashboard`:
 - Infra setup progress/log surface while Samebase-managed infra is preparing, provisioning, failed,
   or partially complete
 - Failed Samebase-managed Convex or Cloudflare setup shows a `Retry` action that calls
-  `api.repository.actions.retryInfrastructureProvisioning`.
+  `api.repository.retryProviderSetup`.
 - Missing or inaccessible provider resources remain attached and surface attention. Removal is an
   explicit change to organization attachment intent and never follows automatically from provider
   absence. A Convex 404 under the stored team is ambiguous because the project may have transferred.

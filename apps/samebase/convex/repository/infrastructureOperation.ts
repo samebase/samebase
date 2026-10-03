@@ -1,4 +1,4 @@
-import { v, type Infer } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -33,6 +33,9 @@ const vManualProviderWriteClaim = object({
 });
 type ManualProviderWriteClaim = Infer<typeof vManualProviderWriteClaim>;
 
+/** The refusal while another provider operation runs. It holds no provider text, so MCP shows it. */
+export const INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE =
+  "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.";
 export const MANUAL_PROVIDER_ACTION_LIMIT_MS = 5 * 60 * 1000;
 export const MANUAL_PROVIDER_WRITE_EXPIRY_MS = 10 * 60 * 1000;
 const vProvider = union(literal("convex"), literal("cloudflare"));
@@ -128,7 +131,7 @@ export async function requireUserRepositoryInfrastructureIdle(
   const connectedRepository = assertConnectedRepository(repository);
   const infrastructure = await readRepositoryInfrastructureState(ctx, connectedRepository);
   if (infrastructure.operation.kind !== "none") {
-    throw new Error("Another repository infrastructure operation is active.");
+    throw new ConvexError(INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE);
   }
   return connectedRepository;
 }
@@ -291,7 +294,7 @@ export const claimManualProviderWrite = internalMutation({
     const connectedRepository = assertConnectedRepository(repository);
     const infrastructure = await readRepositoryInfrastructureState(ctx, connectedRepository);
     if (infrastructure.operation.kind !== "none") {
-      throw new Error("Another repository infrastructure operation is active.");
+      throw new ConvexError(INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE);
     }
     const now = Date.now();
     const deadlineAt = now + MANUAL_PROVIDER_ACTION_LIMIT_MS;

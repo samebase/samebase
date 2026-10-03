@@ -602,7 +602,7 @@ describe("AppRightSidebarContent", () => {
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
         [
-          getFunctionName(api.repository.dashboard.getUserRepositories),
+          getFunctionName(api.repository.list),
           [{ hasConvexProvision: true, hasCloudflareProvision: false }],
         ],
         [
@@ -679,7 +679,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "granted" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.repository.dashboard.getUserRepositories), []],
+        [getFunctionName(api.repository.list), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -738,7 +738,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.repository.dashboard.getUserRepositories), []],
+        [getFunctionName(api.repository.list), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -785,7 +785,7 @@ describe("AppRightSidebarContent", () => {
           },
         ],
         [
-          getFunctionName(api.repository.dashboard.getUserRepositories),
+          getFunctionName(api.repository.list),
           [{ hasConvexProvision: true, hasCloudflareProvision: true }],
         ],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "granted" }],

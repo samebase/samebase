@@ -225,10 +225,10 @@ derived locations, current state, direct provider coordinates, and provider or c
 actions.
 Every Samebase action checks its own authentication. Authentication status is a diagnostic action,
 not a preflight.
-Inventory reports Samebase-owned workflow state and stable resource IDs. It coordinates explicit
-Samebase actions; it is not proof of live provider state. Use provider-native tools to verify
-current provider existence, configuration, deployment state, and logs unless an explicit Samebase
-action exposes that live read.
+The repository list reports Samebase-owned workflow state and the names of attached resources. It
+is not proof of live provider state. The repository status reads the live builds, URLs, Convex
+deployments, checks, and pull requests of one repository. Use provider-native tools for logs,
+environment values, migrations, and domains.
 Codex and Claude Code can add the public
 [samebase/plugin](https://github.com/samebase/plugin) marketplace and install
 \`samebase@samebase\`. That value means the \`samebase\` plugin from the \`samebase\` marketplace.
@@ -266,7 +266,9 @@ HTML pages. Action and operate docs are raw markdown only.
 ## Actions
 
 Every operational action has one contract, and these are the same actions the dashboard buttons run.
-Choose an explicit action whose contract matches the required stable IDs, then reread inventory.
+MCP tools take a repository as its GitHub owner/name, a Worker by its name, and a Convex project by
+its slug. Choose the action that matches the request, then verify the result with the repository
+status.
 
 ${actionLines}
 
@@ -277,7 +279,7 @@ ${actionLines}
 - [MCP server](https://api.samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
   browser); the tools are the actions listed above.
 - [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker
-  logs provider-direct, with coordinates from repository_dashboard_getUserRepositories
+  logs provider-direct, in the Cloudflare and Convex accounts of the repository's organization
 - [Custom domain](https://samebase.com/docs/operate/custom-domain.md): attach a domain to the
   app's Worker in your own Cloudflare account
 

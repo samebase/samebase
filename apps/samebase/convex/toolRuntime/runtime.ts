@@ -1,279 +1,489 @@
 "use node";
 
-import {
-  ConvexError,
-  v,
-  type Infer,
-  type ObjectType,
-  type PropertyValidators,
-} from "convex/values";
-import type { ReturnValueForOptionalValidator } from "convex/server";
+import { ConvexError, type Infer } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalAction, type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { createRepositoryContract } from "../repository/contracts/createRepository";
-import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
+import {
+  getUserRepositoriesContract,
+  type UserRepositoryResult,
+} from "../repository/contracts/getUserRepositories";
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
 import {
   cloudflareAttachWorkersContract,
+  cloudflareConnectWorkerContract,
   cloudflareCreateWorkerContract,
   cloudflareDiscoverWorkersContract,
 } from "../repository/contracts/cloudflareAttachments";
 import {
   convexAttachProjectsContract,
+  convexCreateProjectContract,
   convexDiscoverProjectsContract,
+  type vGitHubConvexCodeLocationCandidate,
 } from "../repository/contracts/convexAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
-import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import {
-  MAX_FEEDBACK_REPORT_LENGTH,
-  submitFeedbackContract,
-} from "../mcp/contracts/submitFeedback";
-import { cloudflareListWorkersBuildTokensContract } from "../repository/contracts/cloudflareBuildTokens";
-import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
-import type { AccessKey } from "../../shared/accessModel";
+  detachResourceContract,
+  type DetachableResource,
+} from "../repository/contracts/detachResource";
+import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
+import { projectRepositoryStatusForMcp } from "../repository/repositoryStatus";
+import { readRepositoryStatusForUser } from "../repository/status";
+import { retryProviderSetupForUser } from "../repository";
+import { connectRepositoryByFullNameForUser, createAppForUser } from "../repository/actions";
 import {
-  createAppForUser,
-  connectRepositoryForUser,
-  retryInfrastructureProvisioningForUser,
-} from "../repository/actions";
-import { attachExistingProjectsForUser, discoverProjectsForUser } from "../repository/convex";
-import {
-  AGENT_BROWSER_HANDOFF_TTL_MS,
-  createAgentBrowserHandoffTokenValue,
-  sha256Hex,
-} from "../mcp/tokens";
+  attachExistingProjectsForUser,
+  createProjectForUser,
+  discoverConvexCodeLocations,
+  discoverProjectsForUser,
+  formatAttachedConvexProjects,
+  nameAttachedConvexProjects,
+  readConvexTeamProjectNamesForUser,
+  readRepositoryConvexTeamProjectNames,
+} from "../repository/convex";
 import {
   attachExistingCloudflareWorkersForUser,
+  configureWorkersBuildsForGitHubForUser,
+  connectWorkerForUser,
   createWorkerForUser,
   discoverCloudflareWorkersForUser,
-  configureWorkersBuildsForGitHubForUser,
-  rotateConvexDeployKeysForWorkersBuildsForUser,
+  readCloudflareWorkerTagsByNameForUser,
+  rotateConvexDeployKeysWithConfirmation,
+  selectConvexDeployKeyTarget,
+  type ConvexDeployKeyOutcome,
 } from "../repository/cloudflare";
-import { internal } from "../_generated/api";
-import { mcpScopeAllowsAccess } from "./mcpScopes";
-import { resolveGitHubAppAccess } from "../githubAppAccess";
-import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
-import { sendEmail } from "../email";
+import type { ConfirmationSurface } from "../repository/confirmationModel";
+import type {
+  ActionConfirmation,
+  ActionConfirmationRequest,
+} from "../repository/contracts/actionConfirmation";
 import { publicMcpErrorMessage } from "../mcp/publicErrors";
+import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
+import type { OrganizationProviderConfiguration } from "../organizationProviderCredentials";
+import { resolveGitHubAppAccess } from "../githubAppAccess";
+import {
+  buildDefaultAppResourceName,
+  validateAppResourceName,
+} from "../../shared/appResourceNames";
+import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
+import { resolveDefaultConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
+import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
+import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
+import { defineMcpTool, mcpGrantArgs } from "./mcpTool";
+import {
+  CLOUDFLARE_SETUP_GUIDE_URL,
+  findAttachedWorkerByName,
+  findRepositoryByReference,
+  projectConvexDiscoveryForMcp,
+  projectWorkerDiscoveryForMcp,
+  readPendingCloudflareSetup,
+  requireSelectedWorkersBuildsToken,
+  selectConvexCodeLocation,
+  selectWorkersBuildsToken,
+} from "./mcpResolution";
 
-const { array, id, literal, object, string, union } = v;
-const vToolInvocationArgs = {
-  userId: id("users"),
-  grantedScopes: array(string()),
-};
-const vToolFailure = object({
-  status: union(literal("error"), literal("blocked")),
-  text: string(),
-});
+/*
+The MCP side of the tools that the dashboard also calls. Each tool resolves its MCP arguments (a
+repository as owner/name, resources by name, an optional token) into the IDs that the shared
+handler takes, then runs the same handler that the dashboard function at its tool name runs. The
+MCP-only tools live at their own function paths: account.ts and feedback.ts.
+*/
 
-type McpToolContract = {
-  access: AccessKey;
-  mcp: { name: string };
-};
+type GitHubConvexCodeLocationCandidate = Infer<typeof vGitHubConvexCodeLocationCandidate>;
 
-type RegisteredMcpToolArgs<Args extends PropertyValidators> = ObjectType<Args> & {
-  userId: Id<"users">;
-  grantedScopes: string[];
-};
-type McpToolArgs<Args extends PropertyValidators> = Omit<
-  RegisteredMcpToolArgs<Args>,
-  "grantedScopes"
->;
+const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
+const CONNECT_WORKER_TOOL = cloudflareConnectWorkerContract.mcp.name;
+const DETACH_RESOURCE_TOOL = detachResourceContract.mcp.name;
+const RETRY_PROVIDER_SETUP_TOOL = retryInfrastructureProvisioningContract.mcp.name;
+const ROTATE_CONVEX_DEPLOY_KEYS_TOOL =
+  cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name;
 
-function defineMcpTool<
-  const Args extends PropertyValidators,
-  const SuccessFields extends PropertyValidators,
->(config: {
-  contract: McpToolContract;
-  args: Args;
-  successFields: SuccessFields;
-  run: (
-    ctx: ActionCtx,
-    args: McpToolArgs<Args>,
-  ) => Promise<(ObjectType<SuccessFields> & { text: string }) | Infer<typeof vToolFailure>>;
-}) {
-  const vToolSuccess = object({
-    ...config.successFields,
-    status: literal("ok"),
-    text: string(),
-  });
-  const vToolResult = union(vToolSuccess, vToolFailure);
-  const vToolArgs = object({
-    ...config.args,
-    ...vToolInvocationArgs,
-  });
-  type ToolReturn = ReturnValueForOptionalValidator<typeof vToolResult>;
-
-  return internalAction<
-    typeof vToolArgs,
-    typeof vToolResult,
-    ToolReturn,
-    [Infer<typeof vToolArgs>]
-  >({
-    args: vToolArgs,
-    returns: vToolResult,
-    // @ts-expect-error vToolArgs validates these contract and trusted fields before the handler.
-    handler: async (ctx, args: RegisteredMcpToolArgs<Args>) => {
-      const { grantedScopes, ...toolArgs } = args;
-      if (!mcpScopeAllowsAccess(config.contract.access, grantedScopes)) {
-        return {
-          status: "blocked",
-          text: `Insufficient scope for ${config.contract.mcp.name}.`,
-        };
-      }
-
-      try {
-        return {
-          status: "ok",
-          ...(await config.run(ctx, toolArgs)),
-        };
-      } catch (error) {
-        return {
-          status: "error",
-          text: publicMcpErrorMessage(error),
-        };
-      }
-    },
-  });
+/** The surface of a gated MCP call: the bearer token's grant and OAuth client. */
+function mcpConfirmationSurface(args: { grantId: string; clientId: string }) {
+  return { kind: "mcp" as const, grantId: args.grantId, clientId: args.clientId };
 }
 
-export const createRepositoryTool = defineMcpTool({
-  contract: createRepositoryContract,
-  args: createRepositoryContract.mcpArgs,
-  successFields: {
-    structuredContent: createRepositoryContract.structuredContent,
-  },
-  run: async (ctx, args) => {
-    const { githubOwnerLogin, ...createArgs } = args;
-    const result = await createAppForUser(ctx, {
-      ...createArgs,
-      target: { kind: "owner", githubOwnerLogin },
-    });
-    const structuredContent = { repositoryId: result.repositoryId };
-    return {
-      text: JSON.stringify(structuredContent, null, 2),
-      structuredContent,
-    };
-  },
-});
+/**
+The first result of a gated tool: nothing changed. The text repeats the token and the sentence,
+because some hosts give the model only the text content.
+*/
+function requestMcpConfirmation(tool: string, request: ActionConfirmationRequest) {
+  return {
+    text: `Nothing changed yet. ${request.effect} Tell the user this effect. Only after the user approves it, call ${tool} again with the same arguments and confirmation ${JSON.stringify({ token: request.token, acknowledgement: request.acknowledgement })}. The token works once, until ${new Date(request.expiresAt).toISOString()}.`,
+    structuredContent: request,
+  };
+}
 
-export const cloudflareListWorkersBuildTokensTool = defineMcpTool({
-  contract: cloudflareListWorkersBuildTokensContract,
-  args: cloudflareListWorkersBuildTokensContract.mcpArgs,
-  successFields: {
-    structuredContent: cloudflareListWorkersBuildTokensContract.structuredContent,
-  },
-  run: async (ctx, args) => {
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
-    });
-    const structuredContent = await listWorkersBuildTokensForUser(ctx, {
-      userId: args.userId,
-      organizationId: githubAccess.organizationId,
-    });
-    return {
-      text: `Found ${structuredContent.tokens.length} Workers Builds ${structuredContent.tokens.length === 1 ? "token" : "tokens"}.`,
-      structuredContent,
-    };
-  },
-});
+async function readRepositoryForMcp(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; repository: string },
+): Promise<UserRepositoryResult> {
+  const repositories = await ctx.runQuery(internal.repository.listForUser, {
+    userId: args.userId,
+  });
+  return findRepositoryByReference(repositories, args.repository);
+}
 
-export const getUserRepositoriesTool = defineMcpTool({
+/**
+The Convex project whose deploy key a Worker tool installs. MCP resolves only a given slug; the
+server rule selectConvexDeployKeyTarget decides the rest, before any provider request. Undefined
+means that no Convex project is attached.
+*/
+async function selectConvexDeployKeyProject(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    repository: UserRepositoryResult;
+    convexProjectSlug: string | undefined;
+  },
+): Promise<Id<"repositoryConvexProjects"> | undefined> {
+  const target = await selectConvexDeployKeyTarget(ctx, {
+    userId: args.userId,
+    repositoryId: args.repository.repositoryId,
+    convexProjectId:
+      args.convexProjectSlug === undefined
+        ? undefined
+        : await findAttachedConvexProjectBySlug(ctx, {
+            userId: args.userId,
+            repository: args.repository,
+            projectSlug: args.convexProjectSlug,
+          }),
+  });
+  return target.state === "selected" ? target.convexProjectId : undefined;
+}
+
+/**
+MCP names an attached Convex project by its slug only: the slug is unique inside a Convex team, while
+two projects can share a display name, and one project's name can be another project's slug.
+*/
+async function findAttachedConvexProjectBySlug(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; repository: UserRepositoryResult; projectSlug: string },
+): Promise<Id<"repositoryConvexProjects">> {
+  const requestedSlug = args.projectSlug.trim();
+  const projects = nameAttachedConvexProjects(
+    args.repository.convexProjects,
+    await readRepositoryConvexTeamProjectNames(ctx, args),
+  );
+  const project = projects.find((candidate) => candidate.projectSlug === requestedSlug);
+  if (!project) {
+    throw new ConvexError(
+      `No attached Convex project of ${args.repository.githubRepositoryFullName} has the slug ${requestedSlug}. Attached Convex project slugs: ${projects.length === 0 ? "none" : formatAttachedConvexProjects(projects)}.`,
+    );
+  }
+  return project.convexProjectId;
+}
+
+/**
+Detach names a Convex project by its slug, like the other tools. A project whose slug Samebase cannot
+read (it was deleted in Convex, or the team is unreadable) is named by its code location, which
+Samebase records, so it can still be detached.
+*/
+async function findDetachableConvexProject(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { userId: Id<"users">; repository: UserRepositoryResult; resourceName: string },
+): Promise<Id<"repositoryConvexProjects">> {
+  const projects = nameAttachedConvexProjects(
+    args.repository.convexProjects,
+    await readRepositoryConvexTeamProjectNames(ctx, args),
+  );
+  const bySlug = projects.find((project) => project.projectSlug === args.resourceName);
+  if (bySlug) {
+    return bySlug.convexProjectId;
+  }
+  const byCodeLocation = projects.filter(
+    (project) => project.projectSlug === null && project.codeLocation === args.resourceName,
+  );
+  if (byCodeLocation.length === 1) {
+    return byCodeLocation[0].convexProjectId;
+  }
+  throw new ConvexError(
+    byCodeLocation.length > 1
+      ? `Several attached Convex projects of ${args.repository.githubRepositoryFullName} at ${args.resourceName} have no readable slug. Remove one in the Samebase dashboard.`
+      : `No attached Convex project of ${args.repository.githubRepositoryFullName} has the slug ${args.resourceName}. Attached Convex projects: ${projects.length === 0 ? "none" : formatAttachedConvexProjects(projects)}. Pass a slug, or the code location of a project whose slug is unavailable.`,
+  );
+}
+
+async function selectWorkersBuildsTokenForRepository(
+  ctx: Pick<ActionCtx, "runAction">,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    buildTokenUuid: string | undefined;
+  },
+) {
+  return selectWorkersBuildsToken(
+    await listWorkersBuildTokensForUser(ctx, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    }),
+    args.buildTokenUuid,
+  );
+}
+
+function projectConvexDeployKeyForMcp(outcome: ConvexDeployKeyOutcome) {
+  switch (outcome.state) {
+    case "installed":
+      return { state: "installed" as const };
+    case "no_convex_project":
+      return {
+        state: "not_installed" as const,
+        message: `No Convex project is attached to this repository, so no deploy key was installed. After you attach or create one, call ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} for this Worker.`,
+      };
+    case "failed":
+      return {
+        state: "not_installed" as const,
+        message: `Samebase did not install the Convex deploy key, so no production build started. ${publicMcpErrorMessage(outcome.error)} When the cause is fixed, call ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} for this Worker to install the key and start the build.`,
+      };
+    default:
+      outcome satisfies never;
+      throw new Error("Unsupported Convex deploy key outcome.");
+  }
+}
+
+function describeConvexDeployKey(installation: ReturnType<typeof projectConvexDeployKeyForMcp>) {
+  return installation.state === "installed"
+    ? "Installed the Convex deploy key and started the production build."
+    : installation.message;
+}
+
+/** The fixed MCP next step of a connected Worker whose Builds setup did not complete. */
+function describeConnectWorkerNextStep(notice: {
+  nextStep: "configure_builds" | "start_build" | "review_in_cloudflare";
+  deployKeyPending: boolean;
+}): string {
+  switch (notice.nextStep) {
+    case "configure_builds":
+      return `When the cause is fixed, call ${CONFIGURE_BUILDS_TOOL} for this Worker${notice.deployKeyPending ? `, then ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} to install the Convex deploy key` : ""}.`;
+    case "start_build":
+      return notice.deployKeyPending
+        ? `Its Workers Builds settings are connected. Call ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} for this Worker to install the Convex deploy key and start the production build.`
+        : "Its Workers Builds settings are connected. Start a production build in Cloudflare if none is running.";
+    case "review_in_cloudflare":
+      return `Its Workers Builds settings could not be verified, or they build another root directory or repository. Ask the user to review them in Cloudflare, then call ${getRepositoryStatusContract.mcp.name}.`;
+    default:
+      notice.nextStep satisfies never;
+      throw new Error("Unsupported Worker connection next step.");
+  }
+}
+
+function toConvexCodeLocationSelection(location: GitHubConvexCodeLocationCandidate) {
+  return location.kind === "config"
+    ? {
+        kind: location.kind,
+        convexConfigPath: location.convexConfigPath,
+        blobSha: location.blobSha,
+      }
+    : {
+        kind: location.kind,
+        convexDirectoryPath: location.convexDirectoryPath,
+        convexDirectoryTreeSha: location.convexDirectoryTreeSha,
+        packageJsonBlobSha: location.packageJsonBlobSha,
+      };
+}
+
+export const repositoryListTool = defineMcpTool({
   contract: getUserRepositoriesContract,
   args: getUserRepositoriesContract.args,
   successFields: {
     structuredContent: getUserRepositoriesContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const repositoriesWithOrganizationIds = await ctx.runQuery(
-      internal.repository.dashboard.getUserRepositoriesForUser,
-      {
-        userId: args.userId,
-      },
+    const repositories: UserRepositoryResult[] = await ctx.runQuery(
+      internal.repository.listForUser,
+      { userId: args.userId },
     );
-    const repositories: Infer<
-      typeof getUserRepositoriesContract.structuredContent
-    >["repositories"] = repositoriesWithOrganizationIds.map((repository) => {
-      const plan = repository.providerPlan;
-      let pendingCloudflareSetup: Infer<
-        typeof getUserRepositoriesContract.structuredContent
-      >["repositories"][number]["pendingCloudflareSetup"] = null;
-      if (
-        plan &&
-        plan.cloudflare.state === "planned" &&
-        plan.cloudflare.buildTokenUuid === null &&
-        plan.convex.state === "created" &&
-        repository.cloudflareWorkers.length === 0
-      ) {
-        const plannedProjectId = plan.convex.projectId;
-        const plannedTeamId = plan.convex.teamId;
-        const project = repository.convexProjects.find(
-          (attachment) =>
-            attachment.projectId === plannedProjectId &&
-            attachment.teamId === plannedTeamId &&
-            attachment.codeLocation.kind === "config" &&
-            attachment.codeLocation.convexConfigPath === plan.convexConfigPath,
-        );
-        if (project) {
-          pendingCloudflareSetup = {
-            workerName: plan.cloudflare.workerName,
-            rootDirectory: plan.cloudflare.rootDirectory,
-            convexProjectId: project.convexProjectId,
-          };
+    // Repositories on one Convex team share one project list, so each team is read once.
+    const teamProjectNameReads = new Map<
+      string,
+      ReturnType<typeof readRepositoryConvexTeamProjectNames>
+    >();
+    const convexProjectNames = await Promise.all(
+      repositories.map(async (repository) => {
+        if (repository.convexProjects.length === 0) {
+          return [];
         }
-      }
-
-      return {
-        repositoryId: repository.repositoryId,
-        cloudflareAccountId: repository.cloudflareAccountId,
-        githubOwnerLogin: repository.githubOwnerLogin,
-        githubRepositoryName: repository.githubRepositoryName,
-        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-        githubRepositoryFullName: repository.githubRepositoryFullName,
-        sourceSetup:
-          repository.sourceSetup.status === "failed"
-            ? {
-                status: repository.sourceSetup.status,
-                message: "Source setup failed. Check this app in Samebase for recovery steps.",
-              }
-            : { status: repository.sourceSetup.status },
-        providerSetup:
-          repository.providerSetup.status === "failed"
-            ? {
-                status: repository.providerSetup.status,
-                provider: repository.providerSetup.provider,
-                message: "Provider setup failed. Check this app in Samebase before retrying.",
-              }
-            : { status: repository.providerSetup.status },
-        pendingCloudflareSetup,
-        deletion: { state: repository.deletion.state },
-        isSamebaseManaged: repository.isSamebaseManaged,
-        cloudflareWorkers: repository.cloudflareWorkers,
-        convexProjects: repository.convexProjects,
-      };
-    });
+        const teamKey = `${repository.organizationId}/${repository.convexTeamId}`;
+        const teamProjectNames =
+          teamProjectNameReads.get(teamKey) ??
+          readRepositoryConvexTeamProjectNames(ctx, { userId: args.userId, repository });
+        teamProjectNameReads.set(teamKey, teamProjectNames);
+        return nameAttachedConvexProjects(repository.convexProjects, await teamProjectNames);
+      }),
+    );
+    const structuredContent: Infer<typeof getUserRepositoriesContract.structuredContent> = {
+      repositories: repositories.map((repository, index) => {
+        const pendingCloudflareSetup = readPendingCloudflareSetup(repository);
+        return {
+          repositoryId: repository.repositoryId,
+          githubRepositoryFullName: repository.githubRepositoryFullName,
+          githubOwnerLogin: repository.githubOwnerLogin,
+          isSamebaseManaged: repository.isSamebaseManaged,
+          sourceSetup:
+            repository.sourceSetup.status === "failed"
+              ? {
+                  status: repository.sourceSetup.status,
+                  message:
+                    "Source setup failed. Check this repository in Samebase for recovery steps.",
+                }
+              : { status: repository.sourceSetup.status },
+          providerSetup:
+            repository.providerSetup.status === "failed"
+              ? {
+                  status: repository.providerSetup.status,
+                  provider: repository.providerSetup.provider,
+                  message: `Provider setup failed. Call ${RETRY_PROVIDER_SETUP_TOOL} to retry it.`,
+                }
+              : { status: repository.providerSetup.status },
+          pendingCloudflareSetup: pendingCloudflareSetup && {
+            workerName: pendingCloudflareSetup.workerName,
+            rootDirectory: pendingCloudflareSetup.rootDirectory,
+          },
+          deletion: { state: repository.deletion.state },
+          cloudflareWorkers: repository.cloudflareWorkers.map((worker) => ({
+            workerName: worker.workerName,
+            rootDirectory: worker.rootDirectory,
+          })),
+          convexProjects: (convexProjectNames[index] ?? []).map((project) => ({
+            projectSlug: project.projectSlug,
+            projectName: project.projectName,
+            codeLocation: project.codeLocation,
+          })),
+        };
+      }),
+    };
     return {
       text: `Found ${repositories.length} ${repositories.length === 1 ? "repository" : "repositories"}.`,
-      structuredContent: { repositories },
+      structuredContent,
     };
   },
 });
 
-export const connectRepositoryTool = defineMcpTool({
+export const repositoryGetStatusTool = defineMcpTool({
+  contract: getRepositoryStatusContract,
+  args: getRepositoryStatusContract.mcpArgs,
+  successFields: {
+    structuredContent: getRepositoryStatusContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const structuredContent = projectRepositoryStatusForMcp({
+      repository,
+      status: await readRepositoryStatusForUser(ctx, { userId: args.userId, repository }),
+    });
+    const { apps, attention, convexProjects, defaultBranch, openPullRequestCount } =
+      structuredContent;
+
+    // An empty attention list means only that no setup repair applies: a failed build or check
+    // and an unreadable fact also keep the repository from being healthy.
+    const failures = apps.flatMap(({ workerName, productionBuild }) =>
+      productionBuild.state === "available" && productionBuild.buildState === "failure"
+        ? [`The latest production build of ${workerName} failed.`]
+        : [],
+    );
+    if (
+      defaultBranch !== null &&
+      defaultBranch.checks !== null &&
+      defaultBranch.checks.failed > 0
+    ) {
+      const { failed, failedNames, failedNamesComplete } = defaultBranch.checks;
+      failures.push(
+        `${failed} ${failed === 1 ? "check" : "checks"} failed on ${defaultBranch.name}${failedNames.length === 0 ? "" : `: ${failedNames.join(", ")}${failedNamesComplete ? "" : ", and others"}`}.`,
+      );
+    }
+    const unreadable = [
+      ...(defaultBranch === null ? ["the default branch head"] : []),
+      ...apps.flatMap(({ workerName, productionBuild }) =>
+        productionBuild.state === "unavailable" ? [`the production build of ${workerName}`] : [],
+      ),
+      ...convexProjects.flatMap(({ codeLocation, productionDeployment }) =>
+        productionDeployment.state === "unavailable"
+          ? [`the Convex production deployment at ${codeLocation}`]
+          : [],
+      ),
+    ];
+    const findings = [
+      ...(attention.length === 0
+        ? []
+        : [
+            `Needs attention: ${attention.map((item) => (item.tool === null ? item.problem : `${item.problem} Fix: ${item.tool}.`)).join(" ")}`,
+          ]),
+      ...failures,
+      ...(unreadable.length === 0 ? [] : [`Could not read ${unreadable.join(", ")}.`]),
+    ];
+    return {
+      text: `${structuredContent.repository}: ${apps.length} ${apps.length === 1 ? "app" : "apps"}, ${convexProjects.length} Convex ${convexProjects.length === 1 ? "project" : "projects"}, ${openPullRequestCount === null ? "pull requests unavailable" : `${openPullRequestCount} open ${openPullRequestCount === 1 ? "pull request" : "pull requests"}`}. ${findings.length === 0 ? "Nothing needs attention." : findings.join(" ")}`,
+      structuredContent,
+    };
+  },
+});
+
+export const repositoryCreateTool = defineMcpTool({
+  contract: createRepositoryContract,
+  args: createRepositoryContract.mcpArgs,
+  successFields: {
+    structuredContent: createRepositoryContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
+    });
+    const buildToken = await selectWorkersBuildsTokenForRepository(ctx, {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+      buildTokenUuid: args.buildTokenUuid,
+    });
+    const cloudflareWorkerName =
+      args.cloudflareWorkerName ??
+      buildDefaultAppResourceName({ repositoryName: args.name, provider: "cloudflare" });
+
+    const result = await createAppForUser(ctx, {
+      userId: args.userId,
+      target: { kind: "organization", organizationId: githubAccess.organizationId },
+      githubRepositoryName: args.name,
+      convexProjectName:
+        args.convexProjectName ??
+        buildDefaultAppResourceName({ repositoryName: args.name, provider: "convex" }),
+      convexDeploymentRegion: args.convexDeploymentRegion,
+      cloudflareWorkerName,
+      cloudflareBuildTokenUuid: buildToken.state === "selected" ? buildToken.uuid : null,
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      ...(args.private !== undefined ? { private: args.private } : {}),
+    });
+    const plannedWorkerName = validateAppResourceName(cloudflareWorkerName, "cloudflare");
+    const structuredContent: Infer<typeof createRepositoryContract.structuredContent> = {
+      repositoryId: result.repositoryId,
+      githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${toSafeGitHubRepositoryName(args.name)}`,
+      cloudflare:
+        buildToken.state === "selected"
+          ? {
+              state: "planned",
+              workerName: plannedWorkerName.valid ? plannedWorkerName.value : cloudflareWorkerName,
+            }
+          : { state: "pending", setupGuideUrl: CLOUDFLARE_SETUP_GUIDE_URL },
+    };
+    return {
+      text:
+        structuredContent.cloudflare.state === "planned"
+          ? `Started setup of ${structuredContent.githubRepositoryFullName} with a Convex project and the Cloudflare Worker ${structuredContent.cloudflare.workerName}. Poll repository_list until source and provider setup are ready or failed.`
+          : `Started setup of ${structuredContent.githubRepositoryFullName} with a Convex project. Cloudflare setup is pending because the Cloudflare account has no Workers Builds token: give the user ${CLOUDFLARE_SETUP_GUIDE_URL}. Poll repository_list until source and provider setup are ready or failed.`,
+      structuredContent,
+    };
+  },
+});
+
+export const repositoryConnectTool = defineMcpTool({
   contract: connectRepositoryContract,
   args: connectRepositoryContract.mcpArgs,
   successFields: {
     structuredContent: connectRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const result = await connectRepositoryForUser(ctx, {
-      userId: args.userId,
-      target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
-      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
-    });
+    const result = await connectRepositoryByFullNameForUser(ctx, args);
     const structuredContent = {
       repositoryId: result.repositoryId,
       githubRepositoryFullName: result.githubRepositoryFullName,
@@ -285,268 +495,482 @@ export const connectRepositoryTool = defineMcpTool({
   },
 });
 
-export const convexDiscoverProjectsTool = defineMcpTool({
-  contract: convexDiscoverProjectsContract,
-  args: convexDiscoverProjectsContract.args,
+export const repositoryRetryProviderSetupTool = defineMcpTool({
+  contract: retryInfrastructureProvisioningContract,
+  args: { ...retryInfrastructureProvisioningContract.mcpArgs, ...mcpGrantArgs },
   successFields: {
-    structuredContent: convexDiscoverProjectsContract.structuredContent,
+    structuredContent: retryInfrastructureProvisioningContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const discovery = await discoverProjectsForUser(ctx, args);
-    const structuredContent: Infer<typeof convexDiscoverProjectsContract.structuredContent> = {
-      source: {
-        completeness: discovery.source.completeness,
-        locations: discovery.source.locations.map((location) =>
-          location.kind === "config"
-            ? {
-                kind: location.kind,
-                convexConfigPath: location.convexConfigPath,
-                blobSha: location.blobSha,
-              }
-            : {
-                kind: location.kind,
-                convexDirectoryPath: location.convexDirectoryPath,
-                convexDirectoryTreeSha: location.convexDirectoryTreeSha,
-                packageJsonBlobSha: location.packageJsonBlobSha,
-              },
-        ),
-      },
-      projects: discovery.projects.map((project) => ({
-        attachment: project.attachment,
-        teamId: project.teamId,
-        projectId: project.projectId,
-        projectName: project.projectName,
-        productionDeployment: project.productionDeployment,
-      })),
-    };
-    const attachableCount = structuredContent.projects.filter(
-      (project) => project.attachment === "attachable",
-    ).length;
+    const repository = await readRepositoryForMcp(ctx, args);
+    const confirmationRequest = await retryProviderSetupForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
+    });
+    if (confirmationRequest) {
+      return requestMcpConfirmation(RETRY_PROVIDER_SETUP_TOOL, confirmationRequest);
+    }
     return {
-      text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} (${attachableCount} attachable) and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
-      structuredContent,
+      text: `Started a provider setup run for ${repository.githubRepositoryFullName}. Poll repository_list for progress.`,
+      structuredContent: { state: "setup_started" as const },
     };
   },
 });
 
-export const cloudflareCreateWorkerTool = defineMcpTool({
-  contract: cloudflareCreateWorkerContract,
-  args: cloudflareCreateWorkerContract.args,
+/**
+The annotated return type breaks a type cycle: the detach tool's result would otherwise depend on
+`internal`, which includes this module.
+*/
+async function detachResourceForMcp(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    resource: DetachableResource;
+    surface: ConfirmationSurface;
+    confirmation: ActionConfirmation | undefined;
+  },
+): Promise<ActionConfirmationRequest | null> {
+  return await ctx.runMutation(internal.repository.detachResourceForUser, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+    resource: args.resource,
+    surface: args.surface,
+    confirmation: args.confirmation,
+  });
+}
+
+export const repositoryDetachResourceTool = defineMcpTool({
+  contract: detachResourceContract,
+  args: { ...detachResourceContract.mcpArgs, ...mcpGrantArgs },
   successFields: {
-    structuredContent: cloudflareCreateWorkerContract.structuredContent,
+    structuredContent: detachResourceContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const workerId = await createWorkerForUser(ctx, args);
+    const repository = await readRepositoryForMcp(ctx, args);
+    const resourceName = args.resourceName.trim();
+    const resource =
+      args.kind === "cloudflare_worker"
+        ? {
+            kind: "cloudflare_worker" as const,
+            workerId: findAttachedWorkerByName(repository, resourceName).workerId,
+          }
+        : {
+            kind: "convex_project" as const,
+            convexProjectId: await findDetachableConvexProject(ctx, {
+              userId: args.userId,
+              repository,
+              resourceName,
+            }),
+          };
+
+    const confirmationRequest = await detachResourceForMcp(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      resource,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
+    });
+    if (confirmationRequest) {
+      return requestMcpConfirmation(DETACH_RESOURCE_TOOL, confirmationRequest);
+    }
     return {
-      text: `Created and attached Cloudflare Worker ${args.workerName}.`,
-      structuredContent: { workerId },
+      text: `Removed the ${args.kind === "cloudflare_worker" ? "Cloudflare Worker" : "Convex project"} ${resourceName} from ${repository.githubRepositoryFullName} in Samebase. It keeps running in its provider account.`,
+      structuredContent: { state: "detached" as const, kind: args.kind, resourceName },
     };
   },
 });
 
-export const cloudflareDiscoverWorkersTool = defineMcpTool({
+export const cloudflareFindWorkersTool = defineMcpTool({
   contract: cloudflareDiscoverWorkersContract,
-  args: cloudflareDiscoverWorkersContract.args,
+  args: cloudflareDiscoverWorkersContract.mcpArgs,
   successFields: {
     structuredContent: cloudflareDiscoverWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const structuredContent = await discoverCloudflareWorkersForUser(ctx, args);
+    const repository = await readRepositoryForMcp(ctx, args);
+    const structuredContent = projectWorkerDiscoveryForMcp(
+      await discoverCloudflareWorkersForUser(ctx, {
+        userId: args.userId,
+        repositoryId: repository.repositoryId,
+      }),
+    );
     const attachableCount = structuredContent.workers.filter(
       (worker) => worker.attachment === "attachable",
     ).length;
+    const { counts } = structuredContent;
     return {
-      text: `Found ${structuredContent.workers.length} ${structuredContent.workers.length === 1 ? "worker" : "workers"} in a ${structuredContent.inventoryState} inventory, ${attachableCount} attachable.`,
+      text: `Found ${attachableCount} attachable and ${structuredContent.workers.length - attachableCount} connectable Workers in a ${structuredContent.inventoryState} inventory. Not listed: ${counts.attached} already attached here, ${counts.attachedElsewhere} used by other Samebase repositories, ${counts.connectedElsewhere} building other GitHub repositories, ${counts.unavailable} unavailable.`,
       structuredContent,
-    };
-  },
-});
-
-export const convexAttachProjectsTool = defineMcpTool({
-  contract: convexAttachProjectsContract,
-  args: convexAttachProjectsContract.args,
-  successFields: {
-    structuredContent: convexAttachProjectsContract.structuredContent,
-  },
-  run: async (ctx, args) => {
-    const convexProjectIds = await attachExistingProjectsForUser(ctx, args);
-    return {
-      text: `Attached ${convexProjectIds.length} Convex ${convexProjectIds.length === 1 ? "project" : "projects"}.`,
-      structuredContent: { convexProjectIds },
     };
   },
 });
 
 export const cloudflareAttachWorkersTool = defineMcpTool({
   contract: cloudflareAttachWorkersContract,
-  args: cloudflareAttachWorkersContract.args,
+  args: cloudflareAttachWorkersContract.mcpArgs,
   successFields: {
     structuredContent: cloudflareAttachWorkersContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const workerIds = await attachExistingCloudflareWorkersForUser(ctx, args);
+    const repository = await readRepositoryForMcp(ctx, args);
+    const workers = await readCloudflareWorkerTagsByNameForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workerNames: args.workerNames,
+    });
+    await attachExistingCloudflareWorkersForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workers,
+    });
+    const workerNames = workers.map((worker) => worker.workerName);
     return {
-      text: `Attached ${workerIds.length} Cloudflare ${workerIds.length === 1 ? "Worker" : "Workers"}.`,
-      structuredContent: { workerIds },
+      text: `Attached ${workerNames.join(", ")} to ${repository.githubRepositoryFullName}.`,
+      structuredContent: { workerNames },
     };
   },
 });
 
-export const cloudflareConfigureWorkersBuildsForGitHubTool = defineMcpTool({
-  contract: cloudflareConfigureWorkersBuildsForGitHubContract,
-  args: cloudflareConfigureWorkersBuildsForGitHubContract.args,
-  successFields: {},
-  run: async (ctx, args) => {
-    await configureWorkersBuildsForGitHubForUser(ctx, args);
-    return { text: "Configured Workers Builds for GitHub." };
+export const cloudflareConnectWorkerTool = defineMcpTool({
+  contract: cloudflareConnectWorkerContract,
+  args: { ...cloudflareConnectWorkerContract.mcpArgs, ...mcpGrantArgs },
+  successFields: {
+    structuredContent: cloudflareConnectWorkerContract.structuredContent,
   },
-});
-
-export const cloudflareRotateConvexDeployKeysForWorkersBuildsTool = defineMcpTool({
-  contract: cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
-  args: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.args,
-  successFields: {},
   run: async (ctx, args) => {
-    await rotateConvexDeployKeysForWorkersBuildsForUser(ctx, args);
-    return { text: "Rotated Convex deploy keys for Workers Builds." };
-  },
-});
+    const repository = await readRepositoryForMcp(ctx, args);
+    const convexProjectId = await selectConvexDeployKeyProject(ctx, {
+      userId: args.userId,
+      repository,
+      convexProjectSlug: args.convexProjectSlug,
+    });
+    const buildTokenUuid = requireSelectedWorkersBuildsToken(
+      await selectWorkersBuildsTokenForRepository(ctx, {
+        userId: args.userId,
+        organizationId: repository.organizationId,
+        buildTokenUuid: args.buildTokenUuid,
+      }),
+    );
+    // One requested name reads exactly one Worker identity, or the read throws.
+    const [worker] = await readCloudflareWorkerTagsByNameForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workerNames: [args.workerName],
+    });
+    const rootDirectory = normalizeRepositoryRootDirectory(args.rootDirectory ?? "/");
 
-// Current provider state is observed live; there is no verification mutation tool.
-
-export const retryInfrastructureProvisioningTool = defineMcpTool({
-  contract: retryInfrastructureProvisioningContract,
-  args: retryInfrastructureProvisioningContract.args,
-  successFields: {},
-  run: async (ctx, args) => {
-    await retryInfrastructureProvisioningForUser(ctx, args);
-    return { text: "Started retry_infrastructure_provisioning run." };
-  },
-});
-
-export const submitFeedbackTool = defineMcpTool({
-  contract: submitFeedbackContract,
-  args: submitFeedbackContract.args,
-  successFields: {},
-  run: async (ctx, args) => {
-    if (args.report.trim().length === 0) {
-      throw new ConvexError("Feedback report cannot be empty.");
+    const result = await connectWorkerForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+      rootDirectory,
+      buildTokenUuid,
+      convexProjectId,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
+    });
+    if (result.state === "needs_confirmation") {
+      return requestMcpConfirmation(CONNECT_WORKER_TOOL, result);
     }
-    if (args.report.length > MAX_FEEDBACK_REPORT_LENGTH) {
+    if (result.state === "added_with_notice") {
+      const message = `Samebase attached ${worker.workerName}, but its Workers Builds setup reported an error. ${publicMcpErrorMessage(result.error)} ${describeConnectWorkerNextStep(result)}`;
+      return {
+        text: message,
+        structuredContent: {
+          state: "connected_with_notice" as const,
+          workerName: worker.workerName,
+          message,
+        },
+      };
+    }
+    const convexDeployKey = projectConvexDeployKeyForMcp(result.convexDeployKey);
+    return {
+      text: `Connected ${worker.workerName} to ${repository.githubRepositoryFullName} at ${rootDirectory}. ${describeConvexDeployKey(convexDeployKey)}`,
+      structuredContent: {
+        state: "connected" as const,
+        workerName: worker.workerName,
+        rootDirectory,
+        convexDeployKey,
+      },
+    };
+  },
+});
+
+export const cloudflareCreateWorkerTool = defineMcpTool({
+  contract: cloudflareCreateWorkerContract,
+  args: cloudflareCreateWorkerContract.mcpArgs,
+  successFields: {
+    structuredContent: cloudflareCreateWorkerContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const pendingCloudflareSetup = readPendingCloudflareSetup(repository);
+    const workerName = validateAppResourceName(
+      args.workerName ??
+        pendingCloudflareSetup?.workerName ??
+        buildDefaultAppResourceName({
+          repositoryName: repository.githubRepositoryName,
+          provider: "cloudflare",
+        }),
+      "cloudflare",
+    );
+    if (!workerName.valid) {
+      throw new ConvexError(workerName.message);
+    }
+    const rootDirectory = normalizeRepositoryRootDirectory(
+      args.rootDirectory ?? pendingCloudflareSetup?.rootDirectory ?? "/",
+    );
+    // The plan's Convex project belongs to the planned app only. Another Worker name or root
+    // directory is another app, so the normal rule chooses its project before any provider change.
+    const completesPlannedApp =
+      pendingCloudflareSetup &&
+      workerName.value === pendingCloudflareSetup.workerName &&
+      rootDirectory === normalizeRepositoryRootDirectory(pendingCloudflareSetup.rootDirectory);
+    const convexProjectId =
+      args.convexProjectSlug === undefined && completesPlannedApp
+        ? pendingCloudflareSetup.convexProjectId
+        : await selectConvexDeployKeyProject(ctx, {
+            userId: args.userId,
+            repository,
+            convexProjectSlug: args.convexProjectSlug,
+          });
+    const buildTokenUuid = requireSelectedWorkersBuildsToken(
+      await selectWorkersBuildsTokenForRepository(ctx, {
+        userId: args.userId,
+        organizationId: repository.organizationId,
+        buildTokenUuid: args.buildTokenUuid,
+      }),
+    );
+
+    const result = await createWorkerForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workerName: workerName.value,
+      rootDirectory,
+      buildTokenUuid,
+      convexProjectId,
+    });
+    const convexDeployKey = projectConvexDeployKeyForMcp(result.convexDeployKey);
+    return {
+      text: `Created ${workerName.value} for ${repository.githubRepositoryFullName} at ${rootDirectory}. ${describeConvexDeployKey(convexDeployKey)}`,
+      structuredContent: {
+        workerName: workerName.value,
+        rootDirectory,
+        convexDeployKey,
+      },
+    };
+  },
+});
+
+export const cloudflareConfigureBuildsTool = defineMcpTool({
+  contract: cloudflareConfigureWorkersBuildsForGitHubContract,
+  args: cloudflareConfigureWorkersBuildsForGitHubContract.mcpArgs,
+  successFields: {},
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const worker = findAttachedWorkerByName(repository, args.workerName);
+    if (
+      args.rootDirectory !== undefined &&
+      normalizeRepositoryRootDirectory(args.rootDirectory) !== worker.rootDirectory
+    ) {
       throw new ConvexError(
-        `Feedback report must be ${MAX_FEEDBACK_REPORT_LENGTH} characters or fewer.`,
+        `Worker ${worker.workerName} is recorded at root directory ${worker.rootDirectory}. Omit rootDirectory, or change the recorded root in the Samebase dashboard.`,
+      );
+    }
+    const buildTokenUuid = requireSelectedWorkersBuildsToken(
+      await selectWorkersBuildsTokenForRepository(ctx, {
+        userId: args.userId,
+        organizationId: repository.organizationId,
+        buildTokenUuid: args.buildTokenUuid,
+      }),
+    );
+
+    await configureWorkersBuildsForGitHubForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workerId: worker.workerId,
+      rootDirectory: worker.rootDirectory,
+      buildTokenUuid,
+    });
+    return {
+      text: `Configured Workers Builds for ${worker.workerName} at ${worker.rootDirectory} and requested a production build. A requested build does not prove a successful deployment.`,
+    };
+  },
+});
+
+export const cloudflareRotateConvexDeployKeysTool = defineMcpTool({
+  contract: cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
+  args: { ...cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcpArgs, ...mcpGrantArgs },
+  successFields: {
+    structuredContent: cloudflareRotateConvexDeployKeysForWorkersBuildsContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const worker = findAttachedWorkerByName(repository, args.workerName);
+    const convexProjectId = await selectConvexDeployKeyProject(ctx, {
+      userId: args.userId,
+      repository,
+      convexProjectSlug: args.convexProjectSlug,
+    });
+    if (convexProjectId === undefined) {
+      throw new ConvexError(
+        `${repository.githubRepositoryFullName} has no attached Convex project. Attach one with repository_convex_attachProject or create one with repository_convex_createProject first.`,
       );
     }
 
-    await ctx.runMutation(internal.mcp.feedback.reserveFeedbackSend, {
+    const confirmationRequest = await rotateConvexDeployKeysWithConfirmation(ctx, {
       userId: args.userId,
+      repositoryId: repository.repositoryId,
+      workerId: worker.workerId,
+      convexProjectId,
+      surface: mcpConfirmationSurface(args),
+      confirmation: args.confirmation,
     });
-    const emailResult = await sendEmail(ctx, {
-      to: "contact@samebase.com",
-      subject: "Samebase agent feedback",
-      text: args.report,
-    });
-    if (!emailResult.ok) {
-      return {
-        status: "error" as const,
-        text:
-          emailResult.error === "unknown"
-            ? "Feedback delivery could not be confirmed. Do not submit it again until Samebase has checked its delivery status."
-            : "Samebase could not send the feedback email.",
-      };
+    if (confirmationRequest) {
+      return requestMcpConfirmation(ROTATE_CONVEX_DEPLOY_KEYS_TOOL, confirmationRequest);
     }
-    if (emailResult.value === "skipped") {
-      return {
-        status: "error" as const,
-        text: "Feedback email is not configured in local development.",
-      };
-    }
-    if (emailResult.value === "queued") {
-      return {
-        text: "Feedback is queued for delivery to Samebase. Cloudflare has delayed sending. Do not submit it again; the email component will retry automatically.",
-      };
-    }
-    return { text: "Feedback submitted to Samebase." };
+    return {
+      text: `Replaced the Convex deploy keys for ${worker.workerName} and started a production build. A started build does not prove a successful deployment.`,
+      structuredContent: { state: "rotated" as const },
+    };
   },
 });
 
-const vCreateBrowserHandoffToolResult = union(
-  object({
-    status: literal("ok"),
-    text: string(),
-    structuredContent: createBrowserHandoffContract.structuredContent,
-  }),
-  vToolFailure,
-);
-type CreateBrowserHandoffToolResult = Infer<typeof vCreateBrowserHandoffToolResult>;
+export const convexFindProjectsTool = defineMcpTool({
+  contract: convexDiscoverProjectsContract,
+  args: convexDiscoverProjectsContract.mcpArgs,
+  successFields: {
+    structuredContent: convexDiscoverProjectsContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const structuredContent = projectConvexDiscoveryForMcp(
+      await discoverProjectsForUser(ctx, {
+        userId: args.userId,
+        repositoryId: repository.repositoryId,
+      }),
+    );
+    const { counts } = structuredContent;
+    return {
+      text: `Found ${structuredContent.projects.length} attachable Convex ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.codeLocations.paths.length} code ${structuredContent.codeLocations.paths.length === 1 ? "location" : "locations"}. Not listed: ${counts.attached} already attached here, ${counts.attachedElsewhere} used by other Samebase repositories.`,
+      structuredContent,
+    };
+  },
+});
 
-export const createBrowserHandoffTool = internalAction({
-  args: object({
-    userId: id("users"),
-    grantId: string(),
-    clientId: string(),
-    grantedScopes: array(string()),
-    ...createBrowserHandoffContract.args,
-  }),
-  returns: vCreateBrowserHandoffToolResult,
-  handler: async (ctx, args): Promise<CreateBrowserHandoffToolResult> => {
-    if (!args.grantedScopes.includes(createBrowserHandoffContract.access)) {
-      return {
-        status: "blocked",
-        text: `Insufficient scope for ${createBrowserHandoffContract.mcp.name}.`,
-      };
+export const convexAttachProjectTool = defineMcpTool({
+  contract: convexAttachProjectsContract,
+  args: convexAttachProjectsContract.mcpArgs,
+  successFields: {
+    structuredContent: convexAttachProjectsContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    if (repository.convexTeamId === undefined) {
+      throw new ConvexError(
+        "This repository has no Convex team yet. Connect Convex to its organization in Samebase, then retry.",
+      );
     }
-
-    const siteUrl = process.env["SITE_URL"];
-    if (!siteUrl) {
-      return {
-        status: "error",
-        text: "SITE_URL must be configured to create browser handoff URLs.",
-      };
-    }
-
-    const now = Date.now();
-    const expiresAt = now + AGENT_BROWSER_HANDOFF_TTL_MS;
-    const token = createAgentBrowserHandoffTokenValue();
-    const tokenHash = await sha256Hex(token);
-    let url: string;
-    try {
-      url = buildAgentBrowserHandoffUrl({
-        returnToPath: args.returnToPath,
-        siteUrl,
-        token,
-      });
-    } catch (error) {
-      return {
-        status: "error",
-        text: publicMcpErrorMessage(error),
-      };
-    }
-
-    const result = await ctx.runMutation(internal.agentBrowserHandoff.createForMcp, {
-      tokenHash,
+    const requestedSlug = args.convexProjectSlug.trim();
+    const teamProjects = await readConvexTeamProjectNamesForUser(ctx, {
       userId: args.userId,
-      grantId: args.grantId,
-      clientId: args.clientId,
-      createdAt: now,
-      expiresAt,
+      organizationId: repository.organizationId,
+      teamId: repository.convexTeamId,
+    });
+    const projectId = [...teamProjects].find(
+      ([, names]) => names.projectSlug === requestedSlug,
+    )?.[0];
+    if (projectId === undefined) {
+      throw new ConvexError(
+        `The repository's Convex team has no project with the slug ${requestedSlug}. Call repository_convex_findProjects to see the slugs of attachable projects, or create one with repository_convex_createProject.`,
+      );
+    }
+    const recordedAttachment = (
+      await ctx.runQuery(
+        internal.repository.providerObservationQueries.readConvexProjectRecordedAttachments,
+        { repositoryId: repository.repositoryId, userId: args.userId, projectIds: [projectId] },
+      )
+    ).find((attachment) => attachment.projectId === projectId);
+    if (recordedAttachment) {
+      throw new ConvexError(
+        recordedAttachment.attachment === "attached"
+          ? `Convex project ${requestedSlug} is already attached to ${repository.githubRepositoryFullName}.`
+          : `Convex project ${requestedSlug} is attached to another Samebase repository, so it cannot be attached here.`,
+      );
+    }
+    const { source } = await discoverConvexCodeLocations(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+    });
+    const codeLocation = selectConvexCodeLocation({
+      repositoryFullName: repository.githubRepositoryFullName,
+      locations: source.locations,
+      completeness: source.completeness,
+      requestedPath: args.codeLocation,
     });
 
-    if (!result.ok) {
-      return {
-        status: "error",
-        text: `Could not create browser handoff: ${result.reason}.`,
-      };
-    }
-
-    const structuredContent = {
-      url,
-      expiresAt,
-    };
+    await attachExistingProjectsForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      projects: [{ projectId, codeLocation: toConvexCodeLocationSelection(codeLocation) }],
+    });
+    const codeLocationPath = getConvexCodeLocationPath(codeLocation);
     return {
-      status: "ok",
-      text: JSON.stringify(structuredContent, null, 2),
-      structuredContent,
+      text: `Attached Convex project ${requestedSlug} to ${repository.githubRepositoryFullName} at ${codeLocationPath}.`,
+      structuredContent: { projectSlug: requestedSlug, codeLocation: codeLocationPath },
+    };
+  },
+});
+
+export const convexCreateProjectTool = defineMcpTool({
+  contract: convexCreateProjectContract,
+  args: convexCreateProjectContract.mcpArgs,
+  successFields: {
+    structuredContent: convexCreateProjectContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const projectName = validateAppResourceName(args.projectName, "convex");
+    if (!projectName.valid) {
+      throw new ConvexError(projectName.message);
+    }
+    const { source } = await discoverConvexCodeLocations(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+    });
+    const providerConfiguration: OrganizationProviderConfiguration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { userId: args.userId, organizationId: repository.organizationId },
+    );
+    const codeLocation = selectConvexCodeLocation({
+      repositoryFullName: repository.githubRepositoryFullName,
+      locations: source.locations,
+      completeness: source.completeness,
+      requestedPath: args.codeLocation,
+    });
+    const deploymentRegion =
+      args.convexDeploymentRegion ??
+      resolveDefaultConvexDeploymentRegion(providerConfiguration.defaultConvexDeploymentRegion);
+
+    await createProjectForUser(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      projectName: projectName.value,
+      deploymentRegion,
+      codeLocation: toConvexCodeLocationSelection(codeLocation),
+    });
+    const codeLocationPath = getConvexCodeLocationPath(codeLocation);
+    return {
+      text: `Created Convex project ${projectName.value} in ${deploymentRegion} and attached it to ${repository.githubRepositoryFullName} at ${codeLocationPath}.`,
+      structuredContent: {
+        projectName: projectName.value,
+        codeLocation: codeLocationPath,
+        deploymentRegion,
+      },
     };
   },
 });

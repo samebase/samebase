@@ -12,6 +12,7 @@ const vMcpAuthenticationStatus = union(
       email: string(),
     }),
     role: string(),
+    githubOwnerLogins: array(string()),
     grantedScopes: array(string()),
   }),
   object({
@@ -27,9 +28,9 @@ export const getAuthenticationStatusContract = {
   structuredContent: object({ authentication: vMcpAuthenticationStatus }),
   mcp: {
     title: "Get authentication status",
-    name: "samebase_auth_getAuthenticationStatus",
+    name: "account_getAuthenticationStatus",
     description:
-      "Read the caller's current Samebase MCP authentication state: account identity, role, and granted OAuth scopes.",
+      "Read the caller's current Samebase MCP authentication state: account identity, role, the GitHub owners of its organizations, and granted OAuth scopes.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -40,7 +41,8 @@ export const getAuthenticationStatusContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Returns the current MCP caller's Samebase authentication state for the bearer token used
 on the request: whether it still resolves to an active Samebase account, the account identity,
-the current Samebase role, and the granted OAuth scopes.
+the current Samebase role, the GitHub owner logins of its current organizations, and the granted
+OAuth scopes.
 
 Use this first when an MCP client needs to explain "am I connected, which account am I connected
 as, and what can this token currently do?" A valid token for a deleted or otherwise unresolved

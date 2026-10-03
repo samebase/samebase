@@ -509,35 +509,23 @@ export const reconcileProjectCodeLocation = internalMutation({
   },
 });
 
-export const detachProject = internalMutation({
+/** Removes the attachment record only; the Convex project keeps running in Convex. */
+export async function detachProjectForUser(
+  ctx: MutationCtx,
   args: {
-    repositoryId: id("repositories"),
-    userId: id("users"),
-    convexProjectId: id("repositoryConvexProjects"),
-    teamId: string(),
-    projectId: string(),
-    codeLocation: vConvexCodeLocation,
+    repositoryId: Id<"repositories">;
+    userId: Id<"users">;
+    convexProjectId: Id<"repositoryConvexProjects">;
   },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const repository = await requireUserRepositoryInfrastructureIdle(ctx, args);
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !project ||
-      project.repositoryId !== args.repositoryId ||
-      project.organizationId !== repository.organizationId
-    ) {
-      throw new Error("Convex project attachment not found.");
-    }
-    if (
-      project.teamId !== args.teamId ||
-      project.projectId !== args.projectId ||
-      getConvexCodeLocationKey(readConvexCodeLocation(project)) !==
-        getConvexCodeLocationKey(normalizeConvexCodeLocation(args.codeLocation))
-    ) {
-      throw new Error("Convex project attachment changed before removal.");
-    }
-    await ctx.db.delete(project._id);
-    return null;
-  },
-});
+): Promise<void> {
+  const repository = await requireUserRepositoryInfrastructureIdle(ctx, args);
+  const project = await ctx.db.get(args.convexProjectId);
+  if (
+    !project ||
+    project.repositoryId !== args.repositoryId ||
+    project.organizationId !== repository.organizationId
+  ) {
+    throw new Error("Convex project attachment not found.");
+  }
+  await ctx.db.delete(project._id);
+}

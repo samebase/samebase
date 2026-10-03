@@ -99,7 +99,7 @@ export function RepositoryConvexSchemaGraphView({
   repoName,
 }: RepositoryConvexSchemaGraphViewProps) {
   const githubRepositoryFullName = `${owner}/${repoName}`;
-  const dashboardRepositories = useRepositoryQuery(api.repository.dashboard.getUserRepositories);
+  const dashboardRepositories = useRepositoryQuery(api.repository.list);
   const attachment = dashboardRepositories
     ? findRepositoryConvexProjectAttachment(
         dashboardRepositories,

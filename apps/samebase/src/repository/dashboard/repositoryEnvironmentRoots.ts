@@ -3,7 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   PullRequestResources,
   PullRequestWorkerResource,
-} from "../../../convex/repository/pullRequestResources";
+} from "../../../convex/repository/pullRequestModel";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import { buildRepositoryDatabaseRoute, buildRepositorySchemaRoute } from "@/lib/repositoryRoutes";
@@ -15,7 +15,7 @@ import type {
 } from "./useRepositoryProviderObservations";
 
 type RepositoryDashboardRepository = NonNullable<
-  (typeof api.repository.dashboard.getUserRepositories)["_returnType"]
+  (typeof api.repository.list)["_returnType"]
 >[number];
 
 export type RepositoryEnvironmentAction =

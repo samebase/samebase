@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { RepositoryStatusCheckRollup } from "../../../convex/repositoryPullRequests";
+import type { RepositoryStatusCheckRollup } from "../../../convex/repository/pullRequestModel";
 import {
-  formatRepositoryCheckSummary,
-  type RepositoryCheckSummary,
   summarizeRepositoryChecks,
-} from "./repositoryChecks";
+  type RepositoryCheckSummary,
+} from "../../../shared/repositoryChecks";
+import { formatRepositoryCheckSummary } from "./repositoryChecks";
 
 type StatusCheckRollup = NonNullable<RepositoryStatusCheckRollup>;
 
