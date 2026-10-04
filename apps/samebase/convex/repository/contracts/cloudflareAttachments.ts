@@ -151,7 +151,7 @@ export const cloudflareDiscoverWorkersContract = {
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
       destructiveHint: false,
     },
     inputDescriptions: {
@@ -198,7 +198,7 @@ export const cloudflareAttachWorkersContract = {
     safety: "write",
     annotations: {
       readOnlyHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
       destructiveHint: false,
     },
     inputDescriptions: {

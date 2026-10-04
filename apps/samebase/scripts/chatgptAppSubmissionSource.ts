@@ -46,21 +46,21 @@ export const toolJustifications = {
     read_only_justification:
       "Only reads the repository's Workers, builds, URLs, Convex deployments, default branch checks, and open pull requests, and derives attention items from them.",
     open_world_justification:
-      "Reads only the selected repository in GitHub and its attached Workers and Convex projects in the organization's connected Cloudflare account and Convex team.",
+      "Calls the GitHub, Cloudflare, and Convex APIs to read the selected repository's live builds, URLs, deployments, checks, and pull requests. It reads only resources in the organization's connected accounts and writes nothing.",
     destructive_justification: noDestructiveActions,
   },
   repository_convex_findProjects: {
     read_only_justification:
       "Only reads repository code locations, connected Convex projects, and Cloudflare Worker markers.",
     open_world_justification:
-      "Reads only the selected repository and its organization's connected Convex team and Cloudflare account.",
+      "Calls the GitHub and Convex APIs to read the selected repository's code locations and the projects of the organization's connected Convex team. It reads only resources in the connected accounts and writes nothing.",
     destructive_justification: noDestructiveActions,
   },
   repository_cloudflare_findWorkers: {
     read_only_justification:
       "Only lists existing Workers and reads their repository connections and build roots.",
     open_world_justification:
-      "Reads only Workers in the selected repository's connected Cloudflare account.",
+      "Calls the Cloudflare API to list the Workers of the selected repository's connected Cloudflare account and their Workers Builds connections. It reads only that account and writes nothing.",
     destructive_justification: noDestructiveActions,
   },
   repository_create: {
@@ -75,14 +75,14 @@ export const toolJustifications = {
     read_only_justification:
       "Records an existing GitHub repository as a Samebase repository and starts a tree sync; provider resources are not modified.",
     open_world_justification:
-      "Reads only a repository within the selected organization's authorized GitHub installation and records its Samebase connection.",
+      "Calls the GitHub API to read the repository through the organization's authorized GitHub installation and to sync its tree, then records the Samebase connection. It changes nothing in GitHub.",
     destructive_justification: noDestructiveActions,
   },
   repository_convex_attachProject: {
     read_only_justification:
       "Records one existing Convex project and one confirmed Convex code location as a repository attachment.",
     open_world_justification:
-      "Reads only the organization's authorized GitHub repository and connected Convex team, then records the attachment in Samebase.",
+      "Calls the GitHub and Convex APIs to confirm the code location and the project in the organization's connected accounts, then records the attachment in Samebase. It changes nothing in GitHub or Convex.",
     destructive_justification: noDestructiveActions,
   },
   repository_convex_createProject: {
@@ -97,7 +97,7 @@ export const toolJustifications = {
     read_only_justification:
       "Records existing Cloudflare Workers that already build this repository as repository attachments; Workers without a verified root for this repository are rejected.",
     open_world_justification:
-      "Reads only the organization's connected Cloudflare account, then records verified repository attachments in Samebase.",
+      "Calls the Cloudflare API to re-verify each Worker's identity and live Workers Builds root in the organization's connected account, then records the attachments in Samebase. It changes nothing in Cloudflare.",
     destructive_justification: noDestructiveActions,
   },
   repository_cloudflare_connectWorker: {

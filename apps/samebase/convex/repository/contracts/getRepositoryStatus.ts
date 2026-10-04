@@ -188,7 +188,7 @@ export const getRepositoryStatusContract = {
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
       destructiveHint: false,
     },
     inputDescriptions: {
