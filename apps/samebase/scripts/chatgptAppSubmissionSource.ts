@@ -15,8 +15,8 @@ export const appInfo = {
   category: "DEVELOPER_TOOLS",
 } as const;
 
-/** The portal requires a walkthrough recording URL at submission; null keeps the portal's own value. */
-export const demoRecordingUrl: string | null = null;
+/** Walkthrough recording the portal requires at submission: sign-in, then the submitted cases on ChatGPT web. */
+export const demoRecordingUrl = "https://youtu.be/eoK5Md5bCgM";
 
 /** Summarizes the plugin version being submitted; the portal imports it as release notes. */
 export const releaseNotes =

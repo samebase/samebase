@@ -390,7 +390,7 @@ function renderPluginManifest(): string {
               expected_behavior: testCase.expected_behavior,
             })),
           },
-          ...(demoRecordingUrl === null ? {} : { demo_recording_url: demoRecordingUrl }),
+          demo_recording_url: demoRecordingUrl,
           commerce: false,
           commerce_description:
             "Samebase sells nothing through the plugin and processes no payments. Resources are created in the user's own GitHub, Convex, and Cloudflare accounts.",

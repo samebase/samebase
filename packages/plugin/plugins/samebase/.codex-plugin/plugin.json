@@ -98,6 +98,7 @@
             }
           ]
         },
+        "demo_recording_url": "https://youtu.be/eoK5Md5bCgM",
         "commerce": false,
         "commerce_description": "Samebase sells nothing through the plugin and processes no payments. Resources are created in the user's own GitHub, Convex, and Cloudflare accounts."
       },
