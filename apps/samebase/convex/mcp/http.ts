@@ -223,7 +223,13 @@ const mcpToolCatalog = actionContracts.map((contract) => ({
   title: contract.mcp.title,
   name: contract.mcp.name,
   description: contract.mcp.description,
-  annotations: contract.mcp.annotations,
+  // Anthropic's directory reads the listing name from annotations.title, not from the tool title.
+  annotations: {
+    title: contract.mcp.title,
+    readOnlyHint: contract.mcp.annotations.readOnlyHint,
+    openWorldHint: contract.mcp.annotations.openWorldHint,
+    destructiveHint: contract.mcp.annotations.destructiveHint,
+  },
   inputSchema: convexArgsToToolInputSchema(
     "mcpArgs" in contract ? contract.mcpArgs : contract.args,
     contract.mcp.inputDescriptions,
