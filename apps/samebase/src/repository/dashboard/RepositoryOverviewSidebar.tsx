@@ -192,7 +192,6 @@ function repositorySidebarStatus(args: {
 function RepositoryRow({
   folderState,
   githubIdentity,
-  inFolder,
   pending,
   onDirectAction,
   page,
@@ -205,7 +204,6 @@ function RepositoryRow({
 }: {
   folderState: RepositoryFolderState;
   githubIdentity: RepositoryGitHubIdentityObservation | undefined;
-  inFolder: boolean;
   pending: boolean;
   onDirectAction: (action: () => Promise<unknown>) => void;
   onMoveRepositoryToFolder: RepositoryFolderCallbacks["onMoveRepositoryToFolder"];
@@ -236,15 +234,11 @@ function RepositoryRow({
         : null;
 
   return (
-    <div className="flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1">
+    <div className="flex min-w-0 hover:bg-muted/60">
       <Link
         aria-current={selected ? "page" : undefined}
         aria-label={`${repository.githubRepositoryFullName}, ${status.label}${workerCount > 0 ? `, ${workerLabel}` : ""}${convexProjectCount > 0 ? `, ${convexProjectLabel}` : ""}${pullRequestCount ? `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}` : ""}`}
-        className={
-          inFolder
-            ? "block min-w-0 flex-1 py-2.5 pr-3 pl-6 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-5 @max-[120px]:pr-1 @max-[120px]:pl-4"
-            : "block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
-        }
+        className="block min-w-0 flex-1 py-2.5 pr-3 pl-2 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-1.5 @max-[120px]:pr-1 @max-[120px]:pl-1"
         data-repository-status={status.label}
         title={repository.githubRepositoryFullName}
         to={repositoryRoute(repository, page)}
@@ -473,12 +467,11 @@ export function RepositoryOverviewSidebar({
       });
   }
 
-  function renderRepository(repository: UserRepositoryResult, inFolder: boolean) {
+  function renderRepository(repository: UserRepositoryResult) {
     return (
       <RepositoryRow
         folderState={organizationFolderState}
         githubIdentity={githubIdentityByRepositoryId.get(repository.repositoryId)}
-        inFolder={inFolder}
         key={repository.repositoryId}
         pending={pendingAction !== null}
         page={page}
@@ -495,9 +488,9 @@ export function RepositoryOverviewSidebar({
 
   return (
     <>
-      <div className="@container min-h-full py-2">
+      <div className="py-2">
         {organizationFolders.length === 0 ? (
-          repositories.map((repository) => renderRepository(repository, false))
+          repositories.map((repository) => renderRepository(repository))
         ) : (
           <>
             {organizationFolders.map((folder, index) => {
@@ -536,8 +529,8 @@ export function RepositoryOverviewSidebar({
                   <div
                     className={
                       folder.collapsed && selectedRepository
-                        ? "flex min-w-0 items-center bg-muted px-1 py-1"
-                        : "flex min-w-0 items-center px-1 py-1"
+                        ? "flex min-w-0 items-center bg-muted py-1 pr-1"
+                        : "flex min-w-0 items-center py-1 pr-1"
                     }
                   >
                     <Button
@@ -627,11 +620,15 @@ export function RepositoryOverviewSidebar({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  {visibleRepositories.map((repository) => renderRepository(repository, true))}
+                  {visibleRepositories.length === 0 ? null : (
+                    <div className="ml-2.5 border-l border-border pl-1 @max-[200px]:pl-0.5 @max-[120px]:ml-2">
+                      {visibleRepositories.map((repository) => renderRepository(repository))}
+                    </div>
+                  )}
                 </section>
               );
             })}
-            {unfiledRepositories.map((repository) => renderRepository(repository, false))}
+            {unfiledRepositories.map((repository) => renderRepository(repository))}
           </>
         )}
       </div>
@@ -805,9 +802,9 @@ export function RepositoryOverviewOrganizationSidebar({
                 onCreateRepositoryFolder={onCreateRepositoryFolder}
               />
             </div>
-            <CollapsibleContent>
+            <CollapsibleContent className="ml-5 border-l border-border pl-1 @max-[200px]:ml-4 @max-[200px]:pl-0.5 @max-[120px]:ml-3">
               {organizationRepositories.length === 0 && !organizationHasFolders ? (
-                <p className="px-3 py-2 text-sm text-muted-foreground @max-[200px]:px-2 @max-[120px]:px-1">
+                <p className="py-2 pl-2 text-sm text-muted-foreground @max-[200px]:pl-1.5 @max-[120px]:pl-1">
                   No repositories
                 </p>
               ) : (
