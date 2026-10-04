@@ -225,7 +225,7 @@ export const testCases = [
     description:
       "Create one private repository with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections. This fixture requires an available last-used Workers Builds token and enough organization connection capacity, so Samebase picks the token and asks nothing about it.",
     user_prompt:
-      "Create a private Samebase repository under samebase-live-tests in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Report its repository and provider setup status.",
+      "Create a private Samebase repository under samebase-live-tests with a unique name that starts with tmp-plugin-review-, and report its setup status.",
     file_attachment_urls: null,
     tools_triggered: ["repository_create", "repository_list"],
     expected_output:
