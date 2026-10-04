@@ -307,15 +307,15 @@ describe("MCP tool listing access", () => {
       ["account_createSignInLink", false, false],
       ["feedback_submit", true, true],
       ["repository_create", true, false],
-      ["repository_connect", false, false],
+      ["repository_connect", true, false],
       ["repository_retryProviderSetup", true, true],
       ["repository_detachResource", false, true],
-      ["repository_cloudflare_attachWorkers", false, false],
+      ["repository_cloudflare_attachWorkers", true, false],
       ["repository_cloudflare_connectWorker", true, true],
       ["repository_cloudflare_createWorker", true, false],
       ["repository_cloudflare_configureBuilds", true, true],
       ["repository_cloudflare_rotateConvexDeployKeys", true, true],
-      ["repository_convex_attachProject", false, false],
+      ["repository_convex_attachProject", true, false],
       ["repository_convex_createProject", true, false],
     ] as const;
 
@@ -330,14 +330,23 @@ describe("MCP tool listing access", () => {
     }
   });
 
-  it("marks account reads, the status read, and provider discovery as bounded read-only tools", () => {
+  it("marks reads of Samebase's own records as bounded and provider reads as open-world", () => {
     const tools = listMcpToolsForAccess({
       grantedScopes: [...ACCESS_KEYS],
       currentAccessKeys: [...ACCESS_KEYS],
     });
+    for (const name of ["account_getAuthenticationStatus", "repository_list"]) {
+      expect(tools.find((tool) => tool.name === name)).toMatchObject({
+        annotations: {
+          readOnlyHint: true,
+          openWorldHint: false,
+          destructiveHint: false,
+        },
+      });
+    }
+    // These read GitHub, Cloudflare, or Convex live; OpenAI's scan counts a provider API as an
+    // independently controlled external system even when the read stays inside the user's account.
     for (const name of [
-      "account_getAuthenticationStatus",
-      "repository_list",
       "repository_getStatus",
       "repository_convex_findProjects",
       "repository_cloudflare_findWorkers",
@@ -345,7 +354,7 @@ describe("MCP tool listing access", () => {
       expect(tools.find((tool) => tool.name === name)).toMatchObject({
         annotations: {
           readOnlyHint: true,
-          openWorldHint: false,
+          openWorldHint: true,
           destructiveHint: false,
         },
       });

@@ -127,7 +127,7 @@ export const convexDiscoverProjectsContract = {
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
       destructiveHint: false,
     },
     inputDescriptions: {
@@ -177,7 +177,7 @@ export const convexAttachProjectsContract = {
     safety: "write",
     annotations: {
       readOnlyHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
       destructiveHint: false,
     },
     inputDescriptions: {
