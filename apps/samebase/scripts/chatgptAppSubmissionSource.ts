@@ -1,8 +1,10 @@
 /**
-Hand-written half of the OpenAI plugin submission file. Tool names, descriptions, and annotations
-come from the action catalog; everything here is the prose OpenAI requires that cannot be derived
-from code. generate-action-docs.ts composes both halves into /chatgpt-app-submission.json and
-fails closed when a catalog tool has no justification entry.
+Hand-written half of the OpenAI plugin submission. Tool names, descriptions, and annotations come
+from the action catalog; everything here is the prose OpenAI requires that cannot be derived from
+code. generate-action-docs.ts composes both halves into /chatgpt-app-submission.json (per-tool
+annotation justifications for the portal) and into the Codex manifest's extensions.com.openai
+block (test cases, demo recording, release notes), and fails closed when a catalog tool has no
+justification entry.
 */
 
 export const appInfo = {
@@ -12,6 +14,13 @@ export const appInfo = {
     "Build and ship web apps in the user's GitHub, Convex, and Cloudflare accounts. Samebase creates, connects, configures, and inspects provider resources through MCP. One bundled skill guides the coding agent through repository setup, implementation, validation, and deployment.",
   category: "DEVELOPER_TOOLS",
 } as const;
+
+/** The portal requires a walkthrough recording URL at submission; null keeps the portal's own value. */
+export const demoRecordingUrl: string | null = null;
+
+/** Summarizes the plugin version being submitted; the portal imports it as release notes. */
+export const releaseNotes =
+  "0.3.2: one catalog of 18 tools named by Convex function path. repository_getStatus reads live builds, URLs, Convex deployments, checks, and pull requests of one repository. Connecting a Worker, rotating deploy keys, retrying setup, and detaching a resource now need a server-issued confirmation on a second call. Shorter server instructions and rewritten test cases.";
 
 type ToolJustifications = {
   read_only_justification: string;
@@ -162,18 +171,15 @@ export const toolJustifications = {
 
 type SubmissionToolName = keyof typeof toolJustifications;
 
+/** Field names follow the manifest's extensions.com.openai.review test case shape. */
 type SubmissionTestCase = {
   description: string;
-  user_prompt: string;
-  file_attachment_urls: null;
+  prompt: string;
   tools_triggered: readonly [SubmissionToolName, ...SubmissionToolName[]];
-  expected_output: string;
-  expected_output_url: null;
+  expected_behavior: string;
 };
 
-type SubmissionNegativeTestCase = Omit<SubmissionTestCase, "tools_triggered"> & {
-  tools_triggered: null;
-};
+type SubmissionNegativeTestCase = Omit<SubmissionTestCase, "tools_triggered">;
 
 type SubmissionTestCases = readonly [
   SubmissionTestCase,
@@ -193,85 +199,65 @@ export const testCases = [
   {
     description:
       "Inspect the identity and permissions of an already-authorized reviewer connection.",
-    user_prompt: "Which Samebase account am I signed in as, and what can this connection access?",
-    file_attachment_urls: null,
+    prompt: "Which Samebase account am I signed in as, and what can this connection access?",
     tools_triggered: ["account_getAuthenticationStatus"],
-    expected_output:
+    expected_behavior:
       "The answer names the reviewer account's email and role, the GitHub owner of its organization, and the granted permissions. It shows no access token and no internal account ID.",
-    expected_output_url: null,
   },
   {
     description:
       "List the Samebase repositories already prepared in the reviewer account, across its organizations.",
-    user_prompt: "List my Samebase repositories and their setup status.",
-    file_attachment_urls: null,
+    prompt: "List my Samebase repositories and their setup status.",
     tools_triggered: ["repository_list"],
-    expected_output:
+    expected_behavior:
       "The answer lists each repository by owner/name, including samebase-live-tests/tmp-my-cool-app2, with its source setup status and its provider setup status. It can name the attached Workers and Convex projects. It does not say that the list proves that an app is live.",
-    expected_output_url: null,
   },
   {
     description:
       "Find the Cloudflare Workers that can be added to samebase-live-tests/tmp-my-cool-app2 in its stored Cloudflare account, without changing them.",
-    user_prompt:
-      "Show me the Cloudflare Workers I can attach to samebase-live-tests/tmp-my-cool-app2.",
-    file_attachment_urls: null,
+    prompt: "Show me the Cloudflare Workers I can attach to samebase-live-tests/tmp-my-cool-app2.",
     tools_triggered: ["repository_cloudflare_findWorkers"],
-    expected_output:
+    expected_behavior:
       "The answer lists tmp-something as a connectable Worker that is not attached to any repository, and gives the counts of Workers already attached to this repository and attached elsewhere. It may warn that connecting replaces what the Worker serves. It does not say that a Worker was attached, connected, or created.",
-    expected_output_url: null,
   },
   {
     description:
       "Create one private repository with the reviewer account's prepared samebase-live-tests GitHub, Convex, and Cloudflare connections. This fixture requires an available last-used Workers Builds token and enough organization connection capacity, so Samebase picks the token and asks nothing about it.",
-    user_prompt:
+    prompt:
       "Create a private Samebase repository under samebase-live-tests with a unique name that starts with tmp-plugin-review-, and report its setup status.",
-    file_attachment_urls: null,
     tools_triggered: ["repository_create", "repository_list"],
-    expected_output:
+    expected_behavior:
       "The answer names the new private repository (samebase-live-tests/tmp-plugin-review- with a unique suffix) and its planned Cloudflare Worker, and reports the source setup status and the provider setup status. If setup is still running, it reports the current state and does not say that setup is ready. When both are ready, it can name the attached Convex project that repository_list returns, and it says that ready setup does not prove that the app is live. A failed setup is reported as failed.",
-    expected_output_url: null,
   },
   {
     description:
       "Read the live production status of samebase-live-tests/tmp-my-cool-app2 from GitHub, Cloudflare, and Convex without changing anything.",
-    user_prompt:
+    prompt:
       "Is samebase-live-tests/tmp-my-cool-app2 deployed? Give me its production URL, latest build state, Convex deployment, checks, and open pull requests.",
-    file_attachment_urls: null,
     tools_triggered: ["repository_getStatus"],
-    expected_output:
+    expected_behavior:
       "The answer names the Worker tmp-my-cool-app and its workers.dev production URL, the latest production build state and whether its commit matches the default branch head, the check counts on the default branch, the Convex project tmp-my-cool-app with its production deployment name and region, and each open pull request with its checks and preview build state. It can list attention items. It does not say that the app serves the expected content, and it changes nothing.",
-    expected_output_url: null,
   },
 ] as const satisfies SubmissionTestCases;
 
 export const negativeTestCases = [
   {
     description: "Do not invoke Samebase for Git-only work in an unrelated repository.",
-    user_prompt: "Change the README heading in octocat/Hello-World and open a pull request.",
-    file_attachment_urls: null,
-    tools_triggered: null,
-    expected_output:
+    prompt: "Change the README heading in octocat/Hello-World and open a pull request.",
+    expected_behavior:
       "Calls no Samebase tool. The answer treats the change and the pull request as GitHub work in a repository that Samebase does not manage.",
-    expected_output_url: null,
   },
   {
     description: "Do not remove a repository or delete provider resources through Samebase MCP.",
-    user_prompt:
+    prompt:
       "Can I remove a Samebase repository from Samebase and delete all of its resources through Samebase MCP?",
-    file_attachment_urls: null,
-    tools_triggered: null,
-    expected_output:
+    expected_behavior:
       "Calls no Samebase tool. The answer says no: Samebase MCP cannot remove a repository from Samebase or delete its resources; the closest tool only detaches a resource and leaves it running. It does not say that anything was removed.",
-    expected_output_url: null,
   },
   {
     description: "Do not invoke Samebase for a standalone provider resource.",
-    user_prompt: "Create a standalone Cloudflare Worker for me.",
-    file_attachment_urls: null,
-    tools_triggered: null,
-    expected_output:
+    prompt: "Create a standalone Cloudflare Worker for me.",
+    expected_behavior:
       "Calls no Samebase tool. The answer says that Samebase does not create standalone Workers: a Worker exists only inside a Samebase repository. It does not create anything.",
-    expected_output_url: null,
   },
 ] as const satisfies SubmissionNegativeTestCases;
