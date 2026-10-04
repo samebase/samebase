@@ -1,23 +1,25 @@
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { array, boolean, isObject, object, optional, string, type InferGood } from "@samebase/sure";
 import { createServer } from "vite";
 
 import { formatWithVpFmt } from "../../../scripts/format-with-vp-fmt.ts";
-import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
+import { samebaseAppFilePath, trackedFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 import {
   appInfo,
+  demoRecordingUrl,
   negativeTestCases,
+  releaseNotes,
   testCases,
   toolJustifications,
 } from "./chatgptAppSubmissionSource.ts";
 
 /**
 Renders the action catalog into every generated agent-facing surface (rfcs/093 Phase 2b):
-public/docs/actions/<id>.md reference pages, public/llms.txt, and the root
-chatgpt-app-submission.json. Run through `pnpm run generate:action-docs`;
-`pnpm run verify:action-docs` guards drift in CI.
+public/docs/actions/<id>.md reference pages, public/llms.txt, the root
+chatgpt-app-submission.json, and the extensions.com.openai block of the Codex plugin manifest.
+Run through `pnpm run generate:action-docs`; `pnpm run verify:action-docs` guards drift in CI.
 */
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +28,10 @@ const repoRoot = path.resolve(appDir, "../..");
 const actionsOutputDir = path.resolve(appDir, "public/docs/actions");
 const llmsTxtPath = path.resolve(appDir, "public/llms.txt");
 const submissionPath = path.resolve(repoRoot, "chatgpt-app-submission.json");
+const pluginManifestPath = path.resolve(
+  repoRoot,
+  trackedFilePath("packages/plugin/plugins/samebase/.codex-plugin/plugin.json"),
+);
 const actionCatalogPath = samebaseAppFilePath("convex/toolRuntime/actionCatalog.ts");
 
 const actionContractSchema = object({
@@ -334,12 +340,68 @@ function renderSubmissionJson(contracts: ActionContractDoc[]): string {
     app_info: appInfo,
     tools,
     test_cases: testCases.map((testCase) => ({
-      ...testCase,
+      description: testCase.description,
+      user_prompt: testCase.prompt,
+      file_attachment_urls: null,
       tools_triggered: testCase.tools_triggered.join(", "),
+      expected_output: testCase.expected_behavior,
+      expected_output_url: null,
     })),
-    negative_test_cases: negativeTestCases,
+    negative_test_cases: negativeTestCases.map((testCase) => ({
+      description: testCase.description,
+      user_prompt: testCase.prompt,
+      file_attachment_urls: null,
+      tools_triggered: null,
+      expected_output: testCase.expected_behavior,
+      expected_output_url: null,
+    })),
   };
   return `${JSON.stringify(submission, null, 2)}\n`;
+}
+
+/**
+The OpenAI portal imports review and publication details from the Codex manifest's
+extensions.com.openai block when the plugin ZIP is uploaded. Only that block is generated; the
+rest of the manifest stays hand-written, so the manifest is read first and written back with the
+block replaced.
+*/
+function renderPluginManifest(): string {
+  const parsed: unknown = JSON.parse(readFileSync(pluginManifestPath, "utf8"));
+  if (!isObject(parsed)) {
+    throw new Error(`${pluginManifestPath} is not a JSON object.`);
+  }
+  const extensions = isObject(parsed["extensions"]) ? parsed["extensions"] : {};
+  const manifest = {
+    ...parsed,
+    extensions: {
+      ...extensions,
+      "com.openai": {
+        review: {
+          test_cases: {
+            positive: testCases.map((testCase) => ({
+              description: testCase.description,
+              prompt: testCase.prompt,
+              tools_triggered: testCase.tools_triggered.join(", "),
+              expected_behavior: testCase.expected_behavior,
+            })),
+            negative: negativeTestCases.map((testCase) => ({
+              description: testCase.description,
+              prompt: testCase.prompt,
+              expected_behavior: testCase.expected_behavior,
+            })),
+          },
+          demo_recording_url: demoRecordingUrl,
+          commerce: false,
+          commerce_description:
+            "Samebase sells nothing through the plugin and processes no payments. Resources are created in the user's own GitHub, Convex, and Cloudflare accounts.",
+        },
+        publication: {
+          release_notes: releaseNotes,
+        },
+      },
+    },
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
 /**
@@ -368,8 +430,9 @@ for (const contract of contracts) {
 // llms.txt stays unformatted: vp fmt (and the pre-commit hook glob) do not cover .txt files.
 writeFileSync(llmsTxtPath, renderLlmsTxt(contracts));
 await writeFormatted(submissionPath, renderSubmissionJson(contracts));
+await writeFormatted(pluginManifestPath, renderPluginManifest());
 
 const generatedFiles = readdirSync(actionsOutputDir).length;
 console.log(
-  `Generated ${generatedFiles} action docs, llms.txt, and chatgpt-app-submission.json from ${contracts.length} contracts.`,
+  `Generated ${generatedFiles} action docs, llms.txt, chatgpt-app-submission.json, and the plugin manifest review block from ${contracts.length} contracts.`,
 );
