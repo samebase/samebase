@@ -28,3 +28,6 @@ convex/.tmp
 *.njsproj
 *.sln
 *.sw?
+
+# Alchemy local state (spike)
+.alchemy/
