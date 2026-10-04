@@ -3,19 +3,11 @@ import type { BaseIssue } from "valibot";
 const PROVIDER_RESPONSE_PARSE_LOG_TOPIC = "provider_response_parse_failed";
 const PROVIDER_RESPONSE_LOG_VERSION = 1;
 
-type ProviderResponseValidationIssue =
-  | {
-      schemaPath: string;
-      keyword?: string;
-      message?: string;
-    }
-  | Pick<BaseIssue<unknown>, "kind" | "type" | "expected">;
-
 /**
 Emit schema-derived validation details without provider values or response paths.
 
-AJV instance paths and params can contain provider data, such as environment
-variable names. Valibot issues contain input values, paths, and messages too.
+Valibot issues can contain provider values, paths, and messages, including
+environment variable names.
 Log only the schema's issue kind, type, and expected value description for Valibot.
 */
 export function logProviderValidationFailure(args: {
@@ -24,7 +16,7 @@ export function logProviderValidationFailure(args: {
   method: string;
   path: string;
   transport: "direct" | "mcp" | null;
-  issues: readonly ProviderResponseValidationIssue[];
+  issues: readonly Pick<BaseIssue<unknown>, "kind" | "type" | "expected">[];
 }) {
   const topic =
     args.phase === "request"
@@ -39,15 +31,7 @@ export function logProviderValidationFailure(args: {
       path: args.path,
       transport: args.transport,
       issue_count: args.issues.length,
-      issues: args.issues.map((issue) =>
-        "schemaPath" in issue
-          ? {
-              schema_path: issue.schemaPath,
-              keyword: issue.keyword ?? null,
-              message: issue.message ?? null,
-            }
-          : { kind: issue.kind, type: issue.type, expected: issue.expected },
-      ),
+      issues: args.issues.map(({ kind, type, expected }) => ({ kind, type, expected })),
     })}`,
   );
 }

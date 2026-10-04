@@ -45,6 +45,7 @@ export default defineConfig({
       "**/convex/_generated",
       // Hey API owns these SDK and validator files.
       "apps/samebase/convex/cloudflareApi/generated/**",
+      "apps/samebase/convex/convexManagementApi/generated/**",
       "**/src/components/ui",
       "apps/sidebars-example/src/routeTree.gen.ts",
       // This fixture is linted after its packed Sidebars dependency is installed.

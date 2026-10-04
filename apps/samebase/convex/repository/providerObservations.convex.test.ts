@@ -8,8 +8,8 @@ const cloudflareMocks = vi.hoisted(() => ({
 }));
 
 const convexMocks = vi.hoisted(() => ({
-  requestConvexManagementApi: vi.fn(),
-  requestConvexManagementApiOrThrow: vi.fn(),
+  getProject: vi.fn(),
+  getDeployment: vi.fn(),
 }));
 
 const githubMocks = vi.hoisted(() => ({
@@ -29,14 +29,14 @@ vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
   },
 }));
 
-vi.mock("../convexManagementApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
-  return {
-    ...actual,
-    requestConvexManagementApi: convexMocks.requestConvexManagementApi,
-    requestConvexManagementApiOrThrow: convexMocks.requestConvexManagementApiOrThrow,
-  };
-});
+vi.mock("../convexManagementApi/generated/sdk.gen", () => ({
+  ConvexManagement: {
+    GET: {
+      "/projects/{project_id}": convexMocks.getProject,
+      "/projects/{project_id}/deployment": convexMocks.getDeployment,
+    },
+  },
+}));
 
 vi.mock("../githubApp", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../githubApp")>();
@@ -48,6 +48,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 
 import { api } from "../_generated/api";
 import { CloudflareApiResponseError } from "../cloudflareApi/client";
+import { ConvexManagementApiResponseError } from "../convexManagementApi/client";
 import type { Cloudflare } from "../cloudflareApi/generated/sdk.gen";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
@@ -59,8 +60,8 @@ afterEach(() => {
 
 beforeEach(() => {
   for (const endpoint of Object.values(cloudflareMocks)) endpoint.mockReset();
-  convexMocks.requestConvexManagementApi.mockReset();
-  convexMocks.requestConvexManagementApiOrThrow.mockReset();
+  convexMocks.getProject.mockReset();
+  convexMocks.getDeployment.mockReset();
   githubMocks.getRepository.mockReset();
   githubMocks.createRepositoryOctokit.mockReset();
   githubMocks.getRepository.mockResolvedValue({
@@ -285,18 +286,15 @@ describe("repository provider observations", () => {
         };
       },
     );
-    convexMocks.requestConvexManagementApi.mockResolvedValue([
-      true,
-      {
-        createTime: 1,
-        id: "convex-project",
-        name: "Samebase",
-        slug: "samebase",
-        teamId: "convex-team",
-        teamSlug: "samebase-team",
-      },
-    ]);
-    convexMocks.requestConvexManagementApiOrThrow.mockResolvedValue({
+    convexMocks.getProject.mockResolvedValue({
+      createTime: 1,
+      id: "convex-project",
+      name: "Samebase",
+      slug: "samebase",
+      teamId: "convex-team",
+      teamSlug: "samebase-team",
+    });
+    convexMocks.getDeployment.mockResolvedValue({
       class: "s16",
       createTime: 1,
       creator: "convex-member",
@@ -393,5 +391,23 @@ describe("repository provider observations", () => {
         },
       },
     ]);
+    for (const failure of ["invalid_json", []] as const) {
+      convexMocks.getProject.mockRejectedValue(
+        new ConvexManagementApiResponseError("GET", "/projects/{project_id}", failure),
+      );
+      await expect(
+        viewer.action(api.repository.providerObservations.observeConvexProjects, {
+          repositoryId: ids.repositoryId,
+        }),
+      ).resolves.toMatchObject([
+        {
+          provider: {
+            state: "unavailable",
+            reason:
+              failure === "invalid_json" ? "response_parse_failed" : "response_validation_failed",
+          },
+        },
+      ]);
+    }
   });
 });

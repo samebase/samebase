@@ -92,7 +92,6 @@ allowBuilds:
   workerd: true
 patchedDependencies:
   "@convex-dev/auth@0.0.94": patches/@convex-dev__auth@0.0.94.patch
-  ajv@8.18.0: patches/ajv@8.18.0.patch
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vitest: 4.1.11

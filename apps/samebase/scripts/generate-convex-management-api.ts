@@ -1,16 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
-import { standaloneCode } from "ajv/dist/standalone/index.js";
-import openapiTS, {
-  astToString,
-  COMMENT_HEADER,
-  STRING,
-  type OpenAPI3,
-  type SchemaObject,
-  type TransformNodeOptions,
-} from "openapi-typescript";
+import { createClient } from "@hey-api/openapi-ts";
+import traverse from "json-schema-traverse";
 import { isRecord } from "@samebase/dependent/main";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
@@ -24,26 +16,15 @@ const openApiDocumentOutputPath = fileURLToPath(
     import.meta.url,
   ),
 );
-const validatorsOutputPath = fileURLToPath(
+const decimalPathsOutputPath = fileURLToPath(
   new URL(
-    `../${samebaseAppFilePath("convex/convexManagementApi/validators.generated.js")}`,
+    `../${samebaseAppFilePath("convex/convexManagementApi/responseDecimalPaths.generated.ts")}`,
     import.meta.url,
   ),
 );
-const validatorTypesOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/convexManagementApi/validators.generated.d.ts")}`,
-    import.meta.url,
-  ),
+const sdkOutputPath = fileURLToPath(
+  new URL("../convex/convexManagementApi/generated", import.meta.url),
 );
-const typesOutputPath = samebaseAppFilePath("convex/convexManagementApi/types.generated.d.ts");
-const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
-const generatedFormatPaths = [
-  samebaseAppFilePath("convex/convexManagementApi/openApi.generated.json"),
-  typesOutputPath,
-  samebaseAppFilePath("convex/convexManagementApi/validators.generated.js"),
-  samebaseAppFilePath("convex/convexManagementApi/validators.generated.d.ts"),
-];
 
 /**
 Convex publishes these identifiers as int64 schemas, but Samebase treats provider
@@ -61,7 +42,7 @@ const convexManagementDecimalIdSchemaRefs = new Set(
   convexManagementDecimalIdSchemaNames.map((schemaName) => `#/components/schemas/${schemaName}`),
 );
 
-const convexManagementOperationMethods = ["get", "post"] as const;
+const convexManagementOperationMethods = ["get", "post", "patch"] as const;
 
 type ConvexManagementOperationMethod = (typeof convexManagementOperationMethods)[number];
 
@@ -72,79 +53,38 @@ type ConvexManagementResponseNumberPath = {
   path: string[];
 };
 
-type ConvexManagementResponseValidatorEntry = {
+type ConvexManagementResponseEntry = {
   method: ConvexManagementOperationMethod;
   path: string;
-  operationId: string;
-  exportName: string | null;
-  schema: AnySchema | null;
-  schemaId: string | null;
   decimalPaths: string[][];
 };
 
-// openapi-fetch gives callsites compile-time path/body/response types, but it
-// does not runtime-validate provider JSON. Convex cannot compile AJV schemas at
-// request time, so this script emits standalone validators during generation.
-const response = await fetch(sourceUrl);
-if (!response.ok) {
-  throw new Error(`Failed to fetch ${sourceUrl}: ${response.status}`);
-}
+const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(30_000) });
+if (!response.ok) throw new Error(`Failed to fetch ${sourceUrl}: ${response.status}`);
+const documentJson = parseJsonSchemaDocument(await response.text());
+const responseEntries = collectConvexManagementResponseEntries(documentJson);
 
-const documentText = await response.text();
-const documentJson = parseJsonSchemaDocument(documentText);
-const validationDocumentJson = normalizeConvexManagementValidationDocument(documentJson);
-const responseValidatorEntries = collectConvexManagementResponseValidatorEntries(documentJson);
-const ajv = new Ajv2020({
-  allErrors: true,
-  code: { esm: true, source: true },
-  strict: false,
-  validateSchema: false,
-});
-ajv.addFormat("int32", true);
-ajv.addFormat("int64", true);
-const validatorSchemaIds = buildConvexManagementValidatorSchemaIds(responseValidatorEntries);
-
-function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
+function parseJsonSchemaDocument(documentText: string) {
   const payload: unknown = JSON.parse(documentText);
-  if (isOpenApiDocument(payload)) {
+  if (
+    isRecord(payload) &&
+    typeof payload.openapi === "string" &&
+    isRecord(payload.info) &&
+    isRecord(payload.paths)
+  )
     return payload;
-  }
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
 }
 
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
-function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
-  return (
-    typeof payload === "boolean" ||
-    (!!payload && typeof payload === "object" && !Array.isArray(payload))
-  );
-}
-
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info as records, never the nested OpenAPI3 interface
-function isOpenApiDocument(payload: unknown): payload is OpenAPI3 {
-  return isRecord(payload) && typeof payload.openapi === "string" && isRecord(payload.info);
-}
-
-function normalizeConvexManagementValidationDocument(document: OpenAPI3): AnySchema {
-  const normalizedDocument: unknown = structuredClone(document);
-  const schemas = readRecordPath(normalizedDocument, ["components", "schemas"]);
-
+function normalizeConvexManagementIdSchemas(document: unknown) {
+  const schemas = readRecordPath(document, ["components", "schemas"]);
   for (const schemaName of convexManagementDecimalIdSchemaNames) {
     const schema = schemas[schemaName];
     if (!isRecord(schema) || schema.type !== "integer" || schema.format !== "int64") {
       throw new Error(`${sourceUrl} schema ${schemaName} is no longer an int64 schema.`);
     }
-    schemas[schemaName] = {
-      description: schema.description,
-      pattern: "^[0-9]+$",
-      type: "string",
-    };
+    schemas[schemaName] = { description: schema.description, pattern: "^[0-9]+$", type: "string" };
   }
-
-  if (isJsonSchemaDocument(normalizedDocument)) {
-    return normalizedDocument;
-  }
-  throw new Error("Failed to build normalized Convex Management API schema.");
 }
 
 function readRecordPath(root: unknown, pathSegments: readonly string[]): Record<string, unknown> {
@@ -161,12 +101,11 @@ function readRecordPath(root: unknown, pathSegments: readonly string[]): Record<
   throw new Error(`Expected ${pathSegments.join(".")} to be an object.`);
 }
 
-function collectConvexManagementResponseValidatorEntries(
-  document: OpenAPI3,
-): ConvexManagementResponseValidatorEntry[] {
+function collectConvexManagementResponseEntries(
+  document: Record<string, unknown>,
+): ConvexManagementResponseEntry[] {
   const paths = readRecordPath(document, ["paths"]);
-  const entries: ConvexManagementResponseValidatorEntry[] = [];
-  const usedExportNames = new Set<string>();
+  const entries: ConvexManagementResponseEntry[] = [];
 
   for (const [path, pathItem] of Object.entries(paths)) {
     if (!isRecord(pathItem)) {
@@ -180,35 +119,14 @@ function collectConvexManagementResponseValidatorEntries(
       if (!isRecord(operation)) {
         throw new Error(`Expected ${method.toUpperCase()} ${path} to be an object.`);
       }
-      const operationId = operation["operationId"];
-      if (typeof operationId !== "string" || !operationId) {
-        throw new Error(`Expected ${method.toUpperCase()} ${path} to have an operationId.`);
-      }
-
       const schemas = readSuccessJsonResponseSchemas({
         method,
         operation,
         path,
       });
-      const exportName =
-        schemas.length === 0
-          ? null
-          : buildUniqueValidatorExportName({
-              method,
-              operationId,
-              path,
-              usedExportNames,
-            });
-      const schemaId =
-        exportName === null ? null : `samebase://convex-management-api/${exportName}`;
-
       entries.push({
         method,
         path,
-        operationId,
-        exportName,
-        schema: combineJsonResponseSchemas(schemas),
-        schemaId,
         decimalPaths: collectConvexManagementDecimalPaths({
           document,
           method,
@@ -223,10 +141,10 @@ function collectConvexManagementResponseValidatorEntries(
 }
 
 function collectConvexManagementDecimalPaths(args: {
-  document: OpenAPI3;
+  document: Record<string, unknown>;
   method: ConvexManagementOperationMethod;
   path: string;
-  schemas: AnySchema[];
+  schemas: Record<string, unknown>[];
 }): string[][] {
   const numberPaths = new Map<string, ConvexManagementResponseNumberPath>();
   const endpointLabel = `${args.method.toUpperCase()} ${args.path}`;
@@ -247,7 +165,7 @@ function collectConvexManagementDecimalPaths(args: {
 }
 
 function collectConvexManagementDecimalPathsForSchema(args: {
-  document: OpenAPI3;
+  document: Record<string, unknown>;
   endpointLabel: string;
   numberPaths: Map<string, ConvexManagementResponseNumberPath>;
   path: string[];
@@ -373,7 +291,7 @@ function readConvexManagementLocalRef(ref: string): string {
   return ref;
 }
 
-function readConvexManagementOpenApiRef(document: OpenAPI3, ref: string): unknown {
+function readConvexManagementOpenApiRef(document: Record<string, unknown>, ref: string): unknown {
   const localRef = readConvexManagementLocalRef(ref);
   if (!localRef.startsWith("#/")) {
     throw new Error(`Unsupported Convex Management OpenAPI ref ${ref}.`);
@@ -440,7 +358,7 @@ function readSuccessJsonResponseSchemas(args: {
   method: ConvexManagementOperationMethod;
   operation: Record<string, unknown>;
   path: string;
-}): AnySchema[] {
+}): Record<string, unknown>[] {
   const responses = args.operation["responses"];
   if (!isRecord(responses)) {
     throw new Error(
@@ -448,7 +366,7 @@ function readSuccessJsonResponseSchemas(args: {
     );
   }
 
-  const schemas: AnySchema[] = [];
+  const schemas: Record<string, unknown>[] = [];
   for (const [status, response] of Object.entries(responses)) {
     const statusCode = Number(status);
     if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode > 299) {
@@ -491,236 +409,203 @@ function readSuccessJsonResponseSchemas(args: {
   return schemas;
 }
 
-function combineJsonResponseSchemas(schemas: AnySchema[]): AnySchema | null {
-  if (schemas.length === 0) {
-    return null;
-  }
-  if (schemas.length === 1) {
-    return schemas[0];
-  }
-  return { anyOf: schemas };
-}
-
 function escapeJsonPointer(value: string): string {
   return value.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
-function buildUniqueValidatorExportName(args: {
-  method: ConvexManagementOperationMethod;
-  operationId: string;
-  path: string;
-  usedExportNames: Set<string>;
-}): string {
-  const operationName = toPascalIdentifier(args.operationId);
-  const baseName = `ajv${operationName || "Operation"}Response`;
-  if (!args.usedExportNames.has(baseName)) {
-    args.usedExportNames.add(baseName);
-    return baseName;
+// Defaults describe provider behavior. The SDK validates the input but returns
+// the original value. Formats were not checked by the previous AJV boundary.
+function prepareSchema(schema: unknown) {
+  if (isRecord(schema))
+    traverse(schema, {
+      cb: (node) => {
+        delete node["default"];
+        delete node["format"];
+      },
+    });
+}
+
+function visitSchemaContainers(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) visitSchemaContainers(item);
+    return;
   }
-
-  const fallbackName = `ajv${toPascalIdentifier(`${args.method} ${args.path}`)}Response`;
-  if (!args.usedExportNames.has(fallbackName)) {
-    args.usedExportNames.add(fallbackName);
-    return fallbackName;
+  if (!isRecord(value)) return;
+  if (value["in"] === "path" && (value["name"] === "team_id" || value["name"] === "project_id")) {
+    // The client trims and checks decimal path IDs before sending the request.
+    value["schema"] = { type: "string" };
   }
-
-  throw new Error(
-    `Could not create a unique validator export for ${args.method.toUpperCase()} ${args.path}.`,
-  );
-}
-
-function toPascalIdentifier(value: string): string {
-  return value
-    .split(/[^A-Za-z0-9]+/)
-    .filter((part) => part.length > 0)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join("");
-}
-
-function buildConvexManagementValidatorSchemaIds(
-  entries: ConvexManagementResponseValidatorEntry[],
-): Record<string, string> {
-  const schemaIds: Record<string, string> = {};
-  for (const entry of entries) {
-    if (entry.exportName !== null && entry.schemaId !== null) {
-      schemaIds[entry.exportName] = entry.schemaId;
-    }
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "example" || key === "examples" || key.startsWith("x-")) continue;
+    if (key === "schema") prepareSchema(child);
+    else visitSchemaContainers(child);
   }
-  return schemaIds;
 }
 
-function formatConvexManagementResponseValidatorsJs(
-  entries: ConvexManagementResponseValidatorEntry[],
-): string {
-  return `export const convexManagementResponseValidators = {
-${formatConvexManagementResponseValidatorMethodJs(entries, "get")}
-${formatConvexManagementResponseValidatorMethodJs(entries, "post")}
-};
-
-export const convexManagementResponseDecimalPaths = {
-${formatConvexManagementResponseDecimalPathMethodJs(entries, "get")}
-${formatConvexManagementResponseDecimalPathMethodJs(entries, "post")}
-};
-`;
-}
-
-function formatConvexManagementResponseValidatorMethodJs(
-  entries: ConvexManagementResponseValidatorEntry[],
-  method: ConvexManagementOperationMethod,
-): string {
-  const methodEntries = entries.filter((entry) => entry.method === method);
-  let validatorEntries = "";
-  for (const entry of methodEntries) {
-    const value = entry.exportName ?? "null";
-    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value},
-`;
-  }
-  return `  ${method.toUpperCase()}: {
-${validatorEntries}
-  },
-`;
-}
-
-function formatConvexManagementResponseDecimalPathMethodJs(
-  entries: ConvexManagementResponseValidatorEntry[],
-  method: ConvexManagementOperationMethod,
-): string {
-  const methodEntries = entries.filter((entry) => entry.method === method);
-  let pathEntries = "";
-  for (const entry of methodEntries) {
-    pathEntries = `${pathEntries}    ${JSON.stringify(entry.path)}: ${JSON.stringify(entry.decimalPaths)},
-`;
-  }
-  return `  ${method.toUpperCase()}: {
-${pathEntries}
-  },
-`;
-}
-
-function formatConvexManagementResponseValidatorsDts(
-  entries: ConvexManagementResponseValidatorEntry[],
-): string {
-  return `export const convexManagementResponseValidators: {
-${formatConvexManagementResponseValidatorMethodDts(entries, "get")}
-${formatConvexManagementResponseValidatorMethodDts(entries, "post")}
-};
-
-export const convexManagementResponseDecimalPaths: {
-${formatConvexManagementResponseDecimalPathMethodDts(entries, "get")}
-${formatConvexManagementResponseDecimalPathMethodDts(entries, "post")}
-};
-`;
-}
-
-function formatConvexManagementResponseValidatorMethodDts(
-  entries: ConvexManagementResponseValidatorEntry[],
-  method: ConvexManagementOperationMethod,
-): string {
-  const methodEntries = entries.filter((entry) => entry.method === method);
-  let validatorEntries = "";
-  for (const entry of methodEntries) {
-    const value =
-      entry.exportName === null
-        ? "null"
-        : `AjvStandaloneValidateFunction<SuccessResponseJSON<operations[${JSON.stringify(entry.operationId)}]>>`;
-    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value};
-`;
-  }
-  return `  ${method.toUpperCase()}: {
-${validatorEntries}
-  };
-`;
-}
-
-function formatConvexManagementResponseDecimalPathMethodDts(
-  entries: ConvexManagementResponseValidatorEntry[],
-  method: ConvexManagementOperationMethod,
-): string {
-  const methodEntries = entries.filter((entry) => entry.method === method);
-  let pathEntries = "";
-  for (const entry of methodEntries) {
-    pathEntries = `${pathEntries}    ${JSON.stringify(entry.path)}: readonly ConvexManagementResponseDecimalPath[];
-`;
-  }
-  return `  ${method.toUpperCase()}: {
-${pathEntries}
-  };
-`;
-}
-
-function transformConvexManagementOpenApiType(
-  schemaObject: SchemaObject,
-  options: TransformNodeOptions,
-) {
-  if (
-    options.path &&
-    convexManagementDecimalIdSchemaRefs.has(options.path) &&
-    schemaObject.type === "integer" &&
-    schemaObject.format === "int64"
-  ) {
-    return STRING;
-  }
-  return undefined;
-}
-
-writeFileSync(
-  openApiDocumentOutputPath,
-  `${JSON.stringify(documentJson, null, 2)}
-`,
+writeFileSync(openApiDocumentOutputPath, `${JSON.stringify(documentJson, null, 2)}\n`);
+const decimalPaths = Object.fromEntries(
+  convexManagementOperationMethods.map((method) => [
+    method.toUpperCase(),
+    Object.fromEntries(
+      responseEntries
+        .filter((entry) => entry.method === method)
+        .map((entry) => [entry.path, entry.decimalPaths]),
+    ),
+  ]),
 );
-
-const openApiTypeAst = await openapiTS(documentJson, {
-  rootTypes: true,
-  rootTypesNoSchemaPrefix: true,
-  transform: transformConvexManagementOpenApiType,
-});
 writeFileSync(
-  typesOutputFilePath,
-  `${COMMENT_HEADER}${astToString(openApiTypeAst)}
-`,
-);
-
-ajv.addSchema(validationDocumentJson, convexManagementOpenApiSchemaId);
-for (const entry of responseValidatorEntries) {
-  if (entry.schema !== null && entry.schemaId !== null) {
-    ajv.addSchema(entry.schema, entry.schemaId);
-  }
-}
-
-writeFileSync(
-  validatorsOutputPath,
+  decimalPathsOutputPath,
   `// Generated from ${sourceUrl}. Do not edit by hand.
-/* eslint-disable */
-
-${standaloneCode(ajv, validatorSchemaIds)}
-${formatConvexManagementResponseValidatorsJs(responseValidatorEntries)}`,
-);
-writeFileSync(
-  validatorTypesOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.
-
-import type { SuccessResponseJSON } from "openapi-typescript-helpers";
-import type { operations } from "./types.generated";
-
-export type AjvStandaloneValidationError = {
-  instancePath: string;
-  schemaPath: string;
-  keyword: string;
-  message?: string;
-  params?: unknown;
-};
-
-export type AjvStandaloneValidateFunction<T> = {
-  (payload: unknown): payload is T;
-  errors: AjvStandaloneValidationError[] | null;
-};
 
 export type ConvexManagementResponseDecimalPath = readonly string[];
 
-${formatConvexManagementResponseValidatorsDts(responseValidatorEntries)}`,
+export const convexManagementResponseDecimalPaths = ${JSON.stringify(decimalPaths, null, 2)} as const;
+`,
 );
 
-execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {
-  cwd: appRoot,
-  stdio: "inherit",
+await createClient({
+  input: openApiDocumentOutputPath,
+  parser: {
+    filters: {
+      // Keep component validators for lossless-ID coverage without unused SDK methods.
+      orphans: true,
+      operations: {
+        include: [
+          "GET /token_details",
+          "GET /teams/{team_id}/projects",
+          "GET /teams/{team_id}/list_deployments",
+          "GET /projects/{project_id}",
+          "GET /projects/{project_id}/deployment",
+          "GET /projects/{project_id}/list_deployments",
+          "POST /teams/{team_id}/create_project",
+          "POST /projects/{project_id}/create_deployment",
+          "POST /projects/{project_id}/delete",
+          "POST /deployments/{deployment_name}/create_deploy_key",
+          "POST /deployments/{deployment_name}/delete_deploy_key",
+          "POST /projects/{project_id}/create_preview_deploy_key",
+          "POST /projects/{project_id}/delete_preview_deploy_key",
+        ],
+      },
+    },
+    patch: {
+      input(document) {
+        if (!("components" in document)) throw new Error("Expected a Convex OpenAPI 3 document.");
+        normalizeConvexManagementIdSchemas(document);
+        const components = document.components;
+        for (const schema of Object.values(components?.schemas ?? {})) prepareSchema(schema);
+        for (const container of [
+          document.paths,
+          components?.parameters,
+          components?.headers,
+          components?.requestBodies,
+          components?.responses,
+        ])
+          visitSchemaContainers(container);
+      },
+    },
+  },
+  output: { path: sdkOutputPath },
+  plugins: [
+    "@hey-api/typescript",
+    { name: "@hey-api/client-ofetch", throwOnError: true },
+    {
+      name: "valibot",
+      $resolvers: {
+        array(ctx) {
+          if (!ctx.schema.items?.length) return;
+          const { $, plugin, schema } = ctx;
+          // The default Valibot emitter drops composed item schemas to unknown.
+          ctx.nodes.base = () => {
+            const item = ctx.walk(
+              { items: schema.items, logicalOperator: schema.logicalOperator ?? "or" },
+              ctx,
+            );
+            return $(plugin.imports.v)
+              .attr("array")
+              .call(ctx.pipes.toNode(ctx.applyModifiers(item).pipes, plugin));
+          };
+        },
+        object(ctx) {
+          const { $, plugin } = ctx;
+          const { v } = plugin.imports;
+          const additional = ctx.schema.additionalProperties;
+          if (additional) {
+            // The default emitter skips referenced and composed dictionary value schemas.
+            ctx.nodes.additionalProperties = () => {
+              if (additional.type === "never") return null;
+              const child = ctx.walk(additional, {
+                path: { "~ref": [...ctx.path["~ref"], "additionalProperties"] },
+                plugin,
+              });
+              ctx._childResults.push(child);
+              return ctx.pipes.toNode(ctx.applyModifiers(child).pipes, plugin);
+            };
+          }
+          // Valibot object schemas can accept arrays. Check before they normalize the input.
+          return [
+            $(v).attr("unknown").call(),
+            $(v)
+              .attr("check")
+              .call(
+                $.func()
+                  .param("input")
+                  .do($.return($.prefix($("Array").attr("isArray").call("input")).not())),
+              ),
+            ctx.pipes.toNode(ctx.nodes.base(ctx), plugin),
+          ];
+        },
+        number(ctx) {
+          const { $ } = ctx;
+          const { v } = ctx.plugin.imports;
+          ctx.nodes.base = () => [
+            $(v).attr("number").call(),
+            $(v)
+              .attr(ctx.schema.type === "integer" ? "safeInteger" : "finite")
+              .call(),
+          ];
+        },
+      },
+    },
+    {
+      name: "@hey-api/sdk",
+      client: false,
+      validator: true,
+      responseStyle: "data",
+      operations: {
+        strategy: "single",
+        containerName: "ConvexManagement",
+        methods: "static",
+        nesting: (operation) => [operation.method.toUpperCase(), operation.path],
+        methodName: { casing: "preserve" },
+        segmentName: { casing: "preserve" },
+      },
+    },
+  ],
 });
+
+execFileSync(
+  "pnpm",
+  ["exec", "vp", "fmt", sdkOutputPath, decimalPathsOutputPath, openApiDocumentOutputPath],
+  {
+    cwd: appRoot,
+    stdio: "inherit",
+  },
+);
+
+if (process.argv.includes("--verify")) {
+  const outputs = [openApiDocumentOutputPath, sdkOutputPath, decimalPathsOutputPath];
+  execFileSync("git", ["diff", "--exit-code", "HEAD", "--", ...outputs], {
+    cwd: appRoot,
+    stdio: "inherit",
+  });
+  const untracked = execFileSync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard", "--", ...outputs],
+    {
+      cwd: appRoot,
+      encoding: "utf8",
+    },
+  );
+  if (untracked.trim())
+    throw new Error(`Convex Management API generation added untracked files:\n${untracked}`);
+}

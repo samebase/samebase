@@ -4,8 +4,9 @@ import { internal } from "./_generated/api";
 import { action } from "./functions";
 import {
   listConvexManagementProjects,
-  requestConvexManagementApiOrThrow,
+  createConvexManagementClient,
 } from "./convexManagementApi/client";
+import { ConvexManagement } from "./convexManagementApi/generated/sdk.gen";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -104,14 +105,11 @@ export const checkConvexConnectionAccess = action({
       runConvexProbe({
         key: "deployments",
         run: async () => {
-          return await requestConvexManagementApiOrThrow(
-            token,
-            "GET",
-            "/teams/{team_id}/list_deployments",
-            {
-              params: { path: { team_id: teamId }, query: { limit: 100 } },
-            },
-          );
+          return await ConvexManagement.GET["/teams/{team_id}/list_deployments"]({
+            client: createConvexManagementClient({ token }),
+            path: { team_id: teamId },
+            query: { limit: 100 },
+          });
         },
       }),
     ]);
@@ -167,7 +165,9 @@ async function runConvexProbe<Value>({
 }
 
 async function readConvexTokenDetails(token: string): Promise<ConvexTokenIdentity> {
-  const details = await requestConvexManagementApiOrThrow(token, "GET", "/token_details");
+  const details = await ConvexManagement.GET["/token_details"]({
+    client: createConvexManagementClient({ token }),
+  });
   if (details.type === "teamToken") {
     return {
       type: "team_token",

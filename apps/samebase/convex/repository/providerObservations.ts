@@ -13,7 +13,11 @@ import {
   readCloudflareWorkerIdentityByTag,
   type CloudflareConvexBuildAccessObservation,
 } from "../cloudflareResources";
-import { requestConvexManagementApi } from "../convexManagementApi/client";
+import {
+  createConvexManagementClient,
+  ConvexManagementApiResponseError,
+} from "../convexManagementApi/client";
+import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
 import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
@@ -564,18 +568,20 @@ export async function observeConvexProjectsForUser(
         };
       }
       try {
-        const [valid, details] = await requestConvexManagementApi(
-          token,
-          "GET",
-          "/projects/{project_id}",
-          {
-            params: { path: { project_id: project.projectId } },
-          },
-        );
-        if (!valid) {
+        const details = await ConvexManagement.GET["/projects/{project_id}"]({
+          client: createConvexManagementClient({ token }),
+          path: { project_id: project.projectId },
+        }).catch((error: unknown) => {
+          if (error instanceof ConvexManagementApiResponseError) return error;
+          throw error;
+        });
+        if (details instanceof ConvexManagementApiResponseError) {
           provider = {
             state: "unavailable",
-            reason: Array.isArray(details) ? "response_validation_failed" : "response_parse_failed",
+            reason:
+              details.failure === "invalid_json"
+                ? "response_parse_failed"
+                : "response_validation_failed",
           };
         } else {
           if (details.id !== project.projectId || details.teamId !== matchingConnection.teamId) {
