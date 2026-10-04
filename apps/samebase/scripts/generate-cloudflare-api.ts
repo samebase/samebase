@@ -1,16 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
-import { standaloneCode } from "ajv/dist/standalone/index.js";
-import openapiTS, { astToString, COMMENT_HEADER, type OpenAPI3 } from "openapi-typescript";
+import { createClient } from "@hey-api/openapi-ts";
+import traverse from "json-schema-traverse";
+import { regexes } from "zod/v4/core";
 import { includes, isRecord } from "@samebase/dependent/main";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
 const sourceUrl = "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
 const sourceFetchTimeoutMs = 30_000;
-const cloudflareApiOpenApiSchemaId = "samebase://cloudflare-api/openApi.generated.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
   new URL(
@@ -18,63 +17,13 @@ const openApiDocumentOutputPath = fileURLToPath(
     import.meta.url,
   ),
 );
-const validatorsOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/cloudflareApi/validators.generated.js")}`,
-    import.meta.url,
-  ),
-);
-const validatorTypesOutputPath = fileURLToPath(
-  new URL(
-    `../${samebaseAppFilePath("convex/cloudflareApi/validators.generated.d.ts")}`,
-    import.meta.url,
-  ),
-);
-const typesOutputPath = samebaseAppFilePath("convex/cloudflareApi/types.generated.d.ts");
-const typesOutputFilePath = fileURLToPath(new URL(`../${typesOutputPath}`, import.meta.url));
-const generatedFormatPaths = [
-  samebaseAppFilePath("convex/cloudflareApi/openApi.generated.json"),
-  typesOutputPath,
-  samebaseAppFilePath("convex/cloudflareApi/validators.generated.js"),
-  samebaseAppFilePath("convex/cloudflareApi/validators.generated.d.ts"),
-];
 const cloudflareApiFamilyPathPrefixes = [
   "/accounts/{account_id}/workers",
   "/accounts/{account_id}/builds",
 ] as const;
 const cloudflareApiExactPaths = ["/accounts", "/user/tokens/verify"] as const;
 const cloudflareApiOperationMethods = ["delete", "get", "patch", "post", "put"] as const;
-const ajvIgnoredFormats = [
-  "binary",
-  "byte",
-  "date",
-  "date-time",
-  "double",
-  "email",
-  "float",
-  "hostname",
-  "int32",
-  "int64",
-  "ipv4",
-  "ipv6",
-  "uri",
-  "uuid",
-] as const;
-
 type JsonRecord = Record<string, unknown>;
-type OpenAPI3WithPaths = OpenAPI3 & {
-  paths: NonNullable<OpenAPI3["paths"]>;
-};
-type CloudflareApiOperationMethod = (typeof cloudflareApiOperationMethods)[number];
-type CloudflareApiResponseValidatorEntry = {
-  method: CloudflareApiOperationMethod;
-  path: string;
-  operationId: string;
-  exportName: string | null;
-  schema: AnySchema | null;
-  schemaId: string | null;
-};
-
 // The full Cloudflare schema covers every product. Samebase pins a generated
 // family subset so Workers/Builds additions drift visibly without pulling
 // unrelated Cloudflare products into this boundary.
@@ -89,23 +38,15 @@ const documentText = await response.text();
 const documentJson = parseJsonSchemaDocument(documentText);
 normalizeGeneratedExternalText(documentJson);
 const subsetDocumentJson = buildCloudflareApiSubsetDocument(documentJson);
-const typeDocumentJson = normalizeCloudflareApiTypeDocument(subsetDocumentJson);
-const validationDocumentJson = normalizeCloudflareApiValidationDocument(subsetDocumentJson);
-const responseValidatorEntries = collectCloudflareApiResponseValidatorEntries(subsetDocumentJson);
-const ajv = new Ajv2020({
-  allErrors: true,
-  code: { esm: true, source: true },
-  strict: false,
-  validateSchema: false,
-});
-for (const format of ajvIgnoredFormats) {
-  ajv.addFormat(format, true);
-}
-const validatorSchemaIds = buildCloudflareApiValidatorSchemaIds(responseValidatorEntries);
 
-function parseJsonSchemaDocument(documentText: string): OpenAPI3WithPaths {
+function parseJsonSchemaDocument(documentText: string) {
   const payload: unknown = JSON.parse(documentText);
-  if (isOpenApiDocument(payload)) {
+  if (
+    isRecord(payload) &&
+    typeof payload["openapi"] === "string" &&
+    isRecord(payload["info"]) &&
+    isRecord(payload["paths"])
+  ) {
     return payload;
   }
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
@@ -138,148 +79,27 @@ function normalizeGeneratedExternalText(value: unknown): void {
   }
 }
 
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
-function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
-  return (
-    typeof payload === "boolean" ||
-    (!!payload && typeof payload === "object" && !Array.isArray(payload))
-  );
-}
-
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info/paths as records, never the nested OpenAPI3 interface
-function isOpenApiDocument(payload: unknown): payload is OpenAPI3WithPaths {
-  return (
-    isRecord(payload) &&
-    typeof payload.openapi === "string" &&
-    isRecord(payload.info) &&
-    isRecord(payload.paths)
-  );
-}
-
 function readOptionalString(record: JsonRecord, key: string): string | undefined {
   const value = record[key];
   return typeof value === "string" ? value : undefined;
 }
 
-function normalizeCloudflareApiValidationDocument(document: OpenAPI3): AnySchema {
-  const normalizedDocument: unknown = structuredClone(document);
-  if (!isRecord(normalizedDocument)) {
-    throw new Error("Failed to clone the Cloudflare API validation schema.");
-  }
-  // Cloudflare's Workers API returns null for the empty `errors` and `messages`
-  // fields in successful responses, while the published schema permits only
-  // arrays.
-  markSchemaNullable(normalizedDocument, "#/components/schemas/workers_messages");
-  normalizeOpenApiSchemaKeywords(normalizedDocument);
-
-  if (isJsonSchemaDocument(normalizedDocument)) {
-    return normalizedDocument;
-  }
-  throw new Error("Failed to build normalized Cloudflare API schema.");
-}
-
-function normalizeCloudflareApiTypeDocument(document: OpenAPI3): OpenAPI3 {
-  const normalizedDocument: unknown = structuredClone(document);
-  removeAdditionalPropertiesFalse(normalizedDocument);
-
-  if (isOpenApiDocument(normalizedDocument)) {
-    return normalizedDocument;
-  }
-  throw new Error("Failed to build Cloudflare API type document.");
-}
-
-function removeAdditionalPropertiesFalse(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      removeAdditionalPropertiesFalse(item);
-    }
-    return;
-  }
-  if (!isRecord(value)) {
-    return;
-  }
-
-  // Cloudflare has request bodies, including Worker creation, that compose
-  // response-shaped schemas with additionalProperties: false. That generates
-  // impossible openapi-fetch body types, while AJV still validates responses
-  // against the unmodified subset document.
-  if (value["additionalProperties"] === false) {
-    delete value["additionalProperties"];
-  }
-
-  for (const item of Object.values(value)) {
-    removeAdditionalPropertiesFalse(item);
-  }
-}
-
-function normalizeOpenApiSchemaKeywords(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      normalizeOpenApiSchemaKeywords(item);
-    }
-    return;
-  }
-  if (!isRecord(value)) {
-    return;
-  }
-
-  normalizeOpenApiExclusiveLimit({
-    record: value,
-    exclusiveKey: "exclusiveMinimum",
-    inclusiveKey: "minimum",
-  });
-  normalizeOpenApiExclusiveLimit({
-    record: value,
-    exclusiveKey: "exclusiveMaximum",
-    inclusiveKey: "maximum",
-  });
-
-  for (const item of Object.values(value)) {
-    normalizeOpenApiSchemaKeywords(item);
-  }
-}
-
-function normalizeOpenApiExclusiveLimit(args: {
-  record: JsonRecord;
-  exclusiveKey: "exclusiveMaximum" | "exclusiveMinimum";
-  inclusiveKey: "maximum" | "minimum";
-}): void {
-  const exclusiveValue = args.record[args.exclusiveKey];
-  if (typeof exclusiveValue !== "boolean") {
-    return;
-  }
-
-  if (exclusiveValue) {
-    const inclusiveValue = args.record[args.inclusiveKey];
-    if (typeof inclusiveValue !== "number") {
-      throw new Error(
-        `Cloudflare API schema has ${args.exclusiveKey}: true without numeric ${args.inclusiveKey}.`,
-      );
-    }
-    args.record[args.exclusiveKey] = inclusiveValue;
-    delete args.record[args.inclusiveKey];
-    return;
-  }
-
-  delete args.record[args.exclusiveKey];
-}
-
-function buildCloudflareApiSubsetDocument(document: OpenAPI3WithPaths): OpenAPI3 {
+function buildCloudflareApiSubsetDocument(document: JsonRecord) {
   const selectedPaths = collectSelectedCloudflareApiPaths(document);
   ensureCloudflareApiOperationIds(selectedPaths);
   const info = readCloudflareApiSubsetInfo(document);
   const subsetDocument: JsonRecord = {
-    openapi: document.openapi,
+    openapi: document["openapi"],
     info,
     paths: selectedPaths,
     components: {},
   };
 
-  if (document.servers !== undefined) {
-    subsetDocument.servers = structuredClone(document.servers);
+  if (document["servers"] !== undefined) {
+    subsetDocument["servers"] = structuredClone(document["servers"]);
   }
-  if (document.security !== undefined) {
-    subsetDocument.security = structuredClone(document.security);
+  if (document["security"] !== undefined) {
+    subsetDocument["security"] = structuredClone(document["security"]);
   }
 
   collectReferencedComponents({
@@ -289,13 +109,12 @@ function buildCloudflareApiSubsetDocument(document: OpenAPI3WithPaths): OpenAPI3
   });
   normalizeObservedCloudflareApiResponseShapes(subsetDocument);
 
-  if (isOpenApiDocument(subsetDocument)) {
-    return subsetDocument;
-  }
-  throw new Error("Failed to build Cloudflare API subset document.");
+  return subsetDocument;
 }
 
 function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
+  // Observed Worker responses use null for empty errors and messages.
+  markSchemaNullable(document, "#/components/schemas/workers_messages");
   // Cloudflare /accounts returns null for this field when no abuse contact
   // email is set, while the upstream schema currently declares only string.
   markSchemaNullable(
@@ -440,9 +259,9 @@ function ensureCloudflareApiOperationIds(paths: JsonRecord): void {
   }
 }
 
-function collectSelectedCloudflareApiPaths(document: OpenAPI3WithPaths): JsonRecord {
+function collectSelectedCloudflareApiPaths(document: JsonRecord): JsonRecord {
   const selectedPaths: JsonRecord = {};
-  const entries = Object.entries(document.paths).sort(([left], [right]) =>
+  const entries = Object.entries(readRecordPath(document, ["paths"])).sort(([left], [right]) =>
     left.localeCompare(right),
   );
 
@@ -467,8 +286,8 @@ function isSelectedCloudflareApiPath(path: string): boolean {
   );
 }
 
-function readCloudflareApiSubsetInfo(document: OpenAPI3): JsonRecord {
-  const sourceInfo = isRecord(document.info) ? document.info : {};
+function readCloudflareApiSubsetInfo(document: JsonRecord): JsonRecord {
+  const sourceInfo = isRecord(document["info"]) ? document["info"] : {};
   return {
     title: "Cloudflare Samebase API Family Subset",
     version: readOptionalString(sourceInfo, "version") ?? "0.0.0",
@@ -478,7 +297,7 @@ function readCloudflareApiSubsetInfo(document: OpenAPI3): JsonRecord {
 }
 
 function collectReferencedComponents(args: {
-  source: OpenAPI3;
+  source: JsonRecord;
   target: JsonRecord;
   root: unknown;
 }): void {
@@ -559,60 +378,6 @@ function parseJsonPointerSegments(pointer: string): string[] {
     .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
 }
 
-function collectCloudflareApiResponseValidatorEntries(
-  document: OpenAPI3,
-): CloudflareApiResponseValidatorEntry[] {
-  const paths = readRecordPath(document, ["paths"]);
-  const entries: CloudflareApiResponseValidatorEntry[] = [];
-  const usedExportNames = new Set<string>();
-
-  for (const [path, pathItem] of Object.entries(paths)) {
-    if (!isRecord(pathItem)) {
-      throw new Error(`Expected path ${path} to be an object.`);
-    }
-    for (const method of cloudflareApiOperationMethods) {
-      const operation = pathItem[method];
-      if (operation === undefined) {
-        continue;
-      }
-      if (!isRecord(operation)) {
-        throw new Error(`Expected ${method.toUpperCase()} ${path} to be an object.`);
-      }
-      const operationId = operation["operationId"];
-      if (typeof operationId !== "string" || !operationId) {
-        throw new Error(`Expected ${method.toUpperCase()} ${path} to have an operationId.`);
-      }
-
-      const schemas = readSuccessJsonResponseSchemas({
-        method,
-        operation,
-        path,
-      });
-      const exportName =
-        schemas.length === 0
-          ? null
-          : buildUniqueValidatorExportName({
-              method,
-              operationId,
-              path,
-              usedExportNames,
-            });
-      const schemaId = exportName === null ? null : `samebase://cloudflare-api/${exportName}`;
-
-      entries.push({
-        method,
-        path,
-        operationId,
-        exportName,
-        schema: combineJsonResponseSchemas(schemas),
-        schemaId,
-      });
-    }
-  }
-
-  return entries;
-}
-
 function readRecordPath(root: unknown, pathSegments: readonly string[]): JsonRecord {
   let value = root;
   for (const segment of pathSegments) {
@@ -627,224 +392,193 @@ function readRecordPath(root: unknown, pathSegments: readonly string[]): JsonRec
   throw new Error(`Expected ${pathSegments.join(".")} to be an object.`);
 }
 
-function readSuccessJsonResponseSchemas(args: {
-  method: CloudflareApiOperationMethod;
-  operation: JsonRecord;
-  path: string;
-}): AnySchema[] {
-  const responses = args.operation["responses"];
-  if (!isRecord(responses)) {
-    throw new Error(
-      `Expected ${args.method.toUpperCase()} ${args.path} responses to be an object.`,
-    );
-  }
-
-  const schemas: AnySchema[] = [];
-  for (const [status, response] of Object.entries(responses)) {
-    const statusCode = Number(status);
-    if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode > 299) {
-      continue;
-    }
-    if (!isRecord(response)) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} to be an object.`,
-      );
-    }
-    const content = response["content"];
-    if (content === undefined) {
-      continue;
-    }
-    if (!isRecord(content)) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} content to be an object.`,
-      );
-    }
-    const jsonMediaType = content["application/json"];
-    if (jsonMediaType === undefined) {
-      continue;
-    }
-    if (!isRecord(jsonMediaType)) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json media type to be an object.`,
-      );
-    }
-    if (jsonMediaType["schema"] === undefined) {
-      throw new Error(
-        `Expected ${args.method.toUpperCase()} ${args.path} response ${status} application/json to have a schema.`,
-      );
-    }
-
-    schemas.push({
-      $ref: `${cloudflareApiOpenApiSchemaId}#/paths/${escapeJsonPointer(args.path)}/${args.method}/responses/${escapeJsonPointer(status)}/content/application~1json/schema`,
-    });
-  }
-
-  return schemas;
-}
-
-function combineJsonResponseSchemas(schemas: AnySchema[]): AnySchema | null {
-  if (schemas.length === 0) {
-    return null;
-  }
-  if (schemas.length === 1) {
-    return schemas[0];
-  }
-  return { anyOf: schemas };
-}
-
-function escapeJsonPointer(value: string): string {
-  return value.replaceAll("~", "~0").replaceAll("/", "~1");
-}
-
-function buildUniqueValidatorExportName(args: {
-  method: CloudflareApiOperationMethod;
-  operationId: string;
-  path: string;
-  usedExportNames: Set<string>;
-}): string {
-  const operationName = toPascalIdentifier(args.operationId);
-  const baseName = `ajv${operationName || "Operation"}Response`;
-  if (!args.usedExportNames.has(baseName)) {
-    args.usedExportNames.add(baseName);
-    return baseName;
-  }
-
-  const fallbackName = `ajv${toPascalIdentifier(`${args.method} ${args.path}`)}Response`;
-  if (!args.usedExportNames.has(fallbackName)) {
-    args.usedExportNames.add(fallbackName);
-    return fallbackName;
-  }
-
-  throw new Error(
-    `Could not create a unique validator export for ${args.method.toUpperCase()} ${args.path}.`,
-  );
-}
-
-function toPascalIdentifier(value: string): string {
-  return value
-    .split(/[^A-Za-z0-9]+/)
-    .filter((part) => part.length > 0)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join("");
-}
-
-function buildCloudflareApiValidatorSchemaIds(
-  entries: CloudflareApiResponseValidatorEntry[],
-): Record<string, string> {
-  const schemaIds: Record<string, string> = {};
-  for (const entry of entries) {
-    if (entry.exportName !== null && entry.schemaId !== null) {
-      schemaIds[entry.exportName] = entry.schemaId;
-    }
-  }
-  return schemaIds;
-}
-
-function formatCloudflareApiResponseValidatorsJs(
-  entries: CloudflareApiResponseValidatorEntry[],
-): string {
-  return `export const cloudflareApiResponseValidators = {
-${formatCloudflareApiResponseValidatorMethodJs(entries, "delete")}
-${formatCloudflareApiResponseValidatorMethodJs(entries, "get")}
-${formatCloudflareApiResponseValidatorMethodJs(entries, "patch")}
-${formatCloudflareApiResponseValidatorMethodJs(entries, "post")}
-${formatCloudflareApiResponseValidatorMethodJs(entries, "put")}
-};
-`;
-}
-
-function formatCloudflareApiResponseValidatorMethodJs(
-  entries: CloudflareApiResponseValidatorEntry[],
-  method: CloudflareApiOperationMethod,
-): string {
-  const methodEntries = entries.filter((entry) => entry.method === method);
-  let validatorEntries = "";
-  for (const entry of methodEntries) {
-    const value = entry.exportName ?? "null";
-    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value},
-`;
-  }
-  return `  ${method.toUpperCase()}: {
-${validatorEntries}
-  },
-`;
-}
-
-function formatCloudflareApiResponseValidatorsDts(
-  entries: CloudflareApiResponseValidatorEntry[],
-): string {
-  return `export const cloudflareApiResponseValidators: {
-${formatCloudflareApiResponseValidatorMethodDts(entries, "delete")}
-${formatCloudflareApiResponseValidatorMethodDts(entries, "get")}
-${formatCloudflareApiResponseValidatorMethodDts(entries, "patch")}
-${formatCloudflareApiResponseValidatorMethodDts(entries, "post")}
-${formatCloudflareApiResponseValidatorMethodDts(entries, "put")}
-};
-`;
-}
-
-function formatCloudflareApiResponseValidatorMethodDts(
-  entries: CloudflareApiResponseValidatorEntry[],
-  method: CloudflareApiOperationMethod,
-): string {
-  const methodEntries = entries.filter((entry) => entry.method === method);
-  let validatorEntries = "";
-  for (const entry of methodEntries) {
-    const value =
-      entry.exportName === null
-        ? "null"
-        : `AjvStandaloneValidateFunction<SuccessResponseJSON<operations[${JSON.stringify(entry.operationId)}]>>`;
-    validatorEntries = `${validatorEntries}    ${JSON.stringify(entry.path)}: ${value};
-`;
-  }
-  return `  ${method.toUpperCase()}: {
-${validatorEntries}
-  };
-`;
-}
-
-function formatCloudflareApiOpenApiTypes(
-  openApiTypeAst: Awaited<ReturnType<typeof openapiTS>>,
-): string {
-  return astToString(openApiTypeAst)
-    .replaceAll("$Read<any>", "$Read<unknown>")
-    .replaceAll("$Write<any>", "$Write<unknown>");
-}
-
 writeFileSync(openApiDocumentOutputPath, `${JSON.stringify(subsetDocumentJson, null, 2)}\n`);
 
-const openApiTypeAst = await openapiTS(typeDocumentJson, {
-  emptyObjectsUnknown: true,
-  readWriteMarkers: true,
-  rootTypes: true,
-  rootTypesNoSchemaPrefix: true,
-});
-writeFileSync(
-  typesOutputFilePath,
-  `${COMMENT_HEADER}${formatCloudflareApiOpenApiTypes(openApiTypeAst)}\n`,
-);
+// Defaults describe provider behavior. Validators must check the received data
+// because the SDK returns it without applying validator transformations.
+function stripSchemaDefaults(schema: unknown) {
+  if (isRecord(schema))
+    traverse(schema, {
+      cb: (node) => {
+        delete node["default"];
+      },
+    });
+}
 
-ajv.addSchema(validationDocumentJson, cloudflareApiOpenApiSchemaId);
-for (const entry of responseValidatorEntries) {
-  if (entry.schema !== null && entry.schemaId !== null) {
-    ajv.addSchema(entry.schema, entry.schemaId);
+function visitSchemaContainers(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) visitSchemaContainers(item);
+    return;
+  }
+  if (!isRecord(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "example" || key === "examples" || key.startsWith("x-")) continue;
+    if (key === "schema") stripSchemaDefaults(child);
+    else visitSchemaContainers(child);
   }
 }
 
-writeFileSync(
-  validatorsOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n/* eslint-disable */\n\n${standaloneCode(ajv, validatorSchemaIds)}\n${formatCloudflareApiResponseValidatorsJs(responseValidatorEntries)}`,
-);
-writeFileSync(
-  validatorTypesOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type { SuccessResponseJSON } from "openapi-typescript-helpers";\nimport type { operations } from "./types.generated";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  schemaPath: string;\n  keyword: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\n${formatCloudflareApiResponseValidatorsDts(responseValidatorEntries)}`,
+await createClient({
+  input: openApiDocumentOutputPath,
+  parser: {
+    // Keep the family document for drift checks. Runtime code covers current callers only.
+    filters: {
+      orphans: false,
+      operations: {
+        include: [
+          "DELETE /accounts/{account_id}/builds/triggers/{trigger_uuid}",
+          "DELETE /accounts/{account_id}/workers/workers/{worker_id}",
+          "GET /accounts",
+          "GET /accounts/{account_id}/builds/account/limits",
+          "GET /accounts/{account_id}/builds/tokens",
+          "GET /accounts/{account_id}/builds/workers/{external_script_id}/builds",
+          "GET /accounts/{account_id}/builds/workers/{external_script_id}/triggers",
+          "GET /accounts/{account_id}/builds/workers/{script_tag}",
+          "GET /accounts/{account_id}/builds/workers/{script_tag}/previews",
+          "GET /accounts/{account_id}/workers/account-settings",
+          "GET /accounts/{account_id}/workers/scripts",
+          "GET /accounts/{account_id}/workers/workers",
+          "GET /accounts/{account_id}/workers/workers/{worker_id}",
+          "GET /accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}",
+          "GET /user/tokens/verify",
+          "PATCH /accounts/{account_id}/builds/workers/{script_tag}",
+          "POST /accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
+          "POST /accounts/{account_id}/builds/workers",
+          "POST /accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews",
+          "POST /accounts/{account_id}/workers/workers",
+        ],
+      },
+    },
+    patch: {
+      input(document) {
+        if (!("components" in document))
+          throw new Error("Expected a Cloudflare OpenAPI 3 document.");
+        const components = document.components;
+        for (const schema of Object.values(components?.schemas ?? {})) stripSchemaDefaults(schema);
+        for (const container of [
+          document.paths,
+          components?.parameters,
+          components?.headers,
+          components?.requestBodies,
+          components?.responses,
+        ])
+          visitSchemaContainers(container);
+      },
+    },
+  },
+  output: { path: fileURLToPath(new URL("../convex/cloudflareApi/generated", import.meta.url)) },
+  plugins: [
+    "@hey-api/typescript",
+    { name: "@hey-api/client-fetch", throwOnError: true },
+    {
+      name: "valibot",
+      $resolvers: {
+        array(ctx) {
+          if (!ctx.schema.items?.length) return;
+          const { $, plugin, schema } = ctx;
+          // The default Valibot emitter drops composed item schemas to unknown.
+          ctx.nodes.base = () => {
+            const item = ctx.walk(
+              { items: schema.items, logicalOperator: schema.logicalOperator ?? "or" },
+              ctx,
+            );
+            return $(plugin.imports.v)
+              .attr("array")
+              .call(ctx.pipes.toNode(ctx.applyModifiers(item).pipes, plugin));
+          };
+        },
+        object(ctx) {
+          const { $, plugin } = ctx;
+          const { v } = plugin.imports;
+          const additional = ctx.schema.additionalProperties;
+          if (additional) {
+            // The default emitter skips referenced and composed dictionary value schemas.
+            ctx.nodes.additionalProperties = () => {
+              if (additional.type === "never") return null;
+              const child = ctx.walk(additional, {
+                path: { "~ref": [...ctx.path["~ref"], "additionalProperties"] },
+                plugin,
+              });
+              ctx._childResults.push(child);
+              return ctx.pipes.toNode(ctx.applyModifiers(child).pipes, plugin);
+            };
+          }
+          // Valibot object schemas can accept arrays. Check before they normalize the input.
+          return [
+            $(v).attr("unknown").call(),
+            $(v)
+              .attr("check")
+              .call(
+                $.func()
+                  .param("input")
+                  .do($.return($.prefix($("Array").attr("isArray").call("input")).not())),
+              ),
+            ctx.pipes.toNode(ctx.nodes.base(ctx), plugin),
+          ];
+        },
+        number(ctx) {
+          if (ctx.utils.shouldCoerceToBigInt(ctx.schema.format)) return;
+          const { $ } = ctx;
+          const { v } = ctx.plugin.imports;
+          ctx.nodes.base = () => [
+            $(v).attr("number").call(),
+            $(v)
+              .attr(ctx.schema.type === "integer" ? "safeInteger" : "finite")
+              .call(),
+          ];
+        },
+        string(ctx) {
+          if (ctx.schema.format !== "date-time") return;
+          const { $ } = ctx;
+          const { v } = ctx.plugin.imports;
+          // Emit the existing calendar/offset rule as a regex literal, without runtime Zod schemas.
+          ctx.nodes.format = () =>
+            $(v)
+              .attr("regex")
+              .call($.regexp(regexes.datetime({ offset: true }).source));
+        },
+      },
+    },
+    {
+      name: "@hey-api/sdk",
+      client: false,
+      validator: true,
+      responseStyle: "data",
+      operations: {
+        strategy: "single",
+        containerName: "Cloudflare",
+        methods: "static",
+        nesting: (operation) => [operation.method.toUpperCase(), operation.path],
+        methodName: { casing: "preserve" },
+        segmentName: { casing: "preserve" },
+      },
+    },
+  ],
+});
+
+execFileSync(
+  "pnpm",
+  ["exec", "vp", "fmt", "convex/cloudflareApi/generated", openApiDocumentOutputPath],
+  {
+    cwd: appRoot,
+    stdio: "inherit",
+  },
 );
 
-execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {
-  cwd: appRoot,
-  stdio: "inherit",
-});
-execFileSync("pnpm", ["exec", "vp", "check", "--fix", ...generatedFormatPaths], {
-  cwd: appRoot,
-  stdio: "inherit",
-});
+if (process.argv.includes("--verify")) {
+  const outputs = [openApiDocumentOutputPath, "convex/cloudflareApi/generated"];
+  execFileSync("git", ["diff", "--exit-code", "HEAD", "--", ...outputs], {
+    cwd: appRoot,
+    stdio: "inherit",
+  });
+  const untracked = execFileSync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard", "--", ...outputs],
+    {
+      cwd: appRoot,
+      encoding: "utf8",
+    },
+  );
+  if (untracked.trim())
+    throw new Error(`Cloudflare API generation added untracked files:\n${untracked}`);
+}

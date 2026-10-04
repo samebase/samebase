@@ -31,6 +31,8 @@ import type * as cloudflareApi_fixtures_observedWorkerBuildSettings from "../clo
 import type * as cloudflareApi_fixtures_observedWorkerBuilds from "../cloudflareApi/fixtures/observedWorkerBuilds.js";
 import type * as cloudflareApi_fixtures_observedWorkerErrors from "../cloudflareApi/fixtures/observedWorkerErrors.js";
 import type * as cloudflareApi_fixtures_observedWorkerPreviews from "../cloudflareApi/fixtures/observedWorkerPreviews.js";
+import type * as cloudflareApi_generated_client_index from "../cloudflareApi/generated/client/index.js";
+import type * as cloudflareApi_generated_index from "../cloudflareApi/generated/index.js";
 import type * as cloudflareBuildTokens from "../cloudflareBuildTokens.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
 import type * as cloudflareMcpOAuth from "../cloudflareMcpOAuth.js";
@@ -228,6 +230,8 @@ declare const fullApi: ApiFromModules<{
   "cloudflareApi/fixtures/observedWorkerBuilds": typeof cloudflareApi_fixtures_observedWorkerBuilds;
   "cloudflareApi/fixtures/observedWorkerErrors": typeof cloudflareApi_fixtures_observedWorkerErrors;
   "cloudflareApi/fixtures/observedWorkerPreviews": typeof cloudflareApi_fixtures_observedWorkerPreviews;
+  "cloudflareApi/generated/client/index": typeof cloudflareApi_generated_client_index;
+  "cloudflareApi/generated/index": typeof cloudflareApi_generated_index;
   cloudflareBuildTokens: typeof cloudflareBuildTokens;
   cloudflareMcp: typeof cloudflareMcp;
   cloudflareMcpOAuth: typeof cloudflareMcpOAuth;

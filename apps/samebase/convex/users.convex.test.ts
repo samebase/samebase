@@ -40,7 +40,8 @@ function stubCloudflareApiTokenAccounts(
   const fetch = vi.fn(
     async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
-      expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${token}`);
+      const headers = input instanceof Request ? input.headers : new Headers(init?.headers);
+      expect(headers.get("Authorization")).toBe(`Bearer ${token}`);
       switch (url.pathname) {
         case "/client/v4/user/tokens/verify":
           return cloudflareSuccessResponse({ id: "c".repeat(32), status: "active" });
@@ -955,7 +956,8 @@ describe("organization provider status", () => {
           expires_in: 3_600,
         });
       }
-      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer refreshed-access-token");
+      const headers = input instanceof Request ? input.headers : new Headers(init?.headers);
+      expect(headers.get("Authorization")).toBe("Bearer refreshed-access-token");
       switch (url.pathname) {
         case "/client/v4/accounts":
           return cloudflareAccountsResponse([

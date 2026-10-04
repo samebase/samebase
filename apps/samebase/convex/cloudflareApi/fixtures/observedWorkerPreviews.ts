@@ -1,4 +1,8 @@
-import type { components, Readable } from "../types.generated";
+import type {
+  BuildsWorkerResponse,
+  BuildsPreviewSummary,
+  WorkersPreview,
+} from "../generated/types.gen";
 
 // Captured from GET /accounts/{account_id}/builds/workers/{script_tag} on 2026-09-30.
 // Build commands, tokens, and environment variables are omitted.
@@ -16,7 +20,7 @@ export const observedPreviewWorkerBuildSettings = {
   production_settings: { root_directory: "/" },
   previews_enabled: true,
   previews_base_config: { root_directory: "/" },
-} satisfies Readable<components["schemas"]["builds_WorkerResponse"]>;
+} satisfies BuildsWorkerResponse;
 
 // Captured from GET /accounts/{account_id}/builds/workers/{script_tag}/previews on 2026-09-30.
 export const observedWorkerPreviewSummaries = [
@@ -26,7 +30,7 @@ export const observedWorkerPreviewSummaries = [
     auto_delete: true,
     auto_build: true,
   },
-] satisfies Readable<components["schemas"]["builds_PreviewSummary"]>[];
+] satisfies BuildsPreviewSummary[];
 
 // Captured from GET /accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}
 // on 2026-09-30, after the third build of the same branch.
@@ -54,4 +58,4 @@ export const observedWorkerRuntimePreview = {
   created_on: "2026-09-30T08:32:45.762865Z",
   updated_on: "2026-09-30T08:32:45.762865Z",
   deployed_on: "2026-09-30T08:53:15.214187Z",
-} satisfies Readable<components["schemas"]["workers_Preview"]>;
+} satisfies WorkersPreview;

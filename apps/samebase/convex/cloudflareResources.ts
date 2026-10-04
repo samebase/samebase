@@ -8,14 +8,25 @@ import { AppResourceNameConflictError } from "../shared/appResourceNames";
 import { normalizeCloudflareWorkerPreviewUrl } from "../shared/cloudflareResourceUrls";
 import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../shared/cloudflareWorkerPreviews";
 import {
-  requestCloudflareApi,
-  requestCloudflareApiOrThrow,
+  createCloudflareClient,
   CloudflareApiError,
+  CloudflareApiResponseError,
   resolveCloudflareApiTransport,
   type CloudflareApiRequestResult,
   type CloudflareApiTransport,
 } from "./cloudflareApi/client";
-import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
+import { Cloudflare } from "./cloudflareApi/generated/sdk.gen";
+import type {
+  BuildsBuildResponse,
+  BuildsEnvironmentVariablesRequest,
+  BuildsEnvironmentVariablesResponse,
+  BuildsListTokensResponse,
+  BuildsPreviewSummary,
+  BuildsTriggerResponse,
+  BuildsWorkerResponse,
+  WorkersWorker,
+  WorkersWorkerWritable,
+} from "./cloudflareApi/generated/types.gen";
 import { toErrorMessage } from "./jsonUtils";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
@@ -43,20 +54,20 @@ export type CloudflareBuildConfig = {
   pathExcludes: string[];
 };
 
-type CloudflareWorker = Readable<components["schemas"]["workers_Worker"]>;
-type CloudflareWorkerCreateBody = Writable<components["schemas"]["workers_Worker"]>;
+type CloudflareWorker = WorkersWorker;
+type CloudflareWorkerCreateBody = WorkersWorkerWritable;
 type CloudflareWorkerTagSource = {
   id?: string;
   external_script_id?: string;
   tag?: string;
   name?: string;
 };
-type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
-export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
-export type CloudflareWorkerBuild = Readable<components["schemas"]["builds_BuildResponse"]>;
-type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
-type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
-type CloudflareWorkerBuildSettings = Readable<components["schemas"]["builds_WorkerResponse"]>;
+type CloudflareBuildTokenRecord = BuildsListTokensResponse;
+export type CloudflareBuildTrigger = BuildsTriggerResponse;
+export type CloudflareWorkerBuild = BuildsBuildResponse;
+type CloudflareBuildEnvVars = BuildsEnvironmentVariablesRequest;
+type CloudflareBuildEnvVarsResponse = BuildsEnvironmentVariablesResponse;
+type CloudflareWorkerBuildSettings = BuildsWorkerResponse;
 type CloudflareApiCallOptions = {
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
@@ -369,18 +380,18 @@ async function readWorker(
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorker | null> {
   try {
-    const raw = await requestCloudflareApiOrThrow({
-      token: args.token,
-      method: "GET",
-      path: "/accounts/{account_id}/workers/workers/{worker_id}",
-      transport: args.transport,
-      params: {
-        path: {
-          account_id: args.accountId,
-          worker_id: args.workerIdentifier,
-        },
+    const { result: raw } = await Cloudflare.GET[
+      "/accounts/{account_id}/workers/workers/{worker_id}"
+    ]({
+      client: createCloudflareClient({
+        token: args.token,
+        transport: args.transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      path: {
+        account_id: args.accountId,
+        worker_id: args.workerIdentifier,
       },
-      recordApiCall: args.recordApiCall,
     });
     return requireCloudflareResult(
       raw,
@@ -514,24 +525,16 @@ export function readCloudflareWorkerTag(
 async function listLegacyCloudflareWorkers(
   args: { token: string; accountId: string } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorkerInventoryItem[]> {
-  const workers = await requestCloudflareApiOrThrow({
-    token: args.token,
-    transport: args.transport,
-    method: "GET",
-    path: "/accounts/{account_id}/workers/scripts",
-    params: {
-      path: {
-        account_id: args.accountId,
-      },
+  const { result: workers } = await Cloudflare.GET["/accounts/{account_id}/workers/scripts"]({
+    client: createCloudflareClient({
+      token: args.token,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+    path: {
+      account_id: args.accountId,
     },
-    recordApiCall: args.recordApiCall,
   });
-  if (!workers) {
-    throw new Error(
-      `Cloudflare Workers inventory for account ${args.accountId} response did not include Workers.`,
-    );
-  }
-
   return workers
     .map(readLegacyCloudflareWorkerInventoryItem)
     .filter(notEmpty)
@@ -546,22 +549,15 @@ export async function listCloudflareWorkerInventory(
     const seenWorkerTags = new Set<string>();
     const pageSize = 100;
     for (let page = 1; ; page += 1) {
-      const result = await requestCloudflareApiOrThrow({
-        token: args.token,
-        transport: args.transport,
-        method: "GET",
-        path: "/accounts/{account_id}/workers/workers",
-        params: {
-          path: { account_id: args.accountId },
-          query: { page, per_page: pageSize, order_by: "name", order: "asc" },
-        },
-        recordApiCall: args.recordApiCall,
+      const { result } = await Cloudflare.GET["/accounts/{account_id}/workers/workers"]({
+        client: createCloudflareClient({
+          token: args.token,
+          transport: args.transport,
+          recordApiCall: args.recordApiCall,
+        }),
+        path: { account_id: args.accountId },
+        query: { page, per_page: pageSize, order_by: "name", order: "asc" },
       });
-      if (!result) {
-        throw new Error(
-          `Cloudflare Workers inventory for account ${args.accountId} response did not include Workers.`,
-        );
-      }
       const pageWorkers = result.map(readCloudflareWorkerServiceInventoryItem);
       if (pageWorkers.some((worker) => seenWorkerTags.has(worker.workerTag))) {
         throw new Error("Cloudflare Worker inventory pagination repeated a Worker.");
@@ -631,13 +627,15 @@ async function readCloudflareWorkerBuildSettings(
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorkerBuildSettings | null> {
   try {
-    const raw = await requestCloudflareApiOrThrow({
-      token: args.token,
-      method: "GET",
-      path: "/accounts/{account_id}/builds/workers/{script_tag}",
-      transport: args.transport,
-      params: { path: { account_id: args.accountId, script_tag: args.workerTag } },
-      recordApiCall: args.recordApiCall,
+    const { result: raw } = await Cloudflare.GET[
+      "/accounts/{account_id}/builds/workers/{script_tag}"
+    ]({
+      client: createCloudflareClient({
+        token: args.token,
+        transport: args.transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      path: { account_id: args.accountId, script_tag: args.workerTag },
     });
     return raw ?? null;
   } catch (error) {
@@ -750,15 +748,10 @@ export async function createCloudflareWorker(args: {
   beforeProviderWrite?: () => void | Promise<void>;
 }): Promise<CloudflareWorkerIdentity> {
   await args.beforeProviderWrite?.();
-  const createdRaw = await requestCloudflareApiOrThrow({
-    token: args.token,
-    transport: args.transport,
-    method: "POST",
-    path: "/accounts/{account_id}/workers/workers",
-    params: {
-      path: {
-        account_id: args.accountId,
-      },
+  const { result: createdRaw } = await Cloudflare.POST["/accounts/{account_id}/workers/workers"]({
+    client: createCloudflareClient({ token: args.token, transport: args.transport }),
+    path: {
+      account_id: args.accountId,
     },
     body: buildCloudflareWorkerCreateBody(args.workerName),
   }).catch((error: unknown) => {
@@ -789,21 +782,19 @@ export async function listCloudflareBuildTokens(
 ): Promise<CloudflareBuildToken[]> {
   const tokens: CloudflareBuildToken[] = [];
   for (let page = 1; ; page += 1) {
-    const rawTokens = await requestCloudflareApiOrThrow({
-      token: args.token,
-      method: "GET",
-      path: "/accounts/{account_id}/builds/tokens",
-      transport: args.transport,
-      params: {
-        path: {
-          account_id: args.accountId,
-        },
-        query: {
-          page,
-          per_page: BUILD_TOKEN_PAGE_SIZE,
-        },
+    const { result: rawTokens } = await Cloudflare.GET["/accounts/{account_id}/builds/tokens"]({
+      client: createCloudflareClient({
+        token: args.token,
+        transport: args.transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      path: {
+        account_id: args.accountId,
       },
-      recordApiCall: args.recordApiCall,
+      query: {
+        page,
+        per_page: BUILD_TOKEN_PAGE_SIZE,
+      },
     });
     const tokensPage = requireCloudflareResult(
       rawTokens,
@@ -870,13 +861,15 @@ async function listBuildTriggers(
     workerTag: string;
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareBuildTrigger[]> {
-  const raw = await requestCloudflareApiOrThrow({
-    token: args.token,
-    method: "GET",
-    path: "/accounts/{account_id}/builds/workers/{external_script_id}/triggers",
-    transport: args.transport,
-    params: { path: { account_id: args.accountId, external_script_id: args.workerTag } },
-    recordApiCall: args.recordApiCall,
+  const { result: raw } = await Cloudflare.GET[
+    "/accounts/{account_id}/builds/workers/{external_script_id}/triggers"
+  ]({
+    client: createCloudflareClient({
+      token: args.token,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+    path: { account_id: args.accountId, external_script_id: args.workerTag },
   });
   return requireCloudflareResult(raw, "Cloudflare did not return Workers Builds triggers.");
 }
@@ -940,18 +933,16 @@ async function triggerInitialBuild(
     );
   }
   await args.beforeProviderWrite?.();
-  await requestCloudflareApiOrThrow({
-    token: args.token,
-    method: "POST",
-    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
-        trigger_uuid: triggerUuid,
-      },
+  await Cloudflare.POST["/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds"]({
+    client: createCloudflareClient({
+      token: args.token,
+      transport: args.transport,
+      recordApiCall: args.recordApiCall,
+    }),
+    path: {
+      account_id: args.accountId,
+      trigger_uuid: triggerUuid,
     },
-    recordApiCall: args.recordApiCall,
     body: {
       branch: args.branch,
       commit_hash: commitHash,
@@ -1179,21 +1170,21 @@ export async function readCloudflareWorkerBranchPreviewUrls(
     defaultBranch: args.defaultBranch,
     rootDirectory: args.rootDirectory,
   });
-  const previews: Readable<components["schemas"]["builds_PreviewSummary"]>[] = [];
+  const previews: BuildsPreviewSummary[] = [];
   const seenIds = new Set<string>();
   for (let page = 1; ; page += 1) {
     const previewPage = requireCloudflareResult(
-      await requestCloudflareApiOrThrow({
-        token: args.token,
-        transport: args.transport,
-        method: "GET",
-        path: "/accounts/{account_id}/builds/workers/{script_tag}/previews",
-        recordApiCall: args.recordApiCall,
-        params: {
+      (
+        await Cloudflare.GET["/accounts/{account_id}/builds/workers/{script_tag}/previews"]({
+          client: createCloudflareClient({
+            token: args.token,
+            transport: args.transport,
+            recordApiCall: args.recordApiCall,
+          }),
           path: { account_id: args.accountId, script_tag: args.workerTag },
           query: { page, per_page: 100 },
-        },
-      }),
+        })
+      ).result,
       "Cloudflare did not return Worker Previews.",
     );
     for (const preview of previewPage) {
@@ -1211,16 +1202,18 @@ export async function readCloudflareWorkerBranchPreviewUrls(
       const previewId = matches.length === 1 ? matches[0]?.preview_id : undefined;
       if (!previewId) return null;
       const preview = requireCloudflareResult(
-        await requestCloudflareApiOrThrow({
-          token: args.token,
-          transport: args.transport,
-          method: "GET",
-          path: "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}",
-          recordApiCall: args.recordApiCall,
-          params: {
+        (
+          await Cloudflare.GET[
+            "/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}"
+          ]({
+            client: createCloudflareClient({
+              token: args.token,
+              transport: args.transport,
+              recordApiCall: args.recordApiCall,
+            }),
             path: { account_id: args.accountId, worker_id: args.workerTag, preview_id: previewId },
-          },
-        }),
+          })
+        ).result,
         "Cloudflare did not return the Worker Preview.",
       );
       if (preview.id !== previewId || preview.urls.length !== 1) return null;
@@ -1300,28 +1293,30 @@ async function configureCloudflareWorkerBuilds(
     if (discovery.state === "not_connected") {
       await args.beforeProviderWrite?.();
       configured = requireCloudflareResult(
-        await requestCloudflareApiOrThrow({
-          token: args.cloudflareToken,
-          method: "POST",
-          path: "/accounts/{account_id}/builds/workers",
-          transport: args.transport,
-          params: { path: { account_id: args.accountId } },
-          recordApiCall: args.recordApiCall,
-          body: {
-            script_tag: args.workerTag,
-            git_repository: {
-              branch: args.defaultBranch,
-              provider_type: "github",
-              provider_account_id: args.ghRepoOwnerId,
-              provider_account_name: args.owner,
-              repo_id: args.githubRepositoryDatabaseId,
-              repo_name: args.repo,
+        (
+          await Cloudflare.POST["/accounts/{account_id}/builds/workers"]({
+            client: createCloudflareClient({
+              token: args.cloudflareToken,
+              transport: args.transport,
+              recordApiCall: args.recordApiCall,
+            }),
+            path: { account_id: args.accountId },
+            body: {
+              script_tag: args.workerTag,
+              git_repository: {
+                branch: args.defaultBranch,
+                provider_type: "github",
+                provider_account_id: args.ghRepoOwnerId,
+                provider_account_name: args.owner,
+                repo_id: args.githubRepositoryDatabaseId,
+                repo_name: args.repo,
+              },
+              production_settings: { ...productionSettings, build_caching_enabled: true },
+              previews_base_config: { ...previewSettings, build_caching_enabled: true },
+              previews_enabled: true,
             },
-            production_settings: { ...productionSettings, build_caching_enabled: true },
-            previews_base_config: { ...previewSettings, build_caching_enabled: true },
-            previews_enabled: true,
-          },
-        }),
+          })
+        ).result,
         "Cloudflare did not return the created Builds configuration.",
       );
     }
@@ -1340,28 +1335,28 @@ async function configureCloudflareWorkerBuilds(
       }
       // The create endpoint can return legacy triggers even when the request enables previews.
       await args.beforeProviderWrite?.();
-      await requestCloudflareApiOrThrow({
-        token: args.cloudflareToken,
-        method: "POST",
-        path: "/accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews",
-        transport: args.transport,
-        params: { path: { account_id: args.accountId, script_tag: args.workerTag } },
-        recordApiCall: args.recordApiCall,
+      await Cloudflare.POST[
+        "/accounts/{account_id}/builds/workers/{script_tag}/migrate_to_previews"
+      ]({
+        client: createCloudflareClient({
+          token: args.cloudflareToken,
+          transport: args.transport,
+          recordApiCall: args.recordApiCall,
+        }),
+        path: { account_id: args.accountId, script_tag: args.workerTag },
         body: { deploy_command: args.buildConfig.previewDeployCommand },
       });
     }
     if (discovery.state === "ready") {
       await args.beforeProviderWrite?.();
-      await requestCloudflareApiOrThrow({
-        token: args.cloudflareToken,
-        method: "PATCH",
-        path: "/accounts/{account_id}/builds/workers/{script_tag}",
-        transport: args.transport,
-        params: {
-          path: { account_id: args.accountId, script_tag: args.workerTag },
-          query: { patch_existing_previews: "true" },
-        },
-        recordApiCall: args.recordApiCall,
+      await Cloudflare.PATCH["/accounts/{account_id}/builds/workers/{script_tag}"]({
+        client: createCloudflareClient({
+          token: args.cloudflareToken,
+          transport: args.transport,
+          recordApiCall: args.recordApiCall,
+        }),
+        path: { account_id: args.accountId, script_tag: args.workerTag },
+        query: { patch_existing_previews: "true" },
         body: {
           git_repository: { branch: args.defaultBranch },
           production_settings: productionSettings,
@@ -1506,16 +1501,14 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
   });
 
   await args.beforeProviderWrite?.();
-  await requestCloudflareApiOrThrow({
-    token: args.cloudflareToken,
-    method: "PATCH",
-    path: "/accounts/{account_id}/builds/workers/{script_tag}",
-    transport,
-    params: {
-      path: { account_id: args.accountId, script_tag: args.workerTag },
-      query: { patch_existing_previews: "true" },
-    },
-    recordApiCall: args.recordApiCall,
+  await Cloudflare.PATCH["/accounts/{account_id}/builds/workers/{script_tag}"]({
+    client: createCloudflareClient({
+      token: args.cloudflareToken,
+      transport,
+      recordApiCall: args.recordApiCall,
+    }),
+    path: { account_id: args.accountId, script_tag: args.workerTag },
+    query: { patch_existing_previews: "true" },
     body: {
       production_settings: { environment_variables: envVars.production },
       previews_base_config: { environment_variables: envVars.preview },
@@ -1559,12 +1552,11 @@ export async function readCloudflareWorkerBuildsPage(args: {
   page: number;
   perPage: number;
 }): Promise<CloudflareApiRequestResult<CloudflareWorkerBuild[]>> {
-  const [valid, builds] = await requestCloudflareApi({
-    token: args.token,
-    transport: args.transport,
-    method: "GET",
-    path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
-    params: {
+  try {
+    const { result: builds } = await Cloudflare.GET[
+      "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+    ]({
+      client: createCloudflareClient({ token: args.token, transport: args.transport }),
       path: {
         account_id: args.accountId,
         external_script_id: args.workerTag,
@@ -1573,18 +1565,19 @@ export async function readCloudflareWorkerBuildsPage(args: {
         page: args.page,
         per_page: args.perPage,
       },
-    },
-  });
-  if (!valid) {
-    return bad(builds);
+    });
+    return good(
+      requireCloudflareResult(
+        builds,
+        `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof CloudflareApiResponseError) {
+      return bad(error.failure);
+    }
+    throw error;
   }
-
-  return good(
-    requireCloudflareResult(
-      builds,
-      `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
-    ),
-  );
 }
 
 const RECENT_CLOUDFLARE_WORKER_BUILD_PAGE_SIZE = 100;
@@ -1629,16 +1622,11 @@ async function deleteCloudflareBuildTrigger(args: {
   transport: CloudflareApiTransport;
 }): Promise<void> {
   try {
-    await requestCloudflareApiOrThrow({
-      token: args.cloudflareToken,
-      transport: args.transport,
-      method: "DELETE",
-      path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
-      params: {
-        path: {
-          account_id: args.accountId,
-          trigger_uuid: args.triggerUuid,
-        },
+    await Cloudflare.DELETE["/accounts/{account_id}/builds/triggers/{trigger_uuid}"]({
+      client: createCloudflareClient({ token: args.cloudflareToken, transport: args.transport }),
+      path: {
+        account_id: args.accountId,
+        trigger_uuid: args.triggerUuid,
       },
     });
   } catch (error) {
@@ -1676,16 +1664,11 @@ export async function deleteCloudflareResources(
       });
     }),
   );
-  await requestCloudflareApiOrThrow({
-    token: args.cloudflareToken,
-    transport: args.transport,
-    method: "DELETE",
-    path: "/accounts/{account_id}/workers/workers/{worker_id}",
-    params: {
-      path: {
-        account_id: args.accountId,
-        worker_id: args.workerTag,
-      },
+  await Cloudflare.DELETE["/accounts/{account_id}/workers/workers/{worker_id}"]({
+    client: createCloudflareClient({ token: args.cloudflareToken, transport: args.transport }),
+    path: {
+      account_id: args.accountId,
+      worker_id: args.workerTag,
     },
   });
 }

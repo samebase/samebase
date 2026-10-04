@@ -9,7 +9,8 @@ import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
 } from "./cloudflareAccountDiscovery";
-import { requestCloudflareApiOrThrow, resolveCloudflareApiTransport } from "./cloudflareApi/client";
+import { createCloudflareClient, resolveCloudflareApiTransport } from "./cloudflareApi/client";
+import { Cloudflare } from "./cloudflareApi/generated/sdk.gen";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 
@@ -245,12 +246,8 @@ async function checkCloudflareApiTokenAccess({
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
 }): Promise<void> {
-  await requestCloudflareApiOrThrow({
-    token,
-    transport,
-    method: "GET",
-    path: "/user/tokens/verify",
-    params: {},
+  await Cloudflare.GET["/user/tokens/verify"]({
+    client: createCloudflareClient({ token, transport }),
   });
 }
 
@@ -263,12 +260,9 @@ async function checkCloudflareWorkersAccess({
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
 }): Promise<void> {
-  await requestCloudflareApiOrThrow({
-    token,
-    transport,
-    method: "GET",
-    path: "/accounts/{account_id}/workers/account-settings",
-    params: { path: { account_id: accountId } },
+  await Cloudflare.GET["/accounts/{account_id}/workers/account-settings"]({
+    client: createCloudflareClient({ token, transport }),
+    path: { account_id: accountId },
   });
 }
 
@@ -281,12 +275,9 @@ async function checkCloudflareWorkersBuildsAccess({
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
 }): Promise<void> {
-  await requestCloudflareApiOrThrow({
-    token,
-    transport,
-    method: "GET",
-    path: "/accounts/{account_id}/builds/account/limits",
-    params: { path: { account_id: accountId } },
+  await Cloudflare.GET["/accounts/{account_id}/builds/account/limits"]({
+    client: createCloudflareClient({ token, transport }),
+    path: { account_id: accountId },
   });
 }
 

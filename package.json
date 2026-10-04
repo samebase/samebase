@@ -95,7 +95,7 @@
     "convex-test": "^0.0.56",
     "eslint-plugin-react-refresh": "^0.4.7",
     "execa": "9.6.1",
-    "typescript": "5.9.2",
+    "typescript": "6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

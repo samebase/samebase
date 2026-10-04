@@ -26501,7 +26501,8 @@
           "type": "object",
           "uniqueItems": true
         },
-        "example": []
+        "example": [],
+        "nullable": true
       },
       "workers_account-settings": {
         "type": "object",

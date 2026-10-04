@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const cloudflareMocks = vi.hoisted(() => ({
-  requestCloudflareApi: vi.fn(),
-  requestCloudflareApiOrThrow: vi.fn(),
+  getSubdomain: vi.fn(),
+  getWorker: vi.fn(),
+  getBuildSettings: vi.fn(),
+  getBuilds: vi.fn(),
 }));
 
 const convexMocks = vi.hoisted(() => ({
@@ -15,14 +17,17 @@ const githubMocks = vi.hoisted(() => ({
   getRepository: vi.fn(),
 }));
 
-vi.mock("../cloudflareApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../cloudflareApi/client")>();
-  return {
-    ...actual,
-    requestCloudflareApi: cloudflareMocks.requestCloudflareApi,
-    requestCloudflareApiOrThrow: cloudflareMocks.requestCloudflareApiOrThrow,
-  };
-});
+vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
+  Cloudflare: {
+    GET: {
+      "/accounts/{account_id}/workers/subdomain": cloudflareMocks.getSubdomain,
+      "/accounts/{account_id}/workers/workers/{worker_id}": cloudflareMocks.getWorker,
+      "/accounts/{account_id}/builds/workers/{script_tag}": cloudflareMocks.getBuildSettings,
+      "/accounts/{account_id}/builds/workers/{external_script_id}/builds":
+        cloudflareMocks.getBuilds,
+    },
+  },
+}));
 
 vi.mock("../convexManagementApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
@@ -42,6 +47,8 @@ vi.mock("../githubApp", async (importOriginal) => {
 });
 
 import { api } from "../_generated/api";
+import { CloudflareApiResponseError } from "../cloudflareApi/client";
+import type { Cloudflare } from "../cloudflareApi/generated/sdk.gen";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
@@ -51,8 +58,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  cloudflareMocks.requestCloudflareApi.mockReset();
-  cloudflareMocks.requestCloudflareApiOrThrow.mockReset();
+  for (const endpoint of Object.values(cloudflareMocks)) endpoint.mockReset();
   convexMocks.requestConvexManagementApi.mockReset();
   convexMocks.requestConvexManagementApiOrThrow.mockReset();
   githubMocks.getRepository.mockReset();
@@ -194,18 +200,17 @@ describe("repository provider observations", () => {
       });
     });
     vi.stubGlobal("fetch", refresh);
-    cloudflareMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: { path: string; params?: { path?: Record<string, string> } }) => {
-        if (request.path === "/accounts/{account_id}/workers/subdomain") {
-          return { subdomain: "samebase" };
-        }
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          const workerTag = request.params?.path?.["worker_id"];
-          if (!workerTag) {
-            throw new Error("Worker request is missing its tag.");
-          }
-          const workerName = workerTag.replace(/-tag$/, "");
-          return {
+    cloudflareMocks.getSubdomain.mockResolvedValue({ result: { subdomain: "samebase" } });
+    cloudflareMocks.getWorker.mockImplementation(
+      async (
+        request: Parameters<
+          (typeof Cloudflare.GET)["/accounts/{account_id}/workers/workers/{worker_id}"]
+        >[0],
+      ) => {
+        const workerTag = request.path.worker_id;
+        const workerName = workerTag.replace(/-tag$/, "");
+        return {
+          result: {
             id: workerTag,
             name: workerName,
             references: { domains: [] },
@@ -214,14 +219,19 @@ describe("repository provider observations", () => {
               previews_enabled: true,
               url: `https://${workerName}.samebase.workers.dev`,
             },
-          };
-        }
-        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-          const workerTag = request.params?.path?.["script_tag"];
-          if (!workerTag) {
-            throw new Error("Build settings request is missing its Worker tag.");
-          }
-          return {
+          },
+        };
+      },
+    );
+    cloudflareMocks.getBuildSettings.mockImplementation(
+      async (
+        request: Parameters<
+          (typeof Cloudflare.GET)["/accounts/{account_id}/builds/workers/{script_tag}"]
+        >[0],
+      ) => {
+        const workerTag = request.path.script_tag;
+        return {
+          result: {
             ...observedNativeWorkerBuildSettings,
             script_tag: workerTag,
             git_repository: {
@@ -239,20 +249,19 @@ describe("repository provider observations", () => {
               build_token_uuid: "build-token",
               root_directory: "apps/live",
             },
-          };
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.path}`);
+          },
+        };
       },
     );
-    cloudflareMocks.requestCloudflareApi.mockImplementation(
-      async (request: { params?: { path?: Record<string, string> } }) => {
-        const workerTag = request.params?.path?.["external_script_id"];
-        if (!workerTag) {
-          throw new Error("Build request is missing its Worker tag.");
-        }
-        return [
-          true,
-          [
+    cloudflareMocks.getBuilds.mockImplementation(
+      async (
+        request: Parameters<
+          (typeof Cloudflare.GET)["/accounts/{account_id}/builds/workers/{external_script_id}/builds"]
+        >[0],
+      ) => {
+        const workerTag = request.path.external_script_id;
+        return {
+          result: [
             {
               build_uuid: `${workerTag}-build`,
               status: "stopped",
@@ -273,7 +282,7 @@ describe("repository provider observations", () => {
               },
             },
           ],
-        ];
+        };
       },
     );
     convexMocks.requestConvexManagementApi.mockResolvedValue([
@@ -347,7 +356,7 @@ describe("repository provider observations", () => {
           "https://dash.cloudflare.com/cloudflare-account/workers/services/view/domain-router/production/builds/domain-router-tag-build",
       },
     });
-    cloudflareMocks.requestCloudflareApi.mockResolvedValue([true, []]);
+    cloudflareMocks.getBuilds.mockResolvedValue({ result: [] });
     await expect(
       viewer.action(api.repository.providerObservations.observeCloudflareWorkerBuilds, {
         repositoryId: ids.repositoryId,
@@ -356,7 +365,13 @@ describe("repository provider observations", () => {
       { productionBuild: { state: "absent" } },
       { productionBuild: { state: "absent" } },
     ]);
-    cloudflareMocks.requestCloudflareApi.mockResolvedValue([false, "invalid_json"]);
+    cloudflareMocks.getBuilds.mockRejectedValue(
+      new CloudflareApiResponseError(
+        "GET",
+        "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
+        "invalid_json",
+      ),
+    );
     await expect(
       viewer.action(api.repository.providerObservations.observeCloudflareWorkerBuilds, {
         repositoryId: ids.repositoryId,

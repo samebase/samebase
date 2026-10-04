@@ -11,18 +11,21 @@ const githubMocks = vi.hoisted(() => ({
 }));
 
 const cloudflareMocks = vi.hoisted(() => ({
-  requestCloudflareApi: vi.fn(),
-  requestCloudflareApiOrThrow: vi.fn(),
+  getWorker: vi.fn(),
+  getBuildSettings: vi.fn(),
+  getBuilds: vi.fn(),
 }));
 
-vi.mock("../cloudflareApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../cloudflareApi/client")>();
-  return {
-    ...actual,
-    requestCloudflareApi: cloudflareMocks.requestCloudflareApi,
-    requestCloudflareApiOrThrow: cloudflareMocks.requestCloudflareApiOrThrow,
-  };
-});
+vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
+  Cloudflare: {
+    GET: {
+      "/accounts/{account_id}/workers/workers/{worker_id}": cloudflareMocks.getWorker,
+      "/accounts/{account_id}/builds/workers/{script_tag}": cloudflareMocks.getBuildSettings,
+      "/accounts/{account_id}/builds/workers/{external_script_id}/builds":
+        cloudflareMocks.getBuilds,
+    },
+  },
+}));
 
 vi.mock("../convexManagementApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
@@ -187,8 +190,7 @@ async function readAttachments(fixture: Awaited<ReturnType<typeof createScoutFix
 
 beforeEach(() => {
   vi.clearAllMocks();
-  cloudflareMocks.requestCloudflareApi.mockReset();
-  cloudflareMocks.requestCloudflareApiOrThrow.mockReset();
+  for (const endpoint of Object.values(cloudflareMocks)) endpoint.mockReset();
   githubMocks.resolveGitHubAppAccess.mockResolvedValue({ octokit: {} });
   githubMocks.fetchGitHubConvexCodeLocationDiscovery.mockResolvedValue({
     completeness: "complete",
@@ -646,33 +648,27 @@ describe("repository_getStatus", () => {
       octokit: { rest: { repos: { get: getRepository } }, graphql },
       githubOwnerLogin: "scout-owner",
     });
-    cloudflareMocks.requestCloudflareApiOrThrow.mockImplementation(
-      async (request: { path: string }) => {
-        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          return {
-            id: workerTag,
-            name: "scout",
-            references: { domains: [] },
-            subdomain: { enabled: false, previews_enabled: false },
-          };
-        }
-        if (request.path === "/accounts/{account_id}/builds/workers/{script_tag}") {
-          return {
-            ...observedNativeWorkerBuildSettings,
-            script_tag: workerTag,
-            git_repository: {
-              ...observedNativeWorkerBuildSettings.git_repository,
-              repo_id: githubRepositoryId,
-              branch: args.defaultBranch,
-            },
-          };
-        }
-        throw new Error(`Unexpected Cloudflare request: ${request.path}`);
+    cloudflareMocks.getWorker.mockResolvedValue({
+      result: {
+        id: workerTag,
+        name: "scout",
+        references: { domains: [] },
+        subdomain: { enabled: false, previews_enabled: false },
       },
-    );
-    cloudflareMocks.requestCloudflareApi.mockResolvedValue([
-      true,
-      [
+    });
+    cloudflareMocks.getBuildSettings.mockResolvedValue({
+      result: {
+        ...observedNativeWorkerBuildSettings,
+        script_tag: workerTag,
+        git_repository: {
+          ...observedNativeWorkerBuildSettings.git_repository,
+          repo_id: githubRepositoryId,
+          branch: args.defaultBranch,
+        },
+      },
+    });
+    cloudflareMocks.getBuilds.mockResolvedValue({
+      result: [
         {
           ...observedNativePreviewsProductionBuild,
           build_outcome: args.buildOutcome,
@@ -682,7 +678,7 @@ describe("repository_getStatus", () => {
           },
         },
       ],
-    ]);
+    });
     return { getRepository, graphql };
   }
 

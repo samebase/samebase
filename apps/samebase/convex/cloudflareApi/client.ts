@@ -1,19 +1,6 @@
-import {
-  createFinalURL,
-  createQuerySerializer,
-  defaultPathSerializer,
-  type Client,
-  type ClientPathsWithMethod,
-  type FetchOptions,
-  type MethodResponse,
-} from "openapi-fetch";
-import { bad, good, pure, type Unsure } from "@samebase/sure";
-import type { paths } from "./types.generated";
-import {
-  cloudflareApiResponseValidators,
-  type AjvStandaloneValidationError,
-  type AjvStandaloneValidateFunction,
-} from "./validators.generated";
+import { ValiError, type BaseIssue } from "valibot";
+import type { Unsure } from "@samebase/sure";
+import { createClient } from "./generated/client/client.gen";
 import { callCloudflareMcpTool } from "../cloudflareMcp";
 import {
   isRecord,
@@ -25,7 +12,7 @@ import {
 import type { ProviderApiCallRecorder } from "../providerApiLog";
 import {
   logProviderResponseParseFailure,
-  logProviderResponseValidationFailure,
+  logProviderValidationFailure,
 } from "../providerResponseValidation";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
@@ -33,183 +20,180 @@ const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
 const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const CLOUDFLARE_API_TIMEOUT_MS = 30_000;
 
-type CloudflareApiRequestMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 export type CloudflareApiTransport = "mcp" | "direct";
 export type CloudflareApiAuthMethod = "api_key" | "oauth" | "mcp_oauth";
-type CloudflareApiErrorDetail = {
-  code?: string;
-  message?: string;
-};
-type CloudflareApiOpenApiClient = Client<paths>;
-type CloudflareApiDeletePath = keyof typeof cloudflareApiResponseValidators.DELETE &
-  ClientPathsWithMethod<CloudflareApiOpenApiClient, "delete">;
-type CloudflareApiGetPath = keyof typeof cloudflareApiResponseValidators.GET &
-  ClientPathsWithMethod<CloudflareApiOpenApiClient, "get">;
-type CloudflareApiPatchPath = keyof typeof cloudflareApiResponseValidators.PATCH &
-  ClientPathsWithMethod<CloudflareApiOpenApiClient, "patch">;
-type CloudflareApiPostPath = keyof typeof cloudflareApiResponseValidators.POST &
-  ClientPathsWithMethod<CloudflareApiOpenApiClient, "post">;
-type CloudflareApiPutPath = keyof typeof cloudflareApiResponseValidators.PUT &
-  ClientPathsWithMethod<CloudflareApiOpenApiClient, "put">;
-type CloudflareApiParamsOption<Operation> =
-  FetchOptions<Operation> extends { params: infer Params }
-    ? { params: Params }
-    : FetchOptions<Operation> extends { params?: infer Params }
-      ? { params?: Params }
-      : { params?: never };
-type CloudflareApiBodyOption<Operation> =
-  FetchOptions<Operation> extends { body: infer Body }
-    ? { body: Body }
-    : FetchOptions<Operation> extends { body?: infer Body }
-      ? { body?: Body }
-      : { body?: never };
-type CloudflareApiRequestOptions<Operation> = CloudflareApiParamsOption<Operation> &
-  CloudflareApiBodyOption<Operation>;
-type CloudflareApiDeleteOptions<Path extends CloudflareApiDeletePath> = CloudflareApiRequestOptions<
-  NonNullable<paths[Path]["delete"]>
->;
-type CloudflareApiGetOptions<Path extends CloudflareApiGetPath> = CloudflareApiRequestOptions<
-  NonNullable<paths[Path]["get"]>
->;
-type CloudflareApiPatchOptions<Path extends CloudflareApiPatchPath> = CloudflareApiRequestOptions<
-  NonNullable<paths[Path]["patch"]>
->;
-type CloudflareApiPostOptions<Path extends CloudflareApiPostPath> = CloudflareApiRequestOptions<
-  NonNullable<paths[Path]["post"]>
->;
-type CloudflareApiPutOptions<Path extends CloudflareApiPutPath> = CloudflareApiRequestOptions<
-  NonNullable<paths[Path]["put"]>
->;
-type CloudflareApiDeleteJsonResponse<Path extends CloudflareApiDeletePath> = MethodResponse<
-  CloudflareApiOpenApiClient,
-  "delete",
-  Path
->;
-type CloudflareApiGetJsonResponse<Path extends CloudflareApiGetPath> = MethodResponse<
-  CloudflareApiOpenApiClient,
-  "get",
-  Path
->;
-type CloudflareApiPatchJsonResponse<Path extends CloudflareApiPatchPath> = MethodResponse<
-  CloudflareApiOpenApiClient,
-  "patch",
-  Path
->;
-type CloudflareApiPostJsonResponse<Path extends CloudflareApiPostPath> = MethodResponse<
-  CloudflareApiOpenApiClient,
-  "post",
-  Path
->;
-type CloudflareApiPutJsonResponse<Path extends CloudflareApiPutPath> = MethodResponse<
-  CloudflareApiOpenApiClient,
-  "put",
-  Path
->;
-type CloudflareApiResponseResult<Response> = [Response] extends [never]
-  ? void
-  : Response extends { result?: infer Result }
-    ? Result | undefined
-    : void;
-type CloudflareApiDeleteResponse<Path extends CloudflareApiDeletePath> =
-  CloudflareApiResponseResult<CloudflareApiDeleteJsonResponse<Path>>;
-type CloudflareApiGetResponse<Path extends CloudflareApiGetPath> = CloudflareApiResponseResult<
-  CloudflareApiGetJsonResponse<Path>
->;
-type CloudflareApiPatchResponse<Path extends CloudflareApiPatchPath> = CloudflareApiResponseResult<
-  CloudflareApiPatchJsonResponse<Path>
->;
-type CloudflareApiPostResponse<Path extends CloudflareApiPostPath> = CloudflareApiResponseResult<
-  CloudflareApiPostJsonResponse<Path>
->;
-type CloudflareApiPutResponse<Path extends CloudflareApiPutPath> = CloudflareApiResponseResult<
-  CloudflareApiPutJsonResponse<Path>
->;
-export type CloudflareApiRequestResult<Response> = Unsure<
-  readonly AjvStandaloneValidationError[] | CloudflareApiResponseParseFailure,
-  Response
->;
-type CloudflareApiResponseParseFailure = "invalid_json" | "non_object_response";
-type CloudflareApiDeleteRequestArgs<Path extends CloudflareApiDeletePath> =
-  CloudflareApiRequestBase & {
-    method: "DELETE";
-    path: Path;
-  } & CloudflareApiDeleteOptions<Path>;
-type CloudflareApiGetRequestArgs<Path extends CloudflareApiGetPath> = CloudflareApiRequestBase & {
-  method: "GET";
-  path: Path;
-} & CloudflareApiGetOptions<Path>;
-type CloudflareApiPatchRequestArgs<Path extends CloudflareApiPatchPath> =
-  CloudflareApiRequestBase & {
-    method: "PATCH";
-    path: Path;
-  } & CloudflareApiPatchOptions<Path>;
-type CloudflareApiPostRequestArgs<Path extends CloudflareApiPostPath> = CloudflareApiRequestBase & {
-  method: "POST";
-  path: Path;
-} & CloudflareApiPostOptions<Path>;
-type CloudflareApiPutRequestArgs<Path extends CloudflareApiPutPath> = CloudflareApiRequestBase & {
-  method: "PUT";
-  path: Path;
-} & CloudflareApiPutOptions<Path>;
-type CloudflareApiRequestParams = {
-  path?: Record<string, unknown>;
-  query?: Record<string, unknown>;
-};
-type CloudflareApiResult =
-  | {
-      state: "success";
-      data: Record<string, unknown>;
-    }
-  | {
-      state: "error";
-      error: Record<string, unknown>;
-    };
-type CloudflareApiRequestBase = {
+type CloudflareApiErrorDetail = { code?: string; message?: string };
+type CloudflareApiResponseFailure =
+  | readonly BaseIssue<unknown>[]
+  | "invalid_json"
+  | "non_object_response";
+export type CloudflareApiRequestResult<Response> = Unsure<CloudflareApiResponseFailure, Response>;
+
+/** Keeps validation details available to build observations without including provider data in the error message. */
+export class CloudflareApiResponseError extends Error {
+  readonly #failure: CloudflareApiResponseFailure;
+
+  constructor(method: string, path: string, failure: CloudflareApiResponseFailure) {
+    super(`Cloudflare API returned an invalid response for ${method} ${path}.`);
+    this.name = "CloudflareApiResponseError";
+    this.#failure = failure;
+  }
+
+  get failure() {
+    return this.#failure;
+  }
+}
+
+/** Each client owns its credentials and transport. Generated operations own request and response validation. */
+export function createCloudflareClient(args: {
   token: string;
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
-};
-type CloudflareApiRequestArgs =
-  | (CloudflareApiRequestBase & {
-      method: "DELETE";
-      path: CloudflareApiDeletePath;
-      params?: unknown;
-      body?: unknown;
-    })
-  | (CloudflareApiRequestBase & {
-      method: "GET";
-      path: CloudflareApiGetPath;
-      params?: unknown;
-      body?: unknown;
-    })
-  | (CloudflareApiRequestBase & {
-      method: "PATCH";
-      path: CloudflareApiPatchPath;
-      params?: unknown;
-      body?: unknown;
-    })
-  | (CloudflareApiRequestBase & {
-      method: "POST";
-      path: CloudflareApiPostPath;
-      params?: unknown;
-      body?: unknown;
-    })
-  | (CloudflareApiRequestBase & {
-      method: "PUT";
-      path: CloudflareApiPutPath;
-      params?: unknown;
-      body?: unknown;
+}) {
+  const token = args.token.trim();
+  if (!token) throw new Error("Cloudflare token is required.");
+
+  const client = createClient({
+    baseUrl: CLOUDFLARE_API_BASE_URL,
+    headers: { Authorization: `Bearer ${token}` },
+    parseAs: "json",
+    throwOnError: true,
+    responseStyle: "data",
+    fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const endpoint = request.url.slice(CLOUDFLARE_API_BASE_URL.length);
+      if (args.transport === "mcp") {
+        const body = request.body ? await request.text() : undefined;
+        const bodyPart = body === undefined ? "" : `, body: ${body}`;
+        const code = `async () => {
+  return await cloudflare.request({
+    method: ${JSON.stringify(request.method)},
+    path: ${JSON.stringify(endpoint)}${bodyPart}
+  });
+}`;
+        const text = await callCloudflareMcpTool({
+          token,
+          toolName: "execute",
+          toolArgs: { code },
+        }).catch((error: unknown) => {
+          const message = toErrorMessage(error);
+          if (isWorkersBuildsInvalidTokenMessage({ path: endpoint, message })) {
+            throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
+          }
+          const detail = readCloudflareMcpApiErrorDetail(message);
+          if (detail)
+            throw new CloudflareApiError({
+              method: request.method,
+              path: endpoint,
+              details: [detail],
+            });
+          throw error;
+        });
+        return new Response(text || null, { headers: { "Content-Type": "application/json" } });
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), CLOUDFLARE_API_TIMEOUT_MS);
+      try {
+        const response = await fetch(request, {
+          signal: AbortSignal.any([request.signal, controller.signal]),
+        });
+        // Read the body before clearing the timer. Fetch alone only waits for headers.
+        const text = await response.text();
+        return new Response(text || null, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch (error) {
+        if (controller.signal.aborted)
+          throw new Error(`Cloudflare API request timed out after ${CLOUDFLARE_API_TIMEOUT_MS}ms.`);
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  });
+
+  client.interceptors.request.use(async (request, options) => {
+    await args.recordApiCall?.({
+      provider: "Cloudflare",
+      method: request.method,
+      endpoint: options.url,
+      values: {
+        params: { path: options.path, query: options.query },
+        ...(options.body === undefined ? {} : { body: options.body }),
+      },
     });
+    return request;
+  });
+
+  client.interceptors.response.use(async (response, request, options) => {
+    // The generated client skips validation for empty bodies.
+    if (response.body === null || response.headers.get("Content-Length") === "0")
+      throw new CloudflareApiResponseError(request.method, options.url, "invalid_json");
+
+    const validate = options.responseValidator;
+    // Check Cloudflare errors before the success schema, using the SDK's parsed payload.
+    options.responseValidator = async (payload) => {
+      if (!isRecord(payload))
+        throw new CloudflareApiResponseError(request.method, options.url, "non_object_response");
+      if (response.ok && readBoolean(payload, "success") === true) return await validate?.(payload);
+
+      const endpoint = request.url.slice(CLOUDFLARE_API_BASE_URL.length);
+      const details = readCloudflareApiErrorDetails(payload["errors"]);
+      if (isWorkersBuildsInvalidTokenDetails({ path: endpoint, details }))
+        throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
+      if (!response.ok && details.length === 0)
+        throw new Error(
+          `Cloudflare API request failed for ${request.method} ${endpoint} (${response.status}).`,
+        );
+      throw new CloudflareApiError({ method: request.method, path: endpoint, details });
+    };
+    if (!response.ok) await options.responseValidator(await response.json());
+    return response;
+  });
+
+  client.interceptors.error.use((error, response, _request, options) => {
+    const method = options.method ?? "GET";
+    if (response && error instanceof SyntaxError)
+      error = new CloudflareApiResponseError(method, options.url, "invalid_json");
+    if (error instanceof ValiError) {
+      logProviderValidationFailure({
+        provider: "cloudflare",
+        phase: response ? "response" : "request",
+        method,
+        path: options.url,
+        transport: args.transport,
+        issues: error.issues,
+      });
+      if (!response)
+        return new Error(`Cloudflare API request is invalid for ${method} ${options.url}.`);
+      return new CloudflareApiResponseError(method, options.url, error.issues);
+    }
+    if (error instanceof CloudflareApiResponseError && typeof error.failure === "string") {
+      logProviderResponseParseFailure({
+        provider: "cloudflare",
+        method,
+        path: options.url,
+        transport: args.transport,
+        reason: error.failure,
+      });
+    }
+    return error;
+  });
+  return client;
+}
 
 export class CloudflareApiError extends Error {
-  readonly method: CloudflareApiRequestMethod;
+  readonly method: string;
 
   readonly path: string;
 
   readonly details: readonly CloudflareApiErrorDetail[];
 
   constructor(args: {
-    method: CloudflareApiRequestMethod;
+    method: string;
     path: string;
     details: readonly CloudflareApiErrorDetail[];
   }) {
@@ -235,166 +219,6 @@ export function resolveCloudflareApiTransport(
     default:
       authMethod satisfies never;
       throw new Error("Unsupported Cloudflare auth method.");
-  }
-}
-
-function formatCloudflareApiEndpoint(args: {
-  path: string;
-  params?: CloudflareApiRequestParams;
-}): string {
-  return createFinalURL(args.path, {
-    baseUrl: "",
-    params: args.params ?? {},
-    querySerializer: createQuerySerializer(),
-    pathSerializer: serializeCloudflareApiPath,
-  });
-}
-
-/**
- * Sends one OpenAPI-typed Cloudflare request through the selected Cloudflare
- * transport, then returns the validated result or every AJV issue for that
- * exact method and path.
- */
-export function requestCloudflareApi<const Path extends CloudflareApiDeletePath>(
-  args: CloudflareApiDeleteRequestArgs<Path>,
-): Promise<CloudflareApiRequestResult<CloudflareApiDeleteResponse<Path>>>;
-export function requestCloudflareApi<const Path extends CloudflareApiGetPath>(
-  args: CloudflareApiGetRequestArgs<Path>,
-): Promise<CloudflareApiRequestResult<CloudflareApiGetResponse<Path>>>;
-export function requestCloudflareApi<const Path extends CloudflareApiPatchPath>(
-  args: CloudflareApiPatchRequestArgs<Path>,
-): Promise<CloudflareApiRequestResult<CloudflareApiPatchResponse<Path>>>;
-export function requestCloudflareApi<const Path extends CloudflareApiPostPath>(
-  args: CloudflareApiPostRequestArgs<Path>,
-): Promise<CloudflareApiRequestResult<CloudflareApiPostResponse<Path>>>;
-export function requestCloudflareApi<const Path extends CloudflareApiPutPath>(
-  args: CloudflareApiPutRequestArgs<Path>,
-): Promise<CloudflareApiRequestResult<CloudflareApiPutResponse<Path>>>;
-export async function requestCloudflareApi(
-  args: CloudflareApiRequestArgs,
-): Promise<CloudflareApiRequestResult<unknown>> {
-  return await executeValidatedCloudflareApiRequest(args);
-}
-
-export function requestCloudflareApiOrThrow<const Path extends CloudflareApiDeletePath>(
-  args: CloudflareApiDeleteRequestArgs<Path>,
-): Promise<CloudflareApiDeleteResponse<Path>>;
-export function requestCloudflareApiOrThrow<const Path extends CloudflareApiGetPath>(
-  args: CloudflareApiGetRequestArgs<Path>,
-): Promise<CloudflareApiGetResponse<Path>>;
-export function requestCloudflareApiOrThrow<const Path extends CloudflareApiPatchPath>(
-  args: CloudflareApiPatchRequestArgs<Path>,
-): Promise<CloudflareApiPatchResponse<Path>>;
-export function requestCloudflareApiOrThrow<const Path extends CloudflareApiPostPath>(
-  args: CloudflareApiPostRequestArgs<Path>,
-): Promise<CloudflareApiPostResponse<Path>>;
-export function requestCloudflareApiOrThrow<const Path extends CloudflareApiPutPath>(
-  args: CloudflareApiPutRequestArgs<Path>,
-): Promise<CloudflareApiPutResponse<Path>>;
-export async function requestCloudflareApiOrThrow(
-  args: CloudflareApiRequestArgs,
-): Promise<unknown> {
-  const [valid, result] = await executeValidatedCloudflareApiRequest(args);
-  if (valid) {
-    return result;
-  }
-
-  throw new Error(`Cloudflare API returned an invalid response for ${args.method} ${args.path}.`);
-}
-
-async function executeValidatedCloudflareApiRequest(
-  args: CloudflareApiRequestArgs,
-): Promise<CloudflareApiRequestResult<unknown>> {
-  const params = readCloudflareApiRequestParams(args);
-  if (args.recordApiCall) {
-    const values: Record<string, unknown> = {};
-    if (params) {
-      values["params"] = params;
-    }
-    if (args.body !== undefined) {
-      values["body"] = args.body;
-    }
-    await args.recordApiCall({
-      provider: "Cloudflare",
-      method: args.method,
-      endpoint: args.path,
-      values,
-    });
-  }
-  const endpoint = formatCloudflareApiEndpoint({
-    path: args.path,
-    params,
-  });
-  const transport = args.transport;
-  const [parsed, result] =
-    transport === "direct"
-      ? await executeCloudflareApiDirectRequest({
-          token: args.token,
-          method: args.method,
-          endpoint,
-          path: args.path,
-          body: args.body,
-        })
-      : await executeCloudflareApiMcpRequest({
-          token: args.token,
-          method: args.method,
-          endpoint,
-          path: args.path,
-          body: args.body,
-        });
-  if (!parsed) {
-    return bad(result);
-  }
-
-  switch (args.method) {
-    case "DELETE":
-      return validateCloudflareApiResult({
-        result,
-        endpoint,
-        method: args.method,
-        path: args.path,
-        transport,
-        validator: cloudflareApiResponseValidators.DELETE[args.path],
-      });
-    case "GET":
-      return validateCloudflareApiResult({
-        result,
-        endpoint,
-        method: args.method,
-        path: args.path,
-        transport,
-        validator: cloudflareApiResponseValidators.GET[args.path],
-      });
-    case "PATCH":
-      return validateCloudflareApiResult({
-        result,
-        endpoint,
-        method: args.method,
-        path: args.path,
-        transport,
-        validator: cloudflareApiResponseValidators.PATCH[args.path],
-      });
-    case "POST":
-      return validateCloudflareApiResult({
-        result,
-        endpoint,
-        method: args.method,
-        path: args.path,
-        transport,
-        validator: cloudflareApiResponseValidators.POST[args.path],
-      });
-    case "PUT":
-      return validateCloudflareApiResult({
-        result,
-        endpoint,
-        method: args.method,
-        path: args.path,
-        transport,
-        validator: cloudflareApiResponseValidators.PUT[args.path],
-      });
-    default:
-      args satisfies never;
-      throw new Error("Unsupported Cloudflare API method.");
   }
 }
 
@@ -427,36 +251,6 @@ export function isCloudflareMcpInvalidAccessTokenError(error: unknown): boolean 
   return message.includes("invalid_token") || message.includes("invalid access token");
 }
 
-function readCloudflareApiRequestParams(options: {
-  params?: unknown;
-}): CloudflareApiRequestParams | undefined {
-  const params = options.params;
-  if (params === undefined) {
-    return undefined;
-  }
-  if (!isRecord(params)) {
-    throw new Error("Cloudflare API request params must be an object.");
-  }
-  return {
-    path: readOptionalRecordProperty(params, "path"),
-    query: readOptionalRecordProperty(params, "query"),
-  };
-}
-
-function readOptionalRecordProperty(
-  record: Record<string, unknown>,
-  name: string,
-): Record<string, unknown> | undefined {
-  const value = record[name];
-  if (value === undefined) {
-    return undefined;
-  }
-  if (isRecord(value)) {
-    return value;
-  }
-  throw new Error(`Cloudflare API request params.${name} must be an object.`);
-}
-
 function readCloudflareMcpApiErrorDetail(message: string): CloudflareApiErrorDetail | null {
   const marker = "Cloudflare API error: ";
   const markerIndex = message.indexOf(marker);
@@ -474,227 +268,6 @@ function readCloudflareMcpApiErrorDetail(message: string): CloudflareApiErrorDet
   }
   const apiMessage = detail.slice(codeSeparatorIndex + 2).trim();
   return apiMessage ? { code, message: apiMessage } : { code };
-}
-
-async function executeCloudflareApiMcpRequest(args: {
-  token: string;
-  method: CloudflareApiRequestMethod;
-  endpoint: string;
-  path: string;
-  body?: unknown;
-}): Promise<Unsure<CloudflareApiResponseParseFailure, CloudflareApiResult>> {
-  const token = args.token.trim();
-  if (!token) {
-    throw new Error("Cloudflare token is required.");
-  }
-
-  const bodyPart = args.body === undefined ? "" : `, body: ${JSON.stringify(args.body)}`;
-  const code = `async () => {
-  return await cloudflare.request({
-    method: ${JSON.stringify(args.method)},
-    path: ${JSON.stringify(args.endpoint)}${bodyPart}
-  });
-}`;
-  const text = await callCloudflareMcpTool({
-    token,
-    toolName: "execute",
-    toolArgs: { code },
-  }).catch((error: unknown) => {
-    const message = toErrorMessage(error);
-    if (
-      isWorkersBuildsInvalidTokenMessage({
-        path: args.endpoint,
-        message,
-      })
-    ) {
-      throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
-    }
-    const detail = readCloudflareMcpApiErrorDetail(message);
-    if (detail) {
-      throw new CloudflareApiError({
-        method: args.method,
-        path: args.endpoint,
-        details: [detail],
-      });
-    }
-    throw error;
-  });
-
-  const [parsed, response] = parseCloudflareApiEnvelope({
-    method: args.method,
-    path: args.path,
-    transport: "mcp",
-    text,
-  });
-  if (!parsed) {
-    return bad(response);
-  }
-  if (readBoolean(response, "success") === true) {
-    return good<CloudflareApiResult>({ state: "success", data: response });
-  }
-
-  const details = readCloudflareApiErrorDetails(response["errors"]);
-  if (isWorkersBuildsInvalidTokenDetails({ path: args.endpoint, details })) {
-    throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
-  }
-  return good<CloudflareApiResult>({
-    state: "error",
-    error: response,
-  });
-}
-
-const parseCloudflareApiEnvelope = pure(
-  (args: {
-    method: CloudflareApiRequestMethod;
-    path: string;
-    transport: CloudflareApiTransport;
-    text: string;
-  }) => {
-    let payload: unknown;
-    try {
-      payload = JSON.parse(args.text);
-    } catch {
-      logProviderResponseParseFailure({
-        provider: "cloudflare",
-        method: args.method,
-        path: args.path,
-        transport: args.transport,
-        reason: "invalid_json",
-      });
-      return bad("invalid_json" as const);
-    }
-    if (isRecord(payload)) {
-      return good(payload);
-    }
-    logProviderResponseParseFailure({
-      provider: "cloudflare",
-      method: args.method,
-      path: args.path,
-      transport: args.transport,
-      reason: "non_object_response",
-    });
-    return bad("non_object_response" as const);
-  },
-);
-
-async function executeCloudflareApiDirectRequest(args: {
-  token: string;
-  method: CloudflareApiRequestMethod;
-  endpoint: string;
-  path: string;
-  body?: unknown;
-}): Promise<Unsure<CloudflareApiResponseParseFailure, CloudflareApiResult>> {
-  const token = args.token.trim();
-  if (!token) {
-    throw new Error("Cloudflare token is required.");
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), CLOUDFLARE_API_TIMEOUT_MS);
-  let response: Response;
-  let text: string;
-  try {
-    response = await fetch(`${CLOUDFLARE_API_BASE_URL}${args.endpoint}`, {
-      method: args.method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(args.body === undefined ? {} : { "Content-Type": "application/json" }),
-      },
-      body: args.body === undefined ? undefined : JSON.stringify(args.body),
-      signal: controller.signal,
-    });
-    text = await response.text();
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Cloudflare API request timed out after ${CLOUDFLARE_API_TIMEOUT_MS}ms.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-  const [parsed, payload] = parseCloudflareApiEnvelope({
-    method: args.method,
-    path: args.path,
-    transport: "direct",
-    text,
-  });
-  if (!parsed) {
-    return bad(payload);
-  }
-  if (readBoolean(payload, "success") === true) {
-    return good<CloudflareApiResult>({ state: "success", data: payload });
-  }
-
-  const details = readCloudflareApiErrorDetails(payload["errors"]);
-  if (isWorkersBuildsInvalidTokenDetails({ path: args.endpoint, details })) {
-    throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
-  }
-  if (!response.ok && details.length === 0) {
-    throw new Error(
-      `Cloudflare API request failed for ${args.method} ${args.endpoint} (${response.status}).`,
-    );
-  }
-  return good<CloudflareApiResult>({
-    state: "error",
-    error: payload,
-  });
-}
-
-const validateCloudflareApiResult = pure(
-  (args: {
-    result: CloudflareApiResult;
-    endpoint: string;
-    method: CloudflareApiRequestMethod;
-    path: string;
-    transport: CloudflareApiTransport;
-    validator: AjvStandaloneValidateFunction<unknown> | null;
-  }) => {
-    const payload = readCloudflareApiResultData({
-      result: args.result,
-      endpoint: args.endpoint,
-      method: args.method,
-    });
-    if (args.validator === null) {
-      return good(undefined);
-    }
-
-    if (args.validator(payload)) {
-      return good(readCloudflareApiEnvelopeResult(payload));
-    }
-
-    const issues = args.validator.errors ?? [];
-    logProviderResponseValidationFailure({
-      provider: "cloudflare",
-      method: args.method,
-      path: args.path,
-      transport: args.transport,
-      issues,
-    });
-    return bad(issues);
-  },
-);
-
-function readCloudflareApiEnvelopeResult(payload: unknown): unknown {
-  if (isRecord(payload) && "result" in payload) {
-    return payload["result"];
-  }
-  return undefined;
-}
-
-function readCloudflareApiResultData(args: {
-  result: CloudflareApiResult;
-  endpoint: string;
-  method: CloudflareApiRequestMethod;
-}): Record<string, unknown> {
-  if (args.result.state === "success") {
-    return args.result.data;
-  }
-
-  throw new CloudflareApiError({
-    method: args.method,
-    path: args.endpoint,
-    details: readCloudflareApiErrorDetails(args.result.error["errors"]),
-  });
 }
 
 function readCloudflareApiErrorDetails(value: unknown): readonly CloudflareApiErrorDetail[] {
@@ -754,21 +327,4 @@ function isWorkersBuildsInvalidTokenDetails(args: {
 
 function isWorkersBuildsApiPath(path: string): boolean {
   return path.includes("/builds/");
-}
-
-function serializeCloudflareApiPath(pathname: string, pathParams: Record<string, unknown>): string {
-  const normalizedPathParams: Record<string, unknown> = {};
-  const entries: [string, unknown][] = Object.entries(pathParams);
-  for (const [name, value] of entries) {
-    if (typeof value !== "string") {
-      throw new Error(`Cloudflare path parameter ${name} must be a string.`);
-    }
-
-    const segment = value.trim();
-    if (!segment) {
-      throw new Error(`Cloudflare path parameter ${name} is required.`);
-    }
-    normalizedPathParams[name] = segment;
-  }
-  return defaultPathSerializer(pathname, normalizedPathParams);
 }

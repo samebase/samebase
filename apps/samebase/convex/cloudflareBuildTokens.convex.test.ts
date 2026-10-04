@@ -36,7 +36,7 @@ async function seedCloudflareOrganization() {
       cloudflareAccount: {
         accountId: "exact-cloudflare-account",
         accountName: "Exact Cloudflare account",
-        lastUsedBuildTokenUuid: "build-token",
+        lastUsedBuildTokenUuid: "f9e12f48-dd63-4e28-aef7-ece63d11539d",
       },
     });
     await ctx.db.insert("organizationMemberships", {
@@ -90,7 +90,7 @@ describe("Cloudflare Workers Builds token list", () => {
         messages: [],
         result: [
           {
-            build_token_uuid: "build-token",
+            build_token_uuid: "f9e12f48-dd63-4e28-aef7-ece63d11539d",
             build_token_name: "Workers Builds - 2026-08-14 01:54",
             cloudflare_token_id: "provider-token-id",
           },
@@ -107,8 +107,10 @@ describe("Cloudflare Workers Builds token list", () => {
       asMember.action(api.cloudflareBuildTokens.list, { organizationId }),
     ).resolves.toEqual({
       accountId: "exact-cloudflare-account",
-      lastUsedBuildTokenUuid: "build-token",
-      tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token" }],
+      lastUsedBuildTokenUuid: "f9e12f48-dd63-4e28-aef7-ece63d11539d",
+      tokens: [
+        { name: "Workers Builds - 2026-08-14 01:54", uuid: "f9e12f48-dd63-4e28-aef7-ece63d11539d" },
+      ],
     });
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -124,7 +126,7 @@ describe("Cloudflare Workers Builds token list", () => {
           messages: [],
           result: [
             {
-              build_token_uuid: "current-build-token",
+              build_token_uuid: "89fa2f0f-ca7c-4f14-af5d-6f95714b68c3",
               build_token_name: "Current token",
               cloudflare_token_id: "provider-token-id",
             },
@@ -142,7 +144,7 @@ describe("Cloudflare Workers Builds token list", () => {
     ).resolves.toEqual({
       accountId: "exact-cloudflare-account",
       lastUsedBuildTokenUuid: null,
-      tokens: [{ name: "Current token", uuid: "current-build-token" }],
+      tokens: [{ name: "Current token", uuid: "89fa2f0f-ca7c-4f14-af5d-6f95714b68c3" }],
     });
   });
 

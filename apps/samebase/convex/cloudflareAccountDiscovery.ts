@@ -3,8 +3,9 @@
 import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
-import { requestCloudflareApiOrThrow, type CloudflareApiTransport } from "./cloudflareApi/client";
-import type { IamAccount } from "./cloudflareApi/types.generated";
+import { createCloudflareClient, type CloudflareApiTransport } from "./cloudflareApi/client";
+import { Cloudflare } from "./cloudflareApi/generated/sdk.gen";
+import type { IamAccount } from "./cloudflareApi/generated/types.gen";
 
 type CloudflareAccountIdentity = Pick<IamAccount, "id" | "name">;
 
@@ -59,16 +60,11 @@ export async function listCloudflareAccountsForToken(args: {
   token: string;
   transport: CloudflareApiTransport;
 }): Promise<CloudflareAccount[]> {
-  const accounts = await requestCloudflareApiOrThrow({
-    token: args.token,
-    transport: args.transport,
-    method: "GET",
-    path: "/accounts",
-    params: {
-      query: {
-        page: 1,
-        per_page: 5,
-      },
+  const { result: accounts } = await Cloudflare.GET["/accounts"]({
+    client: createCloudflareClient({ token: args.token, transport: args.transport }),
+    query: {
+      page: 1,
+      per_page: 5,
     },
   });
   if (!accounts) {
@@ -84,11 +80,8 @@ export const listAccountsForUserApiToken = internalAction({
   },
   returns: v.array(vCloudflareAccount),
   handler: async (_ctx, args) => {
-    const verification = await requestCloudflareApiOrThrow({
-      token: args.token,
-      transport: "direct",
-      method: "GET",
-      path: "/user/tokens/verify",
+    const { result: verification } = await Cloudflare.GET["/user/tokens/verify"]({
+      client: createCloudflareClient({ token: args.token, transport: "direct" }),
     });
     if (!verification?.id.trim() || verification.status !== "active") {
       throw new Error("Cloudflare API token is not active.");

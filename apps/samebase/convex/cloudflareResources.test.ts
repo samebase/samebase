@@ -47,7 +47,7 @@ import {
   observedWorkerPreviewSummaries,
   observedWorkerRuntimePreview,
 } from "./cloudflareApi/fixtures/observedWorkerPreviews";
-import type { components, Readable } from "./cloudflareApi/types.generated";
+import type { BuildsWorkerResponse } from "./cloudflareApi/generated/types.gen";
 import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../shared/cloudflareWorkerPreviews";
 
 type RecordedCloudflareRequest = {
@@ -122,7 +122,7 @@ function stubCloudflareWorkerRead(envelope = cloudflareWorkerReadEnvelope) {
   return fetchMock;
 }
 
-type WorkerBuildSettings = Readable<components["schemas"]["builds_WorkerResponse"]>;
+type WorkerBuildSettings = BuildsWorkerResponse;
 const observedRepository = observedNativeWorkerBuildSettings.git_repository;
 const observedProductionSettings = observedNativeWorkerBuildSettings.production_settings;
 const workerTag = observedNativeWorkerBuildSettings.script_tag;
@@ -253,7 +253,12 @@ function stubNativeBuilds(args: {
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
       const parsedUrl = new URL(url);
       const path = parsedUrl.pathname;
-      const body: unknown = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
+      const body: unknown =
+        input instanceof Request && input.body
+          ? await input.json()
+          : typeof init?.body === "string"
+            ? JSON.parse(init.body)
+            : undefined;
       requests.push({
         method,
         path,
@@ -325,7 +330,7 @@ function stubNativeBuilds(args: {
       if (path === `${settingsPath}/triggers`) {
         return cloudflareSuccessResponse([
           {
-            trigger_uuid: "production-trigger",
+            trigger_uuid: "b595a215-7b9b-4a04-a55d-578f39ca4335",
             root_directory: "/",
             branch_includes: ["main"],
             branch_excludes: [],
@@ -333,7 +338,7 @@ function stubNativeBuilds(args: {
           },
         ]);
       }
-      if (path.endsWith("/builds/triggers/production-trigger/builds"))
+      if (path.endsWith("/builds/triggers/b595a215-7b9b-4a04-a55d-578f39ca4335/builds"))
         return cloudflareSuccessResponse({});
       throw new Error(`Unexpected Cloudflare request ${method} ${path}`);
     }),
@@ -467,7 +472,7 @@ describe("cloudflare resources", () => {
         const page = url.searchParams.get("page") ?? "";
         requestedPages.push(page);
         const result = Array.from({ length: page === "1" ? 100 : 1 }, (_, index) => ({
-          build_uuid: `build-${page}-${index}`,
+          build_uuid: `f9e12f48-dd63-4e28-aef7-${`${page}${index}`.padStart(12, "0")}`,
         }));
         return new Response(
           JSON.stringify({
@@ -748,24 +753,24 @@ describe("cloudflare resources", () => {
       vi.fn(async () =>
         cloudflareSuccessResponse([
           {
-            build_token_uuid: "token-old",
+            build_token_uuid: "f9e12f48-dd63-4e28-aef7-ece63d115392",
             build_token_name: "Workers Builds - 2026-08-13 10:00",
             cloudflare_token_id: "secret-provider-id",
           },
           {
-            build_token_uuid: "token-new-b",
+            build_token_uuid: "f9e12f48-dd63-4e28-aef7-ece63d115391",
             build_token_name: "Workers Builds - 2026-08-14 01:54",
           },
           {
-            build_token_uuid: "token-new-a",
+            build_token_uuid: "f9e12f48-dd63-4e28-aef7-ece63d115390",
             build_token_name: "Workers Builds - 2026-08-14 01:54",
           },
           {
-            build_token_uuid: "token-samebase",
+            build_token_uuid: "f9e12f48-dd63-4e28-aef7-ece63d115394",
             build_token_name: "samebase build token",
           },
           {
-            build_token_uuid: "token-unnamed",
+            build_token_uuid: "f9e12f48-dd63-4e28-aef7-ece63d115393",
           },
         ]),
       ),
@@ -778,11 +783,11 @@ describe("cloudflare resources", () => {
         transport: "direct",
       }),
     ).resolves.toEqual([
-      { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-a" },
-      { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-b" },
-      { name: "Workers Builds - 2026-08-13 10:00", uuid: "token-old" },
-      { name: "Unnamed token", uuid: "token-unnamed" },
-      { name: "samebase build token", uuid: "token-samebase" },
+      { name: "Workers Builds - 2026-08-14 01:54", uuid: "f9e12f48-dd63-4e28-aef7-ece63d115390" },
+      { name: "Workers Builds - 2026-08-14 01:54", uuid: "f9e12f48-dd63-4e28-aef7-ece63d115391" },
+      { name: "Workers Builds - 2026-08-13 10:00", uuid: "f9e12f48-dd63-4e28-aef7-ece63d115392" },
+      { name: "Unnamed token", uuid: "f9e12f48-dd63-4e28-aef7-ece63d115393" },
+      { name: "samebase build token", uuid: "f9e12f48-dd63-4e28-aef7-ece63d115394" },
     ]);
   });
 });
@@ -980,7 +985,7 @@ describe("native Worker Builds", () => {
       },
       {
         method: "POST",
-        path: `/client/v4/accounts/${accountId}/builds/triggers/production-trigger/builds`,
+        path: `/client/v4/accounts/${accountId}/builds/triggers/b595a215-7b9b-4a04-a55d-578f39ca4335/builds`,
         body: { branch: "main", commit_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
       },
     ]);
@@ -1040,7 +1045,9 @@ describe("native Worker Builds", () => {
       }),
     ).rejects.toThrow("full commit SHA");
     expect(
-      requests.filter((request) => request.path.endsWith("/production-trigger/builds")),
+      requests.filter((request) =>
+        request.path.endsWith("/b595a215-7b9b-4a04-a55d-578f39ca4335/builds"),
+      ),
     ).toEqual([]);
   });
 
@@ -1167,7 +1174,7 @@ describe("native Worker Builds", () => {
       },
       {
         method: "POST",
-        path: `/client/v4/accounts/${accountId}/builds/triggers/production-trigger/builds`,
+        path: `/client/v4/accounts/${accountId}/builds/triggers/b595a215-7b9b-4a04-a55d-578f39ca4335/builds`,
         body: { branch: "main", commit_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
       },
     ]);
