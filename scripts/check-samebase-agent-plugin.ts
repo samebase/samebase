@@ -7,6 +7,7 @@ import claudeMarketplace from "../packages/plugin/.claude-plugin/marketplace.jso
 import claudeManifest from "../packages/plugin/plugins/samebase/.claude-plugin/plugin.json" with { type: "json" };
 import codexManifest from "../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 import mcp from "../packages/plugin/plugins/samebase/.mcp.json" with { type: "json" };
+import registryServer from "../packages/plugin/server.json" with { type: "json" };
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = resolve(repoRoot, "packages/plugin");
@@ -51,10 +52,24 @@ check(
 );
 check(
   codexManifest.description === claudeManifest.description &&
-    codexManifest.description === claudeMarketplacePlugin.description,
+    codexManifest.description === claudeMarketplacePlugin.description &&
+    codexManifest.description === registryServer.description,
   "Shared plugin descriptions must match.",
 );
 check(mcp.mcpServers.samebase.url === "https://api.samebase.com/mcp", "Unexpected MCP endpoint.");
+
+// server.json is what `mcp-publisher publish` sends to the official MCP Registry.
+check(registryServer.name === "com.samebase/samebase", "Unexpected MCP Registry server name.");
+check(
+  registryServer.version === codexManifest.version,
+  "The MCP Registry server version must match the plugin manifests.",
+);
+check(
+  registryServer.remotes.length === 1 &&
+    registryServer.remotes[0].type === "streamable-http" &&
+    registryServer.remotes[0].url === mcp.mcpServers.samebase.url,
+  "The MCP Registry remote must be the plugin's MCP endpoint.",
+);
 
 for (const relativePath of ["LICENSE", "NOTICE", "SECURITY.md"]) {
   resolvePluginPath(packageRoot, relativePath, relativePath);
