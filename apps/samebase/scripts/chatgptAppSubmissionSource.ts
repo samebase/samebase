@@ -20,7 +20,7 @@ export const demoRecordingUrl = "https://youtu.be/eoK5Md5bCgM";
 
 /** Summarizes the plugin version being submitted; the portal imports it as release notes. */
 export const releaseNotes =
-  "0.3.2: one catalog of 18 tools named by Convex function path. repository_getStatus reads live builds, URLs, Convex deployments, checks, and pull requests of one repository. Connecting a Worker, rotating deploy keys, retrying setup, and detaching a resource now need a server-issued confirmation on a second call. Shorter server instructions and rewritten test cases.";
+  "0.3.3: one catalog of 18 tools named by Convex function path. repository_getStatus reads live builds, URLs, Convex deployments, checks, and pull requests of one repository. Connecting a Worker, rotating deploy keys, retrying setup, and detaching a resource now need a server-issued confirmation on a second call. Shorter server instructions and rewritten test cases.";
 
 type ToolJustifications = {
   read_only_justification: string;
