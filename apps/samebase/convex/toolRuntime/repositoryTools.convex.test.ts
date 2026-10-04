@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const providerMocks = vi.hoisted(() => ({
   listConvexManagementProjects: vi.fn(),
-  requestConvexManagementApiOrThrow: vi.fn(),
+  createProject: vi.fn(),
+  getProject: vi.fn(),
 }));
 
 const githubMocks = vi.hoisted(() => ({
@@ -32,9 +33,15 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   return {
     ...actual,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,
-    requestConvexManagementApiOrThrow: providerMocks.requestConvexManagementApiOrThrow,
   };
 });
+
+vi.mock("../convexManagementApi/generated/sdk.gen", () => ({
+  ConvexManagement: {
+    GET: { "/projects/{project_id}": providerMocks.getProject },
+    POST: { "/teams/{team_id}/create_project": providerMocks.createProject },
+  },
+}));
 
 vi.mock("../githubAppAccess", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../githubAppAccess")>();
@@ -53,6 +60,7 @@ vi.mock("../githubRepoApi", async (importOriginal) => {
 });
 
 import { api, internal } from "../_generated/api";
+import type { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
@@ -203,21 +211,14 @@ beforeEach(() => {
     convexTeamProject("scout-project", "scout"),
     convexTeamProject("free-project", "free-app"),
   ]);
-  providerMocks.requestConvexManagementApiOrThrow.mockImplementation(
-    async (
-      _token: string,
-      method: string,
-      path: string,
-      init: { params: { path: { project_id?: string } } },
-    ) => {
-      if (method === "POST" && path === "/teams/{team_id}/create_project") {
-        return { id: "created-project", projectId: "created-project" };
-      }
-      if (method === "GET" && path === "/projects/{project_id}") {
-        const projectId = init.params.path.project_id ?? "missing";
-        return convexTeamProject(projectId, projectId === "free-project" ? "free-app" : projectId);
-      }
-      throw new Error(`Unexpected Convex request: ${method} ${path}`);
+  providerMocks.createProject.mockResolvedValue({
+    id: "created-project",
+    projectId: "created-project",
+  });
+  providerMocks.getProject.mockImplementation(
+    async ({ path }: Parameters<(typeof ConvexManagement.GET)["/projects/{project_id}"]>[0]) => {
+      const projectId = path.project_id;
+      return convexTeamProject(projectId, projectId === "free-project" ? "free-app" : projectId);
     },
   );
 });
@@ -807,7 +808,8 @@ describe("Convex project selection for deploy keys", () => {
       text: "scout-owner/scout has several attached Convex projects: admin (apps/admin/convex.json), scout (convex.json). Choose the project whose deploy key the Worker gets.",
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
-    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+    expect(providerMocks.createProject).not.toHaveBeenCalled();
+    expect(providerMocks.getProject).not.toHaveBeenCalled();
   });
 
   it("selects a Convex project by its exact slug, never by a name that is another project's slug", async () => {
@@ -884,7 +886,8 @@ describe("Convex project selection for deploy keys", () => {
         ],
       },
     });
-    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+    expect(providerMocks.createProject).not.toHaveBeenCalled();
+    expect(providerMocks.getProject).not.toHaveBeenCalled();
   });
 
   it("returns the deploy-key rotation challenge without a provider request or a write lock", async () => {
@@ -914,7 +917,8 @@ describe("Convex project selection for deploy keys", () => {
     });
     await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
     expect(fetch).not.toHaveBeenCalled();
-    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+    expect(providerMocks.createProject).not.toHaveBeenCalled();
+    expect(providerMocks.getProject).not.toHaveBeenCalled();
   });
 
   it("names the Convex project by slug in the challenge when two projects share convex.json", async () => {
@@ -949,7 +953,8 @@ describe("Convex project selection for deploy keys", () => {
       acknowledgement:
         "I approve revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project scout at convex.json",
     });
-    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+    expect(providerMocks.createProject).not.toHaveBeenCalled();
+    expect(providerMocks.getProject).not.toHaveBeenCalled();
   });
 
   it("fails a dashboard Worker create closed when several Convex projects are attached and none is chosen", async () => {
@@ -1113,19 +1118,15 @@ describe("repository_convex tools", () => {
         deploymentRegion: "aws-eu-west-1",
       },
     });
-    expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
-      "convex-token",
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: "convex-team" } },
-        body: {
-          projectName: "scout-api",
-          deploymentType: "prod",
-          deploymentRegion: "aws-eu-west-1",
-        },
+    expect(providerMocks.createProject).toHaveBeenCalledWith({
+      client: expect.anything(),
+      path: { team_id: "convex-team" },
+      body: {
+        projectName: "scout-api",
+        deploymentType: "prod",
+        deploymentRegion: "aws-eu-west-1",
       },
-    );
+    });
   });
 
   it("lists the code locations instead of guessing when there are several", async () => {
@@ -1149,7 +1150,8 @@ describe("repository_convex tools", () => {
       status: "error",
       text: "scout-owner/scout has several Convex code locations: convex.json, apps/admin/convex.json. Ask the user which one to use, then pass it as codeLocation.",
     });
-    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
+    expect(providerMocks.createProject).not.toHaveBeenCalled();
+    expect(providerMocks.getProject).not.toHaveBeenCalled();
   });
 
   it("attaches nothing without a code location when GitHub returned a partial tree", async () => {

@@ -16,11 +16,12 @@ import {
   isConvexCloudDeployment,
   listConvexManagementDefaultProductionDeployments,
   listConvexManagementProjects,
-  requestConvexManagementApiOrThrow,
+  createConvexManagementClient,
   type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
+import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { ConvexManagementApiError } from "../convexManagementApi/errors";
-import type { ProjectResponse } from "../convexManagementApi/types.generated";
+import type { ProjectResponse } from "../convexManagementApi/generated/types.gen";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { resolveConvexProvisioningConnectionForRepositoryWorkflow } from "../infraProvisioning";
@@ -293,19 +294,15 @@ async function createConvexProjectForConnection(args: {
   deploymentRegion: ConvexDeploymentRegion;
 }) {
   try {
-    return await requestConvexManagementApiOrThrow(
-      args.connection.token,
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: args.connection.teamId } },
-        body: {
-          projectName: args.projectName,
-          deploymentType: "prod",
-          deploymentRegion: args.deploymentRegion,
-        },
+    return await ConvexManagement.POST["/teams/{team_id}/create_project"]({
+      client: createConvexManagementClient({ token: args.connection.token }),
+      path: { team_id: args.connection.teamId },
+      body: {
+        projectName: args.projectName,
+        deploymentType: "prod",
+        deploymentRegion: args.deploymentRegion,
       },
-    );
+    });
   } catch (error) {
     if (!(error instanceof ConvexManagementApiError)) {
       throw error;
@@ -331,12 +328,10 @@ async function readConvexProject(args: {
   connection: ConvexActionConnection;
   projectId: string;
 }): Promise<ProjectResponse> {
-  const project = await requestConvexManagementApiOrThrow(
-    args.connection.token,
-    "GET",
-    "/projects/{project_id}",
-    { params: { path: { project_id: args.projectId } } },
-  );
+  const project = await ConvexManagement.GET["/projects/{project_id}"]({
+    client: createConvexManagementClient({ token: args.connection.token }),
+    path: { project_id: args.projectId },
+  });
   if (project.id !== args.projectId || project.teamId !== args.connection.teamId) {
     throw new Error("Convex project is not available under the connected team.");
   }

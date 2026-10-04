@@ -1,24 +1,13 @@
-import {
-  createFinalURL,
-  createQuerySerializer,
-  defaultPathSerializer,
-  type Client,
-  type ClientPathsWithMethod,
-  type FetchOptions,
-  type MaybeOptionalInit,
-  type MethodResponse,
-} from "openapi-fetch";
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
+import { ValiError, type BaseIssue } from "valibot";
 import { guard } from "@samebase/dependent/main";
-import { bad, good, pure, type Unsure } from "@samebase/sure";
-import type { paths, PlatformDeploymentResponse, ProjectResponse } from "./types.generated";
+import { createClient } from "./generated/client/index";
+import { ConvexManagement } from "./generated/sdk.gen";
+import type { PlatformDeploymentResponse, ProjectResponse } from "./generated/types.gen";
 import {
   convexManagementResponseDecimalPaths,
-  convexManagementResponseValidators,
-  type AjvStandaloneValidationError,
-  type AjvStandaloneValidateFunction,
   type ConvexManagementResponseDecimalPath,
-} from "./validators.generated";
+} from "./responseDecimalPaths.generated";
 import { isRecord, toErrorMessage } from "../jsonUtils";
 import { ConvexManagementApiError } from "./errors";
 import type { ProviderApiCallRecorder } from "../providerApiLog";
@@ -29,107 +18,160 @@ import {
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
 const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;
-const CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES: ReadonlySet<string> = new Set([
-  "project_id",
-  "team_id",
-]);
+const decimalPathParameters = new Set(["project_id", "team_id"]);
+const responseDecimalPaths = new Map<string, readonly ConvexManagementResponseDecimalPath[]>();
+for (const [method, paths] of Object.entries(convexManagementResponseDecimalPaths)) {
+  for (const [path, decimalPaths] of Object.entries(paths)) {
+    responseDecimalPaths.set(`${method} ${path}`, decimalPaths);
+  }
+}
 
-type ConvexManagementOpenApiClient = Client<paths>;
-type ConvexManagementGetPath = keyof typeof convexManagementResponseValidators.GET &
-  ClientPathsWithMethod<ConvexManagementOpenApiClient, "get">;
-type ConvexManagementPostPath = keyof typeof convexManagementResponseValidators.POST &
-  ClientPathsWithMethod<ConvexManagementOpenApiClient, "post">;
-type ConvexManagementParamsOption<Operation> =
-  FetchOptions<Operation> extends { params: infer Params }
-    ? { params: Params }
-    : FetchOptions<Operation> extends { params?: infer Params }
-      ? { params?: Params }
-      : { params?: never };
-type ConvexManagementBodyOption<Operation> =
-  FetchOptions<Operation> extends { body: infer Body }
-    ? { body: Body }
-    : FetchOptions<Operation> extends { body?: infer Body }
-      ? { body?: Body }
-      : { body?: never };
-type ConvexManagementRequestOptions<Operation> = ConvexManagementParamsOption<Operation> &
-  ConvexManagementBodyOption<Operation>;
-type ConvexManagementApiCallOptions = {
+export function createConvexManagementClient(args: {
+  token: string;
   recordApiCall?: ProviderApiCallRecorder;
-};
-type ConvexManagementGetOpenApiOptions<Path extends ConvexManagementGetPath> = MaybeOptionalInit<
-  paths[Path],
-  "get"
->;
-type ConvexManagementPostOpenApiOptions<Path extends ConvexManagementPostPath> = MaybeOptionalInit<
-  paths[Path],
-  "post"
->;
-type ConvexManagementGetOptions<Path extends ConvexManagementGetPath> =
-  ConvexManagementRequestOptions<NonNullable<paths[Path]["get"]>> & ConvexManagementApiCallOptions;
-type ConvexManagementPostOptions<Path extends ConvexManagementPostPath> =
-  ConvexManagementRequestOptions<NonNullable<paths[Path]["post"]>> & ConvexManagementApiCallOptions;
-type ConvexManagementGetInitParam<Path extends ConvexManagementGetPath> =
-  undefined extends ConvexManagementGetOpenApiOptions<Path>
-    ? [options?: ConvexManagementGetOptions<Path>]
-    : [options: ConvexManagementGetOptions<Path>];
-type ConvexManagementPostInitParam<Path extends ConvexManagementPostPath> =
-  undefined extends ConvexManagementPostOpenApiOptions<Path>
-    ? [options?: ConvexManagementPostOptions<Path>]
-    : [options: ConvexManagementPostOptions<Path>];
-type ConvexManagementGetJsonResponse<Path extends ConvexManagementGetPath> = MethodResponse<
-  ConvexManagementOpenApiClient,
-  "get",
-  Path
->;
-type ConvexManagementPostJsonResponse<Path extends ConvexManagementPostPath> = MethodResponse<
-  ConvexManagementOpenApiClient,
-  "post",
-  Path
->;
-type ConvexManagementGetResponse<Path extends ConvexManagementGetPath> = [
-  ConvexManagementGetJsonResponse<Path>,
-] extends [never]
-  ? void
-  : ConvexManagementGetJsonResponse<Path>;
-type ConvexManagementPostResponse<Path extends ConvexManagementPostPath> = [
-  ConvexManagementPostJsonResponse<Path>,
-] extends [never]
-  ? void
-  : ConvexManagementPostJsonResponse<Path>;
-export type ConvexManagementApiRequestResult<Response> = Unsure<
-  ConvexManagementApiResponseFailure,
-  Response
->;
-type ConvexManagementApiResponseParseFailure = "invalid_json";
-type ConvexManagementApiResponseFailure =
-  | readonly AjvStandaloneValidationError[]
-  | ConvexManagementApiResponseParseFailure;
-type ConvexManagementOpenApiResult<T> =
-  | {
-      state: "success";
-      data: T;
-      response: Response;
+}) {
+  if (!args.token) throw new Error("Convex access token is required.");
+  const client = createClient({
+    baseUrl: CONVEX_MANAGEMENT_BASE_URL,
+    auth: args.token,
+    responseStyle: "data",
+    parseAs: "text",
+    throwOnError: true,
+    fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), CONVEX_MANAGEMENT_TIMEOUT_MS);
+      try {
+        const response = await fetch(request, {
+          signal: AbortSignal.any([request.signal, controller.signal]),
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          throw new ConvexManagementApiError({
+            status: response.status,
+            path: request.url.slice(CONVEX_MANAGEMENT_BASE_URL.length),
+            responseBodySummary: toErrorMessage(text, "No error details returned"),
+          });
+        }
+        return new Response(text || null, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) throw new Error("Convex Management API request timed out.");
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  });
+
+  client.interceptors.request.use(async (request, options) => {
+    const method = request.method;
+    const path = options.url;
+    await args.recordApiCall?.({
+      provider: "Convex",
+      method,
+      endpoint: path,
+      values: {
+        ...(options.path || options.query
+          ? { params: { path: options.path, query: options.query } }
+          : {}),
+        ...(options.body === undefined ? {} : { body: options.body }),
+      },
+    });
+    if (options.path) {
+      const normalizedPath: Record<string, string> = {};
+      for (const [name, value] of Object.entries(options.path)) {
+        const label = `Convex path parameter ${name}`;
+        if (typeof value !== "string") throw new Error(`${label} must be a string.`);
+        const segment = readConvexManagementPathSegment(value, label);
+        normalizedPath[name] = decimalPathParameters.has(name)
+          ? readConvexManagementDecimalValue(segment, label)
+          : segment;
+      }
+      options.path = normalizedPath;
+      request = new Request(client.buildUrl(options), request);
     }
-  | {
-      state: "error";
-      error: unknown;
-      response: Response;
-    };
-type ConvexManagementRequestParams = {
-  path?: Record<string, unknown>;
-  query?: Record<string, unknown>;
-};
-type ConvexManagementRequestArgs =
-  | [
-      method: "GET",
-      path: ConvexManagementGetPath,
-      options?: { params?: unknown; body?: unknown; recordApiCall?: ProviderApiCallRecorder },
-    ]
-  | [
-      method: "POST",
-      path: ConvexManagementPostPath,
-      options?: { params?: unknown; body?: unknown; recordApiCall?: ProviderApiCallRecorder },
-    ];
+    options.parseAs = options.responseValidator ? "json" : "text";
+    return request;
+  });
+  client.interceptors.response.use(async (response, request, options) => {
+    if (!options.responseValidator) return response;
+    const method = request.method;
+    const path = options.url;
+    const decimalPaths = responseDecimalPaths.get(`${method} ${path}`);
+    if (!decimalPaths)
+      throw new Error(`Missing Convex response ID metadata for ${method} ${path}.`);
+    if (
+      response.body === null ||
+      response.status === 204 ||
+      response.headers.get("Content-Length") === "0"
+    ) {
+      throw new ConvexManagementApiResponseError(method, path, "invalid_json");
+    }
+    const text = await response.text();
+    let payload: unknown;
+    try {
+      payload = parse(text);
+    } catch {
+      throw new ConvexManagementApiResponseError(method, path, "invalid_json");
+    }
+    const normalized = normalizeConvexManagementResponseValue({
+      decimalPaths,
+      path: [],
+      value: payload,
+    });
+    // IDs are strings and other numbers are safe before the SDK parses this JSON.
+    return new Response(JSON.stringify(normalized), response);
+  });
+  client.interceptors.error.use((error, response, _request, options) => {
+    const method = options.method ?? "GET";
+    if (error instanceof ValiError) {
+      logProviderValidationFailure({
+        provider: "convex",
+        phase: response ? "response" : "request",
+        method,
+        path: options.url,
+        transport: null,
+        issues: error.issues,
+      });
+      if (!response)
+        return new Error(`Convex Management API request is invalid for ${method} ${options.url}.`);
+      return new ConvexManagementApiResponseError(method, options.url, error.issues);
+    }
+    if (error instanceof ConvexManagementApiResponseError && error.failure === "invalid_json") {
+      logProviderResponseParseFailure({
+        provider: "convex",
+        method,
+        path: options.url,
+        transport: null,
+        reason: "invalid_json",
+      });
+    }
+    return error;
+  });
+  return client;
+}
+
+export class ConvexManagementApiResponseError extends Error {
+  readonly #failure: "invalid_json" | readonly BaseIssue<unknown>[];
+
+  constructor(
+    method: string,
+    path: string,
+    failure: "invalid_json" | readonly BaseIssue<unknown>[],
+  ) {
+    super(`Convex Management API returned an invalid response for ${method} ${path}.`);
+    this.name = "ConvexManagementApiResponseError";
+    this.#failure = failure;
+  }
+
+  get failure() {
+    return this.#failure;
+  }
+}
 
 export type ConvexCloudDeployment = Extract<PlatformDeploymentResponse, { kind: "cloud" }>;
 
@@ -140,7 +182,9 @@ export const isConvexCloudDeployment = guard<PlatformDeploymentResponse, ConvexC
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   teamId: string;
 }> {
-  const details = await requestConvexManagementApiOrThrow(token, "GET", "/token_details");
+  const details = await ConvexManagement.GET["/token_details"]({
+    client: createConvexManagementClient({ token }),
+  });
   if (details.type !== "teamToken") {
     throw new Error("Convex token is missing team access.");
   }
@@ -152,20 +196,15 @@ export async function listConvexManagementProjects(args: {
   teamId: string;
 }): Promise<ProjectResponse[]> {
   const projects: ProjectResponse[] = [];
+  const client = createConvexManagementClient({ token: args.token });
   let cursor: string | undefined;
 
   for (;;) {
-    const page = await requestConvexManagementApiOrThrow(
-      args.token,
-      "GET",
-      "/teams/{team_id}/projects",
-      {
-        params: {
-          path: { team_id: args.teamId },
-          query: { cursor, limit: 100 },
-        },
-      },
-    );
+    const page = await ConvexManagement.GET["/teams/{team_id}/projects"]({
+      client,
+      path: { team_id: args.teamId },
+      query: { cursor, limit: 100 },
+    });
     projects.push(...page.items);
 
     if (!page.pagination.hasMore) {
@@ -183,25 +222,20 @@ export async function listConvexManagementDefaultProductionDeployments(args: {
   teamId: string;
 }): Promise<PlatformDeploymentResponse[]> {
   const deployments: PlatformDeploymentResponse[] = [];
+  const client = createConvexManagementClient({ token: args.token });
   let cursor: string | undefined;
 
   for (;;) {
-    const page = await requestConvexManagementApiOrThrow(
-      args.token,
-      "GET",
-      "/teams/{team_id}/list_deployments",
-      {
-        params: {
-          path: { team_id: args.teamId },
-          query: {
-            cursor,
-            limit: 100,
-            deploymentType: "prod",
-            isDefault: true,
-          },
-        },
+    const page = await ConvexManagement.GET["/teams/{team_id}/list_deployments"]({
+      client,
+      path: { team_id: args.teamId },
+      query: {
+        cursor,
+        limit: 100,
+        deploymentType: "prod",
+        isDefault: true,
       },
-    );
+    });
     deployments.push(...page.items);
 
     if (!page.pagination.hasMore) {
@@ -214,299 +248,21 @@ export async function listConvexManagementDefaultProductionDeployments(args: {
   }
 }
 
-function formatConvexManagementApiEndpoint(args: {
-  path: string;
-  params?: ConvexManagementRequestParams;
-}): string {
-  return createFinalURL(args.path, {
-    baseUrl: "",
-    params: args.params ?? {},
-    querySerializer: createQuerySerializer(),
-    pathSerializer: serializeConvexManagementPath,
-  });
-}
-
-/**
- * Sends one OpenAPI-typed Convex Management request, then validates the JSON
- * response with the generated validator for that exact method and path. It
- * returns every AJV issue as a normal bad value. Endpoints without a JSON
- * response return a good void value.
- */
-export function requestConvexManagementApi<const Path extends ConvexManagementGetPath>(
-  token: string,
-  method: "GET",
-  path: Path,
-  ...init: ConvexManagementGetInitParam<Path>
-): Promise<ConvexManagementApiRequestResult<ConvexManagementGetResponse<Path>>>;
-export function requestConvexManagementApi<const Path extends ConvexManagementPostPath>(
-  token: string,
-  method: "POST",
-  path: Path,
-  ...init: ConvexManagementPostInitParam<Path>
-): Promise<ConvexManagementApiRequestResult<ConvexManagementPostResponse<Path>>>;
-export async function requestConvexManagementApi(
-  token: string,
-  ...request: ConvexManagementRequestArgs
-): Promise<ConvexManagementApiRequestResult<unknown>> {
-  return await executeValidatedConvexManagementApiRequest(token, ...request);
-}
-
-export function requestConvexManagementApiOrThrow<const Path extends ConvexManagementGetPath>(
-  token: string,
-  method: "GET",
-  path: Path,
-  ...init: ConvexManagementGetInitParam<Path>
-): Promise<ConvexManagementGetResponse<Path>>;
-export function requestConvexManagementApiOrThrow<const Path extends ConvexManagementPostPath>(
-  token: string,
-  method: "POST",
-  path: Path,
-  ...init: ConvexManagementPostInitParam<Path>
-): Promise<ConvexManagementPostResponse<Path>>;
-export async function requestConvexManagementApiOrThrow(
-  token: string,
-  ...request: ConvexManagementRequestArgs
-): Promise<unknown> {
-  const [valid, result] = await executeValidatedConvexManagementApiRequest(token, ...request);
-  if (valid) {
-    return result;
-  }
-
-  const [method, path] = request;
-  throw new Error(`Convex Management API returned an invalid response for ${method} ${path}.`);
-}
-
-async function executeValidatedConvexManagementApiRequest(
-  token: string,
-  ...request: ConvexManagementRequestArgs
-): Promise<ConvexManagementApiRequestResult<unknown>> {
-  const [method, path, options] = request;
-  const params = readConvexManagementRequestParams(options);
-  const body = readConvexManagementRequestBody(options);
-  const recordApiCall = options?.recordApiCall;
-  if (recordApiCall) {
-    const values: Record<string, unknown> = {};
-    if (params) {
-      values["params"] = params;
-    }
-    if (body !== undefined) {
-      values["body"] = body;
-    }
-    await recordApiCall({
-      provider: "Convex",
-      method,
-      endpoint: path,
-      values,
-    });
-  }
-  const endpoint = formatConvexManagementApiEndpoint({
-    path,
-    params,
-  });
-  const result = await executeConvexManagementApiRequest({
-    token,
-    method,
-    endpoint,
-    body,
-  });
-  if (method === "GET") {
-    return validateConvexManagementResult({
-      result,
-      endpoint,
-      method,
-      path,
-      decimalPaths: convexManagementResponseDecimalPaths.GET[path],
-      validator: convexManagementResponseValidators.GET[path],
-    });
-  }
-
-  return validateConvexManagementResult({
-    result,
-    endpoint,
-    method,
-    path,
-    decimalPaths: convexManagementResponseDecimalPaths.POST[path],
-    validator: convexManagementResponseValidators.POST[path],
-  });
-}
-
-function readConvexManagementRequestParams(
-  options: { params?: unknown } | undefined,
-): ConvexManagementRequestParams | undefined {
-  const params = options?.params;
-  if (params === undefined) {
-    return undefined;
-  }
-  if (!isRecord(params)) {
-    throw new Error("Convex Management API request params must be an object.");
-  }
-  return {
-    path: readOptionalRecordProperty(params, "path"),
-    query: readOptionalRecordProperty(params, "query"),
-  };
-}
-
-function readConvexManagementRequestBody(options: { body?: unknown } | undefined): unknown {
-  return options?.body;
-}
-
-function readOptionalRecordProperty(
-  record: Record<string, unknown>,
-  name: string,
-): Record<string, unknown> | undefined {
-  const value = record[name];
-  if (value === undefined) {
-    return undefined;
-  }
-  if (isRecord(value)) {
-    return value;
-  }
-  throw new Error(`Convex Management API request params.${name} must be an object.`);
-}
-
-async function executeConvexManagementApiRequest(args: {
-  token: string;
-  method: "GET" | "POST";
-  endpoint: string;
-  body?: unknown;
-}): Promise<ConvexManagementOpenApiResult<string>> {
-  const headers = new Headers({
-    Authorization: `Bearer ${readConvexManagementAccessToken(args.token)}`,
-  });
-  let body: string | undefined;
-  if (args.body !== undefined) {
-    headers.set("Content-Type", "application/json");
-    body = JSON.stringify(args.body);
-  }
-
-  const response = await fetchConvexManagementApi(
-    new Request(`${CONVEX_MANAGEMENT_BASE_URL}${args.endpoint}`, {
-      method: args.method,
-      headers,
-      body,
-    }),
-  );
-  const text = await response.text();
-  if (response.ok) {
-    return {
-      state: "success",
-      data: text,
-      response,
-    };
-  }
-  return {
-    state: "error",
-    error: text,
-    response,
-  };
-}
-
-function readConvexManagementAccessToken(token: string): string {
-  if (!token) {
-    throw new Error("Convex access token is required.");
-  }
-  return token;
-}
-
-async function fetchConvexManagementApi(input: Request): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, CONVEX_MANAGEMENT_TIMEOUT_MS);
-
-  try {
-    return await fetch(input, { signal: controller.signal });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Convex Management API request timed out.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-const validateConvexManagementResult = pure(
-  (args: {
-    result: ConvexManagementOpenApiResult<string>;
-    endpoint: string;
-    method: "GET" | "POST";
-    path: string;
-    decimalPaths: readonly ConvexManagementResponseDecimalPath[];
-    validator: AjvStandaloneValidateFunction<unknown> | null;
-  }) => {
-    const text = readConvexManagementResultData({
-      result: args.result,
-      endpoint: args.endpoint,
-    });
-    if (args.validator === null) {
-      return good(undefined);
-    }
-
-    const [parsed, payload] = parseConvexManagementResponseJson({
-      decimalPaths: args.decimalPaths,
-      method: args.method,
-      path: args.path,
-      text,
-    });
-    if (!parsed) {
-      return bad<ConvexManagementApiResponseFailure>(payload);
-    }
-    if (args.validator(payload)) {
-      return good(payload);
-    }
-
-    const issues = args.validator.errors ?? [];
-    logProviderValidationFailure({
-      provider: "convex",
-      phase: "response",
-      method: args.method,
-      path: args.path,
-      transport: null,
-      issues,
-    });
-    return bad<ConvexManagementApiResponseFailure>(issues);
-  },
-);
-
-const parseConvexManagementResponseJson = pure(
-  (args: {
-    decimalPaths: readonly ConvexManagementResponseDecimalPath[];
-    method: "GET" | "POST";
-    path: string;
-    text: string;
-  }) => {
-    let payload: unknown;
-    try {
-      payload = parse(args.text);
-    } catch {
-      logProviderResponseParseFailure({
-        provider: "convex",
-        method: args.method,
-        path: args.path,
-        transport: null,
-        reason: "invalid_json",
-      });
-      return bad("invalid_json" as const);
-    }
-
-    return good(
-      normalizeConvexManagementResponseValue({
-        decimalPaths: args.decimalPaths,
-        path: [],
-        value: payload,
-      }),
-    );
-  },
-);
-
 function normalizeConvexManagementResponseValue(args: {
   decimalPaths: readonly ConvexManagementResponseDecimalPath[];
   path: readonly string[];
   value: unknown;
 }): unknown {
   if (isLosslessNumber(args.value)) {
-    return normalizeConvexManagementResponseNumber(args);
+    const serialized = args.value.toString();
+    const pathLabel = formatConvexManagementResponsePath(args.path);
+    if (isConvexManagementDecimalResponsePath(args.path, args.decimalPaths)) {
+      return readConvexManagementDecimalValue(serialized, pathLabel);
+    }
+    if (!isSafeNumber(serialized, { approx: false })) {
+      throw new Error(`${pathLabel} is outside JavaScript's safe numeric range.`);
+    }
+    return Number(serialized);
   }
 
   if (Array.isArray(args.value)) {
@@ -534,27 +290,6 @@ function normalizeConvexManagementResponseValue(args: {
   return args.value;
 }
 
-function normalizeConvexManagementResponseNumber(args: {
-  decimalPaths: readonly ConvexManagementResponseDecimalPath[];
-  path: readonly string[];
-  value: unknown;
-}): number | string {
-  if (!isLosslessNumber(args.value)) {
-    throw new Error("Convex response number normalizer received a non-number value.");
-  }
-
-  const serialized = args.value.toString();
-  const pathLabel = formatConvexManagementResponsePath(args.path);
-  if (isConvexManagementDecimalResponsePath(args.path, args.decimalPaths)) {
-    return readConvexManagementDecimalValue(serialized, pathLabel);
-  }
-
-  if (!isSafeNumber(serialized, { approx: false })) {
-    throw new Error(`${pathLabel} is outside JavaScript's safe numeric range.`);
-  }
-  return Number(serialized);
-}
-
 function isConvexManagementDecimalResponsePath(
   path: readonly string[],
   decimalPaths: readonly ConvexManagementResponseDecimalPath[],
@@ -571,41 +306,6 @@ function formatConvexManagementResponsePath(path: readonly string[]): string {
     return "Convex response number";
   }
   return `Convex response field /${path.join("/")}`;
-}
-
-function readConvexManagementResultData(args: {
-  result: ConvexManagementOpenApiResult<string>;
-  endpoint: string;
-}): string {
-  if (args.result.state === "success") {
-    return args.result.data;
-  }
-
-  throw new ConvexManagementApiError({
-    status: args.result.response.status,
-    path: args.endpoint,
-    responseBodySummary: toErrorMessage(args.result.error, "No error details returned"),
-  });
-}
-
-function serializeConvexManagementPath(
-  pathname: string,
-  pathParams: Record<string, unknown>,
-): string {
-  const normalizedPathParams: Record<string, unknown> = {};
-  const entries: [string, unknown][] = Object.entries(pathParams);
-  for (const [name, value] of entries) {
-    if (typeof value !== "string") {
-      throw new Error(`Convex path parameter ${name} must be a string.`);
-    }
-
-    const label = `Convex path parameter ${name}`;
-    const segment = readConvexManagementPathSegment(value, label);
-    normalizedPathParams[name] = CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES.has(name)
-      ? readConvexManagementDecimalValue(segment, label)
-      : segment;
-  }
-  return defaultPathSerializer(pathname, normalizedPathParams);
 }
 
 function readConvexManagementPathSegment(value: string, label: string): string {

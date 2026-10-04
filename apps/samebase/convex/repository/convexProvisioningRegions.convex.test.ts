@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 const providerMocks = vi.hoisted(() => ({
   listConvexManagementDefaultProductionDeployments: vi.fn(),
   listConvexManagementProjects: vi.fn(),
-  requestConvexManagementApiOrThrow: vi.fn(),
+  createProject: vi.fn(),
+  getProject: vi.fn(),
 }));
 
 const githubMocks = vi.hoisted(() => ({
@@ -18,9 +19,15 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
     listConvexManagementDefaultProductionDeployments:
       providerMocks.listConvexManagementDefaultProductionDeployments,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,
-    requestConvexManagementApiOrThrow: providerMocks.requestConvexManagementApiOrThrow,
   };
 });
+
+vi.mock("../convexManagementApi/generated/sdk.gen", () => ({
+  ConvexManagement: {
+    GET: { "/projects/{project_id}": providerMocks.getProject },
+    POST: { "/teams/{team_id}/create_project": providerMocks.createProject },
+  },
+}));
 
 vi.mock("../githubAppAccess", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../githubAppAccess")>();
@@ -217,30 +224,21 @@ beforeEach(() => {
   });
   providerMocks.listConvexManagementDefaultProductionDeployments.mockResolvedValue([]);
   providerMocks.listConvexManagementProjects.mockResolvedValue([]);
-  providerMocks.requestConvexManagementApiOrThrow.mockImplementation(
-    async (_token: string, method: string, path: string) => {
-      if (method === "POST" && path === "/teams/{team_id}/create_project") {
-        return {
-          id: "convex-project",
-          projectId: "convex-project",
-          slug: "region-app",
-          deploymentName: "region-app-prod",
-          deploymentUrl: "https://region-app.convex.cloud",
-        };
-      }
-      if (method === "GET" && path === "/projects/{project_id}") {
-        return {
-          createTime: 1,
-          id: "convex-project",
-          name: "region-app",
-          slug: "region-app",
-          teamId: "convex-team",
-          teamSlug: "convex-team",
-        };
-      }
-      throw new Error(`Unexpected Convex request: ${method} ${path}`);
-    },
-  );
+  providerMocks.createProject.mockResolvedValue({
+    id: "convex-project",
+    projectId: "convex-project",
+    slug: "region-app",
+    deploymentName: "region-app-prod",
+    deploymentUrl: "https://region-app.convex.cloud",
+  });
+  providerMocks.getProject.mockResolvedValue({
+    createTime: 1,
+    id: "convex-project",
+    name: "region-app",
+    slug: "region-app",
+    teamId: "convex-team",
+    teamSlug: "convex-team",
+  });
 });
 
 describe("Convex project regions", () => {
@@ -258,19 +256,15 @@ describe("Convex project regions", () => {
       },
     );
 
-    expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
-      "convex-token",
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: "convex-team" } },
-        body: {
-          projectName: "region-app",
-          deploymentType: "prod",
-          deploymentRegion: "aws-eu-west-1",
-        },
+    expect(providerMocks.createProject).toHaveBeenCalledWith({
+      client: expect.anything(),
+      path: { team_id: "convex-team" },
+      body: {
+        projectName: "region-app",
+        deploymentType: "prod",
+        deploymentRegion: "aws-eu-west-1",
       },
-    );
+    });
     vi.clearAllMocks();
     const retriedProjectId = await t.action(
       internal.repository.convex.ensureConvexProjectConnection,
@@ -284,13 +278,12 @@ describe("Convex project regions", () => {
     );
     expect(retriedProjectId).toBe(firstProjectId);
     expect(providerMocks.listConvexManagementProjects).not.toHaveBeenCalled();
-    expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledOnce();
-    expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
-      "convex-token",
-      "GET",
-      "/projects/{project_id}",
-      { params: { path: { project_id: "convex-project" } } },
-    );
+    expect(providerMocks.createProject).not.toHaveBeenCalled();
+    expect(providerMocks.getProject).toHaveBeenCalledOnce();
+    expect(providerMocks.getProject).toHaveBeenCalledWith({
+      client: expect.anything(),
+      path: { project_id: "convex-project" },
+    });
   });
 
   it("sends a manual region without changing the organization default", async () => {
@@ -308,19 +301,15 @@ describe("Convex project regions", () => {
         },
       }),
     ).resolves.toBeDefined();
-    expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
-      "convex-token",
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: "convex-team" } },
-        body: {
-          projectName: "manual-region-app",
-          deploymentType: "prod",
-          deploymentRegion: "aws-eu-west-1",
-        },
+    expect(providerMocks.createProject).toHaveBeenCalledWith({
+      client: expect.anything(),
+      path: { team_id: "convex-team" },
+      body: {
+        projectName: "manual-region-app",
+        deploymentType: "prod",
+        deploymentRegion: "aws-eu-west-1",
       },
-    );
+    });
     await expect(
       t.run(async (ctx) => {
         const organization = await ctx.db.get(organizationId);
@@ -358,17 +347,12 @@ describe("Convex project regions", () => {
         teamSlug: "convex-team",
       },
     ]);
-    providerMocks.requestConvexManagementApiOrThrow.mockImplementation(
-      async (_token: string, method: string, path: string) => {
-        if (method === "POST" && path === "/teams/{team_id}/create_project") {
-          throw new ConvexManagementApiError({
-            status: 409,
-            path,
-            responseBodySummary: "Raw Convex request 123 failed.",
-          });
-        }
-        throw new Error(`Unexpected Convex request: ${method} ${path}`);
-      },
+    providerMocks.createProject.mockRejectedValue(
+      new ConvexManagementApiError({
+        status: 409,
+        path: "/teams/{team_id}/create_project",
+        responseBodySummary: "Raw Convex request 123 failed.",
+      }),
     );
 
     await expect(
