@@ -33,9 +33,10 @@ Current generator and validator contract:
 - Hey API generates TypeScript types, endpoint methods, and Valibot request and response validators
   from the Convex Management API document. Callers use literal method/path keys and typed `path`,
   `query`, and `body` options. Each call requires an authenticated client.
-- The generated OFetch client accepts a lossless JSON parser for each request. This preserves
-  numeric IDs before validation. Runtime code imports generated validators, with no schema
-  compilation in the Convex runtime.
+- Both providers use the generated Fetch client. The Convex response interceptor parses JSON without
+  losing numeric precision, converts IDs to strings, and checks other numbers before returning JSON
+  for SDK validation. The SDK's second parse is exact because all remaining numbers are safe.
+  Runtime code imports generated validators, with no schema compilation in Convex.
 - Generator resolvers preserve composed array items and dictionary values, reject arrays where
   objects are required, and enforce finite numbers and safe integers. Schema defaults and formats
   remain annotations, as with the previous AJV boundary.

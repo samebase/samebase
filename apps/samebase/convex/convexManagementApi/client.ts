@@ -1,4 +1,3 @@
-import { createFetch } from "ofetch";
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
 import { ValiError, type BaseIssue } from "valibot";
 import { guard } from "@samebase/dependent/main";
@@ -38,49 +37,39 @@ export function createConvexManagementClient(args: {
     responseStyle: "data",
     parseAs: "text",
     throwOnError: true,
-    retry: 0,
-    onRequestError: ({ error }) => {
-      throw error;
-    },
-    ofetch: createFetch({
-      fetch: async (input, init) => {
-        const request = new Request(input, init);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), CONVEX_MANAGEMENT_TIMEOUT_MS);
-        try {
-          const response = await fetch(request, {
-            signal: AbortSignal.any([request.signal, controller.signal]),
-          });
-          const text = await response.text();
-          if (!response.ok) {
-            throw new ConvexManagementApiError({
-              status: response.status,
-              path: request.url.slice(CONVEX_MANAGEMENT_BASE_URL.length),
-              responseBodySummary: toErrorMessage(text, "No error details returned"),
-            });
-          }
-          return new Response(text || null, {
+    fetch: async (input, init) => {
+      const request = new Request(input, init);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), CONVEX_MANAGEMENT_TIMEOUT_MS);
+      try {
+        const response = await fetch(request, {
+          signal: AbortSignal.any([request.signal, controller.signal]),
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          throw new ConvexManagementApiError({
             status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
+            path: request.url.slice(CONVEX_MANAGEMENT_BASE_URL.length),
+            responseBodySummary: toErrorMessage(text, "No error details returned"),
           });
-        } catch (error) {
-          if (controller.signal.aborted)
-            throw new Error("Convex Management API request timed out.");
-          throw error;
-        } finally {
-          clearTimeout(timeout);
         }
-      },
-    }),
+        return new Response(text || null, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) throw new Error("Convex Management API request timed out.");
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
   });
 
   client.interceptors.request.use(async (request, options) => {
     const method = request.method;
     const path = options.url;
-    const decimalPaths = responseDecimalPaths.get(`${method} ${path}`);
-    if (!decimalPaths)
-      throw new Error(`Missing Convex response ID metadata for ${method} ${path}.`);
     await args.recordApiCall?.({
       provider: "Convex",
       method,
@@ -105,32 +94,37 @@ export function createConvexManagementClient(args: {
       options.path = normalizedPath;
       request = new Request(client.buildUrl(options), request);
     }
-    if (options.responseValidator) {
-      options.parseAs = "json";
-      options.parseResponse = (text) => {
-        let payload: unknown;
-        try {
-          payload = parse(text);
-        } catch {
-          throw new ConvexManagementApiResponseError(method, path, "invalid_json");
-        }
-        return normalizeConvexManagementResponseValue({ decimalPaths, path: [], value: payload });
-      };
-    } else {
-      options.parseAs = "text";
-    }
+    options.parseAs = options.responseValidator ? "json" : "text";
     return request;
   });
-  client.interceptors.response.use((response, request, options) => {
+  client.interceptors.response.use(async (response, request, options) => {
+    if (!options.responseValidator) return response;
+    const method = request.method;
+    const path = options.url;
+    const decimalPaths = responseDecimalPaths.get(`${method} ${path}`);
+    if (!decimalPaths)
+      throw new Error(`Missing Convex response ID metadata for ${method} ${path}.`);
     if (
-      options.responseValidator &&
-      (response.body === null ||
-        response.status === 204 ||
-        response.headers.get("Content-Length") === "0")
+      response.body === null ||
+      response.status === 204 ||
+      response.headers.get("Content-Length") === "0"
     ) {
-      throw new ConvexManagementApiResponseError(request.method, options.url, "invalid_json");
+      throw new ConvexManagementApiResponseError(method, path, "invalid_json");
     }
-    return response;
+    const text = await response.text();
+    let payload: unknown;
+    try {
+      payload = parse(text);
+    } catch {
+      throw new ConvexManagementApiResponseError(method, path, "invalid_json");
+    }
+    const normalized = normalizeConvexManagementResponseValue({
+      decimalPaths,
+      path: [],
+      value: payload,
+    });
+    // IDs are strings and other numbers are safe before the SDK parses this JSON.
+    return new Response(JSON.stringify(normalized), response);
   });
   client.interceptors.error.use((error, response, _request, options) => {
     const method = options.method ?? "GET";

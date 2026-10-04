@@ -906,6 +906,7 @@ export const trackedFilePaths = [
   "apps/samebase/scripts/generate-cloudflare-redirects.ts",
   "apps/samebase/scripts/generate-convex-management-api.ts",
   "apps/samebase/scripts/generate-install-icon-assets.ts",
+  "apps/samebase/scripts/lib/valibotResolvers.ts",
   "apps/samebase/scripts/localConvexAdminClient.test.ts",
   "apps/samebase/scripts/localConvexAdminClient.ts",
   "apps/samebase/scripts/normalizeEnvValue.ts",
