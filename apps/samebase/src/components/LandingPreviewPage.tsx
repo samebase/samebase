@@ -389,9 +389,9 @@ function LandingPreviewOverview() {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  samebase/base template
+                  samebase/base
                 </a>{" "}
-                without creating an account.
+                template without creating an account.
               </p>
               <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
                 <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">

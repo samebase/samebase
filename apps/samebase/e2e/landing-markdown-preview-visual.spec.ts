@@ -107,7 +107,7 @@ test("landing overview preserves its video frame and wide desktop layout", async
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
   const templateLink = article.getByRole("link", {
-    name: "samebase/base template",
+    name: "samebase/base",
   });
   await expect(templateLink).toBeInViewport();
   await expect(templateLink).toHaveAttribute("href", "https://github.com/samebase/base");
@@ -412,7 +412,7 @@ test.describe("mobile landing preview", () => {
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
     await expect(
       article.getByRole("link", {
-        name: "samebase/base template",
+        name: "samebase/base",
       }),
     ).toBeInViewport();
     await expect(heroVideo).toBeVisible();

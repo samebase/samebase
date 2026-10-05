@@ -119,7 +119,7 @@ describe("LandingPage", () => {
       "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
     );
     expect(markup).toContain(
-      'href="https://github.com/samebase/base" rel="noreferrer" target="_blank">samebase/base template</a> without creating an account.',
+      'href="https://github.com/samebase/base" rel="noreferrer" target="_blank">samebase/base</a> template without creating an account.',
     );
     expect(markup).toContain(
       "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?",
