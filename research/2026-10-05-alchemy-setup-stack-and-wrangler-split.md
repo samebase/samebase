@@ -248,6 +248,25 @@ what the stack owns today (zones, DNS, routing). The cross-provider glue stays o
 before adding more Cloudflare-only resources to the stack. The template and the three apps still use
 `wrangler.jsonc`; `cf migrate` exists for when we move.
 
+### How the stack fits `cloudflare.config.ts`
+
+The config is an ES module, so the run file can import it. The pattern: the app exports its Worker
+with `defineWorker()` and passes it to `defineConfig()`; the run file imports that export and reads
+`worker.name` and the binding names from it. The config never imports the stack, because `cf` loads
+the config for every command. Everything that is one Worker's own moves into the config, including
+the R2 binding without a bucket name (provisioned on deploy as `<worker>-<binding>`) and
+`triggers.email({ addresses: ["*@zone"] })` for the catch-all. The stack keeps the Worker shell, the
+Builds link with `cf deploy --prebuilt` and `cf previews deploy --prebuilt` as commands, the Convex
+project and keys, the generated secrets, and the glue. Mail's `EmailInbox` function shrinks to the
+bridge secret and the Worker URL.
+
+Two facts to design around. `cf` does not yet honor Workers Builds' `WRANGLER_CI_OVERRIDE_NAME` (its
+ported tests for it are skipped), so a config that must deploy to whatever Worker is connected reads
+the variable itself: `name: process.env.WRANGLER_CI_OVERRIDE_NAME ?? "<local name>"`. And a
+function-form config needs a `ConfigContext` (`mode`, `isPreview`) to evaluate, so a config the
+stack imports should stay object-form or export the Worker definition separately. Alchemy itself has
+no code, issue, or pull request about `cloudflare.config.ts` as of 2026-10-05.
+
 ## Direction: tokens created through OAuth
 
 Cloudflare's fundamentals changelog of 2026-10-01 adds delegated creation of Account API tokens: a
