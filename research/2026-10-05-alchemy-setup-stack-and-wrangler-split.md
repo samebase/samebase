@@ -248,6 +248,22 @@ what the stack owns today (zones, DNS, routing). The cross-provider glue stays o
 before adding more Cloudflare-only resources to the stack. The template and the three apps still use
 `wrangler.jsonc`; `cf migrate` exists for when we move.
 
+## Direction: tokens created through OAuth
+
+Cloudflare's fundamentals changelog of 2026-10-01 adds delegated creation of Account API tokens: a
+member with the **API Token Provisioning** role can create account-owned tokens from the dashboard,
+the API, Terraform, or `cf`, and "OAuth clients that request the `account_api_tokens:create` scope,
+starting with Cloudflare CLI, can create Account API tokens". A token created this way is limited to
+the creator's access and, for OAuth, to the scopes granted at authorization. The `cf auth login`
+consent screen shows it as a sensitive scope, "Account API Token Provisioning", off by default.
+
+As of 2026-10-05 the public scope catalogue (`GET /oauth/scopes`, 392 scopes) has no such scope, so
+a third-party client such as Samebase cannot request it yet. Workers Builds also still accepts only
+user tokens as build tokens, with account-owned tokens "coming soon". When both land, Samebase can
+mint the stack's CI token and the build token through its existing OAuth connection instead of
+asking the user to paste tokens. That is the answer to the token sprawl question. Until then, the
+"alchemy" user token stays a manual step.
+
 ## Aside: OpenSend
 
 [OpenSend](https://opensend.cc/docs/self-host-in-10-minutes) is a Resend alternative on Convex and
@@ -258,6 +274,10 @@ once and preserved, settings reapplied on every start), opposite promise (one bo
 release images, no source checkout). Its one-command install is the bar for our manual steps.
 
 ## Sources
+
+- [Fundamentals changelog: Account API token provisioning](https://developers.cloudflare.com/changelog/product/fundamentals/),
+  [Create your OAuth client](https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/),
+  [cloudflare/mcp issue 243](https://github.com/cloudflare/mcp/issues/243).
 
 - [Introducing cf](https://blog.cloudflare.com/cloudflare-cf-cli-launch/),
   [Cloudflare CLI docs](https://developers.cloudflare.com/cf/),
