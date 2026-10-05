@@ -13,9 +13,9 @@ import {
 const rootPage = {
   path: "/",
   expectedMetadata: {
-    title: "Samebase | The correct way to build web apps",
+    title: "Samebase | Give your coding agent a working app",
     description:
-      "The correct way to build web apps. Convex + Cloudflare is all you need. You own 100% of your code and data.",
+      "One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account.",
     robots: "index,follow",
   },
   prerender: {
@@ -26,8 +26,8 @@ const rootPage = {
 
 const landingHead = [
   "<head>",
-  "<title>Samebase | The correct way to build web apps</title>",
-  '<meta name="description" content="The correct way to build web apps. Convex + Cloudflare is all you need. You own 100% of your code and data."/>',
+  "<title>Samebase | Give your coding agent a working app</title>",
+  '<meta name="description" content="One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account."/>',
   '<meta name="robots" content="index,follow"/>',
   '<link rel="canonical" href="https://samebase.com/"/>',
   "</head>",

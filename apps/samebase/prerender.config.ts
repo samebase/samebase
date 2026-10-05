@@ -13,9 +13,9 @@ type ExpectedPublicPrerenderMetadata = {
 
 const expectedPublicPrerenderMetadataByPath = {
   "/": {
-    title: "Samebase | The correct way to build web apps",
+    title: "Samebase | Give your coding agent a working app",
     description:
-      "The correct way to build web apps. Convex + Cloudflare is all you need. You own 100% of your code and data.",
+      "One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account.",
     robots: "index,follow",
   },
   "/docs": {

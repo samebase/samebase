@@ -113,10 +113,13 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
-    // Hero: the stack opinion, one plain product sentence, and the agent prompt.
-    expect(markup).toContain("The correct way to build web apps.");
+    // Hero: the agent heading, one plain product sentence, the template link, and the agent prompt.
+    expect(markup).toContain("Give your coding agent a working app.");
     expect(markup).toContain(
       "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
+    );
+    expect(markup).toContain(
+      'href="https://github.com/samebase/base" rel="noreferrer" target="_blank">samebase/base template</a> without creating an account.',
     );
     expect(markup).toContain(
       "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?",
