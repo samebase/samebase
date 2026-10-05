@@ -244,9 +244,12 @@ search. It changes the configuration story:
   and setting a single secret.
 
 Consequence for the split: on the Cloudflare side, the planned `cloudflare.config.ts` scope overlaps
-what the stack owns today (zones, DNS, routing). The cross-provider glue stays ours. Watch `cf`
-before adding more Cloudflare-only resources to the stack. The template and the three apps still use
-`wrangler.jsonc`; `cf migrate` exists for when we move.
+what the stack owns today (zones, DNS, routing). The cross-provider glue stays ours.
+
+Decision (2026-10-05, evening): do not wait for the stable release. There are no real users yet, so
+beta churn costs little. Order: Mail first (bucket, email trigger, previews, and the stack in one
+place), then the samebase/samebase Workers, then `templates/base` and the Samebase seed manifest.
+The package keeps its name: it exists for Workers Builds, and the `cf` config is an input to it.
 
 ### How the stack fits `cloudflare.config.ts`
 
