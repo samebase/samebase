@@ -100,6 +100,7 @@ file removes the risk. Untested corner: a secret written to a shell that never h
 | Inbound Email Routing    | Top-level `addresses`, including `*@zone`. Added in 4.112, applied on deploy since 4.113. Wrangler plans the rules, tags them as owned by the Worker, applies additive plans, and hard-fails deletes and takeovers in CI. It does not enable Email Routing on a zone.                                                                                |
 | Required secret names    | `secrets.required` fails a deploy when a secret is missing. Names only. `wrangler deploy --secrets-file` covers the first deploy of a new Worker.                                                                                                                                                                                                    |
 | Preview-only secrets     | `wrangler preview base-config secret put`, `delete`, `list`, `bulk` write the Worker's `previews_base_config.env` (4.121).                                                                                                                                                                                                                           |
+| Generated configuration  | A build step can write a modified config and a `.wrangler/deploy/config.json` with `configPath` pointing at it. `wrangler deploy`, `dev`, and `versions upload` follow the redirect. This is the sanctioned way to inject generated names into the Worker version.                                                                                   |
 | Source-of-truth behavior | Overwrites variables and routes on deploy, keeps secrets. `keep_vars` keeps dashboard variables.                                                                                                                                                                                                                                                     |
 | Workers Builds token     | Default build token: Account Settings read, Workers Scripts edit, KV edit, R2 edit, Zone Workers Routes edit, User details read. No D1, no Email Routing. `addresses` from a build needs Email Routing Rules edit added.                                                                                                                             |
 
@@ -219,6 +220,34 @@ push deployed it through Workers Builds. The stack was destroyed and the account
 - Mail follow-ups: bucket and catch-all into the Wrangler file; remove the `renamedFrom` calls;
   generated names with a second stage as the proof, minding one catch-all per zone.
 
+## Direction: `cf` and `cloudflare.config.ts`
+
+Cloudflare released `cf`, "the agentic CLI for the entire Cloudflare API", as an open beta on
+2026-09-28. It has more than 2,900 generated commands, prints JSON by default, and has a command
+search. It changes the configuration story:
+
+- `cloudflare.config.ts` is the typed configuration of a Workers project. Its default export,
+  through `defineConfig()`, can define one Worker, Container applications, and account settings.
+  Modes selected with `--mode` replace `env` blocks: a function returns one complete configuration
+  per mode. Bindings are builder calls under `worker.env`, and binding types are inferred into the
+  Worker's `Env`. A Worker can import another Worker's `defineWorker()` definition for typed
+  cross-Worker bindings, with export names checked at compile time.
+- Cloudflare's stated intention: this file is "how you manage Cloudflare as a whole", with policies,
+  zones, and DNS to follow. The per-Worker boundary of the Wrangler file is kept for the Worker
+  part, but account-level objects are planned for the same file.
+- Multiple Workers stay one configuration file per Worker. A monorepo is several Workers projects
+  that import each other's definitions. The Workers Builds monorepo guidance is unchanged: one
+  Builds connection per Worker, a root directory, and watch paths.
+- Vite is the default build. `cf` delegates to Wrangler for esbuild, Rust, and Python Workers.
+  `cf migrate` converts a Wrangler configuration and keeps names, ids, routes, and triggers. Build
+  Output in `.cloudflare/output/v0/` allows build once and deploy later. Not yet covered: live logs
+  and setting a single secret.
+
+Consequence for the split: on the Cloudflare side, the planned `cloudflare.config.ts` scope overlaps
+what the stack owns today (zones, DNS, routing). The cross-provider glue stays ours. Watch `cf`
+before adding more Cloudflare-only resources to the stack. The template and the three apps still use
+`wrangler.jsonc`; `cf migrate` exists for when we move.
+
 ## Aside: OpenSend
 
 [OpenSend](https://opensend.cc/docs/self-host-in-10-minutes) is a Resend alternative on Convex and
@@ -229,6 +258,14 @@ once and preserved, settings reapplied on every start), opposite promise (one bo
 release images, no source checkout). Its one-command install is the bar for our manual steps.
 
 ## Sources
+
+- [Introducing cf](https://blog.cloudflare.com/cloudflare-cf-cli-launch/),
+  [Cloudflare CLI docs](https://developers.cloudflare.com/cf/),
+  [Programmatic configuration](https://developers.cloudflare.com/cf/projects/cloudflare-config/),
+  [cf for Wrangler users](https://developers.cloudflare.com/cf/wrangler/).
+- [Workers Builds advanced setups: monorepos](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/),
+  [Developing with multiple Workers](https://developers.cloudflare.com/workers/local-development/multi-workers/),
+  [Service bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/).
 
 - [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/):
   automatic provisioning, `addresses`, `secrets`, source of truth.
