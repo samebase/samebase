@@ -2333,6 +2333,7 @@ export const trackedFilePaths = [
   "templates/base-actions/scripts/check-branch-head.ts",
   "templates/base-actions/scripts/comment-preview.test.ts",
   "templates/base-actions/scripts/comment-preview.ts",
+  "templates/base-actions/scripts/delete-stack-state.ts",
   "templates/base-actions/scripts/delete-worker-preview.test.ts",
   "templates/base-actions/scripts/delete-worker-preview.ts",
   "templates/base-actions/scripts/deploy-names.test.ts",
