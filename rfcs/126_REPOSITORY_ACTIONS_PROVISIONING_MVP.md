@@ -141,23 +141,38 @@ part records the Worker and the Convex project through the existing attachment c
 `scripts/export-starter-manifest.ts`:
 
 - Added: `alchemy.run.ts`, `.github/workflows/alchemy.yml`, `scripts/alchemy-stage.ts`,
-  `package.json` (replaced: `alchemy`, `@samebase/alchemy-convex`, `effect`,
-  `@effect/platform-node`; `dev` runs `alchemy dev`), and the README deployment section.
+  `package.json` and `pnpm-lock.yaml` (replaced: `alchemy` 2.0.0-beta.80 exact,
+  `@samebase/alchemy-convex` 0.3.0 exact, `effect` and `@effect/platform-node` 4.x),
+  `tsconfig.node.json` (includes the run file), `.gitignore` (`.alchemy`), and the README deployment
+  section.
 - Removed: `wrangler.jsonc`, `scripts/build-cloudflare.ts`, `scripts/verify-current-branch-head.ts`,
-  `scripts/ensure-convex-auth.ts`, and their tests. The stack makes the Convex Auth keys with
-  `Alchemy.KeyPair`.
-- Unchanged: `src/`, `convex/`, `vite.config.ts`, `public/`, `.github/workflows/ci.yml`.
+  and their tests. `scripts/ensure-convex-auth.ts` stays: the local dev launcher uses it. The stack
+  makes the production Convex Auth keys with `Alchemy.KeyPair`.
+- Unchanged: `src/`, `convex/`, `vite.config.ts`, `public/`, `.github/workflows/ci.yml`, and
+  `pnpm run dev`. Local dev keeps the isolated anonymous backend of the base template; `alchemy dev`
+  is not part of the variant. The stack stops on any stage that is not `prod` or a pull request
+  stage.
 
 The exporter composes base minus the removal list plus the overlay into a second generated manifest,
 `starterSeedManifest.actions.generated.ts`, and `starterSeed.ts` takes the manifest as a parameter.
 
-The run file follows score-four-alchemy: stage `prod` on main; a pull request stage named after the
-branch made safe (`scripts/alchemy-stage.ts`), a Convex preview deployment named after the raw
-branch (the name `convex deploy --preview-name` gives it, the name Samebase matches on), a Worker
-Preview named after the stage, a `GitHub.Comment` with both URLs, destroy on close. The workflow
-runs `alchemy provider cloudflare bootstrap` before the first deploy if the account has no state
-store yet; the exact bootstrap command and the exact CI token permissions are verified in Part 1 and
-written into this section.
+The stack name, the Worker name, and the Convex project name all come from `GITHUB_REPOSITORY` (the
+part after the slash), with Samebase's `sanitizeAppResourceName` rule (54 characters for a Worker,
+40 for a Convex project), so Part 3 finds both resources with `buildDefaultAppResourceName`. The
+stack name must differ per app: Alchemy keys state by stack name and stage, and every stack in one
+Cloudflare account shares one state store. The run file reads `GITHUB_REPOSITORY` and
+`CONVEX_TEAM_ID` through `effect/Config`, process environment first, then `.env`, and fails closed
+with a clear message when either is missing.
+
+The run file otherwise follows score-four-alchemy: stage `prod` on main; a pull request stage named
+after the branch made safe (`scripts/alchemy-stage.ts`), a Convex preview deployment named after the
+raw branch (the name `convex deploy --preview-name` gives it, the name Samebase matches on), a
+Worker Preview named after the stage, a `GitHub.Comment` with both URLs, destroy on close. No
+separate bootstrap step: `alchemy deploy --yes` and `alchemy destroy --yes` create a missing
+Cloudflare state store themselves (`updateStateStore: true` in the CLI), and
+`alchemy provider cloudflare bootstrap` is idempotent, so a step for it would repeat the same work
+before every deploy. The exact CI token permissions are verified by the hand test and written into
+this section.
 
 ## The new workflow mode
 
@@ -241,3 +256,8 @@ Score Four CI token), and the CI token for the dogfood organization.
 - 2026-10-06: RFC drafted. PR A (template variant) starts at once: it touches no schema and no
   Samebase runtime code. PR B waits for the answers to the open questions, with the recommended
   options as the working assumption.
+- 2026-10-06: PR A open as draft [PR #1690](https://github.com/samebase/samebase/pull/1690).
+  Corrections from building it, folded into the Template variant section: the stack name must come
+  from the repository (shared per-account state store); `ensure-convex-auth.ts` stays for local dev;
+  the overlay carries its own `pnpm-lock.yaml`; no bootstrap step (`deploy --yes` creates the state
+  store); `alchemy dev` is not part of the variant. Codex review and the hand test follow.
