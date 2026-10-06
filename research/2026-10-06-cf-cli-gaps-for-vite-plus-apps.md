@@ -75,6 +75,34 @@ The gaps are all in step 2.
    environment stops the build if it does not. Mail cannot show it because its default name equals
    its Worker name.
 
+## Verification (Codex, 2026-10-07)
+
+A second reader checked the gaps against the installed packages (`cf` 1.0.0-beta.12,
+`@cloudflare/config` 0.23.0, Wrangler 4.136.2), read-only, with the instruction to look for the
+supported way before confirming a gap. Verdicts, with the qualifications it added:
+
+- Gap 1 confirmed. The public `WorkerConfig.assets` has only `htmlHandling`, `notFoundHandling`, and
+  `runWorkerFirst` (`public-*.d.mts:819`); the comment above it, "Specify the directory of static
+  assets to deploy/serve", is misleading. `cf` scaffolds `wrangler.config.ts` itself through
+  autoconfig (`saveWranglerConfigTs`), and that file is not limited to the assets setting. The same
+  holds for `@cloudflare/config` 0.24.0, the latest on npm (checked separately).
+- Gap 2 confirmed with two qualifications. In a configured project the detected framework command
+  replaces script-derived commands (`u.buildCommand = t?.build?.command`, `autoconfig-*.mjs:504`),
+  `cf build` has no `--preview`, `--build-command`, or `--skip-build`, and `--prebuilt` skips the
+  build. But the interactive autoconfig asks "What is your application's build command?" once, and
+  `wrangler.config.ts` accepts `build.command`, which does not override the detected command. So the
+  precise statement is: no CLI flag, and the detected framework command wins once the project is
+  configured.
+- Gap 3 confirmed on the emitting side: `cf previews deploy` prints JSON to stdout (`--quiet` to
+  suppress) and has no output-file flag; `cf` calls the output writer for `deploy` and
+  `version-upload` and not on the preview path. The consuming side, that Workers Builds reads the
+  file for the pull request comment, cannot be shown from the packages; it rests on the Mail runs of
+  2026-10-05, where the comment carried the URL only once the file was written.
+- Gap 4 (the `wrangler.jsonc` baseline) confirmed: both `wrangler deploy` and `wrangler preview`
+  upload `assets.directory` (`cli.js:175215`, `:177181`), and the preview handler writes the output
+  entry with `type: "preview"` and `preview_urls` (`cli.js:341395`) when an output-file variable is
+  set.
+
 ## What works, for completeness
 
 - `cf deploy --prebuilt` uploads the Build Output and Workers Builds records the deployment with
