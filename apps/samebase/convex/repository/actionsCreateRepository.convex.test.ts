@@ -143,7 +143,15 @@ async function createRepositoryFixture(
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
+
+/** Cloudflare's answer to the Workers Builds read of the CI token check. */
+function stubCiWorkersBuildsRead(response: () => Response) {
+  const fetch = vi.fn(async () => response());
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -153,7 +161,6 @@ beforeEach(() => {
   providerMocks.getRepository.mockRejectedValue(githubRequestError(404));
   providerMocks.createGitHubUserOctokit.mockReturnValue({});
   providerMocks.isCloudflareWorkerNameAvailable.mockResolvedValue(true);
-  providerMocks.listCloudflareBuildTokens.mockResolvedValue([]);
   providerMocks.listConvexManagementProjects.mockResolvedValue([]);
   providerMocks.requireCloudflareBuildTokenUuid.mockResolvedValue("selected-token");
   providerMocks.readGitHubAppInstallation.mockResolvedValue({
@@ -251,18 +258,20 @@ describe("create repository with provisioning repository_actions", () => {
   it("refuses a saved Cloudflare CI token that cannot read Workers Builds", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
     await saveCiCredentials(t, { organizationId, userId });
-    providerMocks.listCloudflareBuildTokens.mockRejectedValue(new Error("Invalid token"));
+    // The code and message that Workers Builds gives a token without Builds access.
+    const fetch = stubCiWorkersBuildsRead(() =>
+      Response.json(
+        { success: false, errors: [{ code: 12006, message: "Invalid token" }], messages: [] },
+        { status: 403 },
+      ),
+    );
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
-      data: "The Cloudflare CI token cannot read Workers Builds in the Cloudflare account Cloudflare account. Save a token with Workers Builds Configuration Edit on the Providers page.",
+      data: "Cloudflare could not confirm that the Cloudflare CI token reaches Workers Builds in the Cloudflare account Cloudflare account. The token needs Workers Builds Configuration Edit. Try again, or save a new token on the Providers page.",
     });
-    expect(providerMocks.listCloudflareBuildTokens).toHaveBeenCalledWith({
-      token: "cloudflare-ci-test-token",
-      transport: "direct",
-      accountId: "cloudflare-account",
-    });
+    expect(fetch).toHaveBeenCalledOnce();
     await expect(
       t.run(async (ctx) => await ctx.db.query("repositories").collect()),
     ).resolves.toEqual([]);
@@ -271,6 +280,9 @@ describe("create repository with provisioning repository_actions", () => {
   it("writes the repository_actions plan after every check passes", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
     await saveCiCredentials(t, { organizationId, userId });
+    const fetch = stubCiWorkersBuildsRead(() =>
+      Response.json({ success: true, errors: [], messages: [], result: [] }),
+    );
 
     const result = await viewer.action(api.repository.create, {
       organizationId,
@@ -279,6 +291,12 @@ describe("create repository with provisioning repository_actions", () => {
 
     expect(providerMocks.listAccountsForVerifiedUserApiToken).toHaveBeenCalledWith(
       "cloudflare-ci-test-token",
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/builds/tokens?page=1&per_page=1",
+      }),
+      expect.anything(),
     );
     expect(providerMocks.verifyConvexTeamAccessToken).toHaveBeenCalledWith({
       token: "convex-ci-test-token",

@@ -166,7 +166,7 @@ describe("organization CI credentials", () => {
         token: "cloudflare-ci-test-token",
       }),
     ).rejects.toMatchObject({
-      data: "The Cloudflare CI token cannot read Workers Builds in the Cloudflare account Samebase. Save a token with Workers Builds Configuration Edit on the Providers page.",
+      data: "Cloudflare could not confirm that the Cloudflare CI token reaches Workers Builds in the Cloudflare account Samebase. The token needs Workers Builds Configuration Edit. Try again, or save a new token on the Providers page.",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),

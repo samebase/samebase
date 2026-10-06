@@ -1,7 +1,8 @@
 import { ConvexError } from "convex/values";
 
 import type { CloudflareAccount } from "../cloudflareAccountDiscovery";
-import { listCloudflareBuildTokens } from "../cloudflareResources";
+import { createCloudflareClient } from "../cloudflareApi/client";
+import { Cloudflare } from "../cloudflareApi/generated/sdk.gen";
 import { verifyConvexTeamAccessToken } from "../convexManagementApi/client";
 import { ConvexManagementApiError } from "../convexManagementApi/errors";
 import type {
@@ -28,23 +29,25 @@ export function requireCloudflareCiAccountAccess(
 }
 
 /**
-The Cloudflare CI token must read Workers Builds in that account: the repository's setup stack links
-the repository to its Worker there. A token saved before the preset asked for Workers Builds
-Configuration fails here. The read proves the access, so any failure stops the save or the create.
+The Cloudflare CI token must reach Workers Builds in that account: the repository's setup stack links
+the repository to its Worker there. One read of the account's build tokens catches a token saved
+before the preset asked for Workers Builds Configuration. A read cannot prove Edit, so a token with
+only Read passes and fails in the stack's first deploy. Any failure stops the save or the create,
+and the message also covers a failure that a retry fixes.
 */
 export async function requireCloudflareCiWorkersBuildsAccess(args: {
   token: string;
   account: CloudflareAccount;
 }): Promise<void> {
   try {
-    await listCloudflareBuildTokens({
-      token: args.token,
-      transport: "direct",
-      accountId: args.account.accountId,
+    await Cloudflare.GET["/accounts/{account_id}/builds/tokens"]({
+      client: createCloudflareClient({ token: args.token, transport: "direct" }),
+      path: { account_id: args.account.accountId },
+      query: { page: 1, per_page: 1 },
     });
   } catch {
     throw new ConvexError(
-      `The Cloudflare CI token cannot read Workers Builds in the Cloudflare account ${args.account.accountName}. Save a token with Workers Builds Configuration Edit on the Providers page.`,
+      `Cloudflare could not confirm that the Cloudflare CI token reaches Workers Builds in the Cloudflare account ${args.account.accountName}. The token needs Workers Builds Configuration Edit. Try again, or save a new token on the Providers page.`,
     );
   }
 }
