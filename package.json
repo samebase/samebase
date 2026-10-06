@@ -66,7 +66,7 @@
     "lint:samebase": "pnpm run check:samebase",
     "lint:remotion-studio": "vp lint --tsconfig apps/remotion-studio/tsconfig.json --report-unused-disable-directives apps/remotion-studio/src",
     "template:export": "node scripts/export-starter-manifest.ts",
-    "verify:template-export": "pnpm run template:export && git diff --exit-code -- apps/samebase/convex/starterSeedManifest.generated.ts",
+    "verify:template-export": "pnpm run template:export && git diff --exit-code -- apps/samebase/convex/starterSeedManifest.generated.ts apps/samebase/convex/starterSeedManifest.actions.generated.ts",
     "prepare": "vp config --hooks-dir .vite-hooks",
     "killport": "node ./scripts/killport.ts",
     "lint:scripts": "pnpm exec vp lint --tsconfig tsconfig.scripts.json --report-unused-disable-directives runtime scripts packages/plugin/scripts .devcontainer/postcreate.ts apps/samebase/scripts apps/samebase/postcss.config.ts apps/samebase/tailwind.config.ts",

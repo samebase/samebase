@@ -5,7 +5,10 @@ import { describe, expect, it } from "vite-plus/test";
 
 const convexDir = fileURLToPath(new URL("./", import.meta.url));
 const ignoredDirectoryNames = new Set(["_generated", "node_modules"]);
-const ignoredFileNames = new Set(["starterSeedManifest.generated.ts"]);
+const ignoredFileNames = new Set([
+  "starterSeedManifest.generated.ts",
+  "starterSeedManifest.actions.generated.ts",
+]);
 const validatorFactoryNames =
   "array|boolean|bytes|id|int64|literal|null|number|object|optional|record|string|union";
 const exportedValidatorPattern = new RegExp(

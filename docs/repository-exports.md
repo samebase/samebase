@@ -75,6 +75,19 @@ app from the last accepted snapshot.
 Root CI installs and audits the template through its nested lockfile, then builds it in a separate
 fresh job.
 
+### GitHub Actions variant
+
+`templates/base-actions` holds only the files of the GitHub Actions deploy variant that differ from
+`templates/base`. `scripts/export-starter-manifest.ts` lists the base files that the variant leaves
+out (the Workers Builds deploy path) and writes `templates/base` without them, plus the overlay, to
+`starterSeedManifest.actions.generated.ts`. An overlay file replaces the base file at the same path.
+A path on the removal list that is also in the overlay, or that is not in the base, stops the
+export. The variant is not published as a repository.
+
+The overlay has its own `package.json` and `pnpm-lock.yaml`. A base change to dependencies,
+`pnpm-workspace.yaml`, or the lockfile needs the same change in the overlay lockfile. Root CI does
+not install or build the variant yet.
+
 ### Existing-app sweep
 
 The

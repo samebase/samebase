@@ -511,6 +511,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/stagingRebase.ts",
   "apps/samebase/convex/starterSeed.test.ts",
   "apps/samebase/convex/starterSeed.ts",
+  "apps/samebase/convex/starterSeedManifest.actions.generated.ts",
   "apps/samebase/convex/starterSeedManifest.generated.ts",
   "apps/samebase/convex/starterSeedManifest.test.ts",
   "apps/samebase/convex/test.setup.ts",

@@ -93,9 +93,9 @@ function parseNullSeparatedPaths(output: Buffer): string[] {
     .filter((filePath) => filePath.length > 0);
 }
 
-function readTrackedFiles(repoRoot: string): Map<string, TrackedTemplateFile> {
+function readTrackedFiles(repoRoot: string, sourceRoot: string): Map<string, TrackedTemplateFile> {
   const entries = parseNullSeparatedPaths(
-    gitOutput(repoRoot, ["ls-files", "--stage", "-z", "--", baseTemplateSourceRoot]),
+    gitOutput(repoRoot, ["ls-files", "--stage", "-z", "--", sourceRoot]),
   );
   const trackedFiles = new Map<string, TrackedTemplateFile>();
 
@@ -119,8 +119,8 @@ function readTrackedFiles(repoRoot: string): Map<string, TrackedTemplateFile> {
   return trackedFiles;
 }
 
-function assertTemplateIndexIsComplete(repoRoot: string): void {
-  const diffResult = spawnSync("git", ["diff", "--quiet", "--", baseTemplateSourceRoot], {
+function assertTemplateIndexIsComplete(repoRoot: string, sourceRoot: string): void {
+  const diffResult = spawnSync("git", ["diff", "--quiet", "--", sourceRoot], {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -129,7 +129,7 @@ function assertTemplateIndexIsComplete(repoRoot: string): void {
     throw diffResult.error;
   }
   if (diffResult.status === 1) {
-    throw new Error(`Stage tracked changes under ${baseTemplateSourceRoot} before export`);
+    throw new Error(`Stage tracked changes under ${sourceRoot} before export`);
   }
   if (diffResult.status !== 0) {
     const detail = diffResult.stderr.trim() || diffResult.stdout.trim();
@@ -137,39 +137,35 @@ function assertTemplateIndexIsComplete(repoRoot: string): void {
   }
 
   const untrackedPaths = parseNullSeparatedPaths(
-    gitOutput(repoRoot, [
-      "ls-files",
-      "--others",
-      "--exclude-standard",
-      "-z",
-      "--",
-      baseTemplateSourceRoot,
-    ]),
+    gitOutput(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z", "--", sourceRoot]),
   );
   if (untrackedPaths.length > 0) {
     throw new Error(
-      `Stage new files under ${baseTemplateSourceRoot} before export: ${untrackedPaths.join(", ")}`,
+      `Stage new files under ${sourceRoot} before export: ${untrackedPaths.join(", ")}`,
     );
   }
 }
 
-function templateRelativePath(repoPath: string): string {
-  const prefix = `${baseTemplateSourceRoot}/`;
+function templateRelativePath(repoPath: string, sourceRoot: string): string {
+  const prefix = `${sourceRoot}/`;
   if (!repoPath.startsWith(prefix) || repoPath.length === prefix.length) {
     throw new Error(`Git returned a path outside the starter template: ${repoPath}`);
   }
   return repoPath.slice(prefix.length);
 }
 
-export async function collectTemplateFiles(repoRoot: string): Promise<CollectedTemplateFile[]> {
-  assertTemplateIndexIsComplete(repoRoot);
-  const trackedFiles = readTrackedFiles(repoRoot);
+export async function collectTemplateFiles(
+  repoRoot: string,
+  sourceRoot: string,
+): Promise<CollectedTemplateFile[]> {
+  assertTemplateIndexIsComplete(repoRoot, sourceRoot);
+  const trackedFiles = readTrackedFiles(repoRoot, sourceRoot);
   const repoPaths = [...trackedFiles.keys()].sort(compareUtf8PathBytes);
   const files: CollectedTemplateFile[] = [];
   const decoder = new TextDecoder("utf-8", { fatal: true });
 
   for (const repoPath of repoPaths) {
-    const relativePath = templateRelativePath(repoPath);
+    const relativePath = templateRelativePath(repoPath, sourceRoot);
     const absolutePath = path.resolve(repoRoot, ...repoPath.split("/"));
     const fileStats = await lstat(absolutePath);
 
@@ -223,6 +219,9 @@ export async function collectTemplateFiles(repoRoot: string): Promise<CollectedT
     }
   }
 
+  if (files.length === 0) {
+    throw new Error(`${sourceRoot} contained no files`);
+  }
   return files;
 }
 
@@ -249,22 +248,70 @@ function compareUtf8PathBytes(left: string, right: string): number {
   return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
+/**
+ * The GitHub Actions variant of the starter is templates/base without the
+ * files on {@link actionsTemplateRemovedPaths}, plus the files of this
+ * overlay. An overlay file replaces the base file at the same path.
+ */
+export const actionsTemplateOverlayRoot = "templates/base-actions";
+
+/** Files of templates/base that serve only the Workers Builds deploy path. */
+export const actionsTemplateRemovedPaths = [
+  "scripts/build-cloudflare.test.ts",
+  "scripts/build-cloudflare.ts",
+  "scripts/verify-current-branch-head.test.ts",
+  "scripts/verify-current-branch-head.ts",
+  "wrangler.jsonc",
+];
+
+export function composeTemplateFiles(args: {
+  baseFiles: readonly CollectedTemplateFile[];
+  removedPaths: readonly string[];
+  overlayFiles: readonly CollectedTemplateFile[];
+}): CollectedTemplateFile[] {
+  const removedPaths = new Set(args.removedPaths);
+  for (const removedPath of removedPaths) {
+    if (!args.baseFiles.some((file) => file.relativePath === removedPath)) {
+      throw new Error(
+        `The removal list names ${removedPath}, which ${baseTemplateSourceRoot} does not contain`,
+      );
+    }
+  }
+
+  const files = new Map(
+    args.baseFiles
+      .filter((file) => !removedPaths.has(file.relativePath))
+      .map((file) => [file.relativePath, file]),
+  );
+  for (const file of args.overlayFiles) {
+    if (removedPaths.has(file.relativePath)) {
+      throw new Error(
+        `${file.relativePath} is on the removal list and in ${actionsTemplateOverlayRoot}`,
+      );
+    }
+    files.set(file.relativePath, file);
+  }
+
+  return [...files.values()].sort((left, right) =>
+    compareUtf8PathBytes(left.relativePath, right.relativePath),
+  );
+}
+
 function printUsage(): void {
   console.log(`Usage: pnpm run template:export
 
-Exports templates/base into starterSeedManifest.generated.ts.`);
+Exports templates/base into starterSeedManifest.generated.ts, and templates/base
+with the templates/base-actions overlay into starterSeedManifest.actions.generated.ts.`);
 }
 
-export async function writeStarterSeedManifest(repoRoot: string): Promise<void> {
-  const outputPath = path.resolve(
-    repoRoot,
-    trackedFilePath("apps/samebase/convex/starterSeedManifest.generated.ts"),
-  );
-  const files = await collectTemplateFiles(repoRoot);
-  if (files.length === 0) {
-    throw new Error(`${baseTemplateSourceRoot} contained no files`);
-  }
-
+function buildManifest(
+  files: readonly CollectedTemplateFile[],
+  identity: {
+    versionPrefix: string;
+    sourcePath: string;
+    commitMessage: string;
+  },
+) {
   const contentHash = computeContentHash(files);
   const textFiles = Object.fromEntries(
     files
@@ -281,18 +328,43 @@ export async function writeStarterSeedManifest(repoRoot: string): Promise<void> 
       .filter(isExecutableCollectedFile)
       .map((file): [string, "100755"] => [file.relativePath, file.mode]),
   );
-  const manifest = {
-    version: `samebase-base-${contentHash.slice(0, 12)}`,
-    sourcePath: baseTemplateSourceRoot,
+  return {
+    version: `${identity.versionPrefix}-${contentHash.slice(0, 12)}`,
+    sourcePath: identity.sourcePath,
+    // The Actions variant has no published repository of its own. It names
+    // the published base.
     publishedRepo,
     contentHash,
-    commitMessage: "Initialize app from Samebase starter build v2064",
+    commitMessage: identity.commitMessage,
     files: textFiles,
     binaryFiles,
     fileModes,
   };
+}
 
-  const generated = `// @generated by scripts/export-starter-manifest.ts
+export async function renderStarterSeedManifests(repoRoot: string) {
+  const baseFiles = await collectTemplateFiles(repoRoot, baseTemplateSourceRoot);
+  const actionsFiles = composeTemplateFiles({
+    baseFiles,
+    removedPaths: actionsTemplateRemovedPaths,
+    overlayFiles: await collectTemplateFiles(repoRoot, actionsTemplateOverlayRoot),
+  });
+  const baseManifest = buildManifest(baseFiles, {
+    versionPrefix: "samebase-base",
+    sourcePath: baseTemplateSourceRoot,
+    commitMessage: "Initialize app from Samebase starter build v2064",
+  });
+  const actionsManifest = buildManifest(actionsFiles, {
+    versionPrefix: "samebase-base-actions",
+    sourcePath: actionsTemplateOverlayRoot,
+    commitMessage: "Initialize app from Samebase starter build v2095",
+  });
+
+  return [
+    {
+      outputPath: trackedFilePath("apps/samebase/convex/starterSeedManifest.generated.ts"),
+      manifest: baseManifest,
+      source: `// @generated by scripts/export-starter-manifest.ts
 
 export type StarterTemplateManifest = {
   version: string;
@@ -305,12 +377,30 @@ export type StarterTemplateManifest = {
   fileModes: Record<string, "100644" | "100755">;
 };
 
-export const starterTemplateManifest: StarterTemplateManifest = ${JSON.stringify(manifest, null, 2)};
-`;
+export const starterTemplateManifest: StarterTemplateManifest = ${JSON.stringify(baseManifest, null, 2)};
+`,
+    },
+    {
+      outputPath: trackedFilePath("apps/samebase/convex/starterSeedManifest.actions.generated.ts"),
+      manifest: actionsManifest,
+      source: `// @generated by scripts/export-starter-manifest.ts
 
-  await writeFile(outputPath, generated, "utf8");
-  await formatGeneratedFile(outputPath, repoRoot);
-  console.log(`wrote ${outputPath} from ${baseTemplateSourceRoot} (${files.length} files)`);
+import type { StarterTemplateManifest } from "./starterSeedManifest.generated";
+
+export const actionsStarterTemplateManifest: StarterTemplateManifest = ${JSON.stringify(actionsManifest, null, 2)};
+`,
+    },
+  ];
+}
+
+export async function writeStarterSeedManifests(repoRoot: string): Promise<void> {
+  for (const { outputPath, manifest, source } of await renderStarterSeedManifests(repoRoot)) {
+    const absolutePath = path.resolve(repoRoot, outputPath);
+    await writeFile(absolutePath, source, "utf8");
+    await formatGeneratedFile(absolutePath, repoRoot);
+    const fileCount = Object.keys(manifest.files).length + Object.keys(manifest.binaryFiles).length;
+    console.log(`wrote ${absolutePath} from ${manifest.sourcePath} (${fileCount} files)`);
+  }
 }
 
 if (isMainModule(import.meta.url)) {
@@ -323,6 +413,6 @@ if (isMainModule(import.meta.url)) {
     if (args.length > 0) {
       throw new Error(`Unknown template export arguments: ${args.join(" ")}`);
     }
-    await writeStarterSeedManifest(resolveRepoRoot());
+    await writeStarterSeedManifests(resolveRepoRoot());
   });
 }
