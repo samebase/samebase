@@ -1,10 +1,9 @@
 // Writes the Build Output of the Worker to .cloudflare/output/v0/, the last
-// step of build:app. The deploy steps of .github/workflows/alchemy.yml upload
-// the output as it is: `cf deploy --prebuilt` on the default branch,
-// `cf previews deploy --prebuilt` on any other branch. The latter accepts only
-// a Preview build, so a run with PREVIEW_BRANCH set (scripts/alchemy-stage.ts
-// sets it on a branch other than the default branch) writes one. Other builds
-// write a production build.
+// step of build:app. Workers Builds uploads the output as it is:
+// `cf deploy --prebuilt` (the deploy script) on main,
+// `cf previews deploy --prebuilt` (scripts/deploy-preview.ts) on other
+// branches. The latter accepts only a Preview build, so a Workers build on a
+// branch other than main writes one. Local builds write a production build.
 //
 // `cf build` cannot write this output: it runs the build command of the
 // framework it detects (`vite build` for TanStack Start), and this project
@@ -18,7 +17,8 @@ import { fileURLToPath } from "node:url";
 const wranglerDelegate = fileURLToPath(
   new URL("./bin/cf-wrangler.js", import.meta.resolve("wrangler/package.json")),
 );
-const preview = (process.env["PREVIEW_BRANCH"] ?? "") !== "";
+const branch = process.env["WORKERS_CI_BRANCH"];
+const preview = branch !== undefined && branch !== "main";
 
 execFileSync(process.execPath, [wranglerDelegate, "build", ...(preview ? ["--preview"] : [])], {
   stdio: "inherit",

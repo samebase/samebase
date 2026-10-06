@@ -5,18 +5,18 @@
 // 1. A dry run of the deploy below opens the state store with --yes, which
 //    upgrades an out-of-date store; the `alchemy state` commands cannot. A
 //    stack without state ends the run here: there is nothing to destroy.
+//    That includes a stack that a destroy without DESTROY_APP removed: the
+//    Worker and the Convex project it kept stay in the accounts, to delete in
+//    their dashboards.
 // 2. A destroy reads the removal policy of each resource from the state that
 //    the last deploy wrote, and that policy keeps the production Worker and
 //    the Convex project. So it deploys only those two with DESTROY_APP=true,
-//    which rewrites their policy (alchemy.run.ts) without a push or an
-//    upload. When stage prod has no state, that deploy creates the two again,
-//    or stops with OwnedBySomeoneElse when a destroy without DESTROY_APP left
-//    them in the accounts; the state of the previews then stays.
-// 3. `alchemy destroy --stage prod` deletes the Worker with its Previews and
-//    the Convex project with all its deployments.
-// 4. It deletes the rest of the stack's state: the rows of the preview
-//    stages and their outputs, whose cloud resources went with the Worker and
-//    the project, so a later repository with the same name starts clean.
+//    which rewrites their policy (alchemy.run.ts) and changes nothing else.
+// 3. `alchemy destroy --stage prod` deletes the Workers Builds link, the two
+//    Convex deploy keys, the Worker with its Previews, and the Convex project
+//    with all its deployments, the preview deployments of the branches too.
+// 4. It deletes what is left of the stack's state, so a later repository with
+//    the same name starts clean.
 //
 // `--backend cloudflare` opens the account's default state store, the one
 // that `state: Cloudflare.state()` in alchemy.run.ts configures, without
