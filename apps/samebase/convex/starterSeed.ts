@@ -62,12 +62,12 @@ const SEED_HISTORY_LIMIT = 100;
 
 /** The reads that tell what a seeded branch holds before Samebase pushes the starter to it. */
 export type StarterSeedBranchReader = {
-  /** The branch head's tree and parent count; null when the branch or any commit is missing. */
+  /** The branch head, its tree, and its parent count; null when the branch or any commit is missing. */
   readBranchHead(args: {
     owner: string;
     repo: string;
     branch: string;
-  }): Promise<{ treeSha: string; parentCount: number } | null>;
+  }): Promise<{ sha: string; treeSha: string; parentCount: number } | null>;
   /** The tree of each of the branch's latest commits, newest first. */
   listBranchTreeShas(args: {
     owner: string;
@@ -443,27 +443,27 @@ async function createBinaryFileBlobs(args: {
 }
 
 /**
-What a branch holds before Samebase pushes the starter to it, which decides whether the force push of
-the starter may run: missing or bootstrap (a root commit with only the bootstrap file) may take the
-starter; seeded already holds the starter tree that the caller recorded, at its head or within the
-latest commits; foreign has commits that Samebase did not make, which a force push would drop.
+What a branch holds before Samebase pushes the starter to it: missing or bootstrap (a root commit
+with only the bootstrap file, whose sha the starter commit takes as its parent) may take the
+starter; seeded already holds the starter tree, at its head or within the latest commits; foreign
+has commits that Samebase did not make, which the starter must never replace.
 */
 export async function readSeedBranchState(args: {
   reader: StarterSeedBranchReader;
   owner: string;
   repo: string;
   branch: string;
-  /** The starter tree recorded before an earlier push, which may have landed; null before any. */
+  /** The starter tree that an earlier push may have landed; null before any. */
   starterTreeSha: string | null;
-}): Promise<"missing" | "bootstrap" | "seeded" | "foreign"> {
+}): Promise<{ state: "missing" } | { state: "bootstrap" | "seeded" | "foreign"; headSha: string }> {
   const location = { owner: args.owner, repo: args.repo };
   const head = await args.reader.readBranchHead({ ...location, branch: args.branch });
   if (head === null) {
-    return "missing";
+    return { state: "missing" };
   }
   if (args.starterTreeSha !== null) {
     if (head.treeSha === args.starterTreeSha) {
-      return "seeded";
+      return { state: "seeded", headSha: head.sha };
     }
     const treeShas = await args.reader.listBranchTreeShas({
       ...location,
@@ -471,16 +471,95 @@ export async function readSeedBranchState(args: {
       limit: SEED_HISTORY_LIMIT,
     });
     if (treeShas.includes(args.starterTreeSha)) {
-      return "seeded";
+      return { state: "seeded", headSha: head.sha };
     }
   }
   if (head.parentCount === 0) {
     const paths = await args.reader.readTreePaths({ ...location, treeSha: head.treeSha });
     if (paths.length === 1 && paths[0] === SEED_BOOTSTRAP_PATH) {
-      return "bootstrap";
+      return { state: "bootstrap", headSha: head.sha };
     }
   }
-  return "foreign";
+  return { state: "foreign", headSha: head.sha };
+}
+
+/** The refusal when a seeded branch has commits that Samebase did not make. */
+export function formatForeignSeedBranchMessage(args: {
+  owner: string;
+  repo: string;
+  branch: string;
+}): string {
+  return `${args.branch} of ${args.owner}/${args.repo} has commits that Samebase did not make, so Samebase cannot seed the starter without dropping them. Push the starter app yourself, or remove the repository from Samebase and create it again.`;
+}
+
+/** How many times the starter push reads the branch again after GitHub refused a moved head. */
+const STARTER_PUSH_ATTEMPTS = 3;
+
+/**
+Pushes the starter commit onto the bootstrap commit as a fast-forward. GitHub refuses the update
+when the branch head moved after the read, and the push then reads the branch again: a branch that
+now holds the starter is done, a foreign commit stops the seed, and a bootstrap head takes the
+starter again.
+*/
+async function pushStarterOntoBootstrap(args: {
+  client: StarterSeedGitClient;
+  reader: StarterSeedBranchReader;
+  owner: string;
+  repo: string;
+  branch: string;
+  treeSha: string;
+  commitMessage: string;
+}): Promise<string> {
+  for (let attempt = 1; ; attempt += 1) {
+    const branchState = await readSeedBranchState({
+      reader: args.reader,
+      owner: args.owner,
+      repo: args.repo,
+      branch: args.branch,
+      starterTreeSha: args.treeSha,
+    });
+    switch (branchState.state) {
+      case "seeded":
+        return branchState.headSha;
+      case "foreign":
+        throw new Error(formatForeignSeedBranchMessage(args));
+      case "missing":
+        throw new Error(
+          `${args.branch} of ${args.owner}/${args.repo} disappeared during the seed.`,
+        );
+      case "bootstrap":
+        break;
+      default:
+        branchState satisfies never;
+        throw new Error("Unknown seed branch state.");
+    }
+    const commit = await retryOperation({
+      operation: "seed:createStarterCommit",
+      run: async () =>
+        await args.client.createCommit({
+          owner: args.owner,
+          repo: args.repo,
+          message: args.commitMessage,
+          tree: args.treeSha,
+          parents: [branchState.headSha],
+        }),
+    });
+    try {
+      await args.client.updateRef({
+        owner: args.owner,
+        repo: args.repo,
+        ref: `heads/${args.branch}`,
+        sha: commit.sha,
+        force: false,
+      });
+      return commit.sha;
+    } catch (error) {
+      // GitHub answers 422 when the update is not a fast-forward: the head moved after the read.
+      if (getErrorStatus(error) !== 422 || attempt >= STARTER_PUSH_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
 }
 
 export function createStarterSeedBranchReader(
@@ -497,6 +576,7 @@ export function createStarterSeedBranchReader(
       try {
         const response = await octokit.rest.repos.getBranch(args);
         return {
+          sha: response.data.commit.sha,
           treeSha: response.data.commit.commit.tree.sha,
           parentCount: response.data.commit.parents.length,
         };
@@ -584,13 +664,18 @@ export async function seedRepositoryWithStarter(args: {
   defaultBranch: string;
   manifest: StarterTemplateManifest;
   /**
-  Runs after the seeded branch exists with a commit that has no starter file and before the starter
-  commit is pushed to it, with the starter commit's tree. The push of the starter is the push that
-  the repository's workflows run on, so a caller that must change the repository before that first
-  run (repository_actions makes the seeded branch the default) does it here, and a caller that must
-  recognize the pushed starter later records the tree here.
+  Seeds the branch first and the starter after, as a fast-forward that never replaces a commit
+  that Samebase did not make. The branch first points at a commit that has no starter file, then
+  beforeStarterPush runs with the starter tree, then the starter commit goes onto that commit. The
+  push of the starter is the push that the repository's workflows run on, so a caller that must
+  change the repository before that first run (repository_actions makes the seeded branch the
+  default) does it in beforeStarterPush, and a caller that must recognize the pushed starter later
+  records the tree there.
   */
-  beforeStarterPush?: (starter: { treeSha: string }) => Promise<void>;
+  branchFirst?: {
+    reader: StarterSeedBranchReader;
+    beforeStarterPush: (starter: { treeSha: string }) => Promise<void>;
+  };
 }): Promise<{ defaultBranch: string; headCommitSha: string }> {
   const manifest = args.manifest;
   validateManifest(manifest);
@@ -672,91 +757,69 @@ export async function seedRepositoryWithStarter(args: {
     });
   }
 
-  const commit = await retryOperation({
-    operation: "seed:createCommit",
-    run: async () =>
-      await args.client.createCommit({
-        owner: args.owner,
-        repo: args.repo,
-        message: manifest.commitMessage,
-        tree: tree.sha,
-        parents: [],
-      }),
-  });
-
-  if (args.beforeStarterPush) {
+  let headCommitSha: string;
+  if (args.branchFirst) {
+    const location = { owner: args.owner, repo: args.repo };
     // The seeded branch first points at a commit without starter files, so creating it runs no
     // workflow. The bootstrap commit serves when it exists; it can sit on GitHub's default branch.
-    const placeholderSha =
-      bootstrapCommitSha ??
-      (await createPlaceholderCommit({
-        client: args.client,
-        owner: args.owner,
-        repo: args.repo,
-        path: bootstrapPath,
-        message: bootstrapMessage,
-      }));
-    try {
-      await retryOperation({
-        operation: "seed:createBranchBeforeStarter",
-        shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
-        run: async () =>
-          await args.client.createRef({
-            owner: args.owner,
-            repo: args.repo,
-            ref: `refs/heads/${args.defaultBranch}`,
-            sha: placeholderSha,
-          }),
-      });
-    } catch (error) {
-      if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
-        throw error;
+    // A branch that exists already is left to the starter push, which reads it first.
+    if (
+      bootstrapCommitSha !== null ||
+      (await args.branchFirst.reader.readBranchHead({
+        ...location,
+        branch: args.defaultBranch,
+      })) === null
+    ) {
+      const baseSha =
+        bootstrapCommitSha ??
+        (await createPlaceholderCommit({
+          client: args.client,
+          ...location,
+          path: bootstrapPath,
+          message: bootstrapMessage,
+        }));
+      try {
+        await retryOperation({
+          operation: "seed:createBranchBeforeStarter",
+          shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
+          run: async () =>
+            await args.client.createRef({
+              ...location,
+              ref: `refs/heads/${args.defaultBranch}`,
+              sha: baseSha,
+            }),
+        });
+      } catch (error) {
+        if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
+          throw error;
+        }
       }
     }
-    await args.beforeStarterPush({ treeSha: tree.sha });
-    await retryOperation({
-      operation: "seed:pushStarter",
-      run: async () =>
-        await args.client.updateRef({
-          owner: args.owner,
-          repo: args.repo,
-          ref: `heads/${args.defaultBranch}`,
-          sha: commit.sha,
-          force: true,
-        }),
-    });
-  } else if (seededFromEmptyRepository) {
-    await retryOperation({
-      operation: "seed:updateRefAfterBootstrap",
-      run: async () =>
-        await args.client.updateRef({
-          owner: args.owner,
-          repo: args.repo,
-          ref: `heads/${args.defaultBranch}`,
-          sha: commit.sha,
-          force: true,
-        }),
+    await args.branchFirst.beforeStarterPush({ treeSha: tree.sha });
+    headCommitSha = await pushStarterOntoBootstrap({
+      client: args.client,
+      reader: args.branchFirst.reader,
+      ...location,
+      branch: args.defaultBranch,
+      treeSha: tree.sha,
+      commitMessage: manifest.commitMessage,
     });
   } else {
-    try {
+    const commit = await retryOperation({
+      operation: "seed:createCommit",
+      run: async () =>
+        await args.client.createCommit({
+          owner: args.owner,
+          repo: args.repo,
+          message: manifest.commitMessage,
+          tree: tree.sha,
+          parents: [],
+        }),
+    });
+    headCommitSha = commit.sha;
+    if (seededFromEmptyRepository) {
       await retryOperation({
-        operation: "seed:createRef",
-        shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
-        run: async () =>
-          await args.client.createRef({
-            owner: args.owner,
-            repo: args.repo,
-            ref: `refs/heads/${args.defaultBranch}`,
-            sha: commit.sha,
-          }),
-      });
-    } catch (error) {
-      if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
-        throw error;
-      }
-
-      await retryOperation({
-        operation: "seed:updateRef",
+        operation: "seed:updateRefAfterBootstrap",
         run: async () =>
           await args.client.updateRef({
             owner: args.owner,
@@ -766,18 +829,48 @@ export async function seedRepositoryWithStarter(args: {
             force: true,
           }),
       });
+    } else {
+      try {
+        await retryOperation({
+          operation: "seed:createRef",
+          shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
+          run: async () =>
+            await args.client.createRef({
+              owner: args.owner,
+              repo: args.repo,
+              ref: `refs/heads/${args.defaultBranch}`,
+              sha: commit.sha,
+            }),
+        });
+      } catch (error) {
+        if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
+          throw error;
+        }
+
+        await retryOperation({
+          operation: "seed:updateRef",
+          run: async () =>
+            await args.client.updateRef({
+              owner: args.owner,
+              repo: args.repo,
+              ref: `heads/${args.defaultBranch}`,
+              sha: commit.sha,
+              force: true,
+            }),
+        });
+      }
     }
   }
 
   console.log("seed:success", {
     repo: `${args.owner}/${args.repo}`,
     defaultBranch: args.defaultBranch,
-    headCommitSha: commit.sha,
+    headCommitSha,
     manifestVersion: manifest.version,
   });
 
   return {
     defaultBranch: args.defaultBranch,
-    headCommitSha: commit.sha,
+    headCommitSha,
   };
 }

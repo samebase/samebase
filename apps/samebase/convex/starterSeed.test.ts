@@ -301,67 +301,252 @@ describe("seedRepositoryWithStarter", () => {
     });
   });
 
-  describe("with a step before the starter push", () => {
-    async function seedBranchFirst(mock: ReturnType<typeof makeGitClient>) {
+  describe("branch first", () => {
+    /**
+    An in-memory Git repository behind both the seed client and the branch reader. A non-force ref
+    update must be a fast-forward, as on GitHub. `empty` starts without commits, and the bootstrap
+    commit then lands on `bootstrapBranch`. `beforeRefUpdate` runs once, before the first ref update,
+    as a push from outside Samebase between the seed's read of the branch and its update.
+    */
+    function makeGitRepository(options: {
+      empty: boolean;
+      bootstrapBranch: string;
+      beforeRefUpdate?: () => void;
+    }) {
+      let beforeRefUpdate = options.beforeRefUpdate;
+      const commits = new Map<string, { treeSha: string; parents: string[] }>();
+      const trees = new Map<string, string[]>();
+      const branches = new Map<string, string>();
+      const events: string[] = [];
+      let counter = 0;
+      const nextSha = (prefix: string) => {
+        counter += 1;
+        return `${prefix}-${counter}`;
+      };
+      const addCommit = (prefix: string, treeSha: string, parents: string[]) => {
+        const sha = nextSha(prefix);
+        commits.set(sha, { treeSha, parents });
+        return sha;
+      };
+      const readCommit = (sha: string) => {
+        const commit = commits.get(sha);
+        if (!commit) {
+          throw new Error(`Unknown commit ${sha}.`);
+        }
+        return commit;
+      };
+      const failWhileEmpty = () => {
+        if (options.empty && branches.size === 0) {
+          throw makeErrorWithStatus(409, "Git Repository is empty.");
+        }
+      };
+      if (!options.empty) {
+        trees.set("readme-tree", ["README.md"]);
+        branches.set("master", addCommit("existing", "readme-tree", []));
+      }
+
+      const client: StarterSeedGitClient = {
+        createTree: async (args) => {
+          failWhileEmpty();
+          const sha = nextSha("tree");
+          trees.set(
+            sha,
+            args.tree.map((entry) => entry.path),
+          );
+          return { sha };
+        },
+        createBlob: async () => {
+          failWhileEmpty();
+          return { sha: nextSha("blob") };
+        },
+        createCommit: async (args) => ({ sha: addCommit("commit", args.tree, args.parents) }),
+        createRef: async (args) => {
+          const branch = args.ref.replace("refs/heads/", "");
+          if (branches.has(branch)) {
+            throw makeErrorWithStatus(422, "Reference already exists");
+          }
+          branches.set(branch, args.sha);
+          events.push(`create ${branch} ${args.sha}`);
+        },
+        updateRef: async (args) => {
+          beforeRefUpdate?.();
+          beforeRefUpdate = undefined;
+          const branch = args.ref.replace("heads/", "");
+          const current = branches.get(branch);
+          if (
+            !args.force &&
+            (current === undefined || !readCommit(args.sha).parents.includes(current))
+          ) {
+            events.push(`refused ${branch} ${args.sha}`);
+            throw makeErrorWithStatus(422, "Update is not a fast forward");
+          }
+          branches.set(branch, args.sha);
+          events.push(`update ${branch} ${args.sha}${args.force ? " force" : ""}`);
+        },
+        createBootstrapCommit: async (args) => {
+          trees.set("bootstrap-tree", [args.path]);
+          const sha = addCommit("bootstrap", "bootstrap-tree", []);
+          branches.set(options.bootstrapBranch, sha);
+          events.push(`bootstrap ${options.bootstrapBranch} ${sha}`);
+          return { sha };
+        },
+      };
+      const reader: StarterSeedBranchReader = {
+        readBranchHead: async (args) => {
+          const sha = branches.get(args.branch);
+          if (sha === undefined) {
+            return null;
+          }
+          const commit = readCommit(sha);
+          return { sha, treeSha: commit.treeSha, parentCount: commit.parents.length };
+        },
+        listBranchTreeShas: async (args) => {
+          const treeShas: string[] = [];
+          let sha = branches.get(args.branch);
+          while (sha !== undefined && treeShas.length < args.limit) {
+            const commit = readCommit(sha);
+            treeShas.push(commit.treeSha);
+            sha = commit.parents.at(0);
+          }
+          return treeShas;
+        },
+        readTreePaths: async (args) => trees.get(args.treeSha) ?? [],
+      };
+      /** Someone else's commit on top of the branch, as a push from outside Samebase. */
+      const pushCommit = (branch: string, treeSha: string, paths: string[]) => {
+        const parent = branches.get(branch);
+        trees.set(treeSha, paths);
+        const sha = addCommit("pushed", treeSha, parent === undefined ? [] : [parent]);
+        branches.set(branch, sha);
+        events.push(`pushed ${branch} ${sha}`);
+      };
+      const readHistory = (branch: string) => {
+        const shas: string[] = [];
+        let sha = branches.get(branch);
+        while (sha !== undefined) {
+          shas.push(sha);
+          sha = readCommit(sha).parents.at(0);
+        }
+        return shas;
+      };
+      return { client, events, pushCommit, reader, readHistory };
+    }
+
+    async function seedBranchFirst(
+      repository: ReturnType<typeof makeGitRepository>,
+      beforeStarterPush: (starter: { treeSha: string }) => Promise<void> = async ({ treeSha }) => {
+        repository.events.push(`before starter push ${treeSha}`);
+      },
+    ) {
       return await seedRepositoryWithStarter({
-        client: mock.client,
+        client: repository.client,
         owner: "owner",
         repo: "repo",
         defaultBranch: "main",
         manifest,
-        beforeStarterPush: async ({ treeSha }) => {
-          mock.refEvents.push(`before starter push ${treeSha}`);
-        },
+        branchFirst: { reader: repository.reader, beforeStarterPush },
       });
     }
 
-    it("creates the branch at the bootstrap commit when it landed on another branch", async () => {
-      const mock = makeGitClient({ createTreeFailsWithEmptyRepoUntilBootstrap: true });
+    it("creates main at the bootstrap commit that landed on another branch, then fast-forwards", async () => {
+      const repository = makeGitRepository({ empty: true, bootstrapBranch: "master" });
 
-      await expect(seedBranchFirst(mock)).resolves.toEqual({
+      await expect(seedBranchFirst(repository)).resolves.toEqual({
         defaultBranch: "main",
-        headCommitSha: "commit-1",
+        headCommitSha: "commit-3",
       });
 
-      expect(mock.refEvents).toEqual([
-        "bootstrap main bootstrap-1",
-        "create refs/heads/main bootstrap-1",
-        "before starter push tree-1",
-        "update heads/main commit-1",
+      expect(repository.events).toEqual([
+        "bootstrap master bootstrap-1",
+        "create main bootstrap-1",
+        "before starter push tree-2",
+        "update main commit-3",
       ]);
+      // Two commits, the bootstrap and the starter on top of it, and no force push.
+      expect(repository.readHistory("main")).toEqual(["commit-3", "bootstrap-1"]);
     });
 
-    it("keeps the branch that the bootstrap commit created", async () => {
-      const mock = makeGitClient({
-        createTreeFailsWithEmptyRepoUntilBootstrap: true,
-        createRefAlreadyExistsOnce: true,
+    it("fast-forwards the main that the bootstrap commit created", async () => {
+      const repository = makeGitRepository({ empty: true, bootstrapBranch: "main" });
+
+      await seedBranchFirst(repository);
+
+      expect(repository.events).toEqual([
+        "bootstrap main bootstrap-1",
+        "before starter push tree-2",
+        "update main commit-3",
+      ]);
+      expect(repository.readHistory("main")).toEqual(["commit-3", "bootstrap-1"]);
+    });
+
+    it("creates main at a placeholder commit in a repository that has commits", async () => {
+      const repository = makeGitRepository({ empty: false, bootstrapBranch: "main" });
+
+      await seedBranchFirst(repository);
+
+      // The placeholder commit holds only the bootstrap file, so the branch runs no workflow, and
+      // the starter goes on top of it.
+      expect(repository.events).toEqual([
+        "create main commit-4",
+        "before starter push tree-2",
+        "update main commit-5",
+      ]);
+      expect(repository.readHistory("main")).toEqual(["commit-5", "commit-4"]);
+    });
+
+    it("stops when a foreign commit moved main before the starter push", async () => {
+      const repository = makeGitRepository({ empty: true, bootstrapBranch: "main" });
+
+      await expect(
+        seedBranchFirst(repository, async () => {
+          repository.pushCommit("main", "foreign-tree", [".samebase-seed-bootstrap", "notes.md"]);
+        }),
+      ).rejects.toThrow(
+        "main of owner/repo has commits that Samebase did not make, so Samebase cannot seed the starter without dropping them.",
+      );
+      expect(repository.readHistory("main")).toEqual(["pushed-3", "bootstrap-1"]);
+    });
+
+    it("reads main again after GitHub refused a moved head, and keeps a foreign commit", async () => {
+      // Someone pushes between the seed's read of main and its ref update.
+      const repository = makeGitRepository({
+        empty: true,
+        bootstrapBranch: "main",
+        beforeRefUpdate: () => {
+          repository.pushCommit("main", "foreign-tree", [".samebase-seed-bootstrap", "notes.md"]);
+        },
       });
 
-      await seedBranchFirst(mock);
-
-      expect(mock.refEvents).toEqual([
+      await expect(seedBranchFirst(repository)).rejects.toThrow(
+        "main of owner/repo has commits that Samebase did not make",
+      );
+      expect(repository.events).toEqual([
         "bootstrap main bootstrap-1",
-        "create refs/heads/main bootstrap-1",
-        "before starter push tree-1",
-        "update heads/main commit-1",
+        "before starter push tree-2",
+        "pushed main pushed-4",
+        "refused main commit-3",
       ]);
+      expect(repository.readHistory("main")).toEqual(["pushed-4", "bootstrap-1"]);
     });
 
-    it("creates the branch at a placeholder commit in a repository that has commits", async () => {
-      const mock = makeGitClient();
+    it("reads main again after GitHub refused a moved head that already holds the starter", async () => {
+      let starterTreeSha = "";
+      // An earlier attempt's starter lands between the read of main and this ref update.
+      const repository = makeGitRepository({
+        empty: true,
+        bootstrapBranch: "main",
+        beforeRefUpdate: () => {
+          repository.pushCommit("main", starterTreeSha, ["README.md", "src/App.tsx"]);
+        },
+      });
 
-      await seedBranchFirst(mock);
-
-      // The placeholder commit holds only the bootstrap file, so the branch runs no workflow.
-      expect(mock.createTreeCalls.at(-1)?.tree).toEqual([
-        { path: ".samebase-seed-bootstrap", mode: "100644", type: "blob", content: "bootstrap\n" },
-      ]);
-      expect(mock.createCommitCalls.at(-1)).toMatchObject({ tree: "tree-2", parents: [] });
-      expect(mock.refEvents).toEqual([
-        "create refs/heads/main commit-2",
-        "before starter push tree-1",
-        "update heads/main commit-1",
-      ]);
+      await expect(
+        seedBranchFirst(repository, async ({ treeSha }) => {
+          starterTreeSha = treeSha;
+        }),
+      ).resolves.toEqual({ defaultBranch: "main", headCommitSha: "pushed-4" });
+      expect(repository.events).toContain("refused main commit-3");
+      expect(repository.readHistory("main")).toEqual(["pushed-4", "bootstrap-1"]);
     });
   });
 
@@ -404,7 +589,7 @@ describe("seedRepositoryWithStarter", () => {
 
 describe("readSeedBranchState", () => {
   /** A branch whose commits are listed newest first, each with its tree's paths. */
-  function readBranch(
+  async function readBranch(
     commits: Array<{ treeSha: string; paths: string[] }>,
     starterTreeSha: string | null,
   ) {
@@ -412,7 +597,11 @@ describe("readSeedBranchState", () => {
       readBranchHead: async () => {
         const head = commits.at(0);
         return head
-          ? { treeSha: head.treeSha, parentCount: Math.min(commits.length - 1, 1) }
+          ? {
+              sha: `${head.treeSha}-commit`,
+              treeSha: head.treeSha,
+              parentCount: Math.min(commits.length - 1, 1),
+            }
           : null;
       },
       listBranchTreeShas: async ({ limit }) =>
@@ -420,13 +609,14 @@ describe("readSeedBranchState", () => {
       readTreePaths: async ({ treeSha }) =>
         commits.find((commit) => commit.treeSha === treeSha)?.paths ?? [],
     };
-    return readSeedBranchState({
+    const branchState = await readSeedBranchState({
       reader,
       owner: "owner",
       repo: "repo",
       branch: "main",
       starterTreeSha,
     });
+    return branchState.state;
   }
   const bootstrap = { treeSha: "bootstrap-tree", paths: [".samebase-seed-bootstrap"] };
   const starter = { treeSha: "starter-tree", paths: ["package.json"] };

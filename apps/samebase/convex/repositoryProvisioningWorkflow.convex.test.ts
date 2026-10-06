@@ -557,13 +557,13 @@ function createFakeGitHub(options: {
   const mainHistory: FakeCommit[] = [];
   const seedStops = [...(options.seedStops ?? [])];
   // The seeder points main at the bootstrap commit (no starter files), runs the step before the
-  // starter push with the starter tree, then force-pushes the starter.
+  // starter push with the starter tree, then fast-forwards main to the starter.
   githubMocks.seedRepository.mockImplementation(async (args) => {
     calls.push("branch without starter");
     if (mainHistory.length === 0) {
       mainHistory.push(BOOTSTRAP_COMMIT);
     }
-    await args.beforeStarterPush?.({ treeSha: SEED_COMMIT.treeSha });
+    await args.branchFirst?.beforeStarterPush({ treeSha: SEED_COMMIT.treeSha });
     const stop = seedStops.shift();
     if (stop === "foreign_commit_before_push") {
       mainHistory.unshift(FOREIGN_COMMIT);
@@ -571,7 +571,7 @@ function createFakeGitHub(options: {
     if (stop === "before_push" || stop === "foreign_commit_before_push") {
       throw new Error("The connection to GitHub was reset.");
     }
-    mainHistory.splice(0, mainHistory.length, SEED_COMMIT);
+    mainHistory.unshift(SEED_COMMIT);
     calls.push("seed");
     if (stop === "after_push") {
       throw new Error("The connection to GitHub was reset.");
@@ -1020,7 +1020,7 @@ describe("repository_actions provisioning workflow", () => {
     expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
     // The step retry found the recorded starter tree at the head of main.
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
-    expect(github.mainHistory).toEqual([SEED_COMMIT]);
+    expect(github.mainHistory).toEqual([SEED_COMMIT, BOOTSTRAP_COMMIT]);
     expect(state.plan).toMatchObject({
       seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
     });
@@ -1042,7 +1042,7 @@ describe("repository_actions provisioning workflow", () => {
     const state = await readRepositoryActionsState(t, { repositoryId, runId });
     expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(2);
-    expect(github.mainHistory).toEqual([SEED_COMMIT]);
+    expect(github.mainHistory).toEqual([SEED_COMMIT, BOOTSTRAP_COMMIT]);
     expect(state.plan).toMatchObject({ seed: { state: "seeded" } });
   });
 
@@ -1064,7 +1064,7 @@ describe("repository_actions provisioning workflow", () => {
       currentStep: "seed_starter",
       lastError: refusal,
     });
-    // Every step retry read main and stopped; nothing force-updated it.
+    // Every step retry read main and stopped; nothing replaced the foreign commit.
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
     expect(github.mainHistory).toEqual([FOREIGN_COMMIT, BOOTSTRAP_COMMIT]);
     expect(failed.plan).toMatchObject({ seed: { state: "seeding", treeSha: "seed-tree" } });
