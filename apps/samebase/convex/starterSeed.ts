@@ -1,10 +1,7 @@
 "use node";
 
 import { Octokit } from "@octokit/rest";
-import {
-  starterTemplateManifest,
-  type StarterTemplateManifest,
-} from "./starterSeedManifest.generated";
+import type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 import type { ProviderApiCall, ProviderApiCallRecorder } from "./providerApiLog";
 
 export type { StarterTemplateManifest } from "./starterSeedManifest.generated";
@@ -426,9 +423,9 @@ export async function seedRepositoryWithStarter(args: {
   owner: string;
   repo: string;
   defaultBranch: string;
-  manifest?: StarterTemplateManifest;
+  manifest: StarterTemplateManifest;
 }): Promise<{ defaultBranch: string; headCommitSha: string }> {
-  const manifest = args.manifest ?? starterTemplateManifest;
+  const manifest = args.manifest;
   validateManifest(manifest);
 
   console.log("seed:start", {

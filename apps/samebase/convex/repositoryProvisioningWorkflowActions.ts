@@ -19,6 +19,7 @@ import type {
   RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
 import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
+import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import {
   formatProviderApiCallLogMessage,
   type ProviderApiCall,
@@ -595,6 +596,7 @@ export const seedStarterRepository = internalAction({
         owner: ownerName,
         repo: repoName,
         defaultBranch,
+        manifest: starterTemplateManifest,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);

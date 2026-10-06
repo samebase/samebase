@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
@@ -221,6 +222,31 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("MAX_TODO_TEXT_LENGTH");
     expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
       "maxLength={TODO_TEXT_LIMIT}",
+    );
+  });
+});
+
+describe("actionsStarterTemplateManifest", () => {
+  it("deploys with Alchemy from GitHub Actions instead of Workers Builds", () => {
+    const filePaths = Object.keys(actionsStarterTemplateManifest.files);
+
+    expect(actionsStarterTemplateManifest.version).toBe(
+      `samebase-base-actions-${actionsStarterTemplateManifest.contentHash.slice(0, 12)}`,
+    );
+    expect(actionsStarterTemplateManifest.sourcePath).toBe("templates/base-actions");
+    expect(filePaths).toEqual(
+      expect.arrayContaining([
+        ".github/workflows/alchemy.yml",
+        "alchemy.run.ts",
+        "scripts/ensure-convex-auth.ts",
+      ]),
+    );
+    expect(filePaths).not.toContain("wrangler.jsonc");
+    expect(filePaths).not.toContain("scripts/build-cloudflare.ts");
+    expect(filePaths).not.toContain("scripts/verify-current-branch-head.ts");
+    expect(actionsStarterTemplateManifest.files["package.json"]).not.toContain('"wrangler"');
+    expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
+      '"alchemy": "2.0.0-beta.80"',
     );
   });
 });
