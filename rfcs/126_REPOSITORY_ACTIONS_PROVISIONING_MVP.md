@@ -537,3 +537,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   default, then push the seed). P2: record the intended Convex token name on the plan before the
   mint request, so an interrupted mint is deleted by name on retry. Fixes in progress together with
   the retain change; one more Codex round follows.
+- 2026-10-07: PR B commits `81e0fe19a` (retain the minted token) and `da6c4eafa` (round 5 fixes):
+  `main` is bootstrapped without starter files, made the default when it is not, and only then
+  receives the starter commit; the token name is recorded as `minting` before the request and a
+  retry deletes by name then mints. 2625 tests green. Codex round 6 running. The GitHub docs do not
+  say whether the first pushed branch of an empty repository becomes the default, so the step reads
+  the default again instead of assuming; the dogfood shows the real behavior.
