@@ -303,3 +303,12 @@ Score Four CI token), and the CI token for the dogfood organization.
   collide when the Worker name uses all 54 characters). Fixes in progress: audits before the deploy
   with `--ignore-scripts` install, credentials scoped to the deploy and destroy steps, explicit
   Preview name with a fail-closed budget check.
+- 2026-10-06: Codex round 3 fixes in PR A (commit `180ab135c`). Both workflow jobs now install with
+  `pnpm install --frozen-lockfile --ignore-scripts`, run the three supply-chain audits of the
+  template's `ci.yml` (`pnpm audit signatures`, `pnpm audit --prod`,
+  `pnpm audit --dev --audit-level=critical`), then `pnpm run check`, and only the deploy and destroy
+  steps get the four credentials. No install script is needed: `esbuild` and `workerd` find their
+  binaries without their postinstall. The Worker Preview name is the stage, passed as
+  `preview.name`, and the stack dies before any resource when `pr-<number>` does not fit next to the
+  Worker name in a 63-character DNS label. Manifest `samebase-base-actions-14fa318a1291`. Codex
+  round 4 and a redeploy of the test repository with the new workflow shape are running.
