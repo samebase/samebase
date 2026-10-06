@@ -617,3 +617,15 @@ C; Convex token minting per repository (spike pending); the template location lo
   answer 404. Open: an app owner has no destroy path for `prod` (the destroy job refuses it, and the
   credentials live only in the repository secrets); the dogfood app's Convex project and Worker stay
   until a manual cleanup.
+- 2026-10-06: Destroy path decided for the MVP: a confirmed `workflow_dispatch` job in the template
+  (`confirm` must equal `owner/repository`, default branch only, `DESTROY_APP=true` turns the Worker
+  shell and the Convex project from retain to destroy, then the stack state goes). Samebase does not
+  know the Worker and the project in this mode, so the repository is the only place with the
+  knowledge and the credentials. Nicu's idea for PR C: read Alchemy's Cloudflare state store instead
+  of guessing by name. Checked in beta.80: the store is the `alchemy-state-store` Worker with a
+  bearer-token HTTP API; the token and the encryption key are Secrets Store secrets of the account,
+  the Worker encrypts and decrypts server-side, and the CLI gets `{url, authToken}` by reading the
+  secret through the Cloudflare API. The saved Cloudflare CI token has the Secrets Store permission,
+  so Samebase can read `<stack>/<stage>/output` (`convexUrl`, `workerUrl`) and the resource states
+  over HTTP. Caveat: the API is Alchemy-internal and beta; PR C validates it at runtime and keeps
+  the by-name read as the fallback.
