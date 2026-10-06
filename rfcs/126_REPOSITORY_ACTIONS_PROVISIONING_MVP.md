@@ -919,3 +919,16 @@ Open for PR C, in Nicu's words "how all this fits in":
   (attempt 2) replaced the artifact under a new id with the same content, so the reader's "newest
   artifact, then verify, then idempotent apply" holds. Stage 2 (the Samebase core) and the preview
   seeding of the CI credentials (own PR) are in progress.
+- 2026-10-07: PR C stage 2 (the Samebase core) on #1699: the `setup_stack` origin, an optional
+  `setupOutput` checkpoint on the plan (`applied` or `destroy_reported`, with run, attempt, artifact
+  id, artifact creation time, output version), one write-authority function used by the backend
+  admission, the Settings configure and rotate actions, and the MCP attention; a pure reader model
+  (run filter and order, artifact provenance, unzip with a 64 KiB bound, one strict validator per
+  version, N entries per list); verification of every claim with the organization's connections
+  through the attach dialogs' own reads; one apply transaction with compare-and-swap and
+  older-output refusal. 592 tests. Codex two P2 findings fixed: an older artifact applied over a
+  newer checkpoint while the applied run reruns (now refused by creation time), and a rerun outside
+  the 1,000-run page window hiding its artifact (now artifacts first, runs read by id). Departures
+  from the note: reserved names derived from the repository name instead of stored; the checkpoint
+  optional (absent means nothing applied, no migration); Settings keeps Add, detach, name, and root.
+  Stage 3 next, with both creation-time rules for the automatic first apply.
