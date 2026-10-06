@@ -84,11 +84,13 @@ if (workerName === "") {
  * Preview at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>`
  * must fit in one 63-character DNS label, and the name must start with a
  * lowercase letter. The name is a readable part, a dash, and the first 6 hex
- * characters of the SHA-256 of the whole stage, so two stages never get one
- * name. The readable part is the stage, with `p` first when the stage does not
- * start with a letter, cut to fit without a trailing dash. Branch names are
- * often long, so the cut is the normal case for a long Worker name. Samebase
- * computes the same name to find the Preview.
+ * characters of the SHA-256 of the whole stage. The readable part is the
+ * stage, with `p` first when the stage does not start with a letter, cut to
+ * fit without a trailing dash. Branch names are often long, so the cut is the
+ * normal case for a long Worker name. Two stages get one name only in rare
+ * cases, more often with a long Worker name: 6 hex characters keep the URL
+ * short, and a 54-character Worker name leaves room for only 8 characters.
+ * Samebase computes the same name to find the Preview.
  */
 export function workerPreviewName(stage: string, worker: string): string {
   const budget = 63 - worker.length - 1;

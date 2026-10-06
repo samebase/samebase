@@ -83,27 +83,32 @@ or destroy step gets the credentials.
 
 The names, for the repository `my-org/my-app` and the branch `feature/Foo_bar`:
 
-| Resource                  | Name                                                    | Example                         |
-| ------------------------- | ------------------------------------------------------- | ------------------------------- |
-| Alchemy stack             | `<owner>_<repository>`, lowercase                       | `my-org_my-app`                 |
-| Worker                    | The repository name made safe, at most 54 characters    | `my-app`                        |
-| Convex project            | The repository name made safe, at most 40 characters    | `my-app`                        |
-| Preview stage             | The branch made safe, at most 40 characters, and a hash | `feature-foo-bar-c86457`        |
-| Convex preview deployment | The branch                                              | `feature/Foo_bar`               |
-| Worker Preview            | The stage, cut to fit, and a hash                       | `feature-foo-bar-c86457-91387f` |
+| Resource                  | Name                                                    | Example                                   |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------- |
+| Alchemy stack             | `<owner>_<repository>`, lowercase                       | `my-org_my-app`                           |
+| Worker                    | The repository name made safe, at most 54 characters    | `my-app`                                  |
+| Convex project            | The repository name made safe, at most 40 characters    | `my-app`                                  |
+| Preview stage             | The branch made safe, at most 40 characters, and a hash | `feature-foo-bar-c86457cc23da70e8`        |
+| Convex preview deployment | The branch                                              | `feature/Foo_bar`                         |
+| Worker Preview            | The stage, cut to fit, and a hash                       | `feature-foo-bar-c86457cc23da70e8-c96d28` |
 
 Made safe means lowercase, every run of characters other than `a-z` and `0-9` as one dash, and no
-dash at either end. A hash is a dash and the first 6 hex characters of a SHA-256.
+dash at either end.
 
-Every preview stage ends with the hash of the branch, so two branches never share a stage:
-`feature/Foo_bar` gets `feature-foo-bar-c86457`, and `feature-foo-bar` gets
-`feature-foo-bar-8c7b58`. Only the default branch deploys as `prod`.
+Every preview stage ends with a dash and the first 16 hex characters of the SHA-256 of the branch,
+so two branches never share a stage: `feature/Foo_bar` gets `feature-foo-bar-c86457cc23da70e8`, and
+`feature-foo-bar` gets `feature-foo-bar-8c7b58b499c9cf55`. Only the default branch deploys as
+`prod`.
 
-Every Worker Preview name ends with the hash of the stage, so two stages never share a Preview. A
-Preview is served at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>` must fit in a
-63-character DNS label. The stage is cut to fit before the hash: next to a 47-character Worker
-name, `feature-foo-bar-c86457` becomes `feature-91387f`. The name starts with `p` when the stage
-starts with a digit.
+Every Worker Preview name ends with a dash and the first 6 hex characters of the SHA-256 of the
+stage. A Preview is served at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>` must
+fit in a 63-character DNS label. The stage is cut to fit before the hash: next to a 47-character
+Worker name, `feature-foo-bar-c86457cc23da70e8` becomes `feature-c96d28`. The name starts with `p`
+when the stage starts with a digit.
+
+In rare cases, the Preview names of two branches are the same, and a deploy of one branch then
+replaces the Preview of the other. A long Worker name leaves less room for the name and makes this
+more likely.
 
 A branch without a letter or a digit, such as `///`, stops the deploy; rename the branch. Renaming
 the repository is not supported by the deploy.

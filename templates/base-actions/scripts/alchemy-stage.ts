@@ -16,9 +16,11 @@ import { pathToFileURL } from "node:url";
 The stage of a branch. The default branch is `prod`. Any other branch is
 lowercased, every run of characters outside `a-z` and `0-9` becomes one dash,
 the dashes at both ends go, and the result is cut to 40 characters without a
-trailing dash. A dash and the first 6 hex characters of the SHA-256 of the
+trailing dash. A dash and the first 16 hex characters of the SHA-256 of the
 branch (UTF-8) always follow, so two branches never share a stage, and a
-preview stage is never `prod`. The result always matches the Alchemy stage
+preview stage is never `prod`. The stage is only the Alchemy state key, so the
+long hash costs nothing visible; two branches with the same first 6 hex
+characters take seconds to find. The result always matches the Alchemy stage
 pattern `^[a-z0-9]+([-_a-z0-9]+)*$`.
 */
 export function alchemyStage(args: { branch: string; defaultBranch: string }): string {
@@ -36,7 +38,7 @@ export function alchemyStage(args: { branch: string; defaultBranch: string }): s
       `The branch ${JSON.stringify(args.branch)} has no letter or digit, so it has no preview stage. Rename the branch.`,
     );
   }
-  return `${readable}-${createHash("sha256").update(args.branch).digest("hex").slice(0, 6)}`;
+  return `${readable}-${createHash("sha256").update(args.branch).digest("hex").slice(0, 16)}`;
 }
 
 const entrypoint = process.argv[1];
