@@ -650,3 +650,7 @@ C; Convex token minting per repository (spike pending); the template location lo
   Both dogfood apps are gone everywhere. PR B's CI is red on head `deaee5d04` only because of a new
   advisory, `@modelcontextprotocol/sdk` below 1.31.0 (GHSA-6qxp-vccf-f47h); a separate fix PR
   against main is in progress, then PR B rebases.
+- 2026-10-06: Nicu: no hook that destroys the deployed app on repository deletion or on removal from
+  Samebase, not even opt-in, until the whole model (who knows what, who holds which credential, what
+  Samebase observes) is understood. The destroy stays the owner's explicit run of the `alchemy`
+  workflow with the typed confirmation, before the repository goes. Not a PR C item.
