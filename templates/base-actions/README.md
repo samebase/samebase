@@ -153,11 +153,12 @@ Alchemy state store, so a later repository with the same name starts clean. A di
 run on another branch, runs nothing. The run waits for a running deploy of the default branch, and
 the credentials never leave the repository's secrets.
 
-A destroy reads the removal policy of each resource from the state of the last deploy. So the run
-first deploys the Worker shell and the Convex project with `DESTROY_APP=true`, which only marks both
-for deletion, then runs `alchemy destroy --stage prod` and `scripts/delete-stack-state.ts`. The
-repository itself stays: delete it on GitHub when it is no longer needed. A later push to the default
-branch deploys the app again.
+A destroy reads the removal policy of each resource from the state of the last deploy. So
+`scripts/destroy-app.ts` first deploys the Worker shell and the Convex project with
+`DESTROY_APP=true`, which only marks both for deletion, then runs `alchemy destroy --stage prod`,
+then deletes the stack's state. A second run finds no stack and changes nothing. The repository
+itself stays: delete it on GitHub when it is no longer needed. A later push to the default branch
+deploys the app again.
 
 ### Secrets and variables
 

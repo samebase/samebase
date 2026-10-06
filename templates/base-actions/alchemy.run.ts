@@ -58,11 +58,10 @@ const authVariables = (keys: Alchemy.KeyPair) => ({
  * Whether a destroy of stage prod keeps the production Worker and the Convex
  * project: yes by default. Alchemy reads a removal policy from the state row
  * that the last deploy wrote, not from this program, so a destroy acts on the
- * policy of the last deploy. The destroy-app job of
- * .github/workflows/alchemy.yml deploys the Worker and the project with
- * DESTROY_APP=true, which only rewrites their policy, and then destroys the
- * stage, so a confirmed destroy deletes them. Any later deploy without
- * DESTROY_APP keeps them again.
+ * policy of the last deploy. scripts/destroy-app.ts, the confirmed destroy of
+ * the app, deploys the Worker and the project with DESTROY_APP=true, which
+ * only rewrites their policy, and then destroys the stage, so it deletes
+ * them. Any later deploy without DESTROY_APP keeps them again.
  */
 const keepProductionApp = Effect.gen(function* () {
   return !(yield* Config.Boolean("DESTROY_APP").pipe(Config.withDefault(false)));
