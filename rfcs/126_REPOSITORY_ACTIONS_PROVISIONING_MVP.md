@@ -634,3 +634,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   the run start (11 resources, Worker 200, Convex `clear-vulture-474`). The app page kept "No
   default branch commit is available" until a reload, then showed the commit and "2/4 pending" (PR
   C).
+- 2026-10-06: The confirmed destroy (`workflow_dispatch`, `confirm` = `owner/repository`) checked on
+  the second app: Alchemy reads a removal policy from the state row of the last deploy, so the job
+  first deploys the Worker shell and the Convex project with `DESTROY_APP=true` (policy only), then
+  `alchemy destroy --stage prod` deleted the project, the Worker, the keys, and the deploy key (11
+  resources), and the stack state went. Both URLs 404. Under two minutes.
