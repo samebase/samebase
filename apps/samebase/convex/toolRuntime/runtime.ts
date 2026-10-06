@@ -432,6 +432,36 @@ export const repositoryCreateTool = defineMcpTool({
       userId: args.userId,
       target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
     });
+    if (args.provisioning === "repository_actions") {
+      const githubRepositoryName = toSafeGitHubRepositoryName(args.name);
+      const workerName = buildDefaultAppResourceName({
+        repositoryName: githubRepositoryName,
+        provider: "cloudflare",
+      });
+      const result = await createAppForUser(ctx, {
+        userId: args.userId,
+        target: { kind: "organization", organizationId: githubAccess.organizationId },
+        githubRepositoryName: args.name,
+        convexProjectName:
+          args.convexProjectName ??
+          buildDefaultAppResourceName({ repositoryName: githubRepositoryName, provider: "convex" }),
+        convexDeploymentRegion: args.convexDeploymentRegion,
+        cloudflareWorkerName: args.cloudflareWorkerName ?? workerName,
+        cloudflareBuildTokenUuid: args.buildTokenUuid ?? null,
+        provisioning: "repository_actions",
+        ...(args.description !== undefined ? { description: args.description } : {}),
+        ...(args.private !== undefined ? { private: args.private } : {}),
+      });
+      const structuredContent: Infer<typeof createRepositoryContract.structuredContent> = {
+        repositoryId: result.repositoryId,
+        githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${githubRepositoryName}`,
+        cloudflare: { state: "planned", workerName },
+      };
+      return {
+        text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secrets and seeds the starter; then the repository's GitHub Actions deploy the Convex project and the Worker ${workerName}. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in the repository's GitHub Actions.`,
+        structuredContent,
+      };
+    }
     const buildToken = await selectWorkersBuildsTokenForRepository(ctx, {
       userId: args.userId,
       organizationId: githubAccess.organizationId,

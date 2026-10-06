@@ -680,12 +680,15 @@ describe("organization-owned repositories", () => {
         githubRepositoryName: "managed-app",
         visibility: "private",
         description: null,
-        convexProjectName: "managed-app",
-        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
-        cloudflareWorkerName: "managed-app",
-        cloudflareBuildTokenUuid: "build-token",
+        plan: {
+          provisioning: "samebase",
+          convexProjectName: "managed-app",
+          convexDeploymentRegion: "aws-us-east-1",
+          cloudflareWorkerName: "managed-app",
+          cloudflareBuildTokenUuid: "build-token",
+        },
       },
     );
     const initialManagedState = await t.run(async (ctx) => {
@@ -762,12 +765,15 @@ describe("organization-owned repositories", () => {
         githubRepositoryName: "managed-failure",
         visibility: "private",
         description: null,
-        convexProjectName: "managed-failure",
-        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
-        cloudflareWorkerName: "managed-failure",
-        cloudflareBuildTokenUuid: "build-token",
+        plan: {
+          provisioning: "samebase",
+          convexProjectName: "managed-failure",
+          convexDeploymentRegion: "aws-us-east-1",
+          cloudflareWorkerName: "managed-failure",
+          cloudflareBuildTokenUuid: "build-token",
+        },
       },
     );
 

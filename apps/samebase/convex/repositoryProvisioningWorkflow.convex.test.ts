@@ -1,6 +1,41 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { x25519 } from "@noble/curves/ed25519";
+import { Octokit } from "@octokit/rest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+const githubMocks = vi.hoisted(() => ({
+  createRepositoryOctokit: vi.fn(),
+  resolveAppAccess: vi.fn(),
+  seedRepository: vi.fn(),
+}));
+
+vi.mock("./githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApp")>();
+  return {
+    ...actual,
+    createGitHubRepositoryInstallationOctokit: githubMocks.createRepositoryOctokit,
+  };
+});
+
+vi.mock("./githubAppAccess", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubAppAccess")>();
+  return {
+    ...actual,
+    resolveGitHubAppAccessForProvisioningRun: githubMocks.resolveAppAccess,
+  };
+});
+
+vi.mock("./starterSeed", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./starterSeed")>();
+  return {
+    ...actual,
+    seedRepositoryWithStarter: githubMocks.seedRepository,
+  };
+});
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { formatMissingGitHubAppPermissionMessage } from "./githubActionsSecrets";
+import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import { isSamebaseProvisioningPlan } from "./repository/provisioningPlan";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
@@ -456,5 +491,333 @@ describe("app provisioning workflow composition", () => {
       owner: { kind: "managed_run", runId: ids.runId },
       state: "active",
     });
+  });
+});
+
+// GitHub's REST shapes for the repository that the repository_actions tests create.
+const actionsRepository = {
+  id: 9001,
+  name: "actions-app",
+  full_name: "samebase/actions-app",
+  private: true,
+  default_branch: "main",
+  owner: { id: 1, login: "samebase" },
+};
+const actionsRepositoryPublicKey = btoa(
+  String.fromCharCode(...x25519.getPublicKey(new Uint8Array(32).fill(7))),
+);
+
+type FakeGitHubRequest = { method: string; path: string; body: unknown };
+
+/**
+An Octokit whose fetch answers like GitHub for one new repository; `denySecrets` answers 403. `calls`
+records the requests and the starter seeds in order.
+*/
+function createFakeGitHub(options: { denySecrets: boolean }) {
+  const requests: FakeGitHubRequest[] = [];
+  const calls: string[] = [];
+  githubMocks.seedRepository.mockImplementation(async () => {
+    calls.push("seed");
+    return { defaultBranch: "main", headCommitSha: "seed-commit" };
+  });
+  const respond = (request: FakeGitHubRequest): { status: number; body?: unknown } => {
+    const repositoryPath = `/repos/${actionsRepository.full_name}`;
+    if (request.method === "POST" && request.path === "/orgs/samebase/repos") {
+      return { status: 201, body: actionsRepository };
+    }
+    if (request.path === "/installation/repositories") {
+      return { status: 200, body: { total_count: 1, repositories: [actionsRepository] } };
+    }
+    if (request.method === "GET" && request.path === repositoryPath) {
+      return { status: 200, body: actionsRepository };
+    }
+    if (request.path === `${repositoryPath}/actions/secrets/public-key`) {
+      return options.denySecrets
+        ? { status: 403, body: { message: "Resource not accessible by integration" } }
+        : { status: 200, body: { key_id: "test-key-id", key: actionsRepositoryPublicKey } };
+    }
+    if (request.method === "PUT" && request.path.startsWith(`${repositoryPath}/actions/secrets/`)) {
+      return { status: 201, body: {} };
+    }
+    if (
+      request.method === "GET" &&
+      request.path.startsWith(`${repositoryPath}/actions/variables/`)
+    ) {
+      return { status: 404, body: { message: "Not Found" } };
+    }
+    if (request.method === "POST" && request.path === `${repositoryPath}/actions/variables`) {
+      return { status: 201, body: {} };
+    }
+    if (request.path === `${repositoryPath}/branches/main`) {
+      return {
+        status: 200,
+        body: {
+          name: "main",
+          commit: { sha: "seed-commit", commit: { tree: { sha: "seed-tree" } } },
+        },
+      };
+    }
+    if (request.path === `${repositoryPath}/git/trees/seed-tree`) {
+      return { status: 200, body: { sha: "seed-tree", truncated: false, tree: [] } };
+    }
+    return { status: 404, body: { message: `Unexpected ${request.method} ${request.path}` } };
+  };
+  const octokit = new Octokit({
+    request: {
+      fetch: async (url: string, init: RequestInit) => {
+        const request = {
+          method: init.method ?? "GET",
+          path: new URL(url).pathname,
+          body: typeof init.body === "string" ? JSON.parse(init.body) : null,
+        };
+        requests.push(request);
+        calls.push(`${request.method} ${request.path}`);
+        const response = respond(request);
+        return new Response(response.body === undefined ? null : JSON.stringify(response.body), {
+          status: response.status,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    },
+  });
+  return { calls, octokit, requests, options };
+}
+
+async function createRepositoryActionsRepository(github: ReturnType<typeof createFakeGitHub>) {
+  const t = makeConvexTest();
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      state: "active",
+      name: "Ada",
+      email: "repository-actions@example.test",
+      isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
+    });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "1001",
+      githubOwnerId: "1",
+      githubOwnerLogin: "samebase",
+      githubOwnerLoginNormalized: "samebase",
+      githubOwnerType: "organization",
+      convexTeam: { teamId: "41" },
+      cloudflareAccount: { accountId: "cloudflare-account", accountName: "Samebase" },
+    });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
+    await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
+    await ctx.db.insert("organizationProviderCredentials", {
+      organizationId,
+      convex: {
+        auth: { method: "api_key", credential: "samebase-convex-test-token" },
+        connectedByUserId: userId,
+        updatedAt: 1,
+      },
+      cloudflare: {
+        auth: { method: "api_key", credential: "samebase-cloudflare-test-token" },
+        connectedByUserId: userId,
+        updatedAt: 1,
+      },
+      ci: {
+        cloudflare: {
+          apiToken: "cloudflare-ci-test-token",
+          accountId: "cloudflare-account",
+          connectedByUserId: userId,
+          updatedAt: 20,
+        },
+        convex: {
+          accessToken: "convex-ci-test-token",
+          teamId: "41",
+          connectedByUserId: userId,
+          updatedAt: 30,
+        },
+      },
+    });
+    return { organizationId, userId };
+  });
+  githubMocks.resolveAppAccess.mockResolvedValue({
+    organizationId: ids.organizationId,
+    githubInstallationId: "1001",
+    githubOwnerId: "1",
+    githubOwnerType: "organization",
+    githubOwnerLogin: "samebase",
+    octokit: github.octokit,
+  });
+  githubMocks.createRepositoryOctokit.mockResolvedValue(github.octokit);
+
+  vi.useFakeTimers();
+  try {
+    const created = await t.mutation(
+      internal.repository.records.createInitializingSamebaseManagedRepositoryForUser,
+      {
+        userId: ids.userId,
+        organizationId: ids.organizationId,
+        githubOwnerLogin: "samebase",
+        githubRepositoryName: "actions-app",
+        visibility: "private",
+        description: null,
+        convexTeamId: "41",
+        cloudflareAccountId: "cloudflare-account",
+        plan: { provisioning: "repository_actions" },
+      },
+    );
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    return { ...ids, ...created, t };
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
+async function readRepositoryActionsState(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { repositoryId: Id<"repositories">; runId: Id<"workflow_repositoryProvisioning_runs"> },
+) {
+  return await t.run(async (ctx) => {
+    const events = await ctx.db
+      .query("workflow_repositoryProvisioning_events")
+      .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", args.runId))
+      .collect();
+    return {
+      run: await ctx.db.get(args.runId),
+      steps: [...new Set(events.map((event) => event.step))],
+      plan: await ctx.db
+        .query("workflow_repositoryProvisioning_plans")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+        .unique(),
+      writeLock: await ctx.db
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+        .unique(),
+    };
+  });
+}
+
+describe("repository_actions provisioning workflow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("writes the Actions secrets before the seed and skips every Samebase provider step", async () => {
+    const github = createFakeGitHub({ denySecrets: false });
+    const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
+
+    const state = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(new Set(state.steps)).toEqual(
+      new Set([
+        "initialize_repository",
+        "validate_connections",
+        "create_github_repository",
+        "connect_github_repository",
+        "write_actions_secrets",
+        "seed_starter",
+        "sync_tree",
+        "finish",
+      ]),
+    );
+    // The seed pushes the starter, which starts the first workflow run: the secrets come first.
+    expect(github.calls.indexOf("seed")).toBeGreaterThan(
+      github.calls.indexOf("POST /repos/samebase/actions-app/actions/variables"),
+    );
+    expect(state.plan).toMatchObject({
+      provisioning: "repository_actions",
+      ciSecrets: { state: "written", credentialRevision: 30 },
+    });
+    expect(state.writeLock).toMatchObject({ owner: { runId }, state: "succeeded" });
+    expect(githubMocks.seedRepository).toHaveBeenCalledWith(
+      expect.objectContaining({ manifest: actionsStarterTemplateManifest }),
+    );
+    const writes = github.requests
+      .filter((request) => request.path.includes("/actions/"))
+      .map(({ method, path }) => `${method} ${path}`);
+    expect(writes).toEqual([
+      "GET /repos/samebase/actions-app/actions/secrets/public-key",
+      "PUT /repos/samebase/actions-app/actions/secrets/CLOUDFLARE_API_TOKEN",
+      "PUT /repos/samebase/actions-app/actions/secrets/CLOUDFLARE_ACCOUNT_ID",
+      "PUT /repos/samebase/actions-app/actions/secrets/CONVEX_ACCESS_TOKEN",
+      "GET /repos/samebase/actions-app/actions/variables/CONVEX_TEAM_ID",
+      "POST /repos/samebase/actions-app/actions/variables",
+    ]);
+    expect(
+      github.requests.find(
+        (request) =>
+          request.method === "POST" &&
+          request.path === "/repos/samebase/actions-app/actions/variables",
+      )?.body,
+    ).toEqual({ name: "CONVEX_TEAM_ID", value: "41" });
+  });
+
+  it("resumes a write that GitHub refused through the existing retry, then seeds once", async () => {
+    const github = createFakeGitHub({ denySecrets: true });
+    const created = await createRepositoryActionsRepository(github);
+    const { repositoryId, runId, t, userId } = created;
+    // convex-test cannot run the failure branch of the workflow's onComplete handler (no crypto in
+    // the component context), so the test records the failure that onComplete records.
+    const workflowId = (await readRepositoryActionsState(t, { repositoryId, runId })).run
+      ?.workflowId;
+    if (!workflowId) {
+      throw new Error("Expected the create workflow id.");
+    }
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId,
+      workflowId,
+      message: `Error: ${formatMissingGitHubAppPermissionMessage({
+        permission: "Secrets",
+        repositoryFullName: "samebase/actions-app",
+      })}`,
+    });
+
+    const failed = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(failed.run).toMatchObject({ state: "failed", currentStep: "write_actions_secrets" });
+    expect(failed.run?.lastError).toContain(
+      "The Samebase GitHub App is missing the Secrets repository permission",
+    );
+    expect(failed.plan).toMatchObject({ ciSecrets: { state: "planned" } });
+    expect(failed.writeLock).toMatchObject({ state: "failed" });
+    expect(githubMocks.seedRepository).not.toHaveBeenCalled();
+
+    github.options.denySecrets = false;
+    const challenge = await t.mutation(
+      internal.repositoryProvisioningRuns.createRetryForRepository,
+      {
+        userId,
+        repositoryId,
+        surface: { kind: "dashboard" },
+      },
+    );
+    if (!challenge) {
+      throw new Error("Expected a confirmation request.");
+    }
+    vi.useFakeTimers();
+    try {
+      await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
+        userId,
+        repositoryId,
+        surface: { kind: "dashboard" },
+        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
+      });
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const retryRun = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("workflow_repositoryProvisioning_runs")
+          .withIndex("by_repository_and_state", (q) =>
+            q.eq("repositoryId", repositoryId).eq("state", "succeeded"),
+          )
+          .unique(),
+    );
+    if (!retryRun) {
+      throw new Error("Expected a succeeded retry run.");
+    }
+    const resumed = await readRepositoryActionsState(t, { repositoryId, runId: retryRun._id });
+    expect(new Set(resumed.steps)).toEqual(
+      new Set(["write_actions_secrets", "seed_starter", "sync_tree", "finish"]),
+    );
+    expect(resumed.plan).toMatchObject({ ciSecrets: { state: "written" } });
+    expect(resumed.writeLock).toMatchObject({ owner: { runId: retryRun._id }, state: "succeeded" });
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
   });
 });

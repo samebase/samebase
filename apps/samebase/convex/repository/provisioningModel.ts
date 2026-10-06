@@ -80,6 +80,17 @@ export function isRepositoryProvisioningProviderStep(step: RepositoryProvisionin
   }
 }
 
+/**
+samebase = Samebase's workflow creates the Convex project and the Worker and configures Workers Builds
+
+repository_actions = the repository's GitHub Actions deploy the app; Samebase writes their CI secrets
+*/
+export const vRepositoryProvisioningMode = union(
+  literal("samebase"),
+  literal("repository_actions"),
+);
+export type RepositoryProvisioningMode = Infer<typeof vRepositoryProvisioningMode>;
+
 export const vRepositoryProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),

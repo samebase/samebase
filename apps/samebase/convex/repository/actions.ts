@@ -11,9 +11,19 @@ import { toErrorMessage } from "../jsonUtils";
 import {
   requireGitHubRepositoryOwnerId,
   resolveGitHubAppAccess,
+  type GitHubAppAccess,
   type GitHubAppAccessTarget,
 } from "../githubAppAccess";
-import { createGitHubRepositoryInstallationOctokit } from "../githubApp";
+import { createGitHubRepositoryInstallationOctokit, readGitHubAppInstallation } from "../githubApp";
+import {
+  listAccountsForVerifiedUserApiToken,
+  type CloudflareAccount,
+} from "../cloudflareAccountDiscovery";
+import {
+  requireCloudflareCiAccountAccess,
+  requireCompleteCiCredentials,
+  requireConvexCiTeamAccess,
+} from "../organization/ciCredentials";
 import { resolveGitHubRepositoryById } from "../githubRepoApi";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
 import {
@@ -32,6 +42,7 @@ import {
 import {
   AppResourceNameConflictError,
   buildAvailableAppResourceNameSuggestion,
+  buildDefaultAppResourceName,
   buildNumberedAppResourceNameSuggestion,
   validateAppResourceName,
   type AppResourceNameProvider,
@@ -759,6 +770,19 @@ export async function createAppForUser(
       githubUserId: githubAccess.githubOwnerId,
     });
   }
+  if (args.provisioning === "repository_actions") {
+    return await createRepositoryActionsAppForUser(ctx, {
+      userId: args.userId,
+      githubAccess,
+      githubRepositoryName,
+      convexProjectName: args.convexProjectName,
+      convexDeploymentRegion: args.convexDeploymentRegion,
+      cloudflareWorkerName: args.cloudflareWorkerName,
+      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
+      description: args.description ?? null,
+      visibility: args.private === false ? "public" : "private",
+    });
+  }
 
   const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
   if (!convexNameValidation.valid) {
@@ -844,18 +868,171 @@ export async function createAppForUser(
       githubRepositoryName,
       visibility,
       description: args.description ?? null,
-      convexProjectName: convexNameValidation.value,
-      convexDeploymentRegion,
       convexTeamId: convexConnection.convexTeamId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
-      cloudflareWorkerName: cloudflareNameValidation?.valid
-        ? cloudflareNameValidation.value
-        : githubRepositoryName,
-      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
+      plan: {
+        provisioning: "samebase",
+        convexProjectName: convexNameValidation.value,
+        convexDeploymentRegion,
+        cloudflareWorkerName: cloudflareNameValidation?.valid
+          ? cloudflareNameValidation.value
+          : githubRepositoryName,
+        cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
+      },
     },
   );
 
   return { repositoryId, runId };
+}
+
+/** GitHub's permission keys for the Secrets and Variables repository permissions. */
+const REPOSITORY_ACTIONS_GITHUB_PERMISSIONS = [
+  { key: "secrets", label: "Secrets" },
+  { key: "actions_variables", label: "Variables" },
+] as const;
+
+/**
+The repository_actions creation: every check runs before anything is created. The repository's GitHub
+Actions later create the Convex project and the Worker under the repository's name, so the names are
+fixed, their availability is checked now, and Samebase writes no provider resource itself.
+*/
+async function createRepositoryActionsAppForUser(
+  ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
+  args: {
+    userId: Id<"users">;
+    githubAccess: GitHubAppAccess;
+    githubRepositoryName: string;
+    convexProjectName: string;
+    convexDeploymentRegion: CreateRepositoryArgs["convexDeploymentRegion"];
+    cloudflareWorkerName: string;
+    cloudflareBuildTokenUuid: string | null;
+    description: string | null;
+    visibility: "private" | "public";
+  },
+): Promise<CreateRepositoryResult> {
+  const { githubAccess } = args;
+  const convexProjectName = buildDefaultAppResourceName({
+    repositoryName: args.githubRepositoryName,
+    provider: "convex",
+  });
+  const workerName = buildDefaultAppResourceName({
+    repositoryName: args.githubRepositoryName,
+    provider: "cloudflare",
+  });
+  if (args.convexProjectName !== convexProjectName || args.cloudflareWorkerName !== workerName) {
+    throw new ConvexError(
+      `The GitHub Actions of the repository name the Convex project and the Worker after the repository: ${convexProjectName} and ${workerName}. Remove the custom names.`,
+    );
+  }
+  if (args.cloudflareBuildTokenUuid !== null || args.convexDeploymentRegion !== undefined) {
+    throw new ConvexError(
+      "A Workers Builds token and a Convex region apply only when Samebase sets up the app. Remove them.",
+    );
+  }
+
+  const [configuration, ci, installation, convexConnection, cloudflareConnection] =
+    await Promise.all([
+      ctx.runQuery(internal.organizationProviderCredentials.loadForOrganization, {
+        userId: args.userId,
+        organizationId: githubAccess.organizationId,
+      }),
+      ctx.runQuery(internal.organizationProviderCredentials.loadCiCredentialsForOrganization, {
+        userId: args.userId,
+        organizationId: githubAccess.organizationId,
+      }),
+      readGitHubAppInstallation(githubAccess.githubInstallationId),
+      resolveOrganizationConvexProvisioningConnection(ctx, {
+        userId: args.userId,
+        organizationId: githubAccess.organizationId,
+      }),
+      resolveOrganizationCloudflareProvisioningConnection(ctx, {
+        userId: args.userId,
+        organizationId: githubAccess.organizationId,
+      }),
+    ]);
+  const missingPermissions = REPOSITORY_ACTIONS_GITHUB_PERMISSIONS.filter(
+    (required) =>
+      !installation.permissions.some(
+        (permission) => permission.key === required.key && permission.access === "write",
+      ),
+  );
+  if (missingPermissions.length > 0) {
+    const installationsUrl =
+      githubAccess.githubOwnerType === "organization"
+        ? `https://github.com/organizations/${encodeURIComponent(githubAccess.githubOwnerLogin)}/settings/installations`
+        : "https://github.com/settings/installations";
+    throw new ConvexError(
+      `The Samebase GitHub App installation for ${githubAccess.githubOwnerLogin} has not granted the ${missingPermissions.map((permission) => permission.label).join(" and ")} repository ${missingPermissions.length > 1 ? "permissions" : "permission"} (read and write). Accept the new permissions on the installation (${installationsUrl}), then create the repository again.`,
+    );
+  }
+  const cloudflareAccount = configuration.cloudflareAccount;
+  const convexTeam = configuration.convexTeam;
+  if (
+    cloudflareAccount?.accountId !== cloudflareConnection.cloudflareAccountId ||
+    convexTeam?.teamId !== convexConnection.convexTeamId
+  ) {
+    throw new ConvexError("Organization provider destinations changed. Reload and try again.");
+  }
+  const ciCredentials = requireCompleteCiCredentials({
+    ci,
+    convexTeamId: convexTeam.teamId,
+    cloudflareAccountId: cloudflareAccount.accountId,
+    githubOwnerLogin: githubAccess.githubOwnerLogin,
+  });
+  let ciAccounts: CloudflareAccount[];
+  try {
+    ciAccounts = await listAccountsForVerifiedUserApiToken(ciCredentials.cloudflare.apiToken);
+  } catch {
+    throw new ConvexError(
+      "Cloudflare could not verify the Cloudflare CI token. Save a new one on the Providers page.",
+    );
+  }
+  requireCloudflareCiAccountAccess(ciAccounts, cloudflareAccount);
+  await requireConvexCiTeamAccess({
+    token: ciCredentials.convex.accessToken,
+    teamId: convexTeam.teamId,
+    teamLabel: convexTeam.teamSlug ?? convexTeam.teamId,
+  });
+
+  const [githubNameAvailability, convexNameAvailability, workerAvailable] = await Promise.all([
+    checkGitHubRepositoryNameAvailability(ctx, {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+      repositoryName: args.githubRepositoryName,
+    }),
+    checkConvexProjectNameAvailabilityForConnection({
+      connection: convexConnection,
+      projectName: convexProjectName,
+    }),
+    isCloudflareWorkerNameAvailable({
+      token: cloudflareConnection.cloudflareToken,
+      transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
+      accountId: cloudflareConnection.cloudflareAccountId,
+      workerName,
+    }),
+  ]);
+  assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
+  if (convexNameAvailability.status === "taken" || !workerAvailable) {
+    throw new ConvexError(
+      `${convexNameAvailability.status === "taken" ? `A Convex project named ${convexProjectName}` : `A Cloudflare Worker named ${workerName}`} already exists, and the GitHub Actions of the repository would use that name. Choose another repository name.`,
+    );
+  }
+  assertResourceNameAvailable("Convex project name", convexNameAvailability);
+
+  return await ctx.runMutation(
+    internal.repository.records.createInitializingSamebaseManagedRepositoryForUser,
+    {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+      githubOwnerLogin: githubAccess.githubOwnerLogin,
+      githubRepositoryName: args.githubRepositoryName,
+      visibility: args.visibility,
+      description: args.description,
+      convexTeamId: convexTeam.teamId,
+      cloudflareAccountId: cloudflareAccount.accountId,
+      plan: { provisioning: "repository_actions" },
+    },
+  );
 }
 
 /** The Node half of `repository:create`, which checks the viewer before it calls this action. */
@@ -875,6 +1052,7 @@ export const create = internalAction({
         convexDeploymentRegion: args.convexDeploymentRegion,
         cloudflareWorkerName: args.cloudflareWorkerName,
         cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
+        provisioning: args.provisioning,
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.private !== undefined ? { private: args.private } : {}),
       });

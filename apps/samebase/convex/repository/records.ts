@@ -41,7 +41,7 @@ import {
 import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 
 const nullValidator = v.null();
-const { array, id, object, optional, string, union } = v;
+const { array, id, literal, object, optional, string, union } = v;
 
 // Get a specific repository by repository full name for a user
 export const getRepositoryByRepository = query({
@@ -604,12 +604,18 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
     githubRepositoryName: string(),
     visibility: vGitHubRepositoryVisibility,
     description: union(string(), nullValidator),
-    convexProjectName: string(),
-    convexDeploymentRegion: vConvexDeploymentRegion,
     convexTeamId: string(),
     cloudflareAccountId: string(),
-    cloudflareWorkerName: string(),
-    cloudflareBuildTokenUuid: union(string(), nullValidator),
+    plan: union(
+      object({
+        provisioning: literal("samebase"),
+        convexProjectName: string(),
+        convexDeploymentRegion: vConvexDeploymentRegion,
+        cloudflareWorkerName: string(),
+        cloudflareBuildTokenUuid: union(string(), nullValidator),
+      }),
+      object({ provisioning: literal("repository_actions") }),
+    ),
   },
   returns: object({
     repositoryId: id("repositories"),
@@ -712,23 +718,41 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
       createdAt: now,
       sourceOrder: { creationTime: now, documentId: crypto.randomUUID() },
     });
-    await ctx.db.insert("workflow_repositoryProvisioning_plans", {
-      repositoryId,
-      convexConfigPath: "convex.json",
-      convex: {
-        state: "planned",
-        projectName: args.convexProjectName,
-        deploymentRegion: args.convexDeploymentRegion,
-      },
-      cloudflare: {
-        state: "planned",
-        workerName: args.cloudflareWorkerName,
-        rootDirectory: REPOSITORY_ROOT_DIRECTORY,
-        buildTokenUuid: args.cloudflareBuildTokenUuid,
-      },
-      createdAt: now,
-      updatedAt: now,
-    });
+    const plan = args.plan;
+    switch (plan.provisioning) {
+      case "samebase":
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          repositoryId,
+          convexConfigPath: "convex.json",
+          convex: {
+            state: "planned",
+            projectName: plan.convexProjectName,
+            deploymentRegion: plan.convexDeploymentRegion,
+          },
+          cloudflare: {
+            state: "planned",
+            workerName: plan.cloudflareWorkerName,
+            rootDirectory: REPOSITORY_ROOT_DIRECTORY,
+            buildTokenUuid: plan.cloudflareBuildTokenUuid,
+          },
+          createdAt: now,
+          updatedAt: now,
+        });
+        break;
+      case "repository_actions":
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          provisioning: "repository_actions",
+          repositoryId,
+          convexConfigPath: "convex.json",
+          ciSecrets: { state: "planned" },
+          createdAt: now,
+          updatedAt: now,
+        });
+        break;
+      default:
+        plan satisfies never;
+        throw new Error("Unknown provisioning mode.");
+    }
     const workflowId = await startCreateRepositoryProvisioningWorkflow(ctx, {
       repositoryId,
       runId,

@@ -13,13 +13,18 @@ import { resolveGitHubRepositoryById } from "./githubRepoApi";
 import { resolveGitHubUserOctokitForProvisioningRun } from "./githubUserAuthorizations";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
-import type {
-  RepositoryProvisioningEventLevel,
-  RepositoryProvisioningRunState,
-  RepositoryProvisioningStep,
+import {
+  vRepositoryProvisioningMode,
+  type RepositoryProvisioningEventLevel,
+  type RepositoryProvisioningMode,
+  type RepositoryProvisioningRunState,
+  type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
+import { requireCompleteCiCredentials } from "./organization/ciCredentials";
+import { writeGitHubActionsSecrets } from "./githubActionsSecrets";
 import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
+import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import {
   formatProviderApiCallLogMessage,
   type ProviderApiCall,
@@ -229,6 +234,10 @@ async function assertConnectExistingRepositoryRun(
   return run;
 }
 
+/**
+The runs that may seed the starter or sync the tree: the run that created or connected the
+repository, and a repository_actions retry that resumes the seed after the Actions secrets.
+*/
 async function assertSourceSetupRun(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
@@ -236,13 +245,23 @@ async function assertSourceSetupRun(
     runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;
   },
+  triggers: ReadonlyArray<"create" | "connect_existing_repository">,
 ): Promise<Doc<"workflow_repositoryProvisioning_runs">> {
   const run = await getProvisioningRun(ctx, args.runId);
-  if (
-    run.userId !== args.userId ||
-    run.repositoryId !== args.repositoryId ||
-    (run.trigger !== "create" && run.trigger !== "connect_existing_repository")
-  ) {
+  if (run.userId !== args.userId || run.repositoryId !== args.repositoryId) {
+    throw new Error("Provisioning run does not match source setup workflow.");
+  }
+  if (run.trigger === "retry") {
+    const provisioning = await ctx.runQuery(
+      internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
+      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+    );
+    if (provisioning !== "repository_actions") {
+      throw new Error("Provisioning run does not match source setup workflow.");
+    }
+    return run;
+  }
+  if (!triggers.some((trigger) => trigger === run.trigger)) {
     throw new Error("Provisioning run does not match source setup workflow.");
   }
   return run;
@@ -252,7 +271,7 @@ async function requireConnectedRepositoryIdentity(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     repositoryId: Id<"repositories">;
-    runId: Id<"workflow_repositoryProvisioning_runs">;
+    run: Doc<"workflow_repositoryProvisioning_runs">;
     githubRepositoryDatabaseId: string;
   },
 ): Promise<void> {
@@ -262,7 +281,7 @@ async function requireConnectedRepositoryIdentity(
   if (
     !repository ||
     repository.state !== "connected" ||
-    repository.runId !== args.runId ||
+    (repository.runId !== args.run._id && args.run.trigger !== "retry") ||
     repository.githubRepositoryDatabaseId !== args.githubRepositoryDatabaseId
   ) {
     throw new Error("Connected GitHub repository identity cannot be changed.");
@@ -277,8 +296,8 @@ export const validateCreateAppConnections = internalAction({
     githubRepositoryName: string(),
     githubOwnerLogin: string(),
   },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
+  returns: vRepositoryProvisioningMode,
+  handler: async (ctx, args): Promise<RepositoryProvisioningMode> => {
     await assertCreateRun(ctx, args);
     await requireProvisioningContinuation(ctx, args);
 
@@ -289,6 +308,10 @@ export const validateCreateAppConnections = internalAction({
       message: "Checking provider connections.",
       state: "running",
     });
+    const provisioning = await ctx.runQuery(
+      internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
+      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+    );
 
     const githubRepositoryName = toSafeGitHubRepositoryName(args.githubRepositoryName);
     if (!githubRepositoryName) {
@@ -336,8 +359,26 @@ export const validateCreateAppConnections = internalAction({
     ) {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
+    if (provisioning === "repository_actions") {
+      requireCompleteCiCredentials({
+        ci: await ctx.runQuery(
+          internal.organizationProviderCredentials.loadCiCredentialsForRepositoryProviderWorkflow,
+          {
+            authority: {
+              kind: "provisioning",
+              runId: args.runId,
+              userId: args.userId,
+              repositoryId: args.repositoryId,
+            },
+          },
+        ),
+        convexTeamId: repository.convexTeamId,
+        cloudflareAccountId: repository.cloudflareAccountId,
+        githubOwnerLogin: access.githubOwnerLogin,
+      });
+    }
 
-    return null;
+    return provisioning;
   },
 });
 
@@ -552,9 +593,17 @@ export const seedStarterRepository = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await assertCreateRun(ctx, args);
-    await requireConnectedRepositoryIdentity(ctx, args);
+    const run = await assertSourceSetupRun(ctx, args, ["create"]);
+    await requireConnectedRepositoryIdentity(ctx, {
+      repositoryId: args.repositoryId,
+      run,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    });
     await requireProvisioningContinuation(ctx, args);
+    const provisioning = await ctx.runQuery(
+      internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
+      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+    );
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -596,7 +645,10 @@ export const seedStarterRepository = internalAction({
         owner: ownerName,
         repo: repoName,
         defaultBranch,
-        manifest: starterTemplateManifest,
+        manifest:
+          provisioning === "repository_actions"
+            ? actionsStarterTemplateManifest
+            : starterTemplateManifest,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
@@ -667,6 +719,107 @@ export const createRepositoryForRepository = internalAction({
   },
 });
 
+/**
+write_actions_secrets of the repository_actions mode: the CI credentials become the secrets and the
+variable that the template's alchemy workflow reads. GitHub is written with the same Octokit that
+created the repository for this owner type. Every write is an upsert, so a retry resumes safely.
+*/
+export const writeActionsSecrets = internalAction({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+    githubRepositoryDatabaseId: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const run = await getProvisioningRun(ctx, args.runId);
+    if (
+      run.userId !== args.userId ||
+      run.repositoryId !== args.repositoryId ||
+      (run.trigger !== "create" && run.trigger !== "retry")
+    ) {
+      throw new Error("Provisioning run does not match repository_actions setup.");
+    }
+    await requireConnectedRepositoryIdentity(ctx, {
+      repositoryId: args.repositoryId,
+      run,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    });
+    await requireProvisioningContinuation(ctx, args);
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "write_actions_secrets",
+      level: "info",
+      message: "Writing the GitHub Actions secrets.",
+      state: "running",
+    });
+    const target = await ctx.runQuery(
+      internal.repositoryProvisioningWorkflow.readActionsSecretsTarget,
+      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+    );
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+    });
+    const recordApiCall = createProviderApiCallRecorder(ctx, {
+      runId: args.runId,
+      step: "write_actions_secrets",
+    });
+    const repositoryResponse = await resolveGitHubRepositoryById({
+      octokit: await createGitHubRepositoryInstallationOctokit(
+        access.githubInstallationId,
+        args.githubRepositoryDatabaseId,
+      ),
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+      recordApiCall,
+    });
+    const repository = repositoryResponse.data;
+    requireGitHubRepositoryOwnerId({
+      expectedOwnerId: access.githubOwnerId,
+      repositoryOwnerId: repository.owner.id,
+    });
+    const octokit =
+      access.githubOwnerType === "user"
+        ? await resolveGitHubUserOctokitForProvisioningRun(ctx, {
+            runId: args.runId,
+            userId: args.userId,
+            repositoryId: args.repositoryId,
+            githubUserId: access.githubOwnerId,
+          })
+        : access.octokit;
+    await writeGitHubActionsSecrets({
+      octokit,
+      owner: repository.owner.login,
+      repo: repository.name,
+      secrets: [
+        { name: "CLOUDFLARE_API_TOKEN", value: target.cloudflareApiToken },
+        { name: "CLOUDFLARE_ACCOUNT_ID", value: target.cloudflareAccountId },
+        { name: "CONVEX_ACCESS_TOKEN", value: target.convexAccessToken },
+      ],
+      variables: [{ name: "CONVEX_TEAM_ID", value: target.convexTeamId }],
+      recordApiCall,
+    });
+    await ctx.runMutation(internal.repositoryProvisioningWorkflow.markActionsSecretsWritten, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      credentialRevision: target.credentialRevision,
+    });
+
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "write_actions_secrets",
+      level: "info",
+      message: "Wrote the GitHub Actions secrets.",
+      state: "running",
+    });
+    return null;
+  },
+});
+
 export const connectExistingRepository = internalAction({
   args: {
     repositoryId: id("repositories"),
@@ -722,8 +875,12 @@ export const syncRepositoryTreeForRepository = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    await assertSourceSetupRun(ctx, args);
-    await requireConnectedRepositoryIdentity(ctx, args);
+    const run = await assertSourceSetupRun(ctx, args, ["create", "connect_existing_repository"]);
+    await requireConnectedRepositoryIdentity(ctx, {
+      repositoryId: args.repositoryId,
+      run,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    });
     await requireProvisioningContinuation(ctx, args);
 
     await appendRunEvent(ctx, {

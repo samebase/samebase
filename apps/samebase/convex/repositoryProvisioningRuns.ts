@@ -13,6 +13,7 @@ import {
   readRepositoryInfrastructureState,
 } from "./repository/infrastructureOperation";
 import { assertConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
+import { readRepositoryProvisioningMode } from "./repository/provisioningPlan";
 import { vConfirmationSurface } from "./repository/confirmationModel";
 import { checkActionConfirmation } from "./repository/confirmations";
 import {
@@ -99,20 +100,39 @@ async function requireRetryAdmission(
       "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
     );
   }
-  const failedRun = await ctx.db.get(failedWrite.owner.runId);
+  const [failedRun, plan] = await Promise.all([
+    ctx.db.get(failedWrite.owner.runId),
+    ctx.db
+      .query("workflow_repositoryProvisioning_plans")
+      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+      .unique(),
+  ]);
   if (!failedRun || failedRun.state !== "failed" || failedRun.repositoryId !== args.repositoryId) {
     throw new Error("Failed managed setup does not match this repository.");
   }
+  // A repository_actions retry resumes write_actions_secrets (a provider step) and then the seed
+  // and the tree sync, so a retry run that failed in those two steps can be retried as well.
+  const isResumableRepositoryActionsRetry =
+    plan !== null &&
+    readRepositoryProvisioningMode(plan) === "repository_actions" &&
+    failedRun.trigger === "retry" &&
+    (failedRun.currentStep === "seed_starter" || failedRun.currentStep === "sync_tree");
   if (
     failedRun.trigger === "connect_existing_repository" ||
     (!isRepositoryProvisioningProviderStep(failedRun.currentStep) &&
-      !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created"))
+      !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created") &&
+      !isResumableRepositoryActionsRetry)
   ) {
     throw new ConvexError(
       "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
     );
   }
-  return { connectedRepository, organization, failedWrite };
+  return {
+    connectedRepository,
+    organization,
+    failedWrite,
+    provisioning: plan === null ? "samebase" : readRepositoryProvisioningMode(plan),
+  };
 }
 
 /**
@@ -130,10 +150,11 @@ export const createRetryForRepository = internalMutation({
   },
   returns: retryInfrastructureProvisioningContract.returns,
   handler: async (ctx, args): Promise<ActionConfirmationRequest | null> => {
-    const { connectedRepository, organization, failedWrite } = await requireRetryAdmission(ctx, {
-      userId: args.userId,
-      repositoryId: args.repositoryId,
-    });
+    const { connectedRepository, organization, failedWrite, provisioning } =
+      await requireRetryAdmission(ctx, {
+        userId: args.userId,
+        repositoryId: args.repositoryId,
+      });
     const confirmation = await checkActionConfirmation(ctx, {
       userId: args.userId,
       surface: args.surface,
@@ -172,9 +193,11 @@ export const createRetryForRepository = internalMutation({
       runId,
     });
     const queuedAt = Date.now();
+    const queuedStep =
+      provisioning === "repository_actions" ? "write_actions_secrets" : "claim_infra";
     await ctx.db.patch(runId, {
       workflowId,
-      currentStep: "claim_infra",
+      currentStep: queuedStep,
       updatedAt: queuedAt,
     });
     await ctx.db.insert("workflow_repositoryProvisioning_events", {
@@ -182,9 +205,12 @@ export const createRetryForRepository = internalMutation({
       repositoryId: args.repositoryId,
       githubRepositoryFullName,
       runId,
-      step: "claim_infra",
+      step: queuedStep,
       level: "info",
-      message: "Queued infrastructure provisioning.",
+      message:
+        provisioning === "repository_actions"
+          ? "Queued the GitHub Actions secrets."
+          : "Queued infrastructure provisioning.",
       createdAt: queuedAt,
       sourceOrder: {
         creationTime: queuedAt,

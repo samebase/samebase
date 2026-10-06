@@ -3,19 +3,13 @@ import { ConvexError } from "convex/values";
 
 import type { Doc } from "../_generated/dataModel";
 import type { ManagedProviderPlan } from "./contracts/getUserRepositories";
+import type { RepositoryProvisioningMode } from "./provisioningModel";
 
 export type RepositoryProvisioningPlan = Doc<"workflow_repositoryProvisioning_plans">;
 export type SamebaseProvisioningPlan = Exclude<
   RepositoryProvisioningPlan,
   { provisioning: "repository_actions" }
 >;
-
-/**
-samebase = Samebase's workflow creates the Convex project and the Worker and configures Workers Builds
-
-repository_actions = the repository's GitHub Actions deploy the app; Samebase writes their CI secrets
-*/
-export type RepositoryProvisioningMode = "samebase" | "repository_actions";
 
 /**
 The mode of a stored plan or of its dashboard projection. The samebase plan predates the
