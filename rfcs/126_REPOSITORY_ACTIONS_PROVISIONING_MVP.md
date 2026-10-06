@@ -730,3 +730,14 @@ Open for PR C, in Nicu's words "how all this fits in":
   gaps are written up in `research/2026-10-06-cf-cli-gaps-for-vite-plus-apps.md` for review. The
   differing paths become the Alchemy layer only: the stack, its workflow, the names, the confirmed
   destroy, the dependency and README diffs. PR #1697 is being cut to that.
+- 2026-10-06: PR #1697 cut to the clean-slate rule (head `b7bf144ab`): `templates/base` plus ten
+  Alchemy paths (the stack, its workflow, the names, the confirmed destroy, package.json and the
+  lockfile, `tsconfig.node.json` with one include, `.gitignore`, README), the sync check proving
+  every other path identical, `cf` gone. Samebase side on the same PR: the CI token deep link asks
+  for Workers Builds Configuration Edit, the Providers copy names the four permission groups, and a
+  one-page Builds read checks the token when it is saved and when an app is created (a read cannot
+  prove Edit; a Read-only token fails in the first stack deploy). No pre-run check for the
+  Cloudflare GitHub App exists in either mode; the current mode reacts to Cloudflare error 8000008.
+  Codex declined findings, both base behavior: no audits inside the Workers Builds build, and the
+  auth-key race of two overlapping first builds. Open: a live run on the preview deploy with a token
+  that has the Builds permission.
