@@ -58,29 +58,38 @@ location (monorepo or own repository), credential rotation, repository renames.
 A repository's provisioning plan says who provisions it:
 
 - `samebase` (today): Samebase's workflow runs the attach, configure, and rotate steps.
-- `repository_actions` (new): the repository's GitHub Actions run `alchemy deploy` and `cf`.
-  Samebase only creates the repository, writes the CI secrets, and seeds the template.
+- `repository_actions` (new): the repository's GitHub Actions run the setup stack
+  (`alchemy deploy`), and Workers Builds deploys the app on every push. Samebase only creates the
+  repository, writes the CI secrets, and seeds the template.
 
-### The template follows the Mail and Score Four model
+### The template follows the Score Four and Mail model
 
-The split proven in Mail and Score Four applies unchanged, with GitHub Actions as the runner instead
-of Workers Builds:
+The line is drawn in `research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md` and applies
+unchanged. Nicu's sentence: a clear-cut part handled by Alchemy, and a different deploy part handled
+by Workers Builds.
 
-- `cloudflare.config.ts` owns the Worker's own things: name, compatibility date, assets handling,
-  bindings, previews. `cf build` produces the Build Output; `cf deploy --prebuilt` ships it on the
-  default branch; `cf previews deploy --prebuilt <name>` ships a Worker Preview on any other branch.
-- `alchemy.run.ts` owns lifecycle and cross-provider wiring: the Worker shell (the retained Worker
-  resource of our package, named from the config), the Convex project, the deployment of the stage,
-  the deploy keys, the JWT keys, the functions push, and the values the two sides must share. The
-  stack never uploads Worker code. One owner per field.
-- The workflow owns the order: `alchemy deploy`, then the app build with the Convex URL, then `cf`.
+- `alchemy.run.ts` owns what must exist before the first build and what spans providers: the Worker
+  shell (the retained Worker resource of our package, named from `cloudflare.config.ts`), the Builds
+  link to the repository with its build and deploy commands and its variables (`CONVEX_DEPLOY_KEY`
+  on production and previews, `SAMEBASE_CONVEX_PROJECT` for the Samebase dashboard), the Convex
+  project and its two deploy keys, and the first production build. It never uploads Worker code and
+  never pushes Convex functions.
+- `cloudflare.config.ts` owns the Worker's own things: name, compatibility date, assets, bindings,
+  Preview URLs. Workers Builds runs `pnpm run build` (`convex deploy` with the key, the app build,
+  the Build Output) and then `cf deploy --prebuilt` on the default branch or
+  `cf previews deploy --prebuilt` on any other branch.
+- One owner per field. The one coupling is the Worker name, which the stack reads from the config.
+
+Until 2026-10-06 the RFC said "with GitHub Actions as the runner instead of Workers Builds" and the
+template deployed the Worker from Actions. That was the author's error, found on the first
+production app, and corrected by the template rework.
 
 ### Previews per branch
 
-Workers Builds and Convex previews are per branch and start on a branch push, so the template
-follows that. A push to the default branch deploys stage `prod`. A push to any other branch deploys
-a preview stage; a branch deletion destroys it. Pull requests are not the unit: when a pull request
-is open for the branch, the run comments the URLs on it.
+Workers Builds builds every branch: the default branch deploys the Worker, every other branch gets a
+Worker Preview, and Cloudflare posts the preview URL on the pull request. The build names the Convex
+preview deployment after the branch (`convex deploy --preview-name` from `WORKERS_CI_BRANCH` with
+the preview key), the name Samebase matches on. The template has no per-branch job of its own.
 
 ### Credentials
 
@@ -147,26 +156,26 @@ second, complete template: all files committed, runnable and checkable in place,
 to its own manifest and published as `samebase/base-actions`. A sync check keeps every path outside
 a declared list of deploy files byte-identical between the two templates.
 
-Its deploy files: `cloudflare.config.ts` and `wrangler.config.ts` (the Worker), `alchemy.run.ts`
-(the stack), `.github/workflows/alchemy.yml`, the stage and head-check scripts, the Worker build and
-Preview delete scripts, `package.json`, `pnpm-lock.yaml`, `tsconfig.node.json`, `.gitignore`,
-`README.md`. Local dev is the same as in the base template; `alchemy dev` is not part of it.
+Its deploy files: `cloudflare.config.ts` and `wrangler.config.ts` (the Worker and the bundler
+settings), `alchemy.run.ts` (the setup stack), `.github/workflows/alchemy.yml`,
+`scripts/deploy-names.ts` (stack `<owner>_<repository>`, Worker and Convex project named after the
+repository), `scripts/build-worker.ts` and `scripts/deploy-preview.ts` (the Build Output, and the
+Preview upload that writes the Wrangler output file so Cloudflare's comment shows the URL),
+`scripts/destroy-app.ts`, `package.json`, `pnpm-lock.yaml`, `tsconfig.node.json`, `.gitignore`,
+`README.md`. The build script `scripts/build-cloudflare.ts` and local dev are the base template's,
+byte for byte.
 
-Workflow: triggers `push` on every branch and `delete`; both jobs run only when the repository
-variable `CONVEX_TEAM_ID` is set (the published copy has none). The deploy job installs with
-`--ignore-scripts`, runs the three supply-chain audits of `ci.yml`, runs `pnpm run check`, checks
-that the pushed commit is still the branch head (exact Git ref, no redirects), runs
-`alchemy deploy`, builds the app with the Convex URL, and ships with `cf`. The destroy job installs
-with `--ignore-scripts`, runs the signature audit only, checks that the branch is still absent, then
-runs `alchemy destroy` and deletes the Worker Preview through the Previews API (`cf previews` has no
-delete). Credentials exist only on the deploy, ship, and destroy steps.
+Workflow `alchemy`, Mail's `infra.yml` shape, gated on the repository variable `CONVEX_TEAM_ID`: on
+a pull request that touches the stack files, `alchemy plan` and `alchemy drift`, read-only; on a
+push to the default branch that touches them, `alchemy deploy --stage prod --detect-drift`; a
+dispatch with `adopt` for a first deploy next to resources that already exist, and with `confirm` =
+`owner/repository` for the confirmed destroy of the app (`DESTROY_APP=true` turns the Worker shell
+and the project from retain to destroy, then the stack state goes). Each job installs without
+lifecycle scripts and audits before any credential is in use.
 
-Stage rule: the default branch gives `prod`; any other branch gives its safe form (lowercase, runs
-of other characters as one dash, cut to 40) plus 16 hex of sha256 of the raw name, so two branches
-never share a stage. Worker Preview name: the stage cut to the DNS budget plus 6 hex of sha256 of
-the stage; the README states that this can collide in rare cases and that a long Worker name makes
-it more likely. The Convex preview deployment is named after the raw branch, the name
-`convex deploy --preview-name` gives it under Workers Builds and the name Samebase matches on.
+The first build: Cloudflare does not build when the Builds link is created, and Samebase seeds
+`main` before the stack runs, so the stack's `FirstBuild` action starts one production build through
+the Builds API on the deploy that creates the link, and never again for the same Worker and branch.
 
 ## The new workflow mode
 
@@ -189,12 +198,14 @@ workflow runs of private repositories. The change applies to every App instance.
 
 ## Observation (PR C)
 
-For a `repository_actions` repository the status read shows the `alchemy` check on the default
-branch head as the deploy status and the check on a branch head as the preview status, with the
-Actions run as the logs link; after the first green run on the default branch it finds the Worker
-and the Convex project by the repository name and records them through the existing attach
-contracts; it reads a branch's Worker Preview by the name rule above and its Convex preview by
-`previewIdentifier`. Samebase's screens and slots stay the same; only their sources change per mode.
+Samebase's screens and slots stay the same; only their sources change per mode. For a
+`repository_actions` repository: the `alchemy` check on the default branch head is the setup status,
+with the Actions run as its link; the deploy and preview status come from Workers Builds, which
+Samebase already observes for the current mode (the Builds branch metadata on a Preview, the
+`SAMEBASE_CONVEX_PROJECT` build variable, the Convex preview by `previewIdentifier`); after the
+first green setup run it attaches the Worker found through its Builds link to the repository and the
+Convex project named in the variable, through the existing attach contracts. Nicu's idea for a
+stronger source, the Alchemy state store read, stays open for PR C. No hook runs the destroy.
 
 ## Pull requests
 
@@ -240,32 +251,36 @@ The map Nicu asked for before PR C: which component holds what, and which one ma
 what. "Writes" means creates, changes, or deletes a resource. Nothing here is decided for PR C; the
 open decisions follow the table.
 
-| Component                     | Holds                                                                                                                                                                                                                                                                      | Writes                                                                                                                                                                                                                                                                                 | Reads                                                                                                                                          |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| The user's GitHub repository  | The code and the workflow; the secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CONVEX_ACCESS_TOKEN`; the variable `CONVEX_TEAM_ID`. The only place with every credential.                                                                                        | On push: the Worker shell, the Convex project and deployments, the keys, the Worker code, the Previews, the pull request comment. On branch delete: the preview deployment and the Worker Preview. On the confirmed `workflow_dispatch`: the Worker, the project, and the stack state. | The Alchemy state store (its own stack), GitHub (the branch head, the pull requests).                                                          |
-| The user's Cloudflare account | The Worker named after the repository, its Previews, and the Alchemy state store: the `alchemy-state-store` Worker with a Durable Object, its bearer token and encryption key in the Secrets Store.                                                                        | Nothing by itself.                                                                                                                                                                                                                                                                     |                                                                                                                                                |
-| The user's Convex team        | The project named after the repository, its production deployment, preview deployments named after branches, the deploy keys.                                                                                                                                              | Nothing by itself.                                                                                                                                                                                                                                                                     |                                                                                                                                                |
-| The Alchemy state store       | The truth about what the stack created: one row per resource with provider ids and the removal policy of the last deploy, and the stage outputs (`convexUrl`, `workerUrl`).                                                                                                | Written by the repository's runs only (and by a laptop deploy with the same environment).                                                                                                                                                                                              | Readable by anyone with a Cloudflare token that has the Secrets Store permission in the account.                                               |
-| Samebase                      | Per organization: the pasted Cloudflare token with the account id and the pasted Convex team token with the team id, verified when saved, never revoked. Per app: the plan (`repository_actions`, the secrets written, the seed state) and the connections (manual today). | GitHub only: the repository, its secrets and variable, the seed commits, and on removal the repository if asked. Nothing on Cloudflare or Convex.                                                                                                                                      | GitHub only: branches, commits, check runs, pull requests. After PR B Samebase does not know the Worker or the project of an app in this mode. |
+| Component                                        | Holds                                                                                                                                                                                                                                                                      | Writes                                                                                                                                                                                                                                | Reads                                                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The user's GitHub repository                     | The code, `cloudflare.config.ts`, the setup stack, the workflow; the secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CONVEX_ACCESS_TOKEN`; the variable `CONVEX_TEAM_ID`. The only place with every credential.                                                  | The `alchemy` workflow, on the default branch: the Worker shell, the Builds link and its variables, the Convex project and keys, the first build. On the confirmed dispatch: the Worker, the project, and the stack state.            | The Alchemy state store (its own stack), GitHub.                                                                                                                        |
+| Workers Builds, in the user's Cloudflare account | The Builds link, the build variables, the build history.                                                                                                                                                                                                                   | On every push: the Worker version from `cloudflare.config.ts` (the default branch) or a Worker Preview (any other branch), the Convex functions push, the Convex preview deployment named after the branch, the pull request comment. | The repository, through the Cloudflare GitHub App.                                                                                                                      |
+| The user's Cloudflare account                    | The Worker named after the repository, its Previews, and the Alchemy state store: the `alchemy-state-store` Worker with a Durable Object, its bearer token and encryption key in the Secrets Store.                                                                        | Nothing by itself.                                                                                                                                                                                                                    |                                                                                                                                                                         |
+| The user's Convex team                           | The project named after the repository, its production deployment, preview deployments named after branches, the two deploy keys.                                                                                                                                          | Nothing by itself.                                                                                                                                                                                                                    |                                                                                                                                                                         |
+| The Alchemy state store                          | The truth about what the stack created: one row per resource with provider ids and the removal policy of the last deploy, and the stage outputs.                                                                                                                           | Written by the repository's setup runs only (and by a laptop deploy with the same environment).                                                                                                                                       | Readable by anyone with a Cloudflare token that has the Secrets Store permission in the account.                                                                        |
+| Samebase                                         | Per organization: the pasted Cloudflare token with the account id and the pasted Convex team token with the team id, verified when saved, never revoked. Per app: the plan (`repository_actions`, the secrets written, the seed state) and the connections (manual today). | GitHub only: the repository, its secrets and variable, the seed commits, and on removal the repository if asked. Nothing on Cloudflare or Convex.                                                                                     | GitHub, and for the current mode Workers Builds and Convex through the connections. After PR B Samebase does not know the Worker or the project of an app in this mode. |
 
-The flows in order: Samebase creates and seeds; the repository deploys on every push and keeps
-previews per branch; Samebase observes (PR C); the owner destroys with the typed confirmation,
-before the repository goes; Samebase removes its rows and, if asked, the repository. No step
-triggers another across the Samebase and repository boundary, by decision.
+The flows in order: Samebase creates and seeds; the setup stack runs once from the seed push and
+starts the first build; Workers Builds deploys every push from then on; Samebase observes (PR C);
+the owner destroys with the typed confirmation, before the repository goes; Samebase removes its
+rows and, if asked, the repository. No step triggers another across the Samebase and repository
+boundary, by decision.
 
 Open for PR C, in Nicu's words "how all this fits in":
 
-1. The source of truth for observation. Three candidates, not exclusive: the `alchemy` check run on
-   the default branch (did the deploy succeed, link to the run); the Alchemy state store read with
-   the organization's Cloudflare token (the Worker name, the project id, the URLs, exact and
-   validated at runtime; Alchemy-internal API, beta); the by-name rule (both carry the repository
-   name; cheap, can be wrong after a manual rename).
+1. The source of truth for observation: the `alchemy` check for the setup; the Workers Builds reads
+   Samebase already has for the deploy and the previews; the Alchemy state store read with the
+   organization's Cloudflare token (exact, validated at runtime; Alchemy-internal API, beta); the
+   by-name rule as the fallback.
 2. Auto-registration: whether the connection rows for the Worker and the project appear by
-   themselves after the first green run, so the dashboard shows the same slots as the other mode.
+   themselves after the first green setup run, so the dashboard shows the same slots as the other
+   mode.
 3. The blast radius of the two pasted tokens. The Cloudflare token can deploy any Worker in the
-   account and read every stack's state; the Convex team token can do anything in the team. The
-   credential scope gate before real users stays.
+   account, configure Builds, and read every stack's state; the Convex team token can do anything in
+   the team. The credential scope gate before real users stays.
 4. No hook of any kind between repository deletion or Samebase removal and the app's destroy.
+5. The Cloudflare GitHub App must be installed on the repository owner for the Builds link; Samebase
+   checks that for the current mode and not yet for this one.
 
 ## Status
 
@@ -696,3 +711,14 @@ Open for PR C, in Nicu's words "how all this fits in":
   deploys on every push with `cf deploy --prebuilt` and makes the previews and the comment. The
   shipped template moved the deploy into GitHub Actions instead. The Samebase side of PR B stands;
   the template gets reworked.
+- 2026-10-06: Template rework PR #1697
+  (`v2101: Make the Actions template the setup stack next to Workers Builds`): the stack owns the
+  Worker shell, the Builds link with its variables, the Convex project and two keys, and a
+  `FirstBuild` action that starts the first production build through the Builds API (Cloudflare does
+  not build on link creation, and the seed push comes before the stack); the workflow is Mail's
+  `infra.yml` shape; the six Actions-deploy scripts are gone; the build script is the base
+  template's. Codex two rounds; one finding stays and is Samebase's: the CI token preset must ask
+  for Workers Builds Configuration edit (`workers_ci`), or the Builds link fails; saved tokens made
+  before that need a replacement. Unverified until a live run: whether Workers Builds sets
+  `WRANGLER_CI_OVERRIDE_NAME` for the build command and not only the deploy. The Decisions, The
+  template, Observation, and the map above are corrected to this model.
