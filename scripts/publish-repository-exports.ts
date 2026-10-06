@@ -12,6 +12,7 @@ export type RepositoryExport = {
 };
 
 export const baseTemplateSourceRoot = "templates/base";
+export const actionsTemplateSourceRoot = "templates/base-actions";
 
 export const repositoryExports = [
   {

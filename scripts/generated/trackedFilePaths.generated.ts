@@ -2125,6 +2125,8 @@ export const trackedFilePaths = [
   "scripts/check-public-media.test.ts",
   "scripts/check-public-media.ts",
   "scripts/check-samebase-agent-plugin.ts",
+  "scripts/check-template-sync.test.ts",
+  "scripts/check-template-sync.ts",
   "scripts/ci-bootstrap-convex.ts",
   "scripts/convex-seed-dev-auth.ts",
   "scripts/convex-sync-dev-env.ts",
