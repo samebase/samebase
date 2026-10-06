@@ -11,8 +11,8 @@ This README covers work inside the repository and the deploy setup.
 
 - React 19 and TanStack Start in SPA mode
 - Convex for the real-time backend, database, and guest authentication
-- A Cloudflare Worker (the TanStack Start server entry plus static assets), deployed by Alchemy
-  from GitHub Actions
+- A Cloudflare Worker that serves the static assets, defined in `cloudflare.config.ts` and uploaded
+  by `cf` from GitHub Actions, with an Alchemy setup stack for the Worker shell and the Convex side
 - shadcn/ui primitives for the user interface
 - Vite+ for development, formatting, linting, tests, and builds
 - Node.js 24 for application and automation code
@@ -47,26 +47,42 @@ The core workflow runs on macOS, Linux, and Windows. See
 
 ## Checks and builds
 
-| Command          | Purpose                                                        |
-| ---------------- | -------------------------------------------------------------- |
-| `pnpm run check` | Format, lint, type-check, test, and verify generated redirects |
-| `pnpm run build` | Run the check, then a local app build                          |
+| Command          | Purpose                                                                         |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `pnpm run check` | Format, lint, type-check, test, and verify generated redirects                  |
+| `pnpm run build` | Run the check, then the app build and the Worker Build Output in `.cloudflare/` |
+
+The Worker build reads the Worker name from `GITHUB_REPOSITORY` (`<owner>/<repository>`), which
+GitHub Actions sets. On a laptop, set it in the environment or in `.env`.
 
 ## Deployment contract
 
-`alchemy.run.ts` is the only deploy path. `alchemy deploy` pushes the Convex functions, then builds
-the app with Vite and uploads the Worker. `.github/workflows/alchemy.yml` runs it for every branch,
-the way Cloudflare Workers Builds builds every branch:
+Each part of the deploy has one owner:
 
-| Event                      | Stage              | What happens                                                                |
-| -------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| Push to the default branch | `prod`             | Deploys the Convex project and production deployment, and the Worker        |
-| Push to any other branch   | The branch's stage | Deploys a Convex preview deployment and a Worker Preview of the prod Worker |
-| Branch deleted             | The branch's stage | `alchemy destroy` deletes the preview deployment and the Worker Preview     |
+| File                            | Owns                                                                                                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare.config.ts`          | The Worker: its name, the static assets with the SPA fallback, the compatibility date, and Preview URLs. `cf` uploads it.                             |
+| `alchemy.run.ts`                | The setup stack: the Worker shell, the Convex project and deployments, the deploy keys, the Convex Auth keys, and the functions push. No Worker code. |
+| `scripts/deploy-names.ts`       | The names of the stack, the Worker, the Convex project, and the Worker Previews.                                                                      |
+| `.github/workflows/alchemy.yml` | The order of the steps for each branch.                                                                                                               |
 
-When a pull request from the branch is open, the push also posts the Preview URL and the Convex URL
-as a comment on it, and later pushes update that comment. A pull request opened after the last push
-gets the comment on the next push. A pull request from a fork gets no preview.
+The workflow runs for every branch, the way Cloudflare Workers Builds builds every branch:
+
+| Event                      | Steps                                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Push to the default branch | `alchemy deploy --stage prod`, the app build, `cf deploy --prebuilt`                                                                           |
+| Push to any other branch   | `alchemy deploy --stage <stage>`, the Preview build, `cf previews deploy --prebuilt <Preview name>`, the comment on an open pull request       |
+| Branch deleted             | `alchemy destroy --stage <stage>`, which deletes the Convex preview deployment, then `scripts/delete-worker-preview.ts` for the Worker Preview |
+
+The stack outputs `convexUrl` on every stage and `workerUrl`, the `workers.dev` URL of the Worker, on
+`prod`. After `alchemy deploy`, the workflow reads them with `alchemy state read` and builds the app
+with `VITE_CONVEX_URL` set to `convexUrl`. The build step gets no credentials. It writes the Build
+Output to `.cloudflare/output`, and `cf` uploads that output as it is. The default branch must
+deploy once before the first preview: a preview uses the Convex project and the Worker of `prod`.
+
+When a pull request from the branch is open, the job posts the Preview URL and the Convex URL as a
+comment on it, and later pushes update that comment. A pull request opened after the last push gets
+the comment on the next push. A pull request from a fork gets no preview.
 
 The runs of one branch run one at a time, in order, so a branch delete waits for a running deploy.
 Before the deploy, the job checks that its commit is still the head of the branch. A rerun of an
@@ -78,8 +94,8 @@ without the deploy setup skips them.
 
 Each job installs the dependencies without lifecycle scripts and runs `pnpm audit signatures` first.
 The deploy job then runs the two vulnerability audits of `.github/workflows/ci.yml` and
-`pnpm run check`. The destroy job does not, so a new advisory cannot block a cleanup. Only the deploy
-or destroy step gets the credentials.
+`pnpm run check`. The destroy job does not, so a new advisory cannot block a cleanup. Each credential
+goes only to the steps that need it.
 
 The names, for the repository `my-org/my-app` and the branch `feature/Foo_bar`:
 
@@ -119,8 +135,8 @@ already has a project with the same name that is not in this stack's state, the 
 `OwnedBySomeoneElse`. The workflow does not pass `--adopt`.
 
 The stack makes the Convex Auth keys: `JWT_PRIVATE_KEY` and `JWKS` on the production deployment,
-and the same two variables as project defaults for preview and dev deployments. The Convex project
-is kept when the stack is destroyed.
+and the same two variables as project defaults for preview and dev deployments. The Worker and the
+Convex project are kept when the stack is destroyed.
 
 Alchemy keeps its state in a state store in the Cloudflare account, which every stack of the account
 shares. With `--yes`, the first deploy in an account creates the store: a Worker named
@@ -143,10 +159,13 @@ GitHub Actions provides `GITHUB_TOKEN` and `GITHUB_REPOSITORY`.
 
 Put the same four values and `GITHUB_REPOSITORY` (`<owner>/<repository>`) in `.env`, or in the
 environment, which takes precedence. The Convex CLI login (`npx convex login`) can replace
-`CONVEX_ACCESS_TOKEN`. Then run:
+`CONVEX_ACCESS_TOKEN`. Deploy the stack, then build with `VITE_CONVEX_URL` set to the `convexUrl`
+output that the deploy prints, and upload the Worker:
 
 ```sh
 pnpm exec alchemy deploy --stage prod
+pnpm run build:app
+pnpm exec cf deploy --prebuilt
 ```
 
 ## Important files
@@ -154,9 +173,11 @@ pnpm exec alchemy deploy --stage prod
 - `package.json` defines the supported development, check, and build commands.
 - `prerender.config.ts` defines the public pages shared by TanStack Start and Cloudflare.
 - `vite.config.ts` defines the TanStack Start SPA and prerender behavior.
-- `alchemy.run.ts` defines the Convex and Cloudflare resources of each stage: static asset routing,
-  SPA fallback, Worker Previews, and the Convex Auth keys.
-- `.github/workflows/alchemy.yml` deploys and destroys the stages.
+- `cloudflare.config.ts` defines the Worker: static asset routing and SPA fallback.
+  `wrangler.config.ts` holds the build settings of the Wrangler bundler.
+- `alchemy.run.ts` defines the setup stack of each stage: the Worker shell, the Convex side, and the
+  Convex Auth keys.
+- `.github/workflows/alchemy.yml` deploys and destroys the stages with the scripts in `scripts/`.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
 

@@ -5,14 +5,30 @@ import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-rep
 
 /**
 templates/base and templates/base-actions are the same app with two deploy paths: Workers Builds in
-base, Alchemy from GitHub Actions in base-actions. These paths may differ between the two templates
-or exist in only one of them. Every other path must exist in both with the same bytes and mode.
+base; an Alchemy setup stack and `cf` from GitHub Actions in base-actions. These paths may differ
+between the two templates or exist in only one of them. Every other path must exist in both with
+the same bytes and mode.
 */
 export const templateDeployPaths = [
-  // base-actions only: the Alchemy stack, the only deploy path of base-actions.
+  // base-actions only: the Alchemy setup stack (Worker shell and Convex side).
   "alchemy.run.ts",
-  // base-actions only: the GitHub Actions workflow that runs the Alchemy deploy and destroy.
+  // base-actions only: the Worker that `cf` uploads, and the build settings of the Wrangler bundler.
+  "cloudflare.config.ts",
+  "wrangler.config.ts",
+  // base-actions only: the GitHub Actions workflow that runs the deploy and the destroy.
   ".github/workflows/alchemy.yml",
+  // base-actions only: the names of the stack, the Worker, the Convex project, and the Previews.
+  "scripts/deploy-names.ts",
+  "scripts/deploy-names.test.ts",
+  // base-actions only: the workflow steps around `alchemy` and `cf`: the stage outputs, the Worker
+  // Build Output, the Worker Preview upload and delete, and the pull request comment.
+  "scripts/read-stack-output.ts",
+  "scripts/build-worker.ts",
+  "scripts/deploy-worker-preview.ts",
+  "scripts/delete-worker-preview.ts",
+  "scripts/delete-worker-preview.test.ts",
+  "scripts/comment-preview.ts",
+  "scripts/comment-preview.test.ts",
   // base-actions only: the Alchemy stage of a branch, which the workflow computes before the deploy
   // and the destroy.
   "scripts/alchemy-stage.ts",
@@ -24,13 +40,13 @@ export const templateDeployPaths = [
   "scripts/check-branch-head.ts",
   "scripts/check-branch-head.test.ts",
   // Deploy scripts and dependencies: Wrangler and the Workers Builds scripts in base; Alchemy,
-  // Effect, and @samebase/alchemy-convex in base-actions.
+  // Effect, cf, Wrangler, and the @samebase Alchemy providers in base-actions.
   "package.json",
   // The lockfile of those different dependencies.
   "pnpm-lock.yaml",
-  // base-actions also type-checks alchemy.run.ts as Node code.
+  // base-actions also type-checks alchemy.run.ts and the two config files as Node code.
   "tsconfig.node.json",
-  // base-actions also ignores the local Alchemy state directory.
+  // base-actions also ignores the local Alchemy state and the Build Output.
   ".gitignore",
   // Each README documents its own deploy contract.
   "README.md",
