@@ -19,7 +19,7 @@ import { recordOrganizationLastUsedBuildToken } from "../organizations";
 import { requireActiveRepositoryProvisioningRun } from "../repositoryWorkflowAuthority";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./state";
 import {
-  readRepositoryProvisioningMode,
+  readProviderInfrastructureWriter,
   REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE,
 } from "./provisioningPlan";
 
@@ -303,7 +303,7 @@ export const claimManualProviderWrite = internalMutation({
         .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
         .unique(),
     ]);
-    if (plan && readRepositoryProvisioningMode(plan) === "repository_actions") {
+    if (readProviderInfrastructureWriter(plan) === "setup_stack") {
       throw new ConvexError(REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE);
     }
     if (infrastructure.operation.kind !== "none") {

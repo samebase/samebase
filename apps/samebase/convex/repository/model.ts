@@ -39,9 +39,19 @@ export type RepositoryConnectedGitHubTarget = Infer<typeof vRepositoryConnectedG
 export const vRepositoryTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
 export type RepositoryTreeRefreshFailureKind = Infer<typeof vRepositoryTreeRefreshFailureKind>;
 
+/**
+provisioned = Samebase created the resource; removal from Samebase may delete it
+
+selected_existing = a member attached a resource that already existed; Samebase never deletes it
+
+setup_stack = the repository's Alchemy setup stack created or adopted it, and Samebase attached it
+from the stack's setup output; only the repository's confirmed destroy deletes it, and Samebase
+neither deletes it nor changes its provider settings
+*/
 export const vRepositoryProviderResourceOrigin = union(
   literal("provisioned"),
   literal("selected_existing"),
+  literal("setup_stack"),
 );
 export type RepositoryProviderResourceOrigin = Infer<typeof vRepositoryProviderResourceOrigin>;
 

@@ -215,12 +215,46 @@ export const vRepositoryActionsSeed = union(
   object({ state: literal("seeded"), seededAt: number(), manifestVersion: string() }),
 );
 
+/**
+The setup output that Samebase last applied: the artifact `samebase-setup-output` of one run of the
+repository's `alchemy` workflow (templates/base-actions/scripts/setup-output.ts). `artifactId` is
+the change key: a rerun publishes the same content under a new artifact id. The run's ids keep
+this readable after GitHub deletes the run at the end of its retention period.
+
+applied = the Workers and Convex projects of a `deployed` output are attached with origin
+setup_stack
+
+destroy_reported = the confirmed destroy of the app reported itself; the attachments stay until a
+member removes them
+
+An absent field means that no setup output was applied yet.
+*/
+export const vRepositoryActionsSetupOutput = union(
+  object({
+    state: literal("applied"),
+    runId: number(),
+    runAttempt: number(),
+    artifactId: number(),
+    outputVersion: literal(1),
+    appliedAt: number(),
+  }),
+  object({
+    state: literal("destroy_reported"),
+    runId: number(),
+    runAttempt: number(),
+    artifactId: number(),
+    reportedAt: number(),
+  }),
+);
+export type RepositoryActionsSetupOutput = Infer<typeof vRepositoryActionsSetupOutput>;
+
 const vRepositoryActionsProvisioningPlan = object({
   provisioning: literal("repository_actions"),
   repositoryId: id("repositories"),
   convexConfigPath: string(),
   ciSecrets: vRepositoryActionsCiSecrets,
   seed: vRepositoryActionsSeed,
+  setupOutput: optional(vRepositoryActionsSetupOutput),
   createdAt: number(),
   updatedAt: number(),
 });

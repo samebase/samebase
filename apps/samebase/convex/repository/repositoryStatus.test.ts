@@ -424,7 +424,7 @@ describe("buildRepositoryAttention", () => {
       repository: { state: "not_connected" },
     });
 
-    it("asks for no Workers Builds, Worker, or deploy-key repair", () => {
+    it("names the setup stack instead of a Samebase repair tool for an attached Worker", () => {
       expect(
         buildRepositoryAttention({
           repository: repositoryActionsRepository({
@@ -440,6 +440,11 @@ describe("buildRepositoryAttention", () => {
           problem:
             "The deployment of this repository runs in its GitHub Actions: https://github.com/samebase/chess-merge/actions. Samebase does not read its result yet.",
         },
+        {
+          tool: null,
+          problem:
+            "Workers Builds of chess-merge is not connected to this GitHub repository. The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.",
+        },
       ]);
     });
 
@@ -454,6 +459,11 @@ describe("buildRepositoryAttention", () => {
           tool: null,
           problem:
             "The GitHub Actions secrets of samebase/chess-merge are not written yet, so its deploy workflow cannot run.",
+        },
+        {
+          tool: null,
+          problem:
+            "Workers Builds of chess-merge is not connected to this GitHub repository. The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.",
         },
       ]);
     });

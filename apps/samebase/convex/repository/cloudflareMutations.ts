@@ -12,7 +12,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import { vRepositoryProviderResourceOrigin } from "./model";
+import { vRepositoryProviderResourceOrigin, type RepositoryProviderResourceOrigin } from "./model";
 import {
   requireManualProviderWriteContinuation,
   requireUserRepositoryInfrastructureIdle,
@@ -215,7 +215,12 @@ async function readMatchingWorker(
   throw new Error("Cloudflare Worker is already attached.");
 }
 
-async function insertWorker(
+/**
+Attaches one Worker, or returns this repository's row with the same identity. A provisioned or
+setup_stack insert takes over the row's origin, because Samebase or the setup stack now manages the
+Worker; a selected_existing insert never changes it.
+*/
+export async function insertWorker(
   ctx: Pick<MutationCtx, "db">,
   repository: Extract<Doc<"repositories">, { state: "connected" }>,
   args: {
@@ -225,7 +230,7 @@ async function insertWorker(
     workerName: string;
     workerTag: string;
     rootDirectory: string;
-    origin: "provisioned" | "selected_existing";
+    origin: RepositoryProviderResourceOrigin;
   },
 ): Promise<Id<"repositoryCloudflareWorkers">> {
   if (args.accountId !== repository.cloudflareAccountId) {
@@ -243,8 +248,8 @@ async function insertWorker(
     if (existing.rootDirectory !== rootDirectory) {
       throw new Error("Cloudflare Worker root directory changed before attachment.");
     }
-    if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-      await ctx.db.patch(existing._id, { origin: "provisioned" });
+    if (args.origin !== "selected_existing" && existing.origin !== args.origin) {
+      await ctx.db.patch(existing._id, { origin: args.origin });
     }
     return existing._id;
   }

@@ -24,7 +24,10 @@ import {
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
 import type { RepositoryActionsCiSecrets } from "./provisioningModel";
-import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
+import {
+  isSamebaseManagedProviderPlan,
+  readProviderInfrastructureWriter,
+} from "./provisioningPlan";
 import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
 import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
@@ -118,8 +121,8 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
 
 /**
 The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished.
-The Workers Builds token, Worker, Builds, and deploy-key items do not apply: the repository's GitHub
-Actions own the Worker and the Convex project, and Samebase does not observe their deploys yet.
+Its attached Workers and Convex projects get the same items as any other repository, with the
+repair advice of buildSetupStackAttention.
 */
 function buildRepositoryActionsAttention(args: {
   repository: RepositoryStatusRepository;
@@ -182,10 +185,61 @@ export function buildRepositoryAttention(args: {
   }
 
   const plan = repository.providerPlan;
+  const resourceItems = buildResourceAttention({ repository, observations });
   if (plan && !isSamebaseManagedProviderPlan(plan)) {
-    return buildRepositoryActionsAttention({ repository, ciSecrets: plan.ciSecrets });
+    return [
+      ...buildRepositoryActionsAttention({ repository, ciSecrets: plan.ciSecrets }),
+      ...resourceItems,
+    ];
   }
+  return resourceItems;
+}
 
+/**
+A repair that only the repository's setup stack may make. readProviderInfrastructureWriter refuses
+the Samebase tool, so the item names the stack instead.
+*/
+function adviseSetupStack(item: RepositoryAttentionItem): RepositoryAttentionItem {
+  switch (item.tool) {
+    case CREATE_WORKER_TOOL:
+    case CONFIGURE_BUILDS_TOOL:
+    case ROTATE_CONVEX_DEPLOY_KEYS_TOOL:
+      return {
+        tool: null,
+        problem: `${item.problem} The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.`,
+      };
+    case RETRY_PROVIDER_SETUP_TOOL:
+    case null:
+      return item;
+    default:
+      item satisfies never;
+      return item;
+  }
+}
+
+/** The items of the attached Workers and Convex projects, with the repairs their writer may make. */
+function buildResourceAttention(args: {
+  repository: RepositoryStatusRepository;
+  observations: RepositoryObservations;
+}): RepositoryAttentionItem[] {
+  const items = listResourceAttention(args);
+  const writer = readProviderInfrastructureWriter(args.repository.providerPlan);
+  switch (writer) {
+    case "samebase":
+      return items;
+    case "setup_stack":
+      return items.map(adviseSetupStack);
+    default:
+      writer satisfies never;
+      return items;
+  }
+}
+
+function listResourceAttention(args: {
+  repository: RepositoryStatusRepository;
+  observations: RepositoryObservations;
+}): RepositoryAttentionItem[] {
+  const { repository, observations } = args;
   const items: RepositoryAttentionItem[] = [];
   const pendingCloudflareSetup = readPendingCloudflareSetup(repository);
   if (pendingCloudflareSetup) {

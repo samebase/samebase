@@ -460,11 +460,18 @@ export function RepositorySettings({
             />
           </div>
         </div>
-        {settingsState.providerActionBlockReason ? (
+        {settingsState.providerActionBlockReason || settingsState.providerSettingsOwner ? (
           <div className="mb-3" role="status">
-            <p className="text-xs leading-5 text-muted-foreground">
-              {settingsState.providerActionBlockReason}
-            </p>
+            {settingsState.providerActionBlockReason ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                {settingsState.providerActionBlockReason}
+              </p>
+            ) : null}
+            {settingsState.providerSettingsOwner ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                {settingsState.providerSettingsOwner}
+              </p>
+            ) : null}
           </div>
         ) : null}
         <div className="border-t border-border">

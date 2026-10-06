@@ -1,6 +1,9 @@
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
+import {
+  isSamebaseManagedProviderPlan,
+  readProviderInfrastructureWriter,
+} from "../../../convex/repository/provisioningPlan";
 import {
   getConvexCodeLocationPath,
   getConvexCodeRootDirectory,
@@ -101,6 +104,8 @@ export type RepositorySettingsState = {
     onClick?: () => void;
   };
   providerActionBlockReason: string | null;
+  /** Why the provider repairs are off: the repository's setup stack owns those settings. */
+  providerSettingsOwner: string | null;
   roots: readonly {
     resources: readonly RepositorySettingsResource[];
     rootDirectory: string;
@@ -1102,6 +1107,8 @@ export function buildRepositorySettingsState({
 }): RepositorySettingsState {
   const resourcesByRoot = new Map<string, RepositorySettingsResource[]>();
   const providerActionBlockReason = readRepositoryProviderActionBlockReason(repository);
+  const samebaseWritesProviders =
+    readProviderInfrastructureWriter(repository.providerPlan) === "samebase";
   const managedSetupActive =
     repository.providerWrite.status === "active" &&
     repository.providerWrite.owner.kind === "managed_run";
@@ -1192,10 +1199,14 @@ export function buildRepositorySettingsState({
       cloudflareBuildTokens,
       convexProjectActionLabels,
       convexProjects: repository.convexProjects,
-      configureWorkersBuildsForGitHubOnClick,
+      configureWorkersBuildsForGitHubOnClick: samebaseWritesProviders
+        ? configureWorkersBuildsForGitHubOnClick
+        : undefined,
       observationState: cloudflareObservations,
       pendingAction,
-      rotateConvexDeployKeysForWorkersBuildsOnClick,
+      rotateConvexDeployKeysForWorkersBuildsOnClick: samebaseWritesProviders
+        ? rotateConvexDeployKeysForWorkersBuildsOnClick
+        : undefined,
       settingUp: Boolean(managedSetupActive && plannedAttachment),
       worker,
     });
@@ -1261,6 +1272,9 @@ export function buildRepositorySettingsState({
       onClick: addConvexOnClick,
     },
     providerActionBlockReason,
+    providerSettingsOwner: samebaseWritesProviders
+      ? null
+      : "The setup stack in alchemy.run.ts owns the Workers Builds settings and the Convex deploy keys of this app. Change them there, or run the alchemy workflow to repair them.",
     roots: [...resourcesByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
       .map(([rootDirectory, resources]) => ({
