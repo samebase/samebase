@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   buildTreeEntriesForManifest,
+  readSeedBranchState,
   seedRepositoryWithStarter,
+  type StarterSeedBranchReader,
   type StarterSeedGitClient,
   type StarterTemplateManifest,
 } from "./starterSeed";
@@ -307,8 +309,8 @@ describe("seedRepositoryWithStarter", () => {
         repo: "repo",
         defaultBranch: "main",
         manifest,
-        beforeStarterPush: async () => {
-          mock.refEvents.push("before starter push");
+        beforeStarterPush: async ({ treeSha }) => {
+          mock.refEvents.push(`before starter push ${treeSha}`);
         },
       });
     }
@@ -324,7 +326,7 @@ describe("seedRepositoryWithStarter", () => {
       expect(mock.refEvents).toEqual([
         "bootstrap main bootstrap-1",
         "create refs/heads/main bootstrap-1",
-        "before starter push",
+        "before starter push tree-1",
         "update heads/main commit-1",
       ]);
     });
@@ -340,7 +342,7 @@ describe("seedRepositoryWithStarter", () => {
       expect(mock.refEvents).toEqual([
         "bootstrap main bootstrap-1",
         "create refs/heads/main bootstrap-1",
-        "before starter push",
+        "before starter push tree-1",
         "update heads/main commit-1",
       ]);
     });
@@ -357,7 +359,7 @@ describe("seedRepositoryWithStarter", () => {
       expect(mock.createCommitCalls.at(-1)).toMatchObject({ tree: "tree-2", parents: [] });
       expect(mock.refEvents).toEqual([
         "create refs/heads/main commit-2",
-        "before starter push",
+        "before starter push tree-1",
         "update heads/main commit-1",
       ]);
     });
@@ -397,5 +399,55 @@ describe("seedRepositoryWithStarter", () => {
       sha: "commit-1",
       force: true,
     });
+  });
+});
+
+describe("readSeedBranchState", () => {
+  /** A branch whose commits are listed newest first, each with its tree's paths. */
+  function readBranch(
+    commits: Array<{ treeSha: string; paths: string[] }>,
+    starterTreeSha: string | null,
+  ) {
+    const reader: StarterSeedBranchReader = {
+      readBranchHead: async () => {
+        const head = commits.at(0);
+        return head
+          ? { treeSha: head.treeSha, parentCount: Math.min(commits.length - 1, 1) }
+          : null;
+      },
+      listBranchTreeShas: async ({ limit }) =>
+        commits.slice(0, limit).map((commit) => commit.treeSha),
+      readTreePaths: async ({ treeSha }) =>
+        commits.find((commit) => commit.treeSha === treeSha)?.paths ?? [],
+    };
+    return readSeedBranchState({
+      reader,
+      owner: "owner",
+      repo: "repo",
+      branch: "main",
+      starterTreeSha,
+    });
+  }
+  const bootstrap = { treeSha: "bootstrap-tree", paths: [".samebase-seed-bootstrap"] };
+  const starter = { treeSha: "starter-tree", paths: ["package.json"] };
+  const userChange = { treeSha: "user-tree", paths: ["package.json", "notes.md"] };
+
+  it("lets the starter replace a missing branch or the bootstrap commit", async () => {
+    await expect(readBranch([], null)).resolves.toBe("missing");
+    await expect(readBranch([bootstrap], null)).resolves.toBe("bootstrap");
+    await expect(readBranch([bootstrap], "starter-tree")).resolves.toBe("bootstrap");
+  });
+
+  it("finds a recorded starter at the head or under later commits", async () => {
+    await expect(readBranch([starter], "starter-tree")).resolves.toBe("seeded");
+    await expect(readBranch([userChange, starter], "starter-tree")).resolves.toBe("seeded");
+  });
+
+  it("treats any other commit as foreign", async () => {
+    await expect(readBranch([userChange, bootstrap], "starter-tree")).resolves.toBe("foreign");
+    await expect(readBranch([userChange, starter], null)).resolves.toBe("foreign");
+    await expect(readBranch([{ treeSha: "other-root", paths: ["README.md"] }], null)).resolves.toBe(
+      "foreign",
+    );
   });
 });

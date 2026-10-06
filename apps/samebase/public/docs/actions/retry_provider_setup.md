@@ -18,8 +18,10 @@ not a confirmation request. Progress is readable through `repository_list` while
 
 For a repository that its GitHub Actions set up (`repository_create` with provisioning
 repository_actions), the retry writes the GitHub Actions secrets again and, when the starter was not
-seeded yet, seeds it and syncs the default branch tree. It never creates or changes the Convex
-project or the Worker: the repository's GitHub Actions own them.
+seeded yet, seeds it and syncs the default branch tree. A starter that an earlier run pushed is
+found on main and not pushed again, and when main has commits that Samebase did not make, the seed
+fails instead of replacing them. It never creates or changes the Convex project or the Worker: the
+repository's GitHub Actions own them.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the

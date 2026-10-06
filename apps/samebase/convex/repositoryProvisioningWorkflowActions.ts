@@ -24,7 +24,12 @@ import {
 } from "./repository/provisioningModel";
 import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { writeGitHubActionsSecrets } from "./githubActionsSecrets";
-import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
+import {
+  createStarterSeedBranchReader,
+  createStarterSeedGitClient,
+  readSeedBranchState,
+  seedRepositoryWithStarter,
+} from "./starterSeed";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import {
@@ -610,14 +615,17 @@ export const seedStarterRepository = internalAction({
     const repositoryActions = provisioning === "repository_actions";
     // The seed force-updates the seeded branch, so a recorded seed is never repeated: a repeat would
     // drop every commit pushed since. A retry or a step retry after the record finds it here.
-    const alreadySeeded =
-      repositoryActions &&
-      (
-        await ctx.runQuery(
+    const seed = repositoryActions
+      ? await ctx.runQuery(
           internal.repositoryProvisioningWorkflow.readRepositoryActionsSeedForRun,
-          { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+          {
+            repositoryId: args.repositoryId,
+            runId: args.runId,
+            userId: args.userId,
+          },
         )
-      ).state === "seeded";
+      : null;
+    let alreadySeeded = seed?.state === "seeded";
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -695,6 +703,40 @@ export const seedStarterRepository = internalAction({
       });
     };
 
+    // The starter push force-updates main, so it may replace only a missing branch or the bootstrap
+    // commit. A seed that recorded its tree before an earlier push may have landed already; finding
+    // that tree on main finishes the seed without a second push.
+    if (seed !== null && seed.state !== "seeded") {
+      const branchState = await readSeedBranchState({
+        reader: createStarterSeedBranchReader(octokit, { recordApiCall }),
+        owner: ownerName,
+        repo: repoName,
+        branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH,
+        starterTreeSha: seed.state === "seeding" ? seed.treeSha : null,
+      });
+      if (branchState === "foreign") {
+        throw new Error(
+          `${REPOSITORY_ACTIONS_DEFAULT_BRANCH} of ${ownerName}/${repoName} has commits that Samebase did not make, so Samebase cannot seed the starter without dropping them. Push the starter app yourself, or remove the repository from Samebase and create it again.`,
+        );
+      }
+      if (branchState === "seeded" && seed.state === "seeding") {
+        await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeded, {
+          repositoryId: args.repositoryId,
+          runId: args.runId,
+          userId: args.userId,
+          manifestVersion: seed.manifestVersion,
+        });
+        await appendRunEvent(ctx, {
+          runId: args.runId,
+          step: "seed_starter",
+          level: "info",
+          message: `Found the starter app on ${REPOSITORY_ACTIONS_DEFAULT_BRANCH}; it was pushed before the seed was recorded.`,
+          state: "running",
+        });
+        alreadySeeded = true;
+      }
+    }
+
     if (!alreadySeeded) {
       const manifest = repositoryActions ? actionsStarterTemplateManifest : starterTemplateManifest;
       try {
@@ -706,7 +748,18 @@ export const seedStarterRepository = internalAction({
             ? REPOSITORY_ACTIONS_DEFAULT_BRANCH
             : githubDefaultBranch,
           manifest,
-          beforeStarterPush: repositoryActions ? makeMainTheDefaultBranch : undefined,
+          beforeStarterPush: repositoryActions
+            ? async ({ treeSha }) => {
+                await makeMainTheDefaultBranch();
+                await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeding, {
+                  repositoryId: args.repositoryId,
+                  runId: args.runId,
+                  userId: args.userId,
+                  manifestVersion: manifest.version,
+                  treeSha,
+                });
+              }
+            : undefined,
         });
       } catch (error) {
         const seedErrorMessage = toErrorMessage(error);

@@ -202,12 +202,14 @@ template's alchemy workflow deploys production from pushes to main.
 export const REPOSITORY_ACTIONS_DEFAULT_BRANCH = "main";
 
 /**
-The starter seed of one repository_actions repository. The seed force-updates the default branch to
-a new root commit, so once it is `seeded` no retry seeds again: that would drop every commit pushed
-since.
+The starter seed of one repository_actions repository. The seed force-updates main to a new root
+commit, so once it is `seeded` no retry seeds again: that would drop every commit pushed since.
+`seeding` records the starter tree right before the push, because GitHub can accept the push
+although the step stops before it records `seeded`; a retry then finds that tree on main.
 */
 export const vRepositoryActionsSeed = union(
   object({ state: literal("planned") }),
+  object({ state: literal("seeding"), manifestVersion: string(), treeSha: string() }),
   object({ state: literal("seeded"), seededAt: number(), manifestVersion: string() }),
 );
 

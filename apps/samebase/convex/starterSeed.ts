@@ -54,6 +54,30 @@ type StarterSeedGitClientOptions = {
   recordApiCall?: ProviderApiCallRecorder;
 };
 
+/** The file of the commit that a seeded branch points at before the starter: no starter file. */
+const SEED_BOOTSTRAP_PATH = ".samebase-seed-bootstrap";
+
+/** How many commits of a branch the seed check reads back to find the starter tree. */
+const SEED_HISTORY_LIMIT = 100;
+
+/** The reads that tell what a seeded branch holds before Samebase pushes the starter to it. */
+export type StarterSeedBranchReader = {
+  /** The branch head's tree and parent count; null when the branch or any commit is missing. */
+  readBranchHead(args: {
+    owner: string;
+    repo: string;
+    branch: string;
+  }): Promise<{ treeSha: string; parentCount: number } | null>;
+  /** The tree of each of the branch's latest commits, newest first. */
+  listBranchTreeShas(args: {
+    owner: string;
+    repo: string;
+    branch: string;
+    limit: number;
+  }): Promise<string[]>;
+  readTreePaths(args: { owner: string; repo: string; treeSha: string }): Promise<string[]>;
+};
+
 const RETRYABLE_STATUSES = new Set([409, 422]);
 
 function getErrorStatus(error: unknown): number | undefined {
@@ -418,6 +442,110 @@ async function createBinaryFileBlobs(args: {
   return binaryFileShas;
 }
 
+/**
+What a branch holds before Samebase pushes the starter to it, which decides whether the force push of
+the starter may run: missing or bootstrap (a root commit with only the bootstrap file) may take the
+starter; seeded already holds the starter tree that the caller recorded, at its head or within the
+latest commits; foreign has commits that Samebase did not make, which a force push would drop.
+*/
+export async function readSeedBranchState(args: {
+  reader: StarterSeedBranchReader;
+  owner: string;
+  repo: string;
+  branch: string;
+  /** The starter tree recorded before an earlier push, which may have landed; null before any. */
+  starterTreeSha: string | null;
+}): Promise<"missing" | "bootstrap" | "seeded" | "foreign"> {
+  const location = { owner: args.owner, repo: args.repo };
+  const head = await args.reader.readBranchHead({ ...location, branch: args.branch });
+  if (head === null) {
+    return "missing";
+  }
+  if (args.starterTreeSha !== null) {
+    if (head.treeSha === args.starterTreeSha) {
+      return "seeded";
+    }
+    const treeShas = await args.reader.listBranchTreeShas({
+      ...location,
+      branch: args.branch,
+      limit: SEED_HISTORY_LIMIT,
+    });
+    if (treeShas.includes(args.starterTreeSha)) {
+      return "seeded";
+    }
+  }
+  if (head.parentCount === 0) {
+    const paths = await args.reader.readTreePaths({ ...location, treeSha: head.treeSha });
+    if (paths.length === 1 && paths[0] === SEED_BOOTSTRAP_PATH) {
+      return "bootstrap";
+    }
+  }
+  return "foreign";
+}
+
+export function createStarterSeedBranchReader(
+  octokit: Octokit,
+  options?: StarterSeedGitClientOptions,
+): StarterSeedBranchReader {
+  return {
+    readBranchHead: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "GET",
+        endpoint: "/repos/{owner}/{repo}/branches/{branch}",
+        values: { params: { path: args } },
+      });
+      try {
+        const response = await octokit.rest.repos.getBranch(args);
+        return {
+          treeSha: response.data.commit.commit.tree.sha,
+          parentCount: response.data.commit.parents.length,
+        };
+      } catch (error) {
+        // GitHub answers 404 for a missing branch and 409 for a repository without commits.
+        const status = getErrorStatus(error);
+        if (status === 404 || status === 409) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    listBranchTreeShas: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "GET",
+        endpoint: "/repos/{owner}/{repo}/commits",
+        values: {
+          params: {
+            path: { owner: args.owner, repo: args.repo },
+            query: { sha: args.branch, per_page: args.limit },
+          },
+        },
+      });
+      const response = await octokit.rest.repos.listCommits({
+        owner: args.owner,
+        repo: args.repo,
+        sha: args.branch,
+        per_page: args.limit,
+      });
+      return response.data.map((commit) => commit.commit.tree.sha);
+    },
+    readTreePaths: async (args) => {
+      await recordGitHubApiCall(options, {
+        method: "GET",
+        endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
+        values: {
+          params: { path: { owner: args.owner, repo: args.repo, tree_sha: args.treeSha } },
+        },
+      });
+      const response = await octokit.rest.git.getTree({
+        owner: args.owner,
+        repo: args.repo,
+        tree_sha: args.treeSha,
+      });
+      return response.data.tree.map((entry) => entry.path);
+    },
+  };
+}
+
 /** A root commit with only the bootstrap file, for a branch that must exist before the starter. */
 async function createPlaceholderCommit(args: {
   client: StarterSeedGitClient;
@@ -457,11 +585,12 @@ export async function seedRepositoryWithStarter(args: {
   manifest: StarterTemplateManifest;
   /**
   Runs after the seeded branch exists with a commit that has no starter file and before the starter
-  commit is pushed to it. The push of the starter is the push that the repository's workflows run
-  on, so a caller that must change the repository before that first run (repository_actions makes
-  the seeded branch the default) does it here.
+  commit is pushed to it, with the starter commit's tree. The push of the starter is the push that
+  the repository's workflows run on, so a caller that must change the repository before that first
+  run (repository_actions makes the seeded branch the default) does it here, and a caller that must
+  recognize the pushed starter later records the tree here.
   */
-  beforeStarterPush?: () => Promise<void>;
+  beforeStarterPush?: (starter: { treeSha: string }) => Promise<void>;
 }): Promise<{ defaultBranch: string; headCommitSha: string }> {
   const manifest = args.manifest;
   validateManifest(manifest);
@@ -497,7 +626,7 @@ export async function seedRepositoryWithStarter(args: {
     });
   };
 
-  const bootstrapPath = ".samebase-seed-bootstrap";
+  const bootstrapPath = SEED_BOOTSTRAP_PATH;
   const bootstrapMessage = "chore: bootstrap branch for starter seeding";
   const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString("base64");
 
@@ -584,7 +713,7 @@ export async function seedRepositoryWithStarter(args: {
         throw error;
       }
     }
-    await args.beforeStarterPush();
+    await args.beforeStarterPush({ treeSha: tree.sha });
     await retryOperation({
       operation: "seed:pushStarter",
       run: async () =>

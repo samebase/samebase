@@ -522,26 +522,61 @@ async function openActionsSecret(request: FakeGitHubRequest | undefined): Promis
 
 type FakeGitHubRequest = { method: string; path: string; body: unknown };
 
+/** A commit of the fake repository's main: its tree and the paths in that tree. */
+type FakeCommit = { sha: string; treeSha: string; paths: string[] };
+
+const BOOTSTRAP_COMMIT: FakeCommit = {
+  sha: "bootstrap-commit",
+  treeSha: "bootstrap-tree",
+  paths: [".samebase-seed-bootstrap"],
+};
+const SEED_COMMIT: FakeCommit = { sha: "seed-commit", treeSha: "seed-tree", paths: [] };
+const FOREIGN_COMMIT: FakeCommit = {
+  sha: "foreign-commit",
+  treeSha: "foreign-tree",
+  paths: [".samebase-seed-bootstrap", "notes.md"],
+};
+
 /**
 An Octokit whose fetch answers like GitHub for one new repository, created with the owner's
 `defaultBranch`; a PATCH of the repository changes it. `denySecrets` answers the secrets 403, and
-`failTreeSync` answers the tree read of sync_tree 500. `calls` records the requests and the starter
-seeds in order.
+`failTreeSync` answers the tree read of sync_tree 500. `mainHistory` is main, newest commit first,
+and empty while main does not exist. `seedStops` makes the next starter seeds stop: before_push
+after the seeder recorded the starter tree, after_push once GitHub accepted the starter, and
+foreign_commit_before_push like before_push while someone else pushes to main. `calls` records the
+requests and the starter seeds in order.
 */
 function createFakeGitHub(options: {
   defaultBranch: string;
   denySecrets: boolean;
   failTreeSync: boolean;
+  seedStops?: Array<"before_push" | "after_push" | "foreign_commit_before_push">;
 }) {
   const requests: FakeGitHubRequest[] = [];
   const calls: string[] = [];
-  // The seeder creates the branch without starter files, runs the step before the starter push,
-  // then pushes the starter.
+  const mainHistory: FakeCommit[] = [];
+  const seedStops = [...(options.seedStops ?? [])];
+  // The seeder points main at the bootstrap commit (no starter files), runs the step before the
+  // starter push with the starter tree, then force-pushes the starter.
   githubMocks.seedRepository.mockImplementation(async (args) => {
     calls.push("branch without starter");
-    await args.beforeStarterPush?.();
+    if (mainHistory.length === 0) {
+      mainHistory.push(BOOTSTRAP_COMMIT);
+    }
+    await args.beforeStarterPush?.({ treeSha: SEED_COMMIT.treeSha });
+    const stop = seedStops.shift();
+    if (stop === "foreign_commit_before_push") {
+      mainHistory.unshift(FOREIGN_COMMIT);
+    }
+    if (stop === "before_push" || stop === "foreign_commit_before_push") {
+      throw new Error("The connection to GitHub was reset.");
+    }
+    mainHistory.splice(0, mainHistory.length, SEED_COMMIT);
     calls.push("seed");
-    return { defaultBranch: "main", headCommitSha: "seed-commit" };
+    if (stop === "after_push") {
+      throw new Error("The connection to GitHub was reset.");
+    }
+    return { defaultBranch: "main", headCommitSha: SEED_COMMIT.sha };
   });
   // GitHub's REST shape of the repository.
   const actionsRepository = {
@@ -592,19 +627,48 @@ function createFakeGitHub(options: {
     if (request.method === "POST" && request.path === `${repositoryPath}/actions/variables`) {
       return { status: 201, body: {} };
     }
+    const head = mainHistory.at(0);
     if (request.path === `${repositoryPath}/branches/main`) {
+      return head === undefined
+        ? { status: 404, body: { message: "Branch not found" } }
+        : {
+            status: 200,
+            body: {
+              name: "main",
+              commit: {
+                sha: head.sha,
+                commit: { tree: { sha: head.treeSha } },
+                parents: mainHistory.slice(1, 2).map((parent) => ({ sha: parent.sha })),
+              },
+            },
+          };
+    }
+    if (request.method === "GET" && request.path === `${repositoryPath}/commits`) {
       return {
         status: 200,
-        body: {
-          name: "main",
-          commit: { sha: "seed-commit", commit: { tree: { sha: "seed-tree" } } },
-        },
+        body: mainHistory.map((commit) => ({
+          sha: commit.sha,
+          commit: { tree: { sha: commit.treeSha } },
+        })),
       };
     }
     if (request.path === `${repositoryPath}/git/trees/seed-tree`) {
       return options.failTreeSync
         ? { status: 500, body: { message: "Server Error" } }
         : { status: 200, body: { sha: "seed-tree", truncated: false, tree: [] } };
+    }
+    const tree = [BOOTSTRAP_COMMIT, FOREIGN_COMMIT].find(
+      (commit) => request.path === `${repositoryPath}/git/trees/${commit.treeSha}`,
+    );
+    if (tree) {
+      return {
+        status: 200,
+        body: {
+          sha: tree.treeSha,
+          truncated: false,
+          tree: tree.paths.map((path) => ({ path, mode: "100644", type: "blob", sha: "blob" })),
+        },
+      };
     }
     return { status: 404, body: { message: `Unexpected ${request.method} ${request.path}` } };
   };
@@ -626,7 +690,7 @@ function createFakeGitHub(options: {
       },
     },
   });
-  return { calls, octokit, requests, options };
+  return { calls, mainHistory, octokit, requests, options };
 }
 
 /** The GitHub requests between the seeded branch's creation and the starter push. */
@@ -779,6 +843,13 @@ describe("repository_actions provisioning workflow", () => {
     expect(github.calls.indexOf("seed")).toBeGreaterThan(
       github.calls.indexOf("POST /repos/samebase/actions-app/actions/variables"),
     );
+    // The step reads main before the seed: it does not exist yet, so the starter may be pushed.
+    expect(github.calls.indexOf("GET /repos/samebase/actions-app/branches/main")).toBeLessThan(
+      github.calls.indexOf("branch without starter"),
+    );
+    expect(state.plan).toMatchObject({
+      seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
+    });
     // main is already the default, so the step reads it once more and changes nothing.
     expect(readCallsBeforeStarterPush(github)).toEqual([
       "GET /installation/repositories",
@@ -933,6 +1004,70 @@ describe("repository_actions provisioning workflow", () => {
     // The connect step recorded master; the record now names main, and the tree sync read main.
     expect(state.repository).toMatchObject({ defaultBranch: "main" });
     expect(github.calls).toContain("GET /repos/samebase/actions-app/branches/main");
+  });
+
+  it("finds a starter push whose seeded record was lost, without pushing again", async () => {
+    // GitHub accepts the starter push, and the step stops before it records the seed.
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+      seedStops: ["after_push"],
+    });
+    const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
+
+    const state = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    // The step retry found the recorded starter tree at the head of main.
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
+    expect(github.mainHistory).toEqual([SEED_COMMIT]);
+    expect(state.plan).toMatchObject({
+      seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
+    });
+    expect(state.messages).toContain(
+      "Found the starter app on main; it was pushed before the seed was recorded.",
+    );
+  });
+
+  it("pushes the starter again when main still holds only the bootstrap commit", async () => {
+    // The step records the starter tree and stops before the push.
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+      seedStops: ["before_push"],
+    });
+    const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
+
+    const state = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(2);
+    expect(github.mainHistory).toEqual([SEED_COMMIT]);
+    expect(state.plan).toMatchObject({ seed: { state: "seeded" } });
+  });
+
+  it("refuses to seed over commits on main that Samebase did not make", async () => {
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+      seedStops: ["foreign_commit_before_push"],
+    });
+    const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
+    const refusal =
+      "main of samebase/actions-app has commits that Samebase did not make, so Samebase cannot seed the starter without dropping them. Push the starter app yourself, or remove the repository from Samebase and create it again.";
+    await recordWorkflowFailure(t, { runId, message: `Error: ${refusal}` });
+
+    const failed = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(failed.run).toMatchObject({
+      state: "failed",
+      currentStep: "seed_starter",
+      lastError: refusal,
+    });
+    // Every step retry read main and stopped; nothing force-updated it.
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
+    expect(github.mainHistory).toEqual([FOREIGN_COMMIT, BOOTSTRAP_COMMIT]);
+    expect(failed.plan).toMatchObject({ seed: { state: "seeding", treeSha: "seed-tree" } });
   });
 
   it("lists a connected repository at every step of its running create run", async () => {

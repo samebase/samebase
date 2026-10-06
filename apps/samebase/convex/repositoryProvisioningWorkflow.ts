@@ -477,6 +477,30 @@ export const recordRepositoryActionsDefaultBranch = internalMutation({
   },
 });
 
+/** Records the starter tree right before the seed push, so a retry can find the pushed starter. */
+export const markStarterSeeding = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+    manifestVersion: string(),
+    treeSha: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const plan = await readRepositoryActionsPlanForRun(ctx, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+    });
+    await ctx.db.patch(plan._id, {
+      seed: { state: "seeding", manifestVersion: args.manifestVersion, treeSha: args.treeSha },
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 /** Records the seed, so no later retry force-updates the default branch again. */
 export const markStarterSeeded = internalMutation({
   args: {
