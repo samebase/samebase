@@ -330,3 +330,42 @@ Score Four CI token), and the CI token for the dogfood organization.
   same manifest export name. Also from Nicu: every decision in this document is the author's
   opinion, not an invariant, and Codex reviews must be free to challenge them; a design review of
   this RFC by Codex runs alongside PR B.
+- 2026-10-06: Codex design review of this document (prompted as a review of an AI author's
+  opinions), 13 findings. Dispositions, proposed by the author and open to Nicu:
+  1. P1, repository access becomes provider-wide access (a repository writer can read Actions
+     secrets through a workflow; the Cloudflare token is account-wide, the Convex team token is
+     team-wide). Accepted as the main release gate. Options: accept for the dogfood with the blast
+     radius written down; or a hybrid where Samebase creates the Convex project and project-scoped
+     deploy keys and the stack never holds a team token. Decision pending.
+  2. P1, the seed action requires a connected repository. Accepted: the order is create, connect,
+     write secrets, seed, sync. Sent to PR B.
+  3. P1, PR B must not be user-reachable before basic observation. Accepted in part: PR B shows
+     "deployment runs in GitHub Actions" with a link to the Actions page; the experimental label
+     stays until PR C observes the result. Decision on a hard gate pending.
+  4. P2, resumable credential writes with a delivered revision and a retry path. Accepted, sent to
+     PR B (`ciSecrets.written.credentialRevision`).
+  5. P2, independent lifecycle for CI credentials (bindings, rotation, revocation). Partly accepted:
+     the revision binding comes with PR B; rotation and a separate store are later. Correction to
+     this document: the Convex Management API has `GET /teams/{team_id}/list_access_tokens` and
+     `POST /teams/{team_id}/delete_access_token` (body `{ id }`, the token's name or secret value);
+     the temporary token was deleted by name with it.
+  6. P2, installation permission check before creation; Actions read for private runs. Accepted: the
+     check is in PR B; the App needs Actions: read before PR C.
+  7. P2, validate tokens against the saved account and team; region choice. Accepted for the token
+     checks (PR B). The template has no region input yet; follow-up.
+  8. P2, names as identities (use the repository id, `sb-<id>`). Not accepted as proposed: names
+     follow Samebase's existing convention and give readable URLs; instead PR B pre-checks name
+     availability before creating anything, as the current mode does, and a repository rename is
+     documented as unsupported. Decision pending.
+  9. P2, name the Convex preview `pr-<number>` too (two pull requests from one branch would claim
+     one deployment). Accepted; template follow-up after the layout PR. Part C matches on it.
+  10. P2, a stale rerun can deploy old code; check the head before deploying. Accepted; the base
+      template's head check returns as a workflow step. Template follow-up.
+  11. P2, the destroy job's vulnerability audits can block cleanup. Proposed: destroy keeps the
+      no-scripts install and the signature audit, drops the vulnerability audits (they protect the
+      deployed app, not the cleanup). Decision pending.
+  12. P2, observation needs run outputs and one controller per resource. Accepted: PR B refuses
+      Samebase's manual provider writes for this mode; PR C identifies the run by workflow path and
+      job name.
+  13. P3, make the discriminant required after a backfill; say "GitHub Actions" in the UI. Accepted;
+      the backfill is a later step.
