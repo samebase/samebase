@@ -88,6 +88,8 @@ supplies `VITE_CONVEX_URL` of that deployment to the app build, so it is not a b
 `scripts/ensure-convex-auth.ts` then creates the Convex Auth keys of the deployment when they are
 missing and keeps existing keys on rebuilds. `scripts/verify-current-branch-head.ts` prevents an
 older concurrent build from deploying backend code after a newer commit reaches the same branch.
+Workers Builds installs and builds without package audits, like the `samebase/base` starter.
+`.github/workflows/ci.yml` runs the audits on every pull request and every push to `main`.
 
 `scripts/build-worker.ts` writes the Worker Build Output, a Preview build on branches other than
 `main`. `pnpm run deploy` runs `cf deploy --prebuilt`. `pnpm run deploy:preview` runs
