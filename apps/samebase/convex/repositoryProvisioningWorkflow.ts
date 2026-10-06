@@ -34,7 +34,6 @@ import {
 } from "./repository/provisioningPlan";
 import { isLiveConnectedRepository } from "./repository/state";
 import {
-  requireActiveRepositoryDeletionAuthority,
   requireActiveRepositoryProvisioningAuthority,
   requireActiveRepositoryProvisioningContinuation,
   requireActiveRepositoryProvisioningRun,
@@ -514,31 +513,6 @@ export const recordConvexAccessTokenMinted = internalMutation({
       updatedAt: now,
     });
     return null;
-  },
-});
-
-/**
-The Convex access token that a repository deletion run deletes: the token that write_actions_secrets
-minted for a repository_actions repository. Null for a samebase repository or before the mint.
-*/
-export const readRepositoryActionsConvexAccessTokenForDeletion = internalQuery({
-  args: { runId: id("workflow_repositoryDeletion_runs") },
-  returns: union(object({ name: string(), teamId: string() }), v.null()),
-  handler: async (ctx, args) => {
-    const { repository } = await requireActiveRepositoryDeletionAuthority(ctx.db, args);
-    const plan = await ctx.db
-      .query("workflow_repositoryProvisioning_plans")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", repository._id))
-      .unique();
-    if (
-      !plan ||
-      isSamebaseProvisioningPlan(plan) ||
-      plan.convexAccessToken.state !== "minted" ||
-      repository.convexTeamId === undefined
-    ) {
-      return null;
-    }
-    return { name: plan.convexAccessToken.name, teamId: repository.convexTeamId };
   },
 });
 

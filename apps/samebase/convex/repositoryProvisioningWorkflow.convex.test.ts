@@ -920,7 +920,7 @@ describe("repository_actions provisioning workflow", () => {
     );
   });
 
-  it("deletes the minted Convex access token when the repository is removed from Samebase", async () => {
+  it("keeps the minted Convex access token when the repository is removed from Samebase", async () => {
     const github = createFakeGitHub({
       defaultBranch: "main",
       denySecrets: false,
@@ -945,11 +945,8 @@ describe("repository_actions provisioning workflow", () => {
       runId: deletionRunId,
     });
 
-    expect(convexMocks.deleteTeamAccessToken).toHaveBeenCalledExactlyOnceWith({
-      token: "convex-oauth-test-token",
-      teamId: "41",
-      name: "samebase/samebase/actions-app",
-    });
+    // The repository's GitHub Actions keep deploying with the token after the removal.
+    expect(convexMocks.deleteTeamAccessToken).not.toHaveBeenCalled();
   });
 
   it("never seeds again after a retry seeded and then failed in the tree sync", async () => {

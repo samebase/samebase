@@ -616,7 +616,6 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Save the Cloudflare CI token",
   "GitHub Actions setup needs a Convex connection made with OAuth",
   "/create_access_token, so the Convex connection cannot mint",
-  "Convex connection is required to delete the Convex access token",
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
 ];
 

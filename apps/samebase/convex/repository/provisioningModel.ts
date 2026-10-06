@@ -219,7 +219,9 @@ export const vRepositoryActionsSeed = union(
 /**
 The Convex team access token that write_actions_secrets mints for one repository_actions repository
 and writes as its CONVEX_ACCESS_TOKEN secret. Samebase stores only the name: a retry deletes the
-token by name before it mints a new one, and the repository's removal deletes it.
+token by name before it mints a new one. Samebase never revokes what a repository needs to keep
+working, so removing the repository or deleting the account or organization leaves the token in
+place for the user to revoke.
 */
 export const vRepositoryActionsConvexAccessToken = union(
   object({ state: literal("planned") }),

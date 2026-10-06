@@ -127,8 +127,10 @@ installation has not granted the Secrets and Variables permissions, or when a Co
 Worker with the repository's name exists. A ready providerSetup then means that the secrets are
 written and the starter is seeded, not that the app is deployed: the deployment runs in the
 repository's GitHub Actions. Samebase's Worker and Convex project tools refuse such a repository,
-because its GitHub Actions own those resources. Removing the repository from Samebase deletes the
-minted Convex access token, so the repository's GitHub Actions can no longer deploy Convex.`,
+because its GitHub Actions own those resources. Samebase never revokes what the repository needs to
+keep working: removing the repository from Samebase, or deleting the Samebase account or
+organization, leaves the minted Convex access token in the Convex team's access tokens for the user
+to revoke.`,
 } as const;
 
 const createRepositoryArgsValidator = object(createRepositoryContract.args);
