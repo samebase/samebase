@@ -724,9 +724,17 @@ Samebase does not read Alchemy's state store.
   writes only that value. A failed validation fails the step before anything is uploaded.
 - `scripts/destroy-app.ts` writes the destroy receipt only after `alchemy destroy` ran, and the
   `destroy-app` job uploads it.
-- Version rule: an integer `version`. Version 1 rejects unknown fields, in the template and in the
-  reader. Any added, removed, or retyped field is a new version. Samebase keeps one validator per
-  version it has met and never drops one while a template that writes it can still run.
+- Shape rule: one section per provider; each section names its destination (the Cloudflare account,
+  the Convex team) and holds one list per kind of resource. Every list may hold several entries: a
+  monorepo stack lists all its Workers and Convex projects, and the reader, the verification, and
+  the apply handle each entry. One stack per repository, by the naming rule `<owner>_<repository>`;
+  several Workers and projects live inside that one stack.
+- Version rule: an integer `version`. A new kind of resource (buckets, email routing, zones) is a
+  new list or a new section, and that is a new version, as is any added, removed, or retyped field.
+  Version 1 rejects every section, list, and field it does not define, in the template before the
+  upload and again in the reader, so an unknown kind fails closed on both sides. Samebase keeps one
+  validator per version it has met and never drops one while a template that writes it can still
+  run.
 - No field may hold a secret. Convex ids are decimal strings, as Samebase stores them and as the
   `SAMEBASE_CONVEX_PROJECT` marker carries them.
 

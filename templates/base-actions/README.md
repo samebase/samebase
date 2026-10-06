@@ -96,10 +96,16 @@ The deploy that creates the Workers Builds link also starts the first production
 pushes the starter to `main` before the link exists, so that push builds nothing. Later pushes start
 their own builds.
 
-After each deploy, the workflow uploads the artifact `samebase-setup-output`: the ids of the Worker
-and the Convex project, which Samebase reads to show the app. `scripts/setup-output.ts` defines it,
-and it never holds a secret, because anyone who can read the repository can download it. A
-confirmed destroy uploads a receipt under the same name.
+After each deploy, the workflow uploads the artifact `samebase-setup-output`: the ids of the Workers
+and the Convex projects that the stack owns, which Samebase reads to show the app. A confirmed
+destroy uploads a receipt under the same name. `scripts/setup-output.ts` defines the file:
+
+- One section per provider, each with its destination (the Cloudflare account, the Convex team) and
+  one list per kind of resource. A stack with several Workers or Convex projects lists them all.
+- A new kind of resource, such as buckets or email routing, is a new list or section and a new
+  `version`. The current version rejects anything it does not define, so the deploy fails before
+  the upload rather than publish something Samebase cannot read.
+- It never holds a secret: anyone who can read the repository can download it.
 
 The deploy never takes over a Worker or a Convex project with the same name that is not in the
 stack's state; it stops with `OwnedBySomeoneElse`. Run the workflow with `adopt` to take them over.

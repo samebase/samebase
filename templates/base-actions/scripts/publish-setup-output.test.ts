@@ -36,6 +36,27 @@ describe("readSetupOutput", () => {
     ).toEqual(samebase);
   });
 
+  it("reads several Workers and Convex projects, as a monorepo stack lists them", () => {
+    const monorepo = {
+      ...samebase,
+      cloudflare: {
+        ...samebase.cloudflare,
+        workers: [
+          { tag: "7c1f0e0d2b8a4c5e9f1a2b3c4d5e6f70", name: "web", rootDirectory: "/apps/web" },
+          { tag: "0f9e8d7c6b5a49382716051423324150", name: "admin", rootDirectory: "/apps/admin" },
+        ],
+      },
+      convex: {
+        ...samebase.convex,
+        projects: [
+          { projectId: "678901", configPath: "apps/web/convex.json" },
+          { projectId: "678902", configPath: "apps/admin/convex.json" },
+        ],
+      },
+    };
+    expect(readSetupOutput(printed({ samebase: monorepo }))).toEqual(monorepo);
+  });
+
   it("fails without a stack output, as after a deploy with --include", () => {
     expect(() => readSetupOutput(`${logLines}undefined\n`)).toThrow("printed no stack output");
   });
@@ -46,8 +67,16 @@ describe("readSetupOutput", () => {
     ).toThrow();
   });
 
-  it("fails on a field that version 1 does not define, so nothing unknown reaches the artifact", () => {
+  it("fails on a section, a kind, or a field that version 1 does not define", () => {
     expect(() => readSetupOutput(printed({ samebase: { ...samebase, deployKey: "x" } }))).toThrow();
+    expect(() =>
+      readSetupOutput(printed({ samebase: { ...samebase, email: { zones: ["example.com"] } } })),
+    ).toThrow();
+    expect(() =>
+      readSetupOutput(
+        printed({ samebase: { ...samebase, cloudflare: { ...samebase.cloudflare, buckets: [] } } }),
+      ),
+    ).toThrow();
     expect(() =>
       readSetupOutput(
         printed({

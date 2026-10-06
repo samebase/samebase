@@ -4,9 +4,16 @@
 // scripts/destroy-app.ts after a destroy; .github/workflows/alchemy.yml
 // uploads the file as the artifact samebase-setup-output.
 //
+// One section per provider. Each section names its destination (the
+// Cloudflare account, the Convex team) and holds one list per kind of
+// resource, so a stack with several Workers or several Convex projects lists
+// them all. A new kind, such as buckets or email routing, is a new list or a
+// new section, and that is a new version: this version rejects every section
+// and field it does not define, here before the upload and again in Samebase,
+// so nothing unknown is published or read.
+//
 // Anyone who can read the repository can download the artifact, so no field
-// may hold a secret. A field that this version does not define fails the
-// write: a new field is a new version, which Samebase must learn to read.
+// may hold a secret.
 /// <reference types="node" />
 import { writeFileSync } from "node:fs";
 
