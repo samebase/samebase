@@ -455,3 +455,13 @@ Score Four CI token), and the CI token for the dogfood organization.
   merges after it). Codex round 1 on PR #1693: two P1 collisions with constructed branch names (fix:
   a hash in every preview stage and every Preview name) and a P2 delete rerun after a branch is
   recreated (fix: check the branch is absent before destroying). Fixes in progress on both.
+- 2026-10-06: Codex round 2 on PR B, one P1 and three P2s, all accepted. P1: the mode seeds `main`
+  and sets the repository default branch to `main` when the owner's default differs, so PR B no
+  longer depends on PR #1693. P2: the CI credentials move to their own table,
+  `organizationCiCredentials`, indexed by organization and by the saving user, so provider
+  disconnects and account deletions of one member cannot delete another member's tokens (this
+  changes the Schema section: the `ci` field on `organizationProviderCredentials` goes away, a new
+  table comes instead; still additive). P2: an initial create run that fails in the seed or the tree
+  sync is admitted to retry. P2: the retry confirmation describes the mode's operation (secrets and
+  variable write, seed if needed, tree sync). Codex round 2 on PR #1693: one P2, the branch check
+  must query the exact Git ref and not follow GitHub's rename redirects. Fixes in progress on both.
