@@ -330,8 +330,19 @@ It listed the two `alchemy` runs on `main`, both `push` and `success`; found the
 `workflow_run` id, repository id, head repository id, and head SHA equal the run's; and refused the
 block because the file is not one JSON document: three log lines precede the object. Under the
 contract name `samebase-setup-output` it refused with "no successful setup run published the block".
-Both refusals are the intended behavior. Section "Live verification spike" below records the
-identity checks against Cloudflare and Convex.
+Both refusals are the intended behavior.
+
+A second spike, the identity checks of section 4 against Cloudflare and Convex, is written but was
+not run. It is a one-off workflow on a temporary branch of `samebase/tmp-alchemy-v2` (the CI tokens
+exist only in that repository's secrets) that reads the stack's state rows into files, assembles the
+version 1 block from `Worker.attr`, `Builds.attr`, and `Project.attr`, and checks 27 claims (Worker
+by tag, Builds `repo_id` against `github.repository_id`, roots, the marker against the project ids,
+deploy-key variables secret on both settings, the Convex project's team, no deploy key in any
+printed state shape), printing booleans and timings only. Creating the branch was refused by this
+session's permission check, so the checks in section 4 rest on the provider sources and on
+Samebase's existing calls to the same endpoints, not on a live run. A branch push also starts a
+Workers Builds preview build (the Builds link builds every branch), which creates a Convex preview
+deployment and a Worker Preview that the branch deletion must clean up.
 
 How this touches the rest: the artifact read is a GitHub read like the pull request reads (spec
 116), runs with the installation token Samebase already uses, and feeds the same attach mutations
@@ -660,8 +671,12 @@ the JSON object from the command's stdout.
 ### When it runs
 
 - In the provisioning workflow, after `sync_tree`: a step `observe_setup_run` that waits for the
-  first block with backoff for up to 20 minutes while holding the write lock, then `attach_setup`. A
-  timeout ends the run as failed at that step, which the existing retry admission accepts.
+  first block with backoff for up to 20 minutes while holding the write lock, then `attach_setup`.
+  The wait is a loop of short read actions and workflow sleeps (`ctx.sleep` in
+  `@convex-dev/workflow@0.4.6`, `dist/client/workflowContext.d.ts:116-119`), not one long action. A
+  timeout ends the run as failed at that step, which the existing retry admission accepts once
+  `observe_setup_run` and `attach_setup` are provider steps in
+  `isRepositoryProvisioningProviderStep` (`provisioningModel.ts:58-81`).
 - On `repository_retryProviderSetup` for this mode: the same two steps, after the secrets step, with
   the seed and sync skipped by their checkpoints.
 - Never from a status read. The status read only reports when the newest block differs from the
