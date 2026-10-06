@@ -567,3 +567,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   no minting, no API-key fallback, no dependence on the Convex connection method. The CI credentials
   row links to the team's access tokens page in the Convex dashboard. Minting through OAuth stays
   recorded as a later improvement. This supersedes the "option 2" entry above before it shipped.
+- 2026-10-07: PR B final shape (commits `7f135fe81`, `4aad05930`; 2622 tests): two pasted CI tokens
+  per organization, Cloudflare (prefilled token link) and Convex (link to the team's access tokens
+  page), both with the saved-state display and a Replace field that wraps under the field on a
+  narrow pane; `write_actions_secrets` writes them and the account id as secrets and the team id as
+  a variable; the New app option requires both tokens and names the missing one; `main` is the
+  default branch before the starter push; minting and its states are gone. Codex round 7 running.
