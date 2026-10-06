@@ -1,6 +1,5 @@
-// The names of the deploy resources of this app. alchemy.run.ts,
-// cloudflare.config.ts, and scripts/destroy-app.ts import them from here, so
-// each name has one owner.
+// The names of the resources that the setup stack owns. alchemy.run.ts and
+// scripts/destroy-app.ts import them from here, so each name has one owner.
 /// <reference types="node" />
 import { existsSync, readFileSync } from "node:fs";
 import process from "node:process";

@@ -8,8 +8,9 @@
 // - This stack: the Worker shell, the Workers Builds link with its build
 //   variables, the Convex project, and the two Convex deploy keys of the
 //   builds. It never uploads Worker code.
-// - cloudflare.config.ts: everything of the Worker version. This file reads
-//   only the Worker name from it.
+// - wrangler.jsonc: everything of the Worker version. It has no `name`:
+//   Workers Builds deploys to the Worker it is connected to, whose name this
+//   stack gives from the repository (scripts/deploy-names.ts).
 //
 // .github/workflows/alchemy.yml runs it on its one stage, prod. A deploy from
 // a laptop needs GITHUB_REPOSITORY, CONVEX_TEAM_ID, CLOUDFLARE_API_TOKEN, and
@@ -27,7 +28,6 @@ import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 
-import { worker } from "./cloudflare.config.ts";
 import { deployNames } from "./scripts/deploy-names.ts";
 
 const names = deployNames();
@@ -135,7 +135,7 @@ export default Alchemy.Stack(
 
     // A Worker or a project with this name that the stack did not create
     // stops the deploy until `alchemy deploy --adopt`.
-    const shell = yield* WorkersBuilds.Worker("Worker", { name: worker.name }).pipe(
+    const shell = yield* WorkersBuilds.Worker("Worker", { name: names.worker }).pipe(
       Alchemy.RemovalPolicy.retain(keepProductionApp),
     );
     const project = yield* Convex.Project("Project", {

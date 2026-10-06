@@ -48,14 +48,11 @@ The core workflow runs on macOS, Linux, and Windows. See
 
 ## Checks and builds
 
-| Command                   | Purpose                                                        |
-| ------------------------- | -------------------------------------------------------------- |
-| `pnpm run check`          | Format, lint, type-check, test, and verify generated redirects |
-| `pnpm run build`          | Run the complete Cloudflare build path                         |
-| `pnpm run deploy:dry-run` | Build and validate a production upload without publishing it   |
-
-The Worker takes its name from `GITHUB_REPOSITORY` (`<owner>/<repository>`), which GitHub Actions
-sets. For a build on a laptop, set it in the environment or in `.env`.
+| Command                                    | Purpose                                                        |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| `pnpm run check`                           | Format, lint, type-check, test, and verify generated redirects |
+| `pnpm run build`                           | Run the complete Cloudflare build path                         |
+| `pnpm run deploy:dry-run --name my-worker` | Build and validate a production upload without publishing it   |
 
 ## Deployment contract
 
@@ -71,24 +68,20 @@ names when changing their implementation. Cloudflare supplies the appropriate bu
 environment. Convex rejects a production key on a preview branch.
 
 `scripts/build-cloudflare.ts` deploys Convex only inside Workers Builds and uses `WORKERS_CI_BRANCH`
-as the stable preview name. Local builds only build the frontend and the Worker.
+as the stable preview name. Local builds only build the frontend.
 `scripts/verify-current-branch-head.ts` prevents an older concurrent
 build from deploying backend code after a newer commit reaches the same branch. `convex deploy
 --cmd` supplies `VITE_CONVEX_URL` to the frontend build, so it is not a Cloudflare build variable.
 
-The deploy scripts run `cf`. `scripts/build-worker.ts` writes the Worker Build Output to
-`.cloudflare/`, a Preview build on branches other than `main`, and `cf` uploads it as it is.
-`scripts/deploy-preview.ts` also writes the Preview URL to the Wrangler output file, which `cf` does
-not write yet, so the Workers Builds comment on a pull request shows it.
+The [setup stack](#setup-stack) sets up the providers.
 
 ## Setup stack
 
 `alchemy.run.ts` declares the setup around the Worker: the Worker shell, the Workers Builds link
 with its commands and build variables, the Convex project, and the two Convex deploy keys of the
-builds. It never uploads code; `cloudflare.config.ts` owns the Worker version, and the stack reads
-only the Worker name from it. The split follows the Samebase research note "Alchemy setup stacks
-next to Workers Builds" (`research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md` in the
-Samebase repository).
+builds. It never uploads code; `wrangler.jsonc` owns the Worker version. The split follows the
+Samebase research note "Alchemy setup stacks next to Workers Builds"
+(`research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md` in the Samebase repository).
 
 `.github/workflows/alchemy.yml` runs it on its one stage, `prod`:
 
@@ -115,7 +108,8 @@ account creates.
 | Convex project | The repository name made safe, at most 40 characters | `my-app`                    |
 
 Made safe means lowercase, every run of characters other than `a-z` and `0-9` as one dash, and no
-dash at either end.
+dash at either end. `wrangler.jsonc` has no `name`: Workers Builds deploys to the Worker it is
+connected to.
 
 ### Prerequisites
 
@@ -144,8 +138,9 @@ nothing. The repository stays.
 
 ### Deploy from a laptop
 
-Put the same four values and `GITHUB_REPOSITORY` in `.env`, and `GITHUB_TOKEN` for a private
-repository. The Convex CLI login (`npx convex login`) can replace `CONVEX_ACCESS_TOKEN`.
+Put the same four values and `GITHUB_REPOSITORY` (`<owner>/<repository>`) in `.env`, and
+`GITHUB_TOKEN` for a private repository. The Convex CLI login (`npx convex login`) can replace
+`CONVEX_ACCESS_TOKEN`.
 
 ```sh
 pnpm exec alchemy deploy --stage prod
@@ -156,13 +151,12 @@ pnpm exec alchemy deploy --stage prod
 - `package.json` defines the supported development, check, build, and deploy commands.
 - `prerender.config.ts` defines the public pages shared by TanStack Start and Cloudflare.
 - `vite.config.ts` defines the TanStack Start SPA and prerender behavior.
-- `cloudflare.config.ts` defines Cloudflare static assets, SPA fallback, and preview URLs.
-  `wrangler.config.ts` holds the build settings of the Wrangler bundler that `cf` runs.
+- `wrangler.jsonc` defines Cloudflare static assets, SPA fallback, and preview URLs.
 - `scripts/build-cloudflare.ts` owns the Cloudflare build and Convex deployment selection.
-- The `deploy` and `deploy:preview` package scripts run `cf`.
-- `alchemy.run.ts` and `.github/workflows/alchemy.yml` define and run the setup stack.
+- The `deploy` and `deploy:preview` package scripts run Wrangler directly.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
+- `alchemy.run.ts` and `.github/workflows/alchemy.yml` define and run the setup stack.
 
 ## Generated and managed files
 

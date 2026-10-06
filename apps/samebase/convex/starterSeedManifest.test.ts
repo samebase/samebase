@@ -227,7 +227,7 @@ describe("starterSeedManifest", () => {
 });
 
 describe("actionsStarterTemplateManifest", () => {
-  it("sets up with an Alchemy stack from GitHub Actions and deploys with Workers Builds on cf", () => {
+  it("is the base starter plus the Alchemy setup stack", () => {
     const filePaths = Object.keys(actionsStarterTemplateManifest.files);
 
     expect(actionsStarterTemplateManifest.version).toBe(
@@ -238,17 +238,14 @@ describe("actionsStarterTemplateManifest", () => {
       expect.arrayContaining([
         ".github/workflows/alchemy.yml",
         "alchemy.run.ts",
-        "cloudflare.config.ts",
         "scripts/build-cloudflare.ts",
-        "scripts/deploy-preview.ts",
         "scripts/ensure-convex-auth.ts",
+        "wrangler.jsonc",
       ]),
     );
-    expect(filePaths).not.toContain("wrangler.jsonc");
-    expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
-      '"deploy": "cf deploy --prebuilt"',
+    expect(actionsStarterTemplateManifest.files["wrangler.jsonc"]).toBe(
+      starterTemplateManifest.files["wrangler.jsonc"],
     );
-    expect(actionsStarterTemplateManifest.files["package.json"]).toContain('"cf": "1.0.0-beta.12"');
     expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
       '"alchemy": "2.0.0-beta.80"',
     );
