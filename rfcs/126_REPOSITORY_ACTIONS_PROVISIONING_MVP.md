@@ -741,3 +741,12 @@ Open for PR C, in Nicu's words "how all this fits in":
   Codex declined findings, both base behavior: no audits inside the Workers Builds build, and the
   auth-key race of two overlapping first builds. Open: a live run on the preview deploy with a token
   that has the Builds permission.
+- 2026-10-06: First production app on the new model, `samebase/tmp-alchemy-v2` (template v2101). The
+  saved Cloudflare CI token lacked Workers Builds Configuration Edit and the new check stopped the
+  creation with the message; after a replacement through the deep link the setup run created the
+  Convex project, the two keys, the Worker shell, the Builds link, and ran `FirstBuild`, 10 seconds
+  of apply; the first Workers Build deployed the Worker (200). A build started through the API posts
+  no GitHub check run; push-triggered builds do. The existing Add flows found the Worker through its
+  Builds link to the repository and the project through `SAMEBASE_CONVEX_PROJECT` ("Used by
+  tmp-alchemy-v2"), so Nicu connected both by hand: parity except the automatic attach (PR C).
+  Preview-branch check running.
