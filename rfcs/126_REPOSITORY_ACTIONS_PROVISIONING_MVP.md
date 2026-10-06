@@ -397,3 +397,14 @@ Score Four CI token), and the CI token for the dogfood organization.
 - 2026-10-06: PR #1691 (full template with sync check): Codex review clean, required CI check green,
   marked ready. Merge order: create `samebase/base-actions` with a `main` branch, merge #1691, then
   this RFC.
+- 2026-10-06, Nicu's decisions, second round: (8) repository renames are not supported for now, the
+  names stay; one README sentence says so. (9) Previews are per branch, following Cloudflare Workers
+  Builds, which builds a preview for every branch push: the template deploys on every push to a
+  non-default branch, stage from the branch made safe (plus a 6-hex hash of the raw name only when
+  the safe form differs), Convex preview named after the raw branch, Worker Preview named after the
+  stage with a deterministic hash-suffixed cut when it does not fit the DNS label, comment only when
+  a pull request is open, destroy on the branch `delete` event, both jobs skipped when the
+  `CONVEX_TEAM_ID` variable is unset (the published copy `samebase/base-actions` has none), destroy
+  job with the no-scripts install and the signature audit only, head check before the deploy. In
+  progress as a template follow-up PR stacked on #1691. Where the template lives (monorepo today,
+  maybe its own repository later) is a separate question Nicu named for later.
