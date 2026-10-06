@@ -589,3 +589,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   `main` is updated without force; a rejected update (head moved) re-reads the branch and applies
   the same rules, up to three times; the seeded `main` has two commits (bootstrap, starter). 2631
   tests green. Codex round 9 and CI running.
+- 2026-10-07: PR B Codex round 9 clean (221 focused tests), CI green on `8c25112d7`, on the latest
+  main, label v2099: ready to merge. Nine Codex rounds in total. The dogfood follows the merge: on
+  production samebase.com or on the PR's preview deploy, save the Convex CI token next to the saved
+  Cloudflare one, create a `tmp-` app with the GitHub Actions option, and watch the repository's run
+  create the Convex project, the keys, and the Worker.
