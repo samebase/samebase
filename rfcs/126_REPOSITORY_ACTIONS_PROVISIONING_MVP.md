@@ -279,3 +279,16 @@ Score Four CI token), and the CI token for the dogfood organization.
   be tested. Codex round 2 found two P1s (shared stack key across owners; destroy of another
   branch's stage); fixes in progress: stack name = owner plus repository, stage `pr-<n>` again with
   the Convex preview still named after the branch.
+- 2026-10-06: Codex round 2 on PR A, two P1 items, both fixed in the template. Stack name is now
+  `<owner>_<repository>` lowercased, from `GITHUB_REPOSITORY`: with a dash join, `team-a/app` and
+  `team/a-app` would share one stack, and an owner name cannot contain an underscore, so the
+  underscore join keeps every repository apart. Alchemy validates stage names but not stack names.
+  The pull request stage is `pr-<number>` again (unique by construction, so a destroy can never hit
+  another branch's stage), the Convex preview deployment keeps the raw branch name, and the Worker
+  Preview name is derived from the stage. `scripts/alchemy-stage.ts` and `workerPreviewName` are
+  gone. Verified in the sources: without `--adopt`, an existing same-name Worker or Convex project
+  stops the deploy with `OwnedBySomeoneElse`; nothing is adopted or overwritten. This reverses the
+  branch-named stage of the morning, which rested on a wrong claim about how Samebase matches Worker
+  Previews (it uses the `branch` field that Workers Builds records, not the name). Manifest
+  `samebase-base-actions-6b45e7b386ef`, 94 files. The test repository's old stack was destroyed from
+  the laptop and its temporary Convex project deleted; the fixed template is deploying from zero.
