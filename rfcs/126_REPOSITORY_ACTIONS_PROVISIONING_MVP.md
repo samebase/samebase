@@ -580,3 +580,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   while the `seeded` checkpoint is lost makes a retry force-update `main` again; fix in progress
   (record the intended tree before the push, on retry compare GitHub's `main` with it, never
   force-update over foreign commits).
+- 2026-10-07: PR #1694 merged (v2098); PR B rebased, label v2099. Codex round 8 on PR B, one P1: the
+  starter push was still a force update after the branch check, so a push between the check and the
+  update would be dropped. Fix in progress: the starter commit descends from the checked head
+  (bootstrap, starter) and the ref update is a plain fast-forward; a rejected update re-reads the
+  branch and applies the same rules; never force.
