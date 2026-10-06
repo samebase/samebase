@@ -606,3 +606,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   store, which is the store the stack configures. Pushed to the dogfood repository, the run went
   green end to end and the Worker answers at `tmp-alchemy-testing-01.pfp.workers.dev`. Template fix
   PR follows. The dashboard shows the app as "2/4 pending": PR C's scope.
+- 2026-10-06: Per-branch preview checked on the dogfood repository: branch `preview/Check_01` gave
+  stage `preview-check-01-2e3ed3415af00889`, Convex preview deployment `grandiose-starling-561`
+  named after the raw branch, Worker Preview `preview-check-01-2e3ed3415af00889-92b868` answering
+  200, and the pull request comment. Nicu's direction: no separate fix PR; the template fix is a
+  commit on PR B (`a1e4a19b5`), and PR B stays open while apps are created and deleted on its
+  preview until the mode is right. #1695 closed.
