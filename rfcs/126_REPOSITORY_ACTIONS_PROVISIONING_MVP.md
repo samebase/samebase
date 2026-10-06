@@ -488,3 +488,16 @@ C; Convex token minting per repository (spike pending); the template location lo
   Cloudflare side has no third-party minting yet). The providers page gets a prefilled token link:
   `workers_scripts` edit, `secrets_store` edit, `account_settings` read, with the organization's
   account id. The dogfood confirms the OAuth minting live.
+- 2026-10-06: PR #1693 rebuilt on the Mail model (head `28f7ac012`): `cloudflare.config.ts` and
+  `wrangler.config.ts` own the Worker; `scripts/deploy-names.ts` is the one owner of the stack,
+  Worker, Convex project, and Preview names; the run file keeps the Convex side and adds the Worker
+  shell (`WorkersBuilds.Worker`, retained), no `Website.Vite`, no GitHub resources; the deploy job
+  runs `alchemy deploy`, reads the outputs with `alchemy state read <stack>/<stage>/output` into
+  `VITE_CONVEX_URL`, builds without credentials, then `cf deploy --prebuilt` or
+  `cf previews deploy --prebuilt <name>` (cf uses the positional name as given), then comments from
+  a script; the destroy job runs `alchemy destroy` and one `DELETE .../previews/<name>`. Verified
+  from the laptop: the state read prints the outputs as one JSON object; deleting a missing Preview
+  answers 404 "Preview not found". Not yet verified: the workflow end to end on a runner. One
+  manifest test line (`"wrangler"` must not appear) is being replaced, since `cf build` needs
+  Wrangler. Codex review and a hand test follow; PR #1693 must merge before the dogfood so that the
+  seeded template is the intended one.
