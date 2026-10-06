@@ -527,3 +527,7 @@ C; Convex token minting per repository (spike pending); the template location lo
   when the GitHub repository is kept (the agent built "revoke"; the other resources of a removed
   repository are retained, so "retain" would be the consistent choice). Dogfood check: the scope of
   the minted token (team-wide is expected).
+- 2026-10-07, Nicu's decision: retain. Samebase never revokes what a repository needs to keep
+  working, consistent with the landing page promise that apps keep working after the Samebase
+  account is deleted. The minted Convex token stays when a repository is removed from Samebase and
+  on account or organization deletion; only a retry replaces it. Applied to PR B.
