@@ -23,6 +23,7 @@ import {
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
   configureCloudflareWorkerBuildsForGitHub,
+  normalizeCloudflareBuildRoot,
   requireCloudflareBuildTokenUuid,
   rotateConvexDeployKeysForCloudflareWorkerBuilds,
   type CloudflareBuildConfig,
@@ -53,7 +54,11 @@ import { WORKER_PREVIEWS_MIGRATION_REQUIRED_MESSAGE } from "../../shared/cloudfl
 import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
 import type { ConfirmationSurface } from "./confirmationModel";
 import type { ActionConfirmation, ActionConfirmationRequest } from "./contracts/actionConfirmation";
-import { buildRepositoryCloudflareBuildConfigForRootDirectory } from "./model";
+import {
+  buildRepositoryCloudflareBuildConfigForRootDirectory,
+  type RepositoryProviderResourceOrigin,
+} from "./model";
+import type { DeployedSetupOutput, SetupOutputRefusal } from "./setupOutputModel";
 import { toCloudflareWorkerDiscovery } from "./cloudflareWorkerDiscovery";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
@@ -513,6 +518,140 @@ export async function readCloudflareWorkerTagsByNameForUser(
       return { workerName: identity.workerName, workerTag: identity.workerTag };
     }),
   );
+}
+
+/**
+Checks the Workers of a deployed setup output with the organization's Cloudflare connection, the
+reads the attach dialog makes: the account is the repository's, each tag names a Worker of that
+name, and its Workers Builds builds this GitHub repository's default branch with Worker Previews
+from the claimed root. A Worker that a drift repair recreated reuses its name under a new tag; its
+old setup_stack row is replaced only when the old tag no longer exists.
+*/
+export async function verifySetupStackWorkers(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    cloudflare: DeployedSetupOutput["cloudflare"];
+    attachedWorkers: ReadonlyArray<{
+      workerId: Id<"repositoryCloudflareWorkers">;
+      workerName: string;
+      workerTag: string;
+      origin: RepositoryProviderResourceOrigin;
+    }>;
+  },
+): Promise<
+  | {
+      ok: true;
+      workers: Array<{ workerName: string; workerTag: string; rootDirectory: string }>;
+      replacedWorkerIds: Array<Id<"repositoryCloudflareWorkers">>;
+    }
+  | SetupOutputRefusal
+> {
+  const resolved = await resolveCloudflareRepositoryContext(ctx, args);
+  const { accountId } = resolved.account;
+  if (args.cloudflare.accountId !== accountId) {
+    return {
+      ok: false,
+      claim: "cloudflare.accountId",
+      reason: `The setup output names Cloudflare account ${args.cloudflare.accountId}, but this repository deploys to account ${accountId}.`,
+    };
+  }
+
+  const read = {
+    token: resolved.connection.token,
+    transport: resolved.connection.transport,
+    accountId,
+  };
+  const results = await Promise.all(
+    args.cloudflare.workers.map(async (claimed, index) => {
+      const claim = `cloudflare.workers[${index}]`;
+      const identity = await readCloudflareWorkerIdentityByTag({ ...read, workerTag: claimed.tag });
+      if (!identity) {
+        return {
+          ok: false as const,
+          claim: `${claim}.tag`,
+          reason: `Cloudflare has no Worker ${claimed.tag} in account ${accountId}.`,
+        };
+      }
+      if (identity.workerName !== claimed.name) {
+        return {
+          ok: false as const,
+          claim: `${claim}.name`,
+          reason: `Worker ${claimed.tag} is named ${identity.workerName} in Cloudflare, not ${claimed.name}.`,
+        };
+      }
+      const discovery = await readCloudflareWorkerRepositoryDiscoveryForIdentity({
+        ...read,
+        workerTag: identity.workerTag,
+        expectedRepoId: resolved.context.githubRepositoryDatabaseId,
+        defaultBranch: resolved.githubDefaultBranch,
+      });
+      if (discovery.state !== "ready" || discovery.builds.state !== "available") {
+        return {
+          ok: false as const,
+          claim,
+          reason: `Workers Builds of ${identity.workerName} does not build the default branch ${resolved.githubDefaultBranch} of this repository with Worker Previews (${discovery.state === "ready" ? discovery.builds.state : discovery.state}).`,
+        };
+      }
+      if (normalizeCloudflareBuildRoot(claimed.rootDirectory) !== discovery.rootDirectory) {
+        return {
+          ok: false as const,
+          claim: `${claim}.rootDirectory`,
+          reason: `Workers Builds of ${identity.workerName} builds from ${discovery.rootDirectory}, not ${claimed.rootDirectory}.`,
+        };
+      }
+
+      const sameName = args.attachedWorkers.find(
+        (attached) =>
+          attached.workerName === identity.workerName && attached.workerTag !== identity.workerTag,
+      );
+      if (!sameName) {
+        return {
+          ok: true as const,
+          worker: {
+            workerName: identity.workerName,
+            workerTag: identity.workerTag,
+            rootDirectory: discovery.rootDirectory,
+          },
+          replacedWorkerId: null,
+        };
+      }
+      const previous = await readCloudflareWorkerIdentityByTag({
+        ...read,
+        workerTag: sameName.workerTag,
+      });
+      if (sameName.origin !== "setup_stack" || previous) {
+        return {
+          ok: false as const,
+          claim: `${claim}.tag`,
+          reason: `This repository already has a Worker named ${identity.workerName} with tag ${sameName.workerTag}${previous ? ", which still exists in Cloudflare" : ""}. Remove that Worker from the repository in Samebase, then apply the setup output again.`,
+        };
+      }
+      return {
+        ok: true as const,
+        worker: {
+          workerName: identity.workerName,
+          workerTag: identity.workerTag,
+          rootDirectory: discovery.rootDirectory,
+        },
+        replacedWorkerId: sameName.workerId,
+      };
+    }),
+  );
+
+  const workers: Array<{ workerName: string; workerTag: string; rootDirectory: string }> = [];
+  const replacedWorkerIds: Array<Id<"repositoryCloudflareWorkers">> = [];
+  for (const result of results) {
+    if (!result.ok) {
+      return result;
+    }
+    workers.push(result.worker);
+    if (result.replacedWorkerId) {
+      replacedWorkerIds.push(result.replacedWorkerId);
+    }
+  }
+  return { ok: true, workers, replacedWorkerIds };
 }
 
 export async function attachExistingCloudflareWorkersForUser(

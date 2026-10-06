@@ -161,6 +161,7 @@ import type * as repository_deletion_state from "../repository/deletion/state.js
 import type * as repository_deletion_workflow from "../repository/deletion/workflow.js";
 import type * as repository_editorModel from "../repository/editorModel.js";
 import type * as repository_eventOrderModel from "../repository/eventOrderModel.js";
+import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
 import type * as repository_folders from "../repository/folders.js";
 import type * as repository_infrastructureOperation from "../repository/infrastructureOperation.js";
@@ -181,6 +182,9 @@ import type * as repository_pullRequestModel from "../repository/pullRequestMode
 import type * as repository_pullRequestResources from "../repository/pullRequestResources.js";
 import type * as repository_records from "../repository/records.js";
 import type * as repository_repositoryStatus from "../repository/repositoryStatus.js";
+import type * as repository_setupOutput from "../repository/setupOutput.js";
+import type * as repository_setupOutputModel from "../repository/setupOutputModel.js";
+import type * as repository_setupOutputMutations from "../repository/setupOutputMutations.js";
 import type * as repository_state from "../repository/state.js";
 import type * as repository_status from "../repository/status.js";
 import type * as repository_workersBuildsConvexDeployKeyNames from "../repository/workersBuildsConvexDeployKeyNames.js";
@@ -365,6 +369,7 @@ declare const fullApi: ApiFromModules<{
   "repository/deletion/workflow": typeof repository_deletion_workflow;
   "repository/editorModel": typeof repository_editorModel;
   "repository/eventOrderModel": typeof repository_eventOrderModel;
+  "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
   "repository/folderModel": typeof repository_folderModel;
   "repository/folders": typeof repository_folders;
   "repository/infrastructureOperation": typeof repository_infrastructureOperation;
@@ -385,6 +390,9 @@ declare const fullApi: ApiFromModules<{
   "repository/pullRequestResources": typeof repository_pullRequestResources;
   "repository/records": typeof repository_records;
   "repository/repositoryStatus": typeof repository_repositoryStatus;
+  "repository/setupOutput": typeof repository_setupOutput;
+  "repository/setupOutputModel": typeof repository_setupOutputModel;
+  "repository/setupOutputMutations": typeof repository_setupOutputMutations;
   "repository/state": typeof repository_state;
   "repository/status": typeof repository_status;
   "repository/workersBuildsConvexDeployKeyNames": typeof repository_workersBuildsConvexDeployKeyNames;
