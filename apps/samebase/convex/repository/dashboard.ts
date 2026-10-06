@@ -16,6 +16,7 @@ import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
 import { hasStagedFileChanges } from "../../shared/stagedFiles";
 import { vRepositoryResourceLinksState } from "./dashboardModel";
 import type { RepositoryProvisioningRunStep } from "./provisioningModel";
+import { isSamebaseProvisioningPlan, readRepositoryProvisioningMode } from "./provisioningPlan";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
   type ManagedProviderPlan,
@@ -57,6 +58,7 @@ function classifyProvisioningStep(
     case "connect_github_repository":
     case "sync_tree":
       return { phase: "source", step };
+    case "write_actions_secrets":
     case "claim_infra":
     case "attach_convex":
     case "attach_worker":
@@ -77,10 +79,15 @@ function readProviderSetupStep(
     return "claim_infra";
   }
   const classified = classifyProvisioningStep(run.currentStep);
-  if (classified.phase !== "provider") {
-    throw new Error("Provider setup run has not reached provider provisioning.");
+  if (classified.phase === "provider") {
+    return classified.step;
   }
-  return classified.step;
+  // A repository_actions setup reports its seed and tree sync as provider setup: they run after
+  // the secrets write, and its retry resumes them. A samebase run never reaches this read in them.
+  if (classified.step === "seed_starter" || classified.step === "sync_tree") {
+    return classified.step;
+  }
+  throw new Error("Provider setup run has not reached provider provisioning.");
 }
 
 async function readLatestRunErrorMessage(
@@ -98,6 +105,7 @@ async function readLatestRunErrorMessage(
 async function resolveSourceSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   repository: SourceSetupRepository,
+  providerPlan: ManagedProviderPlan,
 ): Promise<SourceSetupSummary> {
   const run = await ctx.db.get(repository.runId);
   if (!run) {
@@ -110,9 +118,18 @@ async function resolveSourceSetupSummary(
     };
   }
   const classifiedStep = classifyProvisioningStep(run.currentStep);
+  // A repository_actions setup runs its seed and tree sync after write_actions_secrets, and its retry
+  // resumes them, so they count as provider setup. connect_github_repository, which runs before the
+  // secrets write and can already show a connected repository, stays source setup.
+  const repositoryActionsProviderStep =
+    providerPlan !== null &&
+    readRepositoryProvisioningMode(providerPlan) === "repository_actions" &&
+    (classifiedStep.step === "seed_starter" || classifiedStep.step === "sync_tree");
   if (
     repository.state === "connected" &&
-    (run.state === "succeeded" || classifiedStep.phase === "provider")
+    (run.state === "succeeded" ||
+      classifiedStep.phase === "provider" ||
+      repositoryActionsProviderStep)
   ) {
     return { status: "ready" };
   }
@@ -170,7 +187,7 @@ function getSourceSetupRepositoryFallbackUpdatedAt(repository: SourceSetupReposi
 }
 
 function readProviderRunSummary(args: {
-  provider: "convex" | "cloudflare";
+  provider: Extract<ProviderSetupSummary, { status: "running" | "failed" }>["provider"];
   runId: Id<"workflow_repositoryProvisioning_runs">;
   run: ProvisioningRun | null;
   status: "running" | "failed";
@@ -288,6 +305,13 @@ async function readManagedProviderPlan(
   if (!plan) {
     return null;
   }
+  if (!isSamebaseProvisioningPlan(plan)) {
+    return {
+      provisioning: plan.provisioning,
+      convexConfigPath: plan.convexConfigPath,
+      ciSecrets: plan.ciSecrets,
+    };
+  }
   if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
     throw new Error("Managed repository provider destinations are not configured.");
   }
@@ -362,12 +386,20 @@ async function readManagedProviderOperation(
 
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
+  providerPlan: ManagedProviderPlan,
   convexProjects: ConvexProject[],
   cloudflareWorkers: CloudflareWorker[],
   infrastructure: RepositoryInfrastructureState,
 ): Promise<ProviderSetupSummary> {
   const managedOperation = await readManagedProviderOperation(ctx, infrastructure);
 
+  // Samebase's part of a repository_actions setup is the GitHub Actions secrets; the repository's
+  // GitHub Actions own the Convex project and the Worker.
+  if (providerPlan && readRepositoryProvisioningMode(providerPlan) === "repository_actions") {
+    return managedOperation
+      ? readProviderRunSummary({ provider: "github", ...managedOperation })
+      : { status: "ready" };
+  }
   if (convexProjects.length === 0) {
     if (managedOperation) {
       return readProviderRunSummary({
@@ -715,7 +747,7 @@ export async function readOrganizationRepositories(
       defaultBranch: undefined,
       fileCount: 0,
       lastEditTime: undefined,
-      sourceSetup: await resolveSourceSetupSummary(ctx, repository),
+      sourceSetup: await resolveSourceSetupSummary(ctx, repository, providerPlan),
       providerSetup: { status: "not_applicable" },
       providerPlan,
       providerWrite: resolveProviderWriteSummary(infrastructure),
@@ -808,11 +840,12 @@ export async function readOrganizationRepositories(
         stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
 
       const githubRepositoryFullName = `${githubOwnerLogin}/${repository.githubRepositoryName}`;
-      const sourceSetup = await resolveSourceSetupSummary(ctx, repository);
+      const sourceSetup = await resolveSourceSetupSummary(ctx, repository, providerPlan);
       const providerSetup =
         sourceSetup.status === "ready"
           ? await resolveProviderSetupSummary(
               ctx,
+              providerPlan,
               convexProjects,
               cloudflareWorkers,
               infrastructure,

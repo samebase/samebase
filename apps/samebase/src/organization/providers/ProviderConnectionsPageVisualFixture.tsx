@@ -1,3 +1,4 @@
+import { CiCredentialsSectionView } from "@/organization/providers/CiCredentialsSection";
 import {
   ProviderConnectionsPageView,
   type ProviderConnectionsPageConnectionState,
@@ -168,6 +169,28 @@ export function ProviderConnectionsPageVisualFixture({
     <ProviderConnectionsPageView
       authorizationErrorMessage={
         mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
+      }
+      ciCredentials={
+        mode === "providers-page-connected" ? (
+          <CiCredentialsSectionView
+            canManageOrganization
+            cloudflareAccountId="cloudflare-account-production"
+            convexAccessTokensUrl="https://dashboard.convex.dev/t/acme-platform/settings/access-tokens"
+            convexConnected
+            githubOwnerLogin="acme"
+            onRemove={async () => null}
+            onSave={async () => null}
+            status={{
+              cloudflare: {
+                accountId: "cloudflare-account-production",
+                // Noon UTC, so the saved date is the same day in every test time zone.
+                updatedAt: Date.UTC(2026, 9, 6, 12),
+                connectedBy: { kind: "displayName", label: "Ava Chen" },
+              },
+              convex: null,
+            }}
+          />
+        ) : null
       }
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={false}

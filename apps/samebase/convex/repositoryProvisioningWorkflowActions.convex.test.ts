@@ -192,6 +192,19 @@ async function createManagedRepositoryRun(
       defaultBranch: "master",
       connectedAt: 1,
     });
+    await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+      repositoryId,
+      convexConfigPath: "convex.json",
+      convex: { state: "planned", projectName: "old-world", deploymentRegion: "aws-us-east-1" },
+      cloudflare: {
+        state: "planned",
+        workerName: "old-world",
+        rootDirectory: "/",
+        buildTokenUuid: null,
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    });
     return { runId, userId, repositoryId };
   });
   return { ...ids, t };

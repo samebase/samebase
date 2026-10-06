@@ -106,6 +106,7 @@ export const create = action({
       cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
       description: args.description,
       private: args.private,
+      provisioning: args.provisioning,
     }),
 });
 

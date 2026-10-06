@@ -23,6 +23,8 @@ export const templateDeployPaths = [
   // base-actions only: the workflow steps around `alchemy` and `cf`: the stage outputs, the Worker
   // Build Output, the Worker Preview upload and delete, and the pull request comment.
   "scripts/read-stack-output.ts",
+  // base-actions only: the confirmed destroy of the whole app.
+  "scripts/destroy-app.ts",
   "scripts/build-worker.ts",
   "scripts/deploy-worker-preview.ts",
   "scripts/delete-worker-preview.ts",

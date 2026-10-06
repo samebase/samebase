@@ -38,8 +38,77 @@ import type { ViewerOrganization } from "@/organization/context";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";
 import { useConvexDeploymentRegion } from "@/repository/setup/useConvexDeploymentRegions";
+import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
+import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { RepositoryProvisioningMode } from "../../../convex/repository/provisioningModel";
 
 type CreateResourceNameMode = "auto" | "manual";
+
+const NEW_APP_SETUP_LABELS = {
+  samebase: "Set up by Samebase",
+  repository_actions: "Set up by GitHub Actions in the repository (experimental)",
+} as const satisfies Record<RepositoryProvisioningMode, string>;
+
+/**
+Who sets up the new app. GitHub Actions needs the organization's Cloudflare and Convex CI tokens, so
+that choice stays disabled until both are saved on the Providers page.
+*/
+function NewAppSetupField({
+  cloudflareCiTokenSaved,
+  convexCiTokenSaved,
+  disabled,
+  githubOwnerLogin,
+  onValueChange,
+  value,
+}: {
+  cloudflareCiTokenSaved: boolean;
+  convexCiTokenSaved: boolean;
+  disabled: boolean;
+  githubOwnerLogin: string;
+  onValueChange: (value: RepositoryProvisioningMode) => void;
+  value: RepositoryProvisioningMode;
+}) {
+  const providersLink = (
+    <Link
+      className={linkStyle}
+      params={{ owner: githubOwnerLogin }}
+      to={ORGANIZATION_PROVIDERS_ROUTE}
+    >
+      Providers
+    </Link>
+  );
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor="new-app-setup">Setup</Label>
+      <Select
+        disabled={disabled}
+        onValueChange={(nextValue) => onValueChange(nextValue)}
+        value={value}
+      >
+        <SelectTrigger className="w-full text-base" id="new-app-setup">
+          <SelectValue>{NEW_APP_SETUP_LABELS[value]}</SelectValue>
+        </SelectTrigger>
+        <AppSelectContent>
+          <AppSelectItem value="samebase">{NEW_APP_SETUP_LABELS.samebase}</AppSelectItem>
+          <AppSelectItem
+            disabled={!cloudflareCiTokenSaved || !convexCiTokenSaved}
+            value="repository_actions"
+          >
+            {NEW_APP_SETUP_LABELS.repository_actions}
+          </AppSelectItem>
+        </AppSelectContent>
+      </Select>
+      {cloudflareCiTokenSaved && convexCiTokenSaved ? null : (
+        <div className="text-xs leading-5 text-muted-foreground">
+          {cloudflareCiTokenSaved ? null : <>Save the Cloudflare CI token in {providersLink}.</>}
+          {cloudflareCiTokenSaved || convexCiTokenSaved ? null : " "}
+          {convexCiTokenSaved ? null : <>Save the Convex CI token in {providersLink}.</>}
+        </div>
+      )}
+    </div>
+  );
+}
 type CreateProviderNameConflict = { provider: AppResourceNameProvider; name: string };
 type CreateResourceNameCheckResult =
   (typeof api.repository.actions.checkCreateRepositoryResourceNames)["_returnType"];
@@ -308,6 +377,7 @@ export function NewAppCreateFormFields({
   onConvexProjectNameChange,
   onNewRepositoryNameChange,
   showCloudflareWorkerName,
+  showConvexProjectName,
 }: {
   cloudflareBuildTokenField: ReactNode;
   cloudflareWorkerName: string;
@@ -325,6 +395,7 @@ export function NewAppCreateFormFields({
   onConvexProjectNameChange: (value: string) => void;
   onNewRepositoryNameChange: (value: string) => void;
   showCloudflareWorkerName: boolean;
+  showConvexProjectName: boolean;
 }) {
   const canEditProviderResourceNames = newRepositoryName.trim().length > 0;
   const providerResourceNameInputDisabled =
@@ -347,15 +418,19 @@ export function NewAppCreateFormFields({
         )}
         aria-hidden={canEditProviderResourceNames ? undefined : true}
       >
-        <CreateProviderNameInput
-          placeholder="Convex project name"
-          value={convexProjectName}
-          onChange={onConvexProjectNameChange}
-          onBlur={onConvexProjectNameBlur}
-          icon={<ConvexProviderLogo />}
-          disabled={providerResourceNameInputDisabled}
-        />
-        <CreateControlMessageSlot>{convexProjectNameSupport}</CreateControlMessageSlot>
+        {showConvexProjectName ? (
+          <>
+            <CreateProviderNameInput
+              placeholder="Convex project name"
+              value={convexProjectName}
+              onChange={onConvexProjectNameChange}
+              onBlur={onConvexProjectNameBlur}
+              icon={<ConvexProviderLogo />}
+              disabled={providerResourceNameInputDisabled}
+            />
+            <CreateControlMessageSlot>{convexProjectNameSupport}</CreateControlMessageSlot>
+          </>
+        ) : null}
         {convexDeploymentRegionField}
         {showCloudflareWorkerName ? (
           <>
@@ -482,6 +557,15 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
     organizationId,
   });
+  const ciCredentials = useConvexQuery(api.users.getCiCredentialsStatus, { organizationId });
+  const cloudflareCiTokenSaved = Boolean(ciCredentials?.cloudflare);
+  const convexCiTokenSaved = Boolean(ciCredentials?.convex);
+  const repositoryActionsReady = cloudflareCiTokenSaved && convexCiTokenSaved;
+  const [requestedProvisioning, setRequestedProvisioning] =
+    useState<RepositoryProvisioningMode>("samebase");
+  // Removing a CI token elsewhere returns the form to the Samebase setup.
+  const provisioning = repositoryActionsReady ? requestedProvisioning : "samebase";
+  const repositoryActions = provisioning === "repository_actions";
   const convexDeploymentRegionSelection = useConvexDeploymentRegion({
     enabled: convexConnection?.state === "connected",
     organizationId,
@@ -552,6 +636,15 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     autoName: defaultCloudflareWorkerName,
     manualName: cloudflareWorkerName,
   });
+  // The repository's GitHub Actions name the Convex project and the Worker after the repository.
+  const repositoryActionsConvexProjectName = buildDefaultAppResourceName({
+    repositoryName: normalizedGitHubRepositoryName,
+    provider: "convex",
+  });
+  const repositoryActionsWorkerName = buildDefaultAppResourceName({
+    repositoryName: normalizedGitHubRepositoryName,
+    provider: "cloudflare",
+  });
   const shouldCheckResourceNames = Boolean(canCreateRepo && createRepositoryName);
   const {
     checkResult: currentResourceNameCheck,
@@ -561,9 +654,13 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     enabled: shouldCheckResourceNames,
     organizationId,
     githubRepositoryName: createRepositoryName,
-    convexProjectName: checkedConvexProjectName,
-    cloudflareWorkerName: checkedCloudflareWorkerName,
-    cloudflareBuildTokenUuid: cloudflareBuildTokenUuid || null,
+    convexProjectName: repositoryActions
+      ? repositoryActionsConvexProjectName
+      : checkedConvexProjectName,
+    cloudflareWorkerName: repositoryActions
+      ? repositoryActionsWorkerName
+      : checkedCloudflareWorkerName,
+    cloudflareBuildTokenUuid: repositoryActions ? null : cloudflareBuildTokenUuid || null,
     checkCreateRepositoryResourceNames,
   });
   const githubRepositoryNameAvailability = currentResourceNameCheck?.github ?? null;
@@ -632,9 +729,15 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isCreating ||
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
-    !convexDeploymentRegion ||
-    (!cloudflareBuildTokenSelection.canWrite && !cloudflareBuildTokensConfirmedEmpty) ||
-    hasBlockingCreateResourceName;
+    (repositoryActions
+      ? Boolean(
+          isGitHubRepositoryNameBlocking ||
+          createResourceNameCheckError ||
+          isCreateResourceNameCheckPending,
+        )
+      : !convexDeploymentRegion ||
+        (!cloudflareBuildTokenSelection.canWrite && !cloudflareBuildTokensConfirmedEmpty) ||
+        hasBlockingCreateResourceName);
 
   const setNewRepositoryName = useCallback((value: string) => {
     setCreateError(null);
@@ -873,7 +976,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const createFormFields = (
     <NewAppCreateFormFields
       cloudflareBuildTokenField={
-        cloudflareConnected ? (
+        cloudflareConnected && !repositoryActions ? (
           <CloudflareBuildTokenField
             disabled={isCreating}
             emptyState="deferred"
@@ -931,7 +1034,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         },
       })}
       convexDeploymentRegionField={
-        convexConnected ? (
+        convexConnected && !repositoryActions ? (
           <ConvexDeploymentRegionField
             disabled={isCreating}
             id="new-app-convex-production-region"
@@ -965,9 +1068,52 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         setConvexProjectName(value, "manual");
       }}
       onNewRepositoryNameChange={setNewRepositoryName}
-      showCloudflareWorkerName={!cloudflareBuildTokensConfirmedEmpty}
+      showCloudflareWorkerName={!repositoryActions && !cloudflareBuildTokensConfirmedEmpty}
+      showConvexProjectName={!repositoryActions}
     />
   );
+
+  const handleCreateRepositoryActionsRepository = async (githubRepositoryName: string) => {
+    if (isGitHubRepositoryNameBlocking) {
+      setCreateError(
+        githubRepositoryNameAvailability?.message ?? "GitHub repository name is not available.",
+      );
+      return;
+    }
+
+    setIsCreating(true);
+    setCreateError(null);
+    setCreateProviderNameConflict(null);
+    try {
+      await createRepository({
+        organizationId,
+        githubRepositoryName,
+        convexProjectName: repositoryActionsConvexProjectName,
+        cloudflareWorkerName: repositoryActionsWorkerName,
+        cloudflareBuildTokenUuid: null,
+        private: true,
+        provisioning: "repository_actions",
+      });
+      setNewRepositoryNameState("");
+      await navigate({
+        href: buildPathWithTanStackSearch({
+          pathname: buildRepositoryDashboardRoute({
+            owner: organization.githubOwnerLogin,
+            repoName: normalizedGitHubRepositoryName,
+          }),
+          search: location.search,
+        }),
+      });
+    } catch (error) {
+      setCreateError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : "Could not create app.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleCreateRepository = async () => {
     const githubRepositoryName = newRepositoryName.trim();
@@ -985,6 +1131,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     }
     if (!hasRequiredCreateConnections) {
       setCreateError(providerBlocker ?? "Provider connections are loading.");
+      return;
+    }
+    if (repositoryActions) {
+      await handleCreateRepositoryActionsRepository(githubRepositoryName);
       return;
     }
     if (!convexProjectNameValidation.valid) {
@@ -1107,6 +1257,17 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           canManageOrganization={canManageOrganization}
           cloudflareConnection={cloudflareConnection}
           convexConnection={convexConnection}
+        />
+        <NewAppSetupField
+          cloudflareCiTokenSaved={cloudflareCiTokenSaved}
+          convexCiTokenSaved={convexCiTokenSaved}
+          disabled={!hasRequiredCreateConnections || isCreating}
+          githubOwnerLogin={organization.githubOwnerLogin}
+          onValueChange={(value) => {
+            setCreateError(null);
+            setRequestedProvisioning(value);
+          }}
+          value={provisioning}
         />
         <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
         <div className="min-h-5">{createControlFooterMessages}</div>

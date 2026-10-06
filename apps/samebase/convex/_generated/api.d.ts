@@ -62,6 +62,7 @@ import type * as functions from "../functions.js";
 import type * as gitOperations from "../gitOperations.js";
 import type * as gitOperationsActions from "../gitOperationsActions.js";
 import type * as github from "../github.js";
+import type * as githubActionsSecrets from "../githubActionsSecrets.js";
 import type * as githubApp from "../githubApp.js";
 import type * as githubAppAccess from "../githubAppAccess.js";
 import type * as githubAppConnection from "../githubAppConnection.js";
@@ -98,6 +99,7 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as organization_billingLimits from "../organization/billingLimits.js";
+import type * as organization_ciCredentials from "../organization/ciCredentials.js";
 import type * as organization_invitationModel from "../organization/invitationModel.js";
 import type * as organization_memberGitHub from "../organization/memberGitHub.js";
 import type * as organization_model from "../organization/model.js";
@@ -170,6 +172,7 @@ import type * as repository_providerObservationModel from "../repository/provide
 import type * as repository_providerObservationQueries from "../repository/providerObservationQueries.js";
 import type * as repository_providerObservations from "../repository/providerObservations.js";
 import type * as repository_provisioningModel from "../repository/provisioningModel.js";
+import type * as repository_provisioningPlan from "../repository/provisioningPlan.js";
 import type * as repository_pullRequestCloudflareWorkerChecks from "../repository/pullRequestCloudflareWorkerChecks.js";
 import type * as repository_pullRequestCloudflareWorkerComments from "../repository/pullRequestCloudflareWorkerComments.js";
 import type * as repository_pullRequestCloudflareWorkerProof from "../repository/pullRequestCloudflareWorkerProof.js";
@@ -263,6 +266,7 @@ declare const fullApi: ApiFromModules<{
   gitOperations: typeof gitOperations;
   gitOperationsActions: typeof gitOperationsActions;
   github: typeof github;
+  githubActionsSecrets: typeof githubActionsSecrets;
   githubApp: typeof githubApp;
   githubAppAccess: typeof githubAppAccess;
   githubAppConnection: typeof githubAppConnection;
@@ -299,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
   "organization/billingLimits": typeof organization_billingLimits;
+  "organization/ciCredentials": typeof organization_ciCredentials;
   "organization/invitationModel": typeof organization_invitationModel;
   "organization/memberGitHub": typeof organization_memberGitHub;
   "organization/model": typeof organization_model;
@@ -371,6 +376,7 @@ declare const fullApi: ApiFromModules<{
   "repository/providerObservationQueries": typeof repository_providerObservationQueries;
   "repository/providerObservations": typeof repository_providerObservations;
   "repository/provisioningModel": typeof repository_provisioningModel;
+  "repository/provisioningPlan": typeof repository_provisioningPlan;
   "repository/pullRequestCloudflareWorkerChecks": typeof repository_pullRequestCloudflareWorkerChecks;
   "repository/pullRequestCloudflareWorkerComments": typeof repository_pullRequestCloudflareWorkerComments;
   "repository/pullRequestCloudflareWorkerProof": typeof repository_pullRequestCloudflareWorkerProof;

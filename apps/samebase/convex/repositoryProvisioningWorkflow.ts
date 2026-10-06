@@ -2,10 +2,30 @@ import { v, type Infer } from "convex/values";
 import { vResultValidator, type RunResult } from "@convex-dev/workpool";
 import { WorkflowManager, type WorkflowCtx } from "@convex-dev/workflow";
 import { components, internal } from "./_generated/api";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
-import type { RepositoryProvisioningStep } from "./repository/provisioningModel";
+import { requireCompleteCiCredentials } from "./organization/ciCredentials";
+import { readCiCredentialRevision } from "./organization/providerCredentialModel";
+import { getOrganizationCiCredentials } from "./organizationProviderCredentials";
+import {
+  REPOSITORY_ACTIONS_DEFAULT_BRANCH,
+  vRepositoryActionsSeed,
+  vRepositoryProvisioningMode,
+  type RepositoryProvisioningMode,
+  type RepositoryProvisioningStep,
+} from "./repository/provisioningModel";
+import {
+  isSamebaseProvisioningPlan,
+  readRepositoryProvisioningMode,
+  requireSamebaseProvisioningPlan,
+  type RepositoryProvisioningPlan,
+} from "./repository/provisioningPlan";
 import { isLiveConnectedRepository } from "./repository/state";
 import {
   requireActiveRepositoryProvisioningAuthority,
@@ -14,7 +34,7 @@ import {
 } from "./repositoryWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, literal, object, string, union } = v;
+const { boolean, id, literal, number, object, optional, string, union } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -59,10 +79,38 @@ const composedCloudflareBuilds = object({
   rootDirectory: string(),
 });
 type ComposedCloudflareBuilds = Infer<typeof composedCloudflareBuilds>;
+const vRetryProvisioning = union(
+  object({ mode: literal("samebase") }),
+  object({
+    mode: literal("repository_actions"),
+    githubRepositoryDatabaseId: string(),
+  }),
+);
+type RetryProvisioning = Infer<typeof vRetryProvisioning>;
 const composedInfrastructureRetryContext = object({
   userId: id("users"),
+  /**
+  The query always returns it. A retry workflow that was running when this field was added replays
+  its saved `read_retry_context` result, which has only `userId`; that retry is a samebase retry.
+  */
+  provisioning: optional(vRetryProvisioning),
 });
 type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
+
+/** The provisioning of a retry context; a context saved before the field means samebase. */
+export function readRetryProvisioning(
+  context: ComposedInfrastructureRetryContext,
+): RetryProvisioning {
+  return context.provisioning ?? { mode: "samebase" };
+}
+const actionsSecretsTarget = object({
+  cloudflareApiToken: string(),
+  cloudflareAccountId: string(),
+  convexAccessToken: string(),
+  convexTeamId: string(),
+  credentialRevision: number(),
+});
+type ActionsSecretsTarget = Infer<typeof actionsSecretsTarget>;
 
 export async function startCreateRepositoryProvisioningWorkflow(
   ctx: MutationCtx,
@@ -148,13 +196,14 @@ export const readComposedInfrastructureState = internalQuery({
     const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
     const repository = authority.repository;
 
-    const plan = await ctx.db
+    const storedPlan = await ctx.db
       .query("workflow_repositoryProvisioning_plans")
       .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
       .first();
-    if (!plan) {
+    if (!storedPlan) {
       throw new Error("Infrastructure provisioning plan not found for repository.");
     }
+    const plan = requireSamebaseProvisioningPlan(storedPlan);
     if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
       throw new Error("Managed repository provider destinations are not configured.");
     }
@@ -250,13 +299,250 @@ export const readComposedInfrastructureRetryContext = internalQuery({
       userId: run.userId,
       repositoryId: args.repositoryId,
     });
-    if (!isLiveConnectedRepository(authority.repository)) {
+    const repository = authority.repository;
+    if (!isLiveConnectedRepository(repository)) {
       throw new Error("Repository not found.");
+    }
+    const plan = await readProvisioningPlan(ctx, args.repositoryId);
+    if (isSamebaseProvisioningPlan(plan)) {
+      return { userId: authority.run.userId, provisioning: { mode: "samebase" } };
     }
 
     return {
       userId: authority.run.userId,
+      provisioning: {
+        mode: "repository_actions",
+        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
+      },
     };
+  },
+});
+
+async function readProvisioningPlan(
+  ctx: Pick<QueryCtx, "db">,
+  repositoryId: Id<"repositories">,
+): Promise<RepositoryProvisioningPlan> {
+  const plan = await ctx.db
+    .query("workflow_repositoryProvisioning_plans")
+    .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
+    .unique();
+  if (!plan) {
+    throw new Error("Infrastructure provisioning plan not found for repository.");
+  }
+  return plan;
+}
+
+async function requireManagedRunWriteLock(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    repositoryId: Id<"repositories">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
+  },
+): Promise<Doc<"workflow_repositoryProvisioning_writeLocks">> {
+  const writeLock = await ctx.db
+    .query("workflow_repositoryProvisioning_writeLocks")
+    .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+    .unique();
+  if (
+    !writeLock ||
+    writeLock.owner.kind !== "managed_run" ||
+    writeLock.owner.runId !== args.runId ||
+    writeLock.state !== "active"
+  ) {
+    throw new Error("Provisioning run no longer holds the provisioning write lock.");
+  }
+  return writeLock;
+}
+
+/**
+The mode of the repository of an active run, for the steps that both modes share. A retry run also
+must hold the write lock: only a repository_actions retry runs the shared seed and sync steps.
+*/
+export const readProvisioningModeForRun = internalQuery({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+  },
+  returns: vRepositoryProvisioningMode,
+  handler: async (ctx, args): Promise<RepositoryProvisioningMode> => {
+    const authority = await requireActiveRepositoryProvisioningRun(ctx.db, args);
+    if (authority.run.trigger === "retry") {
+      await requireManagedRunWriteLock(ctx, args);
+    }
+    return readRepositoryProvisioningMode(await readProvisioningPlan(ctx, args.repositoryId));
+  },
+});
+
+/**
+The values that write_actions_secrets writes into the repository: the organization CI credentials,
+which must match the repository's Convex team and Cloudflare account, and their revision.
+*/
+export const readActionsSecretsTarget = internalQuery({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+  },
+  returns: actionsSecretsTarget,
+  handler: async (ctx, args): Promise<ActionsSecretsTarget> => {
+    const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
+    const repository = authority.repository;
+    if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
+      throw new Error("Provisioning run does not match repository_actions setup.");
+    }
+    if (!isLiveConnectedRepository(repository)) {
+      throw new Error("Repository not found.");
+    }
+    const [plan, organization, savedCi] = await Promise.all([
+      readProvisioningPlan(ctx, args.repositoryId),
+      ctx.db.get(repository.organizationId),
+      getOrganizationCiCredentials(ctx.db, repository.organizationId),
+      requireManagedRunWriteLock(ctx, args),
+    ]);
+    if (readRepositoryProvisioningMode(plan) !== "repository_actions") {
+      throw new Error("Only a repository_actions repository receives GitHub Actions secrets.");
+    }
+    if (
+      !organization ||
+      repository.convexTeamId === undefined ||
+      repository.cloudflareAccountId === undefined
+    ) {
+      throw new Error("Managed repository provider destinations are not configured.");
+    }
+    const ci = requireCompleteCiCredentials({
+      ci: savedCi,
+      convexTeamId: repository.convexTeamId,
+      cloudflareAccountId: repository.cloudflareAccountId,
+      githubOwnerLogin: organization.githubOwnerLogin,
+    });
+
+    return {
+      cloudflareApiToken: ci.cloudflare.apiToken,
+      cloudflareAccountId: ci.cloudflare.accountId,
+      convexAccessToken: ci.convex.accessToken,
+      convexTeamId: ci.convex.teamId,
+      credentialRevision: readCiCredentialRevision(ci),
+    };
+  },
+});
+
+async function readRepositoryActionsPlanForRun(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    repositoryId: Id<"repositories">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
+    userId: Id<"users">;
+  },
+) {
+  await requireActiveRepositoryProvisioningRun(ctx.db, args);
+  await requireManagedRunWriteLock(ctx, args);
+  const plan = await readProvisioningPlan(ctx, args.repositoryId);
+  if (isSamebaseProvisioningPlan(plan)) {
+    throw new Error("Only a repository_actions repository records its starter seed.");
+  }
+  return plan;
+}
+
+/** The starter seed of a repository_actions repository, read by the seed step before it seeds. */
+export const readRepositoryActionsSeedForRun = internalQuery({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+  },
+  returns: vRepositoryActionsSeed,
+  handler: async (ctx, args) => (await readRepositoryActionsPlanForRun(ctx, args)).seed,
+});
+
+/**
+Records main as the repository's default branch after the seed step set it on GitHub (or found it
+there), so the dashboard reads the tree of main and no later retry changes the branch again.
+*/
+export const recordRepositoryActionsDefaultBranch = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    await readRepositoryActionsPlanForRun(ctx, args);
+    const repository = await ctx.db.get(args.repositoryId);
+    if (!isLiveConnectedRepository(repository)) {
+      throw new Error("Repository not found.");
+    }
+    await ctx.db.patch(repository._id, { defaultBranch: REPOSITORY_ACTIONS_DEFAULT_BRANCH });
+    return null;
+  },
+});
+
+/** Records the starter tree right before the seed push, so a retry can find the pushed starter. */
+export const markStarterSeeding = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+    manifestVersion: string(),
+    treeSha: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const plan = await readRepositoryActionsPlanForRun(ctx, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+    });
+    await ctx.db.patch(plan._id, {
+      seed: { state: "seeding", manifestVersion: args.manifestVersion, treeSha: args.treeSha },
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/** Records the seed, so no later retry force-updates the default branch again. */
+export const markStarterSeeded = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+    manifestVersion: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const plan = await readRepositoryActionsPlanForRun(ctx, args);
+    const now = Date.now();
+    await ctx.db.patch(plan._id, {
+      seed: { state: "seeded", seededAt: now, manifestVersion: args.manifestVersion },
+      updatedAt: now,
+    });
+    return null;
+  },
+});
+
+/** Records which CI credential revision the repository's Actions secrets now hold. */
+export const markActionsSecretsWritten = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+    credentialRevision: number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    await requireActiveRepositoryProvisioningContinuation(ctx, args);
+    await requireManagedRunWriteLock(ctx, args);
+    const plan = await readProvisioningPlan(ctx, args.repositoryId);
+    if (isSamebaseProvisioningPlan(plan)) {
+      throw new Error("Only a repository_actions repository receives GitHub Actions secrets.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(plan._id, {
+      ciSecrets: { state: "written", writtenAt: now, credentialRevision: args.credentialRevision },
+      updatedAt: now,
+    });
+    return null;
   },
 });
 
@@ -667,6 +953,75 @@ async function runComposedInfrastructure(
   );
 }
 
+/**
+Samebase's part of a repository_actions setup, after connect_github_repository: the Actions secrets,
+then the starter seed whose push starts the repository's first deploy, then the tree sync. The
+secrets come first so the first workflow run has them. A retry resumes here: the writes are upserts,
+the seed step skips a seed that the plan records and still finishes the switch of the default
+branch to main, and the tree sync always runs again.
+*/
+async function runRepositoryActionsSetup(
+  step: WorkflowCtx,
+  args: {
+    repositoryId: Id<"repositories">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
+    userId: Id<"users">;
+    githubRepositoryDatabaseId: string;
+  },
+): Promise<void> {
+  await step.runAction(
+    internal.repositoryProvisioningWorkflowActions.writeActionsSecrets,
+    {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    },
+    { name: "write_actions_secrets", retry: idempotentProviderStepRetry },
+  );
+  await step.runAction(
+    internal.repositoryProvisioningWorkflowActions.seedStarterRepository,
+    {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    },
+    { name: "seed_starter", retry: idempotentProviderStepRetry },
+  );
+  await step.runAction(
+    internal.repositoryProvisioningWorkflowActions.syncRepositoryTreeForRepository,
+    {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    },
+    { name: "sync_tree", retry: idempotentProviderStepRetry },
+  );
+  await step.runMutation(
+    internal.repositoryProvisioningWorkflow.finishComposedInfrastructureProvisioning,
+    {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+    },
+    { name: "finish_repository_actions_ownership" },
+  );
+  await step.runMutation(
+    internal.repositoryProvisioningRuns.appendRunEvent,
+    {
+      runId: args.runId,
+      step: "finish",
+      level: "info",
+      message:
+        "Samebase wrote the GitHub Actions secrets and seeded the starter. The deployment runs in the repository's GitHub Actions.",
+      state: "succeeded",
+    },
+    { name: "finish_repository_actions" },
+  );
+}
+
 export const provisionRepositoryInfrastructure = workflow.define({
   args: {
     repositoryId: id("repositories"),
@@ -682,11 +1037,27 @@ export const provisionRepositoryInfrastructure = workflow.define({
       },
       { name: "read_retry_context" },
     );
-    await runComposedInfrastructure(step, {
-      repositoryId: args.repositoryId,
-      parentRunId: args.runId,
-      userId: retryContext.userId,
-    });
+    const provisioning = readRetryProvisioning(retryContext);
+    switch (provisioning.mode) {
+      case "samebase":
+        await runComposedInfrastructure(step, {
+          repositoryId: args.repositoryId,
+          parentRunId: args.runId,
+          userId: retryContext.userId,
+        });
+        break;
+      case "repository_actions":
+        await runRepositoryActionsSetup(step, {
+          repositoryId: args.repositoryId,
+          runId: args.runId,
+          userId: retryContext.userId,
+          githubRepositoryDatabaseId: provisioning.githubRepositoryDatabaseId,
+        });
+        break;
+      default:
+        provisioning satisfies never;
+        throw new Error("Unknown provisioning mode.");
+    }
 
     return null;
   },
@@ -704,7 +1075,7 @@ export const provisionApp = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    await step.runAction(
+    const provisioning: RepositoryProvisioningMode = await step.runAction(
       internal.repositoryProvisioningWorkflowActions.validateCreateAppConnections,
       {
         repositoryId: args.repositoryId,
@@ -742,6 +1113,16 @@ export const provisionApp = workflow.define({
       },
       { name: "connect_github_repository", retry: false },
     );
+    if (provisioning === "repository_actions") {
+      await runRepositoryActionsSetup(step, {
+        repositoryId: args.repositoryId,
+        runId: args.runId,
+        userId: args.userId,
+        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
+      });
+      return null;
+    }
+
     await step.runAction(
       internal.repositoryProvisioningWorkflowActions.seedStarterRepository,
       {

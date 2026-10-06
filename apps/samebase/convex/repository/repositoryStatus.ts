@@ -23,6 +23,8 @@ import {
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
+import type { RepositoryActionsCiSecrets } from "./provisioningModel";
+import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
 import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
 import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
@@ -81,7 +83,17 @@ function sortConvexProjects(projects: RepositoryStatusRepository["convexProjects
 function describeSetupProvider(
   provider: Extract<ProviderSetupSummary, { status: "running" | "failed" }>["provider"],
 ): string {
-  return provider === "convex" ? "Convex project" : "Cloudflare Worker";
+  switch (provider) {
+    case "convex":
+      return "Convex project";
+    case "cloudflare":
+      return "Cloudflare Worker";
+    case "github":
+      return "GitHub Actions secrets";
+    default:
+      provider satisfies never;
+      return "provider";
+  }
 }
 
 function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuildAccess): string {
@@ -101,6 +113,36 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
     default:
       access satisfies never;
       return `The Convex deploy keys of ${workerName} need repair.`;
+  }
+}
+
+/**
+The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished.
+The Workers Builds token, Worker, Builds, and deploy-key items do not apply: the repository's GitHub
+Actions own the Worker and the Convex project, and Samebase does not observe their deploys yet.
+*/
+function buildRepositoryActionsAttention(args: {
+  repository: RepositoryStatusRepository;
+  ciSecrets: RepositoryActionsCiSecrets;
+}): RepositoryAttentionItem[] {
+  switch (args.ciSecrets.state) {
+    case "planned":
+      return [
+        {
+          tool: null,
+          problem: `The GitHub Actions secrets of ${args.repository.githubRepositoryFullName} are not written yet, so its deploy workflow cannot run.`,
+        },
+      ];
+    case "written":
+      return [
+        {
+          tool: null,
+          problem: `The deployment of this repository runs in its GitHub Actions: https://github.com/${args.repository.githubRepositoryFullName}/actions. Samebase does not read its result yet.`,
+        },
+      ];
+    default:
+      args.ciSecrets satisfies never;
+      return [];
   }
 }
 
@@ -137,6 +179,11 @@ export function buildRepositoryAttention(args: {
     default:
       providerSetup satisfies never;
       return [];
+  }
+
+  const plan = repository.providerPlan;
+  if (plan && !isSamebaseManagedProviderPlan(plan)) {
+    return buildRepositoryActionsAttention({ repository, ciSecrets: plan.ciSecrets });
   }
 
   const items: RepositoryAttentionItem[] = [];

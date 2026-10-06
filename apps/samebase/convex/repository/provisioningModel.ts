@@ -21,6 +21,7 @@ export const vRepositoryProvisioningStep = union(
   literal("seed_starter"),
   literal("connect_github_repository"),
   literal("sync_tree"),
+  literal("write_actions_secrets"),
   literal("claim_infra"),
   literal("attach_convex"),
   literal("attach_worker"),
@@ -39,6 +40,7 @@ export const vRepositoryProvisioningRunStep = union(
   literal("seed_starter"),
   literal("connect_github_repository"),
   literal("sync_tree"),
+  literal("write_actions_secrets"),
   literal("claim_infra"),
   literal("attach_convex"),
   literal("attach_worker"),
@@ -48,6 +50,11 @@ export const vRepositoryProvisioningRunStep = union(
 );
 export type RepositoryProvisioningRunStep = Infer<typeof vRepositoryProvisioningRunStep>;
 
+/**
+Provider steps run after the GitHub repository is connected, so a managed setup that fails in one of
+them can be retried. `write_actions_secrets` is the repository_actions mode's provider step: it runs
+after `connect_github_repository` and before `seed_starter`.
+*/
 export function isRepositoryProvisioningProviderStep(step: RepositoryProvisioningRunStep): boolean {
   switch (step) {
     case "run_created":
@@ -59,6 +66,7 @@ export function isRepositoryProvisioningProviderStep(step: RepositoryProvisionin
     case "connect_github_repository":
     case "sync_tree":
       return false;
+    case "write_actions_secrets":
     case "claim_infra":
     case "attach_convex":
     case "attach_worker":
@@ -71,6 +79,17 @@ export function isRepositoryProvisioningProviderStep(step: RepositoryProvisionin
       throw new Error("Unknown repository provisioning step.");
   }
 }
+
+/**
+samebase = Samebase's workflow creates the Convex project and the Worker and configures Workers Builds
+
+repository_actions = the repository's GitHub Actions deploy the app; Samebase writes their CI secrets
+*/
+export const vRepositoryProvisioningMode = union(
+  literal("samebase"),
+  literal("repository_actions"),
+);
+export type RepositoryProvisioningMode = Infer<typeof vRepositoryProvisioningMode>;
 
 export const vRepositoryProvisioningRunTrigger = union(
   literal("create"),
@@ -119,53 +138,101 @@ const manualProviderWriteOwner = {
   expiresAt: number(),
 } as const;
 
+const vSamebaseProvisioningPlan = object({
+  repositoryId: id("repositories"),
+  convexConfigPath: string(),
+  convex: union(
+    object({
+      state: literal("planned"),
+      projectName: string(),
+      deploymentRegion: vConvexDeploymentRegion,
+    }),
+    object({
+      state: literal("creating"),
+      projectName: string(),
+      deploymentRegion: vConvexDeploymentRegion,
+    }),
+    object({
+      state: literal("created"),
+      projectName: string(),
+      deploymentRegion: vConvexDeploymentRegion,
+      projectId: string(),
+    }),
+  ),
+  cloudflare: union(
+    object({
+      state: literal("planned"),
+      workerName: string(),
+      rootDirectory: string(),
+      buildTokenUuid: union(string(), v.null()),
+    }),
+    object({
+      state: literal("creating"),
+      workerName: string(),
+      rootDirectory: string(),
+      buildTokenUuid: string(),
+    }),
+    object({
+      state: literal("created"),
+      workerName: string(),
+      workerTag: string(),
+      rootDirectory: string(),
+      buildTokenUuid: string(),
+    }),
+  ),
+  createdAt: number(),
+  updatedAt: number(),
+});
+
+/**
+The Actions secrets of one repository_actions repository. `credentialRevision` is the revision of
+the organization CI credentials that were written (`readCiCredentialRevision`), so a later rotation
+can find the repositories that still hold older values.
+*/
+export const vRepositoryActionsCiSecrets = union(
+  object({ state: literal("planned") }),
+  object({ state: literal("written"), writtenAt: number(), credentialRevision: number() }),
+);
+export type RepositoryActionsCiSecrets = Infer<typeof vRepositoryActionsCiSecrets>;
+
+/**
+The branch a repository_actions repository is seeded on and set as its GitHub default branch: the
+template's alchemy workflow deploys production from pushes to main.
+*/
+export const REPOSITORY_ACTIONS_DEFAULT_BRANCH = "main";
+
+/**
+The starter seed of one repository_actions repository. The starter goes onto main's bootstrap commit
+as a fast-forward, and once the seed is `seeded` no retry seeds again. `seeding` records the starter
+tree right before the push, because GitHub can accept the push although the step stops before it
+records `seeded`; a retry then finds that tree on main.
+*/
+export const vRepositoryActionsSeed = union(
+  object({ state: literal("planned") }),
+  object({ state: literal("seeding"), manifestVersion: string(), treeSha: string() }),
+  object({ state: literal("seeded"), seededAt: number(), manifestVersion: string() }),
+);
+
+const vRepositoryActionsProvisioningPlan = object({
+  provisioning: literal("repository_actions"),
+  repositoryId: id("repositories"),
+  convexConfigPath: string(),
+  ciSecrets: vRepositoryActionsCiSecrets,
+  seed: vRepositoryActionsSeed,
+  createdAt: number(),
+  updatedAt: number(),
+});
+
 export const repositoryProvisioningTables = {
-  /** Exact provider-resource choices for one repository. */
-  workflow_repositoryProvisioning_plans: defineTable({
-    repositoryId: id("repositories"),
-    convexConfigPath: string(),
-    convex: union(
-      object({
-        state: literal("planned"),
-        projectName: string(),
-        deploymentRegion: vConvexDeploymentRegion,
-      }),
-      object({
-        state: literal("creating"),
-        projectName: string(),
-        deploymentRegion: vConvexDeploymentRegion,
-      }),
-      object({
-        state: literal("created"),
-        projectName: string(),
-        deploymentRegion: vConvexDeploymentRegion,
-        projectId: string(),
-      }),
-    ),
-    cloudflare: union(
-      object({
-        state: literal("planned"),
-        workerName: string(),
-        rootDirectory: string(),
-        buildTokenUuid: union(string(), v.null()),
-      }),
-      object({
-        state: literal("creating"),
-        workerName: string(),
-        rootDirectory: string(),
-        buildTokenUuid: string(),
-      }),
-      object({
-        state: literal("created"),
-        workerName: string(),
-        workerTag: string(),
-        rootDirectory: string(),
-        buildTokenUuid: string(),
-      }),
-    ),
-    createdAt: number(),
-    updatedAt: number(),
-  }).index("by_repository", ["repositoryId"]),
+  /**
+  One repository's provisioning choices. The samebase variant (no `provisioning` field) holds the
+  exact Convex project and Worker that Samebase's workflow creates. The repository_actions variant
+  holds no provider choice: the repository's GitHub Actions deploy the app, and Samebase writes
+  their CI secrets. Read the mode with `readRepositoryProvisioningMode`.
+  */
+  workflow_repositoryProvisioning_plans: defineTable(
+    union(vSamebaseProvisioningPlan, vRepositoryActionsProvisioningPlan),
+  ).index("by_repository", ["repositoryId"]),
 
   /** Current or most recent provider write for one repository. */
   workflow_repositoryProvisioning_writeLocks: defineTable(

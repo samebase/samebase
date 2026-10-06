@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { isSamebaseProvisioningPlan } from "./provisioningPlan";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -679,12 +680,15 @@ describe("organization-owned repositories", () => {
         githubRepositoryName: "managed-app",
         visibility: "private",
         description: null,
-        convexProjectName: "managed-app",
-        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
-        cloudflareWorkerName: "managed-app",
-        cloudflareBuildTokenUuid: "build-token",
+        plan: {
+          provisioning: "samebase",
+          convexProjectName: "managed-app",
+          convexDeploymentRegion: "aws-us-east-1",
+          cloudflareWorkerName: "managed-app",
+          cloudflareBuildTokenUuid: "build-token",
+        },
       },
     );
     const initialManagedState = await t.run(async (ctx) => {
@@ -700,9 +704,13 @@ describe("organization-owned repositories", () => {
     expect(initialManagedState.existingRun).toMatchObject({ organizationId });
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.repository).toMatchObject(expectedDestinations);
-    expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
-    expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
-    expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");
+    const initialPlan = initialManagedState.plan;
+    if (!isSamebaseProvisioningPlan(initialPlan)) {
+      throw new Error("Expected a samebase provisioning plan.");
+    }
+    expect(initialPlan.convex).not.toHaveProperty("teamId");
+    expect(initialPlan.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
+    expect(initialPlan.cloudflare).not.toHaveProperty("accountId");
 
     await t.mutation(internal.repository.records.connectSamebaseManagedRepositoryGitHub, {
       ...managed,
@@ -757,12 +765,15 @@ describe("organization-owned repositories", () => {
         githubRepositoryName: "managed-failure",
         visibility: "private",
         description: null,
-        convexProjectName: "managed-failure",
-        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
-        cloudflareWorkerName: "managed-failure",
-        cloudflareBuildTokenUuid: "build-token",
+        plan: {
+          provisioning: "samebase",
+          convexProjectName: "managed-failure",
+          convexDeploymentRegion: "aws-us-east-1",
+          cloudflareWorkerName: "managed-failure",
+          cloudflareBuildTokenUuid: "build-token",
+        },
       },
     );
 

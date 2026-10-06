@@ -130,6 +130,9 @@ JSON Schema for the tool's `structuredContent`:
                       },
                       {
                         "const": "cloudflare"
+                      },
+                      {
+                        "const": "github"
                       }
                     ]
                   },

@@ -32,6 +32,7 @@ import {
   recordManagedProviderWrite,
 } from "./infrastructureOperation";
 import { isLiveConnectedRepository } from "./state";
+import { requireSamebaseProvisioningPlan, type SamebaseProvisioningPlan } from "./provisioningPlan";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -57,7 +58,7 @@ async function requireActiveManagedProvisioning(
   },
 ): Promise<{
   repository: Extract<Doc<"repositories">, { state: "connected" }>;
-  plan: Doc<"workflow_repositoryProvisioning_plans">;
+  plan: SamebaseProvisioningPlan;
 }> {
   const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
   if (!isLiveConnectedRepository(authority.repository)) {
@@ -87,10 +88,10 @@ async function requireActiveManagedProvisioning(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for repository.");
   }
-  return { repository: authority.repository, plan };
+  return { repository: authority.repository, plan: requireSamebaseProvisioningPlan(plan) };
 }
 
-function readPlanConvexConfigPath(plan: Doc<"workflow_repositoryProvisioning_plans">): string {
+function readPlanConvexConfigPath(plan: SamebaseProvisioningPlan): string {
   return normalizeConvexConfigPath(plan.convexConfigPath);
 }
 

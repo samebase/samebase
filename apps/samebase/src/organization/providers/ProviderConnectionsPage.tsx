@@ -1,5 +1,6 @@
 import { isInIframe } from "@/authClient";
 import { useApiKeyConnectDialog } from "@/organization/providers/ApiKeyConnectDialog";
+import { CiCredentialsSection } from "@/organization/providers/CiCredentialsSection";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import type { ViewerOrganization } from "@/organization/context";
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,7 @@ export type ProviderConnectionsPageConnectionState = {
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
   authorizationErrorMessage: ReactNode;
+  ciCredentials: ReactNode;
   cloudflareApiTokenDialog: ReactNode;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: boolean;
@@ -850,6 +852,7 @@ function ConnectionActionsMenu({
 
 export function ProviderConnectionsPageView({
   authorizationErrorMessage,
+  ciCredentials,
   cloudflareAccess,
   cloudflareAccessError,
   cloudflareApiTokenDialog,
@@ -1150,10 +1153,7 @@ export function ProviderConnectionsPageView({
       : [githubProviderRow, convexProviderRow, cloudflareProviderRow];
 
   return (
-    <div
-      data-testid="provider-connections-page"
-      className="container flex min-h-0 flex-1 flex-col py-6"
-    >
+    <div data-testid="provider-connections-page" className="container flex flex-1 flex-col py-6">
       <h1 className="mb-6 text-xl font-semibold @2xl:text-2xl">Providers</h1>
       {authorizationErrorMessage ? (
         <div className="mb-4 max-w-3xl">
@@ -1168,6 +1168,7 @@ export function ProviderConnectionsPageView({
       <div className="max-w-3xl">
         <ProviderConnectionRows providerRows={providerRows} />
       </div>
+      {ciCredentials}
       {convexApiKeyDialog}
       {cloudflareApiTokenDialog}
     </div>
@@ -1670,6 +1671,22 @@ export function ProviderConnectionsPage({
   return (
     <ProviderConnectionsPageView
       authorizationErrorMessage={authorizationErrorMessage}
+      ciCredentials={
+        <CiCredentialsSection
+          canManageOrganization={organization.role === "owner"}
+          cloudflareAccountId={
+            cloudflareConnection?.state === "connected" ? cloudflareConnection.accountId : null
+          }
+          convexAccessTokensUrl={
+            convexConnection?.state === "connected"
+              ? getConvexManageAccessUrl(convexConnection.teamSlug, "api_key")
+              : undefined
+          }
+          convexConnected={convexConnection?.state === "connected"}
+          githubOwnerLogin={organization.githubOwnerLogin}
+          organizationId={organizationId}
+        />
+      }
       cloudflareAccess={
         cloudflareAccessQuery.error === null ? (cloudflareAccessQuery.data ?? null) : null
       }

@@ -5,6 +5,7 @@ import type { cloudflareDiscoverWorkersContract } from "../repository/contracts/
 import type { CloudflareWorkersBuildTokens } from "../repository/contracts/cloudflareBuildTokens";
 import type { convexDiscoverProjectsContract } from "../repository/contracts/convexAttachments";
 import type { UserRepositoryResult } from "../repository/contracts/getUserRepositories";
+import { isSamebaseManagedProviderPlan } from "../repository/provisioningPlan";
 import {
   getConvexCodeLocationPath,
   type ConvexCodeLocation,
@@ -77,7 +78,7 @@ export function readPendingCloudflareSetup(
 ) {
   const plan = repository.providerPlan;
   if (
-    !plan ||
+    !isSamebaseManagedProviderPlan(plan) ||
     plan.cloudflare.state !== "planned" ||
     plan.cloudflare.buildTokenUuid !== null ||
     plan.convex.state !== "created" ||

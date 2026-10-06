@@ -741,4 +741,44 @@ describe("organization provider credential lifecycle", () => {
       cloudflare: after.credentials?.cloudflare?.connectedByUserId,
     }).toEqual({ convex: seed.otherOwnerId, cloudflare: seed.otherOwnerId });
   });
+
+  it("removes only the deleted member's CI tokens, and a provider disconnect keeps them", async () => {
+    const seed = await seedConfiguredProviders();
+    await seed.t.run(async (ctx) => {
+      await ctx.db.insert("organizationCiCredentials", {
+        organizationId: seed.organizationId,
+        cloudflare: {
+          apiToken: "cloudflare-ci-test-token",
+          accountId: "cloudflare-account",
+          connectedByUserId: seed.otherOwnerId,
+          updatedAt: 1,
+        },
+        convex: {
+          accessToken: "convex-ci-test-token",
+          teamId: "convex-team",
+          connectedByUserId: seed.connectorId,
+          updatedAt: 2,
+        },
+      });
+    });
+    const readCi = async () =>
+      await seed.t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique());
+    const runId = await startDeletion(seed);
+
+    await expect(
+      seed.t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
+        runId,
+        workflowId: "provider-takeover",
+      }),
+    ).resolves.toMatchObject({ done: true });
+
+    // The deleting member's provider connections are gone with their Convex CI token; the other
+    // owner's Cloudflare CI token stays.
+    await expect(loadProviderState(seed.t, seed.organizationId)).resolves.toMatchObject({
+      credentials: null,
+    });
+    const after = await readCi();
+    expect(after?.cloudflare?.connectedByUserId).toBe(seed.otherOwnerId);
+    expect(after?.convex).toBeUndefined();
+  });
 });

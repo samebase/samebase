@@ -265,12 +265,15 @@ describe("pooled organization connection quotas", () => {
         githubRepositoryName: "managed-blocked",
         visibility: "private",
         description: null,
-        convexProjectName: "managed-blocked",
-        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
-        cloudflareWorkerName: "managed-blocked",
-        cloudflareBuildTokenUuid: "build-token",
+        plan: {
+          provisioning: "samebase",
+          convexProjectName: "managed-blocked",
+          convexDeploymentRegion: "aws-us-east-1",
+          cloudflareWorkerName: "managed-blocked",
+          cloudflareBuildTokenUuid: "build-token",
+        },
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
 
@@ -310,12 +313,15 @@ describe("pooled organization connection quotas", () => {
         githubRepositoryName: "managed-race",
         visibility: "private",
         description: null,
-        convexProjectName: "managed-race",
-        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
-        cloudflareWorkerName: "managed-race",
-        cloudflareBuildTokenUuid: "build-token",
+        plan: {
+          provisioning: "samebase",
+          convexProjectName: "managed-race",
+          convexDeploymentRegion: "aws-us-east-1",
+          cloudflareWorkerName: "managed-race",
+          cloudflareBuildTokenUuid: "build-token",
+        },
       },
     );
     await t.mutation(internal.repository.cloudflareMutations.attachWorkers, {

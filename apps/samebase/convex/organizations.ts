@@ -457,6 +457,7 @@ export const deleteOrganization = mutation({
       invitations,
       organizationTreeSettings,
       providerCredentials,
+      ciCredentials,
       providerOAuthStates,
     ] = await Promise.all([
       ctx.db
@@ -492,6 +493,10 @@ export const deleteOrganization = mutation({
         .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
       ctx.db
+        .query("organizationCiCredentials")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
+        .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
+      ctx.db
         .query("providerOAuthCallbackStates")
         .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
@@ -504,6 +509,7 @@ export const deleteOrganization = mutation({
       invitations,
       organizationTreeSettings,
       providerCredentials,
+      ciCredentials,
       providerOAuthStates,
     ];
     if (cleanupRows.some((rows) => rows.length > ORGANIZATION_DELETION_ROW_LIMIT)) {
@@ -517,6 +523,7 @@ export const deleteOrganization = mutation({
     await deleteRows(ctx, invitations);
     await deleteRows(ctx, organizationTreeSettings);
     await deleteRows(ctx, providerCredentials);
+    await deleteRows(ctx, ciCredentials);
     await deleteRows(ctx, providerOAuthStates);
     await ctx.db.delete(billing._id);
     await ctx.db.delete(soleMembership._id);
