@@ -639,3 +639,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   first deploys the Worker shell and the Convex project with `DESTROY_APP=true` (policy only), then
   `alchemy destroy --stage prod` deleted the project, the Worker, the keys, and the deploy key (11
   resources), and the stack state went. Both URLs 404. Under two minutes.
+- 2026-10-06: The whole loop closed on the second app: create from the preview, green run, the
+  confirmed destroy, then "Remove from Samebase" with "Also delete the GitHub repository"; the
+  Samebase row, the GitHub repository, the Convex project, the Worker, and the stack state are all
+  gone. PR B head `deaee5d04` (destroy path, Codex three rounds, clean). The first app's repository
+  got the final workflow and script pushed and its confirmed destroy runs next.
