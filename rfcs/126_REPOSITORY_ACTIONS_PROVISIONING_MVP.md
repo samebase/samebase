@@ -473,3 +473,11 @@ Score Four CI token), and the CI token for the dogfood organization.
   limit: previews of different branches can collide in rare cases, and a colliding deploy replaces
   the other branch's preview. Alchemy reuses a Preview of the same name without an ownership check;
   a provider-side ownership tag would be the real fix, later.
+- 2026-10-06: PR B round 2 fixes in (commit `ce0da0b36`, 2614 tests green). Schema as built now: the
+  `repository_actions` plan variant with `ciSecrets` and `seed` checkpoints; a new table
+  `organizationCiCredentials` (one row per organization, `cloudflare` and `convex` entries, indexes
+  by organization and by the saving user); `organizationProviderCredentials` unchanged from main;
+  the run step literal `write_actions_secrets`. The mode seeds `main` and sets it as the default
+  branch when GitHub created another one. Initial runs that fail in the seed or the tree sync are
+  admitted to retry. The retry confirmation describes the mode's operation. Account deletion removes
+  only the CI entries the deleted member saved. Codex round 3 running.
