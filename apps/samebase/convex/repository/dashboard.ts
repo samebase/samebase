@@ -394,7 +394,7 @@ async function resolveProviderSetupSummary(
   const managedOperation = await readManagedProviderOperation(ctx, infrastructure);
 
   // Samebase's part of a repository_actions setup is the GitHub Actions secrets; the repository's
-  // GitHub Actions own the Convex project and the Worker.
+  // alchemy workflow owns the Convex project, the Worker, and its Workers Builds link.
   if (providerPlan && readRepositoryProvisioningMode(providerPlan) === "repository_actions") {
     return managedOperation
       ? readProviderRunSummary({ provider: "github", ...managedOperation })

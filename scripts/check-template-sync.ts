@@ -4,62 +4,31 @@ import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
 
 /**
-templates/base and templates/base-actions are the same app with two deploy paths: Workers Builds in
-base; an Alchemy setup stack and `cf` from GitHub Actions in base-actions. These paths may differ
-between the two templates or exist in only one of them. Every other path must exist in both with
-the same bytes and mode.
+templates/base-actions is templates/base plus an Alchemy setup stack that GitHub Actions runs to set
+up the providers; Workers Builds deploys both templates the same way. These paths belong to the
+stack and may differ between the two templates or exist only in base-actions. Every other path must
+exist in both with the same bytes and mode.
 */
 export const templateDeployPaths = [
-  // base-actions only: the Alchemy setup stack (Worker shell and Convex side).
+  // The setup stack: the Worker shell, the Workers Builds link, the Convex project and keys.
   "alchemy.run.ts",
-  // base-actions only: the Worker that `cf` uploads, and the build settings of the Wrangler bundler.
-  "cloudflare.config.ts",
-  "wrangler.config.ts",
-  // base-actions only: the GitHub Actions workflow that runs the deploy and the destroy.
+  // The workflow that plans, deploys, and destroys the stack.
   ".github/workflows/alchemy.yml",
-  // base-actions only: the names of the stack, the Worker, the Convex project, and the Previews.
+  // The stack, Worker, and Convex project names from GITHUB_REPOSITORY.
   "scripts/deploy-names.ts",
   "scripts/deploy-names.test.ts",
-  // base-actions only: the workflow steps around `alchemy` and `cf`: the stage outputs, the Worker
-  // Build Output, the Worker Preview upload and delete, and the pull request comment.
-  "scripts/read-stack-output.ts",
-  // base-actions only: the confirmed destroy of the whole app.
+  // The confirmed destroy of what the stack owns.
   "scripts/destroy-app.ts",
-  "scripts/build-worker.ts",
-  "scripts/deploy-worker-preview.ts",
-  "scripts/delete-worker-preview.ts",
-  "scripts/delete-worker-preview.test.ts",
-  "scripts/comment-preview.ts",
-  "scripts/comment-preview.test.ts",
-  // base-actions only: the Alchemy stage of a branch, which the workflow computes before the deploy
-  // and the destroy.
-  "scripts/alchemy-stage.ts",
-  "scripts/alchemy-stage.test.ts",
-  // base-actions only: skips the deploy of a workflow run whose commit is no longer the branch head,
-  // and the destroy of a deleted branch that exists again. It asks the GitHub API and ends the run
-  // without a deploy or destroy; the base head check reads Workers Builds variables and git, and
-  // fails the build.
-  "scripts/check-branch-head.ts",
-  "scripts/check-branch-head.test.ts",
-  // Deploy scripts and dependencies: Wrangler and the Workers Builds scripts in base; Alchemy,
-  // Effect, cf, Wrangler, and the @samebase Alchemy providers in base-actions.
+  // Alchemy, Effect, and the @samebase Alchemy providers as development dependencies.
   "package.json",
-  // The lockfile of those different dependencies.
+  // The lockfile of those dependencies.
   "pnpm-lock.yaml",
-  // base-actions also type-checks alchemy.run.ts and the two config files as Node code.
+  // Type-checks alchemy.run.ts as Node code with the scripts.
   "tsconfig.node.json",
-  // base-actions also ignores the local Alchemy state and the Build Output.
+  // Ignores the files of the Alchemy CLI.
   ".gitignore",
-  // Each README documents its own deploy contract.
+  // Documents the setup stack.
   "README.md",
-  // base only: the Worker configuration that Wrangler deploys from Workers Builds.
-  "wrangler.jsonc",
-  // base only: the Workers Builds build command, which deploys Convex inside Workers Builds.
-  "scripts/build-cloudflare.ts",
-  "scripts/build-cloudflare.test.ts",
-  // base only: stops an older Workers Builds run from deploying after a newer commit.
-  "scripts/verify-current-branch-head.ts",
-  "scripts/verify-current-branch-head.test.ts",
 ];
 
 export function findUnsyncedTemplatePaths(args: {

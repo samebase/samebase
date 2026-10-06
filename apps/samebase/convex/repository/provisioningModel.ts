@@ -83,7 +83,8 @@ export function isRepositoryProvisioningProviderStep(step: RepositoryProvisionin
 /**
 samebase = Samebase's workflow creates the Convex project and the Worker and configures Workers Builds
 
-repository_actions = the repository's GitHub Actions deploy the app; Samebase writes their CI secrets
+repository_actions = the repository's alchemy workflow sets up the Convex project, the Worker, and its
+Workers Builds link, and Workers Builds deploys the app; Samebase writes the workflow's CI secrets
 */
 export const vRepositoryProvisioningMode = union(
   literal("samebase"),
@@ -197,7 +198,8 @@ export type RepositoryActionsCiSecrets = Infer<typeof vRepositoryActionsCiSecret
 
 /**
 The branch a repository_actions repository is seeded on and set as its GitHub default branch: the
-template's alchemy workflow deploys production from pushes to main.
+template's setup stack makes the default branch the Workers Builds production branch, and its build
+deploys production Convex only from main.
 */
 export const REPOSITORY_ACTIONS_DEFAULT_BRANCH = "main";
 
@@ -227,8 +229,8 @@ export const repositoryProvisioningTables = {
   /**
   One repository's provisioning choices. The samebase variant (no `provisioning` field) holds the
   exact Convex project and Worker that Samebase's workflow creates. The repository_actions variant
-  holds no provider choice: the repository's GitHub Actions deploy the app, and Samebase writes
-  their CI secrets. Read the mode with `readRepositoryProvisioningMode`.
+  holds no provider choice: the repository's alchemy workflow sets up the providers, Workers Builds
+  deploys the app, and Samebase writes the workflow's CI secrets. Read the mode with `readRepositoryProvisioningMode`.
   */
   workflow_repositoryProvisioning_plans: defineTable(
     union(vSamebaseProvisioningPlan, vRepositoryActionsProvisioningPlan),

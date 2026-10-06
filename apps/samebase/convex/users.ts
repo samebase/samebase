@@ -22,6 +22,7 @@ import {
 } from "./organizationProviderCredentials";
 import {
   requireCloudflareCiAccountAccess,
+  requireCloudflareCiWorkersBuildsAccess,
   requireConvexCiTeamAccess,
 } from "./organization/ciCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
@@ -1144,6 +1145,7 @@ export const setCloudflareCiToken = action({
       throw new ConvexError("Cloudflare could not verify this API token.");
     }
     requireCloudflareCiAccountAccess(accounts, account);
+    await requireCloudflareCiWorkersBuildsAccess({ token, account });
 
     await ctx.runMutation(internal.organizationProviderCredentials.setCloudflareCiCredential, {
       organizationId,
