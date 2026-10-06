@@ -238,7 +238,6 @@ describe("actionsStarterTemplateManifest", () => {
       expect.arrayContaining([
         ".github/workflows/alchemy.yml",
         "alchemy.run.ts",
-        "scripts/alchemy-stage.ts",
         "scripts/ensure-convex-auth.ts",
       ]),
     );

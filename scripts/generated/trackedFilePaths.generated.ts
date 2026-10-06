@@ -2253,7 +2253,6 @@ export const trackedFilePaths = [
   "templates/base-actions/alchemy.run.ts",
   "templates/base-actions/package.json",
   "templates/base-actions/pnpm-lock.yaml",
-  "templates/base-actions/scripts/alchemy-stage.ts",
   "templates/base-actions/tsconfig.node.json",
   "templates/base/.agents/skills/convex-create-component/SKILL.md",
   "templates/base/.agents/skills/convex-create-component/agents/openai.yaml",

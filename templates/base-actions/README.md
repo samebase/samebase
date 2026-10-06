@@ -57,25 +57,24 @@ The core workflow runs on macOS, Linux, and Windows. See
 `alchemy.run.ts` is the only deploy path. `alchemy deploy` pushes the Convex functions, then builds
 the app with Vite and uploads the Worker. `.github/workflows/alchemy.yml` runs it:
 
-| Event                                  | Stage      | What it deploys                                                                              |
-| -------------------------------------- | ---------- | -------------------------------------------------------------------------------------------- |
-| Push to `main`                         | `prod`     | Convex project and production deployment, Worker                                             |
-| Pull request opened, updated, reopened | the branch | Convex preview deployment named after the branch, Worker Preview of the prod Worker, comment |
-| Pull request closed                    | the branch | `alchemy destroy`: deletes the preview deployment and the Worker Preview                     |
+| Event                                  | Stage         | What it deploys                                                                              |
+| -------------------------------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| Push to `main`                         | `prod`        | Convex project and production deployment, Worker                                             |
+| Pull request opened, updated, reopened | `pr-<number>` | Convex preview deployment named after the branch, Worker Preview of the prod Worker, comment |
+| Pull request closed                    | `pr-<number>` | `alchemy destroy`: deletes the preview deployment and the Worker Preview                     |
 
-The workflow runs `pnpm run check` before each deploy. The Worker, the Convex project, and the
-Alchemy stack take the repository name: lowercase, every run of other characters as one dash. On a
-pull request, `scripts/alchemy-stage.ts` makes the stage from the branch name the same way, and the
-Convex preview deployment gets the branch name itself, the name `npx convex deploy --preview-name`
-gives it. The Worker Preview gets the stage name. When the stage and the Worker name do not fit
-together in one 63-character DNS label, `workerPreviewName` in `alchemy.run.ts` cuts the stage and
-adds a short hash.
+The workflow runs `pnpm run check` before each deploy. A pull request deploys as the stage
+`pr-<number>`, and Alchemy names the Worker Preview after that stage. The Convex preview deployment
+gets the branch name itself, the name `npx convex deploy --preview-name` gives it.
 
-Two branches whose names differ only in letter case or in characters other than letters and digits,
-such as `feature/foo` and `feature-foo`, get the same stage. They cannot have previews at the same
-time: the second deploy fails with `DeploymentIdentityChange` from `@samebase/alchemy-convex`,
-because the stage already holds the Convex preview deployment of the other branch. Rename one of the
-branches.
+The Worker and the Convex project take the repository name: lowercase, every run of other
+characters as one dash. The Alchemy stack takes the owner and the repository, lowercase, joined with
+`_` (`my-org/my-app` becomes `my-org_my-app`), so two repositories never share Alchemy state.
+
+The deploy never takes over a Worker or a Convex project that it did not create. If the Cloudflare
+account already has a Worker with the same name that this stack did not create, or the Convex team
+already has a project with the same name that is not in this stack's state, the deploy stops with
+`OwnedBySomeoneElse`. The workflow does not pass `--adopt`.
 
 The stack makes the Convex Auth keys: `JWT_PRIVATE_KEY` and `JWKS` on the production deployment,
 and the same two variables as project defaults for preview and dev deployments. The Convex project

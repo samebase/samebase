@@ -3,12 +3,11 @@
 //
 // - Stage `prod` (push to main): the Convex project and its production
 //   deployment, the Convex Auth keys, the functions push, and the Worker.
-// - A pull request: the stage is the branch name made safe for a stage and a
-//   Worker Preview name (scripts/alchemy-stage.ts), and PREVIEW_BRANCH holds
-//   the branch itself. A Convex preview deployment named after the branch, the
-//   name `npx convex deploy --preview-name` gives it, and a Worker Preview of
-//   the prod Worker named after the stage (workerPreviewName). `alchemy
-//   destroy --stage <stage>` deletes both.
+// - Stage `pr-<number>` (a pull request): PREVIEW_BRANCH holds the branch. A
+//   Convex preview deployment named after the branch, the name `npx convex
+//   deploy --preview-name` gives it, and a Worker Preview of the prod Worker,
+//   which Alchemy names after the stage. `alchemy destroy --stage pr-<number>`
+//   deletes both.
 // - No other stage. `pnpm run dev` runs Convex and Vite without Alchemy.
 //
 // .github/workflows/alchemy.yml runs the deploys. A deploy from a laptop needs
@@ -26,13 +25,9 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
-import { createHash, createPublicKey } from "node:crypto";
+import { createPublicKey } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
-// The stack, the Worker, and the Convex project take the name of the
-// repository, so every app made from this template gets its own. The stack
-// name also keeps apps apart in the Cloudflare state store: Alchemy keys state
-// by stack name and stage, and all stacks of an account share one store.
 // Alchemy reads the stack name when it loads this file, before the stack has
 // its config, so this reads the process environment over .env, in the same
 // order as the Alchemy CLI.
@@ -45,16 +40,28 @@ const startupConfig = existsSync(".env")
 const repository = Effect.runSync(
   Config.String("GITHUB_REPOSITORY").pipe(Config.withDefault("")).parse(startupConfig),
 );
-const repositoryName = /^[^/]+\/([^/]+)$/.exec(repository)?.[1];
-if (repositoryName === undefined) {
+const repositoryMatch = /^([^/]+)\/([^/]+)$/.exec(repository);
+if (repositoryMatch === null) {
   throw new Error(
     `GITHUB_REPOSITORY is "${repository}", not "<owner>/<repository>". GitHub Actions sets it. For a deploy from a laptop, set it in the environment or in .env.`,
   );
 }
+const [, repositoryOwner, repositoryName] = repositoryMatch;
 
-// Samebase names resources after the repository the same way: lowercase,
-// every run of other characters as one dash, no dash at the ends, cut to 54
-// characters for a Worker with preview URLs and 40 for a Convex project.
+// Alchemy keys state by stack name and stage, and all stacks of a Cloudflare
+// account share one state store. The stack name is the owner and the
+// repository, lowercase, joined with `_`. GitHub names ignore case, and an
+// owner name has no `_`, so two repositories never share a stack. Alchemy
+// does not check stack names; it puts the name in a state store URL path, a
+// local state directory, and a Worker tag. Owner and repository names have
+// only letters, digits, `-`, `.`, and `_`: no escaping in a URL path or a
+// directory name, and no `,` or `&`, which Cloudflare asks to avoid in tags.
+const stackName = `${repositoryOwner}_${repositoryName}`.toLowerCase();
+
+// The Worker and the Convex project take the repository name the way Samebase
+// names resources: lowercase, every run of other characters as one dash, no
+// dash at the ends, cut to 54 characters for a Worker with preview URLs and 40
+// for a Convex project.
 const resourceName = (maxLength: number) =>
   repositoryName
     .toLowerCase()
@@ -68,30 +75,6 @@ const convexProjectName = resourceName(40);
 if (workerName === "") {
   throw new Error(`The repository name "${repositoryName}" has no letter or digit.`);
 }
-
-/**
- * The Worker Preview name of a pull request stage. Samebase computes the same
- * name to find the Preview of a pull request.
- *
- * Cloudflare serves a Preview at `<name>-<worker>.<subdomain>.workers.dev`, so
- * `<name>-<worker>` must fit in one 63-character DNS label. Alchemy cuts a
- * longer name, and two stages that start the same would then share one
- * Preview. A stage that fits is the name. A longer stage is cut, and a dash
- * and the first 4 hex characters of the SHA-256 of the full stage follow. A
- * stage that does not start with a letter gets a `p` first, as in Alchemy.
- */
-const workerPreviewName = (stage: string, worker: string) => {
-  const budget = 63 - worker.length - 1;
-  if (budget < 6) {
-    throw new Error(
-      `The Worker name "${worker}" leaves ${budget} characters for a Preview name in a 63-character DNS label. Use a shorter repository name.`,
-    );
-  }
-  const name = /^[a-z]/.test(stage) ? stage : `p${stage}`;
-  if (name.length <= budget) return name;
-  const hash = createHash("sha256").update(stage).digest("hex").slice(0, 4);
-  return `${name.slice(0, budget - 5).replace(/-+$/, "")}-${hash}`;
-};
 
 // Convex Auth reads JWT_PRIVATE_KEY (PKCS#8 PEM, line breaks as spaces) and
 // JWKS (the public key as a JSON Web Key Set). Same format as
@@ -187,7 +170,7 @@ const preview = (branch: string) =>
   });
 
 export default Alchemy.Stack(
-  workerName,
+  stackName,
   {
     providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers(), Convex.providers()),
     // The Cloudflare state store: an encrypted Durable Object in the account,
@@ -196,22 +179,28 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
-    // .github/workflows/alchemy.yml sets PREVIEW_BRANCH on pull requests and
-    // passes the same branch, made safe by scripts/alchemy-stage.ts, as the
-    // stage. Empty on a push.
+    // .github/workflows/alchemy.yml sets PREVIEW_BRANCH to the pull request
+    // branch and the stage to pr-<number>. Both are empty or prod on a push.
     const previewBranch = yield* Config.String("PREVIEW_BRANCH").pipe(Config.withDefault(""));
-    const isPreview = previewBranch !== "";
-    if (isPreview && stage === "prod") {
+    const isPreview = /^pr-\d+$/.test(stage);
+    if (stage === "prod" && previewBranch !== "") {
       return yield* Effect.die(
         new Error(
           `PREVIEW_BRANCH is "${previewBranch}" on stage prod. A preview never deploys as prod.`,
         ),
       );
     }
-    if (!isPreview && stage !== "prod") {
+    if (isPreview && previewBranch === "") {
       return yield* Effect.die(
         new Error(
-          `Stage "${stage}" is not prod and PREVIEW_BRANCH is empty. This stack deploys stage prod and pull request stages only.`,
+          `Stage "${stage}" is a pull request stage, and PREVIEW_BRANCH is empty. Set it to the branch of the pull request.`,
+        ),
+      );
+    }
+    if (stage !== "prod" && !isPreview) {
+      return yield* Effect.die(
+        new Error(
+          `Stage "${stage}" is not prod or pr-<number>. This stack deploys only those stages.`,
         ),
       );
     }
@@ -234,10 +223,8 @@ export default Alchemy.Stack(
     const site = isPreview
       ? yield* Cloudflare.Website.Vite("Website", {
           ...settings,
-          preview: {
-            of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }),
-            name: workerPreviewName(stage, workerName),
-          },
+          // Alchemy names the Preview after the stage: pr-<number>.
+          preview: { of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }) },
         })
       : yield* Cloudflare.Website.Vite("Website", { ...settings, name: workerName });
 
