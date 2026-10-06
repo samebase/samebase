@@ -477,3 +477,7 @@ C; Convex token minting per repository (spike pending); the template location lo
   to the current direction: Goal section, the Mail and Score Four model, previews per branch, the
   schema as built, the mode as built, the decisions taken. The Status log above this entry is the
   history and keeps its older wording.
+- 2026-10-06: PR B Codex round 4 clean (196 focused tests, type check). PR #1692 goes to ready for
+  review when its CI is green; it no longer depends on PR #1693. Next: Nicu merges it, then the
+  dogfood on production samebase.com (paste the two CI tokens once, create a temporary app in the
+  new mode, watch the repository's run), then PR C.
