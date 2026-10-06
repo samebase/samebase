@@ -90,6 +90,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 > = {
   users: "identity",
   organizationProviderCredentials: "providers",
+  organizationCiCredentials: "providers",
   providerOAuthCallbackStates: "providers",
 
   ui_user_settings: "workspace",

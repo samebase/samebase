@@ -884,6 +884,103 @@ describe("repository_actions provisioning workflow", () => {
     expect(github.calls).toContain("GET /repos/samebase/actions-app/branches/main");
   });
 
+  it("lists a connected repository at every step of its running create run", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        name: "Ada",
+        email: "repository-actions-list@example.test",
+        isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "1001",
+        githubOwnerId: "1",
+        githubOwnerLogin: "samebase",
+        githubOwnerLoginNormalized: "samebase",
+        githubOwnerType: "organization",
+        convexTeam: { teamId: "41" },
+        cloudflareAccount: { accountId: "cloudflare-account", accountName: "Samebase" },
+      });
+      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
+      await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
+      const repositoryId = await ctx.db.insert("repositories", {
+        organizationId,
+        convexTeamId: "41",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+        organizationId,
+        userId,
+        repositoryId,
+        githubRepositoryFullName: "samebase/actions-app",
+        trigger: "create",
+        state: "running",
+        // connect_github_repository has connected the repository; the run has not moved on yet.
+        currentStep: "connect_github_repository",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      await ctx.db.replace(repositoryId, {
+        organizationId,
+        convexTeamId: "41",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        githubRepositoryDatabaseId: "9001",
+        githubRepositoryName: "actions-app",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 2,
+      });
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+        repositoryId,
+        owner: { kind: "managed_run", runId },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: 2,
+      });
+      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        provisioning: "repository_actions",
+        repositoryId,
+        convexConfigPath: "convex.json",
+        ciSecrets: { state: "planned" },
+        seed: { state: "planned" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      return { runId, userId };
+    });
+    const viewer = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const listSetup = async () => {
+      const repository = (await viewer.query(api.repository.list, {})).at(0);
+      return { sourceSetup: repository?.sourceSetup, providerSetup: repository?.providerSetup };
+    };
+
+    await expect(listSetup()).resolves.toMatchObject({
+      sourceSetup: { status: "running", step: "connect_github_repository" },
+      providerSetup: { status: "not_applicable" },
+    });
+    for (const step of ["write_actions_secrets", "seed_starter", "sync_tree", "finish"] as const) {
+      await t.run(async (ctx) => await ctx.db.patch(ids.runId, { currentStep: step }));
+      await expect(listSetup()).resolves.toMatchObject({
+        sourceSetup: { status: "ready" },
+        providerSetup: { status: "running", provider: "github", step },
+      });
+    }
+  });
+
   it("retries an initial run that failed in the tree sync, without seeding again", async () => {
     const github = createFakeGitHub({
       defaultBranch: "main",

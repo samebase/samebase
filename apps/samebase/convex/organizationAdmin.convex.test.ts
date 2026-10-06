@@ -180,6 +180,15 @@ describe("organization deletion", () => {
           updatedAt: 1,
         },
       });
+      await ctx.db.insert("organizationCiCredentials", {
+        organizationId: seed.organizationId,
+        convex: {
+          accessToken: "convex-ci-test-token",
+          teamId: "41",
+          connectedByUserId: seed.ownerId,
+          updatedAt: 1,
+        },
+      });
       await ctx.db.insert("providerOAuthCallbackStates", {
         provider: "cloudflare",
         userId: seed.ownerId,
@@ -240,9 +249,11 @@ describe("organization deletion", () => {
         .collect(),
       owner: await ctx.db.get(seed.ownerId),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
+      ciCredentials: await ctx.db.query("organizationCiCredentials").collect(),
       providerOAuthStates: await ctx.db.query("providerOAuthCallbackStates").collect(),
     }));
     expect(remaining).toEqual({
+      ciCredentials: [],
       billing: [],
       deletionEvents: [],
       deletionRuns: [],

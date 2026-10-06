@@ -118,15 +118,18 @@ async function resolveSourceSetupSummary(
     };
   }
   const classifiedStep = classifyProvisioningStep(run.currentStep);
-  // After connect_github_repository, everything a repository_actions setup does is provider setup:
-  // the secrets, the seed, and the tree sync, which its retry resumes.
-  const repositoryActionsConnected =
-    repository.state === "connected" &&
+  // A repository_actions setup runs its seed and tree sync after write_actions_secrets, and its retry
+  // resumes them, so they count as provider setup. connect_github_repository, which runs before the
+  // secrets write and can already show a connected repository, stays source setup.
+  const repositoryActionsProviderStep =
     providerPlan !== null &&
-    readRepositoryProvisioningMode(providerPlan) === "repository_actions";
+    readRepositoryProvisioningMode(providerPlan) === "repository_actions" &&
+    (classifiedStep.step === "seed_starter" || classifiedStep.step === "sync_tree");
   if (
     repository.state === "connected" &&
-    (run.state === "succeeded" || classifiedStep.phase === "provider" || repositoryActionsConnected)
+    (run.state === "succeeded" ||
+      classifiedStep.phase === "provider" ||
+      repositoryActionsProviderStep)
   ) {
     return { status: "ready" };
   }
