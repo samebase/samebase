@@ -1,148 +1,42 @@
-// The deploy stack of this app. One stack owns the Convex backend and the
-// Cloudflare Worker, and pushes code to both on every deploy.
+// The setup stack of this app. It declares the Worker shell, the Convex side,
+// and the wiring between them, and pushes the Convex functions. It never
+// uploads Worker code: cloudflare.config.ts defines the Worker, and
+// .github/workflows/alchemy.yml builds it and uploads it with `cf` after this
+// stack deploys. The Worker name comes from cloudflare.config.ts.
 //
-// - Stage `prod` (a push to the default branch): the Convex project and its
-//   production deployment, the Convex Auth keys, the functions push, and the
-//   Worker.
+// - Stage `prod` (a push to the default branch): the Worker shell, the Convex
+//   project and its production deployment, the Convex Auth keys, and the
+//   functions push.
 // - Any other stage is the preview of one branch (a push to any other
 //   branch). PREVIEW_BRANCH holds the branch, and scripts/alchemy-stage.ts
 //   computes the stage from it. A Convex preview deployment named after the
-//   branch, the name `npx convex deploy --preview-name` gives it, and a Worker
-//   Preview of the prod Worker named by `workerPreviewName`. When the branch
-//   is deleted, `alchemy destroy --stage <stage>` deletes both.
+//   branch, the name `npx convex deploy --preview-name` gives it, and the
+//   functions push. When the branch is deleted, `alchemy destroy --stage
+//   <stage>` deletes the preview deployment.
 // - `pnpm run dev` runs Convex and Vite without Alchemy.
 //
-// .github/workflows/alchemy.yml runs the deploys. A deploy from a laptop needs
-// GITHUB_REPOSITORY (`<owner>/<repository>`), CONVEX_TEAM_ID,
-// CLOUDFLARE_API_TOKEN, and CLOUDFLARE_ACCOUNT_ID in the environment or in
-// .env, and CONVEX_ACCESS_TOKEN or the Convex CLI login:
+// The outputs: `convexUrl` on every stage, which the workflow reads for the
+// app build, and `workerUrl`, the workers.dev URL of the Worker, on prod.
+//
+// A deploy from a laptop needs GITHUB_REPOSITORY (`<owner>/<repository>`),
+// CONVEX_TEAM_ID, CLOUDFLARE_API_TOKEN, and CLOUDFLARE_ACCOUNT_ID in the
+// environment or in .env, and CONVEX_ACCESS_TOKEN or the Convex CLI login:
 //   pnpm exec alchemy deploy --stage prod
+import * as WorkersBuilds from "@samebase/alchemy-cloudflare-workers-builds";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
-import * as GitHub from "alchemy/GitHub";
 import * as Output from "alchemy/Output";
 import * as Config from "effect/Config";
-import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
-import * as Schema from "effect/Schema";
-import { createHash, createPublicKey } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { createPublicKey } from "node:crypto";
 
-// Alchemy reads the stack name when it loads this file, before the stack has
-// its config, so this reads the process environment over .env, in the same
-// order as the Alchemy CLI.
-const startupConfig = existsSync(".env")
-  ? ConfigProvider.orElse(
-      ConfigProvider.fromEnv(),
-      ConfigProvider.fromDotEnvContents(readFileSync(".env", "utf8")),
-    )
-  : ConfigProvider.fromEnv();
-const repository = Effect.runSync(
-  Config.String("GITHUB_REPOSITORY").pipe(Config.withDefault("")).parse(startupConfig),
-);
-const repositoryMatch = /^([^/]+)\/([^/]+)$/.exec(repository);
-if (repositoryMatch === null) {
-  throw new Error(
-    `GITHUB_REPOSITORY is "${repository}", not "<owner>/<repository>". GitHub Actions sets it. For a deploy from a laptop, set it in the environment or in .env.`,
-  );
-}
-const [, repositoryOwner, repositoryName] = repositoryMatch;
+import { worker } from "./cloudflare.config.ts";
+import { deployNames } from "./scripts/deploy-names.ts";
 
-// Alchemy keys state by stack name and stage, and all stacks of a Cloudflare
-// account share one state store. The stack name is the owner and the
-// repository, lowercase, joined with `_`. GitHub names ignore case, and an
-// owner name has no `_`, so two repositories never share a stack. Alchemy
-// does not check stack names; it puts the name in a state store URL path, a
-// local state directory, and a Worker tag. Owner and repository names have
-// only letters, digits, `-`, `.`, and `_`: no escaping in a URL path or a
-// directory name, and no `,` or `&`, which Cloudflare asks to avoid in tags.
-const stackName = `${repositoryOwner}_${repositoryName}`.toLowerCase();
-
-// The Worker and the Convex project take the repository name the way Samebase
-// names resources: lowercase, every run of other characters as one dash, no
-// dash at the ends, cut to 54 characters for a Worker with preview URLs and 40
-// for a Convex project.
-const resourceName = (maxLength: number) =>
-  repositoryName
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, maxLength)
-    .replace(/-+$/, "");
-const workerName = resourceName(54);
-const convexProjectName = resourceName(40);
-if (workerName === "") {
-  throw new Error(`The repository name "${repositoryName}" has no letter or digit.`);
-}
-
-/**
- * The name of the Worker Preview of a preview stage. Cloudflare serves the
- * Preview at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>`
- * must fit in one 63-character DNS label, and the name must start with a
- * lowercase letter. The name is a readable part, a dash, and the first 6 hex
- * characters of the SHA-256 of the whole stage. The readable part is the
- * stage, with `p` first when the stage does not start with a letter, cut to
- * fit without a trailing dash. Branch names are often long, so the cut is the
- * normal case for a long Worker name. Two stages get one name only in rare
- * cases, more often with a long Worker name: 6 hex characters keep the URL
- * short, and a 54-character Worker name leaves room for only 8 characters.
- * Samebase computes the same name to find the Preview.
- */
-export function workerPreviewName(stage: string, worker: string): string {
-  const budget = 63 - worker.length - 1;
-  if (budget < 8) {
-    throw new Error(
-      `The Worker name "${worker}" leaves ${budget} characters for a Worker Preview name in a 63-character DNS label, and a Preview name needs 8. Use a shorter repository name.`,
-    );
-  }
-  const readable = (/^[a-z]/.test(stage) ? stage : `p${stage}`)
-    .slice(0, budget - 7)
-    .replace(/-+$/, "");
-  const name = `${readable}-${createHash("sha256").update(stage).digest("hex").slice(0, 6)}`;
-  if (!/^[a-z][a-z0-9-]*$/.test(name)) {
-    throw new Error(
-      `Stage "${stage}" gives the Worker Preview name "${name}", which has characters other than a-z, 0-9, and dashes. Deploy a preview with the stage that scripts/alchemy-stage.ts computes.`,
-    );
-  }
-  return name;
-}
-
-/**
- * The number of the oldest open pull request from a branch of this
- * repository, or undefined when none is open. GitHub Actions sets
- * GITHUB_API_URL; the workflow gives the deploy step GITHUB_TOKEN.
- */
-const openPullRequest = (owner: string, repository: string, branch: string) =>
-  Effect.gen(function* () {
-    const apiUrl = yield* Config.String("GITHUB_API_URL");
-    const token = yield* Config.Redacted("GITHUB_TOKEN");
-    const head = encodeURIComponent(`${owner}:${branch}`);
-    const response = yield* Effect.promise(() =>
-      fetch(`${apiUrl}/repos/${owner}/${repository}/pulls?state=open&head=${head}`, {
-        headers: {
-          accept: "application/vnd.github+json",
-          authorization: `Bearer ${Redacted.value(token)}`,
-          "x-github-api-version": "2022-11-28",
-        },
-      }),
-    );
-    if (!response.ok) {
-      return yield* Effect.die(
-        new Error(`GitHub answered ${response.status} to the pull request lookup of ${branch}.`),
-      );
-    }
-    const pullRequests = yield* Schema.decodeUnknownEffect(
-      Schema.Array(Schema.Struct({ number: Schema.Number })),
-    )(yield* Effect.promise((): Promise<unknown> => response.json())).pipe(Effect.orDie);
-    return pullRequests
-      .map((pullRequest) => pullRequest.number)
-      .toSorted((left, right) => left - right)
-      .at(0);
-  });
+const names = deployNames();
 
 // Convex Auth reads JWT_PRIVATE_KEY (PKCS#8 PEM, line breaks as spaces) and
 // JWKS (the public key as a JSON Web Key Set). Same format as
@@ -170,7 +64,7 @@ const production = Effect.gen(function* () {
 
   const project = yield* Convex.Project("Project", {
     team: Number(teamId),
-    name: convexProjectName,
+    name: names.convexProject,
   });
   const deployment = yield* Convex.Deployment("Deployment", {
     projectId: project.projectId,
@@ -238,9 +132,13 @@ const preview = (branch: string) =>
   });
 
 export default Alchemy.Stack(
-  stackName,
+  names.stack,
   {
-    providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers(), Convex.providers()),
+    providers: Layer.mergeAll(
+      Cloudflare.providers(),
+      WorkersBuilds.providers(),
+      Convex.providers(),
+    ),
     // The Cloudflare state store: an encrypted Durable Object in the account,
     // shared by the laptop and GitHub Actions.
     state: Cloudflare.state(),
@@ -267,54 +165,19 @@ export default Alchemy.Stack(
       );
     }
 
-    const backend = isPreview ? yield* preview(previewBranch) : yield* production;
-
-    // The same settings as wrangler.jsonc in the Workers Builds template.
-    // VITE_ variables go into the client bundle as import.meta.env.VITE_*.
-    const settings = {
-      compatibility: { date: "2026-05-14" },
-      assets: {
-        htmlHandling: "none",
-        // Cloudflare SPA mode serves /index.html for unknown app routes.
-        // vite.config.ts emits the TanStack Start shell there.
-        notFoundHandling: "single-page-application",
-      },
-      env: { VITE_CONVEX_URL: backend.url },
-    } as const;
-
-    const site = isPreview
-      ? yield* Cloudflare.Website.Vite("Website", {
-          ...settings,
-          preview: {
-            of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }),
-            name: workerPreviewName(stage, workerName),
-          },
-        })
-      : yield* Cloudflare.Website.Vite("Website", { ...settings, name: workerName });
-
-    // A push to a preview branch posts the URLs on the open pull request from
-    // that branch, if there is one. The destroy of a deleted branch does not
-    // look, so it never waits on the GitHub API.
-    const github = yield* GitHub.GitHubEnv;
-    const event = yield* Config.String("GITHUB_EVENT_NAME").pipe(Config.withDefault(""));
-    if (isPreview && github !== undefined && event === "push") {
-      const issueNumber = yield* openPullRequest(github.owner, github.repository, previewBranch);
-      if (issueNumber !== undefined) {
-        yield* GitHub.Comment("PreviewComment", {
-          owner: github.owner,
-          repository: github.repository,
-          issueNumber,
-          body: Output.interpolate`
-            **Preview:** ${site.url}
-
-            Convex: ${backend.url}
-
-            Built from commit ${github.sha.slice(0, 7)}. Alchemy updates this comment on each push.
-          `,
-        });
-      }
+    if (isPreview) {
+      const backend = yield* preview(previewBranch);
+      return { convexUrl: backend.url };
     }
 
-    return { url: site.url, convexUrl: backend.url };
+    // Only the name: every other Worker setting stays with cloudflare.config.ts,
+    // which `cf deploy` uploads. Retained on destroy, because it is the
+    // production Worker of the app. A Worker with this name that the stack did
+    // not create stops the deploy until `alchemy deploy --adopt`.
+    const shell = yield* WorkersBuilds.Worker("Worker", { name: worker.name }).pipe(
+      Alchemy.RemovalPolicy.retain(),
+    );
+    const backend = yield* production;
+    return { convexUrl: backend.url, workerUrl: shell.url };
   }),
 );
