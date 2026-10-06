@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { isBranchHead } from "./check-branch-head.ts";
+import { shouldProceed } from "./check-branch-head.ts";
 
 // Fields of a real GET /repos/actions/checkout/branches/test-data%2Fv2%2Fbasic
 // response.
@@ -23,14 +23,16 @@ const env = {
 
 const answer = (status: number, body: unknown) => () =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
+const exists = answer(200, branchPayload);
+const deleted = answer(404, { message: "Branch not found" });
 
-describe("isBranchHead", () => {
-  it("accepts a run whose commit is the branch head", async () => {
+describe("shouldProceed", () => {
+  it("deploys while the commit of the run is the branch head", async () => {
     const urls: string[] = [];
     await expect(
-      isBranchHead(env, (url) => {
+      shouldProceed("deploy", env, (url) => {
         urls.push(url);
-        return answer(200, branchPayload)();
+        return exists();
       }),
     ).resolves.toBe(true);
     expect(urls).toEqual([
@@ -38,27 +40,36 @@ describe("isBranchHead", () => {
     ]);
   });
 
-  it("skips a run after a newer push to the branch", async () => {
+  it("skips the deploy after a newer push or a delete", async () => {
     await expect(
-      isBranchHead({ ...env, GITHUB_SHA: "0".repeat(40) }, answer(200, branchPayload)),
+      shouldProceed("deploy", { ...env, GITHUB_SHA: "0".repeat(40) }, exists),
+    ).resolves.toBe(false);
+    await expect(shouldProceed("deploy", env, deleted)).resolves.toBe(false);
+  });
+
+  it("destroys while the branch does not exist", async () => {
+    await expect(shouldProceed("destroy", env, deleted)).resolves.toBe(true);
+  });
+
+  it("skips the destroy when the branch exists again", async () => {
+    await expect(
+      shouldProceed("destroy", { ...env, GITHUB_SHA: "0".repeat(40) }, exists),
     ).resolves.toBe(false);
   });
 
-  it("skips a run after the branch is deleted", async () => {
-    await expect(isBranchHead(env, answer(404, { message: "Branch not found" }))).resolves.toBe(
-      false,
-    );
-  });
-
   it("fails on any other GitHub answer", async () => {
-    await expect(isBranchHead(env, answer(500, {}))).rejects.toThrow("GitHub answered 500");
-    await expect(
-      isBranchHead(env, answer(200, { ...branchPayload, commit: { url: "" } })),
-    ).rejects.toThrow("no head commit");
+    for (const mode of ["deploy", "destroy"] as const) {
+      await expect(shouldProceed(mode, env, answer(500, {}))).rejects.toThrow(
+        "GitHub answered 500",
+      );
+      await expect(
+        shouldProceed(mode, env, answer(200, { ...branchPayload, commit: { url: "" } })),
+      ).rejects.toThrow("no head commit");
+    }
   });
 
   it("fails without the run identity", async () => {
-    await expect(isBranchHead({ ...env, BRANCH: "" }, answer(200, branchPayload))).rejects.toThrow(
+    await expect(shouldProceed("destroy", { ...env, BRANCH: "" }, deleted)).rejects.toThrow(
       "must be set",
     );
   });

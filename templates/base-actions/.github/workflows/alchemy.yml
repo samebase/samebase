@@ -8,7 +8,8 @@
 #   PREVIEW_BRANCH to the branch. A Convex preview deployment named after the
 #   branch plus a Worker Preview of the prod Worker. When a pull request from
 #   the branch is open, the stack posts the preview URLs as a comment on it.
-# - Branch deleted: `alchemy destroy --stage <stage>`.
+# - Branch deleted: `alchemy destroy --stage <stage>`, unless the branch
+#   exists again when the run starts its destroy step.
 #
 # A push to a fork runs the workflows of the fork, never this one, so a pull
 # request from a fork gets no preview.
@@ -100,14 +101,14 @@ jobs:
       # A rerun of an older push, or a run that waited behind a newer push to
       # the same branch, ends here without a deploy.
       - name: Check that the commit is still the branch head
-        id: head
+        id: branch
         env:
           BRANCH: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node ./scripts/check-branch-head.ts
+        run: node ./scripts/check-branch-head.ts deploy
 
       - name: Deploy
-        if: steps.head.outputs.current == 'true'
+        if: steps.branch.outputs.proceed == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -152,15 +153,25 @@ jobs:
       - name: Audit package signatures
         run: pnpm audit signatures
 
+      # A rerun of this delete after the branch was pushed again ends here and
+      # keeps the new preview.
+      - name: Check that the branch is still deleted
+        id: branch
+        env:
+          BRANCH: ${{ github.event.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node ./scripts/check-branch-head.ts destroy
+
       - name: Destroy the preview stage
+        if: steps.branch.outputs.proceed == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # scripts/alchemy-stage.ts gives a deleted branch neither prod nor an
-        # empty stage. This guard keeps a destroy away from prod if that ever
-        # changes.
+        # scripts/alchemy-stage.ts gives a deleted branch a stage that ends in a
+        # hash, never prod or an empty stage. This guard keeps a destroy away
+        # from prod if that ever changes.
         run: |
           case "$STAGE" in ""|prod) echo "Refusing to destroy the stage '$STAGE'"; exit 1 ;; esac
           pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input

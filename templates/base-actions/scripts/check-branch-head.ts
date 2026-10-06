@@ -1,8 +1,10 @@
-// Keeps a stale run of .github/workflows/alchemy.yml from deploying. A rerun
-// of an older push, or a run that waited behind a newer push to the same
-// branch, has a commit that is no longer the head of the branch. The script
-// appends `current=true` or `current=false` to GITHUB_OUTPUT, and the deploy
-// step runs only on `current=true`.
+// Checks the branch on GitHub before .github/workflows/alchemy.yml deploys or
+// destroys, so a stale run does nothing. The script appends `proceed=true` or
+// `proceed=false` to GITHUB_OUTPUT, and the deploy or destroy step runs only
+// on `proceed=true`.
+//
+//   node ./scripts/check-branch-head.ts deploy   # the commit is the branch head
+//   node ./scripts/check-branch-head.ts destroy  # the branch is still deleted
 /// <reference types="node" />
 import { appendFileSync } from "node:fs";
 import process from "node:process";
@@ -10,19 +12,26 @@ import { pathToFileURL } from "node:url";
 
 type FetchBranch = (url: string, init: RequestInit) => Promise<Response>;
 
-/** Whether the commit of this run is still the head of its branch. */
-export async function isBranchHead(
+/**
+Whether the deploy or destroy step of this run should run. A deploy runs while
+the commit of this run is the branch head: a rerun of an older push, or a run
+that waited behind a newer push, does not deploy. A destroy runs while the
+branch does not exist: a rerun of a delete after the branch was pushed again
+keeps the new preview.
+*/
+export async function shouldProceed(
+  mode: "deploy" | "destroy",
   env: NodeJS.ProcessEnv,
   fetchBranch: FetchBranch = fetch,
 ): Promise<boolean> {
   const branch = env["BRANCH"] ?? "";
-  const sha = env["GITHUB_SHA"] ?? "";
   const repository = env["GITHUB_REPOSITORY"] ?? "";
   const token = env["GITHUB_TOKEN"] ?? "";
   const apiUrl = env["GITHUB_API_URL"] ?? "";
-  if (branch === "" || sha === "" || repository === "" || token === "" || apiUrl === "") {
+  const sha = env["GITHUB_SHA"] ?? "";
+  if (branch === "" || repository === "" || token === "" || apiUrl === "" || sha === "") {
     throw new Error(
-      "BRANCH, GITHUB_SHA, GITHUB_REPOSITORY, GITHUB_TOKEN, and GITHUB_API_URL must be set. GitHub Actions and .github/workflows/alchemy.yml set them.",
+      "BRANCH, GITHUB_REPOSITORY, GITHUB_TOKEN, GITHUB_API_URL, and GITHUB_SHA must be set. GitHub Actions and .github/workflows/alchemy.yml set them.",
     );
   }
 
@@ -36,42 +45,63 @@ export async function isBranchHead(
       },
     },
   );
-  if (response.status === 404) {
-    console.log(`The branch ${JSON.stringify(branch)} no longer exists. Nothing was deployed.`);
-    return false;
-  }
-  if (!response.ok) {
-    throw new Error(
-      `GitHub answered ${response.status} for the branch ${JSON.stringify(branch)}. Nothing was deployed.`,
-    );
-  }
-  const body: unknown = await response.json();
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("commit" in body) ||
-    typeof body.commit !== "object" ||
-    body.commit === null ||
-    !("sha" in body.commit) ||
-    typeof body.commit.sha !== "string"
-  ) {
-    throw new Error(`GitHub returned no head commit for the branch ${JSON.stringify(branch)}.`);
+  let head: string | undefined;
+  if (response.status !== 404) {
+    if (!response.ok) {
+      throw new Error(
+        `GitHub answered ${response.status} for the branch ${JSON.stringify(branch)}.`,
+      );
+    }
+    const body: unknown = await response.json();
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("commit" in body) ||
+      typeof body.commit !== "object" ||
+      body.commit === null ||
+      !("sha" in body.commit) ||
+      typeof body.commit.sha !== "string"
+    ) {
+      throw new Error(`GitHub returned no head commit for the branch ${JSON.stringify(branch)}.`);
+    }
+    head = body.commit.sha;
   }
 
-  if (body.commit.sha !== sha) {
-    console.log(
-      `A newer push superseded this run: ${JSON.stringify(branch)} now points to ${body.commit.sha}, and this run is for ${sha}. Nothing was deployed.`,
-    );
-    return false;
+  switch (mode) {
+    case "deploy":
+      if (head === undefined) {
+        console.log(`The branch ${JSON.stringify(branch)} no longer exists. Nothing was deployed.`);
+        return false;
+      }
+      if (head !== sha) {
+        console.log(
+          `A newer push superseded this run: ${JSON.stringify(branch)} now points to ${head}, and this run is for ${sha}. Nothing was deployed.`,
+        );
+        return false;
+      }
+      return true;
+    case "destroy":
+      if (head !== undefined) {
+        console.log(
+          `The branch ${JSON.stringify(branch)} exists again at ${head}, so its preview stays. Nothing was destroyed.`,
+        );
+        return false;
+      }
+      return true;
+    default:
+      return mode satisfies never;
   }
-  return true;
 }
 
 const entrypoint = process.argv[1];
 if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+  const mode = process.argv[2];
   const githubOutput = process.env["GITHUB_OUTPUT"] ?? "";
+  if (mode !== "deploy" && mode !== "destroy") {
+    throw new Error(`The mode is ${JSON.stringify(mode)}, not deploy or destroy.`);
+  }
   if (githubOutput === "") {
     throw new Error("GITHUB_OUTPUT is not set. This script runs in GitHub Actions.");
   }
-  appendFileSync(githubOutput, `current=${await isBranchHead(process.env)}\n`);
+  appendFileSync(githubOutput, `proceed=${await shouldProceed(mode, process.env)}\n`);
 }
