@@ -415,3 +415,18 @@ Score Four CI token), and the CI token for the dogfood organization.
   the Worker and Convex project by name, previews per branch); one creation choice, one CI
   credentials section, mode-aware attention items, a row label; the adapter in the status reader is
   PR C and is where the complexity goes.
+- 2026-10-06: PR B open as draft [PR #1692](https://github.com/samebase/samebase/pull/1692), 5
+  commits, 2606 app tests green. As built: plan union variant with
+  `ciSecrets.written.credentialRevision`; `ci` credentials on the organization with paste, verify
+  (Cloudflare `/user/tokens/verify` plus account match; Convex `projects?limit=1` on the connected
+  team), and remove; sealed secrets write in pure JavaScript (`@noble/curves`, `@noble/ciphers`,
+  `@noble/hashes`; `libsodium-wrappers` only in the test); step order validate, create, connect,
+  `write_actions_secrets`, seed, sync, finish; pre-checks in `repository_create` including the
+  installation's granted `secrets` and `actions_variables` permissions; retry resumes the secrets
+  write, the seed, and the sync; manual provider writes refuse the mode; "GitHub Actions" copy;
+  status says deployment runs in GitHub Actions with a link. Corrections from building: the event
+  step union also needs `write_actions_secrets`; the `getUserRepositories` contract gains the plan
+  variant, three setup steps, and `github` as a setup provider; account deletion does not remove CI
+  tokens saved by the deleted user (needs an index, deferred). Open: the minimal Cloudflare CI token
+  permissions (Account Settings Read, Workers Scripts Edit, Secrets Store Edit) are from the Alchemy
+  docs and source, not yet proven by a hand test. Codex round 1 running.
