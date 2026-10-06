@@ -573,3 +573,10 @@ C; Convex token minting per repository (spike pending); the template location lo
   narrow pane; `write_actions_secrets` writes them and the account id as secrets and the team id as
   a variable; the New app option requires both tokens and names the missing one; `main` is the
   default branch before the starter push; minting and its states are gone. Codex round 7 running.
+- 2026-10-07: Two unrelated blockers handled. A new critical advisory for `shell-quote` and a high
+  one for `sharp` fail the supply-chain check on every branch; fix in
+  [PR #1694](https://github.com/samebase/samebase/pull/1694) (overrides plus an exact release-age
+  exception with a removal date). Codex round 7 on PR B found one P1: a starter push that succeeds
+  while the `seeded` checkpoint is lost makes a retry force-update `main` again; fix in progress
+  (record the intended tree before the push, on retry compare GitHub's `main` with it, never
+  force-update over foreign commits).
