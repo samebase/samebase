@@ -594,3 +594,15 @@ C; Convex token minting per repository (spike pending); the template location lo
   production samebase.com or on the PR's preview deploy, save the Convex CI token next to the saved
   Cloudflare one, create a `tmp-` app with the GitHub Actions option, and watch the repository's run
   create the Convex project, the keys, and the Worker.
+- 2026-10-06: First dogfood run, on the PR B preview deploy, app `samebase/tmp-alchemy-testing-01`.
+  The Samebase side worked at the first attempt: repository, the three secrets and the
+  `CONVEX_TEAM_ID` variable, the bootstrap and starter commits, default branch `main`, and the
+  `alchemy` run started. Two blockers, both outside PR B's code. (1) The `samebase-dev` App
+  installation on the `samebase` organization had not granted the Variables permission (the
+  production App had); the error message named the installation page and Nicu accepted it. (2)
+  `alchemy state read` evaluates `alchemy.run.ts` under the CLI's placeholder stage, and the stack's
+  guard "a preview stage needs PREVIEW_BRANCH" killed the step after a successful deploy (11
+  resources). Fix: `--backend cloudflare`, the config-less read of the account's default state
+  store, which is the store the stack configures. Pushed to the dogfood repository, the run went
+  green end to end and the Worker answers at `tmp-alchemy-testing-01.pfp.workers.dev`. Template fix
+  PR follows. The dashboard shows the app as "2/4 pending": PR C's scope.
