@@ -13,6 +13,10 @@ minimumReleaseAgeExclude:
   # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
   # Remove after 2026-10-07, when the 7-day cooling period is complete.
   - "source-map-js@1.2.2"
+  # Reviewed security fix: https://github.com/advisories/GHSA-pqg4-j6r4-53mv
+  # (shell-quote quote() command injection). Remove after 2026-10-09, when the
+  # 7-day cooling period is complete.
+  - "shell-quote@1.12.0"
   # Reviewed first-party release. Remove after 2026-10-09.
   - "@samebase/convex-cloudflare-email-inbox@0.1.0"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
@@ -77,9 +81,9 @@ overrides:
   protobufjs: 7.6.3
   proxy-addr: 2.0.8
   qs: 6.16.0
-  sharp: 0.35.4
+  sharp: 0.35.5
   "semver@6": 7.7.4
-  shell-quote: 1.9.0
+  shell-quote: 1.12.0
   seroval: 1.6.3
   source-map-js: 1.2.2
   tinypool: 2.1.2
