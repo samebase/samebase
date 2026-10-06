@@ -383,3 +383,14 @@ Score Four CI token), and the CI token for the dogfood organization.
   job now checks every target first and publishes nothing while one is missing. Template follow-ups
   queued: gate the workflow jobs on `vars.CONVEX_TEAM_ID`, Convex preview named `pr-<number>`, the
   head check before deploy, the destroy audit decision.
+- 2026-10-06, Nicu's decisions on the design review: (1) credential scope is accepted for now
+  (account-wide Cloudflare token, team-wide Convex token in the repository), to be revisited before
+  real users get the option; recorded as the release gate in finding 1 above. (11) The destroy job
+  keeps the no-scripts install and drops the vulnerability audits. (8) Names versus ids: explained
+  again, decision still open; recommendation unchanged (readable names, README sentence that a
+  repository rename is unsupported). (9) Nicu questions the pull request as the preview unit:
+  Workers Builds and Convex previews are per branch and start on a branch push. Proposed in
+  response: a branch model for the template (deploy on push to any branch but main, stage and Worker
+  Preview from the branch made safe with a hash suffix only when the safe form differs, Convex
+  preview named after the raw branch, destroy on the branch `delete` event, comment when a pull
+  request is open). Decision pending.
