@@ -10,17 +10,11 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
-import {
-  requireCloudflareCiCredential,
-  requireConvexMintingToken,
-} from "./organization/ciCredentials";
-import {
-  getOrganizationCiCredentials,
-  getOrganizationProviderConfiguration,
-} from "./organizationProviderCredentials";
+import { requireCompleteCiCredentials } from "./organization/ciCredentials";
+import { readCiCredentialRevision } from "./organization/providerCredentialModel";
+import { getOrganizationCiCredentials } from "./organizationProviderCredentials";
 import {
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
-  vRepositoryActionsConvexAccessToken,
   vRepositoryActionsSeed,
   vRepositoryProvisioningMode,
   type RepositoryProvisioningMode,
@@ -112,10 +106,8 @@ export function readRetryProvisioning(
 const actionsSecretsTarget = object({
   cloudflareApiToken: string(),
   cloudflareAccountId: string(),
+  convexAccessToken: string(),
   convexTeamId: string(),
-  /** The organization's Convex OAuth token, which mints the repository's Convex access token. */
-  convexMintingToken: string(),
-  convexAccessToken: vRepositoryActionsConvexAccessToken,
   credentialRevision: number(),
 });
 type ActionsSecretsTarget = Infer<typeof actionsSecretsTarget>;
@@ -383,10 +375,8 @@ export const readProvisioningModeForRun = internalQuery({
 });
 
 /**
-The values that write_actions_secrets needs: the organization's Cloudflare CI token and its
-revision, which must match the repository's Cloudflare account, the Convex OAuth token that mints
-the repository's Convex access token for the repository's Convex team, and the token that an
-earlier run minted.
+The values that write_actions_secrets writes into the repository: the organization CI credentials,
+which must match the repository's Convex team and Cloudflare account, and their revision.
 */
 export const readActionsSecretsTarget = internalQuery({
   args: {
@@ -404,14 +394,13 @@ export const readActionsSecretsTarget = internalQuery({
     if (!isLiveConnectedRepository(repository)) {
       throw new Error("Repository not found.");
     }
-    const [plan, organization, savedCi, configuration] = await Promise.all([
+    const [plan, organization, savedCi] = await Promise.all([
       readProvisioningPlan(ctx, args.repositoryId),
       ctx.db.get(repository.organizationId),
       getOrganizationCiCredentials(ctx.db, repository.organizationId),
-      getOrganizationProviderConfiguration(ctx.db, repository.organizationId),
       requireManagedRunWriteLock(ctx, args),
     ]);
-    if (isSamebaseProvisioningPlan(plan)) {
+    if (readRepositoryProvisioningMode(plan) !== "repository_actions") {
       throw new Error("Only a repository_actions repository receives GitHub Actions secrets.");
     }
     if (
@@ -421,23 +410,19 @@ export const readActionsSecretsTarget = internalQuery({
     ) {
       throw new Error("Managed repository provider destinations are not configured.");
     }
-    const cloudflare = requireCloudflareCiCredential({
+    const ci = requireCompleteCiCredentials({
       ci: savedCi,
+      convexTeamId: repository.convexTeamId,
       cloudflareAccountId: repository.cloudflareAccountId,
       githubOwnerLogin: organization.githubOwnerLogin,
     });
 
     return {
-      cloudflareApiToken: cloudflare.apiToken,
-      cloudflareAccountId: cloudflare.accountId,
-      convexTeamId: repository.convexTeamId,
-      convexMintingToken: requireConvexMintingToken({
-        configuration,
-        convexTeamId: repository.convexTeamId,
-        githubOwnerLogin: organization.githubOwnerLogin,
-      }),
-      convexAccessToken: plan.convexAccessToken,
-      credentialRevision: cloudflare.updatedAt,
+      cloudflareApiToken: ci.cloudflare.apiToken,
+      cloudflareAccountId: ci.cloudflare.accountId,
+      convexAccessToken: ci.convex.accessToken,
+      convexTeamId: ci.convex.teamId,
+      credentialRevision: readCiCredentialRevision(ci),
     };
   },
 });
@@ -488,37 +473,6 @@ export const recordRepositoryActionsDefaultBranch = internalMutation({
       throw new Error("Repository not found.");
     }
     await ctx.db.patch(repository._id, { defaultBranch: REPOSITORY_ACTIONS_DEFAULT_BRANCH });
-    return null;
-  },
-});
-
-/**
-Records the name of the repository's Convex access token: minting before the mint request, minted
-after it, so a retry can delete it by name. The value is never stored.
-*/
-export const recordConvexAccessToken = internalMutation({
-  args: {
-    repositoryId: id("repositories"),
-    runId: id("workflow_repositoryProvisioning_runs"),
-    userId: id("users"),
-    state: union(literal("minting"), literal("minted")),
-    name: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const plan = await readRepositoryActionsPlanForRun(ctx, {
-      repositoryId: args.repositoryId,
-      runId: args.runId,
-      userId: args.userId,
-    });
-    const now = Date.now();
-    await ctx.db.patch(plan._id, {
-      convexAccessToken:
-        args.state === "minting"
-          ? { state: "minting", name: args.name }
-          : { state: "minted", name: args.name, mintedAt: now },
-      updatedAt: now,
-    });
     return null;
   },
 });

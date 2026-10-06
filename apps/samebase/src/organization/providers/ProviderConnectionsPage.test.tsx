@@ -732,20 +732,53 @@ describe("ProviderConnectionsPage", () => {
     expect(startCloudflareOAuth).not.toHaveBeenCalled();
   });
 
-  it("replaces and removes the saved Cloudflare CI token below the provider connections", async () => {
-    const setCloudflareCiToken = vi.fn(async () => null);
-    const removeCloudflareCiToken = vi.fn(async () => null);
-    testState.actions.set(getFunctionName(api.users.setCloudflareCiToken), setCloudflareCiToken);
-    testState.mutations.set(
-      getFunctionName(api.users.removeCloudflareCiToken),
-      removeCloudflareCiToken,
-    );
+  function setConnectedProviders() {
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase-team",
+    });
     testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
       accountId: "cloudflare-account",
       accountName: "Samebase",
       authMethod: "api_key",
       state: "connected",
     });
+  }
+
+  function readCiCredentialRows(container: HTMLElement) {
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-testid="ci-credential-row"]')];
+    const cloudflareRow = rows.at(0);
+    const convexRow = rows.at(1);
+    if (!cloudflareRow || !convexRow) {
+      throw new Error("CI credential rows were not found.");
+    }
+    return { cloudflareRow, convexRow };
+  }
+
+  async function typeToken(row: HTMLElement, value: string) {
+    const input = row.querySelector("input");
+    const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
+    if (!input || !descriptor?.set) {
+      throw new Error("CI token input was not found.");
+    }
+    descriptor.set.call(input, value);
+    await act(async () => {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await Promise.resolve();
+    });
+    return input;
+  }
+
+  it("replaces and removes a saved CI token and saves a missing one", async () => {
+    const setCloudflareCiToken = vi.fn(async () => null);
+    const setConvexCiToken = vi.fn(async () => null);
+    const removeCiToken = vi.fn(async () => null);
+    testState.actions.set(getFunctionName(api.users.setCloudflareCiToken), setCloudflareCiToken);
+    testState.actions.set(getFunctionName(api.users.setConvexCiToken), setConvexCiToken);
+    testState.mutations.set(getFunctionName(api.users.removeCiToken), removeCiToken);
+    setConnectedProviders();
     testState.queries.set(getFunctionName(api.users.getCiCredentialsStatus), {
       cloudflare: {
         accountId: "cloudflare-account",
@@ -753,49 +786,56 @@ describe("ProviderConnectionsPage", () => {
         updatedAt: Date.UTC(2026, 9, 6, 12),
         connectedBy: { kind: "displayName", label: "Ada" },
       },
+      convex: null,
     });
 
     const container = mountProviderConnectionsPage();
-    const section = container.querySelector<HTMLElement>('[data-testid="ci-credentials"]');
-    if (!section) {
-      throw new Error("CI credentials section was not found.");
-    }
-    // A saved token reads as saved: who saved it and when, and the field replaces it.
-    expect(section.textContent).toContain("Saved by Ada on Oct 6, 2026");
-    expect(section.querySelector("input")?.placeholder).toBe("Paste a new token to replace it");
-    expect(findButton(section, "Save")).toBeUndefined();
-    // The Convex access token is minted per repository, so the section has no Convex field.
-    expect(section.textContent).toContain(
-      "mints each repository's Convex access token through the Convex OAuth connection",
+    expect(container.querySelector('[data-testid="ci-credentials"]')?.textContent).toContain(
+      "Samebase writes both tokens as secrets into each repository that GitHub Actions set up.",
     );
-    expect(section.querySelectorAll("input")).toHaveLength(1);
+    const { cloudflareRow, convexRow } = readCiCredentialRows(container);
+
+    // A saved token reads as saved: who saved it and when, and the field replaces it.
+    expect(cloudflareRow.textContent).toContain("Saved by Ada on Oct 6, 2026");
+    expect(cloudflareRow.querySelector("input")?.placeholder).toBe(
+      "Paste a new token to replace it",
+    );
+    expect(findButton(cloudflareRow, "Save")).toBeUndefined();
     // The token template link preselects the CI permissions for the connected account.
-    expect(section.querySelector("a")?.href).toBe(
+    expect(cloudflareRow.querySelector("a")?.href).toBe(
       buildCloudflareCiApiTokenUrl({
         accountId: "cloudflare-account",
         tokenName: "samebase actions ci samebase",
       }),
     );
-    expect(section.textContent).toContain(
+    expect(cloudflareRow.textContent).toContain(
       "Account Settings Read, Workers Scripts Edit, Secrets Store Edit",
     );
 
-    const input = section.querySelector("input");
-    const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
-    if (!input || !descriptor?.set) {
-      throw new Error("Cloudflare CI token input was not found.");
-    }
-    descriptor.set.call(input, "  cloudflare-ci-token-for-tests  ");
+    // A missing token asks for one and links to the connected team's access tokens.
+    expect(convexRow.textContent).toContain("Not saved");
+    expect(convexRow.querySelector("input")?.placeholder).toBe("Convex team access token");
+    expect(findButton(convexRow, "Replace")).toBeUndefined();
+    expect(findButton(convexRow, "Remove")).toBeUndefined();
+    const createTokenLink = convexRow.querySelector("a");
+    expect(createTokenLink?.textContent).toBe("Create a team access token");
+    expect(createTokenLink?.href).toBe(
+      "https://dashboard.convex.dev/t/samebase-team/settings/access-tokens",
+    );
+    expect(convexRow.textContent).toContain("The token must belong to the connected team.");
+
+    const cloudflareInput = await typeToken(cloudflareRow, "  cloudflare-ci-token-for-tests  ");
     await act(async () => {
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      findButton(cloudflareRow, "Replace")?.click();
+      await Promise.resolve();
+    });
+    await typeToken(convexRow, "  convex-ci-token-for-tests  ");
+    await act(async () => {
+      findButton(convexRow, "Save")?.click();
       await Promise.resolve();
     });
     await act(async () => {
-      findButton(section, "Replace")?.click();
-      await Promise.resolve();
-    });
-    await act(async () => {
-      findButton(section, "Remove")?.click();
+      findButton(cloudflareRow, "Remove")?.click();
       await Promise.resolve();
     });
 
@@ -803,30 +843,16 @@ describe("ProviderConnectionsPage", () => {
       organizationId: ORGANIZATION_ID,
       token: "cloudflare-ci-token-for-tests",
     });
-    // The saved line is the confirmation; the field is empty again.
-    expect(input.value).toBe("");
-    expect(removeCloudflareCiToken).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
-  });
-
-  it("asks for the Cloudflare CI token while none is saved", async () => {
-    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
-      accountId: "cloudflare-account",
-      accountName: "Samebase",
-      authMethod: "api_key",
-      state: "connected",
+    expect(setConvexCiToken).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      token: "convex-ci-token-for-tests",
     });
-    testState.queries.set(getFunctionName(api.users.getCiCredentialsStatus), { cloudflare: null });
-
-    const container = mountProviderConnectionsPage();
-    const section = container.querySelector<HTMLElement>('[data-testid="ci-credentials"]');
-    if (!section) {
-      throw new Error("CI credentials section was not found.");
-    }
-    expect(section.textContent).toContain("Not saved");
-    expect(section.querySelector("input")?.placeholder).toBe("Cloudflare API token");
-    expect(findButton(section, "Save")).toBeDefined();
-    expect(findButton(section, "Replace")).toBeUndefined();
-    expect(findButton(section, "Remove")).toBeUndefined();
+    // The saved line is the confirmation; the field is empty again.
+    expect(cloudflareInput.value).toBe("");
+    expect(removeCiToken).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      provider: "cloudflare",
+    });
   });
 
   it("tells an owner to update a Cloudflare API token that fails its check", async () => {

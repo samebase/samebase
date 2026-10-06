@@ -717,6 +717,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-authorization-error.png",
+  "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-ci-credentials-mobile.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-connected-mobile.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-connected.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-loading.png",

@@ -107,15 +107,9 @@ const testState = vi.hoisted(() => ({
   fallbackAction: vi.fn(async () => undefined),
 }));
 
-/**
-The organization's CI credentials status, undefined while the query loads, and how the connected
-Convex team was connected.
-*/
+/** The organization's CI credentials status; undefined while the query loads. */
 const ciCredentialsTestState = vi.hoisted(() => {
-  const state: { status: unknown; convexAuthMethod: "oauth" | "api_key" } = {
-    status: undefined,
-    convexAuthMethod: "oauth",
-  };
+  const state: { status: unknown } = { status: undefined };
   return state;
 });
 
@@ -129,7 +123,7 @@ vi.mock("convex/react", async (importOriginal) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.users.getConvexConnectionStatus)) {
         return {
-          authMethod: ciCredentialsTestState.convexAuthMethod,
+          authMethod: "oauth",
           state: "connected",
           teamId: "team-acme-platform",
           teamSlug: "acme-platform",
@@ -188,7 +182,6 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.state = "loaded";
     convexRegionTestState.defaultRegion = CONVEX_US_EAST_REGION;
     ciCredentialsTestState.status = undefined;
-    ciCredentialsTestState.convexAuthMethod = "oauth";
     testState.actions.clear();
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
@@ -507,33 +500,30 @@ describe("NewAppPage", () => {
   }
 
   const SAVE_CLOUDFLARE_CI_TOKEN = "Save the Cloudflare CI token in Providers.";
-  const CONNECT_CONVEX_WITH_OAUTH =
-    "Connect Convex with OAuth in Providers. An API key connection cannot mint the repository's Convex access token.";
+  const SAVE_CONVEX_CI_TOKEN = "Save the Convex CI token in Providers.";
+  const savedCloudflare = { accountId: "account-acme-production", updatedAt: 1 };
+  const savedConvex = { teamId: "team-acme-platform", updatedAt: 2 };
 
   it.each([
     {
       missing: "the Cloudflare CI token",
-      cloudflare: null,
-      convexAuthMethod: "oauth" as const,
+      status: { cloudflare: null, convex: savedConvex },
       line: SAVE_CLOUDFLARE_CI_TOKEN,
     },
     {
-      missing: "a Convex OAuth connection",
-      cloudflare: { accountId: "account-acme-production", updatedAt: 1 },
-      convexAuthMethod: "api_key" as const,
-      line: CONNECT_CONVEX_WITH_OAUTH,
+      missing: "the Convex CI token",
+      status: { cloudflare: savedCloudflare, convex: null },
+      line: SAVE_CONVEX_CI_TOKEN,
     },
     {
       missing: "both",
-      cloudflare: null,
-      convexAuthMethod: "api_key" as const,
-      line: `${SAVE_CLOUDFLARE_CI_TOKEN} ${CONNECT_CONVEX_WITH_OAUTH}`,
+      status: { cloudflare: null, convex: null },
+      line: `${SAVE_CLOUDFLARE_CI_TOKEN} ${SAVE_CONVEX_CI_TOKEN}`,
     },
   ])(
     "keeps the GitHub Actions setup disabled and names what is missing: $missing",
-    async ({ cloudflare, convexAuthMethod, line }) => {
-      ciCredentialsTestState.status = { cloudflare };
-      ciCredentialsTestState.convexAuthMethod = convexAuthMethod;
+    async ({ status, line }) => {
+      ciCredentialsTestState.status = status;
       const container = await mountPage();
 
       const providersLinks = [...container.querySelectorAll("a")].filter(
@@ -554,9 +544,7 @@ describe("NewAppPage", () => {
 
   it("creates an app that GitHub Actions set up, with the repository's names", async () => {
     vi.useFakeTimers();
-    ciCredentialsTestState.status = {
-      cloudflare: { accountId: "account-acme-production", updatedAt: 1 },
-    };
+    ciCredentialsTestState.status = { cloudflare: savedCloudflare, convex: savedConvex };
     const checkNames = vi.fn(async () => availableNames("not_required"));
     const createRepository = vi.fn(async () => undefined);
     testState.actions.set(

@@ -17,10 +17,9 @@ actions instead. The first call checks these rules, so a retry that cannot start
 not a confirmation request. Progress is readable through `repository_list` while the run executes.
 
 For a repository that its GitHub Actions set up (`repository_create` with provisioning
-repository_actions), the retry deletes the Convex access token that an earlier run minted for the
-repository, mints a new one through the Convex OAuth connection, writes the GitHub Actions secrets
-again and, when the starter was not seeded yet, seeds it and syncs the default branch tree. It never
-creates or changes the Convex project or the Worker: the repository's GitHub Actions own them.
+repository_actions), the retry writes the GitHub Actions secrets again and, when the starter was not
+seeded yet, seeds it and syncs the default branch tree. It never creates or changes the Convex
+project or the Worker: the repository's GitHub Actions own them.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the

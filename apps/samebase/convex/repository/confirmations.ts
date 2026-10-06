@@ -25,10 +25,7 @@ import { cloudflareConnectWorkerContract } from "./contracts/cloudflareAttachmen
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { detachResourceContract, vDetachableResource } from "./contracts/detachResource";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
-import {
-  buildRepositoryActionsConvexAccessTokenName,
-  vRepositoryProvisioningMode,
-} from "./provisioningModel";
+import { vRepositoryProvisioningMode } from "./provisioningModel";
 
 /*
 The one confirmation check of the four gated actions (rfcs/125), shared by the dashboard and MCP.
@@ -281,15 +278,13 @@ async function readConfirmationSubject(
             effect: `Samebase starts a new provider setup run for ${repositoryName}. It creates missing Convex and Cloudflare resources. When the setup includes Cloudflare, it rewrites the Workers Builds settings of the Worker, revokes and replaces the Convex deploy keys that it recorded, and starts a production build.`,
             approval: `a new provider setup run for ${repositoryName}, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys`,
           };
-        case "repository_actions": {
-          const convexAccessTokenName = buildRepositoryActionsConvexAccessTokenName(repositoryName);
+        case "repository_actions":
           return {
             organizationId,
             resource: { kind: "repository", githubRepositoryFullName: repositoryName },
-            effect: `Samebase starts a new setup run for ${repositoryName}. It deletes the Convex access token ${convexAccessTokenName} if an earlier run minted it, mints a new one through the organization's Convex OAuth connection, and writes it with the organization's Cloudflare CI token into the repository's GitHub Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
-            approval: `a new setup run for ${repositoryName}, which replaces its Convex access token ${convexAccessTokenName} and its GitHub Actions secrets and variable`,
+            effect: `Samebase starts a new setup run for ${repositoryName}. It writes the organization's Cloudflare and Convex CI tokens into the repository's GitHub Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
+            approval: `a new setup run for ${repositoryName}, which replaces its GitHub Actions secrets and variable with the organization's CI tokens`,
           };
-        }
         default:
           request.provisioning satisfies never;
           throw new Error("Unknown provisioning mode.");

@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { parseAsync } from "valibot";
 import {
   createConvexManagementClient,
-  createConvexTeamAccessToken,
-  deleteConvexTeamAccessToken,
   ConvexManagementApiResponseError,
   listConvexManagementDefaultProductionDeployments,
   listConvexManagementProjects,
@@ -1023,85 +1021,6 @@ describe("Convex Management API request helpers", () => {
     expect(log).toContain("provider_request_validation_failed");
     expect(log).not.toContain("private-token");
     expect(log).not.toContain("123");
-  });
-});
-
-describe("Convex team access tokens", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("mints a named token without expiry and returns its value", async () => {
-    const requests: Request[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (request: Request) => {
-        requests.push(request.clone());
-        return Response.json(
-          { accessToken: "convex-minted-test-token", tokenType: "TeamToken" },
-          { status: 201 },
-        );
-      }),
-    );
-
-    await expect(
-      createConvexTeamAccessToken({
-        token: "convex-oauth-test-token",
-        teamId: "41",
-        name: "samebase/samebase/actions-app",
-      }),
-    ).resolves.toBe("convex-minted-test-token");
-
-    expect(requests.map(readRequest)).toEqual([
-      {
-        authorization: "Bearer convex-oauth-test-token",
-        contentType: "application/json",
-        method: "POST",
-        url: "https://api.convex.dev/v1/teams/41/create_access_token",
-      },
-    ]);
-    await expect(requests[0]?.json()).resolves.toEqual({ name: "samebase/samebase/actions-app" });
-  });
-
-  it("names the endpoint when the connection cannot mint", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("Forbidden", { status: 403 })),
-    );
-
-    await expect(
-      createConvexTeamAccessToken({
-        token: "convex-oauth-test-token",
-        teamId: "41",
-        name: "samebase/samebase/actions-app",
-      }),
-    ).rejects.toThrow(
-      "Convex answered 403 to POST /teams/{team_id}/create_access_token, so the Convex connection cannot mint the repository's access token. Reconnect Convex with OAuth on the Providers page, then retry.",
-    );
-  });
-
-  it("deletes a token by name and counts a missing token as deleted", async () => {
-    const requests: Request[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (request: Request) => {
-        requests.push(request.clone());
-        return new Response("Not Found", { status: 404 });
-      }),
-    );
-
-    await expect(
-      deleteConvexTeamAccessToken({
-        token: "convex-oauth-test-token",
-        teamId: "41",
-        name: "samebase/samebase/actions-app",
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(requests.map(readRequest)).toMatchObject([
-      { method: "POST", url: "https://api.convex.dev/v1/teams/41/delete_access_token" },
-    ]);
-    await expect(requests[0]?.json()).resolves.toEqual({ id: "samebase/samebase/actions-app" });
   });
 });
 

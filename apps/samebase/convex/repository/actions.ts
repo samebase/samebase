@@ -21,8 +21,8 @@ import {
 } from "../cloudflareAccountDiscovery";
 import {
   requireCloudflareCiAccountAccess,
-  requireCloudflareCiCredential,
-  requireConvexMintingToken,
+  requireCompleteCiCredentials,
+  requireConvexCiTeamAccess,
 } from "../organization/ciCredentials";
 import { resolveGitHubRepositoryById } from "../githubRepoApi";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
@@ -973,27 +973,26 @@ async function createRepositoryActionsAppForUser(
   ) {
     throw new ConvexError("Organization provider destinations changed. Reload and try again.");
   }
-  const cloudflareCi = requireCloudflareCiCredential({
+  const ciCredentials = requireCompleteCiCredentials({
     ci,
-    cloudflareAccountId: cloudflareAccount.accountId,
-    githubOwnerLogin: githubAccess.githubOwnerLogin,
-  });
-  // The run mints the repository's Convex access token through this OAuth connection. The name
-  // checks below read the Convex team with it, so a revoked connection fails here.
-  requireConvexMintingToken({
-    configuration,
     convexTeamId: convexTeam.teamId,
+    cloudflareAccountId: cloudflareAccount.accountId,
     githubOwnerLogin: githubAccess.githubOwnerLogin,
   });
   let ciAccounts: CloudflareAccount[];
   try {
-    ciAccounts = await listAccountsForVerifiedUserApiToken(cloudflareCi.apiToken);
+    ciAccounts = await listAccountsForVerifiedUserApiToken(ciCredentials.cloudflare.apiToken);
   } catch {
     throw new ConvexError(
       "Cloudflare could not verify the Cloudflare CI token. Save a new one on the Providers page.",
     );
   }
   requireCloudflareCiAccountAccess(ciAccounts, cloudflareAccount);
+  await requireConvexCiTeamAccess({
+    token: ciCredentials.convex.accessToken,
+    teamId: convexTeam.teamId,
+    teamLabel: convexTeam.teamSlug ?? convexTeam.teamId,
+  });
 
   const [githubNameAvailability, convexNameAvailability, workerAvailable] = await Promise.all([
     checkGitHubRepositoryNameAvailability(ctx, {

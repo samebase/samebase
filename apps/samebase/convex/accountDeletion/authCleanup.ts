@@ -296,14 +296,22 @@ export async function assertIdentityDeletionReady(
     throw new Error("Provider credentials remain for the deleting account.");
   }
 
-  const remainingCiCredential = await ctx.db
-    .query("organizationCiCredentials")
-    .withIndex("by_cloudflare_connected_by_user", (query) =>
-      query.eq("cloudflare.connectedByUserId", run.identity.userId),
-    )
-    .first();
+  const [remainingConvexCiCredential, remainingCloudflareCiCredential] = await Promise.all([
+    ctx.db
+      .query("organizationCiCredentials")
+      .withIndex("by_convex_connected_by_user", (query) =>
+        query.eq("convex.connectedByUserId", run.identity.userId),
+      )
+      .first(),
+    ctx.db
+      .query("organizationCiCredentials")
+      .withIndex("by_cloudflare_connected_by_user", (query) =>
+        query.eq("cloudflare.connectedByUserId", run.identity.userId),
+      )
+      .first(),
+  ]);
 
-  if (remainingCiCredential !== null) {
+  if (remainingConvexCiCredential !== null || remainingCloudflareCiCredential !== null) {
     throw new Error("CI credentials remain for the deleting account.");
   }
 

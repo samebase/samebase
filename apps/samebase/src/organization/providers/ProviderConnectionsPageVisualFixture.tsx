@@ -175,14 +175,19 @@ export function ProviderConnectionsPageVisualFixture({
           <CiCredentialsSectionView
             canManageOrganization
             cloudflareAccountId="cloudflare-account-production"
+            convexAccessTokensUrl="https://dashboard.convex.dev/t/acme-platform/settings/access-tokens"
+            convexConnected
             githubOwnerLogin="acme"
             onRemove={async () => null}
             onSave={async () => null}
-            saved={{
-              accountId: "cloudflare-account-production",
-              // Noon UTC, so the saved date is the same day in every test time zone.
-              updatedAt: Date.UTC(2026, 9, 6, 12),
-              connectedBy: { kind: "displayName", label: "Ava Chen" },
+            status={{
+              cloudflare: {
+                accountId: "cloudflare-account-production",
+                // Noon UTC, so the saved date is the same day in every test time zone.
+                updatedAt: Date.UTC(2026, 9, 6, 12),
+                connectedBy: { kind: "displayName", label: "Ava Chen" },
+              },
+              convex: null,
             }}
           />
         ) : null

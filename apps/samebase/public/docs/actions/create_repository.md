@@ -44,24 +44,21 @@ resources run on the providers' free tiers; an idle app costs $0/month.
 provisioning (optional, experimental) chooses who sets up the app. samebase is the default and
 everything above describes it. With repository_actions, the repository's own GitHub Actions workflow
 creates and deploys the Convex project and the Worker; Samebase creates no provider resource.
-Samebase creates the GitHub repository and mints a Convex team access token named
-samebase/<owner>/<repository>, without expiry, through the organization's Convex OAuth connection.
-It writes the Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN
-(the minted token, which Samebase does not store) and the Actions variable CONVEX_TEAM_ID, then
-seeds the GitHub Actions variant of the starter on main, and that first push deploys. When GitHub
-created the repository with another default branch, Samebase makes main the default before it pushes
-the starter, so that first deployment runs as production. The Convex project and the Worker take the
-repository's name, so omit convexProjectName, cloudflareWorkerName, buildTokenUuid, and
-convexDeploymentRegion. Before it creates anything, the call fails when the organization has no
-saved Cloudflare CI token (the Providers page) or the token does not verify, when the organization's
-Convex connection was not made with OAuth, when the Samebase GitHub App installation has not granted
-the Secrets and Variables permissions, or when a Convex project or Worker with the repository's name
-exists. A ready providerSetup then means that the secrets are written and the starter is seeded, not
-that the app is deployed: the deployment runs in the repository's GitHub Actions. Samebase's Worker
-and Convex project tools refuse such a repository, because its GitHub Actions own those resources.
-Samebase never revokes what the repository needs to keep working: removing the repository from
-Samebase, or deleting the Samebase account or organization, leaves the minted Convex access token in
-the Convex team's access tokens for the user to revoke.
+Samebase creates the GitHub repository and writes the organization's two CI tokens from the
+Providers page into it: the Actions secrets CLOUDFLARE_API_TOKEN (the Cloudflare CI token),
+CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN (the Convex CI token, a team access token of the
+connected Convex team), and the Actions variable CONVEX_TEAM_ID. Then it seeds the GitHub Actions
+variant of the starter on main, and that first push deploys. When GitHub created the repository with
+another default branch, Samebase makes main the default before it pushes the starter, so that first
+deployment runs as production. The Convex project and the Worker take the repository's name, so omit
+convexProjectName, cloudflareWorkerName, buildTokenUuid, and convexDeploymentRegion. Before it
+creates anything, the call fails when the organization has no saved Cloudflare and Convex CI tokens
+(the Providers page), when either token does not verify, when the Samebase GitHub App installation
+has not granted the Secrets and Variables permissions, or when a Convex project or Worker with the
+repository's name exists. A ready providerSetup then means that the secrets are written and the
+starter is seeded, not that the app is deployed: the deployment runs in the repository's GitHub
+Actions. Samebase's Worker and Convex project tools refuse such a repository, because its GitHub
+Actions own those resources.
 
 ## Arguments
 

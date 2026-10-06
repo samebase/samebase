@@ -5,6 +5,7 @@ import { internalAction, internalMutation, internalQuery } from "../_generated/s
 import {
   getOrganizationProviderCredentials,
   getProviderCredentialsByConnectedUser,
+  removeCiCredentialEntry,
   vConnectedProviderCredential,
 } from "../organizationProviderCredentials";
 import { providerAuthMatches } from "../providerAuth";
@@ -95,25 +96,46 @@ export const deleteRevokedConnection = internalMutation({
 });
 
 /**
-Removes one batch of the Cloudflare CI tokens that the deleting member saved; tokens that other
-members saved stay. Samebase cannot revoke a pasted token, so it only forgets it. Returns whether
-none remain.
+Removes one batch of the CI token entries that the deleting member saved; other members' entries in
+the same organization stay. Samebase cannot revoke a pasted token, so it only forgets it. Returns
+whether none remain.
 */
 export const deleteCiCredentialBatch = internalMutation({
   args: workflowArgs,
   returns: boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    const rows = await ctx.db
-      .query("organizationCiCredentials")
-      .withIndex("by_cloudflare_connected_by_user", (query) =>
-        query.eq("cloudflare.connectedByUserId", run.identity.userId),
-      )
-      .take(PROVIDER_CREDENTIAL_BATCH_SIZE + 1);
-    for (const row of rows.slice(0, PROVIDER_CREDENTIAL_BATCH_SIZE)) {
-      await ctx.db.delete(row._id);
+    const userId = run.identity.userId;
+    const readBatch = async () =>
+      await Promise.all([
+        ctx.db
+          .query("organizationCiCredentials")
+          .withIndex("by_cloudflare_connected_by_user", (query) =>
+            query.eq("cloudflare.connectedByUserId", userId),
+          )
+          .take(PROVIDER_CREDENTIAL_BATCH_SIZE),
+        ctx.db
+          .query("organizationCiCredentials")
+          .withIndex("by_convex_connected_by_user", (query) =>
+            query.eq("convex.connectedByUserId", userId),
+          )
+          .take(PROVIDER_CREDENTIAL_BATCH_SIZE),
+      ]);
+
+    const [cloudflareRows, convexRows] = await readBatch();
+    for (const row of cloudflareRows) {
+      await removeCiCredentialEntry(ctx, row, "cloudflare");
     }
-    return rows.length <= PROVIDER_CREDENTIAL_BATCH_SIZE;
+    for (const { _id } of convexRows) {
+      // The Cloudflare pass may have changed or deleted this row.
+      const row = await ctx.db.get(_id);
+      if (row?.convex?.connectedByUserId === userId) {
+        await removeCiCredentialEntry(ctx, row, "convex");
+      }
+    }
+
+    const [remainingCloudflare, remainingConvex] = await readBatch();
+    return remainingCloudflare.length === 0 && remainingConvex.length === 0;
   },
 });
 

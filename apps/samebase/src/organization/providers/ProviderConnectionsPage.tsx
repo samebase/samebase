@@ -1677,6 +1677,12 @@ export function ProviderConnectionsPage({
           cloudflareAccountId={
             cloudflareConnection?.state === "connected" ? cloudflareConnection.accountId : null
           }
+          convexAccessTokensUrl={
+            convexConnection?.state === "connected"
+              ? getConvexManageAccessUrl(convexConnection.teamSlug, "api_key")
+              : undefined
+          }
+          convexConnected={convexConnection?.state === "connected"}
           githubOwnerLogin={organization.githubOwnerLogin}
           organizationId={organizationId}
         />

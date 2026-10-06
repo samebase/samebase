@@ -1,14 +1,17 @@
 import { ConvexError } from "convex/values";
 
 import type { CloudflareAccount } from "../cloudflareAccountDiscovery";
-import type { OrganizationProviderConfiguration } from "../organizationProviderCredentials";
-import type { OrganizationCiCredentials } from "./providerCredentialModel";
+import { verifyConvexTeamAccessToken } from "../convexManagementApi/client";
+import { ConvexManagementApiError } from "../convexManagementApi/errors";
+import type {
+  CompleteOrganizationCiCredentials,
+  OrganizationCiCredentials,
+} from "./providerCredentialModel";
 
 /*
-The credentials of a repository_actions repository's GitHub Actions. The Cloudflare CI token is
-pasted once per organization and checked when it is saved and at every creation, because a token
-can be revoked after it was saved. The Convex access token is minted per repository through the
-organization's Convex OAuth connection.
+The checks of the CI tokens that a repository_actions repository receives as GitHub Actions secrets.
+Saving a token runs them, and so does every repository_actions creation, because a token can be
+revoked after it was saved.
 */
 
 /** The Cloudflare CI token must reach the organization's connected Cloudflare account. */
@@ -23,38 +26,42 @@ export function requireCloudflareCiAccountAccess(
   }
 }
 
-/** The Cloudflare CI token, saved for the organization's current Cloudflare account. */
-export function requireCloudflareCiCredential(args: {
-  ci: OrganizationCiCredentials | null;
-  cloudflareAccountId: string;
-  githubOwnerLogin: string;
-}): OrganizationCiCredentials["cloudflare"] {
-  if (args.ci?.cloudflare.accountId !== args.cloudflareAccountId) {
-    throw new ConvexError(
-      `Save the Cloudflare CI token on the Providers page (/org/${args.githubOwnerLogin}/providers) before you create a repository that its GitHub Actions set up.`,
-    );
+/** The Convex CI token must read the organization's connected Convex team. */
+export async function requireConvexCiTeamAccess(args: {
+  token: string;
+  teamId: string;
+  teamLabel: string;
+}): Promise<void> {
+  try {
+    await verifyConvexTeamAccessToken({ token: args.token, teamId: args.teamId });
+  } catch (error) {
+    if (
+      error instanceof ConvexManagementApiError &&
+      (error.status === 401 || error.status === 403 || error.status === 404)
+    ) {
+      throw new ConvexError(`The Convex CI token cannot read the Convex team ${args.teamLabel}.`);
+    }
+    throw new ConvexError("Convex could not verify the Convex CI token.");
   }
-  return args.ci.cloudflare;
 }
 
-/**
-The Convex OAuth token that mints each repository's Convex access token. The Management API mints
-team access tokens for an OAuth team token or a personal access token, not for a team access token,
-so a Convex connection made with an API key cannot.
-*/
-export function requireConvexMintingToken(args: {
-  configuration: Pick<OrganizationProviderConfiguration, "convexTeam" | "convexCredential">;
+/** Both CI tokens, saved for the organization's current Convex team and Cloudflare account. */
+export function requireCompleteCiCredentials(args: {
+  ci: OrganizationCiCredentials | null;
   convexTeamId: string;
+  cloudflareAccountId: string;
   githubOwnerLogin: string;
-}): string {
-  const credential = args.configuration.convexCredential;
+}): CompleteOrganizationCiCredentials {
+  const { ci } = args;
   if (
-    args.configuration.convexTeam?.teamId !== args.convexTeamId ||
-    credential?.auth.method !== "oauth"
+    !ci?.cloudflare ||
+    !ci.convex ||
+    ci.cloudflare.accountId !== args.cloudflareAccountId ||
+    ci.convex.teamId !== args.convexTeamId
   ) {
     throw new ConvexError(
-      `GitHub Actions setup needs a Convex connection made with OAuth: Samebase mints each repository's Convex access token through it. Connect Convex with OAuth on the Providers page (/org/${args.githubOwnerLogin}/providers).`,
+      `Save the Cloudflare and Convex CI tokens on the Providers page (/org/${args.githubOwnerLogin}/providers) before you create a repository that its GitHub Actions set up.`,
     );
   }
-  return credential.auth.credential;
+  return { cloudflare: ci.cloudflare, convex: ci.convex };
 }

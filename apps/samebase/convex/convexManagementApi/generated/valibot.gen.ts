@@ -1236,29 +1236,4 @@ export const vPostProjectsByProjectIdDeletePreviewDeployKeyPath = v.pipe(
   }),
 );
 
-export const vPostTeamsByTeamIdDeleteAccessTokenBody = vDeleteTeamAccessTokenArgs;
-
-export const vPostTeamsByTeamIdDeleteAccessTokenPath = v.pipe(
-  v.unknown(),
-  v.check((input) => !Array.isArray(input)),
-  v.object({
-    team_id: v.string(),
-  }),
-);
-
 export const vGetTokenDetailsResponse = vPlatformTokenDetailsResponse;
-
-export const vPostTeamsByTeamIdCreateAccessTokenBody = v.nullable(vCreateTeamAccessTokenArgs);
-
-export const vPostTeamsByTeamIdCreateAccessTokenPath = v.pipe(
-  v.unknown(),
-  v.check((input) => !Array.isArray(input)),
-  v.object({
-    team_id: v.string(),
-  }),
-);
-
-/**
- * Team access token created successfully
- */
-export const vPostTeamsByTeamIdCreateAccessTokenResponse = vCreateTeamAccessTokenResponse;
