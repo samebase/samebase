@@ -159,7 +159,7 @@ export function CiCredentialsSectionView({
                 id={inputId}
                 type="password"
                 autoComplete="off"
-                className="basis-60 flex-1"
+                className="grow basis-60"
                 disabled={!connected || pending !== null}
                 placeholder={
                   !connected

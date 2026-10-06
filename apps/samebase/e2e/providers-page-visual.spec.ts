@@ -54,6 +54,17 @@ test.describe("providers page mobile", () => {
       maxDiffPixelRatio: 0.001,
       scale: "css",
     });
+    // The page shot paints only the pane's first screen, so the CI token field and its buttons,
+    // which wrap under the field on a narrow pane, get their own shot.
+    await expect(page.getByTestId("ci-credentials")).toHaveScreenshot(
+      "providers-page-ci-credentials-mobile.png",
+      {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixelRatio: 0.001,
+        scale: "css",
+      },
+    );
   });
 });
 
