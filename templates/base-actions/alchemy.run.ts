@@ -1,13 +1,16 @@
 // The deploy stack of this app. One stack owns the Convex backend and the
 // Cloudflare Worker, and pushes code to both on every deploy.
 //
-// - Stage `prod` (push to main): the Convex project and its production
-//   deployment, the Convex Auth keys, the functions push, and the Worker.
-// - Stage `pr-<number>` (a pull request): PREVIEW_BRANCH holds the branch. A
-//   Convex preview deployment named after the branch, the name `npx convex
-//   deploy --preview-name` gives it, and a Worker Preview of the prod Worker
-//   named after the stage. `alchemy destroy --stage pr-<number>` deletes both.
-// - No other stage. `pnpm run dev` runs Convex and Vite without Alchemy.
+// - Stage `prod` (a push to the default branch): the Convex project and its
+//   production deployment, the Convex Auth keys, the functions push, and the
+//   Worker.
+// - Any other stage is the preview of one branch (a push to any other
+//   branch). PREVIEW_BRANCH holds the branch, and scripts/alchemy-stage.ts
+//   computes the stage from it. A Convex preview deployment named after the
+//   branch, the name `npx convex deploy --preview-name` gives it, and a Worker
+//   Preview of the prod Worker named by `workerPreviewName`. When the branch
+//   is deleted, `alchemy destroy --stage <stage>` deletes both.
+// - `pnpm run dev` runs Convex and Vite without Alchemy.
 //
 // .github/workflows/alchemy.yml runs the deploys. A deploy from a laptop needs
 // GITHUB_REPOSITORY (`<owner>/<repository>`), CONVEX_TEAM_ID,
@@ -24,7 +27,8 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
-import { createPublicKey } from "node:crypto";
+import * as Schema from "effect/Schema";
+import { createHash, createPublicKey } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
 // Alchemy reads the stack name when it loads this file, before the stack has
@@ -74,6 +78,70 @@ const convexProjectName = resourceName(40);
 if (workerName === "") {
   throw new Error(`The repository name "${repositoryName}" has no letter or digit.`);
 }
+
+/**
+ * The name of the Worker Preview of a preview stage. Cloudflare serves the
+ * Preview at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>`
+ * must fit in one 63-character DNS label, and the name must start with a
+ * lowercase letter (`p` comes first when the stage starts with a digit). The
+ * name is the stage when it fits. Otherwise the name is cut, its trailing
+ * dashes go, and a dash and the first 6 hex characters of the SHA-256 of the
+ * whole stage follow, so two long stages with the same start get two names.
+ * Branch names are often long, so the cut is the normal case for a long
+ * Worker name. Samebase computes the same name to find the Preview.
+ */
+export function workerPreviewName(stage: string, worker: string): string {
+  const budget = 63 - worker.length - 1;
+  if (budget < 8) {
+    throw new Error(
+      `The Worker name "${worker}" leaves ${budget} characters for a Worker Preview name in a 63-character DNS label, and a Preview name needs 8. Use a shorter repository name.`,
+    );
+  }
+  const name = /^[a-z]/.test(stage) ? stage : `p${stage}`;
+  const fitted =
+    name.length <= budget
+      ? name
+      : `${name.slice(0, budget - 7).replace(/-+$/, "")}-${createHash("sha256").update(stage).digest("hex").slice(0, 6)}`;
+  if (!/^[a-z][a-z0-9-]*$/.test(fitted)) {
+    throw new Error(
+      `Stage "${stage}" gives the Worker Preview name "${fitted}", which has characters other than a-z, 0-9, and dashes. Deploy a preview with the stage that scripts/alchemy-stage.ts computes.`,
+    );
+  }
+  return fitted;
+}
+
+/**
+ * The number of the oldest open pull request from a branch of this
+ * repository, or undefined when none is open. GitHub Actions sets
+ * GITHUB_API_URL; the workflow gives the deploy step GITHUB_TOKEN.
+ */
+const openPullRequest = (owner: string, repository: string, branch: string) =>
+  Effect.gen(function* () {
+    const apiUrl = yield* Config.String("GITHUB_API_URL");
+    const token = yield* Config.Redacted("GITHUB_TOKEN");
+    const head = encodeURIComponent(`${owner}:${branch}`);
+    const response = yield* Effect.promise(() =>
+      fetch(`${apiUrl}/repos/${owner}/${repository}/pulls?state=open&head=${head}`, {
+        headers: {
+          accept: "application/vnd.github+json",
+          authorization: `Bearer ${Redacted.value(token)}`,
+          "x-github-api-version": "2022-11-28",
+        },
+      }),
+    );
+    if (!response.ok) {
+      return yield* Effect.die(
+        new Error(`GitHub answered ${response.status} to the pull request lookup of ${branch}.`),
+      );
+    }
+    const pullRequests = yield* Schema.decodeUnknownEffect(
+      Schema.Array(Schema.Struct({ number: Schema.Number })),
+    )(yield* Effect.promise((): Promise<unknown> => response.json())).pipe(Effect.orDie);
+    return pullRequests
+      .map((pullRequest) => pullRequest.number)
+      .toSorted((left, right) => left - right)
+      .at(0);
+  });
 
 // Convex Auth reads JWT_PRIVATE_KEY (PKCS#8 PEM, line breaks as spaces) and
 // JWKS (the public key as a JSON Web Key Set). Same format as
@@ -178,11 +246,12 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
-    // .github/workflows/alchemy.yml sets PREVIEW_BRANCH to the pull request
-    // branch and the stage to pr-<number>. Both are empty or prod on a push.
+    // scripts/alchemy-stage.ts sets the stage and PREVIEW_BRANCH in
+    // .github/workflows/alchemy.yml: prod and empty on the default branch, the
+    // stage of the branch and the branch itself on any other branch.
     const previewBranch = yield* Config.String("PREVIEW_BRANCH").pipe(Config.withDefault(""));
-    const isPreview = /^pr-\d+$/.test(stage);
-    if (stage === "prod" && previewBranch !== "") {
+    const isPreview = stage !== "prod";
+    if (!isPreview && previewBranch !== "") {
       return yield* Effect.die(
         new Error(
           `PREVIEW_BRANCH is "${previewBranch}" on stage prod. A preview never deploys as prod.`,
@@ -192,26 +261,7 @@ export default Alchemy.Stack(
     if (isPreview && previewBranch === "") {
       return yield* Effect.die(
         new Error(
-          `Stage "${stage}" is a pull request stage, and PREVIEW_BRANCH is empty. Set it to the branch of the pull request.`,
-        ),
-      );
-    }
-    if (stage !== "prod" && !isPreview) {
-      return yield* Effect.die(
-        new Error(
-          `Stage "${stage}" is not prod or pr-<number>. This stack deploys only those stages.`,
-        ),
-      );
-    }
-    // The Worker Preview takes the stage as its name. Cloudflare serves it at
-    // `<stage>-<worker>.<subdomain>.workers.dev`, so `<stage>-<worker>` must
-    // fit in one 63-character DNS label. A name is never cut, so two pull
-    // requests never share a Preview.
-    const previewNameBudget = 63 - workerName.length - 1;
-    if (isPreview && stage.length > previewNameBudget) {
-      return yield* Effect.die(
-        new Error(
-          `Stage "${stage}" does not fit next to the Worker name "${workerName}" in a 63-character DNS label: the pull request number is too large for this Worker name, which leaves ${previewNameBudget} characters. Rename the repository to a shorter name.`,
+          `Stage "${stage}" is a preview stage, and PREVIEW_BRANCH is empty. Set it to the branch of the preview.`,
         ),
       );
     }
@@ -234,24 +284,34 @@ export default Alchemy.Stack(
     const site = isPreview
       ? yield* Cloudflare.Website.Vite("Website", {
           ...settings,
-          preview: { of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }), name: stage },
+          preview: {
+            of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }),
+            name: workerPreviewName(stage, workerName),
+          },
         })
       : yield* Cloudflare.Website.Vite("Website", { ...settings, name: workerName });
 
+    // A push to a preview branch posts the URLs on the open pull request from
+    // that branch, if there is one. The destroy of a deleted branch does not
+    // look, so it never waits on the GitHub API.
     const github = yield* GitHub.GitHubEnv;
-    if (github?.pr) {
-      yield* GitHub.Comment("PreviewComment", {
-        owner: github.owner,
-        repository: github.repository,
-        issueNumber: github.pr,
-        body: Output.interpolate`
-          **Preview:** ${site.url}
+    const event = yield* Config.String("GITHUB_EVENT_NAME").pipe(Config.withDefault(""));
+    if (isPreview && github !== undefined && event === "push") {
+      const issueNumber = yield* openPullRequest(github.owner, github.repository, previewBranch);
+      if (issueNumber !== undefined) {
+        yield* GitHub.Comment("PreviewComment", {
+          owner: github.owner,
+          repository: github.repository,
+          issueNumber,
+          body: Output.interpolate`
+            **Preview:** ${site.url}
 
-          Convex: ${backend.url}
+            Convex: ${backend.url}
 
-          Built from commit ${github.sha.slice(0, 7)}. Alchemy updates this comment on each push.
-        `,
-      });
+            Built from commit ${github.sha.slice(0, 7)}. Alchemy updates this comment on each push.
+          `,
+        });
+      }
     }
 
     return { url: site.url, convexUrl: backend.url };
