@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { isSamebaseProvisioningPlan } from "./provisioningPlan";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -700,9 +701,13 @@ describe("organization-owned repositories", () => {
     expect(initialManagedState.existingRun).toMatchObject({ organizationId });
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.repository).toMatchObject(expectedDestinations);
-    expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
-    expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
-    expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");
+    const initialPlan = initialManagedState.plan;
+    if (!isSamebaseProvisioningPlan(initialPlan)) {
+      throw new Error("Expected a samebase provisioning plan.");
+    }
+    expect(initialPlan.convex).not.toHaveProperty("teamId");
+    expect(initialPlan.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
+    expect(initialPlan.cloudflare).not.toHaveProperty("accountId");
 
     await t.mutation(internal.repository.records.connectSamebaseManagedRepositoryGitHub, {
       ...managed,

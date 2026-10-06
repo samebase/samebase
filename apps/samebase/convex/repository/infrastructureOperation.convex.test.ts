@@ -10,6 +10,7 @@ import {
   requireManualProviderActionDeadline,
   requireManualProviderWriteCheckpoint,
 } from "./infrastructureOperation";
+import { REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE } from "./provisioningPlan";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -109,6 +110,38 @@ describe("repository infrastructure operation reads", () => {
     });
 
     expect(infrastructure.operation).toEqual({ kind: "none" });
+  });
+
+  it("refuses every manual provider write to a repository_actions repository", async () => {
+    const { ids, t } = await createConnectedRepository();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        provisioning: "repository_actions",
+        repositoryId: ids.repositoryId,
+        convexConfigPath: "convex.json",
+        ciSecrets: { state: "written", writtenAt: 30, credentialRevision: 25 },
+        createdAt: 30,
+        updatedAt: 30,
+      });
+    });
+
+    for (const action of [
+      "create_convex_project",
+      "connect_cloudflare_worker",
+      "create_cloudflare_worker",
+      "configure_workers_builds_for_github",
+      "rotate_convex_deploy_keys_for_workers_builds",
+    ] as const) {
+      await expect(
+        t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
+          repositoryId: ids.repositoryId,
+          userId: ids.userId,
+          actionId: `manual-${action}`,
+          action,
+        }),
+      ).rejects.toMatchObject({ data: REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE });
+    }
+    await expect(readProviderWrite(t, ids.repositoryId)).resolves.toBeNull();
   });
 
   it("blocks only while a manual provider write is active", async () => {

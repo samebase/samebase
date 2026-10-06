@@ -18,6 +18,7 @@ import { Link } from "@tanstack/react-router";
 import { AlertTriangle, LayoutList, Loader2, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
@@ -319,7 +320,8 @@ export function RepositoryOverviewPage({
     workspace.repository.hasConnectedGitHubRepository &&
     workspace.repository.hasConvexProvision &&
     workspace.repository.cloudflareWorkers.length === 0 &&
-    managedProviderPlan?.convex.state === "created" &&
+    isSamebaseManagedProviderPlan(managedProviderPlan) &&
+    managedProviderPlan.convex.state === "created" &&
     managedProviderPlan.cloudflare.state === "planned" &&
     managedProviderPlan.cloudflare.buildTokenUuid === null;
 

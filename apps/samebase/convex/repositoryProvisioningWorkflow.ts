@@ -6,6 +6,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { RepositoryProvisioningStep } from "./repository/provisioningModel";
+import { requireSamebaseProvisioningPlan } from "./repository/provisioningPlan";
 import { isLiveConnectedRepository } from "./repository/state";
 import {
   requireActiveRepositoryProvisioningAuthority,
@@ -148,13 +149,14 @@ export const readComposedInfrastructureState = internalQuery({
     const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
     const repository = authority.repository;
 
-    const plan = await ctx.db
+    const storedPlan = await ctx.db
       .query("workflow_repositoryProvisioning_plans")
       .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
       .first();
-    if (!plan) {
+    if (!storedPlan) {
       throw new Error("Infrastructure provisioning plan not found for repository.");
     }
+    const plan = requireSamebaseProvisioningPlan(storedPlan);
     if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
       throw new Error("Managed repository provider destinations are not configured.");
     }

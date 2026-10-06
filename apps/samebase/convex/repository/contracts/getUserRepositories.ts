@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { vRepositoryDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import { vConvexCodeLocation } from "./convexAttachments";
-import { vRepositoryProviderWriteTimes } from "../provisioningModel";
+import { vRepositoryActionsCiSecrets, vRepositoryProviderWriteTimes } from "../provisioningModel";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
@@ -19,7 +19,14 @@ export const vSourceSetupStep = union(
   literal("sync_tree"),
 );
 
+/**
+The step of a managed provider setup run. A repository_actions retry that resumes the starter seed
+after the Actions secrets reports seed_starter and sync_tree here.
+*/
 export const vProviderSetupStep = union(
+  literal("write_actions_secrets"),
+  literal("seed_starter"),
+  literal("sync_tree"),
   literal("claim_infra"),
   literal("attach_convex"),
   literal("attach_worker"),
@@ -50,7 +57,8 @@ export const vSourceSetupSummary = union(
   }),
 );
 
-const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
+/** github = the GitHub Actions secrets of a repository_actions repository. */
+const providerSetupProvider = union(literal("convex"), literal("cloudflare"), literal("github"));
 
 export const vProviderSetupSummary = union(
   object({
@@ -126,6 +134,11 @@ export const vManagedProviderPlan = union(
       }),
     ),
   }),
+  object({
+    provisioning: literal("repository_actions"),
+    convexConfigPath: string(),
+    ciSecrets: vRepositoryActionsCiSecrets,
+  }),
 );
 
 const vManagedProviderWriteOwner = object({
@@ -134,7 +147,7 @@ const vManagedProviderWriteOwner = object({
 const vManualProviderWriteOwner = object({
   kind: literal("manual_provider_write"),
 });
-const vProviderWriteProviders = array(providerSetupProvider);
+const vProviderWriteProviders = array(union(literal("convex"), literal("cloudflare")));
 
 export const vProviderWriteSummary = union(
   object({

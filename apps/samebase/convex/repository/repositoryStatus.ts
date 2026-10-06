@@ -81,7 +81,17 @@ function sortConvexProjects(projects: RepositoryStatusRepository["convexProjects
 function describeSetupProvider(
   provider: Extract<ProviderSetupSummary, { status: "running" | "failed" }>["provider"],
 ): string {
-  return provider === "convex" ? "Convex project" : "Cloudflare Worker";
+  switch (provider) {
+    case "convex":
+      return "Convex project";
+    case "cloudflare":
+      return "Cloudflare Worker";
+    case "github":
+      return "GitHub Actions secrets";
+    default:
+      provider satisfies never;
+      return "provider";
+  }
 }
 
 function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuildAccess): string {

@@ -20,6 +20,11 @@ import {
 } from "./infrastructureOperation";
 import { isLiveConnectedRepository } from "./state";
 import {
+  isSamebaseProvisioningPlan,
+  requireSamebaseProvisioningPlan,
+  type SamebaseProvisioningPlan,
+} from "./provisioningPlan";
+import {
   requireActiveRepositoryProvisioningAuthority,
   requireActiveRepositoryProvisioningContinuation,
 } from "../repositoryWorkflowAuthority";
@@ -93,7 +98,7 @@ async function requireActiveManagedProvisioning(
   },
 ): Promise<{
   repository: Extract<Doc<"repositories">, { state: "connected" }>;
-  plan: Doc<"workflow_repositoryProvisioning_plans">;
+  plan: SamebaseProvisioningPlan;
 }> {
   const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
   if (!isLiveConnectedRepository(authority.repository)) {
@@ -123,7 +128,7 @@ async function requireActiveManagedProvisioning(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for repository.");
   }
-  return { repository: authority.repository, plan };
+  return { repository: authority.repository, plan: requireSamebaseProvisioningPlan(plan) };
 }
 
 async function requireWorker(
@@ -362,7 +367,11 @@ export const updateWorkerName = internalMutation({
       .query("workflow_repositoryProvisioning_plans")
       .withIndex("by_repository", (q) => q.eq("repositoryId", worker.repositoryId))
       .unique();
-    if (plan?.cloudflare.state === "created" && plan.cloudflare.workerTag === worker.workerTag) {
+    if (
+      isSamebaseProvisioningPlan(plan) &&
+      plan.cloudflare.state === "created" &&
+      plan.cloudflare.workerTag === worker.workerTag
+    ) {
       if (plan.cloudflare.workerName !== args.expectedStoredWorkerName) {
         throw new Error("Managed Cloudflare Worker checkpoint changed before the name update.");
       }
@@ -410,7 +419,11 @@ export const updateWorkerRootDirectory = internalMutation({
       .query("workflow_repositoryProvisioning_plans")
       .withIndex("by_repository", (q) => q.eq("repositoryId", worker.repositoryId))
       .unique();
-    if (plan?.cloudflare.state === "created" && plan.cloudflare.workerTag === worker.workerTag) {
+    if (
+      isSamebaseProvisioningPlan(plan) &&
+      plan.cloudflare.state === "created" &&
+      plan.cloudflare.workerTag === worker.workerTag
+    ) {
       if (
         plan.cloudflare.rootDirectory !== args.expectedStoredRootDirectory &&
         plan.cloudflare.rootDirectory !== rootDirectory

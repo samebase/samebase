@@ -1,5 +1,6 @@
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import {
   getConvexCodeLocationPath,
   getConvexCodeRootDirectory,
@@ -23,7 +24,10 @@ type RepositoryDashboardRepository = NonNullable<
 type RepositoryDashboardCloudflareWorker =
   RepositoryDashboardRepository["cloudflareWorkers"][number];
 type RepositoryDashboardConvexProject = RepositoryDashboardRepository["convexProjects"][number];
-type RepositoryManagedProviderPlan = NonNullable<RepositoryDashboardRepository["providerPlan"]>;
+type RepositoryManagedProviderPlan = Exclude<
+  NonNullable<RepositoryDashboardRepository["providerPlan"]>,
+  { provisioning: "repository_actions" }
+>;
 type RepositoryCloudflareBuildToken =
   (typeof api.cloudflareBuildTokens.list)["_returnType"]["tokens"][number];
 
@@ -1102,10 +1106,11 @@ export function buildRepositorySettingsState({
     repository.providerWrite.status === "active" &&
     repository.providerWrite.owner.kind === "managed_run";
   const managedSetupFailed = repository.providerSetup.status === "failed";
+  const samebasePlan = isSamebaseManagedProviderPlan(repository.providerPlan)
+    ? repository.providerPlan
+    : null;
   const applicablePlan =
-    repository.providerPlan && (managedSetupActive || managedSetupFailed)
-      ? repository.providerPlan
-      : null;
+    samebasePlan && (managedSetupActive || managedSetupFailed) ? samebasePlan : null;
   const failedPlanMessage =
     applicablePlan && managedSetupFailed && repository.providerSetup.status === "failed"
       ? repository.providerSetup.message
@@ -1131,8 +1136,8 @@ export function buildRepositorySettingsState({
       left.convexProjectId.localeCompare(right.convexProjectId),
   )) {
     const plannedProjectName =
-      repository.providerPlan && isPlannedConvexAttachment(repository.providerPlan.convex, project)
-        ? repository.providerPlan.convex.projectName
+      samebasePlan && isPlannedConvexAttachment(samebasePlan.convex, project)
+        ? samebasePlan.convex.projectName
         : null;
     const settingUp =
       applicablePlan &&

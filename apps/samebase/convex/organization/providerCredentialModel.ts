@@ -31,16 +31,40 @@ export const vCloudflareProviderCredential = object({
 });
 export type CloudflareProviderCredential = Infer<typeof vCloudflareProviderCredential>;
 
+/**
+CI credentials that Samebase writes into a repository_actions repository as GitHub Actions secrets.
+The user pastes both. Samebase's own provider credentials above never go into a repository.
+*/
+export const vOrganizationCiCredentials = object({
+  cloudflare: optional(
+    object({
+      apiToken: string(),
+      accountId: string(),
+      ...providerCredentialIdentity,
+    }),
+  ),
+  convex: optional(
+    object({
+      accessToken: string(),
+      teamId: string(),
+      ...providerCredentialIdentity,
+    }),
+  ),
+});
+export type OrganizationCiCredentials = Infer<typeof vOrganizationCiCredentials>;
+
 export const vOrganizationProviderCredentials = union(
   object({
     organizationId: id("organizations"),
     convex: vConvexProviderCredential,
     cloudflare: optional(vCloudflareProviderCredential),
+    ci: optional(vOrganizationCiCredentials),
   }),
   object({
     organizationId: id("organizations"),
     convex: optional(vConvexProviderCredential),
     cloudflare: vCloudflareProviderCredential,
+    ci: optional(vOrganizationCiCredentials),
   }),
 );
 

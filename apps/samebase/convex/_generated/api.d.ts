@@ -170,6 +170,7 @@ import type * as repository_providerObservationModel from "../repository/provide
 import type * as repository_providerObservationQueries from "../repository/providerObservationQueries.js";
 import type * as repository_providerObservations from "../repository/providerObservations.js";
 import type * as repository_provisioningModel from "../repository/provisioningModel.js";
+import type * as repository_provisioningPlan from "../repository/provisioningPlan.js";
 import type * as repository_pullRequestCloudflareWorkerChecks from "../repository/pullRequestCloudflareWorkerChecks.js";
 import type * as repository_pullRequestCloudflareWorkerComments from "../repository/pullRequestCloudflareWorkerComments.js";
 import type * as repository_pullRequestCloudflareWorkerProof from "../repository/pullRequestCloudflareWorkerProof.js";
@@ -371,6 +372,7 @@ declare const fullApi: ApiFromModules<{
   "repository/providerObservationQueries": typeof repository_providerObservationQueries;
   "repository/providerObservations": typeof repository_providerObservations;
   "repository/provisioningModel": typeof repository_provisioningModel;
+  "repository/provisioningPlan": typeof repository_provisioningPlan;
   "repository/pullRequestCloudflareWorkerChecks": typeof repository_pullRequestCloudflareWorkerChecks;
   "repository/pullRequestCloudflareWorkerComments": typeof repository_pullRequestCloudflareWorkerComments;
   "repository/pullRequestCloudflareWorkerProof": typeof repository_pullRequestCloudflareWorkerProof;

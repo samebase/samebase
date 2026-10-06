@@ -18,6 +18,10 @@ import { requireOrganizationNotBillingLimited } from "../organization/billingLim
 import { recordOrganizationLastUsedBuildToken } from "../organizations";
 import { requireActiveRepositoryProvisioningRun } from "../repositoryWorkflowAuthority";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./state";
+import {
+  readRepositoryProvisioningMode,
+  REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE,
+} from "./provisioningPlan";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
 type ProviderWrite = Doc<"workflow_repositoryProvisioning_writeLocks">;
@@ -292,7 +296,16 @@ export const claimManualProviderWrite = internalMutation({
       throw new Error("Repository not found.");
     }
     const connectedRepository = assertConnectedRepository(repository);
-    const infrastructure = await readRepositoryInfrastructureState(ctx, connectedRepository);
+    const [infrastructure, plan] = await Promise.all([
+      readRepositoryInfrastructureState(ctx, connectedRepository),
+      ctx.db
+        .query("workflow_repositoryProvisioning_plans")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+        .unique(),
+    ]);
+    if (plan && readRepositoryProvisioningMode(plan) === "repository_actions") {
+      throw new ConvexError(REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE);
+    }
     if (infrastructure.operation.kind !== "none") {
       throw new ConvexError(INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE);
     }

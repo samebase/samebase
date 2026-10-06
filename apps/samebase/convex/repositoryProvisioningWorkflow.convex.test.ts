@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
+import { isSamebaseProvisioningPlan } from "./repository/provisioningPlan";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
@@ -104,8 +105,8 @@ async function attachComposedResources({
 }: Awaited<ReturnType<typeof createComposedRepository>>) {
   return await t.run(async (ctx) => {
     const plan = await ctx.db.get(ids.planId);
-    if (!plan) {
-      throw new Error("Expected provisioning plan.");
+    if (!isSamebaseProvisioningPlan(plan)) {
+      throw new Error("Expected a samebase provisioning plan.");
     }
     await ctx.db.patch(plan._id, {
       convex: {
