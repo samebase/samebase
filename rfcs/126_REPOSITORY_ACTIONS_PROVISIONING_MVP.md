@@ -531,3 +531,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   working, consistent with the landing page promise that apps keep working after the Samebase
   account is deleted. The minted Convex token stays when a repository is removed from Samebase and
   on account or organization deletion; only a retry replaces it. Applied to PR B.
+- 2026-10-07: Codex round 5 on PR B, both accepted. P1: with the merged template the stage comes
+  from the push's `ref_name` against the repository's default branch, so `main` must be the default
+  before the push that carries the workflow (bootstrap `main` without workflow files, set the
+  default, then push the seed). P2: record the intended Convex token name on the plan before the
+  mint request, so an interrupted mint is deleted by name on retry. Fixes in progress together with
+  the retain change; one more Codex round follows.
