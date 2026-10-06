@@ -11,9 +11,10 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
+  findMissingTargetRepositories,
   formatPublishedCommitSubject,
   publishRepositoryExport,
   readCurrentSourceBranchHead,
@@ -85,6 +86,10 @@ function createRepositoryExportFixture(): {
 }
 
 describe("repository exports", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("publishes the standalone base to samebase/base", () => {
     expect(repositoryExports).toContainEqual({
       sourceRoot: "templates/base",
@@ -107,6 +112,42 @@ describe("repository exports", () => {
       targetBranch: "main",
       targetRepository: "sidebars-example",
     });
+  });
+
+  it("publishes the GitHub Actions template to samebase/base-actions", () => {
+    expect(repositoryExports).toContainEqual({
+      sourceRoot: "templates/base-actions",
+      targetBranch: "main",
+      targetRepository: "base-actions",
+    });
+  });
+
+  it("names each target repository that GitHub cannot find", async () => {
+    const fetch = vi.fn((url: string) =>
+      Promise.resolve(new Response(null, { status: url.endsWith("/base-actions") ? 404 : 200 })),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      findMissingTargetRepositories({ owner: "samebase", lookupToken: "lookup-token" }),
+    ).resolves.toEqual(["samebase/base-actions"]);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.github.com/repos/samebase/base",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer lookup-token" }),
+      }),
+    );
+  });
+
+  it("stops when GitHub answers a target lookup with another error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(null, { status: 500 }))),
+    );
+
+    await expect(
+      findMissingTargetRepositories({ owner: "samebase", lookupToken: "lookup-token" }),
+    ).rejects.toThrow("GitHub answered 500 for the export target samebase/plugin.");
   });
 
   it("publishes the exact source tree as a direct external child and then becomes a no-op", () => {
@@ -230,7 +271,7 @@ describe("repository exports", () => {
         },
       );
       expect(readFileSync(outputPath, "utf8")).toBe(
-        "repositories=plugin,base,sidebars,sidebars-example\n",
+        "repositories=plugin,base,sidebars,sidebars-example,base-actions\n",
       );
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
