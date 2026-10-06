@@ -35,6 +35,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   workflow_accountDeletion_runs: "receipt",
   workflow_accountDeletion_events: "receipt",
   organizationProviderCredentials: "credential_revocation",
+  organizationCiCredentials: "credential_revocation",
   providerOAuthCallbackStates: "account_data",
   ui_user_settings: "account_data",
   ui_workspaceSidebar_layouts: "account_data",

@@ -92,7 +92,7 @@ describe("organization CI credentials", () => {
       },
     });
     await expect(
-      t.run(async (ctx) => (await ctx.db.query("organizationProviderCredentials").unique())?.ci),
+      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
     ).resolves.toMatchObject({
       convex: { accessToken: "convex-ci-test-token", teamId: "41" },
     });
@@ -100,7 +100,7 @@ describe("organization CI credentials", () => {
     await viewer.mutation(api.users.removeCiToken, { organizationId, provider: "convex" });
 
     await expect(
-      t.run(async (ctx) => (await ctx.db.query("organizationProviderCredentials").unique())?.ci),
+      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
     ).resolves.toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("organization CI credentials", () => {
       data: "The Convex CI token cannot read the Convex team samebase.",
     });
     await expect(
-      t.run(async (ctx) => (await ctx.db.query("organizationProviderCredentials").unique())?.ci),
+      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
     ).resolves.toBeNull();
   });
 

@@ -25,6 +25,7 @@ import { cloudflareConnectWorkerContract } from "./contracts/cloudflareAttachmen
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { detachResourceContract, vDetachableResource } from "./contracts/detachResource";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
+import { vRepositoryProvisioningMode } from "./provisioningModel";
 
 /*
 The one confirmation check of the four gated actions (rfcs/125), shared by the dashboard and MCP.
@@ -69,6 +70,8 @@ export const vConfirmedActionRequest = union(
   object({
     action: literal(retryInfrastructureProvisioningContract.id),
     repositoryId: id("repositories"),
+    /** Read from the plan before the confirmation, so the sentence names the retry that runs. */
+    provisioning: vRepositoryProvisioningMode,
   }),
   object({
     action: literal(detachResourceContract.id),
@@ -267,12 +270,25 @@ async function readConfirmationSubject(
       };
     }
     case "retry_provider_setup":
-      return {
-        organizationId,
-        resource: { kind: "repository", githubRepositoryFullName: repositoryName },
-        effect: `Samebase starts a new provider setup run for ${repositoryName}. It creates missing Convex and Cloudflare resources. When the setup includes Cloudflare, it rewrites the Workers Builds settings of the Worker, revokes and replaces the Convex deploy keys that it recorded, and starts a production build.`,
-        approval: `a new provider setup run for ${repositoryName}, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys`,
-      };
+      switch (request.provisioning) {
+        case "samebase":
+          return {
+            organizationId,
+            resource: { kind: "repository", githubRepositoryFullName: repositoryName },
+            effect: `Samebase starts a new provider setup run for ${repositoryName}. It creates missing Convex and Cloudflare resources. When the setup includes Cloudflare, it rewrites the Workers Builds settings of the Worker, revokes and replaces the Convex deploy keys that it recorded, and starts a production build.`,
+            approval: `a new provider setup run for ${repositoryName}, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys`,
+          };
+        case "repository_actions":
+          return {
+            organizationId,
+            resource: { kind: "repository", githubRepositoryFullName: repositoryName },
+            effect: `Samebase starts a new setup run for ${repositoryName}. It copies the organization's CI credentials into the repository's GitHub Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
+            approval: `a new setup run for ${repositoryName}, which replaces its GitHub Actions secrets and variable with the organization's CI credentials`,
+          };
+        default:
+          request.provisioning satisfies never;
+          throw new Error("Unknown provisioning mode.");
+      }
     case "detach_resource": {
       await requireNoProviderOperation(db, repository);
       if (request.resource.kind === "cloudflare_worker") {

@@ -32,7 +32,7 @@ vi.mock("./starterSeed", async (importOriginal) => {
   };
 });
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { formatMissingGitHubAppPermissionMessage } from "./githubActionsSecrets";
 import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
@@ -494,15 +494,6 @@ describe("app provisioning workflow composition", () => {
   });
 });
 
-// GitHub's REST shapes for the repository that the repository_actions tests create.
-const actionsRepository = {
-  id: 9001,
-  name: "actions-app",
-  full_name: "samebase/actions-app",
-  private: true,
-  default_branch: "main",
-  owner: { id: 1, login: "samebase" },
-};
 const actionsRepositoryPublicKey = btoa(
   String.fromCharCode(...x25519.getPublicKey(new Uint8Array(32).fill(7))),
 );
@@ -510,17 +501,31 @@ const actionsRepositoryPublicKey = btoa(
 type FakeGitHubRequest = { method: string; path: string; body: unknown };
 
 /**
-An Octokit whose fetch answers like GitHub for one new repository. `denySecrets` answers the
-secrets 403, and `failTreeSync` answers the tree read of sync_tree 500. `calls` records the requests
-and the starter seeds in order.
+An Octokit whose fetch answers like GitHub for one new repository, created with the owner's
+`defaultBranch`; a PATCH of the repository changes it. `denySecrets` answers the secrets 403, and
+`failTreeSync` answers the tree read of sync_tree 500. `calls` records the requests and the starter
+seeds in order.
 */
-function createFakeGitHub(options: { denySecrets: boolean; failTreeSync: boolean }) {
+function createFakeGitHub(options: {
+  defaultBranch: string;
+  denySecrets: boolean;
+  failTreeSync: boolean;
+}) {
   const requests: FakeGitHubRequest[] = [];
   const calls: string[] = [];
   githubMocks.seedRepository.mockImplementation(async () => {
     calls.push("seed");
     return { defaultBranch: "main", headCommitSha: "seed-commit" };
   });
+  // GitHub's REST shape of the repository.
+  const actionsRepository = {
+    id: 9001,
+    name: "actions-app",
+    full_name: "samebase/actions-app",
+    private: true,
+    default_branch: options.defaultBranch,
+    owner: { id: 1, login: "samebase" },
+  };
   const respond = (request: FakeGitHubRequest): { status: number; body?: unknown } => {
     const repositoryPath = `/repos/${actionsRepository.full_name}`;
     if (request.method === "POST" && request.path === "/orgs/samebase/repos") {
@@ -530,6 +535,18 @@ function createFakeGitHub(options: { denySecrets: boolean; failTreeSync: boolean
       return { status: 200, body: { total_count: 1, repositories: [actionsRepository] } };
     }
     if (request.method === "GET" && request.path === repositoryPath) {
+      return { status: 200, body: actionsRepository };
+    }
+    if (request.method === "PATCH" && request.path === repositoryPath) {
+      const body = request.body;
+      if (
+        typeof body === "object" &&
+        body !== null &&
+        "default_branch" in body &&
+        typeof body.default_branch === "string"
+      ) {
+        actionsRepository.default_branch = body.default_branch;
+      }
       return { status: 200, body: actionsRepository };
     }
     if (request.path === `${repositoryPath}/actions/secrets/public-key`) {
@@ -620,19 +637,20 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
         connectedByUserId: userId,
         updatedAt: 1,
       },
-      ci: {
-        cloudflare: {
-          apiToken: "cloudflare-ci-test-token",
-          accountId: "cloudflare-account",
-          connectedByUserId: userId,
-          updatedAt: 20,
-        },
-        convex: {
-          accessToken: "convex-ci-test-token",
-          teamId: "41",
-          connectedByUserId: userId,
-          updatedAt: 30,
-        },
+    });
+    await ctx.db.insert("organizationCiCredentials", {
+      organizationId,
+      cloudflare: {
+        apiToken: "cloudflare-ci-test-token",
+        accountId: "cloudflare-account",
+        connectedByUserId: userId,
+        updatedAt: 20,
+      },
+      convex: {
+        accessToken: "convex-ci-test-token",
+        teamId: "41",
+        connectedByUserId: userId,
+        updatedAt: 30,
       },
     });
     return { organizationId, userId };
@@ -680,7 +698,9 @@ async function readRepositoryActionsState(
       .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", args.runId))
       .collect();
     return {
+      repository: await ctx.db.get(args.repositoryId),
       run: await ctx.db.get(args.runId),
+      messages: events.map((event) => event.message),
       steps: [...new Set(events.map((event) => event.step))],
       plan: await ctx.db
         .query("workflow_repositoryProvisioning_plans")
@@ -700,7 +720,11 @@ describe("repository_actions provisioning workflow", () => {
   });
 
   it("writes the Actions secrets before the seed and skips every Samebase provider step", async () => {
-    const github = createFakeGitHub({ denySecrets: false, failTreeSync: false });
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+    });
     const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
 
     const state = await readRepositoryActionsState(t, { repositoryId, runId });
@@ -727,8 +751,11 @@ describe("repository_actions provisioning workflow", () => {
     });
     expect(state.writeLock).toMatchObject({ owner: { runId }, state: "succeeded" });
     expect(githubMocks.seedRepository).toHaveBeenCalledWith(
-      expect.objectContaining({ manifest: actionsStarterTemplateManifest }),
+      expect.objectContaining({ defaultBranch: "main", manifest: actionsStarterTemplateManifest }),
     );
+    // GitHub created the repository with main, so the default branch stays as it is.
+    expect(github.requests.filter((request) => request.method === "PATCH")).toEqual([]);
+    expect(state.repository).toMatchObject({ defaultBranch: "main" });
     const writes = github.requests
       .filter((request) => request.path.includes("/actions/"))
       .map(({ method, path }) => `${method} ${path}`);
@@ -750,7 +777,11 @@ describe("repository_actions provisioning workflow", () => {
   });
 
   it("resumes a write that GitHub refused through the existing retry, then seeds once", async () => {
-    const github = createFakeGitHub({ denySecrets: true, failTreeSync: false });
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: true,
+      failTreeSync: false,
+    });
     const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
     await recordWorkflowFailure(t, {
       runId,
@@ -789,7 +820,11 @@ describe("repository_actions provisioning workflow", () => {
   });
 
   it("never seeds again after a retry seeded and then failed in the tree sync", async () => {
-    const github = createFakeGitHub({ denySecrets: true, failTreeSync: true });
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: true,
+      failTreeSync: true,
+    });
     const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
     await recordWorkflowFailure(t, { runId, message: "Error: GitHub refused the secrets." });
 
@@ -812,9 +847,79 @@ describe("repository_actions provisioning workflow", () => {
       runId: secondRetryRunId,
     });
     expect(secondRetry.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
-    expect(new Set(secondRetry.steps)).toEqual(
-      new Set(["write_actions_secrets", "sync_tree", "finish"]),
+    expect(secondRetry.messages).toContain("The starter app is already seeded.");
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets the default branch to main after the seed when GitHub created it with master", async () => {
+    const github = createFakeGitHub({
+      defaultBranch: "master",
+      denySecrets: false,
+      failTreeSync: false,
+    });
+    const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
+
+    const state = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(githubMocks.seedRepository).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultBranch: "main" }),
     );
+    const patches = github.requests.filter((request) => request.method === "PATCH");
+    expect(patches).toEqual([
+      {
+        method: "PATCH",
+        path: "/repos/samebase/actions-app",
+        body: { default_branch: "main" },
+      },
+    ]);
+    // The seed push comes first: the branch must exist before it becomes the default.
+    expect(github.calls.indexOf("PATCH /repos/samebase/actions-app")).toBeGreaterThan(
+      github.calls.indexOf("seed"),
+    );
+    expect(state.messages).toContain(
+      "Set the default branch of samebase/actions-app to main. GitHub created it with master.",
+    );
+    // The connect step recorded master; the record now names main, and the tree sync read main.
+    expect(state.repository).toMatchObject({ defaultBranch: "main" });
+    expect(github.calls).toContain("GET /repos/samebase/actions-app/branches/main");
+  });
+
+  it("retries an initial run that failed in the tree sync, without seeding again", async () => {
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: true,
+    });
+    const { organizationId, repositoryId, runId, t, userId } =
+      await createRepositoryActionsRepository(github);
+    await recordWorkflowFailure(t, { runId, message: "Error: Server Error" });
+
+    const failed = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(failed.run).toMatchObject({
+      trigger: "create",
+      state: "failed",
+      currentStep: "sync_tree",
+    });
+    expect(failed.plan).toMatchObject({ seed: { state: "seeded" } });
+    // The dashboard reports the failure as provider setup, which offers the retry.
+    const viewer = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const listed = (await viewer.query(api.repository.list, {})).find(
+      (repository) => repository.organizationId === organizationId,
+    );
+    expect(listed).toMatchObject({
+      sourceSetup: { status: "ready" },
+      providerSetup: { status: "failed", provider: "github", step: "sync_tree" },
+    });
+
+    github.options.failTreeSync = false;
+    const retryRunId = await retryProviderSetup(t, { userId, repositoryId });
+
+    const resumed = await readRepositoryActionsState(t, { repositoryId, runId: retryRunId });
+    expect(resumed.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(resumed.messages).toContain("The starter app is already seeded.");
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
   });
 });

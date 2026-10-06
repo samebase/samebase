@@ -13,6 +13,7 @@ function makeErrorWithStatus(status: number, message: string): Error {
 function makeGitClient(options?: {
   failFirstCreateTreeStatus?: number;
   createRefAlreadyExistsOnce?: boolean;
+  updateRefMissing?: boolean;
   createTreeFailsWithEmptyRepoUntilBootstrap?: boolean;
   emptyRepositoryCreateBlobFailuresAfterBootstrap?: number;
 }) {
@@ -77,6 +78,9 @@ function makeGitClient(options?: {
     },
     updateRef: async (args) => {
       updateRefCalls.push(args);
+      if (options?.updateRefMissing) {
+        throw makeErrorWithStatus(422, "Reference does not exist");
+      }
     },
     createBootstrapCommit: async (args) => {
       createBootstrapCommitCalls.push(args);
@@ -291,6 +295,28 @@ describe("seedRepositoryWithStarter", () => {
       defaultBranch: "main",
       headCommitSha: "commit-1",
     });
+  });
+
+  it("creates the requested branch when the bootstrap commit landed on another branch", async () => {
+    const mock = makeGitClient({
+      createTreeFailsWithEmptyRepoUntilBootstrap: true,
+      updateRefMissing: true,
+    });
+
+    await expect(
+      seedRepositoryWithStarter({
+        client: mock.client,
+        owner: "owner",
+        repo: "repo",
+        defaultBranch: "main",
+        manifest,
+      }),
+    ).resolves.toEqual({ defaultBranch: "main", headCommitSha: "commit-1" });
+
+    expect(mock.updateRefCalls.at(-1)).toMatchObject({ ref: "heads/main", sha: "commit-1" });
+    expect(mock.createRefCalls).toEqual([
+      { owner: "owner", repo: "repo", ref: "refs/heads/main", sha: "commit-1" },
+    ]);
   });
 
   it("retries manifest writes after bootstrap while GitHub still reports an empty repository", async () => {

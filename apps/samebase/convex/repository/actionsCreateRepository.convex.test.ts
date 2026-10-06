@@ -168,26 +168,24 @@ beforeEach(() => {
   providerMocks.verifyConvexTeamAccessToken.mockResolvedValue(undefined);
 });
 
-async function saveCiCredentials(t: ConvexTestHandle, userId: Id<"users">) {
+async function saveCiCredentials(
+  t: ConvexTestHandle,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+) {
   await t.run(async (ctx) => {
-    const credentials = await ctx.db.query("organizationProviderCredentials").unique();
-    if (!credentials) {
-      throw new Error("Expected provider credentials.");
-    }
-    await ctx.db.patch(credentials._id, {
-      ci: {
-        cloudflare: {
-          apiToken: "cloudflare-ci-test-token",
-          accountId: "cloudflare-account",
-          connectedByUserId: userId,
-          updatedAt: 2,
-        },
-        convex: {
-          accessToken: "convex-ci-test-token",
-          teamId: "convex-team",
-          connectedByUserId: userId,
-          updatedAt: 3,
-        },
+    await ctx.db.insert("organizationCiCredentials", {
+      organizationId: args.organizationId,
+      cloudflare: {
+        apiToken: "cloudflare-ci-test-token",
+        accountId: "cloudflare-account",
+        connectedByUserId: args.userId,
+        updatedAt: 2,
+      },
+      convex: {
+        accessToken: "convex-ci-test-token",
+        teamId: "convex-team",
+        connectedByUserId: args.userId,
+        updatedAt: 3,
       },
     });
   });
@@ -217,7 +215,7 @@ describe("create repository with provisioning repository_actions", () => {
 
   it("refuses an installation that has not accepted the Secrets and Variables permissions", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, userId);
+    await saveCiCredentials(t, { organizationId, userId });
     providerMocks.readGitHubAppInstallation.mockResolvedValue({
       permissions: [{ access: "write", key: "contents" }],
     });
@@ -234,7 +232,7 @@ describe("create repository with provisioning repository_actions", () => {
 
   it("refuses a Cloudflare CI token that cannot reach the connected account", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, userId);
+    await saveCiCredentials(t, { organizationId, userId });
     providerMocks.listAccountsForVerifiedUserApiToken.mockResolvedValue([
       { accountId: "other-account", accountName: "Other account" },
     ]);
@@ -251,7 +249,7 @@ describe("create repository with provisioning repository_actions", () => {
 
   it("writes the repository_actions plan after every check passes", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, userId);
+    await saveCiCredentials(t, { organizationId, userId });
 
     const result = await viewer.action(api.repository.create, {
       organizationId,
@@ -285,7 +283,7 @@ describe("create repository with provisioning repository_actions", () => {
 
   it("refuses custom provider names, because the GitHub Actions use the repository name", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, userId);
+    await saveCiCredentials(t, { organizationId, userId });
 
     await expect(
       viewer.action(api.repository.create, {

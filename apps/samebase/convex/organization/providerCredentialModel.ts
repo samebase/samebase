@@ -31,30 +31,38 @@ export const vCloudflareProviderCredential = object({
 });
 export type CloudflareProviderCredential = Infer<typeof vCloudflareProviderCredential>;
 
+const vCloudflareCiCredential = object({
+  apiToken: string(),
+  accountId: string(),
+  ...providerCredentialIdentity,
+});
+const vConvexCiCredential = object({
+  accessToken: string(),
+  teamId: string(),
+  ...providerCredentialIdentity,
+});
+
 /**
 CI credentials that Samebase writes into a repository_actions repository as GitHub Actions secrets.
-The user pastes both. Samebase's own provider credentials above never go into a repository.
+The user pastes both; the row stores the token values. A row holds at least one entry, and each entry
+belongs to the member who saved it.
 */
-export const vOrganizationCiCredentials = object({
-  cloudflare: optional(
-    object({
-      apiToken: string(),
-      accountId: string(),
-      ...providerCredentialIdentity,
-    }),
-  ),
-  convex: optional(
-    object({
-      accessToken: string(),
-      teamId: string(),
-      ...providerCredentialIdentity,
-    }),
-  ),
-});
+export const vOrganizationCiCredentials = union(
+  object({
+    organizationId: id("organizations"),
+    cloudflare: vCloudflareCiCredential,
+    convex: optional(vConvexCiCredential),
+  }),
+  object({
+    organizationId: id("organizations"),
+    cloudflare: optional(vCloudflareCiCredential),
+    convex: vConvexCiCredential,
+  }),
+);
 export type OrganizationCiCredentials = Infer<typeof vOrganizationCiCredentials>;
 export type CompleteOrganizationCiCredentials = {
-  cloudflare: NonNullable<OrganizationCiCredentials["cloudflare"]>;
-  convex: NonNullable<OrganizationCiCredentials["convex"]>;
+  cloudflare: Infer<typeof vCloudflareCiCredential>;
+  convex: Infer<typeof vConvexCiCredential>;
 };
 
 /**
@@ -70,13 +78,11 @@ export const vOrganizationProviderCredentials = union(
     organizationId: id("organizations"),
     convex: vConvexProviderCredential,
     cloudflare: optional(vCloudflareProviderCredential),
-    ci: optional(vOrganizationCiCredentials),
   }),
   object({
     organizationId: id("organizations"),
     convex: optional(vConvexProviderCredential),
     cloudflare: vCloudflareProviderCredential,
-    ci: optional(vOrganizationCiCredentials),
   }),
 );
 
@@ -133,6 +139,17 @@ export const organizationProviderCredentialTables = {
     .index("by_convex_connected_by_user", ["convex.connectedByUserId"])
     .index("by_cloudflare_connected_by_user", ["cloudflare.connectedByUserId"])
     .index("by_cloudflare_token_refresh_expiry", ["cloudflare.tokenRefreshLease.expiresAt"]),
+
+  /**
+  The CI tokens of one organization, separate from Samebase's own provider credentials so that a
+  provider disconnect never removes them. Owners save them on the Providers page; repository_actions
+  provisioning copies them into each new repository; account deletion removes the entries that the
+  deleted member saved.
+  */
+  organizationCiCredentials: defineTable(vOrganizationCiCredentials)
+    .index("by_organization", ["organizationId"])
+    .index("by_cloudflare_connected_by_user", ["cloudflare.connectedByUserId"])
+    .index("by_convex_connected_by_user", ["convex.connectedByUserId"]),
 
   /** Short-lived requests that bind a provider OAuth callback to an organization. */
   providerOAuthCallbackStates: defineTable(vProviderOAuthCallbackState)

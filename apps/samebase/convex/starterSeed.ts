@@ -515,17 +515,38 @@ export async function seedRepositoryWithStarter(args: {
   });
 
   if (seededFromEmptyRepository) {
-    await retryOperation({
-      operation: "seed:updateRefAfterBootstrap",
-      run: async () =>
-        await args.client.updateRef({
-          owner: args.owner,
-          repo: args.repo,
-          ref: `heads/${args.defaultBranch}`,
-          sha: commit.sha,
-          force: true,
-        }),
-    });
+    try {
+      await retryOperation({
+        operation: "seed:updateRefAfterBootstrap",
+        run: async () =>
+          await args.client.updateRef({
+            owner: args.owner,
+            repo: args.repo,
+            ref: `heads/${args.defaultBranch}`,
+            sha: commit.sha,
+            force: true,
+          }),
+      });
+    } catch (error) {
+      // A seed of another branch than the GitHub default (repository_actions seeds main) can find
+      // the bootstrap commit on the GitHub default branch; the requested ref then does not exist,
+      // GitHub answers 422, and the seed creates it.
+      if (getErrorStatus(error) !== 422) {
+        throw error;
+      }
+      await retryOperation({
+        operation: "seed:createRefAfterBootstrap",
+        shouldRetry: (createError) =>
+          isRetryableError(createError) && !isRefAlreadyExistsError(createError),
+        run: async () =>
+          await args.client.createRef({
+            owner: args.owner,
+            repo: args.repo,
+            ref: `refs/heads/${args.defaultBranch}`,
+            sha: commit.sha,
+          }),
+      });
+    }
   } else {
     try {
       await retryOperation({

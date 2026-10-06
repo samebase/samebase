@@ -13,7 +13,9 @@ import { resolveGitHubRepositoryById } from "./githubRepoApi";
 import { resolveGitHubUserOctokitForProvisioningRun } from "./githubUserAuthorizations";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
+import type { ConnectedRepository } from "./repository/state";
 import {
+  REPOSITORY_ACTIONS_DEFAULT_BRANCH,
   vRepositoryProvisioningMode,
   type RepositoryProvisioningEventLevel,
   type RepositoryProvisioningMode,
@@ -274,7 +276,7 @@ async function requireConnectedRepositoryIdentity(
     run: Doc<"workflow_repositoryProvisioning_runs">;
     githubRepositoryDatabaseId: string;
   },
-): Promise<void> {
+): Promise<ConnectedRepository> {
   const repository = await ctx.runQuery(internal.repository.records.getById, {
     id: args.repositoryId,
   });
@@ -286,6 +288,7 @@ async function requireConnectedRepositoryIdentity(
   ) {
     throw new Error("Connected GitHub repository identity cannot be changed.");
   }
+  return repository;
 }
 
 export const validateCreateAppConnections = internalAction({
@@ -594,7 +597,7 @@ export const seedStarterRepository = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await assertSourceSetupRun(ctx, args, ["create"]);
-    await requireConnectedRepositoryIdentity(ctx, {
+    const connectedRepository = await requireConnectedRepositoryIdentity(ctx, {
       repositoryId: args.repositoryId,
       run,
       githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
@@ -604,40 +607,23 @@ export const seedStarterRepository = internalAction({
       internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
       { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
     );
-    const manifest =
-      provisioning === "repository_actions"
-        ? actionsStarterTemplateManifest
-        : starterTemplateManifest;
-    // The seed force-updates the default branch, so a recorded seed is never repeated: a repeat would
-    // drop every commit pushed since. A step retry after the record finds it here.
-    if (
-      provisioning === "repository_actions" &&
+    const repositoryActions = provisioning === "repository_actions";
+    // The seed force-updates the seeded branch, so a recorded seed is never repeated: a repeat would
+    // drop every commit pushed since. A retry or a step retry after the record finds it here.
+    const alreadySeeded =
+      repositoryActions &&
       (
         await ctx.runQuery(
           internal.repositoryProvisioningWorkflow.readRepositoryActionsSeedForRun,
-          {
-            repositoryId: args.repositoryId,
-            runId: args.runId,
-            userId: args.userId,
-          },
+          { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
         )
-      ).state === "seeded"
-    ) {
-      await appendRunEvent(ctx, {
-        runId: args.runId,
-        step: "seed_starter",
-        level: "info",
-        message: "The starter app is already seeded.",
-        state: "running",
-      });
-      return null;
-    }
+      ).state === "seeded";
 
     await appendRunEvent(ctx, {
       runId: args.runId,
       step: "seed_starter",
       level: "info",
-      message: "Seeding starter app.",
+      message: alreadySeeded ? "The starter app is already seeded." : "Seeding starter app.",
       state: "running",
     });
 
@@ -666,41 +652,83 @@ export const seedStarterRepository = internalAction({
     });
     const ownerName = repository.owner.login;
     const repoName = repository.name;
-    const defaultBranch = readDefaultBranch(repository);
-    try {
-      await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(octokit, { recordApiCall }),
-        owner: ownerName,
-        repo: repoName,
-        defaultBranch,
-        manifest,
-      });
-    } catch (error) {
-      const seedErrorMessage = toErrorMessage(error);
+    const githubDefaultBranch = readDefaultBranch(repository);
 
-      console.error("seed:failed", {
-        repo: `${ownerName}/${repoName}`,
-        message: seedErrorMessage,
-      });
+    if (!alreadySeeded) {
+      const manifest = repositoryActions ? actionsStarterTemplateManifest : starterTemplateManifest;
+      try {
+        await seedRepositoryWithStarter({
+          client: createStarterSeedGitClient(octokit, { recordApiCall }),
+          owner: ownerName,
+          repo: repoName,
+          defaultBranch: repositoryActions
+            ? REPOSITORY_ACTIONS_DEFAULT_BRANCH
+            : githubDefaultBranch,
+          manifest,
+        });
+      } catch (error) {
+        const seedErrorMessage = toErrorMessage(error);
 
-      throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
-    }
-    if (provisioning === "repository_actions") {
-      await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeded, {
-        repositoryId: args.repositoryId,
+        console.error("seed:failed", {
+          repo: `${ownerName}/${repoName}`,
+          message: seedErrorMessage,
+        });
+
+        throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
+      }
+      if (repositoryActions) {
+        await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeded, {
+          repositoryId: args.repositoryId,
+          runId: args.runId,
+          userId: args.userId,
+          manifestVersion: manifest.version,
+        });
+      }
+
+      await appendRunEvent(ctx, {
         runId: args.runId,
-        userId: args.userId,
-        manifestVersion: manifest.version,
+        step: "seed_starter",
+        level: "info",
+        message: "Seeded the starter app.",
+        state: "running",
       });
     }
 
-    await appendRunEvent(ctx, {
-      runId: args.runId,
-      step: "seed_starter",
-      level: "info",
-      message: "Seeded the starter app.",
-      state: "running",
-    });
+    // The template deploys from main, but GitHub creates a repository with the owner's default
+    // branch, which can be another name. Once the record says main, the switch is done: a branch
+    // that the user chose later is never changed.
+    if (
+      repositoryActions &&
+      connectedRepository.defaultBranch !== REPOSITORY_ACTIONS_DEFAULT_BRANCH
+    ) {
+      if (githubDefaultBranch !== REPOSITORY_ACTIONS_DEFAULT_BRANCH) {
+        await recordApiCall({
+          provider: "GitHub",
+          method: "PATCH",
+          endpoint: "/repos/{owner}/{repo}",
+          values: {
+            body: { default_branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH },
+            params: { path: { owner: ownerName, repo: repoName } },
+          },
+        });
+        await octokit.rest.repos.update({
+          owner: ownerName,
+          repo: repoName,
+          default_branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH,
+        });
+        await appendRunEvent(ctx, {
+          runId: args.runId,
+          step: "seed_starter",
+          level: "info",
+          message: `Set the default branch of ${ownerName}/${repoName} to ${REPOSITORY_ACTIONS_DEFAULT_BRANCH}. GitHub created it with ${githubDefaultBranch}.`,
+          state: "running",
+        });
+      }
+      await ctx.runMutation(
+        internal.repositoryProvisioningWorkflow.recordRepositoryActionsDefaultBranch,
+        { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+      );
+    }
 
     return null;
   },

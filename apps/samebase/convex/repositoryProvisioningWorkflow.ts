@@ -12,8 +12,9 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { readCiCredentialRevision } from "./organization/providerCredentialModel";
-import { getOrganizationProviderCredentials } from "./organizationProviderCredentials";
+import { getOrganizationCiCredentials } from "./organizationProviderCredentials";
 import {
+  REPOSITORY_ACTIONS_DEFAULT_BRANCH,
   vRepositoryActionsSeed,
   vRepositoryProvisioningMode,
   type RepositoryProvisioningMode,
@@ -83,7 +84,6 @@ const vRetryProvisioning = union(
   object({
     mode: literal("repository_actions"),
     githubRepositoryDatabaseId: string(),
-    seedStarter: boolean(),
   }),
 );
 type RetryProvisioning = Infer<typeof vRetryProvisioning>;
@@ -308,13 +308,11 @@ export const readComposedInfrastructureRetryContext = internalQuery({
       return { userId: authority.run.userId, provisioning: { mode: "samebase" } };
     }
 
-    // A recorded seed is never repeated: the seed force-updates the default branch.
     return {
       userId: authority.run.userId,
       provisioning: {
         mode: "repository_actions",
         githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-        seedStarter: plan.seed.state === "planned",
       },
     };
   },
@@ -396,10 +394,10 @@ export const readActionsSecretsTarget = internalQuery({
     if (!isLiveConnectedRepository(repository)) {
       throw new Error("Repository not found.");
     }
-    const [plan, organization, credentials] = await Promise.all([
+    const [plan, organization, savedCi] = await Promise.all([
       readProvisioningPlan(ctx, args.repositoryId),
       ctx.db.get(repository.organizationId),
-      getOrganizationProviderCredentials(ctx.db, repository.organizationId),
+      getOrganizationCiCredentials(ctx.db, repository.organizationId),
       requireManagedRunWriteLock(ctx, args),
     ]);
     if (readRepositoryProvisioningMode(plan) !== "repository_actions") {
@@ -413,7 +411,7 @@ export const readActionsSecretsTarget = internalQuery({
       throw new Error("Managed repository provider destinations are not configured.");
     }
     const ci = requireCompleteCiCredentials({
-      ci: credentials?.ci ?? null,
+      ci: savedCi,
       convexTeamId: repository.convexTeamId,
       cloudflareAccountId: repository.cloudflareAccountId,
       githubOwnerLogin: organization.githubOwnerLogin,
@@ -455,6 +453,28 @@ export const readRepositoryActionsSeedForRun = internalQuery({
   },
   returns: vRepositoryActionsSeed,
   handler: async (ctx, args) => (await readRepositoryActionsPlanForRun(ctx, args)).seed,
+});
+
+/**
+Records main as the repository's default branch after the seed step set it on GitHub (or found it
+there), so the dashboard reads the tree of main and no later retry changes the branch again.
+*/
+export const recordRepositoryActionsDefaultBranch = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    await readRepositoryActionsPlanForRun(ctx, args);
+    const repository = await ctx.db.get(args.repositoryId);
+    if (!isLiveConnectedRepository(repository)) {
+      throw new Error("Repository not found.");
+    }
+    await ctx.db.patch(repository._id, { defaultBranch: REPOSITORY_ACTIONS_DEFAULT_BRANCH });
+    return null;
+  },
 });
 
 /** Records the seed, so no later retry force-updates the default branch again. */
@@ -913,7 +933,8 @@ async function runComposedInfrastructure(
 Samebase's part of a repository_actions setup, after connect_github_repository: the Actions secrets,
 then the starter seed whose push starts the repository's first deploy, then the tree sync. The
 secrets come first so the first workflow run has them. A retry resumes here: the writes are upserts,
-`seedStarter` is false once the plan records the seed, and the tree sync always runs again.
+the seed step skips a seed that the plan records and still finishes the switch of the default
+branch to main, and the tree sync always runs again.
 */
 async function runRepositoryActionsSetup(
   step: WorkflowCtx,
@@ -922,7 +943,6 @@ async function runRepositoryActionsSetup(
     runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;
     githubRepositoryDatabaseId: string;
-    seedStarter: boolean;
   },
 ): Promise<void> {
   await step.runAction(
@@ -935,18 +955,16 @@ async function runRepositoryActionsSetup(
     },
     { name: "write_actions_secrets", retry: idempotentProviderStepRetry },
   );
-  if (args.seedStarter) {
-    await step.runAction(
-      internal.repositoryProvisioningWorkflowActions.seedStarterRepository,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.runId,
-        userId: args.userId,
-        githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
-      },
-      { name: "seed_starter", retry: idempotentProviderStepRetry },
-    );
-  }
+  await step.runAction(
+    internal.repositoryProvisioningWorkflowActions.seedStarterRepository,
+    {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    },
+    { name: "seed_starter", retry: idempotentProviderStepRetry },
+  );
   await step.runAction(
     internal.repositoryProvisioningWorkflowActions.syncRepositoryTreeForRepository,
     {
@@ -1010,7 +1028,6 @@ export const provisionRepositoryInfrastructure = workflow.define({
           runId: args.runId,
           userId: retryContext.userId,
           githubRepositoryDatabaseId: provisioning.githubRepositoryDatabaseId,
-          seedStarter: provisioning.seedStarter,
         });
         break;
       default:
@@ -1078,7 +1095,6 @@ export const provisionApp = workflow.define({
         runId: args.runId,
         userId: args.userId,
         githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-        seedStarter: true,
       });
       return null;
     }

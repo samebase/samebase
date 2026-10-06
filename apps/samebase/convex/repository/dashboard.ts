@@ -82,11 +82,9 @@ function readProviderSetupStep(
   if (classified.phase === "provider") {
     return classified.step;
   }
-  // A repository_actions retry resumes the starter seed and the tree sync after the secrets write.
-  if (
-    run.trigger === "retry" &&
-    (classified.step === "seed_starter" || classified.step === "sync_tree")
-  ) {
+  // A repository_actions setup reports its seed and tree sync as provider setup: they run after
+  // the secrets write, and its retry resumes them. A samebase run never reaches this read in them.
+  if (classified.step === "seed_starter" || classified.step === "sync_tree") {
     return classified.step;
   }
   throw new Error("Provider setup run has not reached provider provisioning.");
@@ -107,6 +105,7 @@ async function readLatestRunErrorMessage(
 async function resolveSourceSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   repository: SourceSetupRepository,
+  providerPlan: ManagedProviderPlan,
 ): Promise<SourceSetupSummary> {
   const run = await ctx.db.get(repository.runId);
   if (!run) {
@@ -119,9 +118,15 @@ async function resolveSourceSetupSummary(
     };
   }
   const classifiedStep = classifyProvisioningStep(run.currentStep);
+  // After connect_github_repository, everything a repository_actions setup does is provider setup:
+  // the secrets, the seed, and the tree sync, which its retry resumes.
+  const repositoryActionsConnected =
+    repository.state === "connected" &&
+    providerPlan !== null &&
+    readRepositoryProvisioningMode(providerPlan) === "repository_actions";
   if (
     repository.state === "connected" &&
-    (run.state === "succeeded" || classifiedStep.phase === "provider")
+    (run.state === "succeeded" || classifiedStep.phase === "provider" || repositoryActionsConnected)
   ) {
     return { status: "ready" };
   }
@@ -739,7 +744,7 @@ export async function readOrganizationRepositories(
       defaultBranch: undefined,
       fileCount: 0,
       lastEditTime: undefined,
-      sourceSetup: await resolveSourceSetupSummary(ctx, repository),
+      sourceSetup: await resolveSourceSetupSummary(ctx, repository, providerPlan),
       providerSetup: { status: "not_applicable" },
       providerPlan,
       providerWrite: resolveProviderWriteSummary(infrastructure),
@@ -832,7 +837,7 @@ export async function readOrganizationRepositories(
         stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
 
       const githubRepositoryFullName = `${githubOwnerLogin}/${repository.githubRepositoryName}`;
-      const sourceSetup = await resolveSourceSetupSummary(ctx, repository);
+      const sourceSetup = await resolveSourceSetupSummary(ctx, repository, providerPlan);
       const providerSetup =
         sourceSetup.status === "ready"
           ? await resolveProviderSetupSummary(

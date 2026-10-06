@@ -15,8 +15,8 @@ import {
   vAuthAccountProvider,
 } from "./identity/accountModel";
 import {
+  getOrganizationCiCredentials,
   getOrganizationProviderConfiguration,
-  getOrganizationProviderCredentials,
   removeCiCredential,
   type OrganizationProviderConfiguration,
 } from "./organizationProviderCredentials";
@@ -1075,20 +1075,12 @@ export const getCiCredentialsStatus = query({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const credentials = await getOrganizationProviderCredentials(ctx.db, membership.organizationId);
-    const ci = credentials?.ci;
-    // Unlike provider credentials, account deletion does not remove a CI token, so its user may be
-    // gone; the status then names nobody.
-    const readConnectedBy = async (connectedByUserId: Id<"users">) => {
-      const user = membership.role === "owner" ? await ctx.db.get(connectedByUserId) : null;
-      if (user?.state !== "active") {
-        return undefined;
-      }
-      const presentation = resolveAccountPresentation(user);
-      return connectedByUserId !== ctx.viewer.userId && presentation.kind === "email"
-        ? undefined
-        : presentation;
-    };
+    const ci = await getOrganizationCiCredentials(ctx.db, membership.organizationId);
+    // Account deletion removes the entries of the deleted member before the user row goes.
+    const readConnectedBy = async (connectedByUserId: Id<"users">) =>
+      membership.role === "owner"
+        ? await readProviderConnectorPresentation(ctx.db, connectedByUserId, ctx.viewer.userId)
+        : undefined;
     const [cloudflareConnectedBy, convexConnectedBy] = await Promise.all([
       ci?.cloudflare ? readConnectedBy(ci.cloudflare.connectedByUserId) : undefined,
       ci?.convex ? readConnectedBy(ci.convex.connectedByUserId) : undefined,

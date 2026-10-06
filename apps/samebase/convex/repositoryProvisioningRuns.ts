@@ -110,12 +110,13 @@ async function requireRetryAdmission(
   if (!failedRun || failedRun.state !== "failed" || failedRun.repositoryId !== args.repositoryId) {
     throw new Error("Failed managed setup does not match this repository.");
   }
-  // A repository_actions retry resumes write_actions_secrets (a provider step) and then the seed
-  // and the tree sync, so a retry run that failed in those two steps can be retried as well.
+  // A repository_actions retry resumes everything after connect_github_repository: the secrets,
+  // the seed (skipped once the plan records it), and the tree sync. So a create or retry run that
+  // failed in the seed or the sync can be retried as well.
   const isResumableRepositoryActionsRetry =
     plan !== null &&
     readRepositoryProvisioningMode(plan) === "repository_actions" &&
-    failedRun.trigger === "retry" &&
+    (failedRun.trigger === "create" || failedRun.trigger === "retry") &&
     (failedRun.currentStep === "seed_starter" || failedRun.currentStep === "sync_tree");
   if (
     failedRun.trigger === "connect_existing_repository" ||
@@ -158,7 +159,7 @@ export const createRetryForRepository = internalMutation({
     const confirmation = await checkActionConfirmation(ctx, {
       userId: args.userId,
       surface: args.surface,
-      request: { action: "retry_provider_setup", repositoryId: args.repositoryId },
+      request: { action: "retry_provider_setup", repositoryId: args.repositoryId, provisioning },
       confirmation: args.confirmation,
     });
     if (confirmation.state === "needs_confirmation") {

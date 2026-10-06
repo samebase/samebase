@@ -23,7 +23,6 @@ describe("readRetryProvisioning", () => {
     const provisioning = {
       mode: "repository_actions" as const,
       githubRepositoryDatabaseId: "9001",
-      seedStarter: false,
     };
 
     expect(

@@ -18,6 +18,7 @@ import {
   vCloudflareTokenRefreshLease,
   vConvexProviderCredential,
   vOrganizationCiCredentials,
+  type OrganizationCiCredentials,
   type ProviderOAuthStoreResult,
 } from "./organization/providerCredentialModel";
 import {
@@ -1096,10 +1097,17 @@ export const releaseCloudflareTokenRefreshForRepositoryWorkflow = internalMutati
   },
 });
 
-/**
-The CI credentials of one organization, for an organization member. Null when the organization has no
-provider credentials row.
-*/
+export async function getOrganizationCiCredentials(
+  db: DatabaseReader,
+  organizationId: Id<"organizations">,
+): Promise<Doc<"organizationCiCredentials"> | null> {
+  return await db
+    .query("organizationCiCredentials")
+    .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+    .unique();
+}
+
+/** The CI credentials of one organization, for an organization member. Null when none is saved. */
 export const loadCiCredentialsForOrganization = internalQuery({
   args: {
     organizationId: id("organizations"),
@@ -1108,8 +1116,8 @@ export const loadCiCredentialsForOrganization = internalQuery({
   returns: union(vOrganizationCiCredentials, v.null()),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
-    const credentials = await getOrganizationProviderCredentials(ctx.db, args.organizationId);
-    return credentials?.ci ?? null;
+    const ci = await getOrganizationCiCredentials(ctx.db, args.organizationId);
+    return ci && omitSystemFields(ci);
   },
 });
 
@@ -1119,10 +1127,15 @@ export const loadCiCredentialsForRepositoryProviderWorkflow = internalQuery({
   returns: union(vOrganizationCiCredentials, v.null()),
   handler: async (ctx, args) => {
     const authority = await requireRepositoryProviderWorkflowAuthority(ctx.db, args.authority);
-    const credentials = await getOrganizationProviderCredentials(ctx.db, authority.organizationId);
-    return credentials?.ci ?? null;
+    const ci = await getOrganizationCiCredentials(ctx.db, authority.organizationId);
+    return ci && omitSystemFields(ci);
   },
 });
+
+function omitSystemFields(ci: Doc<"organizationCiCredentials">): OrganizationCiCredentials {
+  const { _id, _creationTime, ...credentials } = ci;
+  return credentials;
+}
 
 /**
 Stores the Cloudflare CI token after the action verified it. The account is the organization's
@@ -1138,9 +1151,10 @@ export const setCloudflareCiCredential = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderOwner(ctx.db, args);
-    const [organization, credentials] = await Promise.all([
+    const [organization, credentials, ci] = await Promise.all([
       ctx.db.get(args.organizationId),
       getOrganizationProviderCredentials(ctx.db, args.organizationId),
+      getOrganizationCiCredentials(ctx.db, args.organizationId),
     ]);
     if (
       organization?.cloudflareAccount?.accountId !== args.accountId ||
@@ -1148,17 +1162,20 @@ export const setCloudflareCiCredential = internalMutation({
     ) {
       throw new ConvexError("Cloudflare connection changed before the CI token was saved.");
     }
-    await ctx.db.patch(credentials._id, {
-      ci: {
-        ...credentials.ci,
-        cloudflare: {
-          apiToken: args.apiToken,
-          accountId: args.accountId,
-          connectedByUserId: args.userId,
-          updatedAt: Date.now(),
-        },
-      },
-    });
+    const cloudflare = {
+      apiToken: args.apiToken,
+      accountId: args.accountId,
+      connectedByUserId: args.userId,
+      updatedAt: Date.now(),
+    };
+    if (ci) {
+      await ctx.db.patch(ci._id, { cloudflare });
+    } else {
+      await ctx.db.insert("organizationCiCredentials", {
+        organizationId: args.organizationId,
+        cloudflare,
+      });
+    }
     return null;
   },
 });
@@ -1174,29 +1191,50 @@ export const setConvexCiCredential = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderOwner(ctx.db, args);
-    const [organization, credentials] = await Promise.all([
+    const [organization, credentials, ci] = await Promise.all([
       ctx.db.get(args.organizationId),
       getOrganizationProviderCredentials(ctx.db, args.organizationId),
+      getOrganizationCiCredentials(ctx.db, args.organizationId),
     ]);
     if (organization?.convexTeam?.teamId !== args.teamId || credentials?.convex === undefined) {
       throw new ConvexError("Convex connection changed before the CI token was saved.");
     }
-    await ctx.db.patch(credentials._id, {
-      ci: {
-        ...credentials.ci,
-        convex: {
-          accessToken: args.accessToken,
-          teamId: args.teamId,
-          connectedByUserId: args.userId,
-          updatedAt: Date.now(),
-        },
-      },
-    });
+    const convex = {
+      accessToken: args.accessToken,
+      teamId: args.teamId,
+      connectedByUserId: args.userId,
+      updatedAt: Date.now(),
+    };
+    if (ci) {
+      await ctx.db.patch(ci._id, { convex });
+    } else {
+      await ctx.db.insert("organizationCiCredentials", {
+        organizationId: args.organizationId,
+        convex,
+      });
+    }
     return null;
   },
 });
 
-/** Removes one CI token. Repositories that already hold it keep their Actions secrets. */
+/**
+Removes one entry of a CI credentials row, and the row with its last entry. Samebase cannot revoke a
+pasted token, so it only forgets it; repositories that hold it keep their Actions secrets.
+*/
+export async function removeCiCredentialEntry(
+  ctx: Pick<MutationCtx, "db">,
+  ci: Doc<"organizationCiCredentials">,
+  provider: "cloudflare" | "convex",
+): Promise<void> {
+  const remaining = provider === "cloudflare" ? ci.convex : ci.cloudflare;
+  if (remaining === undefined) {
+    await ctx.db.delete(ci._id);
+    return;
+  }
+  await ctx.db.patch(ci._id, { [provider]: undefined });
+}
+
+/** An owner removes one CI token from the Providers page. */
 export async function removeCiCredential(
   ctx: Pick<MutationCtx, "db">,
   args: {
@@ -1206,16 +1244,11 @@ export async function removeCiCredential(
   },
 ): Promise<void> {
   await requireActiveOrganizationProviderOwner(ctx.db, args);
-  const credentials = await getOrganizationProviderCredentials(ctx.db, args.organizationId);
-  const ci = credentials?.ci;
-  if (!ci) {
+  const ci = await getOrganizationCiCredentials(ctx.db, args.organizationId);
+  if (ci?.[args.provider] === undefined) {
     return;
   }
-  const remaining =
-    args.provider === "cloudflare"
-      ? ci.convex && { convex: ci.convex }
-      : ci.cloudflare && { cloudflare: ci.cloudflare };
-  await ctx.db.patch(credentials._id, { ci: remaining });
+  await removeCiCredentialEntry(ctx, ci, args.provider);
 }
 
 export const releaseCloudflareTokenRefreshForManualProviderWrite = internalMutation({

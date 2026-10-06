@@ -115,7 +115,8 @@ everything above describes it. With repository_actions, the repository's own Git
 workflow creates and deploys the Convex project and the Worker; Samebase creates no provider
 resource. Samebase creates the GitHub repository, writes the Actions secrets CLOUDFLARE_API_TOKEN,
 CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and the Actions variable CONVEX_TEAM_ID, then seeds
-the GitHub Actions variant of the starter, and the first push deploys. The Convex project and the
+the GitHub Actions variant of the starter on main, and that first push deploys. When GitHub created
+the repository with another default branch, Samebase sets main as the default. The Convex project and the
 Worker take the repository's name, so omit convexProjectName, cloudflareWorkerName, buildTokenUuid,
 and convexDeploymentRegion. Before it creates anything, the call fails when the organization has no
 saved Cloudflare and Convex CI tokens (the Providers page), when either token does not verify, when

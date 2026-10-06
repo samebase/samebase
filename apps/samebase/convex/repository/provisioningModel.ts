@@ -196,6 +196,12 @@ export const vRepositoryActionsCiSecrets = union(
 export type RepositoryActionsCiSecrets = Infer<typeof vRepositoryActionsCiSecrets>;
 
 /**
+The branch a repository_actions repository is seeded on and set as its GitHub default branch: the
+template's alchemy workflow deploys production from pushes to main.
+*/
+export const REPOSITORY_ACTIONS_DEFAULT_BRANCH = "main";
+
+/**
 The starter seed of one repository_actions repository. The seed force-updates the default branch to
 a new root commit, so once it is `seeded` no retry seeds again: that would drop every commit pushed
 since.
