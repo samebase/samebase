@@ -3,6 +3,9 @@ packages:
 
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
+  # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
+  # Remove after 2026-10-07, when the 7-day cooling period is complete.
+  - "source-map-js@1.2.2"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
   # 7-day cooling period.
   - "@voidzero-dev/vite-plus-core@0.3.0"
@@ -24,6 +27,8 @@ trustPolicyExclude:
   # this trust-downgraded version.
   - "undici-types@6.21.0"
 overrides:
+  source-map-js: 1.2.2
+  tinypool: 2.1.2
   undici: 7.29.1
 allowBuilds:
   esbuild: true
