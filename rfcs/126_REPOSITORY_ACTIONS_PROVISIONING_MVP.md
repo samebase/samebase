@@ -136,43 +136,48 @@ part records the Worker and the Convex project through the existing attachment c
 
 ## Template variant
 
-`templates/base` stays the Workers Builds template. A new overlay directory,
-`templates/base-actions`, holds only the files that differ, plus a removal list in
-`scripts/export-starter-manifest.ts`:
+`templates/base` stays the Workers Builds template. `templates/base-actions` is a second, complete
+template: all of its files are committed, a person can open it, run `pnpm install` and
+`pnpm run check` in it, and the repository exports publish it as `samebase/base-actions` the way
+`templates/base` publishes as `samebase/base`. The exporter exports each template directory directly
+into its own generated manifest (`starterSeedManifest.generated.ts`,
+`starterSeedManifest.actions.generated.ts`), and `starterSeed.ts` takes the manifest as a parameter.
+(An overlay layout, with only the differing files composed by the exporter, was built first and
+replaced on Nicu's call; see the Status log.)
 
-- Added: `alchemy.run.ts`, `.github/workflows/alchemy.yml`, `scripts/alchemy-stage.ts`,
-  `package.json` and `pnpm-lock.yaml` (replaced: `alchemy` 2.0.0-beta.80 exact,
-  `@samebase/alchemy-convex` 0.3.0 exact, `effect` and `@effect/platform-node` 4.x),
-  `tsconfig.node.json` (includes the run file), `.gitignore` (`.alchemy`), and the README deployment
-  section.
-- Removed: `wrangler.jsonc`, `scripts/build-cloudflare.ts`, `scripts/verify-current-branch-head.ts`,
-  and their tests. `scripts/ensure-convex-auth.ts` stays: the local dev launcher uses it. The stack
-  makes the production Convex Auth keys with `Alchemy.KeyPair`.
-- Unchanged: `src/`, `convex/`, `vite.config.ts`, `public/`, `.github/workflows/ci.yml`, and
-  `pnpm run dev`. Local dev keeps the isolated anonymous backend of the base template; `alchemy dev`
-  is not part of the variant. The stack stops on any stage that is not `prod` or a pull request
-  stage.
+A sync check, `scripts/check-template-sync.ts` (`check:template-sync`, part of `check:scripts` and
+CI), keeps the two templates one app: every path outside a declared list of deploy files must exist
+in both with the same bytes and mode, so an app change applied to one template fails CI until it is
+applied to the other. The declared list is exactly the deploy difference: `alchemy.run.ts`,
+`.github/workflows/alchemy.yml`, `package.json`, `pnpm-lock.yaml`, `tsconfig.node.json`,
+`.gitignore`, `README.md` on the Actions side; `wrangler.jsonc`, `scripts/build-cloudflare.ts`,
+`scripts/verify-current-branch-head.ts` and their tests on the Workers Builds side.
+`scripts/ensure-convex-auth.ts` is shared: the local dev launcher uses it in both. Local dev is the
+same in both templates (`pnpm run dev`, the isolated anonymous backend); `alchemy dev` is not part
+of the variant.
 
-The exporter composes base minus the removal list plus the overlay into a second generated manifest,
-`starterSeedManifest.actions.generated.ts`, and `starterSeed.ts` takes the manifest as a parameter.
+The run file names the Alchemy stack `<owner>_<repository>` (lowercase) from `GITHUB_REPOSITORY`,
+and the Worker and the Convex project after the repository with Samebase's name rule (54 and 40
+characters). The stack name must differ per repository: Alchemy keys state by stack name and stage,
+and every stack in one Cloudflare account shares one state store; an underscore join keeps
+`team-a/app` and `team/a-app` apart because an owner name cannot contain an underscore. The run file
+reads `GITHUB_REPOSITORY` and `CONVEX_TEAM_ID` through `effect/Config`, process environment first,
+then `.env`, and fails closed with a clear message when either is missing. Without `--adopt`, an
+existing same-name Worker or Convex project stops the deploy with `OwnedBySomeoneElse`; nothing is
+adopted or overwritten.
 
-The stack name, the Worker name, and the Convex project name all come from `GITHUB_REPOSITORY` (the
-part after the slash), with Samebase's `sanitizeAppResourceName` rule (54 characters for a Worker,
-40 for a Convex project), so Part 3 finds both resources with `buildDefaultAppResourceName`. The
-stack name must differ per app: Alchemy keys state by stack name and stage, and every stack in one
-Cloudflare account shares one state store. The run file reads `GITHUB_REPOSITORY` and
-`CONVEX_TEAM_ID` through `effect/Config`, process environment first, then `.env`, and fails closed
-with a clear message when either is missing.
+Stages: `prod` on a push to main; `pr-<number>` for a pull request (unique by construction, so a
+destroy can never hit another branch's stage), with the Worker Preview named after the stage and a
+fail-closed check that `pr-<number>` fits next to the Worker name in a 63-character DNS label. The
+Convex preview deployment is named after the raw branch today (`PREVIEW_BRANCH`); the design review
+asks for `pr-<number>` there too, and that change is a template follow-up. A `GitHub.Comment`
+carries both URLs; a close destroys the stage.
 
-The run file otherwise follows score-four-alchemy: stage `prod` on main; a pull request stage named
-after the branch made safe (`scripts/alchemy-stage.ts`), a Convex preview deployment named after the
-raw branch (the name `convex deploy --preview-name` gives it, the name Samebase matches on), a
-Worker Preview named after the stage, a `GitHub.Comment` with both URLs, destroy on close. No
-separate bootstrap step: `alchemy deploy --yes` and `alchemy destroy --yes` create a missing
-Cloudflare state store themselves (`updateStateStore: true` in the CLI), and
-`alchemy provider cloudflare bootstrap` is idempotent, so a step for it would repeat the same work
-before every deploy. The exact CI token permissions are verified by the hand test and written into
-this section.
+The workflow installs with `--ignore-scripts`, runs the three supply-chain audits of `ci.yml`, then
+`pnpm run check`, and gives the four credentials only to the deploy and destroy steps. No separate
+bootstrap step: `alchemy deploy --yes` creates a missing Cloudflare state store itself. The
+published repository `samebase/base-actions` has no secrets, so its own push to main would fail at
+the deploy; a follow-up gates both jobs on the `CONVEX_TEAM_ID` variable being set.
 
 ## The new workflow mode
 
@@ -369,3 +374,12 @@ Score Four CI token), and the CI token for the dogfood organization.
       job name.
   13. P3, make the discriminant required after a backfill; say "GitHub Actions" in the UI. Accepted;
       the backfill is a later step.
+- 2026-10-06: Template layout PR open as draft
+  [PR #1691](https://github.com/samebase/samebase/pull/1691): full `templates/base-actions` (94
+  files, 87 byte copies of base plus the 7 deploy files), direct export per template,
+  `check:template-sync` with the 12 declared deploy paths, publishing to `samebase/base-actions`, CI
+  template matrix over both templates. The Template variant section above is rewritten to the final
+  layout. Before the merge: create `samebase/base-actions` with a `main` branch, because the publish
+  job now checks every target first and publishes nothing while one is missing. Template follow-ups
+  queued: gate the workflow jobs on `vars.CONVEX_TEAM_ID`, Convex preview named `pr-<number>`, the
+  head check before deploy, the destroy audit decision.
