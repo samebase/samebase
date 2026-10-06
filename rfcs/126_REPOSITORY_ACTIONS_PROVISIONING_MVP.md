@@ -204,8 +204,9 @@ For a `repository_actions` repository the status read:
 | C   | Observation and status reads for the mode                                                                                                         | Verified against a repository that PR B created                                                                                                |
 
 Outside the pull requests: the GitHub App permission change (Nicu, in GitHub settings), the Convex
-token spike (a script: can Samebase's OAuth token create a team access token?), and the CI token for
-the dogfood organization.
+token spike (a script: can Samebase's OAuth token call
+`POST /v1/teams/{team_id}/create_access_token` on the Management API? A user login can; it made the
+Score Four CI token), and the CI token for the dogfood organization.
 
 ## Execution
 
