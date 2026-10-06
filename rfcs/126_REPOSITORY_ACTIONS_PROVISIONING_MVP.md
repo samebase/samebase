@@ -750,3 +750,8 @@ Open for PR C, in Nicu's words "how all this fits in":
   Builds link to the repository and the project through `SAMEBASE_CONVEX_PROJECT` ("Used by
   tmp-alchemy-v2"), so Nicu connected both by hand: parity except the automatic attach (PR C).
   Preview-branch check running.
+- 2026-10-06: Preview on the new model checked on `tmp-alchemy-v2`: a push to `preview/Check_v2`
+  with a pull request gave a Workers Build (check run on the commit, success in about 80 seconds),
+  Cloudflare's comment with the per-commit and the branch alias URLs, both 200, and the Samebase
+  dashboard listed the pull request with its status through the existing Workers Builds reads.
+  Nothing in the template took part: Cloudflare did all of it.
