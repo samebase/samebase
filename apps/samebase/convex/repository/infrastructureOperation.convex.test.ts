@@ -120,6 +120,7 @@ describe("repository infrastructure operation reads", () => {
         repositoryId: ids.repositoryId,
         convexConfigPath: "convex.json",
         ciSecrets: { state: "written", writtenAt: 30, credentialRevision: 25 },
+        seed: { state: "seeded", seededAt: 31, manifestVersion: "samebase-base-actions-test" },
         createdAt: 30,
         updatedAt: 30,
       });

@@ -510,10 +510,11 @@ const actionsRepositoryPublicKey = btoa(
 type FakeGitHubRequest = { method: string; path: string; body: unknown };
 
 /**
-An Octokit whose fetch answers like GitHub for one new repository; `denySecrets` answers 403. `calls`
-records the requests and the starter seeds in order.
+An Octokit whose fetch answers like GitHub for one new repository. `denySecrets` answers the
+secrets 403, and `failTreeSync` answers the tree read of sync_tree 500. `calls` records the requests
+and the starter seeds in order.
 */
-function createFakeGitHub(options: { denySecrets: boolean }) {
+function createFakeGitHub(options: { denySecrets: boolean; failTreeSync: boolean }) {
   const requests: FakeGitHubRequest[] = [];
   const calls: string[] = [];
   githubMocks.seedRepository.mockImplementation(async () => {
@@ -558,7 +559,9 @@ function createFakeGitHub(options: { denySecrets: boolean }) {
       };
     }
     if (request.path === `${repositoryPath}/git/trees/seed-tree`) {
-      return { status: 200, body: { sha: "seed-tree", truncated: false, tree: [] } };
+      return options.failTreeSync
+        ? { status: 500, body: { message: "Server Error" } }
+        : { status: 200, body: { sha: "seed-tree", truncated: false, tree: [] } };
     }
     return { status: 404, body: { message: `Unexpected ${request.method} ${request.path}` } };
   };
@@ -697,7 +700,7 @@ describe("repository_actions provisioning workflow", () => {
   });
 
   it("writes the Actions secrets before the seed and skips every Samebase provider step", async () => {
-    const github = createFakeGitHub({ denySecrets: false });
+    const github = createFakeGitHub({ denySecrets: false, failTreeSync: false });
     const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
 
     const state = await readRepositoryActionsState(t, { repositoryId, runId });
@@ -747,19 +750,10 @@ describe("repository_actions provisioning workflow", () => {
   });
 
   it("resumes a write that GitHub refused through the existing retry, then seeds once", async () => {
-    const github = createFakeGitHub({ denySecrets: true });
-    const created = await createRepositoryActionsRepository(github);
-    const { repositoryId, runId, t, userId } = created;
-    // convex-test cannot run the failure branch of the workflow's onComplete handler (no crypto in
-    // the component context), so the test records the failure that onComplete records.
-    const workflowId = (await readRepositoryActionsState(t, { repositoryId, runId })).run
-      ?.workflowId;
-    if (!workflowId) {
-      throw new Error("Expected the create workflow id.");
-    }
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    const github = createFakeGitHub({ denySecrets: true, failTreeSync: false });
+    const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
+    await recordWorkflowFailure(t, {
       runId,
-      workflowId,
       message: `Error: ${formatMissingGitHubAppPermissionMessage({
         permission: "Secrets",
         repositoryFullName: "samebase/actions-app",
@@ -771,53 +765,114 @@ describe("repository_actions provisioning workflow", () => {
     expect(failed.run?.lastError).toContain(
       "The Samebase GitHub App is missing the Secrets repository permission",
     );
-    expect(failed.plan).toMatchObject({ ciSecrets: { state: "planned" } });
+    expect(failed.plan).toMatchObject({
+      ciSecrets: { state: "planned" },
+      seed: { state: "planned" },
+    });
     expect(failed.writeLock).toMatchObject({ state: "failed" });
     expect(githubMocks.seedRepository).not.toHaveBeenCalled();
 
     github.options.denySecrets = false;
-    const challenge = await t.mutation(
-      internal.repositoryProvisioningRuns.createRetryForRepository,
-      {
-        userId,
-        repositoryId,
-        surface: { kind: "dashboard" },
-      },
-    );
-    if (!challenge) {
-      throw new Error("Expected a confirmation request.");
-    }
-    vi.useFakeTimers();
-    try {
-      await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-        userId,
-        repositoryId,
-        surface: { kind: "dashboard" },
-        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
-      });
-      await t.finishAllScheduledFunctions(vi.runAllTimers);
-    } finally {
-      vi.useRealTimers();
-    }
+    const retryRunId = await retryProviderSetup(t, { userId, repositoryId });
 
-    const retryRun = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("workflow_repositoryProvisioning_runs")
-          .withIndex("by_repository_and_state", (q) =>
-            q.eq("repositoryId", repositoryId).eq("state", "succeeded"),
-          )
-          .unique(),
-    );
-    if (!retryRun) {
-      throw new Error("Expected a succeeded retry run.");
-    }
-    const resumed = await readRepositoryActionsState(t, { repositoryId, runId: retryRun._id });
+    const resumed = await readRepositoryActionsState(t, { repositoryId, runId: retryRunId });
+    expect(resumed.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
     expect(new Set(resumed.steps)).toEqual(
       new Set(["write_actions_secrets", "seed_starter", "sync_tree", "finish"]),
     );
-    expect(resumed.plan).toMatchObject({ ciSecrets: { state: "written" } });
-    expect(resumed.writeLock).toMatchObject({ owner: { runId: retryRun._id }, state: "succeeded" });
+    expect(resumed.plan).toMatchObject({
+      ciSecrets: { state: "written" },
+      seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
+    });
+    expect(resumed.writeLock).toMatchObject({ owner: { runId: retryRunId }, state: "succeeded" });
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
+  });
+
+  it("never seeds again after a retry seeded and then failed in the tree sync", async () => {
+    const github = createFakeGitHub({ denySecrets: true, failTreeSync: true });
+    const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
+    await recordWorkflowFailure(t, { runId, message: "Error: GitHub refused the secrets." });
+
+    github.options.denySecrets = false;
+    const firstRetryRunId = await retryProviderSetup(t, { userId, repositoryId });
+    await recordWorkflowFailure(t, { runId: firstRetryRunId, message: "Error: Server Error" });
+    const firstRetry = await readRepositoryActionsState(t, {
+      repositoryId,
+      runId: firstRetryRunId,
+    });
+    expect(firstRetry.run).toMatchObject({ state: "failed", currentStep: "sync_tree" });
+    expect(firstRetry.plan).toMatchObject({ seed: { state: "seeded" } });
+    expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
+
+    github.options.failTreeSync = false;
+    const secondRetryRunId = await retryProviderSetup(t, { userId, repositoryId });
+
+    const secondRetry = await readRepositoryActionsState(t, {
+      repositoryId,
+      runId: secondRetryRunId,
+    });
+    expect(secondRetry.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(new Set(secondRetry.steps)).toEqual(
+      new Set(["write_actions_secrets", "sync_tree", "finish"]),
+    );
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+convex-test cannot run the failure branch of the workflow's onComplete handler (no crypto in the
+component context), so the tests record the failure that onComplete records.
+*/
+async function recordWorkflowFailure(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { runId: Id<"workflow_repositoryProvisioning_runs">; message: string },
+) {
+  const run = await t.run(async (ctx) => await ctx.db.get(args.runId));
+  if (!run?.workflowId) {
+    throw new Error("Expected the run's workflow id.");
+  }
+  await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+    runId: args.runId,
+    workflowId: run.workflowId,
+    message: args.message,
+  });
+}
+
+/** One confirmed dashboard retry, run to its end; returns the retry run. */
+async function retryProviderSetup(
+  t: ReturnType<typeof makeConvexTest>,
+  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
+): Promise<Id<"workflow_repositoryProvisioning_runs">> {
+  const challenge = await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+    surface: { kind: "dashboard" },
+  });
+  if (!challenge) {
+    throw new Error("Expected a confirmation request.");
+  }
+  vi.useFakeTimers();
+  try {
+    await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+      surface: { kind: "dashboard" },
+      confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+  } finally {
+    vi.useRealTimers();
+  }
+  const retryRun = await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query("workflow_repositoryProvisioning_runs")
+        .withIndex("by_repository_and_updated_at", (q) => q.eq("repositoryId", args.repositoryId))
+        .order("desc")
+        .first(),
+  );
+  if (retryRun?.trigger !== "retry") {
+    throw new Error("Expected a retry run.");
+  }
+  return retryRun._id;
+}

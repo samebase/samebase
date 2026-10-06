@@ -745,6 +745,7 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
           repositoryId,
           convexConfigPath: "convex.json",
           ciSecrets: { state: "planned" },
+          seed: { state: "planned" },
           createdAt: now,
           updatedAt: now,
         });

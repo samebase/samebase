@@ -195,11 +195,22 @@ export const vRepositoryActionsCiSecrets = union(
 );
 export type RepositoryActionsCiSecrets = Infer<typeof vRepositoryActionsCiSecrets>;
 
+/**
+The starter seed of one repository_actions repository. The seed force-updates the default branch to
+a new root commit, so once it is `seeded` no retry seeds again: that would drop every commit pushed
+since.
+*/
+export const vRepositoryActionsSeed = union(
+  object({ state: literal("planned") }),
+  object({ state: literal("seeded"), seededAt: number(), manifestVersion: string() }),
+);
+
 const vRepositoryActionsProvisioningPlan = object({
   provisioning: literal("repository_actions"),
   repositoryId: id("repositories"),
   convexConfigPath: string(),
   ciSecrets: vRepositoryActionsCiSecrets,
+  seed: vRepositoryActionsSeed,
   createdAt: number(),
   updatedAt: number(),
 });

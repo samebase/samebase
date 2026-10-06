@@ -39,6 +39,7 @@ const repositoryActionsPlan = {
   repositoryId,
   convexConfigPath: "convex.json",
   ciSecrets: { state: "planned" },
+  seed: { state: "planned" },
   createdAt: 1,
   updatedAt: 1,
 } satisfies RepositoryProvisioningPlan;

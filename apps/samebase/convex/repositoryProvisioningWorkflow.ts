@@ -14,6 +14,7 @@ import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { readCiCredentialRevision } from "./organization/providerCredentialModel";
 import { getOrganizationProviderCredentials } from "./organizationProviderCredentials";
 import {
+  vRepositoryActionsSeed,
   vRepositoryProvisioningMode,
   type RepositoryProvisioningMode,
   type RepositoryProvisioningStep,
@@ -32,7 +33,7 @@ import {
 } from "./repositoryWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, literal, number, object, string, union } = v;
+const { boolean, id, literal, number, object, optional, string, union } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -77,18 +78,31 @@ const composedCloudflareBuilds = object({
   rootDirectory: string(),
 });
 type ComposedCloudflareBuilds = Infer<typeof composedCloudflareBuilds>;
+const vRetryProvisioning = union(
+  object({ mode: literal("samebase") }),
+  object({
+    mode: literal("repository_actions"),
+    githubRepositoryDatabaseId: string(),
+    seedStarter: boolean(),
+  }),
+);
+type RetryProvisioning = Infer<typeof vRetryProvisioning>;
 const composedInfrastructureRetryContext = object({
   userId: id("users"),
-  provisioning: union(
-    object({ mode: literal("samebase") }),
-    object({
-      mode: literal("repository_actions"),
-      githubRepositoryDatabaseId: string(),
-      seedStarter: boolean(),
-    }),
-  ),
+  /**
+  The query always returns it. A retry workflow that was running when this field was added replays
+  its saved `read_retry_context` result, which has only `userId`; that retry is a samebase retry.
+  */
+  provisioning: optional(vRetryProvisioning),
 });
 type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
+
+/** The provisioning of a retry context; a context saved before the field means samebase. */
+export function readRetryProvisioning(
+  context: ComposedInfrastructureRetryContext,
+): RetryProvisioning {
+  return context.provisioning ?? { mode: "samebase" };
+}
 const actionsSecretsTarget = object({
   cloudflareApiToken: string(),
   cloudflareAccountId: string(),
@@ -290,24 +304,17 @@ export const readComposedInfrastructureRetryContext = internalQuery({
       throw new Error("Repository not found.");
     }
     const plan = await readProvisioningPlan(ctx, args.repositoryId);
-    if (readRepositoryProvisioningMode(plan) === "samebase") {
+    if (isSamebaseProvisioningPlan(plan)) {
       return { userId: authority.run.userId, provisioning: { mode: "samebase" } };
     }
 
-    // sync_tree records the default branch tree after the seed, so a missing tree means that the
-    // failed run stopped before the seed finished. A seeded repository is never seeded again.
-    const defaultBranchTree = await ctx.db
-      .query("observations_repository_branchTrees")
-      .withIndex("by_repository_and_branch", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("branch", repository.defaultBranch),
-      )
-      .first();
+    // A recorded seed is never repeated: the seed force-updates the default branch.
     return {
       userId: authority.run.userId,
       provisioning: {
         mode: "repository_actions",
         githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-        seedStarter: defaultBranchTree === null,
+        seedStarter: plan.seed.state === "planned",
       },
     };
   },
@@ -419,6 +426,54 @@ export const readActionsSecretsTarget = internalQuery({
       convexTeamId: ci.convex.teamId,
       credentialRevision: readCiCredentialRevision(ci),
     };
+  },
+});
+
+async function readRepositoryActionsPlanForRun(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    repositoryId: Id<"repositories">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
+    userId: Id<"users">;
+  },
+) {
+  await requireActiveRepositoryProvisioningRun(ctx.db, args);
+  await requireManagedRunWriteLock(ctx, args);
+  const plan = await readProvisioningPlan(ctx, args.repositoryId);
+  if (isSamebaseProvisioningPlan(plan)) {
+    throw new Error("Only a repository_actions repository records its starter seed.");
+  }
+  return plan;
+}
+
+/** The starter seed of a repository_actions repository, read by the seed step before it seeds. */
+export const readRepositoryActionsSeedForRun = internalQuery({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+  },
+  returns: vRepositoryActionsSeed,
+  handler: async (ctx, args) => (await readRepositoryActionsPlanForRun(ctx, args)).seed,
+});
+
+/** Records the seed, so no later retry force-updates the default branch again. */
+export const markStarterSeeded = internalMutation({
+  args: {
+    repositoryId: id("repositories"),
+    runId: id("workflow_repositoryProvisioning_runs"),
+    userId: id("users"),
+    manifestVersion: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const plan = await readRepositoryActionsPlanForRun(ctx, args);
+    const now = Date.now();
+    await ctx.db.patch(plan._id, {
+      seed: { state: "seeded", seededAt: now, manifestVersion: args.manifestVersion },
+      updatedAt: now,
+    });
+    return null;
   },
 });
 
@@ -858,7 +913,7 @@ async function runComposedInfrastructure(
 Samebase's part of a repository_actions setup, after connect_github_repository: the Actions secrets,
 then the starter seed whose push starts the repository's first deploy, then the tree sync. The
 secrets come first so the first workflow run has them. A retry resumes here: the writes are upserts,
-and `seedStarter` is false once the starter was seeded.
+`seedStarter` is false once the plan records the seed, and the tree sync always runs again.
 */
 async function runRepositoryActionsSetup(
   step: WorkflowCtx,
@@ -891,17 +946,17 @@ async function runRepositoryActionsSetup(
       },
       { name: "seed_starter", retry: idempotentProviderStepRetry },
     );
-    await step.runAction(
-      internal.repositoryProvisioningWorkflowActions.syncRepositoryTreeForRepository,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.runId,
-        userId: args.userId,
-        githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
-      },
-      { name: "sync_tree", retry: idempotentProviderStepRetry },
-    );
   }
+  await step.runAction(
+    internal.repositoryProvisioningWorkflowActions.syncRepositoryTreeForRepository,
+    {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+    },
+    { name: "sync_tree", retry: idempotentProviderStepRetry },
+  );
   await step.runMutation(
     internal.repositoryProvisioningWorkflow.finishComposedInfrastructureProvisioning,
     {
@@ -940,7 +995,7 @@ export const provisionRepositoryInfrastructure = workflow.define({
       },
       { name: "read_retry_context" },
     );
-    const provisioning = retryContext.provisioning;
+    const provisioning = readRetryProvisioning(retryContext);
     switch (provisioning.mode) {
       case "samebase":
         await runComposedInfrastructure(step, {

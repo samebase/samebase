@@ -604,6 +604,34 @@ export const seedStarterRepository = internalAction({
       internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
       { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
     );
+    const manifest =
+      provisioning === "repository_actions"
+        ? actionsStarterTemplateManifest
+        : starterTemplateManifest;
+    // The seed force-updates the default branch, so a recorded seed is never repeated: a repeat would
+    // drop every commit pushed since. A step retry after the record finds it here.
+    if (
+      provisioning === "repository_actions" &&
+      (
+        await ctx.runQuery(
+          internal.repositoryProvisioningWorkflow.readRepositoryActionsSeedForRun,
+          {
+            repositoryId: args.repositoryId,
+            runId: args.runId,
+            userId: args.userId,
+          },
+        )
+      ).state === "seeded"
+    ) {
+      await appendRunEvent(ctx, {
+        runId: args.runId,
+        step: "seed_starter",
+        level: "info",
+        message: "The starter app is already seeded.",
+        state: "running",
+      });
+      return null;
+    }
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -645,10 +673,7 @@ export const seedStarterRepository = internalAction({
         owner: ownerName,
         repo: repoName,
         defaultBranch,
-        manifest:
-          provisioning === "repository_actions"
-            ? actionsStarterTemplateManifest
-            : starterTemplateManifest,
+        manifest,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
@@ -659,6 +684,14 @@ export const seedStarterRepository = internalAction({
       });
 
       throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
+    }
+    if (provisioning === "repository_actions") {
+      await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeded, {
+        repositoryId: args.repositoryId,
+        runId: args.runId,
+        userId: args.userId,
+        manifestVersion: manifest.version,
+      });
     }
 
     await appendRunEvent(ctx, {
