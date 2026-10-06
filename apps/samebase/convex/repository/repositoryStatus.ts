@@ -23,6 +23,8 @@ import {
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
+import type { RepositoryActionsCiSecrets } from "./provisioningModel";
+import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
 import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
 import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
@@ -115,6 +117,36 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
 }
 
 /**
+The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished.
+The Workers Builds token, Worker, Builds, and deploy-key items do not apply: the repository's GitHub
+Actions own the Worker and the Convex project, and Samebase does not observe their deploys yet.
+*/
+function buildRepositoryActionsAttention(args: {
+  repository: RepositoryStatusRepository;
+  ciSecrets: RepositoryActionsCiSecrets;
+}): RepositoryAttentionItem[] {
+  switch (args.ciSecrets.state) {
+    case "planned":
+      return [
+        {
+          tool: null,
+          problem: `The GitHub Actions secrets of ${args.repository.githubRepositoryFullName} are not written yet, so its deploy workflow cannot run.`,
+        },
+      ];
+    case "written":
+      return [
+        {
+          tool: null,
+          problem: `The deployment of this repository runs in its GitHub Actions: https://github.com/${args.repository.githubRepositoryFullName}/actions. Samebase does not read its result yet.`,
+        },
+      ];
+    default:
+      args.ciSecrets satisfies never;
+      return [];
+  }
+}
+
+/**
 The attention items of one repository, each with the tool that fixes it. The provider setup state
 comes first: a running managed setup holds the provider-write lock, so every repair tool would fail,
 and a failed one is repaired only by its retry. An unreadable provider fact gives no item: the facts
@@ -147,6 +179,11 @@ export function buildRepositoryAttention(args: {
     default:
       providerSetup satisfies never;
       return [];
+  }
+
+  const plan = repository.providerPlan;
+  if (plan && !isSamebaseManagedProviderPlan(plan)) {
+    return buildRepositoryActionsAttention({ repository, ciSecrets: plan.ciSecrets });
   }
 
   const items: RepositoryAttentionItem[] = [];

@@ -57,6 +57,7 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
               onConvexProjectNameChange={() => {}}
               onNewRepositoryNameChange={() => {}}
               showCloudflareWorkerName
+              showConvexProjectName
             />
           </div>
           <Button className="self-start">New App</Button>

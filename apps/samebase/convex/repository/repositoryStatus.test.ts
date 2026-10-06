@@ -404,6 +404,87 @@ describe("buildRepositoryAttention", () => {
     });
   });
 
+  describe("a repository that its GitHub Actions set up", () => {
+    const repositoryActionsRepository = (
+      ciSecrets: Extract<
+        NonNullable<RepositoryStatusRepository["providerPlan"]>,
+        { provisioning: "repository_actions" }
+      >["ciSecrets"],
+    ): RepositoryStatusRepository => ({
+      ...repository,
+      providerPlan: {
+        provisioning: "repository_actions",
+        convexConfigPath: "convex.json",
+        ciSecrets,
+      },
+    });
+    // Builds that Samebase would repair for a samebase repository.
+    const unconfiguredObservations = withWorkerBuilds({
+      ...readyBuilds,
+      repository: { state: "not_connected" },
+    });
+
+    it("asks for no Workers Builds, Worker, or deploy-key repair", () => {
+      expect(
+        buildRepositoryAttention({
+          repository: repositoryActionsRepository({
+            state: "written",
+            writtenAt: 2,
+            credentialRevision: 1,
+          }),
+          observations: unconfiguredObservations,
+        }),
+      ).toEqual([
+        {
+          tool: null,
+          problem:
+            "The deployment of this repository runs in its GitHub Actions: https://github.com/samebase/chess-merge/actions. Samebase does not read its result yet.",
+        },
+      ]);
+    });
+
+    it("says that the Actions secrets are not written yet", () => {
+      expect(
+        buildRepositoryAttention({
+          repository: repositoryActionsRepository({ state: "planned" }),
+          observations: unconfiguredObservations,
+        }),
+      ).toEqual([
+        {
+          tool: null,
+          problem:
+            "The GitHub Actions secrets of samebase/chess-merge are not written yet, so its deploy workflow cannot run.",
+        },
+      ]);
+    });
+
+    it("names the GitHub Actions secrets while Samebase's setup runs or after it failed", () => {
+      // @ts-expect-error Run IDs are strings at runtime; the rules ignore them.
+      const runId: Id<"workflow_repositoryProvisioning_runs"> = "run-2";
+      expect(
+        buildRepositoryAttention({
+          repository: {
+            ...repositoryActionsRepository({ state: "planned" }),
+            providerSetup: {
+              status: "failed",
+              provider: "github",
+              runId,
+              step: "write_actions_secrets",
+              message: "The Samebase GitHub App is missing the Secrets repository permission.",
+              updatedAt: 1,
+            },
+          },
+          observations: unconfiguredObservations,
+        }),
+      ).toEqual([
+        {
+          tool: "repository_retryProviderSetup",
+          problem: "Samebase setup of the GitHub Actions secrets failed.",
+        },
+      ]);
+    });
+  });
+
   it("reports a Worker that no longer exists, and nothing for unreadable Worker facts", () => {
     expect(
       buildRepositoryAttention({
