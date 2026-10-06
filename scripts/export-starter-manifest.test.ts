@@ -4,29 +4,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  actionsTemplateRemovedPaths,
-  collectTemplateFiles,
-  composeTemplateFiles,
-  renderStarterSeedManifests,
-  type CollectedTemplateFile,
-} from "./export-starter-manifest.ts";
+import { collectTemplateFiles, renderStarterSeedManifests } from "./export-starter-manifest.ts";
 
 function git(cwd: string, args: readonly string[]): void {
   execFileSync("git", args, {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
   });
-}
-
-function textFile(relativePath: string, content: string): CollectedTemplateFile {
-  return {
-    relativePath,
-    content,
-    encoding: "utf-8",
-    rawContent: Buffer.from(content, "utf8"),
-    mode: "100644",
-  };
 }
 
 function writeTemplateFiles(root: string, files: Record<string, string>): void {
@@ -37,47 +21,8 @@ function writeTemplateFiles(root: string, files: Record<string, string>): void {
   }
 }
 
-describe("actions template composition", () => {
-  const baseFiles = [
-    textFile("README.md", "base readme\n"),
-    textFile("src/app.ts", "export {};\n"),
-    textFile("wrangler.jsonc", "{}\n"),
-  ];
-
-  it("drops removed base files and lets the overlay replace base files", () => {
-    const files = composeTemplateFiles({
-      baseFiles,
-      removedPaths: ["wrangler.jsonc"],
-      overlayFiles: [
-        textFile("alchemy.run.ts", "export {};\n"),
-        textFile("README.md", "overlay\n"),
-      ],
-    });
-
-    expect(files.map((file) => [file.relativePath, file.content])).toEqual([
-      ["README.md", "overlay\n"],
-      ["alchemy.run.ts", "export {};\n"],
-      ["src/app.ts", "export {};\n"],
-    ]);
-  });
-
-  it("rejects a removed path that the overlay also contains", () => {
-    expect(() =>
-      composeTemplateFiles({
-        baseFiles,
-        removedPaths: ["wrangler.jsonc"],
-        overlayFiles: [textFile("wrangler.jsonc", "{}\n")],
-      }),
-    ).toThrow("wrangler.jsonc is on the removal list and in templates/base-actions");
-  });
-
-  it("rejects a removed path that the base does not contain", () => {
-    expect(() =>
-      composeTemplateFiles({ baseFiles, removedPaths: ["missing.ts"], overlayFiles: [] }),
-    ).toThrow("The removal list names missing.ts, which templates/base does not contain");
-  });
-
-  it("renders the base manifest and the actions manifest from staged files", async () => {
+describe("starter manifests", () => {
+  it("renders each template directory as its own manifest", async () => {
     const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-actions-manifest-test-"));
 
     try {
@@ -85,28 +30,43 @@ describe("actions template composition", () => {
       writeTemplateFiles(path.join(temporaryRoot, "templates", "base"), {
         "README.md": "base readme\n",
         "src/app.ts": "export {};\n",
-        ...Object.fromEntries(actionsTemplateRemovedPaths.map((filePath) => [filePath, "base\n"])),
+        "wrangler.jsonc": "{}\n",
       });
       writeTemplateFiles(path.join(temporaryRoot, "templates", "base-actions"), {
         "README.md": "actions readme\n",
         "alchemy.run.ts": "export {};\n",
+        "src/app.ts": "export {};\n",
       });
       git(temporaryRoot, ["add", "templates"]);
 
       const [base, actions] = await renderStarterSeedManifests(temporaryRoot);
 
       expect(base.outputPath).toBe("apps/samebase/convex/starterSeedManifest.generated.ts");
-      expect(Object.keys(base.manifest.files)).toEqual(
-        expect.arrayContaining(["README.md", "src/app.ts", ...actionsTemplateRemovedPaths]),
+      expect(base.manifest).toEqual(
+        expect.objectContaining({
+          sourcePath: "templates/base",
+          publishedRepo: "https://github.com/samebase/base.git",
+          files: {
+            "README.md": "base readme\n",
+            "src/app.ts": "export {};\n",
+            "wrangler.jsonc": "{}\n",
+          },
+        }),
       );
       expect(actions.outputPath).toBe(
         "apps/samebase/convex/starterSeedManifest.actions.generated.ts",
       );
-      expect(actions.manifest.files).toEqual({
-        "README.md": "actions readme\n",
-        "alchemy.run.ts": "export {};\n",
-        "src/app.ts": "export {};\n",
-      });
+      expect(actions.manifest).toEqual(
+        expect.objectContaining({
+          sourcePath: "templates/base-actions",
+          publishedRepo: "https://github.com/samebase/base-actions.git",
+          files: {
+            "README.md": "actions readme\n",
+            "alchemy.run.ts": "export {};\n",
+            "src/app.ts": "export {};\n",
+          },
+        }),
+      );
       expect(actions.manifest.version).toBe(
         `samebase-base-actions-${actions.manifest.contentHash.slice(0, 12)}`,
       );

@@ -43,10 +43,14 @@ jobs:
     name: starter template supply-chain
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        template: [base, base-actions]
 
     defaults:
       run:
-        working-directory: templates/base
+        working-directory: templates/${{ matrix.template }}
 
     steps:
       - name: Checkout code
@@ -55,7 +59,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          package_json_file: templates/base/package.json
+          package_json_file: templates/${{ matrix.template }}/package.json
           version: 11.1.1
 
       - name: Setup Node.js
@@ -63,7 +67,7 @@ jobs:
         with:
           node-version: 24.x
           cache: "pnpm"
-          cache-dependency-path: templates/base/pnpm-lock.yaml
+          cache-dependency-path: templates/${{ matrix.template }}/pnpm-lock.yaml
 
       - name: Install dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -82,10 +86,14 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     needs: starter_template_supply_chain
+    strategy:
+      fail-fast: false
+      matrix:
+        template: [base, base-actions]
 
     defaults:
       run:
-        working-directory: templates/base
+        working-directory: templates/${{ matrix.template }}
 
     steps:
       - name: Checkout code
@@ -94,7 +102,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          package_json_file: templates/base/package.json
+          package_json_file: templates/${{ matrix.template }}/package.json
           version: 11.1.1
 
       - name: Setup Node.js
@@ -102,12 +110,12 @@ jobs:
         with:
           node-version: 24.x
           cache: "pnpm"
-          cache-dependency-path: templates/base/pnpm-lock.yaml
+          cache-dependency-path: templates/${{ matrix.template }}/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run the Cloudflare build
+      - name: Run the template build
         env:
           VITE_CONVEX_URL: http://127.0.0.1:3210
         run: pnpm run build
@@ -551,6 +559,23 @@ jobs:
       - name: Read repository export targets
         id: repository-exports
         run: node ./scripts/publish-repository-exports.ts --write-target-repositories-output
+
+      # GitHub refuses the publisher token below without naming a missing
+      # target repository. This metadata-only token lets the next step name it.
+      - name: Create repository lookup token
+        id: lookup-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.REPOSITORY_EXPORTS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REPOSITORY_EXPORTS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-metadata: read
+
+      - name: Check repository export targets
+        env:
+          REPOSITORY_EXPORTS_LOOKUP_TOKEN: ${{ steps.lookup-token.outputs.token }}
+          TARGET_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: node ./scripts/publish-repository-exports.ts --check-target-repositories
 
       - name: Create repository publisher token
         id: publisher-token

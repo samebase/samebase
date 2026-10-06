@@ -12,11 +12,11 @@ The exported repository root is the exact Git tree at that source directory. Put
 that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
-uses root tooling and includes a small dependency-free public check. The base template must work as
-an independent repository, so `templates/base` owns its own `package.json`, `pnpm-workspace.yaml`,
-`pnpm-lock.yaml`, and public workflow. It is intentionally outside the root workspace globs. The
-Sidebars example also owns these files because its directory is both a root workspace member and a
-standalone export boundary.
+uses root tooling and includes a small dependency-free public check. Each starter template must work
+as an independent repository, so `templates/base` and `templates/base-actions` own their
+`package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are
+intentionally outside the root workspace globs. The Sidebars example also owns these files because
+its directory is both a root workspace member and a standalone export boundary.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -24,9 +24,13 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. The base, Sidebars package, and Sidebars example
-exports also require their isolated checks. Playwright and Windows smoke tests continue in parallel,
-but they do not block repository exports.
+Supply-chain validation runs before those checks. The two starter templates, the Sidebars package,
+and the Sidebars example also require their isolated checks. Playwright and Windows smoke tests
+continue in parallel, but they do not block repository exports.
+
+Before it publishes, the job reads every configured target repository with a metadata-only token. If
+a target repository does not exist, or the publisher GitHub App cannot access it, the job fails with
+the names of those repositories, and no export publishes.
 
 For each configured export, it:
 
@@ -72,21 +76,22 @@ Runtime app creation imports the committed manifest. It does not fetch the publi
 the template directory. A public export failure therefore cannot stop Samebase from creating a new
 app from the last accepted snapshot.
 
-Root CI installs and audits the template through its nested lockfile, then builds it in a separate
+Root CI installs and audits each template through its nested lockfile, then builds it in a separate
 fresh job.
 
 ### GitHub Actions variant
 
-`templates/base-actions` holds only the files of the GitHub Actions deploy variant that differ from
-`templates/base`. `scripts/export-starter-manifest.ts` lists the base files that the variant leaves
-out (the Workers Builds deploy path) and writes `templates/base` without them, plus the overlay, to
-`starterSeedManifest.actions.generated.ts`. An overlay file replaces the base file at the same path.
-A path on the removal list that is also in the overlay, or that is not in the base, stops the
-export. The variant is not published as a repository.
+`templates/base-actions` is a second complete starter: the same app as `templates/base`, deployed by
+Alchemy from GitHub Actions instead of Workers Builds. It follows the same contract as the base: it
+owns its `package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`, `pnpm run template:export`
+writes it to `starterSeedManifest.actions.generated.ts`, root CI audits and builds it, and the
+publisher sends it to `samebase/base-actions`.
 
-The overlay has its own `package.json` and `pnpm-lock.yaml`. A base change to dependencies,
-`pnpm-workspace.yaml`, or the lockfile needs the same change in the overlay lockfile. Root CI does
-not install or build the variant yet.
+`pnpm run check:template-sync` keeps the two templates in sync. Every path must exist in both
+templates with the same bytes and mode, except the deploy files that `templateDeployPaths` in
+`scripts/check-template-sync.ts` lists with the reason each one differs. Apply a change to a shared
+file in both templates in the same pull request. A dependency change usually changes both
+`package.json` files and both lockfiles.
 
 ### Existing-app sweep
 
@@ -162,8 +167,9 @@ Configure the private monorepo with:
 - Actions variable `REPOSITORY_EXPORTS_APP_CLIENT_ID`
 - Actions secret `REPOSITORY_EXPORTS_APP_PRIVATE_KEY`
 
-The workflow creates a short-lived installation token. It does not store that token in Git config or
-pass it as a command argument.
+The workflow creates two short-lived installation tokens: a metadata-only token that checks that the
+targets exist, and a token with the permissions above that is scoped to the target repositories. It
+does not store either token in Git config or pass it as a command argument.
 
 ## Add an export
 
@@ -180,8 +186,9 @@ Verify that the publisher GitHub App can access the new target repository. The w
 target repository list from the same configuration, so the workflow file does not need a second
 list.
 
-The target branch must exist before the first publish. Protect it from manual writes and allow the
-publisher App to update it.
+Create the target repository and its target branch before the entry reaches `main`. A missing target
+stops every export until it exists. Protect the branch from manual writes and allow the publisher
+App to update it.
 
 Before a private target becomes public, audit all branches, tags, commits, pull requests, comments,
 and author metadata. Repository exports preserve existing target history. Enable GitHub private

@@ -12,6 +12,7 @@ export type RepositoryExport = {
 };
 
 export const baseTemplateSourceRoot = "templates/base";
+export const actionsTemplateSourceRoot = "templates/base-actions";
 
 export const repositoryExports = [
   {
@@ -33,6 +34,11 @@ export const repositoryExports = [
     sourceRoot: "apps/sidebars-example",
     targetBranch: "main",
     targetRepository: "sidebars-example",
+  },
+  {
+    sourceRoot: actionsTemplateSourceRoot,
+    targetBranch: "main",
+    targetRepository: "base-actions",
   },
 ] satisfies readonly RepositoryExport[];
 
@@ -276,6 +282,47 @@ function writeTargetRepositoriesOutput(): void {
   appendFileSync(outputPath, `repositories=${targetRepositories}\n`, "utf8");
 }
 
+/**
+GitHub refuses a publisher token scoped to a repository that does not exist without naming that
+repository. A metadata-only lookup token reads each target first, so a missing target fails with its
+name before the publisher token is requested.
+*/
+export async function findMissingTargetRepositories(args: {
+  owner: string;
+  lookupToken: string;
+}): Promise<string[]> {
+  const missingRepositories: string[] = [];
+  for (const definition of repositoryExports) {
+    const repository = `${args.owner}/${definition.targetRepository}`;
+    const response = await fetch(`https://api.github.com/repos/${repository}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${args.lookupToken}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    if (response.status === 404) {
+      missingRepositories.push(repository);
+    } else if (!response.ok) {
+      throw new Error(`GitHub answered ${response.status} for the export target ${repository}.`);
+    }
+  }
+  return missingRepositories;
+}
+
+async function checkTargetRepositories(): Promise<void> {
+  const missingRepositories = await findMissingTargetRepositories({
+    owner: requiredEnvironmentValue("TARGET_REPOSITORY_OWNER"),
+    lookupToken: requiredEnvironmentValue("REPOSITORY_EXPORTS_LOOKUP_TOKEN"),
+  });
+  if (missingRepositories.length > 0) {
+    throw new Error(
+      `These repository export targets do not exist, or the publisher GitHub App cannot access them: ${missingRepositories.join(", ")}. Create each one with its target branch, then rerun this job. Until then, no export publishes.`,
+    );
+  }
+  console.log("Every repository export target exists.");
+}
+
 function publishConfiguredRepositoryExports(): void {
   const repoRoot = resolveRepoRoot();
   const sourceCommit = requiredEnvironmentValue("SOURCE_COMMIT");
@@ -322,13 +369,17 @@ function publishConfiguredRepositoryExports(): void {
 }
 
 if (isMainModule(import.meta.url)) {
-  await runMain(() => {
+  await runMain(async () => {
     const [command, ...extraArguments] = process.argv.slice(2);
     if (extraArguments.length > 0) {
       throw new Error(`Unexpected repository export arguments: ${extraArguments.join(" ")}`);
     }
     if (command === "--write-target-repositories-output") {
       writeTargetRepositoriesOutput();
+      return;
+    }
+    if (command === "--check-target-repositories") {
+      await checkTargetRepositories();
       return;
     }
     if (command) {

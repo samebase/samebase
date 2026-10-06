@@ -6,9 +6,8 @@ import { TextDecoder } from "node:util";
 
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
-import { baseTemplateSourceRoot } from "./publish-repository-exports.ts";
+import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
 
-const publishedRepo = "https://github.com/samebase/base.git";
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 // rawContent and mode are the source of truth for hashing; content is only the
@@ -248,60 +247,11 @@ function compareUtf8PathBytes(left: string, right: string): number {
   return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
-/**
- * The GitHub Actions variant of the starter is templates/base without the
- * files on {@link actionsTemplateRemovedPaths}, plus the files of this
- * overlay. An overlay file replaces the base file at the same path.
- */
-export const actionsTemplateOverlayRoot = "templates/base-actions";
-
-/** Files of templates/base that serve only the Workers Builds deploy path. */
-export const actionsTemplateRemovedPaths = [
-  "scripts/build-cloudflare.test.ts",
-  "scripts/build-cloudflare.ts",
-  "scripts/verify-current-branch-head.test.ts",
-  "scripts/verify-current-branch-head.ts",
-  "wrangler.jsonc",
-];
-
-export function composeTemplateFiles(args: {
-  baseFiles: readonly CollectedTemplateFile[];
-  removedPaths: readonly string[];
-  overlayFiles: readonly CollectedTemplateFile[];
-}): CollectedTemplateFile[] {
-  const removedPaths = new Set(args.removedPaths);
-  for (const removedPath of removedPaths) {
-    if (!args.baseFiles.some((file) => file.relativePath === removedPath)) {
-      throw new Error(
-        `The removal list names ${removedPath}, which ${baseTemplateSourceRoot} does not contain`,
-      );
-    }
-  }
-
-  const files = new Map(
-    args.baseFiles
-      .filter((file) => !removedPaths.has(file.relativePath))
-      .map((file) => [file.relativePath, file]),
-  );
-  for (const file of args.overlayFiles) {
-    if (removedPaths.has(file.relativePath)) {
-      throw new Error(
-        `${file.relativePath} is on the removal list and in ${actionsTemplateOverlayRoot}`,
-      );
-    }
-    files.set(file.relativePath, file);
-  }
-
-  return [...files.values()].sort((left, right) =>
-    compareUtf8PathBytes(left.relativePath, right.relativePath),
-  );
-}
-
 function printUsage(): void {
   console.log(`Usage: pnpm run template:export
 
-Exports templates/base into starterSeedManifest.generated.ts, and templates/base
-with the templates/base-actions overlay into starterSeedManifest.actions.generated.ts.`);
+Exports templates/base into starterSeedManifest.generated.ts and
+templates/base-actions into starterSeedManifest.actions.generated.ts.`);
 }
 
 function buildManifest(
@@ -309,6 +259,7 @@ function buildManifest(
   identity: {
     versionPrefix: string;
     sourcePath: string;
+    publishedRepo: string;
     commitMessage: string;
   },
 ) {
@@ -331,9 +282,7 @@ function buildManifest(
   return {
     version: `${identity.versionPrefix}-${contentHash.slice(0, 12)}`,
     sourcePath: identity.sourcePath,
-    // The Actions variant has no published repository of its own. It names
-    // the published base.
-    publishedRepo,
+    publishedRepo: identity.publishedRepo,
     contentHash,
     commitMessage: identity.commitMessage,
     files: textFiles,
@@ -344,19 +293,17 @@ function buildManifest(
 
 export async function renderStarterSeedManifests(repoRoot: string) {
   const baseFiles = await collectTemplateFiles(repoRoot, baseTemplateSourceRoot);
-  const actionsFiles = composeTemplateFiles({
-    baseFiles,
-    removedPaths: actionsTemplateRemovedPaths,
-    overlayFiles: await collectTemplateFiles(repoRoot, actionsTemplateOverlayRoot),
-  });
+  const actionsFiles = await collectTemplateFiles(repoRoot, actionsTemplateSourceRoot);
   const baseManifest = buildManifest(baseFiles, {
     versionPrefix: "samebase-base",
     sourcePath: baseTemplateSourceRoot,
+    publishedRepo: "https://github.com/samebase/base.git",
     commitMessage: "Initialize app from Samebase starter build v2064",
   });
   const actionsManifest = buildManifest(actionsFiles, {
     versionPrefix: "samebase-base-actions",
-    sourcePath: actionsTemplateOverlayRoot,
+    sourcePath: actionsTemplateSourceRoot,
+    publishedRepo: "https://github.com/samebase/base-actions.git",
     commitMessage: "Initialize app from Samebase starter build v2095",
   });
 

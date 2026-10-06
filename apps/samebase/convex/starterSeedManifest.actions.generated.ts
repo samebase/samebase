@@ -5,7 +5,7 @@ import type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 export const actionsStarterTemplateManifest: StarterTemplateManifest = {
   version: "samebase-base-actions-14fa318a1291",
   sourcePath: "templates/base-actions",
-  publishedRepo: "https://github.com/samebase/base.git",
+  publishedRepo: "https://github.com/samebase/base-actions.git",
   contentHash: "14fa318a1291e885f564b89fc002777928c4f9d91cdefe74b005221fea94fa11",
   commitMessage: "Initialize app from Samebase starter build v2095",
   files: {
