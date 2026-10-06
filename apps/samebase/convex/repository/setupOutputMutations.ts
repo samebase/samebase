@@ -10,7 +10,7 @@ import { requireUserRepositoryInfrastructureIdle } from "./infrastructureOperati
 import { vRepositoryProviderResourceOrigin } from "./model";
 import { vRepositoryActionsSetupOutput } from "./provisioningModel";
 import { isSamebaseProvisioningPlan } from "./provisioningPlan";
-import { vSetupOutputSource } from "./setupOutputModel";
+import { isNewerSetupOutput, vSetupOutputSource } from "./setupOutputModel";
 
 const { array, id, literal, number, object, string, union } = v;
 
@@ -119,6 +119,9 @@ export const apply = internalMutation({
     if ((plan.setupOutput?.artifactId ?? null) !== args.expectedArtifactId) {
       throw new ConvexError(SETUP_OUTPUT_CHANGED_MESSAGE);
     }
+    if (!isNewerSetupOutput(args.source, plan.setupOutput ?? null)) {
+      throw new ConvexError("This setup output is older than the applied one, so nothing changed.");
+    }
 
     const now = Date.now();
     const { output } = args;
@@ -130,6 +133,7 @@ export const apply = internalMutation({
             runId: args.source.runId,
             runAttempt: args.source.runAttempt,
             artifactId: args.source.artifactId,
+            artifactCreatedAt: args.source.artifactCreatedAt,
             reportedAt: now,
           },
           updatedAt: now,
@@ -192,6 +196,7 @@ export const apply = internalMutation({
         runId: args.source.runId,
         runAttempt: args.source.runAttempt,
         artifactId: args.source.artifactId,
+        artifactCreatedAt: args.source.artifactCreatedAt,
         outputVersion: output.outputVersion,
         appliedAt: now,
       },

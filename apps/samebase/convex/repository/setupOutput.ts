@@ -1,5 +1,6 @@
 "use node";
 
+import { RequestError } from "@octokit/request-error";
 import type { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
 
@@ -13,8 +14,10 @@ import { verifySetupStackWorkers } from "./cloudflare";
 import { verifySetupStackProjects } from "./convex";
 import type { VerifiedSetupOutput } from "./setupOutputMutations";
 import {
+  isNewerSetupOutput,
+  orderSetupOutputArtifacts,
   readSetupOutputArchive,
-  selectSetupOutputArtifact,
+  readSetupOutputSource,
   selectSetupRuns,
   SETUP_OUTPUT_ARTIFACT_NAME,
   SETUP_OUTPUT_MAX_BYTES,
@@ -22,7 +25,10 @@ import {
   toSetupRun,
   vSetupOutputApplyResult,
   zGitHubArtifactPage,
+  zGitHubWorkflowRun,
   zGitHubWorkflowRunPage,
+  type GitHubArtifact,
+  type GitHubWorkflowRun,
   type SetupOutput,
   type SetupOutputApplyResult,
   type SetupOutputSource,
@@ -54,6 +60,32 @@ async function listAllPages<Item>(
     }
   }
   return items;
+}
+
+/**
+The artifacts the reader checks, newest first. Any workflow of the repository can upload an artifact
+under this name; past this many whose run is not a successful setup run, the reader reports no
+output instead of reading more runs.
+*/
+const MAX_ARTIFACT_CANDIDATES = 10;
+
+async function readWorkflowRun(
+  octokit: Octokit,
+  args: { owner: string; repo: string; runId: number },
+): Promise<GitHubWorkflowRun | null> {
+  try {
+    const response = await octokit.request("GET /repos/{owner}/{repo}/actions/runs/{run_id}", {
+      owner: args.owner,
+      repo: args.repo,
+      run_id: args.runId,
+    });
+    return zGitHubWorkflowRun.parse(response.data);
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 type SetupOutputRead =
@@ -125,7 +157,25 @@ export async function readLatestSetupOutput(
     const parsed = zGitHubArtifactPage.parse(response.data);
     return { totalCount: parsed.total_count, items: parsed.artifacts };
   });
-  const selected = selectSetupOutputArtifact({ runs, artifacts });
+  // The newest artifact whose run is a successful setup run. A run outside the listed pages (more
+  // than 1,000 retained runs, a rerun of an old run) is read by id.
+  const repository = {
+    githubRepositoryDatabaseId: context.githubRepositoryDatabaseId,
+    defaultBranch,
+  };
+  const listedRuns = new Map(runs.map((run) => [run.id, run]));
+  let selected: { artifact: GitHubArtifact; source: SetupOutputSource } | null = null;
+  for (const { artifact, runId } of orderSetupOutputArtifacts(artifacts).slice(
+    0,
+    MAX_ARTIFACT_CANDIDATES,
+  )) {
+    const run = listedRuns.get(runId) ?? (await readWorkflowRun(octokit, { owner, repo, runId }));
+    const source = run ? readSetupOutputSource({ artifact, run, repository }) : null;
+    if (source) {
+      selected = { artifact, source };
+      break;
+    }
+  }
   if (!selected) {
     return { state: "no_output", latestRun };
   }
@@ -187,10 +237,11 @@ export async function applyLatestSetupOutput(
       throw new Error("Unknown setup output read.");
   }
   const { latestRun, source, output } = read;
-  const expectedArtifactId = context.setupOutput?.artifactId ?? null;
-  if (expectedArtifactId === source.artifactId) {
+  const applied = context.setupOutput;
+  if (!isNewerSetupOutput(source, applied)) {
     return { state: "unchanged", latestRun, source };
   }
+  const expectedArtifactId = applied?.artifactId ?? null;
 
   /** Null when the transaction committed; the refusal when it threw. */
   const apply = async (verified: VerifiedSetupOutput): Promise<SetupOutputApplyResult | null> => {
@@ -203,6 +254,7 @@ export async function applyLatestSetupOutput(
           runId: source.runId,
           runAttempt: source.runAttempt,
           artifactId: source.artifactId,
+          artifactCreatedAt: source.artifactCreatedAt,
         },
         output: verified,
       });

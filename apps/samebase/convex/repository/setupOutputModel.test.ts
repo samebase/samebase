@@ -11,9 +11,11 @@ import {
   observedSpikeArtifact,
 } from "./fixtures/observedSetupOutput";
 import {
+  isNewerSetupOutput,
+  orderSetupOutputArtifacts,
   parseSetupOutput,
   readSetupOutputArchive,
-  selectSetupOutputArtifact,
+  readSetupOutputSource,
   selectSetupRuns,
   SETUP_OUTPUT_MAX_BYTES,
   zGitHubArtifactPage,
@@ -24,8 +26,10 @@ import {
 State axes of the reader, each tested below:
 - run: kept or filtered out by workflow path, event, branch, repository, or fork; order by start
   time, which a rerun moves
-- artifact: newest of a successful kept run, or skipped for its name, expiry, failed run, or
-  provenance that differs from the run; order by the artifact's creation time
+- artifact: newest of a successful setup run, or skipped for its name, expiry, a run that did not
+  succeed or is not a setup run, or provenance that differs from the run; order by the artifact's
+  creation time
+- applied checkpoint: none, the same artifact, or a newer one, which an older output never replaces
 - archive: exactly the one JSON file, or more files, another name, a corrupt or oversized archive,
   or a file that is not one JSON document
 - output: version 1 deployed or destroyed, with one or several entries per list; any other
@@ -72,58 +76,96 @@ describe("selectSetupRuns", () => {
   });
 });
 
-describe("selectSetupOutputArtifact", () => {
-  const keptRuns = selectSetupRuns(runs, observedSetupOutputRepository);
+describe("orderSetupOutputArtifacts and readSetupOutputSource", () => {
+  const source = (artifact: typeof observedArtifact, run: typeof newestRun) =>
+    readSetupOutputSource({ artifact, run, repository: observedSetupOutputRepository });
 
-  it("selects the recorded artifact with its run attempt", () => {
-    expect(selectSetupOutputArtifact({ runs: keptRuns, artifacts })).toEqual({
-      artifact: observedArtifact,
-      source: { runId: 37545425944, runAttempt: 2, artifactId: 11450791196 },
+  it("reads the recorded artifact of the recorded run with its attempt and creation time", () => {
+    expect(orderSetupOutputArtifacts(artifacts)).toEqual([
+      { artifact: observedArtifact, runId: 37545425944 },
+    ]);
+    expect(source(observedArtifact, newestRun)).toEqual({
+      runId: 37545425944,
+      runAttempt: 2,
+      artifactId: 11450791196,
+      artifactCreatedAt: "2026-10-06T23:17:16Z",
     });
   });
 
-  it("skips another name, an expired artifact, a failed run, and provenance that differs", () => {
+  it("drops another name, an expired artifact, and an artifact without a run", () => {
     const spike = zGitHubArtifactPage.parse({
       total_count: 1,
       artifacts: [observedSpikeArtifact],
     }).artifacts;
-    const skipped = [
-      ...spike,
-      { ...observedArtifact, expired: true },
-      { ...observedArtifact, workflow_run: null },
-      {
-        ...observedArtifact,
-        workflow_run: { ...observedOrigin, head_sha: "0".repeat(40) },
-      },
-      {
-        ...observedArtifact,
-        workflow_run: { ...observedOrigin, repository_id: 1 },
-      },
-    ];
-    expect(selectSetupOutputArtifact({ runs: keptRuns, artifacts: skipped })).toBeNull();
     expect(
-      selectSetupOutputArtifact({
-        runs: keptRuns.map((run) => ({ ...run, conclusion: "failure" })),
-        artifacts,
-      }),
-    ).toBeNull();
+      orderSetupOutputArtifacts([
+        ...spike,
+        { ...observedArtifact, expired: true },
+        { ...observedArtifact, workflow_run: null },
+      ]),
+    ).toEqual([]);
   });
 
-  it("takes the newest artifact by its creation time, which a rerun of an older run makes newest", () => {
+  it("refuses a run that did not succeed, is not a setup run, or differs from the artifact", () => {
+    expect(source(observedArtifact, { ...newestRun, conclusion: null })).toBeNull();
+    expect(source(observedArtifact, { ...newestRun, conclusion: "failure" })).toBeNull();
+    expect(source(observedArtifact, { ...newestRun, head_branch: "feature" })).toBeNull();
+    expect(
+      source(
+        { ...observedArtifact, workflow_run: { ...observedOrigin, head_sha: "0".repeat(40) } },
+        newestRun,
+      ),
+    ).toBeNull();
+    expect(
+      source(
+        { ...observedArtifact, workflow_run: { ...observedOrigin, repository_id: 1 } },
+        newestRun,
+      ),
+    ).toBeNull();
+    expect(source(observedArtifact, firstRun)).toBeNull();
+  });
+
+  it("orders by the artifact's creation time, which a rerun of an older run makes newest", () => {
     const fromFirstRun = {
       ...observedArtifact,
       id: 11450791000,
       created_at: "2026-10-07T08:01:00Z",
-      workflow_run: {
-        ...observedOrigin,
-        id: firstRun.id,
-        head_sha: firstRun.head_sha,
-      },
+      workflow_run: { ...observedOrigin, id: firstRun.id, head_sha: firstRun.head_sha },
     };
     expect(
-      selectSetupOutputArtifact({ runs: keptRuns, artifacts: [observedArtifact, fromFirstRun] })
-        ?.source,
-    ).toEqual({ runId: firstRun.id, runAttempt: 1, artifactId: 11450791000 });
+      orderSetupOutputArtifacts([observedArtifact, fromFirstRun]).map(({ runId }) => runId),
+    ).toEqual([firstRun.id, newestRun.id]);
+  });
+});
+
+describe("isNewerSetupOutput", () => {
+  const applied = { artifactId: 11450791196, artifactCreatedAt: "2026-10-06T23:17:16Z" };
+  const source = {
+    runId: 1,
+    runAttempt: 1,
+    artifactId: 11450791196,
+    artifactCreatedAt: "2026-10-06T23:17:16Z",
+  };
+
+  it("applies the first output and outputs published after the applied one", () => {
+    expect(isNewerSetupOutput(source, null)).toBe(true);
+    expect(
+      isNewerSetupOutput(
+        { ...source, artifactId: 2, artifactCreatedAt: "2026-10-07T08:00:00Z" },
+        applied,
+      ),
+    ).toBe(true);
+    expect(isNewerSetupOutput({ ...source, artifactId: 11450791197 }, applied)).toBe(true);
+  });
+
+  it("never applies the applied output again or an older one, such as during a rerun", () => {
+    expect(isNewerSetupOutput(source, applied)).toBe(false);
+    expect(
+      isNewerSetupOutput(
+        { ...source, artifactId: 11443958659, artifactCreatedAt: "2026-10-06T21:10:47Z" },
+        applied,
+      ),
+    ).toBe(false);
   });
 });
 

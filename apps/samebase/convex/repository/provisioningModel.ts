@@ -218,8 +218,9 @@ export const vRepositoryActionsSeed = union(
 /**
 The setup output that Samebase last applied: the artifact `samebase-setup-output` of one run of the
 repository's `alchemy` workflow (templates/base-actions/scripts/setup-output.ts). `artifactId` is
-the change key: a rerun publishes the same content under a new artifact id. The run's ids keep
-this readable after GitHub deletes the run at the end of its retention period.
+the change key: a rerun publishes the same content under a new artifact id. `artifactCreatedAt`
+orders outputs, so an older one is never applied over it. The run's ids keep this readable after
+GitHub deletes the run at the end of its retention period.
 
 applied = the Workers and Convex projects of a `deployed` output are attached with origin
 setup_stack
@@ -235,6 +236,7 @@ export const vRepositoryActionsSetupOutput = union(
     runId: number(),
     runAttempt: number(),
     artifactId: number(),
+    artifactCreatedAt: string(),
     outputVersion: literal(1),
     appliedAt: number(),
   }),
@@ -243,6 +245,7 @@ export const vRepositoryActionsSetupOutput = union(
     runId: number(),
     runAttempt: number(),
     artifactId: number(),
+    artifactCreatedAt: string(),
     reportedAt: number(),
   }),
 );

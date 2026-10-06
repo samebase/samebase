@@ -18,7 +18,8 @@ const SETUP_OUTPUT_FILE_NAME = "samebase-setup-output.json";
 /** The bound for the artifact and for the file in it. A version 1 output is a few hundred bytes. */
 export const SETUP_OUTPUT_MAX_BYTES = 64 * 1024;
 
-const zGitHubWorkflowRun = z.object({
+/** A workflow run as GitHub returns it in a run list or from GET .../actions/runs/{run_id}. */
+export const zGitHubWorkflowRun = z.object({
   id: z.number().int().positive(),
   path: z.string(),
   event: z.string(),
@@ -32,7 +33,7 @@ const zGitHubWorkflowRun = z.object({
   repository: z.object({ id: z.number().int() }),
   head_repository: z.object({ id: z.number().int() }),
 });
-type GitHubWorkflowRun = z.infer<typeof zGitHubWorkflowRun>;
+export type GitHubWorkflowRun = z.infer<typeof zGitHubWorkflowRun>;
 
 /** GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs, the fields the reader uses. */
 export const zGitHubWorkflowRunPage = z.object({
@@ -55,7 +56,7 @@ const zGitHubArtifact = z.object({
     })
     .nullable(),
 });
-type GitHubArtifact = z.infer<typeof zGitHubArtifact>;
+export type GitHubArtifact = z.infer<typeof zGitHubArtifact>;
 
 /** GET /repos/{owner}/{repo}/actions/artifacts?name=..., the fields the reader uses. */
 export const zGitHubArtifactPage = z.object({
@@ -91,83 +92,105 @@ export function toSetupRun(run: GitHubWorkflowRun): SetupRun {
   };
 }
 
+type SetupRepository = { githubRepositoryDatabaseId: string; defaultBranch: string };
+
 /**
-The runs that can carry the setup output: the template's workflow file, a push or a run of the
-workflow on the live default branch, in this repository and not a fork. Newest first by start time,
-which a rerun moves, then by id.
+Whether a run can carry the setup output: the template's workflow file, a push or a run of the
+workflow on the live default branch, in this repository and not a fork.
 */
+export function isSetupRun(run: GitHubWorkflowRun, repository: SetupRepository): boolean {
+  return (
+    run.path === SETUP_WORKFLOW_PATH &&
+    (run.event === "push" || run.event === "workflow_dispatch") &&
+    run.head_branch === repository.defaultBranch &&
+    String(run.repository.id) === repository.githubRepositoryDatabaseId &&
+    String(run.head_repository.id) === repository.githubRepositoryDatabaseId
+  );
+}
+
+/** The setup runs, newest first by start time, which a rerun moves, then by id. */
 export function selectSetupRuns(
   runs: readonly GitHubWorkflowRun[],
-  repository: { githubRepositoryDatabaseId: string; defaultBranch: string },
+  repository: SetupRepository,
 ): GitHubWorkflowRun[] {
   return runs
-    .filter(
-      (run) =>
-        run.path === SETUP_WORKFLOW_PATH &&
-        (run.event === "push" || run.event === "workflow_dispatch") &&
-        run.head_branch === repository.defaultBranch &&
-        String(run.repository.id) === repository.githubRepositoryDatabaseId &&
-        String(run.head_repository.id) === repository.githubRepositoryDatabaseId,
-    )
+    .filter((run) => isSetupRun(run, repository))
     .sort(
       (left, right) =>
         right.run_started_at.localeCompare(left.run_started_at) || right.id - left.id,
     );
 }
 
-/** Which artifact the output came from. `artifactId` is the change key: a rerun uploads a new one. */
+/**
+Which artifact the output came from. `artifactId` is the change key: a rerun uploads a new one.
+`artifactCreatedAt` orders outputs, because a rerun of an older run uploads the newest artifact on
+an old run.
+*/
 export const vSetupOutputSource = object({
   runId: number(),
   runAttempt: number(),
   artifactId: number(),
+  artifactCreatedAt: string(),
 });
 export type SetupOutputSource = Infer<typeof vSetupOutputSource>;
 
-/**
-The newest live setup output artifact of a successful setup run, by the artifact's own creation
-time, then id: a rerun of an older run uploads the newest artifact on an old run. The artifact must
-name its run, repository, and commit the way the run does.
-*/
-export function selectSetupOutputArtifact(args: {
-  runs: readonly GitHubWorkflowRun[];
-  artifacts: readonly GitHubArtifact[];
-}): { artifact: GitHubArtifact; source: SetupOutputSource } | null {
-  const successfulRuns = new Map(
-    args.runs.filter((run) => run.conclusion === "success").map((run) => [run.id, run]),
-  );
-  const candidates = args.artifacts.flatMap((artifact) => {
-    const origin = artifact.workflow_run;
-    const run = origin ? successfulRuns.get(origin.id) : undefined;
-    if (
-      artifact.name !== SETUP_OUTPUT_ARTIFACT_NAME ||
-      artifact.expired ||
-      !origin ||
-      !run ||
-      origin.repository_id !== run.repository.id ||
-      origin.head_repository_id !== run.head_repository.id ||
-      origin.head_sha !== run.head_sha
-    ) {
-      return [];
-    }
-    return [{ artifact, run }];
-  });
-  const newest = candidates
+/** The live artifacts named samebase-setup-output with their run, newest first by creation time, then id. */
+export function orderSetupOutputArtifacts(
+  artifacts: readonly GitHubArtifact[],
+): Array<{ artifact: GitHubArtifact; runId: number }> {
+  return artifacts
+    .flatMap((artifact) =>
+      artifact.name === SETUP_OUTPUT_ARTIFACT_NAME && !artifact.expired && artifact.workflow_run
+        ? [{ artifact, runId: artifact.workflow_run.id }]
+        : [],
+    )
     .sort(
       (left, right) =>
         right.artifact.created_at.localeCompare(left.artifact.created_at) ||
         right.artifact.id - left.artifact.id,
-    )
-    .at(0);
-  return newest
+    );
+}
+
+/**
+The source of a setup output when the artifact belongs to a successful setup run and names the
+run's repository and commit; null otherwise.
+*/
+export function readSetupOutputSource(args: {
+  artifact: GitHubArtifact;
+  run: GitHubWorkflowRun;
+  repository: SetupRepository;
+}): SetupOutputSource | null {
+  const { artifact, run } = args;
+  const origin = artifact.workflow_run;
+  return origin &&
+    isSetupRun(run, args.repository) &&
+    run.conclusion === "success" &&
+    origin.id === run.id &&
+    origin.repository_id === run.repository.id &&
+    origin.head_repository_id === run.head_repository.id &&
+    origin.head_sha === run.head_sha
     ? {
-        artifact: newest.artifact,
-        source: {
-          runId: newest.run.id,
-          runAttempt: newest.run.run_attempt,
-          artifactId: newest.artifact.id,
-        },
+        runId: run.id,
+        runAttempt: run.run_attempt,
+        artifactId: artifact.id,
+        artifactCreatedAt: artifact.created_at,
       }
     : null;
+}
+
+/**
+Whether a setup output was published after the applied one. An older one is never applied: while a
+rerun of the applied run is still running, the newest readable artifact can be an older one.
+*/
+export function isNewerSetupOutput(
+  source: SetupOutputSource,
+  applied: { artifactId: number; artifactCreatedAt: string } | null,
+): boolean {
+  if (!applied) {
+    return true;
+  }
+  const order = source.artifactCreatedAt.localeCompare(applied.artifactCreatedAt);
+  return order > 0 || (order === 0 && source.artifactId > applied.artifactId);
 }
 
 const zNonEmptyString = z.string().min(1);
@@ -313,7 +336,7 @@ invalid_output = the newest artifact is not a setup output that Samebase can rea
 refused = a provider did not confirm a claim (verify_cloudflare, verify_convex), or the apply
 transaction refused the change (apply): a conflict, the connection quota, another operation
 
-unchanged = the newest artifact is the applied one
+unchanged = no setup output is newer than the applied one
 
 applied = the Workers and Convex projects of a deployed output are attached
 

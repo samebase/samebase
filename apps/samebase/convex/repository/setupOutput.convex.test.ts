@@ -43,6 +43,8 @@ vi.mock("../githubApp", async (importOriginal) => {
   };
 });
 
+import { RequestError } from "@octokit/request-error";
+
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
@@ -193,7 +195,12 @@ async function createFixture(options?: { mode?: "samebase" }) {
 
 type Fixture = Awaited<ReturnType<typeof createFixture>>;
 
-const source = { runId: 37545425944, runAttempt: 2, artifactId: 11450791196 };
+const source = {
+  runId: 37545425944,
+  runAttempt: 2,
+  artifactId: 11450791196,
+  artifactCreatedAt: "2026-10-06T23:17:16Z",
+};
 
 function deployed(overrides?: {
   workers?: Array<{ workerName: string; workerTag: string; rootDirectory: string }>;
@@ -529,7 +536,11 @@ describe("setupOutputMutations.apply", () => {
   });
 });
 
-function mockGitHub(options?: { runs?: unknown; artifacts?: unknown }) {
+function mockGitHub(options?: {
+  runs?: unknown;
+  artifacts?: unknown;
+  runsById?: ReadonlyMap<number, unknown>;
+}) {
   githubMocks.getRepository.mockResolvedValue({
     data: {
       id: Number(REPOSITORY_ID),
@@ -549,8 +560,17 @@ function mockGitHub(options?: { runs?: unknown; artifacts?: unknown }) {
       ],
     },
   });
-  githubMocks.request.mockImplementation(async (route: string) => {
+  githubMocks.request.mockImplementation(async (route: string, params: { run_id?: number }) => {
     switch (route) {
+      case "GET /repos/{owner}/{repo}/actions/runs/{run_id}": {
+        const run = params.run_id === undefined ? undefined : options?.runsById?.get(params.run_id);
+        if (!run) {
+          throw new RequestError("Not Found", 404, {
+            request: { method: "GET", url: "https://api.github.com/run", headers: {} },
+          });
+        }
+        return { data: run };
+      }
       case "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs":
         return { data: options?.runs ?? observedSetupWorkflowRunPage };
       case "GET /repos/{owner}/{repo}/actions/artifacts":
@@ -684,5 +704,77 @@ describe("setupOutput.applyLatestForUser", () => {
         repositoryId: withoutOutput.ids.repositoryId,
       }),
     ).toMatchObject({ state: "no_output", latestRun: { runId: 37545425944 } });
+  });
+
+  it("reads the run of an artifact that the run pages do not list", async () => {
+    const fixture = await createFixture();
+    const [recordedRun] = observedSetupWorkflowRunPage.workflow_runs;
+    mockGitHub({
+      runs: {
+        total_count: 1001,
+        workflow_runs: observedSetupWorkflowRunPage.workflow_runs.slice(1),
+      },
+      runsById: new Map([[recordedRun.id, recordedRun]]),
+    });
+    mockProviders();
+
+    expect(
+      await fixture.t.action(internal.repository.setupOutput.applyLatestForUser, {
+        userId: fixture.ids.ownerId,
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({ state: "applied", source });
+  });
+
+  it("never replaces the applied output with an older one while the applied run reruns", async () => {
+    const fixture = await createFixture();
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.patch(fixture.ids.planId, {
+        setupOutput: {
+          state: "applied",
+          ...source,
+          outputVersion: 1,
+          appliedAt: 1,
+        },
+      });
+    });
+    const [rerunning, olderRun] = observedSetupWorkflowRunPage.workflow_runs;
+    const olderReceipt = {
+      ...observedSetupOutputArtifactPage.artifacts[0],
+      id: 11443958000,
+      created_at: "2026-10-06T21:10:47Z",
+      workflow_run: {
+        ...observedSetupOutputArtifactPage.artifacts[0].workflow_run,
+        id: olderRun.id,
+        head_sha: olderRun.head_sha,
+      },
+    };
+    mockGitHub({
+      runs: {
+        total_count: 3,
+        workflow_runs: [
+          { ...rerunning, run_attempt: 3, status: "in_progress", conclusion: null },
+          ...observedSetupWorkflowRunPage.workflow_runs.slice(1),
+        ],
+      },
+      artifacts: {
+        total_count: 2,
+        artifacts: [...observedSetupOutputArtifactPage.artifacts, olderReceipt],
+      },
+    });
+
+    expect(
+      await fixture.t.action(internal.repository.setupOutput.applyLatestForUser, {
+        userId: fixture.ids.ownerId,
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({
+      state: "unchanged",
+      latestRun: { runId: rerunning.id, status: "in_progress" },
+      source: { artifactId: 11443958000 },
+    });
+    expect((await readRows(fixture)).plan).toMatchObject({
+      setupOutput: { state: "applied", artifactId: source.artifactId },
+    });
   });
 });
