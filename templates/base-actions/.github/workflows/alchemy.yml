@@ -254,9 +254,10 @@ jobs:
       - name: Audit package signatures
         run: pnpm audit signatures
 
-      # A deploy of the Worker shell and the Convex project with
-      # DESTROY_APP=true, `alchemy destroy --stage prod`, then the delete of
-      # the stack's state. scripts/destroy-app.ts says why and in what order.
+      # A dry run that upgrades the state store, a deploy of the Worker shell
+      # and the Convex project with DESTROY_APP=true, `alchemy destroy --stage
+      # prod`, then the delete of the stack's state. scripts/destroy-app.ts
+      # says why and in what order.
       - name: Destroy the app
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
