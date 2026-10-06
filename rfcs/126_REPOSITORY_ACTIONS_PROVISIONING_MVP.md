@@ -408,3 +408,10 @@ Score Four CI token), and the CI token for the dogfood organization.
   job with the no-scripts install and the signature audit only, head check before the deploy. In
   progress as a template follow-up PR stacked on #1691. Where the template lives (monorepo today,
   maybe its own repository later) is a separate question Nicu named for later.
+- 2026-10-06: PR #1691 merged as v2096 (main `d4b397d6a`). The export job published the full
+  template to `samebase/base-actions` on its first run (repository created by Fable with Nicu's OK).
+  Nicu's UI direction: the integration keeps the existing screens and slots and changes their
+  sources per mode (deploy state from the `alchemy` check run, logs from the Actions run, URLs from
+  the Worker and Convex project by name, previews per branch); one creation choice, one CI
+  credentials section, mode-aware attention items, a row label; the adapter in the status reader is
+  PR C and is where the complexity goes.
