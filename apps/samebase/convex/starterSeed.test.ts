@@ -13,7 +13,6 @@ function makeErrorWithStatus(status: number, message: string): Error {
 function makeGitClient(options?: {
   failFirstCreateTreeStatus?: number;
   createRefAlreadyExistsOnce?: boolean;
-  updateRefMissing?: boolean;
   createTreeFailsWithEmptyRepoUntilBootstrap?: boolean;
   emptyRepositoryCreateBlobFailuresAfterBootstrap?: number;
 }) {
@@ -24,6 +23,8 @@ function makeGitClient(options?: {
   const updateRefCalls: Parameters<StarterSeedGitClient["updateRef"]>[0][] = [];
   const createBootstrapCommitCalls: Parameters<StarterSeedGitClient["createBootstrapCommit"]>[0][] =
     [];
+  /** The ref writes and bootstrap commits in call order, for the push order of a branch-first seed. */
+  const refEvents: string[] = [];
 
   let treeCounter = 0;
   let blobCounter = 0;
@@ -71,6 +72,7 @@ function makeGitClient(options?: {
     },
     createRef: async (args) => {
       createRefCalls.push(args);
+      refEvents.push(`create ${args.ref} ${args.sha}`);
       if (options?.createRefAlreadyExistsOnce && !didThrowRefExists) {
         didThrowRefExists = true;
         throw makeErrorWithStatus(422, "Reference already exists");
@@ -78,14 +80,13 @@ function makeGitClient(options?: {
     },
     updateRef: async (args) => {
       updateRefCalls.push(args);
-      if (options?.updateRefMissing) {
-        throw makeErrorWithStatus(422, "Reference does not exist");
-      }
+      refEvents.push(`update ${args.ref} ${args.sha}`);
     },
     createBootstrapCommit: async (args) => {
       createBootstrapCommitCalls.push(args);
       didBootstrap = true;
       bootstrapCounter += 1;
+      refEvents.push(`bootstrap ${args.branch} bootstrap-${bootstrapCounter}`);
       return { sha: `bootstrap-${bootstrapCounter}` };
     },
   };
@@ -98,6 +99,7 @@ function makeGitClient(options?: {
     createRefCalls,
     updateRefCalls,
     createBootstrapCommitCalls,
+    refEvents,
   };
 }
 
@@ -297,26 +299,68 @@ describe("seedRepositoryWithStarter", () => {
     });
   });
 
-  it("creates the requested branch when the bootstrap commit landed on another branch", async () => {
-    const mock = makeGitClient({
-      createTreeFailsWithEmptyRepoUntilBootstrap: true,
-      updateRefMissing: true,
-    });
-
-    await expect(
-      seedRepositoryWithStarter({
+  describe("with a step before the starter push", () => {
+    async function seedBranchFirst(mock: ReturnType<typeof makeGitClient>) {
+      return await seedRepositoryWithStarter({
         client: mock.client,
         owner: "owner",
         repo: "repo",
         defaultBranch: "main",
         manifest,
-      }),
-    ).resolves.toEqual({ defaultBranch: "main", headCommitSha: "commit-1" });
+        beforeStarterPush: async () => {
+          mock.refEvents.push("before starter push");
+        },
+      });
+    }
 
-    expect(mock.updateRefCalls.at(-1)).toMatchObject({ ref: "heads/main", sha: "commit-1" });
-    expect(mock.createRefCalls).toEqual([
-      { owner: "owner", repo: "repo", ref: "refs/heads/main", sha: "commit-1" },
-    ]);
+    it("creates the branch at the bootstrap commit when it landed on another branch", async () => {
+      const mock = makeGitClient({ createTreeFailsWithEmptyRepoUntilBootstrap: true });
+
+      await expect(seedBranchFirst(mock)).resolves.toEqual({
+        defaultBranch: "main",
+        headCommitSha: "commit-1",
+      });
+
+      expect(mock.refEvents).toEqual([
+        "bootstrap main bootstrap-1",
+        "create refs/heads/main bootstrap-1",
+        "before starter push",
+        "update heads/main commit-1",
+      ]);
+    });
+
+    it("keeps the branch that the bootstrap commit created", async () => {
+      const mock = makeGitClient({
+        createTreeFailsWithEmptyRepoUntilBootstrap: true,
+        createRefAlreadyExistsOnce: true,
+      });
+
+      await seedBranchFirst(mock);
+
+      expect(mock.refEvents).toEqual([
+        "bootstrap main bootstrap-1",
+        "create refs/heads/main bootstrap-1",
+        "before starter push",
+        "update heads/main commit-1",
+      ]);
+    });
+
+    it("creates the branch at a placeholder commit in a repository that has commits", async () => {
+      const mock = makeGitClient();
+
+      await seedBranchFirst(mock);
+
+      // The placeholder commit holds only the bootstrap file, so the branch runs no workflow.
+      expect(mock.createTreeCalls.at(-1)?.tree).toEqual([
+        { path: ".samebase-seed-bootstrap", mode: "100644", type: "blob", content: "bootstrap\n" },
+      ]);
+      expect(mock.createCommitCalls.at(-1)).toMatchObject({ tree: "tree-2", parents: [] });
+      expect(mock.refEvents).toEqual([
+        "create refs/heads/main commit-2",
+        "before starter push",
+        "update heads/main commit-1",
+      ]);
+    });
   });
 
   it("retries manifest writes after bootstrap while GitHub still reports an empty repository", async () => {

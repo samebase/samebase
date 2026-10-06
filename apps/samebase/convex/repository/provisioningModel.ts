@@ -218,13 +218,15 @@ export const vRepositoryActionsSeed = union(
 
 /**
 The Convex team access token that write_actions_secrets mints for one repository_actions repository
-and writes as its CONVEX_ACCESS_TOKEN secret. Samebase stores only the name: a retry deletes the
-token by name before it mints a new one. Samebase never revokes what a repository needs to keep
-working, so removing the repository or deleting the account or organization leaves the token in
-place for the user to revoke.
+and writes as its CONVEX_ACCESS_TOKEN secret. Samebase stores only the name. minting records the name
+before the mint request, because Convex can create the token although the answer never arrives; a
+retry deletes a minting or minted token by name before it mints a new one. Samebase never revokes
+what a repository needs to keep working, so removing the repository or deleting the account or
+organization leaves the token in place for the user to revoke.
 */
 export const vRepositoryActionsConvexAccessToken = union(
   object({ state: literal("planned") }),
+  object({ state: literal("minting"), name: string() }),
   object({ state: literal("minted"), name: string(), mintedAt: number() }),
 );
 

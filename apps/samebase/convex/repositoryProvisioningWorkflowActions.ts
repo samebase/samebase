@@ -666,6 +666,47 @@ export const seedStarterRepository = internalAction({
     const repoName = repository.name;
     const githubDefaultBranch = readDefaultBranch(repository);
 
+    // The template deploys production from pushes to the default branch, and GitHub creates a
+    // repository with the owner's default branch, which can be another name than main. So main
+    // becomes the default before the starter push, the push that runs the first deployment. GitHub's
+    // docs do not say whether the first branch pushed to an empty repository becomes its default, so
+    // the step reads the default again once main exists.
+    const makeMainTheDefaultBranch = async () => {
+      const current = readDefaultBranch(
+        (
+          await resolveGitHubRepositoryById({
+            octokit,
+            githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+            recordApiCall,
+          })
+        ).data,
+      );
+      if (current === REPOSITORY_ACTIONS_DEFAULT_BRANCH) {
+        return;
+      }
+      await recordApiCall({
+        provider: "GitHub",
+        method: "PATCH",
+        endpoint: "/repos/{owner}/{repo}",
+        values: {
+          body: { default_branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH },
+          params: { path: { owner: ownerName, repo: repoName } },
+        },
+      });
+      await octokit.rest.repos.update({
+        owner: ownerName,
+        repo: repoName,
+        default_branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH,
+      });
+      await appendRunEvent(ctx, {
+        runId: args.runId,
+        step: "seed_starter",
+        level: "info",
+        message: `Set the default branch of ${ownerName}/${repoName} to ${REPOSITORY_ACTIONS_DEFAULT_BRANCH}. GitHub created it with ${current}.`,
+        state: "running",
+      });
+    };
+
     if (!alreadySeeded) {
       const manifest = repositoryActions ? actionsStarterTemplateManifest : starterTemplateManifest;
       try {
@@ -677,6 +718,7 @@ export const seedStarterRepository = internalAction({
             ? REPOSITORY_ACTIONS_DEFAULT_BRANCH
             : githubDefaultBranch,
           manifest,
+          beforeStarterPush: repositoryActions ? makeMainTheDefaultBranch : undefined,
         });
       } catch (error) {
         const seedErrorMessage = toErrorMessage(error);
@@ -706,35 +748,14 @@ export const seedStarterRepository = internalAction({
       });
     }
 
-    // The template deploys from main, but GitHub creates a repository with the owner's default
-    // branch, which can be another name. Once the record says main, the switch is done: a branch
-    // that the user chose later is never changed.
+    // Once the record says main, the switch is done: a branch that the user chose later is never
+    // changed. A seed recorded before the record finishes the switch here.
     if (
       repositoryActions &&
       connectedRepository.defaultBranch !== REPOSITORY_ACTIONS_DEFAULT_BRANCH
     ) {
-      if (githubDefaultBranch !== REPOSITORY_ACTIONS_DEFAULT_BRANCH) {
-        await recordApiCall({
-          provider: "GitHub",
-          method: "PATCH",
-          endpoint: "/repos/{owner}/{repo}",
-          values: {
-            body: { default_branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH },
-            params: { path: { owner: ownerName, repo: repoName } },
-          },
-        });
-        await octokit.rest.repos.update({
-          owner: ownerName,
-          repo: repoName,
-          default_branch: REPOSITORY_ACTIONS_DEFAULT_BRANCH,
-        });
-        await appendRunEvent(ctx, {
-          runId: args.runId,
-          step: "seed_starter",
-          level: "info",
-          message: `Set the default branch of ${ownerName}/${repoName} to ${REPOSITORY_ACTIONS_DEFAULT_BRANCH}. GitHub created it with ${githubDefaultBranch}.`,
-          state: "running",
-        });
+      if (alreadySeeded) {
+        await makeMainTheDefaultBranch();
       }
       await ctx.runMutation(
         internal.repositoryProvisioningWorkflow.recordRepositoryActionsDefaultBranch,
@@ -866,10 +887,11 @@ export const writeActionsSecrets = internalAction({
           })
         : access.octokit;
 
-    // The repository gets its own Convex team access token. The previous one of a retry goes first,
-    // so the team holds one token per repository; Samebase keeps only the name.
+    // The repository gets its own Convex team access token. A token that an earlier attempt minted,
+    // or may have minted when its answer was lost, goes first, so the team holds one token per
+    // repository; Samebase keeps only the name.
     const convexToken = { token: target.convexMintingToken, teamId: target.convexTeamId };
-    if (target.convexAccessToken.state === "minted") {
+    if (target.convexAccessToken.state !== "planned") {
       await deleteConvexTeamAccessToken({
         ...convexToken,
         name: target.convexAccessToken.name,
@@ -879,22 +901,30 @@ export const writeActionsSecrets = internalAction({
         runId: args.runId,
         step: "write_actions_secrets",
         level: "info",
-        message: `Deleted the previous Convex access token ${target.convexAccessToken.name}.`,
+        message: `Deleted the earlier Convex access token ${target.convexAccessToken.name}.`,
         state: "running",
       });
     }
     const convexAccessTokenName = buildRepositoryActionsConvexAccessTokenName(
       `${repository.owner.login}/${repository.name}`,
     );
+    await ctx.runMutation(internal.repositoryProvisioningWorkflow.recordConvexAccessToken, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      state: "minting",
+      name: convexAccessTokenName,
+    });
     const convexAccessToken = await createConvexTeamAccessToken({
       ...convexToken,
       name: convexAccessTokenName,
       recordApiCall,
     });
-    await ctx.runMutation(internal.repositoryProvisioningWorkflow.recordConvexAccessTokenMinted, {
+    await ctx.runMutation(internal.repositoryProvisioningWorkflow.recordConvexAccessToken, {
       repositoryId: args.repositoryId,
       runId: args.runId,
       userId: args.userId,
+      state: "minted",
       name: convexAccessTokenName,
     });
     await appendRunEvent(ctx, {

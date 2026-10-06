@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 const githubMocks = vi.hoisted(() => ({
   createRepositoryOctokit: vi.fn(),
   resolveAppAccess: vi.fn(),
-  seedRepository: vi.fn(),
+  seedRepository: vi.fn<typeof import("./starterSeed").seedRepositoryWithStarter>(),
 }));
 
 const convexMocks = vi.hoisted(() => ({
@@ -549,7 +549,11 @@ function createFakeGitHub(options: {
 }) {
   const requests: FakeGitHubRequest[] = [];
   const calls: string[] = [];
-  githubMocks.seedRepository.mockImplementation(async () => {
+  // The seeder creates the branch without starter files, runs the step before the starter push,
+  // then pushes the starter.
+  githubMocks.seedRepository.mockImplementation(async (args) => {
+    calls.push("branch without starter");
+    await args.beforeStarterPush?.();
     calls.push("seed");
     return { defaultBranch: "main", headCommitSha: "seed-commit" };
   });
@@ -637,6 +641,14 @@ function createFakeGitHub(options: {
     },
   });
   return { calls, octokit, requests, options };
+}
+
+/** The GitHub requests between the seeded branch's creation and the starter push. */
+function readCallsBeforeStarterPush(github: ReturnType<typeof createFakeGitHub>): string[] {
+  return github.calls.slice(
+    github.calls.indexOf("branch without starter") + 1,
+    github.calls.indexOf("seed"),
+  );
 }
 
 async function createRepositoryActionsRepository(github: ReturnType<typeof createFakeGitHub>) {
@@ -781,6 +793,12 @@ describe("repository_actions provisioning workflow", () => {
     expect(github.calls.indexOf("seed")).toBeGreaterThan(
       github.calls.indexOf("POST /repos/samebase/actions-app/actions/variables"),
     );
+    // main is already the default, so the step reads it once more and changes nothing.
+    expect(readCallsBeforeStarterPush(github)).toEqual([
+      "GET /installation/repositories",
+      "GET /repos/samebase/actions-app",
+    ]);
+    expect(github.requests.filter((request) => request.method === "PATCH")).toEqual([]);
     expect(state.plan).toMatchObject({
       provisioning: "repository_actions",
       ciSecrets: { state: "written", credentialRevision: 30 },
@@ -914,10 +932,63 @@ describe("repository_actions provisioning workflow", () => {
       currentStep: "write_actions_secrets",
       lastError: mintRefusal,
     });
-    expect(failed.plan).toMatchObject({ convexAccessToken: { state: "planned" } });
+    expect(failed.plan).toMatchObject({
+      convexAccessToken: { state: "minting", name: "samebase/samebase/actions-app" },
+    });
     expect(github.requests.filter((request) => request.path.includes("/actions/secrets/"))).toEqual(
       [],
     );
+  });
+
+  it("deletes a token whose mint answer was lost by name, then mints again on retry", async () => {
+    // Convex can create the token although its answer never arrives; every attempt of the step
+    // loses it here.
+    convexMocks.createTeamAccessToken.mockRejectedValue(new Error("fetch failed"));
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+    });
+    const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
+    await recordWorkflowFailure(t, { runId, message: "Error: fetch failed" });
+
+    const failed = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(failed.run).toMatchObject({ state: "failed", currentStep: "write_actions_secrets" });
+    // The name was recorded before the request, so the retry can find the token.
+    expect(failed.plan).toMatchObject({
+      convexAccessToken: { state: "minting", name: "samebase/samebase/actions-app" },
+    });
+    expect(github.requests.filter((request) => request.path.includes("/actions/secrets/"))).toEqual(
+      [],
+    );
+
+    convexMocks.createTeamAccessToken.mockReset();
+    convexMocks.createTeamAccessToken.mockResolvedValue("convex-minted-test-token-after-retry");
+    convexMocks.deleteTeamAccessToken.mockClear();
+    const retryRunId = await retryProviderSetup(t, { userId, repositoryId });
+
+    const resumed = await readRepositoryActionsState(t, { repositoryId, runId: retryRunId });
+    expect(resumed.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+    expect(convexMocks.deleteTeamAccessToken).toHaveBeenCalledExactlyOnceWith({
+      token: "convex-oauth-test-token",
+      teamId: "41",
+      name: "samebase/samebase/actions-app",
+      recordApiCall: expect.any(Function),
+    });
+    expect(convexMocks.createTeamAccessToken).toHaveBeenCalledOnce();
+    expect(convexMocks.deleteTeamAccessToken.mock.invocationCallOrder[0]).toBeLessThan(
+      convexMocks.createTeamAccessToken.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(resumed.plan).toMatchObject({
+      convexAccessToken: { state: "minted", name: "samebase/samebase/actions-app" },
+    });
+    await expect(
+      openActionsSecret(
+        github.requests
+          .filter((request) => request.path.endsWith("/secrets/CONVEX_ACCESS_TOKEN"))
+          .at(-1),
+      ),
+    ).resolves.toBe("convex-minted-test-token-after-retry");
   });
 
   it("keeps the minted Convex access token when the repository is removed from Samebase", async () => {
@@ -981,7 +1052,7 @@ describe("repository_actions provisioning workflow", () => {
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
   });
 
-  it("sets the default branch to main after the seed when GitHub created it with master", async () => {
+  it("makes main the default branch before the starter push when GitHub created it with master", async () => {
     const github = createFakeGitHub({
       defaultBranch: "master",
       denySecrets: false,
@@ -1002,10 +1073,13 @@ describe("repository_actions provisioning workflow", () => {
         body: { default_branch: "main" },
       },
     ]);
-    // The seed push comes first: the branch must exist before it becomes the default.
-    expect(github.calls.indexOf("PATCH /repos/samebase/actions-app")).toBeGreaterThan(
-      github.calls.indexOf("seed"),
-    );
+    // main exists without starter files, becomes the default, and only then gets the starter, so the
+    // first workflow run sees main as the default branch.
+    expect(readCallsBeforeStarterPush(github)).toEqual([
+      "GET /installation/repositories",
+      "GET /repos/samebase/actions-app",
+      "PATCH /repos/samebase/actions-app",
+    ]);
     expect(state.messages).toContain(
       "Set the default branch of samebase/actions-app to main. GitHub created it with master.",
     );

@@ -118,7 +118,8 @@ samebase/<owner>/<repository>, without expiry, through the organization's Convex
 It writes the Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN
 (the minted token, which Samebase does not store) and the Actions variable CONVEX_TEAM_ID, then
 seeds the GitHub Actions variant of the starter on main, and that first push deploys. When GitHub
-created the repository with another default branch, Samebase sets main as the default. The Convex
+created the repository with another default branch, Samebase makes main the default before it
+pushes the starter, so that first deployment runs as production. The Convex
 project and the Worker take the repository's name, so omit convexProjectName, cloudflareWorkerName,
 buildTokenUuid, and convexDeploymentRegion. Before it creates anything, the call fails when the
 organization has no saved Cloudflare CI token (the Providers page) or the token does not verify,

@@ -493,23 +493,30 @@ export const recordRepositoryActionsDefaultBranch = internalMutation({
 });
 
 /**
-Records the name of the Convex access token that write_actions_secrets just minted, before the token
-reaches GitHub, so a retry or the repository's removal can delete it by name. The value is never
-stored.
+Records the name of the repository's Convex access token: minting before the mint request, minted
+after it, so a retry can delete it by name. The value is never stored.
 */
-export const recordConvexAccessTokenMinted = internalMutation({
+export const recordConvexAccessToken = internalMutation({
   args: {
     repositoryId: id("repositories"),
     runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
+    state: union(literal("minting"), literal("minted")),
     name: string(),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const plan = await readRepositoryActionsPlanForRun(ctx, args);
+    const plan = await readRepositoryActionsPlanForRun(ctx, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+    });
     const now = Date.now();
     await ctx.db.patch(plan._id, {
-      convexAccessToken: { state: "minted", name: args.name, mintedAt: now },
+      convexAccessToken:
+        args.state === "minting"
+          ? { state: "minting", name: args.name }
+          : { state: "minted", name: args.name, mintedAt: now },
       updatedAt: now,
     });
     return null;
