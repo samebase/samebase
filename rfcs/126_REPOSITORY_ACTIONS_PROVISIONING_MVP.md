@@ -585,3 +585,7 @@ C; Convex token minting per repository (spike pending); the template location lo
   update would be dropped. Fix in progress: the starter commit descends from the checked head
   (bootstrap, starter) and the ref update is a plain fast-forward; a rejected update re-reads the
   branch and applies the same rules; never force.
+- 2026-10-07: PR B commit `8c25112d7`: the starter commit descends from the bootstrap head and
+  `main` is updated without force; a rejected update (head moved) re-reads the branch and applies
+  the same rules, up to three times; the seeded `main` has two commits (bootstrap, starter). 2631
+  tests green. Codex round 9 and CI running.
