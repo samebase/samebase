@@ -517,3 +517,13 @@ C; Convex token minting per repository (spike pending); the template location lo
   `samebase/base-actions`, and the published copy's own `alchemy` workflow now ends with both jobs
   skipped by the `CONVEX_TEAM_ID` gate instead of failing. The RFC pull request carries the fresh
   label v2098.
+- 2026-10-07: PR B final shape before its fifth Codex round (label v2098, rebased on v2097, 2622
+  tests): the providers page links to the prefilled Cloudflare token form; `write_actions_secrets`
+  mints the Convex team access token through the organization's Convex OAuth token
+  (`samebase/<owner>/<repository>`, no expiry), writes it as the secret, stores only the name on the
+  plan, deletes the old one by name before a retry mints again, and deletes it when the repository
+  is removed from Samebase; the Convex paste is gone, and the mode requires a Convex connection made
+  with OAuth. Open for Nicu: whether removal of a repository from Samebase should revoke that token
+  when the GitHub repository is kept (the agent built "revoke"; the other resources of a removed
+  repository are retained, so "retain" would be the consistent choice). Dogfood check: the scope of
+  the minted token (team-wide is expected).
