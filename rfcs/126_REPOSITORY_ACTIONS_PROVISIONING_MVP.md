@@ -269,3 +269,13 @@ Score Four CI token), and the CI token for the dogfood organization.
   stage starts with a digit; Part 3 computes the same name. Documented as a limit, not fixed: two
   branches that differ only in characters outside letters and digits share a stage, and the second
   deploy fails with `DeploymentIdentityChange`. Manifest `samebase-base-actions-4c16b72fbfa2`.
+- 2026-10-06: Hand test, production half. The composed template (95 files) was pushed to the private
+  repository `nicu-chiciuc/tmp-actions-template` with the three secrets and the team id variable set
+  by hand (the secrets write is Nicu's step until PR B). The first `alchemy` run on main created all
+  11 resources in 28 seconds: Convex project `tmp-actions-template` with production deployment
+  `third-spider-587`, deploy key, JWT keys and project defaults, functions push, Worker
+  `tmp-actions-template`. Site and Convex answer 200. The Cloudflare token was the Mail checkout's
+  token; its permission set is enough for the state store, the Worker, and the Preview path still to
+  be tested. Codex round 2 found two P1s (shared stack key across owners; destroy of another
+  branch's stage); fixes in progress: stack name = owner plus repository, stage `pr-<n>` again with
+  the Convex preview still named after the branch.
