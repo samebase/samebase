@@ -458,7 +458,7 @@ export const repositoryCreateTool = defineMcpTool({
         cloudflare: { state: "planned", workerName },
       };
       return {
-        text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secrets and seeds the starter; then the repository's GitHub Actions deploy the Convex project and the Worker ${workerName}. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in the repository's GitHub Actions.`,
+        text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secrets and seeds the starter; then the repository's GitHub Actions set up the Convex project, the Worker ${workerName}, and its Workers Builds link, and Workers Builds deploys the app. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in Workers Builds.`,
         structuredContent,
       };
     }

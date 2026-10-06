@@ -869,7 +869,7 @@ export const createRepositoryForRepository = internalAction({
 
 /**
 write_actions_secrets of the repository_actions mode: the CI credentials become the secrets and the
-variable that the template's alchemy workflow reads. GitHub is written with the same Octokit that
+variable that the template's alchemy workflow reads to run the setup stack. GitHub is written with the same Octokit that
 created the repository for this owner type. Every write is an upsert, so a retry resumes safely.
 */
 export const writeActionsSecrets = internalAction({
