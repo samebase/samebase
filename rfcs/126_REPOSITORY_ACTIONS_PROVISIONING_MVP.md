@@ -629,3 +629,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   so Samebase can read `<stack>/<stage>/output` (`convexUrl`, `workerUrl`) and the resource states
   over HTTP. Caveat: the API is Alchemy-internal and beta; PR C validates it at runtime and keeps
   the by-name read as the fallback.
+- 2026-10-06: Second app `samebase/tmp-alchemy-testing-02`, created from the preview after the fix
+  and the destroy job landed on PR B: green end to end at the first attempt, about two minutes from
+  the run start (11 resources, Worker 200, Convex `clear-vulture-474`). The app page kept "No
+  default branch commit is available" until a reload, then showed the commit and "2/4 pending" (PR
+  C).
