@@ -198,14 +198,123 @@ workflow runs of private repositories. The change applies to every App instance.
 
 ## Observation (PR C)
 
-Samebase's screens and slots stay the same; only their sources change per mode. For a
-`repository_actions` repository: the `alchemy` check on the default branch head is the setup status,
-with the Actions run as its link; the deploy and preview status come from Workers Builds, which
-Samebase already observes for the current mode (the Builds branch metadata on a Preview, the
-`SAMEBASE_CONVEX_PROJECT` build variable, the Convex preview by `previewIdentifier`); after the
-first green setup run it attaches the Worker found through its Builds link to the repository and the
-Convex project named in the variable, through the existing attach contracts. Nicu's idea for a
-stronger source, the Alchemy state store read, stays open for PR C. No hook runs the destroy.
+The text below comes from `research/2026-10-07-alchemy-as-samebase-source-of-truth.md` (PR #1699),
+which also holds the inventories, the option comparison, the trust analysis, the edge cases, and the
+Codex challenges. Implementation runs on the same PR, in stages; the text changes with it.
+
+### PR C: Decision
+
+For a `repository_actions` repository, the identity of its Worker and Convex project comes from an
+output block that the repository's setup run publishes. A block is a proposal: Samebase verifies it
+against Cloudflare and Convex with the organization's connections, applies the first one after
+creation automatically only for the names it reserved at creation, and applies anything else only on
+a member's explicit request. Live status keeps coming from Workers Builds, GitHub, and Convex.
+Samebase does not read Alchemy's state store.
+
+### PR C: The output block contract
+
+- Artifact name `samebase-setup-output`, one file `samebase-setup-output.json`, exactly one JSON
+  document, at most 64 KiB, uploaded with `overwrite: true`.
+- The `deploy` job uploads it after `alchemy deploy` succeeds. The stack returns the block under the
+  `samebase` key of its output; a template script reads the output with
+  `alchemy state read --backend cloudflare <stack>/prod/output`, keeps the JSON object after the
+  command's log lines, validates the `samebase` value against the version's strict field list, and
+  writes only that value. A failed validation fails the step before anything is uploaded.
+- `scripts/destroy-app.ts` writes the destroy receipt only after `alchemy destroy` ran, and the
+  `destroy-app` job uploads it.
+- Version rule: an integer `version`. Version 1 rejects unknown fields, in the template and in the
+  reader. Any added, removed, or retyped field is a new version. Samebase keeps one validator per
+  version it has met and never drops one while a template that writes it can still run.
+- No field may hold a secret. Convex ids are decimal strings, as Samebase stores them and as the
+  `SAMEBASE_CONVEX_PROJECT` marker carries them.
+
+```json
+{
+  "version": 1,
+  "state": "deployed",
+  "cloudflare": {
+    "accountId": "0123456789abcdef0123456789abcdef",
+    "workers": [
+      { "tag": "7c1f0e0d2b8a4c5e9f1a2b3c4d5e6f70", "name": "my-app", "rootDirectory": "/" }
+    ]
+  },
+  "convex": {
+    "teamId": "12345",
+    "projects": [{ "projectId": "678901", "configPath": "convex.json" }]
+  }
+}
+```
+
+The destroy receipt is `{ "version": 1, "state": "destroyed" }`.
+
+### PR C: The reader
+
+1. List every retained run, page by page:
+   `GET /repos/{o}/{r}/actions/workflows/alchemy.yml/runs?branch=<live default branch>`. Keep runs
+   whose `path` is `.github/workflows/alchemy.yml`, `event` is `push` or `workflow_dispatch`, and
+   whose `repository.id` and `head_repository.id` are the repository's GitHub id. The kept run with
+   the newest `run_started_at` (a rerun moves it), in any state, is the setup status. No cutoff by
+   run age: a rerun of an older run can carry the newest artifact.
+2. Find the block: the newest non-expired artifact named `samebase-setup-output` among the
+   successful kept runs, by the artifact's `created_at`, then id. Its `workflow_run` id, repository
+   ids, and `head_sha` must equal the run's. An artifact id equal to the checkpoint's means nothing
+   new.
+3. Download, require one file, one JSON document, the size bound, and a known version.
+4. `deployed`: verify every claim as in section 4 with the organization's connections. A failed
+   claim applies nothing and reports which claim failed, distinctly from a failed run.
+5. Apply, in one mutation that re-checks the idle state, the quota, exclusivity, and the checkpoint
+   (compare-and-swap): insert the new identities with origin `setup_stack`, move matching rows of
+   this repository to `setup_stack`, replace a `setup_stack` Worker row whose old tag reads as
+   missing and whose name the block reuses, and record
+   `setup.applied { runId, runAttempt, artifactId, outputVersion, appliedAt }`.
+6. `destroyed`: record `setup.destroy_reported { runId, runAttempt, artifactId, readAt }`; change no
+   row.
+
+### PR C: When it runs, and who decides
+
+- After `finish`, the provisioning run starts a short workflow that waits for the first block: a
+  loop of read actions and workflow sleeps (`ctx.sleep` in `@convex-dev/workflow@0.4.6`,
+  `dist/client/workflowContext.d.ts:116-119`), giving up after 20 minutes. It holds no lock. It
+  applies automatically only when every identity carries a reserved name of the plan
+  (`reservedNames`), the project name is unique in the team, and both resources were created after
+  the plan (`createTime`, `created_on`). Otherwise it records nothing and the status asks a member
+  to apply.
+- "Apply setup output", a dashboard button on the setup status and one MCP tool: a member reads the
+  newest block, sees the identities it will attach or replace, and applies it. This is the only path
+  after the first automatic apply.
+- Never from a status read. The status read reports when the newest block differs from the
+  checkpoint.
+
+### PR C: The attach rule
+
+Samebase attaches or replaces a resource from a block only when the repository has a
+`repository_actions` plan, the block passed every check, the resource is not attached to another
+repository, and a member's intent covers it: the creation for the reserved names, or an explicit
+apply. An observation alone never attaches (spec 115). A `setup_stack` row is never deleted by
+Samebase and never the target of a Samebase infrastructure write; a member may update its name or
+root and may detach it.
+
+### PR C: Write authority and status sources per mode
+
+One function decides whether Samebase may write a repository's infrastructure: not for a repository
+with a `repository_actions` plan. The backend admission, the Settings block reason, and the MCP
+attention advice all call it.
+
+| Slot                           | `samebase`                            | `repository_actions`                                                                                                         |
+| ------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Setup                          | Samebase's provisioning run           | Samebase's run until `finish`; then the newest `alchemy` run on the default branch, in any state, and the `setup` checkpoint |
+| Worker and project identity    | Attachments, `provisioned`            | Attachments, `setup_stack`                                                                                                   |
+| Production build               | Workers Builds observation            | Same                                                                                                                         |
+| Pull request previews          | Cloudflare checks, native fallback    | Same                                                                                                                         |
+| Convex production and previews | Convex observation                    | Same                                                                                                                         |
+| Deploy-key access              | Builds variables observation          | Same                                                                                                                         |
+| Repairs                        | Samebase Repair buttons and MCP tools | "Change `alchemy.run.ts`, or run the `alchemy` workflow"; name, root, and detach stay                                        |
+| Removal                        | Can delete `provisioned`              | Never deletes; the confirmation names the retained resources and links the confirmed destroy                                 |
+
+The MCP attention short-circuit for this mode (`repositoryStatus.ts:184-187`) gives way to the
+normal items for attached rows, filtered by the write-authority rule, plus the setup-run items. The
+dashboard's setup summary, which today keys on a Convex workflow run
+(`contracts/getUserRepositories.ts:63-85`), gains a separate live read for the GitHub run.
 
 ## Pull requests
 
@@ -798,3 +907,8 @@ Open for PR C, in Nicu's words "how all this fits in":
   retention, so Samebase reads within minutes and keeps the result. The retirement of the `samebase`
   mode's provider workflows is RFC 127, six phases. Open questions and a live identity spike (27
   claims, one-off job on `tmp-alchemy-v2`) wait for Nicu.
+- 2026-10-07: Nicu: implement the research, in the same PR (#1699), expecting changes along the way.
+  The note's recommendations are the defaults until something stops feeling right. The "Observation
+  (PR C)" section now carries the proposed text. Stages: the template contract and publish step; the
+  Samebase schema, reader, verification, apply, and write authority; the trigger workflow, the
+  explicit apply, the status sources; docs and finish. One Codex round per stage.
