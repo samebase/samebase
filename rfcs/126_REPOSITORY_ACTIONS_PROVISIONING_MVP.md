@@ -320,3 +320,13 @@ Score Four CI token), and the CI token for the dogfood organization.
   token `tmp-actions-template ci` has no delete endpoint in the Management API (`access_tokens`
   answers 404) and is deleted in the Convex dashboard by Nicu. PR #1690 marked ready for review;
   Nicu merges. Next: PR B (the mode in Samebase), after the open questions are answered.
+- 2026-10-06: Direction change on the template layout, Nicu's call. The overlay (only the files that
+  differ from `templates/base`, composed by the exporter) is replaced by a full
+  `templates/base-actions` directory with every file committed, exported directly like
+  `templates/base`, published as `samebase/base-actions`, and kept in sync by a check: every path
+  outside a declared list of deploy files must be byte-identical in both templates. Deciding reason:
+  a template must be a complete tree that a person can open, run, check, and publish as a
+  repository; the overlay could only be tested through a composed scratch copy. PR B keeps using the
+  same manifest export name. Also from Nicu: every decision in this document is the author's
+  opinion, not an invariant, and Codex reviews must be free to challenge them; a design review of
+  this RFC by Codex runs alongside PR B.
