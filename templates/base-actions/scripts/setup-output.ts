@@ -39,12 +39,15 @@ export const DeployedSetupOutput = Schema.Struct({
   }),
   convex: Schema.Struct({
     teamId: DecimalId,
+    /**
+    Each project names its code the way Samebase does: the convex.json file, or the convex/
+    directory of the default layout, relative to the repository root.
+    */
     projects: Schema.NonEmptyArray(
-      Schema.Struct({
-        projectId: DecimalId,
-        /** The project's convex.json, relative to the repository root. */
-        configPath: Schema.NonEmptyString,
-      }),
+      Schema.Union([
+        Schema.Struct({ projectId: DecimalId, convexConfigPath: Schema.NonEmptyString }),
+        Schema.Struct({ projectId: DecimalId, convexDirectoryPath: Schema.NonEmptyString }),
+      ]),
     ),
   }),
 });

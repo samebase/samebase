@@ -18,7 +18,7 @@ const samebase = {
     accountId: "0123456789abcdef0123456789abcdef",
     workers: [{ tag: "7c1f0e0d2b8a4c5e9f1a2b3c4d5e6f70", name: "my-app", rootDirectory: "/" }],
   },
-  convex: { teamId: "12345", projects: [{ projectId: "678901", configPath: "convex.json" }] },
+  convex: { teamId: "12345", projects: [{ projectId: "678901", convexConfigPath: "convex.json" }] },
 };
 
 const printed = (stackOutput: unknown) => `${logLines}${JSON.stringify(stackOutput, null, 2)}\n`;
@@ -36,21 +36,36 @@ describe("readSetupOutput", () => {
     ).toEqual(samebase);
   });
 
+  // The Workers, roots, and code locations of the shared-convex-monorepo-fixture in
+  // apps/samebase/src/repository/dashboard/RepositoryOverviewDialogsVisualFixture.tsx.
   it("reads several Workers and Convex projects, as a monorepo stack lists them", () => {
     const monorepo = {
       ...samebase,
       cloudflare: {
         ...samebase.cloudflare,
         workers: [
-          { tag: "7c1f0e0d2b8a4c5e9f1a2b3c4d5e6f70", name: "web", rootDirectory: "/apps/web" },
-          { tag: "0f9e8d7c6b5a49382716051423324150", name: "admin", rootDirectory: "/apps/admin" },
+          {
+            tag: "admin-worker-tag",
+            name: "shared-convex-monorepo-fixture-admin",
+            rootDirectory: "apps/admin",
+          },
+          {
+            tag: "portal-worker-tag",
+            name: "shared-convex-monorepo-fixture-portal",
+            rootDirectory: "apps/portal",
+          },
+          {
+            tag: "web-worker-tag",
+            name: "shared-convex-monorepo-fixture-web",
+            rootDirectory: "apps/web",
+          },
         ],
       },
       convex: {
         ...samebase.convex,
         projects: [
-          { projectId: "678901", configPath: "apps/web/convex.json" },
-          { projectId: "678902", configPath: "apps/admin/convex.json" },
+          { projectId: "678901", convexConfigPath: "apps/portal/convex.json" },
+          { projectId: "678902", convexDirectoryPath: "packages/backend/convex" },
         ],
       },
     };
@@ -81,6 +96,28 @@ describe("readSetupOutput", () => {
       readSetupOutput(
         printed({
           samebase: { ...samebase, convex: { ...samebase.convex, region: "aws-us-east-1" } },
+        }),
+      ),
+    ).toThrow();
+  });
+
+  it("fails on a project that names both a convex.json and a convex/ directory", () => {
+    expect(() =>
+      readSetupOutput(
+        printed({
+          samebase: {
+            ...samebase,
+            convex: {
+              ...samebase.convex,
+              projects: [
+                {
+                  projectId: "678901",
+                  convexConfigPath: "convex.json",
+                  convexDirectoryPath: "convex",
+                },
+              ],
+            },
+          },
         }),
       ),
     ).toThrow();

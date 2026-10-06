@@ -212,7 +212,7 @@ export default Alchemy.Stack(
         },
         convex: {
           teamId: String(teamId),
-          projects: [{ projectId: String(projectId), configPath: "convex.json" }],
+          projects: [{ projectId: String(projectId), convexConfigPath: "convex.json" }],
         },
       }),
     );
