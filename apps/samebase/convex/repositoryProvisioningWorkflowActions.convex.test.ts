@@ -42,6 +42,7 @@ vi.mock("./starterSeed", async (importOriginal) => {
 });
 
 import { internal } from "./_generated/api";
+import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import { makeConvexTest } from "./test.setup";
 
 // Subset of GitHub's official GET /installation/repositories response example.
@@ -363,6 +364,7 @@ describe("managed repository provisioning identity", () => {
       owner: "octocat",
       repo: "Hello-World",
       defaultBranch: "master",
+      manifest: starterTemplateManifest,
     });
   });
 });
