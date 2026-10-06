@@ -394,3 +394,6 @@ Score Four CI token), and the CI token for the dogfood organization.
   Preview from the branch made safe with a hash suffix only when the safe form differs, Convex
   preview named after the raw branch, destroy on the branch `delete` event, comment when a pull
   request is open). Decision pending.
+- 2026-10-06: PR #1691 (full template with sync check): Codex review clean, required CI check green,
+  marked ready. Merge order: create `samebase/base-actions` with a `main` branch, merge #1691, then
+  this RFC.
