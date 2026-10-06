@@ -722,3 +722,11 @@ Open for PR C, in Nicu's words "how all this fits in":
   before that need a replacement. Unverified until a live run: whether Workers Builds sets
   `WRANGLER_CI_OVERRIDE_NAME` for the build command and not only the deploy. The Decisions, The
   template, Observation, and the map above are corrected to this model.
+- 2026-10-06: Nicu's clean-slate rule for the template: `templates/base` plus the Alchemy layer,
+  nothing kept because it existed. Under that rule the `cf` layer (four files and Wrangler's bundler
+  delegate, because `cf` cannot take a prebuilt assets directory, runs `vite build` itself, has no
+  preview build, and writes no output file for the comment) goes: the template stays on
+  `wrangler.jsonc` like base, with `wrangler deploy` and `wrangler preview` from Workers Builds. The
+  gaps are written up in `research/2026-10-06-cf-cli-gaps-for-vite-plus-apps.md` for review. The
+  differing paths become the Alchemy layer only: the stack, its workflow, the names, the confirmed
+  destroy, the dependency and README diffs. PR #1697 is being cut to that.
