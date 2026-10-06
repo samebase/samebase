@@ -35,36 +35,40 @@ export async function shouldProceed(
     );
   }
 
+  // The exact Git ref, not /branches/{branch}: GitHub redirects the old name of
+  // a renamed branch to the new branch. A 404, a redirect, or another ref means
+  // this branch does not exist.
+  const ref = `refs/heads/${branch}`;
   const response = await fetchBranch(
-    `${apiUrl}/repos/${repository}/branches/${encodeURIComponent(branch)}`,
+    `${apiUrl}/repos/${repository}/git/ref/heads/${encodeURIComponent(branch)}`,
     {
       headers: {
         accept: "application/vnd.github+json",
         authorization: `Bearer ${token}`,
         "x-github-api-version": "2022-11-28",
       },
+      redirect: "manual",
     },
   );
   let head: string | undefined;
-  if (response.status !== 404) {
-    if (!response.ok) {
-      throw new Error(
-        `GitHub answered ${response.status} for the branch ${JSON.stringify(branch)}.`,
-      );
-    }
+  if (response.ok) {
     const body: unknown = await response.json();
     if (
       typeof body !== "object" ||
       body === null ||
-      !("commit" in body) ||
-      typeof body.commit !== "object" ||
-      body.commit === null ||
-      !("sha" in body.commit) ||
-      typeof body.commit.sha !== "string"
+      !("ref" in body) ||
+      typeof body.ref !== "string" ||
+      !("object" in body) ||
+      typeof body.object !== "object" ||
+      body.object === null ||
+      !("sha" in body.object) ||
+      typeof body.object.sha !== "string"
     ) {
       throw new Error(`GitHub returned no head commit for the branch ${JSON.stringify(branch)}.`);
     }
-    head = body.commit.sha;
+    head = body.ref === ref ? body.object.sha : undefined;
+  } else if (response.status !== 404 && (response.status < 300 || response.status > 399)) {
+    throw new Error(`GitHub answered ${response.status} for the branch ${JSON.stringify(branch)}.`);
   }
 
   switch (mode) {
