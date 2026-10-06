@@ -96,6 +96,11 @@ The deploy that creates the Workers Builds link also starts the first production
 pushes the starter to `main` before the link exists, so that push builds nothing. Later pushes start
 their own builds.
 
+After each deploy, the workflow uploads the artifact `samebase-setup-output`: the ids of the Worker
+and the Convex project, which Samebase reads to show the app. `scripts/setup-output.ts` defines it,
+and it never holds a secret, because anyone who can read the repository can download it. A
+confirmed destroy uploads a receipt under the same name.
+
 The deploy never takes over a Worker or a Convex project with the same name that is not in the
 stack's state; it stops with `OwnedBySomeoneElse`. Run the workflow with `adopt` to take them over.
 The state is in Alchemy's state store in the Cloudflare account, which the first deploy in an
@@ -157,6 +162,7 @@ pnpm exec alchemy deploy --stage prod
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
 - `alchemy.run.ts` and `.github/workflows/alchemy.yml` define and run the setup stack.
+- `scripts/setup-output.ts` defines what the setup stack tells Samebase.
 
 ## Generated and managed files
 

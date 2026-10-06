@@ -19,6 +19,10 @@ export const templateDeployPaths = [
   "scripts/deploy-names.test.ts",
   // The confirmed destroy of what the stack owns.
   "scripts/destroy-app.ts",
+  // The setup output for Samebase: its contract, and its publish after a deploy.
+  "scripts/setup-output.ts",
+  "scripts/publish-setup-output.ts",
+  "scripts/publish-setup-output.test.ts",
   // Alchemy, Effect, and the @samebase Alchemy providers as development dependencies.
   "package.json",
   // The lockfile of those dependencies.

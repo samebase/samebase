@@ -1,0 +1,60 @@
+// The setup output: what this stack tells Samebase about the resources it
+// owns, version 1. alchemy.run.ts returns it under the `samebase` key of the
+// stack output; scripts/publish-setup-output.ts writes it after a deploy and
+// scripts/destroy-app.ts after a destroy; .github/workflows/alchemy.yml
+// uploads the file as the artifact samebase-setup-output.
+//
+// Anyone who can read the repository can download the artifact, so no field
+// may hold a secret. A field that this version does not define fails the
+// write: a new field is a new version, which Samebase must learn to read.
+/// <reference types="node" />
+import { writeFileSync } from "node:fs";
+
+import * as Schema from "effect/Schema";
+
+/** A Convex team or project id. The Convex API returns int64 numbers; Samebase keeps them as decimal strings. */
+const DecimalId = Schema.String.check(Schema.isPattern(/^[0-9]+$/));
+
+export const DeployedSetupOutput = Schema.Struct({
+  version: Schema.Literal(1),
+  state: Schema.Literal("deployed"),
+  cloudflare: Schema.Struct({
+    accountId: Schema.NonEmptyString,
+    workers: Schema.NonEmptyArray(
+      Schema.Struct({
+        /** The Worker's immutable id, the Workers Builds `script_tag`. */
+        tag: Schema.NonEmptyString,
+        name: Schema.NonEmptyString,
+        /** The Workers Builds root directory, such as `/`. */
+        rootDirectory: Schema.NonEmptyString,
+      }),
+    ),
+  }),
+  convex: Schema.Struct({
+    teamId: DecimalId,
+    projects: Schema.NonEmptyArray(
+      Schema.Struct({
+        projectId: DecimalId,
+        /** The project's convex.json, relative to the repository root. */
+        configPath: Schema.NonEmptyString,
+      }),
+    ),
+  }),
+});
+export type DeployedSetupOutput = typeof DeployedSetupOutput.Type;
+
+/** Written only after `alchemy destroy` ran. It reports the run; Samebase still reads the providers. */
+export const DESTROYED_SETUP_OUTPUT = { version: 1, state: "destroyed" } as const;
+
+export const SETUP_OUTPUT_FILE = "samebase-setup-output.json";
+
+/** The `samebase` value of a deploy, with every field checked and no other field allowed. */
+export const decodeDeployedSetupOutput = Schema.decodeUnknownSync(DeployedSetupOutput, {
+  onExcessProperty: "error",
+});
+
+export function writeSetupOutput(
+  output: DeployedSetupOutput | typeof DESTROYED_SETUP_OUTPUT,
+): void {
+  writeFileSync(SETUP_OUTPUT_FILE, `${JSON.stringify(output, null, 2)}\n`);
+}
