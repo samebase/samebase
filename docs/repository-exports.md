@@ -81,11 +81,13 @@ fresh job.
 
 ### GitHub Actions variant
 
-`templates/base-actions` is a second complete starter: the same app as `templates/base`, deployed by
-Alchemy from GitHub Actions instead of Workers Builds. It follows the same contract as the base: it
-owns its `package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`, `pnpm run template:export`
-writes it to `starterSeedManifest.actions.generated.ts`, root CI audits and builds it, and the
-publisher sends it to `samebase/base-actions`.
+`templates/base-actions` is a second complete starter: the same app as `templates/base`, with an
+Alchemy setup stack that GitHub Actions runs. The stack creates the Worker shell, the Workers Builds
+link, and the Convex project and keys; Workers Builds deploys each commit with `cf`, as it deploys
+the base with Wrangler. It follows the same contract as the base: it owns its `package.json`,
+`pnpm-workspace.yaml`, and `pnpm-lock.yaml`, `pnpm run template:export` writes it to
+`starterSeedManifest.actions.generated.ts`, root CI audits and builds it, and the publisher sends it
+to `samebase/base-actions`.
 
 `pnpm run check:template-sync` keeps the two templates in sync. Every path must exist in both
 templates with the same bytes and mode, except the deploy files that `templateDeployPaths` in
