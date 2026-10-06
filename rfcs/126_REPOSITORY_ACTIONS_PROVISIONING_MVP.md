@@ -88,12 +88,12 @@ Samebase's own provider connection stays as it is: OAuth by default, API token a
 new mode needs a second kind of credential, one that lives in the user's repository as an Actions
 secret and that the GitHub runner uses:
 
-| Secret or variable      | Source                                                                                                                                                                                                     |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | A user API token for CI, created by the user, pasted once per organization                                                                                                                                 |
-| `CLOUDFLARE_ACCOUNT_ID` | Samebase knows it from the connection                                                                                                                                                                      |
-| `CONVEX_ACCESS_TOKEN`   | Minted per repository by Samebase through its Convex OAuth connection (`create_access_token` accepts an OAuth team token), named `samebase/<owner>/<repository>`, deleted by name when the repository goes |
-| `CONVEX_TEAM_ID`        | Variable (not a secret). Samebase knows it from the connection; `Convex.Project` needs the numeric id                                                                                                      |
+| Secret or variable      | Source                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | A user API token for CI, created by the user, pasted once per organization                                                                     |
+| `CLOUDFLARE_ACCOUNT_ID` | Samebase knows it from the connection                                                                                                          |
+| `CONVEX_ACCESS_TOKEN`   | A Convex team access token, pasted once per organization (link to the team's access tokens page); minting through OAuth is a later improvement |
+| `CONVEX_TEAM_ID`        | Variable (not a secret). Samebase knows it from the connection; `Convex.Project` needs the numeric id                                          |
 
 Accepted for the MVP (Nicu, 2026-10-06): both tokens are account-wide or team-wide, and anyone who
 can push a workflow to the repository can read them, so one compromised repository exposes the
@@ -562,3 +562,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   link to the team's access tokens page in the Convex dashboard (`/t/<team>/settings/access-tokens`,
   the page Samebase already links for API-key connections; Convex has no prefilled-token URL).
   Applied to PR B together with the preview-test fixes.
+- 2026-10-07, Nicu's decision, final for the MVP: Convex works like Cloudflare. A Convex team access
+  token is pasted once per organization on the providers page and written as `CONVEX_ACCESS_TOKEN`;
+  no minting, no API-key fallback, no dependence on the Convex connection method. The CI credentials
+  row links to the team's access tokens page in the Convex dashboard. Minting through OAuth stays
+  recorded as a later improvement. This supersedes the "option 2" entry above before it shipped.
