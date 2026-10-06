@@ -501,3 +501,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   manifest test line (`"wrangler"` must not appear) is being replaced, since `cf build` needs
   Wrangler. Codex review and a hand test follow; PR #1693 must merge before the dogfood so that the
   seeded template is the intended one.
+- 2026-10-06: Codex round 4 on PR #1693 (the Mail-model rebuild): two findings ask for a migration
+  from the earlier template shape (Worker owned by `Website`, `pr-<number>` stages); not applicable,
+  no app was ever deployed with it except the destroyed hand-test repository, and the PR body
+  records that. One real fix: the comment script follows the comment pagination before creating a
+  comment. Then CI, ready for review, and the hand test on a runner if Nicu wants it before the
+  merge.
