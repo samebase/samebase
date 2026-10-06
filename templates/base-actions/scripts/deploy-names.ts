@@ -8,7 +8,8 @@ import { parseEnv } from "node:util";
 
 /**
 GITHUB_REPOSITORY (`<owner>/<repository>`) from the environment, or from .env
-for a deploy or a build on a laptop. GitHub Actions sets it.
+on a laptop. GitHub Actions sets it. The Alchemy CLI reads .env into its own
+config, not into process.env, and alchemy.run.ts needs the names on import.
 */
 function repositoryFromEnvironment(): string {
   const value = process.env["GITHUB_REPOSITORY"];

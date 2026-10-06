@@ -4,42 +4,41 @@ import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
 
 /**
-templates/base and templates/base-actions are the same app on Workers Builds with two setups: the
-dashboard and Samebase set up base; an Alchemy setup stack in GitHub Actions sets up base-actions,
-whose Worker Workers Builds deploys with `cf`. These paths may differ between the two templates or
-exist in only one of them. Every other path, including the Workers Builds build scripts, must exist
-in both with the same bytes and mode.
+templates/base-actions is templates/base with two layers on top: `cf` deploys the Worker from
+Workers Builds, and an Alchemy setup stack in GitHub Actions sets up the providers. These paths may
+differ between the two templates or exist in only one of them, each for one of the two layers. Every
+other path must exist in both with the same bytes and mode. When templates/base moves to `cf`, the
+`cf` paths become shared and leave this list.
 */
 export const templateDeployPaths = [
-  // base-actions only: the Alchemy setup stack (the Worker shell, the Workers Builds link, and the
-  // Convex project and keys).
+  // Alchemy: the setup stack (the Worker shell, the Workers Builds link, the Convex project and keys).
   "alchemy.run.ts",
-  // base-actions only: the Worker that `cf` uploads, and the build settings of the Wrangler bundler.
-  "cloudflare.config.ts",
-  "wrangler.config.ts",
-  // base-actions only: the GitHub Actions workflow that plans, deploys, and destroys the stack.
+  // Alchemy: the workflow that plans, deploys, and destroys the stack.
   ".github/workflows/alchemy.yml",
-  // base-actions only: the names of the stack, the Worker, and the Convex project.
+  // Alchemy: the stack, Worker, and Convex project names from GITHUB_REPOSITORY.
   "scripts/deploy-names.ts",
   "scripts/deploy-names.test.ts",
-  // base-actions only: the confirmed destroy of the whole app.
+  // Alchemy: the confirmed destroy of what the stack owns.
   "scripts/destroy-app.ts",
-  // base-actions only: the Worker Build Output that `cf` uploads, and the Worker Preview upload
-  // with the preview URL for the Workers Builds pull request comment. base deploys with Wrangler.
+  // cf: the Worker configuration, and the settings of the Wrangler bundler that cf runs.
+  "cloudflare.config.ts",
+  "wrangler.config.ts",
+  // cf: the Build Output that cf uploads, and the Preview upload with the URL for the Workers
+  // Builds pull request comment.
   "scripts/build-worker.ts",
   "scripts/deploy-preview.ts",
-  // Deploy scripts and dependencies: Wrangler in base; Alchemy, Effect, cf, Wrangler, and the
-  // @samebase Alchemy providers in base-actions.
+  // cf deploy scripts and Build Output in build:app; Alchemy, Effect, cf, and the @samebase Alchemy
+  // providers as dependencies.
   "package.json",
-  // The lockfile of those different dependencies.
+  // The lockfile of those dependencies.
   "pnpm-lock.yaml",
-  // base-actions also type-checks alchemy.run.ts and the two config files as Node code.
+  // Type-checks alchemy.run.ts, cloudflare.config.ts, and wrangler.config.ts as Node code.
   "tsconfig.node.json",
-  // base-actions also ignores the local Alchemy state and the Build Output.
+  // Ignores the Alchemy CLI files and the Build Output.
   ".gitignore",
-  // Each README documents its own deploy contract.
+  // Documents the cf deploy scripts and the setup stack.
   "README.md",
-  // base only: the Worker configuration that Wrangler deploys from Workers Builds.
+  // base only: the Wrangler configuration, until templates/base moves to cf.
   "wrangler.jsonc",
 ];
 

@@ -1,9 +1,6 @@
 // The deploy:preview script: Workers Builds runs it on every branch other than
-// main. It uploads the Worker Preview of the build, then records its URL for
-// the pull request comment. scripts/build-worker.ts already wrote a Preview
-// build, with the Convex URL of the preview deployment of the same branch
-// baked in. Production deploys run `cf deploy --prebuilt` from package.json
-// directly.
+// main. It uploads the Preview build that scripts/build-worker.ts wrote, then
+// records the Preview URL for the Workers Builds pull request comment.
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
@@ -17,13 +14,7 @@ const run = promisify(execFile);
 const cfEntrypoint = fileURLToPath(new URL("./bin/cf", import.meta.resolve("cf/package.json")));
 
 // cf reads the preview name from the Workers Builds branch.
-const { stdout } = await run(process.execPath, [
-  cfEntrypoint,
-  "previews",
-  "deploy",
-  "--prebuilt",
-  ...process.argv.slice(2),
-]);
+const { stdout } = await run(process.execPath, [cfEntrypoint, "previews", "deploy", "--prebuilt"]);
 const preview = Schema.decodeUnknownSync(
   Schema.Struct({
     preview_id: Schema.String,

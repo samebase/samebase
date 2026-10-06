@@ -1,35 +1,20 @@
-// The setup stack of this app. Workers Builds deploys the app; this stack
-// declares the setup around it. The split follows the Samebase research note
-// "Alchemy setup stacks next to Workers Builds"
+// The setup stack of this app. Workers Builds deploys the app on every push;
+// this stack declares the setup around it, following the Samebase research
+// note "Alchemy setup stacks next to Workers Builds"
 // (research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md in the
 // Samebase repository): the stack owns wiring, not settings, and each field
 // has one owner.
 //
-// - This stack owns the Worker shell, the Workers Builds link to this
-//   repository with its build variables, the Convex project, and the two
-//   Convex deploy keys that the builds use. It never uploads Worker code.
-// - cloudflare.config.ts owns everything of the Worker version: the assets,
-//   the compatibility date, and Preview URLs. This file imports only the
-//   Worker name from it.
-// - Workers Builds builds every push: `pnpm run build` deploys Convex (the
-//   production deployment on main, a preview deployment named after the
-//   branch on other branches) and creates the Convex Auth keys, then
-//   `pnpm run deploy` or `pnpm run deploy:preview` uploads the Worker.
+// - This stack: the Worker shell, the Workers Builds link with its build
+//   variables, the Convex project, and the two Convex deploy keys of the
+//   builds. It never uploads Worker code.
+// - cloudflare.config.ts: everything of the Worker version. This file reads
+//   only the Worker name from it.
 //
-// One stage, `prod`. .github/workflows/alchemy.yml runs it: a plan and a
-// drift report on a pull request that changes the stack, a deploy on main.
-// The deploy that creates the Builds link also starts the first build (see
-// FirstBuild below). A destroy of the stage keeps the Worker and the Convex
-// project, the production app, unless DESTROY_APP marked them for deletion
-// (see keepProductionApp below).
-//
-// The outputs: `workerUrl`, the workers.dev URL of the Worker, and
-// `convexUrl`, the URL of the production Convex deployment.
-//
-// A deploy from a laptop needs GITHUB_REPOSITORY (`<owner>/<repository>`),
-// CONVEX_TEAM_ID, CLOUDFLARE_API_TOKEN, and CLOUDFLARE_ACCOUNT_ID in the
-// environment or in .env, CONVEX_ACCESS_TOKEN or the Convex CLI login, and
-// GITHUB_TOKEN for a private repository:
+// .github/workflows/alchemy.yml runs it on its one stage, prod. A deploy from
+// a laptop needs GITHUB_REPOSITORY, CONVEX_TEAM_ID, CLOUDFLARE_API_TOKEN, and
+// CLOUDFLARE_ACCOUNT_ID in the environment or in .env, CONVEX_ACCESS_TOKEN or
+// the Convex CLI login, and GITHUB_TOKEN for a private repository:
 //   pnpm exec alchemy deploy --stage prod
 import * as WorkersBuilds from "@samebase/alchemy-cloudflare-workers-builds";
 import * as Convex from "@samebase/alchemy-convex";
@@ -48,35 +33,25 @@ import { deployNames } from "./scripts/deploy-names.ts";
 const names = deployNames();
 
 /**
- * Whether a destroy of stage prod keeps the production Worker and the Convex
- * project: yes by default. Alchemy reads a removal policy from the state row
- * that the last deploy wrote, not from this program, so a destroy acts on the
- * policy of the last deploy. scripts/destroy-app.ts, the confirmed destroy of
- * the app, deploys the Worker and the project with DESTROY_APP=true, which
- * only rewrites their policy, and then destroys the stage, so it deletes
- * them. Any later deploy without DESTROY_APP keeps them again.
+ * Whether a destroy keeps the Worker and the Convex project: yes, unless
+ * DESTROY_APP is set. Alchemy reads a removal policy from the state that the
+ * last deploy wrote, so scripts/destroy-app.ts deploys these two with
+ * DESTROY_APP=true before it destroys the stage.
  */
 const keepProductionApp = Effect.gen(function* () {
   return !(yield* Config.Boolean("DESTROY_APP").pipe(Config.withDefault(false)));
 }).pipe(Effect.orDie);
 
 /**
- * Starts the first production build of the Builds link. Workers Builds builds
- * the pushes that reach it after the link exists. Samebase pushes the starter
- * to main before this stack creates the link, and creating the link through
- * the API starts no build, so without this the Worker stays a shell with no
- * version until the next push to main. Samebase's own Workers Builds setup
- * starts the same build after it creates a link.
- *
- * An Action runs on a deploy when its input differs from its last successful
- * run, and on `alchemy deploy --force`. The input is the Worker tag and the
- * production branch, so it runs on the deploy that creates the link, and
- * again only for a new Worker or another production branch.
+ * Starts the first production build. Samebase pushes the starter to main
+ * before this stack creates the Builds link, and creating a link starts no
+ * build, so without this the Worker has no version until the next push to
+ * main. An Action runs again only when its input changes: a new Worker or
+ * another production branch, or `alchemy deploy --force`.
  */
 const FirstBuild = Alchemy.Action(
   "FirstBuild",
   Effect.fn(function* (link: { accountId: string; scriptTag: string; branch: string }) {
-    // The Builds API accepts only an API token, the token of the Builds link.
     const token = yield* Config.Redacted("CLOUDFLARE_API_TOKEN");
     const request = (path: string, init?: { method: "POST"; body: string }) =>
       Effect.tryPromise({
@@ -150,53 +125,36 @@ export default Alchemy.Stack(
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
+    // Another stage would own the same Worker and Convex project.
     const { stage } = yield* Alchemy.Stack;
     if (stage !== "prod") {
       return yield* Effect.die(
-        new Error(`Stage "${stage}" is not prod. This stack has one stage: --stage prod.`),
+        new Error(`Stage "${stage}" is not prod. Deploy with --stage prod.`),
       );
     }
 
-    // An unset repository variable reaches the workflow as an empty string.
-    const teamId = yield* Config.String("CONVEX_TEAM_ID").pipe(Config.withDefault(""));
-    if (!/^\d+$/.test(teamId)) {
-      return yield* Effect.die(
-        new Error(
-          `CONVEX_TEAM_ID is "${teamId}", not the numeric id of a Convex team. Set the repository variable CONVEX_TEAM_ID. For a deploy from a laptop, set it in the environment or in .env.`,
-        ),
-      );
-    }
-
-    // Only the name: every other Worker setting stays with cloudflare.config.ts.
-    // A Worker with this name that the stack did not create stops the deploy
-    // until `alchemy deploy --adopt`.
+    // A Worker or a project with this name that the stack did not create
+    // stops the deploy until `alchemy deploy --adopt`.
     const shell = yield* WorkersBuilds.Worker("Worker", { name: worker.name }).pipe(
       Alchemy.RemovalPolicy.retain(keepProductionApp),
     );
-
-    // Found by name when it has no state, then by id. Deleting the project
-    // deletes all of its deployments and data.
     const project = yield* Convex.Project("Project", {
-      team: Number(teamId),
+      team: yield* Config.Int("CONVEX_TEAM_ID"),
       name: names.convexProject,
     }).pipe(Alchemy.RemovalPolicy.retain(keepProductionApp));
-    const deployment = Output.map(project.prodDeploymentName, (name) => {
-      if (!name) {
-        throw new Error(`The Convex project ${names.convexProject} has no production deployment.`);
-      }
-      return name;
-    });
 
-    // Convex lists each key under its name plus a hash of the resource, such
-    // as "workers-builds-3f2a1b0c9d8e". A key cannot change, so a changed prop
-    // replaces it, and the Builds variables below take the new secret.
-    //
     // The production key gets only what scripts/build-cloudflare.ts and
     // scripts/ensure-convex-auth.ts need. Without allowedActions, Convex
-    // grants every deployment action, including data writes and backup
-    // deletes.
+    // grants every deployment action.
     const deployKey = yield* Convex.DeployKey("DeployKey", {
-      deployment,
+      deployment: Output.map(project.prodDeploymentName, (name) => {
+        if (!name) {
+          throw new Error(
+            `The Convex project ${names.convexProject} has no production deployment.`,
+          );
+        }
+        return name;
+      }),
       name: "workers-builds",
       allowedActions: [
         "deployment:deploy",
@@ -210,21 +168,16 @@ export default Alchemy.Stack(
       name: "workers-builds",
     });
 
-    // The production branch is the default branch of the repository, which
-    // the provider reads from GitHub. Samebase makes main the default branch,
-    // and scripts/build-cloudflare.ts deploys production Convex only on main.
+    // The provider reads the default branch, main, as the production branch.
+    // Worker Previews and build caching keep their defaults: on.
     const builds = yield* WorkersBuilds.Repository("Builds", {
       worker: shell.workerId,
       repository: names.repository,
       buildCommand: "pnpm run build",
       deployCommand: "pnpm run deploy",
       previewDeployCommand: "pnpm run deploy:preview",
-      buildCachingEnabled: false,
-      previews: true,
-      // scripts/build-cloudflare.ts reads CONVEX_DEPLOY_KEY: the production
-      // key on main, the project preview key on other branches. Samebase
-      // reads SAMEBASE_CONVEX_PROJECT to link the Worker to its Convex
-      // project in the dashboard. Same format Samebase writes itself.
+      // scripts/build-cloudflare.ts reads CONVEX_DEPLOY_KEY. Samebase reads
+      // SAMEBASE_CONVEX_PROJECT to link the Worker to its Convex project.
       variables: {
         CONVEX_DEPLOY_KEY: deployKey.deployKey,
         SAMEBASE_CONVEX_PROJECT: Output.interpolate`version=1&teamId=${project.teamId}&projectId=${project.projectId}`,
