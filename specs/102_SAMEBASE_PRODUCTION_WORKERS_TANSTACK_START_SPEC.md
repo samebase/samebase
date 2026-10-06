@@ -295,6 +295,10 @@ Samebase production itself.
    - attaches the main provider accounts to `samebase` and `nicu-chiciuc`; preview defaults must
      provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
      `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
+   - saves the same Convex and Cloudflare seed values as each seeded organization's CI credentials
+     for `repository_actions` provisioning; local worktree seeds do the same for their one
+     organization. Each seeded Cloudflare API key must be a user API token with Account Settings
+     Read, Workers Scripts Edit, Workers Builds Configuration Edit, and Secrets Store Edit
    - creates no repositories during seeding
    - requires `CONVEX_DEPLOY_KEY` in Workers Builds; Convex validates its deployment type
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
