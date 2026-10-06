@@ -1153,10 +1153,7 @@ export function ProviderConnectionsPageView({
       : [githubProviderRow, convexProviderRow, cloudflareProviderRow];
 
   return (
-    <div
-      data-testid="provider-connections-page"
-      className="container flex min-h-0 flex-1 flex-col py-6"
-    >
+    <div data-testid="provider-connections-page" className="container flex flex-1 flex-col py-6">
       <h1 className="mb-6 text-xl font-semibold @2xl:text-2xl">Providers</h1>
       {authorizationErrorMessage ? (
         <div className="mb-4 max-w-3xl">

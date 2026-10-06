@@ -56,18 +56,29 @@ connection made with OAuth, which mints each repository's Convex access token, s
 disabled until the Providers page has both.
 */
 function NewAppSetupField({
+  cloudflareCiTokenSaved,
+  convexOAuthConnected,
   disabled,
   githubOwnerLogin,
   onValueChange,
-  repositoryActionsReady,
   value,
 }: {
+  cloudflareCiTokenSaved: boolean;
+  convexOAuthConnected: boolean;
   disabled: boolean;
   githubOwnerLogin: string;
   onValueChange: (value: RepositoryProvisioningMode) => void;
-  repositoryActionsReady: boolean;
   value: RepositoryProvisioningMode;
 }) {
+  const providersLink = (
+    <Link
+      className={linkStyle}
+      params={{ owner: githubOwnerLogin }}
+      to={ORGANIZATION_PROVIDERS_ROUTE}
+    >
+      Providers
+    </Link>
+  );
   return (
     <div className="grid gap-1.5">
       <Label htmlFor="new-app-setup">Setup</Label>
@@ -81,22 +92,24 @@ function NewAppSetupField({
         </SelectTrigger>
         <AppSelectContent>
           <AppSelectItem value="samebase">{NEW_APP_SETUP_LABELS.samebase}</AppSelectItem>
-          <AppSelectItem disabled={!repositoryActionsReady} value="repository_actions">
+          <AppSelectItem
+            disabled={!cloudflareCiTokenSaved || !convexOAuthConnected}
+            value="repository_actions"
+          >
             {NEW_APP_SETUP_LABELS.repository_actions}
           </AppSelectItem>
         </AppSelectContent>
       </Select>
-      {repositoryActionsReady ? null : (
+      {cloudflareCiTokenSaved && convexOAuthConnected ? null : (
         <div className="text-xs leading-5 text-muted-foreground">
-          GitHub Actions setup needs the Cloudflare CI token and a Convex OAuth connection in{" "}
-          <Link
-            className={linkStyle}
-            params={{ owner: githubOwnerLogin }}
-            to={ORGANIZATION_PROVIDERS_ROUTE}
-          >
-            Providers
-          </Link>
-          .
+          {cloudflareCiTokenSaved ? null : <>Save the Cloudflare CI token in {providersLink}.</>}
+          {cloudflareCiTokenSaved || convexOAuthConnected ? null : " "}
+          {convexOAuthConnected ? null : (
+            <>
+              Connect Convex with OAuth in {providersLink}. An API key connection cannot mint the
+              repository&apos;s Convex access token.
+            </>
+          )}
         </div>
       )}
     </div>
@@ -551,10 +564,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     organizationId,
   });
   const ciCredentials = useConvexQuery(api.users.getCiCredentialsStatus, { organizationId });
-  const repositoryActionsReady =
-    Boolean(ciCredentials?.cloudflare) &&
-    convexConnection?.state === "connected" &&
-    convexConnection.authMethod === "oauth";
+  const cloudflareCiTokenSaved = Boolean(ciCredentials?.cloudflare);
+  const convexOAuthConnected =
+    convexConnection?.state === "connected" && convexConnection.authMethod === "oauth";
+  const repositoryActionsReady = cloudflareCiTokenSaved && convexOAuthConnected;
   const [requestedProvisioning, setRequestedProvisioning] =
     useState<RepositoryProvisioningMode>("samebase");
   // Removing the CI token or the Convex OAuth connection elsewhere returns the form to the
@@ -1254,7 +1267,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           convexConnection={convexConnection}
         />
         <NewAppSetupField
-          repositoryActionsReady={repositoryActionsReady}
+          cloudflareCiTokenSaved={cloudflareCiTokenSaved}
+          convexOAuthConnected={convexOAuthConnected}
           disabled={!hasRequiredCreateConnections || isCreating}
           githubOwnerLogin={organization.githubOwnerLogin}
           onValueChange={(value) => {

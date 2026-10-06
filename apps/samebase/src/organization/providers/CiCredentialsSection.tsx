@@ -10,6 +10,15 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { buildCloudflareCiApiTokenUrl } from "../../../shared/cloudflareResourceUrls";
 
+type SavedCloudflareCiToken =
+  (typeof api.users.getCiCredentialsStatus)["_returnType"]["cloudflare"];
+
+const savedDateFormat = new Intl.DateTimeFormat("en", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
 /**
 The Cloudflare token that Samebase writes as a GitHub Actions secret into each repository that its
 GitHub Actions set up. The Convex access token is not pasted: Samebase mints one per repository
@@ -31,15 +40,41 @@ export function CiCredentialsSection({
   const status = useConvexQuery(api.users.getCiCredentialsStatus, { organizationId });
   const setCloudflareCiToken = useAction(api.users.setCloudflareCiToken);
   const removeCloudflareCiToken = useMutation(api.users.removeCloudflareCiToken);
+  if (status === undefined) {
+    return null;
+  }
+  return (
+    <CiCredentialsSectionView
+      canManageOrganization={canManageOrganization}
+      cloudflareAccountId={cloudflareAccountId}
+      githubOwnerLogin={githubOwnerLogin}
+      onRemove={() => removeCloudflareCiToken({ organizationId })}
+      onSave={(token) => setCloudflareCiToken({ organizationId, token })}
+      saved={status.cloudflare}
+    />
+  );
+}
+
+/** The CI credentials part without its Convex reads and writes, for the page and its visual fixture. */
+export function CiCredentialsSectionView({
+  canManageOrganization,
+  cloudflareAccountId,
+  githubOwnerLogin,
+  onRemove,
+  onSave,
+  saved,
+}: {
+  canManageOrganization: boolean;
+  cloudflareAccountId: string | null;
+  githubOwnerLogin: string;
+  onRemove: () => Promise<unknown>;
+  onSave: (token: string) => Promise<unknown>;
+  saved: SavedCloudflareCiToken;
+}) {
   const inputId = useId();
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"save" | "remove" | null>(null);
-  if (status === undefined) {
-    return null;
-  }
-
-  const saved = status.cloudflare;
   const connected = cloudflareAccountId !== null;
   const run = async (kind: "save" | "remove", write: () => Promise<unknown>) => {
     setPending(kind);
@@ -61,7 +96,7 @@ export function CiCredentialsSection({
     event.preventDefault();
     const trimmed = token.trim();
     if (trimmed && pending === null) {
-      void run("save", () => setCloudflareCiToken({ organizationId, token: trimmed }));
+      void run("save", () => onSave(trimmed));
     }
   };
 
@@ -88,6 +123,7 @@ export function CiCredentialsSection({
                     <span className="font-medium text-foreground">{saved.connectedBy.label}</span>
                   </>
                 ) : null}
+                {` on ${savedDateFormat.format(saved.updatedAt)}`}
               </>
             ) : (
               "Not saved"
@@ -125,7 +161,13 @@ export function CiCredentialsSection({
                 autoComplete="off"
                 className="basis-60 flex-1"
                 disabled={!connected || pending !== null}
-                placeholder={connected ? "Cloudflare API token" : "Connect Cloudflare first"}
+                placeholder={
+                  !connected
+                    ? "Connect Cloudflare first"
+                    : saved
+                      ? "Paste a new token to replace it"
+                      : "Cloudflare API token"
+                }
                 value={token}
                 onChange={(event) => {
                   setToken(event.target.value);
@@ -138,7 +180,13 @@ export function CiCredentialsSection({
                 disabled={!connected || pending !== null || !token.trim()}
               >
                 {pending === "save" ? <Loader2 className="animate-spin" /> : null}
-                {pending === "save" ? "Saving..." : "Save"}
+                {pending === "save"
+                  ? saved
+                    ? "Replacing..."
+                    : "Saving..."
+                  : saved
+                    ? "Replace"
+                    : "Save"}
               </Button>
               {saved ? (
                 <Button
@@ -147,7 +195,7 @@ export function CiCredentialsSection({
                   variant="outline"
                   disabled={pending !== null}
                   onClick={() => {
-                    void run("remove", () => removeCloudflareCiToken({ organizationId }));
+                    void run("remove", onRemove);
                   }}
                 >
                   {pending === "remove" ? <Loader2 className="animate-spin" /> : null}

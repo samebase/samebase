@@ -1,3 +1,4 @@
+import { CiCredentialsSectionView } from "@/organization/providers/CiCredentialsSection";
 import {
   ProviderConnectionsPageView,
   type ProviderConnectionsPageConnectionState,
@@ -169,7 +170,23 @@ export function ProviderConnectionsPageVisualFixture({
       authorizationErrorMessage={
         mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
       }
-      ciCredentials={null}
+      ciCredentials={
+        mode === "providers-page-connected" ? (
+          <CiCredentialsSectionView
+            canManageOrganization
+            cloudflareAccountId="cloudflare-account-production"
+            githubOwnerLogin="acme"
+            onRemove={async () => null}
+            onSave={async () => null}
+            saved={{
+              accountId: "cloudflare-account-production",
+              // Noon UTC, so the saved date is the same day in every test time zone.
+              updatedAt: Date.UTC(2026, 9, 6, 12),
+              connectedBy: { kind: "displayName", label: "Ava Chen" },
+            }}
+          />
+        ) : null
+      }
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={false}
       cloudflareApiTokenDialog={null}

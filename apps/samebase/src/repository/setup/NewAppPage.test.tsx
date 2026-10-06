@@ -506,28 +506,51 @@ describe("NewAppPage", () => {
     return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
   }
 
-  it("keeps the GitHub Actions setup disabled while Convex is connected with an API key", async () => {
-    // The Cloudflare CI token is saved, but only a Convex OAuth connection mints each repository's
-    // Convex access token.
-    ciCredentialsTestState.status = {
-      cloudflare: { accountId: "account-acme-production", updatedAt: 1 },
-    };
-    ciCredentialsTestState.convexAuthMethod = "api_key";
-    const container = await mountPage();
+  const SAVE_CLOUDFLARE_CI_TOKEN = "Save the Cloudflare CI token in Providers.";
+  const CONNECT_CONVEX_WITH_OAUTH =
+    "Connect Convex with OAuth in Providers. An API key connection cannot mint the repository's Convex access token.";
 
-    const providersLink = [...container.querySelectorAll("a")].find((link) =>
-      link.parentElement?.textContent.startsWith(
-        "GitHub Actions setup needs the Cloudflare CI token and a Convex OAuth connection",
-      ),
-    );
-    expect(providersLink?.getAttribute("href")).toBe("/org/samebase/providers");
-    const options = await openSetupOptions(container);
-    expect(options.map((option) => option.textContent)).toEqual([
-      "Set up by Samebase",
-      "Set up by GitHub Actions in the repository (experimental)",
-    ]);
-    expect(options[1]?.getAttribute("aria-disabled")).toBe("true");
-  });
+  it.each([
+    {
+      missing: "the Cloudflare CI token",
+      cloudflare: null,
+      convexAuthMethod: "oauth" as const,
+      line: SAVE_CLOUDFLARE_CI_TOKEN,
+    },
+    {
+      missing: "a Convex OAuth connection",
+      cloudflare: { accountId: "account-acme-production", updatedAt: 1 },
+      convexAuthMethod: "api_key" as const,
+      line: CONNECT_CONVEX_WITH_OAUTH,
+    },
+    {
+      missing: "both",
+      cloudflare: null,
+      convexAuthMethod: "api_key" as const,
+      line: `${SAVE_CLOUDFLARE_CI_TOKEN} ${CONNECT_CONVEX_WITH_OAUTH}`,
+    },
+  ])(
+    "keeps the GitHub Actions setup disabled and names what is missing: $missing",
+    async ({ cloudflare, convexAuthMethod, line }) => {
+      ciCredentialsTestState.status = { cloudflare };
+      ciCredentialsTestState.convexAuthMethod = convexAuthMethod;
+      const container = await mountPage();
+
+      const providersLinks = [...container.querySelectorAll("a")].filter(
+        (link) => link.textContent === "Providers",
+      );
+      expect(providersLinks[0]?.parentElement?.textContent).toBe(line);
+      for (const link of providersLinks) {
+        expect(link.getAttribute("href")).toBe("/org/samebase/providers");
+      }
+      const options = await openSetupOptions(container);
+      expect(options.map((option) => option.textContent)).toEqual([
+        "Set up by Samebase",
+        "Set up by GitHub Actions in the repository (experimental)",
+      ]);
+      expect(options[1]?.getAttribute("aria-disabled")).toBe("true");
+    },
+  );
 
   it("creates an app that GitHub Actions set up, with the repository's names", async () => {
     vi.useFakeTimers();
@@ -543,7 +566,7 @@ describe("NewAppPage", () => {
     testState.actions.set(getFunctionName(api.repository.create), createRepository);
     const container = await mountPage();
 
-    expect(container.textContent).not.toContain("GitHub Actions setup needs");
+    expect(container.textContent).not.toContain("in Providers.");
     const actionsOption = (await openSetupOptions(container)).at(1);
     if (!actionsOption) {
       throw new Error("GitHub Actions setup option was not rendered.");
