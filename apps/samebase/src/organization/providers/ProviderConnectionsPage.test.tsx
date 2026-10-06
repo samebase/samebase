@@ -809,7 +809,7 @@ describe("ProviderConnectionsPage", () => {
       }),
     );
     expect(cloudflareRow.textContent).toContain(
-      "Account Settings Read, Workers Scripts Edit, Secrets Store Edit",
+      "Account Settings Read, Workers Scripts Edit, Workers Builds Configuration Edit, Secrets Store Edit",
     );
 
     // A missing token asks for one and links to the connected team's access tokens.

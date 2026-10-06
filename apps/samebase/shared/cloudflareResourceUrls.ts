@@ -109,12 +109,14 @@ export function normalizeCloudflareWorkerPreviewUrl(
 }
 
 /**
-The permissions of the CI token that a repository_actions repository receives: the Worker, Alchemy's
-state store in the Secrets Store, and the account read. Cloudflare's dashboard names them by
-permission group key and access type.
+The permissions of the CI token that a repository_actions repository receives: the Worker, its
+Workers Builds link, Alchemy's state store in the Secrets Store, and the account read. Cloudflare's
+dashboard names them by permission group key and access type; `workers_ci` is Workers Builds
+Configuration.
 */
 const CLOUDFLARE_CI_TOKEN_PERMISSION_GROUPS = [
   { key: "workers_scripts", type: "edit" },
+  { key: "workers_ci", type: "edit" },
   { key: "secrets_store", type: "edit" },
   { key: "account_settings", type: "read" },
 ] as const;

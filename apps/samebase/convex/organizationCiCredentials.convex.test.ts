@@ -23,12 +23,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Cloudflare's API for one user API token that reaches `accounts`. */
-function stubCloudflareCiToken(accounts: Array<{ id: string; name: string }>) {
+/**
+Cloudflare's API for one user API token that reaches `accounts`. Without `workersBuilds`, the
+Workers Builds read answers with the code and message that Workers Builds gives a token without
+Builds access (12006 Invalid token, as cloudflareResources.test.ts records it).
+*/
+function stubCloudflareCiToken(
+  accounts: Array<{ id: string; name: string }>,
+  { workersBuilds = true }: { workersBuilds?: boolean } = {},
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === `/client/v4/accounts/${cloudflareAccountId}/builds/tokens`) {
+        return workersBuilds
+          ? Response.json({ success: true, errors: [], messages: [], result: [] })
+          : Response.json(
+              { success: false, errors: [{ code: 12006, message: "Invalid token" }], messages: [] },
+              { status: 403 },
+            );
+      }
       const result =
         url.pathname === "/client/v4/user/tokens/verify"
           ? { id: "c".repeat(32), status: "active" }
@@ -133,6 +148,25 @@ describe("organization CI credentials", () => {
       }),
     ).rejects.toMatchObject({
       data: "The Cloudflare CI token cannot access the Cloudflare account Samebase.",
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a Cloudflare CI token that cannot read Workers Builds", async () => {
+    const { organizationId, t, viewer } = await createOrganization();
+    stubCloudflareCiToken([{ id: cloudflareAccountId, name: "Samebase" }], {
+      workersBuilds: false,
+    });
+
+    await expect(
+      viewer.action(api.users.setCloudflareCiToken, {
+        organizationId,
+        token: "cloudflare-ci-test-token",
+      }),
+    ).rejects.toMatchObject({
+      data: "The Cloudflare CI token cannot read Workers Builds in the Cloudflare account Samebase. Save a token with Workers Builds Configuration Edit on the Providers page.",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),

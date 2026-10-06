@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 
 import type { CloudflareAccount } from "../cloudflareAccountDiscovery";
+import { listCloudflareBuildTokens } from "../cloudflareResources";
 import { verifyConvexTeamAccessToken } from "../convexManagementApi/client";
 import { ConvexManagementApiError } from "../convexManagementApi/errors";
 import type {
@@ -22,6 +23,28 @@ export function requireCloudflareCiAccountAccess(
   if (!accounts.some((candidate) => candidate.accountId === account.accountId)) {
     throw new ConvexError(
       `The Cloudflare CI token cannot access the Cloudflare account ${account.accountName}.`,
+    );
+  }
+}
+
+/**
+The Cloudflare CI token must read Workers Builds in that account: the repository's setup stack links
+the repository to its Worker there. A token saved before the preset asked for Workers Builds
+Configuration fails here. The read proves the access, so any failure stops the save or the create.
+*/
+export async function requireCloudflareCiWorkersBuildsAccess(args: {
+  token: string;
+  account: CloudflareAccount;
+}): Promise<void> {
+  try {
+    await listCloudflareBuildTokens({
+      token: args.token,
+      transport: "direct",
+      accountId: args.account.accountId,
+    });
+  } catch {
+    throw new ConvexError(
+      `The Cloudflare CI token cannot read Workers Builds in the Cloudflare account ${args.account.accountName}. Save a token with Workers Builds Configuration Edit on the Providers page.`,
     );
   }
 }

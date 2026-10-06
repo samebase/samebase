@@ -251,7 +251,8 @@ export function CiCredentialsSectionView({
                 </a>
               )}{" "}
               for the connected account, with these permissions: Account Settings Read, Workers
-              Scripts Edit, Secrets Store Edit.
+              Scripts Edit, Workers Builds Configuration Edit, Secrets Store Edit. Replace a saved
+              token that lacks Workers Builds Configuration Edit.
             </>
           }
           icon={<CloudflareProviderLogo />}

@@ -153,6 +153,7 @@ beforeEach(() => {
   providerMocks.getRepository.mockRejectedValue(githubRequestError(404));
   providerMocks.createGitHubUserOctokit.mockReturnValue({});
   providerMocks.isCloudflareWorkerNameAvailable.mockResolvedValue(true);
+  providerMocks.listCloudflareBuildTokens.mockResolvedValue([]);
   providerMocks.listConvexManagementProjects.mockResolvedValue([]);
   providerMocks.requireCloudflareBuildTokenUuid.mockResolvedValue("selected-token");
   providerMocks.readGitHubAppInstallation.mockResolvedValue({
@@ -241,6 +242,26 @@ describe("create repository with provisioning repository_actions", () => {
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
       data: "The Cloudflare CI token cannot access the Cloudflare account Cloudflare account.",
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("repositories").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("refuses a saved Cloudflare CI token that cannot read Workers Builds", async () => {
+    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
+    await saveCiCredentials(t, { organizationId, userId });
+    providerMocks.listCloudflareBuildTokens.mockRejectedValue(new Error("Invalid token"));
+
+    await expect(
+      viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
+    ).rejects.toMatchObject({
+      data: "The Cloudflare CI token cannot read Workers Builds in the Cloudflare account Cloudflare account. Save a token with Workers Builds Configuration Edit on the Providers page.",
+    });
+    expect(providerMocks.listCloudflareBuildTokens).toHaveBeenCalledWith({
+      token: "cloudflare-ci-test-token",
+      transport: "direct",
+      accountId: "cloudflare-account",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("repositories").collect()),

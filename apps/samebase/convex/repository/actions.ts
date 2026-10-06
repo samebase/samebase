@@ -21,6 +21,7 @@ import {
 } from "../cloudflareAccountDiscovery";
 import {
   requireCloudflareCiAccountAccess,
+  requireCloudflareCiWorkersBuildsAccess,
   requireCompleteCiCredentials,
   requireConvexCiTeamAccess,
 } from "../organization/ciCredentials";
@@ -988,6 +989,10 @@ async function createRepositoryActionsAppForUser(
     );
   }
   requireCloudflareCiAccountAccess(ciAccounts, cloudflareAccount);
+  await requireCloudflareCiWorkersBuildsAccess({
+    token: ciCredentials.cloudflare.apiToken,
+    account: cloudflareAccount,
+  });
   await requireConvexCiTeamAccess({
     token: ciCredentials.convex.accessToken,
     teamId: convexTeam.teamId,
