@@ -689,3 +689,10 @@ Open for PR C, in Nicu's words "how all this fits in":
   workflow with the typed confirmation, before the repository goes. Not a PR C item.
 - 2026-10-06: PR B merged as v2100 (`043cf216d`). The section "How the pieces fit after PR B" is the
   map for the next decision; PR C is not scoped until Nicu has read it.
+- 2026-10-06: Wrong deploy model in the template, found by Nicu on the first production app: the
+  Worker had no Workers Builds link. The decided model is Score Four's and Mail's: the Alchemy setup
+  stack owns the Worker shell, its Builds link (build and deploy commands, previews on, the deploy
+  keys and `SAMEBASE_CONVEX_PROJECT` as Builds variables), and the Convex side; Workers Builds
+  deploys on every push with `cf deploy --prebuilt` and makes the previews and the comment. The
+  shipped template moved the deploy into GitHub Actions instead. The Samebase side of PR B stands;
+  the template gets reworked.
