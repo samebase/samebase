@@ -234,6 +234,39 @@ branch; names stay, renames unsupported; destroy job without vulnerability audit
 full directory; the template follows the Mail model. Open: a hard release gate between PR B and PR
 C; Convex token minting per repository (spike pending); the template location long term.
 
+## How the pieces fit after PR B
+
+The map Nicu asked for before PR C: which component holds what, and which one may read or write
+what. "Writes" means creates, changes, or deletes a resource. Nothing here is decided for PR C; the
+open decisions follow the table.
+
+| Component                     | Holds                                                                                                                                                                                                                                                                      | Writes                                                                                                                                                                                                                                                                                 | Reads                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| The user's GitHub repository  | The code and the workflow; the secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CONVEX_ACCESS_TOKEN`; the variable `CONVEX_TEAM_ID`. The only place with every credential.                                                                                        | On push: the Worker shell, the Convex project and deployments, the keys, the Worker code, the Previews, the pull request comment. On branch delete: the preview deployment and the Worker Preview. On the confirmed `workflow_dispatch`: the Worker, the project, and the stack state. | The Alchemy state store (its own stack), GitHub (the branch head, the pull requests).                                                          |
+| The user's Cloudflare account | The Worker named after the repository, its Previews, and the Alchemy state store: the `alchemy-state-store` Worker with a Durable Object, its bearer token and encryption key in the Secrets Store.                                                                        | Nothing by itself.                                                                                                                                                                                                                                                                     |                                                                                                                                                |
+| The user's Convex team        | The project named after the repository, its production deployment, preview deployments named after branches, the deploy keys.                                                                                                                                              | Nothing by itself.                                                                                                                                                                                                                                                                     |                                                                                                                                                |
+| The Alchemy state store       | The truth about what the stack created: one row per resource with provider ids and the removal policy of the last deploy, and the stage outputs (`convexUrl`, `workerUrl`).                                                                                                | Written by the repository's runs only (and by a laptop deploy with the same environment).                                                                                                                                                                                              | Readable by anyone with a Cloudflare token that has the Secrets Store permission in the account.                                               |
+| Samebase                      | Per organization: the pasted Cloudflare token with the account id and the pasted Convex team token with the team id, verified when saved, never revoked. Per app: the plan (`repository_actions`, the secrets written, the seed state) and the connections (manual today). | GitHub only: the repository, its secrets and variable, the seed commits, and on removal the repository if asked. Nothing on Cloudflare or Convex.                                                                                                                                      | GitHub only: branches, commits, check runs, pull requests. After PR B Samebase does not know the Worker or the project of an app in this mode. |
+
+The flows in order: Samebase creates and seeds; the repository deploys on every push and keeps
+previews per branch; Samebase observes (PR C); the owner destroys with the typed confirmation,
+before the repository goes; Samebase removes its rows and, if asked, the repository. No step
+triggers another across the Samebase and repository boundary, by decision.
+
+Open for PR C, in Nicu's words "how all this fits in":
+
+1. The source of truth for observation. Three candidates, not exclusive: the `alchemy` check run on
+   the default branch (did the deploy succeed, link to the run); the Alchemy state store read with
+   the organization's Cloudflare token (the Worker name, the project id, the URLs, exact and
+   validated at runtime; Alchemy-internal API, beta); the by-name rule (both carry the repository
+   name; cheap, can be wrong after a manual rename).
+2. Auto-registration: whether the connection rows for the Worker and the project appear by
+   themselves after the first green run, so the dashboard shows the same slots as the other mode.
+3. The blast radius of the two pasted tokens. The Cloudflare token can deploy any Worker in the
+   account and read every stack's state; the Convex team token can do anything in the team. The
+   credential scope gate before real users stays.
+4. No hook of any kind between repository deletion or Samebase removal and the app's destroy.
+
 ## Status
 
 - 2026-10-06: RFC drafted. PR A (template variant) starts at once: it touches no schema and no
@@ -654,3 +687,5 @@ C; Convex token minting per repository (spike pending); the template location lo
   Samebase, not even opt-in, until the whole model (who knows what, who holds which credential, what
   Samebase observes) is understood. The destroy stays the owner's explicit run of the `alchemy`
   workflow with the typed confirmation, before the repository goes. Not a PR C item.
+- 2026-10-06: PR B merged as v2100 (`043cf216d`). The section "How the pieces fit after PR B" is the
+  map for the next decision; PR C is not scoped until Nicu has read it.
