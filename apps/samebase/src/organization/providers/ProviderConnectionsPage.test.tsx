@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { buildCloudflareCiApiTokenUrl } from "../../../shared/cloudflareResourceUrls";
 import {
   handleProviderOAuthPopupCompletionMessage,
   ProviderConnectionsPage,
@@ -761,8 +762,15 @@ describe("ProviderConnectionsPage", () => {
       '[data-testid="ci-credential-row"]',
     );
     expect(cloudflareRow.textContent).toContain("Saved by Ada");
+    // The token template link preselects the CI permissions for the connected account.
     expect(cloudflareRow.querySelector("a")?.href).toBe(
-      "https://dash.cloudflare.com/profile/api-tokens",
+      buildCloudflareCiApiTokenUrl({
+        accountId: "cloudflare-account",
+        tokenName: "samebase actions ci samebase",
+      }),
+    );
+    expect(cloudflareRow.textContent).toContain(
+      "Account Settings Read, Workers Scripts Edit, Secrets Store Edit",
     );
     expect(convexRow.textContent).toContain("Not saved");
     expect(findButton(convexRow, "Remove")).toBeUndefined();

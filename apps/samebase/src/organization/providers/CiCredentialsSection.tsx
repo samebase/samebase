@@ -11,11 +11,10 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { buildCloudflareCiApiTokenUrl } from "../../../shared/cloudflareResourceUrls";
 
 type CiCredentialsStatus = (typeof api.users.getCiCredentialsStatus)["_returnType"];
 type SavedCiCredential = NonNullable<CiCredentialsStatus["cloudflare" | "convex"]>;
-
-const CLOUDFLARE_API_TOKENS_URL = "https://dash.cloudflare.com/profile/api-tokens";
 
 function CiCredentialRow({
   canManageOrganization,
@@ -151,13 +150,16 @@ Actions set up. Samebase's own provider connections above never go into a reposi
 */
 export function CiCredentialsSection({
   canManageOrganization,
-  cloudflareConnected,
+  cloudflareAccountId,
   convexConnected,
+  githubOwnerLogin,
   organizationId,
 }: {
   canManageOrganization: boolean;
-  cloudflareConnected: boolean;
+  /** The connected Cloudflare account; null while Cloudflare is not connected. */
+  cloudflareAccountId: string | null;
   convexConnected: boolean;
+  githubOwnerLogin: string;
   organizationId: Id<"organizations">;
 }) {
   const status = useConvexQuery(api.users.getCiCredentialsStatus, { organizationId });
@@ -177,19 +179,26 @@ export function CiCredentialsSection({
       <div className="mt-5 space-y-5">
         <CiCredentialRow
           canManageOrganization={canManageOrganization}
-          connected={cloudflareConnected}
+          connected={cloudflareAccountId !== null}
           help={
             <>
               A user API token from{" "}
-              <a
-                className="inline-flex items-center gap-1 font-medium text-foreground underline underline-offset-4"
-                href={CLOUDFLARE_API_TOKENS_URL}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                Cloudflare API tokens
-                <ExternalLink className="size-3" aria-hidden="true" />
-              </a>{" "}
+              {cloudflareAccountId === null ? (
+                "Cloudflare API tokens"
+              ) : (
+                <a
+                  className="inline-flex items-center gap-1 font-medium text-foreground underline underline-offset-4"
+                  href={buildCloudflareCiApiTokenUrl({
+                    accountId: cloudflareAccountId,
+                    tokenName: `samebase actions ci ${githubOwnerLogin}`,
+                  })}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
+                  Cloudflare API tokens
+                  <ExternalLink className="size-3" aria-hidden="true" />
+                </a>
+              )}{" "}
               for the connected account, with these permissions: Account Settings Read, Workers
               Scripts Edit, Secrets Store Edit.
             </>

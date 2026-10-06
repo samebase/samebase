@@ -108,6 +108,35 @@ export function normalizeCloudflareWorkerPreviewUrl(
   }
 }
 
+/**
+The permissions of the CI token that a repository_actions repository receives: the Worker, Alchemy's
+state store in the Secrets Store, and the account read. Cloudflare's dashboard names them by
+permission group key and access type.
+*/
+const CLOUDFLARE_CI_TOKEN_PERMISSION_GROUPS = [
+  { key: "workers_scripts", type: "edit" },
+  { key: "secrets_store", type: "edit" },
+  { key: "account_settings", type: "read" },
+] as const;
+
+/**
+Cloudflare's token template link: the page that creates a user API token with the CI permissions
+preselected for one account and the given token name.
+*/
+export function buildCloudflareCiApiTokenUrl(args: {
+  accountId: string;
+  tokenName: string;
+}): string {
+  const url = new URL("https://dash.cloudflare.com/profile/api-tokens");
+  url.searchParams.set(
+    "permissionGroupKeys",
+    JSON.stringify(CLOUDFLARE_CI_TOKEN_PERMISSION_GROUPS),
+  );
+  url.searchParams.set("accountId", args.accountId);
+  url.searchParams.set("name", args.tokenName);
+  return url.toString();
+}
+
 export function normalizeCloudflarePagesPreviewUrl(
   url: string,
   projectName: string,

@@ -1677,8 +1677,11 @@ export function ProviderConnectionsPage({
       ciCredentials={
         <CiCredentialsSection
           canManageOrganization={organization.role === "owner"}
-          cloudflareConnected={cloudflareConnection?.state === "connected"}
+          cloudflareAccountId={
+            cloudflareConnection?.state === "connected" ? cloudflareConnection.accountId : null
+          }
           convexConnected={convexConnection?.state === "connected"}
+          githubOwnerLogin={organization.githubOwnerLogin}
           organizationId={organizationId}
         />
       }

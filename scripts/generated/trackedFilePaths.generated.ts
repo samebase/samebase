@@ -940,6 +940,7 @@ export const trackedFilePaths = [
   "apps/samebase/shared/authorizationError.ts",
   "apps/samebase/shared/base64.test.ts",
   "apps/samebase/shared/base64.ts",
+  "apps/samebase/shared/cloudflareResourceUrls.test.ts",
   "apps/samebase/shared/cloudflareResourceUrls.ts",
   "apps/samebase/shared/cloudflareTokenRefresh.ts",
   "apps/samebase/shared/cloudflareWorkerPreviews.ts",
