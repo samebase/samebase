@@ -430,3 +430,17 @@ Score Four CI token), and the CI token for the dogfood organization.
   tokens saved by the deleted user (needs an index, deferred). Open: the minimal Cloudflare CI token
   permissions (Account Settings Read, Workers Scripts Edit, Secrets Store Edit) are from the Alchemy
   docs and source, not yet proven by a hand test. Codex round 1 running.
+- 2026-10-06: Branch-model follow-up open as draft
+  [PR #1693](https://github.com/samebase/samebase/pull/1693) against main (PR #1691 had merged
+  meanwhile). As built: triggers `push` on every branch and `delete`; stage from
+  `scripts/alchemy-stage.ts` (default branch gives `prod`; otherwise the safe form plus a 6-hex hash
+  only when it differs from the raw name; `prod` or empty fails); Worker Preview name from
+  `workerPreviewName(stage, worker)` with a hash-suffixed cut when the stage does not fit; both jobs
+  gated on `vars.CONVEX_TEAM_ID`; head check `scripts/check-branch-head.ts` before the deploy (a
+  superseded push ends green with "Nothing was deployed"); destroy job with the no-scripts install
+  and the signature audit only; comment on the oldest open pull request of the branch, looked up
+  with `fetch` and `GITHUB_TOKEN` (Alchemy's Octokit is not usable from the run file), only on
+  `push` events. Manifest `samebase-base-actions-1e1976146235`, 98 files. Codex round 1 running.
+  Nicu's assumption, recorded: the first real template for the mode relies on `cloudflare.config.ts`
+  plus `alchemy.run.ts`, with the Worker defined the Cloudflare way and deployed by `cf` from
+  Actions, and the stack owning Convex and the wiring; assessment pending.
