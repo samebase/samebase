@@ -10,6 +10,9 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future package releases do not bypass
 # the cooling period automatically.
 minimumReleaseAgeExclude:
+  # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
+  # Remove after 2026-10-07, when the 7-day cooling period is complete.
+  - "source-map-js@1.2.2"
   # Reviewed first-party release. Remove after 2026-10-09.
   - "@samebase/convex-cloudflare-email-inbox@0.1.0"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
@@ -70,12 +73,16 @@ overrides:
   "picomatch@2": 2.3.2
   "picomatch@4.0.3": 4.0.4
   postcss: 8.5.23
-  postcss-selector-parser: 7.1.5
+  postcss-selector-parser: 7.1.6
   protobufjs: 7.6.3
+  proxy-addr: 2.0.8
   qs: 6.16.0
   sharp: 0.35.4
   "semver@6": 7.7.4
   shell-quote: 1.9.0
+  seroval: 1.6.3
+  source-map-js: 1.2.2
+  tinypool: 2.1.2
   undici: 7.29.1
   vite: "catalog:"
   ws: 8.21.0
