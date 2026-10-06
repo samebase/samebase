@@ -5,9 +5,8 @@
 //   deployment, the Convex Auth keys, the functions push, and the Worker.
 // - Stage `pr-<number>` (a pull request): PREVIEW_BRANCH holds the branch. A
 //   Convex preview deployment named after the branch, the name `npx convex
-//   deploy --preview-name` gives it, and a Worker Preview of the prod Worker,
-//   which Alchemy names after the stage. `alchemy destroy --stage pr-<number>`
-//   deletes both.
+//   deploy --preview-name` gives it, and a Worker Preview of the prod Worker
+//   named after the stage. `alchemy destroy --stage pr-<number>` deletes both.
 // - No other stage. `pnpm run dev` runs Convex and Vite without Alchemy.
 //
 // .github/workflows/alchemy.yml runs the deploys. A deploy from a laptop needs
@@ -204,6 +203,18 @@ export default Alchemy.Stack(
         ),
       );
     }
+    // The Worker Preview takes the stage as its name. Cloudflare serves it at
+    // `<stage>-<worker>.<subdomain>.workers.dev`, so `<stage>-<worker>` must
+    // fit in one 63-character DNS label. A name is never cut, so two pull
+    // requests never share a Preview.
+    const previewNameBudget = 63 - workerName.length - 1;
+    if (isPreview && stage.length > previewNameBudget) {
+      return yield* Effect.die(
+        new Error(
+          `Stage "${stage}" does not fit next to the Worker name "${workerName}" in a 63-character DNS label: the pull request number is too large for this Worker name, which leaves ${previewNameBudget} characters. Rename the repository to a shorter name.`,
+        ),
+      );
+    }
 
     const backend = isPreview ? yield* preview(previewBranch) : yield* production;
 
@@ -223,8 +234,7 @@ export default Alchemy.Stack(
     const site = isPreview
       ? yield* Cloudflare.Website.Vite("Website", {
           ...settings,
-          // Alchemy names the Preview after the stage: pr-<number>.
-          preview: { of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }) },
+          preview: { of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }), name: stage },
         })
       : yield* Cloudflare.Website.Vite("Website", { ...settings, name: workerName });
 

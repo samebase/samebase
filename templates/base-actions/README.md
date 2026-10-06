@@ -63,9 +63,14 @@ the app with Vite and uploads the Worker. `.github/workflows/alchemy.yml` runs i
 | Pull request opened, updated, reopened | `pr-<number>` | Convex preview deployment named after the branch, Worker Preview of the prod Worker, comment |
 | Pull request closed                    | `pr-<number>` | `alchemy destroy`: deletes the preview deployment and the Worker Preview                     |
 
-The workflow runs `pnpm run check` before each deploy. A pull request deploys as the stage
-`pr-<number>`, and Alchemy names the Worker Preview after that stage. The Convex preview deployment
-gets the branch name itself, the name `npx convex deploy --preview-name` gives it.
+Each job installs the dependencies without lifecycle scripts and runs the supply-chain audits of
+`.github/workflows/ci.yml` first. Only the deploy or destroy step gets the credentials. The deploy
+job also runs `pnpm run check` before the deploy.
+
+A pull request deploys as the stage `pr-<number>`, and the Worker Preview takes that name. The Convex
+preview deployment gets the branch name itself, the name `npx convex deploy --preview-name` gives
+it. `pr-<number>` and the Worker name must fit together in one 63-character DNS label. A pull
+request number that is too long for the Worker name stops the deploy; use a shorter repository name.
 
 The Worker and the Convex project take the repository name: lowercase, every run of other
 characters as one dash. The Alchemy stack takes the owner and the repository, lowercase, joined with
