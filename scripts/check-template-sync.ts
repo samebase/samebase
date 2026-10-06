@@ -13,6 +13,15 @@ export const templateDeployPaths = [
   "alchemy.run.ts",
   // base-actions only: the GitHub Actions workflow that runs the Alchemy deploy and destroy.
   ".github/workflows/alchemy.yml",
+  // base-actions only: the Alchemy stage of a branch, which the workflow computes before the deploy
+  // and the destroy.
+  "scripts/alchemy-stage.ts",
+  "scripts/alchemy-stage.test.ts",
+  // base-actions only: skips the deploy of a workflow run whose commit is no longer the branch head.
+  // It asks the GitHub API and ends the run without a deploy; the base head check reads Workers
+  // Builds variables and git, and fails the build.
+  "scripts/check-branch-head.ts",
+  "scripts/check-branch-head.test.ts",
   // Deploy scripts and dependencies: Wrangler and the Workers Builds scripts in base; Alchemy,
   // Effect, and @samebase/alchemy-convex in base-actions.
   "package.json",

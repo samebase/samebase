@@ -55,26 +55,52 @@ The core workflow runs on macOS, Linux, and Windows. See
 ## Deployment contract
 
 `alchemy.run.ts` is the only deploy path. `alchemy deploy` pushes the Convex functions, then builds
-the app with Vite and uploads the Worker. `.github/workflows/alchemy.yml` runs it:
+the app with Vite and uploads the Worker. `.github/workflows/alchemy.yml` runs it for every branch,
+the way Cloudflare Workers Builds builds every branch:
 
-| Event                                  | Stage         | What it deploys                                                                              |
-| -------------------------------------- | ------------- | -------------------------------------------------------------------------------------------- |
-| Push to `main`                         | `prod`        | Convex project and production deployment, Worker                                             |
-| Pull request opened, updated, reopened | `pr-<number>` | Convex preview deployment named after the branch, Worker Preview of the prod Worker, comment |
-| Pull request closed                    | `pr-<number>` | `alchemy destroy`: deletes the preview deployment and the Worker Preview                     |
+| Event                      | Stage              | What happens                                                                |
+| -------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| Push to the default branch | `prod`             | Deploys the Convex project and production deployment, and the Worker        |
+| Push to any other branch   | The branch's stage | Deploys a Convex preview deployment and a Worker Preview of the prod Worker |
+| Branch deleted             | The branch's stage | `alchemy destroy` deletes the preview deployment and the Worker Preview     |
 
-Each job installs the dependencies without lifecycle scripts and runs the supply-chain audits of
-`.github/workflows/ci.yml` first. Only the deploy or destroy step gets the credentials. The deploy
-job also runs `pnpm run check` before the deploy.
+When a pull request from the branch is open, the push also posts the Preview URL and the Convex URL
+as a comment on it, and later pushes update that comment. A pull request opened after the last push
+gets the comment on the next push. A pull request from a fork gets no preview.
 
-A pull request deploys as the stage `pr-<number>`, and the Worker Preview takes that name. The Convex
-preview deployment gets the branch name itself, the name `npx convex deploy --preview-name` gives
-it. `pr-<number>` and the Worker name must fit together in one 63-character DNS label. A pull
-request number that is too long for the Worker name stops the deploy; use a shorter repository name.
+The runs of one branch run one at a time, in order, so a branch delete waits for a running deploy.
+Before the deploy, the job checks that its commit is still the head of the branch. A rerun of an
+older push ends without a deploy.
 
-The Worker and the Convex project take the repository name: lowercase, every run of other
-characters as one dash. The Alchemy stack takes the owner and the repository, lowercase, joined with
-`_` (`my-org/my-app` becomes `my-org_my-app`), so two repositories never share Alchemy state.
+Both jobs run only when the repository variable `CONVEX_TEAM_ID` is set. A copy of the repository
+without the deploy setup skips them.
+
+Each job installs the dependencies without lifecycle scripts and runs `pnpm audit signatures` first.
+The deploy job then runs the two vulnerability audits of `.github/workflows/ci.yml` and
+`pnpm run check`. The destroy job does not, so a new advisory cannot block a cleanup. Only the deploy
+or destroy step gets the credentials.
+
+The names, for the repository `my-org/my-app` and the branch `feature/Foo_bar`:
+
+| Resource                  | Name                                                 | Example                  |
+| ------------------------- | ---------------------------------------------------- | ------------------------ |
+| Alchemy stack             | `<owner>_<repository>`, lowercase                    | `my-org_my-app`          |
+| Worker                    | The repository name made safe, at most 54 characters | `my-app`                 |
+| Convex project            | The repository name made safe, at most 40 characters | `my-app`                 |
+| Preview stage             | The branch made safe, plus a hash if that changed it | `feature-foo-bar-c86457` |
+| Convex preview deployment | The branch                                           | `feature/Foo_bar`        |
+| Worker Preview            | The stage, cut and hashed when it does not fit       | `feature-foo-bar-c86457` |
+
+Made safe means lowercase, every run of characters other than `a-z` and `0-9` as one dash, and no
+dash at either end. The hash of a preview stage is a dash and the first 6 hex characters of the
+SHA-256 of the branch, so `feature/Foo_bar` and `feature-foo-bar` get two stages. A Worker Preview
+is served at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>` must fit in a
+63-character DNS label. A longer stage is cut, and a dash and the first 6 hex characters of the
+SHA-256 of the stage follow: next to a 47-character Worker name, `feature-foo-bar-c86457` becomes
+`feature-91387f`. A Worker Preview name starts with `p` when the stage starts with a digit.
+
+A branch whose stage would be `prod` or empty, such as `prod` or `///`, stops the deploy; rename the
+branch. Renaming the repository is not supported by the deploy.
 
 The deploy never takes over a Worker or a Convex project that it did not create. If the Cloudflare
 account already has a Worker with the same name that this stack did not create, or the Convex team
