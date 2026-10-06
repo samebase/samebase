@@ -644,3 +644,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   Samebase row, the GitHub repository, the Convex project, the Worker, and the stack state are all
   gone. PR B head `deaee5d04` (destroy path, Codex three rounds, clean). The first app's repository
   got the final workflow and script pushed and its confirmed destroy runs next.
+- 2026-10-06: The first app got the final destroy files pushed and its confirmed destroy ran the
+  final script: dry run, policy rewrite ("retain → destroy" on the Worker and the project), 11
+  deletions, state deleted, both URLs 404; then "Remove from Samebase" with the repository deletion.
+  Both dogfood apps are gone everywhere. PR B's CI is red on head `deaee5d04` only because of a new
+  advisory, `@modelcontextprotocol/sdk` below 1.31.0 (GHSA-6qxp-vccf-f47h); a separate fix PR
+  against main is in progress, then PR B rebases.
