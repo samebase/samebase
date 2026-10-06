@@ -775,3 +775,11 @@ Open for PR C, in Nicu's words "how all this fits in":
   reader takes the last object); the template's output block gets a `version` and the identity
   fields (Worker name, Convex team, project, deployment, config path), and the reader keeps one
   validator per version it has met.
+- 2026-10-07: Nicu on PR C: no rush, research everything touched, choose a stable and scalable
+  design rather than an MVP; the goal behind it is to retire the Convex provisioning workflows and
+  rely on Alchemy once Samebase can read safely; Samebase needs the team id, the project id, and the
+  rest of the identity, not URLs; the two deployers (Alchemy for setup, Workers Builds for deploys)
+  stay and the design accounts for both. A research note is in progress
+  (`research/2026-10-07-alchemy-as-samebase-source-of-truth.md`): inventory of what Samebase knows
+  today, what Alchemy holds, the read options compared, trust, the mapping to the current workflows,
+  the schema delta, edge cases, and a proposed RFC text, challenged by Codex before Nicu reads it.
