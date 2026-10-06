@@ -547,3 +547,11 @@ C; Convex token minting per repository (spike pending); the template location lo
   total). After the merge, production samebase.com has the mode behind the experimental choice; the
   dogfood follows: paste the Cloudflare CI token through the prefilled link on the providers page,
   create a `tmp-` app with the GitHub Actions option, watch the repository's run.
+- 2026-10-07: Preview test by Nicu on PR B. The Cloudflare CI token save worked but the saved state
+  was not visible enough (fix: who and when, "Replace" button, "paste a new token to replace it");
+  the providers page lacked end spacing (fix in the same commit); the New app option stayed disabled
+  because the organization's Convex connection is an API key, and the disabled line did not say
+  which requirement was missing (fix: name the missing part). Verified live: a Convex team access
+  token cannot create another one (`403 NotAllowed`), so an API key connection cannot mint. Decision
+  pending: require OAuth, or fall back to writing the connection's own API key as
+  `CONVEX_ACCESS_TOKEN` for API-key organizations (recommended; same scope, shared lifecycle).
