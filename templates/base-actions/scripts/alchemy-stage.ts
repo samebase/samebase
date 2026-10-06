@@ -1,16 +1,20 @@
 // The Alchemy stage of a run of .github/workflows/alchemy.yml. The script
-// appends STAGE and PREVIEW_BRANCH to GITHUB_ENV for the later steps.
+// appends STAGE, PREVIEW_BRANCH, and PREVIEW_NAME to GITHUB_ENV for the later
+// steps. It imports only Node modules, so it runs before the install.
 //
-// The default branch deploys the stage `prod`, and PREVIEW_BRANCH is empty.
-// Every other branch is a preview: the stage is the branch made safe by
-// `alchemyStage`, and PREVIEW_BRANCH is the branch itself, which
-// alchemy.run.ts gives to the Convex preview deployment. The destroy of a
-// deleted branch computes the same stage.
+// The default branch deploys the stage `prod`, and PREVIEW_BRANCH and
+// PREVIEW_NAME are empty. Every other branch is a preview: the stage is the
+// branch made safe by `alchemyStage`, PREVIEW_BRANCH is the branch itself,
+// which alchemy.run.ts gives to the Convex preview deployment, and
+// PREVIEW_NAME is the Worker Preview name that `cf previews deploy` uploads.
+// The destroy of a deleted branch computes the same names.
 /// <reference types="node" />
 import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+
+import { deployNames, workerPreviewName } from "./deploy-names.ts";
 
 /**
 The stage of a branch. The default branch is `prod`. Any other branch is
@@ -52,7 +56,16 @@ if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
     );
   }
   const stage = alchemyStage({ branch, defaultBranch });
+  const isPreview = stage !== "prod";
+  const previewName = isPreview ? workerPreviewName(stage, deployNames().worker) : "";
   // Git ref names have no control characters, so a branch fits on one line.
-  appendFileSync(githubEnv, `STAGE=${stage}\nPREVIEW_BRANCH=${stage === "prod" ? "" : branch}\n`);
-  console.log(`The branch ${JSON.stringify(branch)} has the stage ${stage}.`);
+  appendFileSync(
+    githubEnv,
+    `STAGE=${stage}\nPREVIEW_BRANCH=${isPreview ? branch : ""}\nPREVIEW_NAME=${previewName}\n`,
+  );
+  console.log(
+    isPreview
+      ? `The branch ${JSON.stringify(branch)} has the stage ${stage} and the Worker Preview ${previewName}.`
+      : `The branch ${JSON.stringify(branch)} has the stage prod.`,
+  );
 }
