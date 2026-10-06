@@ -1180,75 +1180,22 @@ export const setCloudflareCiCredential = internalMutation({
   },
 });
 
-/** Stores the Convex CI token after the action verified it against the connected team. */
-export const setConvexCiCredential = internalMutation({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-    accessToken: string(),
-    teamId: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await requireActiveOrganizationProviderOwner(ctx.db, args);
-    const [organization, credentials, ci] = await Promise.all([
-      ctx.db.get(args.organizationId),
-      getOrganizationProviderCredentials(ctx.db, args.organizationId),
-      getOrganizationCiCredentials(ctx.db, args.organizationId),
-    ]);
-    if (organization?.convexTeam?.teamId !== args.teamId || credentials?.convex === undefined) {
-      throw new ConvexError("Convex connection changed before the CI token was saved.");
-    }
-    const convex = {
-      accessToken: args.accessToken,
-      teamId: args.teamId,
-      connectedByUserId: args.userId,
-      updatedAt: Date.now(),
-    };
-    if (ci) {
-      await ctx.db.patch(ci._id, { convex });
-    } else {
-      await ctx.db.insert("organizationCiCredentials", {
-        organizationId: args.organizationId,
-        convex,
-      });
-    }
-    return null;
-  },
-});
-
 /**
-Removes one entry of a CI credentials row, and the row with its last entry. Samebase cannot revoke a
-pasted token, so it only forgets it; repositories that hold it keep their Actions secrets.
+An owner removes the Cloudflare CI token from the Providers page. Samebase cannot revoke a pasted
+token, so it only forgets it; repositories that hold it keep their Actions secrets.
 */
-export async function removeCiCredentialEntry(
-  ctx: Pick<MutationCtx, "db">,
-  ci: Doc<"organizationCiCredentials">,
-  provider: "cloudflare" | "convex",
-): Promise<void> {
-  const remaining = provider === "cloudflare" ? ci.convex : ci.cloudflare;
-  if (remaining === undefined) {
-    await ctx.db.delete(ci._id);
-    return;
-  }
-  await ctx.db.patch(ci._id, { [provider]: undefined });
-}
-
-/** An owner removes one CI token from the Providers page. */
 export async function removeCiCredential(
   ctx: Pick<MutationCtx, "db">,
   args: {
     organizationId: Id<"organizations">;
     userId: Id<"users">;
-    provider: "cloudflare" | "convex";
   },
 ): Promise<void> {
   await requireActiveOrganizationProviderOwner(ctx.db, args);
   const ci = await getOrganizationCiCredentials(ctx.db, args.organizationId);
-  if (ci?.[args.provider] === undefined) {
-    return;
+  if (ci) {
+    await ctx.db.delete(ci._id);
   }
-  await removeCiCredentialEntry(ctx, ci, args.provider);
 }
 
 export const releaseCloudflareTokenRefreshForManualProviderWrite = internalMutation({

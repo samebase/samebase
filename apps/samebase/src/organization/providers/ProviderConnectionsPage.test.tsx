@@ -732,16 +732,14 @@ describe("ProviderConnectionsPage", () => {
     expect(startCloudflareOAuth).not.toHaveBeenCalled();
   });
 
-  it("saves and removes the CI tokens below the provider connections", async () => {
-    const setConvexCiToken = vi.fn(async () => null);
-    const removeCiToken = vi.fn(async () => null);
-    testState.actions.set(getFunctionName(api.users.setConvexCiToken), setConvexCiToken);
-    testState.mutations.set(getFunctionName(api.users.removeCiToken), removeCiToken);
-    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
-      authMethod: "api_key",
-      state: "connected",
-      teamId: "team_samebase",
-    });
+  it("saves and removes the Cloudflare CI token below the provider connections", async () => {
+    const setCloudflareCiToken = vi.fn(async () => null);
+    const removeCloudflareCiToken = vi.fn(async () => null);
+    testState.actions.set(getFunctionName(api.users.setCloudflareCiToken), setCloudflareCiToken);
+    testState.mutations.set(
+      getFunctionName(api.users.removeCloudflareCiToken),
+      removeCloudflareCiToken,
+    );
     testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
       accountId: "cloudflare-account",
       accountName: "Samebase",
@@ -754,54 +752,54 @@ describe("ProviderConnectionsPage", () => {
         updatedAt: 1,
         connectedBy: { kind: "displayName", label: "Ada" },
       },
-      convex: null,
     });
 
     const container = mountProviderConnectionsPage();
-    const [cloudflareRow, convexRow] = container.querySelectorAll<HTMLElement>(
-      '[data-testid="ci-credential-row"]',
+    const section = container.querySelector<HTMLElement>('[data-testid="ci-credentials"]');
+    if (!section) {
+      throw new Error("CI credentials section was not found.");
+    }
+    expect(section.textContent).toContain("Saved by Ada");
+    // The Convex access token is minted per repository, so the section has no Convex field.
+    expect(section.textContent).toContain(
+      "mints each repository's Convex access token through the Convex OAuth connection",
     );
-    expect(cloudflareRow.textContent).toContain("Saved by Ada");
+    expect(section.querySelectorAll("input")).toHaveLength(1);
     // The token template link preselects the CI permissions for the connected account.
-    expect(cloudflareRow.querySelector("a")?.href).toBe(
+    expect(section.querySelector("a")?.href).toBe(
       buildCloudflareCiApiTokenUrl({
         accountId: "cloudflare-account",
         tokenName: "samebase actions ci samebase",
       }),
     );
-    expect(cloudflareRow.textContent).toContain(
+    expect(section.textContent).toContain(
       "Account Settings Read, Workers Scripts Edit, Secrets Store Edit",
     );
-    expect(convexRow.textContent).toContain("Not saved");
-    expect(findButton(convexRow, "Remove")).toBeUndefined();
 
-    const convexInput = convexRow.querySelector("input");
+    const input = section.querySelector("input");
     const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
-    if (!convexInput || !descriptor?.set) {
-      throw new Error("Convex CI token input was not found.");
+    if (!input || !descriptor?.set) {
+      throw new Error("Cloudflare CI token input was not found.");
     }
-    descriptor.set.call(convexInput, "  convex-ci-token-for-tests  ");
+    descriptor.set.call(input, "  cloudflare-ci-token-for-tests  ");
     await act(async () => {
-      convexInput.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
       await Promise.resolve();
     });
     await act(async () => {
-      findButton(convexRow, "Save")?.click();
+      findButton(section, "Save")?.click();
       await Promise.resolve();
     });
     await act(async () => {
-      findButton(cloudflareRow, "Remove")?.click();
+      findButton(section, "Remove")?.click();
       await Promise.resolve();
     });
 
-    expect(setConvexCiToken).toHaveBeenCalledWith({
+    expect(setCloudflareCiToken).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
-      token: "convex-ci-token-for-tests",
+      token: "cloudflare-ci-token-for-tests",
     });
-    expect(removeCiToken).toHaveBeenCalledWith({
-      organizationId: ORGANIZATION_ID,
-      provider: "cloudflare",
-    });
+    expect(removeCloudflareCiToken).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
   });
 
   it("tells an owner to update a Cloudflare API token that fails its check", async () => {

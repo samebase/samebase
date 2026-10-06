@@ -15,6 +15,7 @@ import { toErrorMessage } from "./jsonUtils";
 import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
 import type { ConnectedRepository } from "./repository/state";
 import {
+  buildRepositoryActionsConvexAccessTokenName,
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
   vRepositoryProvisioningMode,
   type RepositoryProvisioningEventLevel,
@@ -22,7 +23,14 @@ import {
   type RepositoryProvisioningRunState,
   type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
-import { requireCompleteCiCredentials } from "./organization/ciCredentials";
+import {
+  requireCloudflareCiCredential,
+  requireConvexMintingToken,
+} from "./organization/ciCredentials";
+import {
+  createConvexTeamAccessToken,
+  deleteConvexTeamAccessToken,
+} from "./convexManagementApi/client";
 import { writeGitHubActionsSecrets } from "./githubActionsSecrets";
 import { createStarterSeedGitClient, seedRepositoryWithStarter } from "./starterSeed";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
@@ -363,7 +371,7 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
     if (provisioning === "repository_actions") {
-      requireCompleteCiCredentials({
+      requireCloudflareCiCredential({
         ci: await ctx.runQuery(
           internal.organizationProviderCredentials.loadCiCredentialsForRepositoryProviderWorkflow,
           {
@@ -375,8 +383,12 @@ export const validateCreateAppConnections = internalAction({
             },
           },
         ),
-        convexTeamId: repository.convexTeamId,
         cloudflareAccountId: repository.cloudflareAccountId,
+        githubOwnerLogin: access.githubOwnerLogin,
+      });
+      requireConvexMintingToken({
+        configuration: providerConfiguration,
+        convexTeamId: repository.convexTeamId,
         githubOwnerLogin: access.githubOwnerLogin,
       });
     }
@@ -781,9 +793,11 @@ export const createRepositoryForRepository = internalAction({
 });
 
 /**
-write_actions_secrets of the repository_actions mode: the CI credentials become the secrets and the
-variable that the template's alchemy workflow reads. GitHub is written with the same Octokit that
-created the repository for this owner type. Every write is an upsert, so a retry resumes safely.
+write_actions_secrets of the repository_actions mode: the Cloudflare CI token, the account id, and a
+Convex team access token minted for this repository become the secrets and the variable that the
+template's alchemy workflow reads. GitHub is written with the same Octokit that created the
+repository for this owner type. Every GitHub write is an upsert and the token is minted again, so a
+retry resumes safely.
 */
 export const writeActionsSecrets = internalAction({
   args: {
@@ -851,6 +865,46 @@ export const writeActionsSecrets = internalAction({
             githubUserId: access.githubOwnerId,
           })
         : access.octokit;
+
+    // The repository gets its own Convex team access token. The previous one of a retry goes first,
+    // so the team holds one token per repository; Samebase keeps only the name.
+    const convexToken = { token: target.convexMintingToken, teamId: target.convexTeamId };
+    if (target.convexAccessToken.state === "minted") {
+      await deleteConvexTeamAccessToken({
+        ...convexToken,
+        name: target.convexAccessToken.name,
+        recordApiCall,
+      });
+      await appendRunEvent(ctx, {
+        runId: args.runId,
+        step: "write_actions_secrets",
+        level: "info",
+        message: `Deleted the previous Convex access token ${target.convexAccessToken.name}.`,
+        state: "running",
+      });
+    }
+    const convexAccessTokenName = buildRepositoryActionsConvexAccessTokenName(
+      `${repository.owner.login}/${repository.name}`,
+    );
+    const convexAccessToken = await createConvexTeamAccessToken({
+      ...convexToken,
+      name: convexAccessTokenName,
+      recordApiCall,
+    });
+    await ctx.runMutation(internal.repositoryProvisioningWorkflow.recordConvexAccessTokenMinted, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+      name: convexAccessTokenName,
+    });
+    await appendRunEvent(ctx, {
+      runId: args.runId,
+      step: "write_actions_secrets",
+      level: "info",
+      message: `Minted the Convex access token ${convexAccessTokenName}.`,
+      state: "running",
+    });
+
     await writeGitHubActionsSecrets({
       octokit,
       owner: repository.owner.login,
@@ -858,7 +912,7 @@ export const writeActionsSecrets = internalAction({
       secrets: [
         { name: "CLOUDFLARE_API_TOKEN", value: target.cloudflareApiToken },
         { name: "CLOUDFLARE_ACCOUNT_ID", value: target.cloudflareAccountId },
-        { name: "CONVEX_ACCESS_TOKEN", value: target.convexAccessToken },
+        { name: "CONVEX_ACCESS_TOKEN", value: convexAccessToken },
       ],
       variables: [{ name: "CONVEX_TEAM_ID", value: target.convexTeamId }],
       recordApiCall,

@@ -1485,6 +1485,22 @@ export type PostProjectsByProjectIdDeletePreviewDeployKeyResponses = {
   200: unknown;
 };
 
+export type PostTeamsByTeamIdDeleteAccessTokenData = {
+  body: DeleteTeamAccessTokenArgs;
+  path: {
+    /**
+     * Team ID
+     */
+    team_id: string;
+  };
+  query?: never;
+  url: "/teams/{team_id}/delete_access_token";
+};
+
+export type PostTeamsByTeamIdDeleteAccessTokenResponses = {
+  200: unknown;
+};
+
 export type GetTokenDetailsData = {
   body?: never;
   path?: never;
@@ -1497,3 +1513,32 @@ export type GetTokenDetailsResponses = {
 };
 
 export type GetTokenDetailsResponse = GetTokenDetailsResponses[keyof GetTokenDetailsResponses];
+
+export type PostTeamsByTeamIdCreateAccessTokenData = {
+  body?: null | CreateTeamAccessTokenArgs;
+  path: {
+    /**
+     * Team ID
+     */
+    team_id: string;
+  };
+  query?: never;
+  url: "/teams/{team_id}/create_access_token";
+};
+
+export type PostTeamsByTeamIdCreateAccessTokenErrors = {
+  /**
+   * Caller is not authorized to create team access tokens
+   */
+  403: unknown;
+};
+
+export type PostTeamsByTeamIdCreateAccessTokenResponses = {
+  /**
+   * Team access token created successfully
+   */
+  201: CreateTeamAccessTokenResponse;
+};
+
+export type PostTeamsByTeamIdCreateAccessTokenResponse =
+  PostTeamsByTeamIdCreateAccessTokenResponses[keyof PostTeamsByTeamIdCreateAccessTokenResponses];

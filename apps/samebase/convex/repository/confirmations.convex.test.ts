@@ -207,9 +207,9 @@ describe("action confirmation check", () => {
     });
     expect(repositoryActions).toMatchObject({
       effect:
-        "Samebase starts a new setup run for scout-owner/scout. It copies the organization's CI credentials into the repository's GitHub Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.",
+        "Samebase starts a new setup run for scout-owner/scout. It deletes the Convex access token samebase/scout-owner/scout if an earlier run minted it, mints a new one through the organization's Convex OAuth connection, and writes it with the organization's Cloudflare CI token into the repository's GitHub Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.",
       acknowledgement:
-        "I approve a new setup run for scout-owner/scout, which replaces its GitHub Actions secrets and variable with the organization's CI credentials",
+        "I approve a new setup run for scout-owner/scout, which replaces its Convex access token samebase/scout-owner/scout and its GitHub Actions secrets and variable",
     });
     const repositoryActionsText = `${repositoryActions.effect} ${repositoryActions.acknowledgement}`;
     for (const samebaseOnly of [

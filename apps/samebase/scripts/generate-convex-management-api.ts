@@ -479,6 +479,8 @@ await createClient({
           "GET /projects/{project_id}/deployment",
           "GET /projects/{project_id}/list_deployments",
           "POST /teams/{team_id}/create_project",
+          "POST /teams/{team_id}/create_access_token",
+          "POST /teams/{team_id}/delete_access_token",
           "POST /projects/{project_id}/create_deployment",
           "POST /projects/{project_id}/delete",
           "POST /deployments/{deployment_name}/create_deploy_key",

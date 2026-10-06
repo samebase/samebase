@@ -39,6 +39,7 @@ const repositoryActionsPlan = {
   repositoryId,
   convexConfigPath: "convex.json",
   ciSecrets: { state: "planned" },
+  convexAccessToken: { state: "planned" },
   seed: { state: "planned" },
   createdAt: 1,
   updatedAt: 1,

@@ -51,20 +51,21 @@ const NEW_APP_SETUP_LABELS = {
 } as const satisfies Record<RepositoryProvisioningMode, string>;
 
 /**
-Who sets up the new app. GitHub Actions needs the organization's CI tokens, so that choice stays
-disabled until they are saved on the Providers page.
+Who sets up the new app. GitHub Actions needs the organization's Cloudflare CI token and a Convex
+connection made with OAuth, which mints each repository's Convex access token, so that choice stays
+disabled until the Providers page has both.
 */
 function NewAppSetupField({
-  ciCredentialsReady,
   disabled,
   githubOwnerLogin,
   onValueChange,
+  repositoryActionsReady,
   value,
 }: {
-  ciCredentialsReady: boolean;
   disabled: boolean;
   githubOwnerLogin: string;
   onValueChange: (value: RepositoryProvisioningMode) => void;
+  repositoryActionsReady: boolean;
   value: RepositoryProvisioningMode;
 }) {
   return (
@@ -80,14 +81,14 @@ function NewAppSetupField({
         </SelectTrigger>
         <AppSelectContent>
           <AppSelectItem value="samebase">{NEW_APP_SETUP_LABELS.samebase}</AppSelectItem>
-          <AppSelectItem disabled={!ciCredentialsReady} value="repository_actions">
+          <AppSelectItem disabled={!repositoryActionsReady} value="repository_actions">
             {NEW_APP_SETUP_LABELS.repository_actions}
           </AppSelectItem>
         </AppSelectContent>
       </Select>
-      {ciCredentialsReady ? null : (
+      {repositoryActionsReady ? null : (
         <div className="text-xs leading-5 text-muted-foreground">
-          GitHub Actions setup needs the CI tokens in{" "}
+          GitHub Actions setup needs the Cloudflare CI token and a Convex OAuth connection in{" "}
           <Link
             className={linkStyle}
             params={{ owner: githubOwnerLogin }}
@@ -550,11 +551,15 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     organizationId,
   });
   const ciCredentials = useConvexQuery(api.users.getCiCredentialsStatus, { organizationId });
-  const ciCredentialsReady = Boolean(ciCredentials?.cloudflare && ciCredentials.convex);
+  const repositoryActionsReady =
+    Boolean(ciCredentials?.cloudflare) &&
+    convexConnection?.state === "connected" &&
+    convexConnection.authMethod === "oauth";
   const [requestedProvisioning, setRequestedProvisioning] =
     useState<RepositoryProvisioningMode>("samebase");
-  // Removing a CI token elsewhere returns the form to the Samebase setup.
-  const provisioning = ciCredentialsReady ? requestedProvisioning : "samebase";
+  // Removing the CI token or the Convex OAuth connection elsewhere returns the form to the
+  // Samebase setup.
+  const provisioning = repositoryActionsReady ? requestedProvisioning : "samebase";
   const repositoryActions = provisioning === "repository_actions";
   const convexDeploymentRegionSelection = useConvexDeploymentRegion({
     enabled: convexConnection?.state === "connected",
@@ -1249,7 +1254,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           convexConnection={convexConnection}
         />
         <NewAppSetupField
-          ciCredentialsReady={ciCredentialsReady}
+          repositoryActionsReady={repositoryActionsReady}
           disabled={!hasRequiredCreateConnections || isCreating}
           githubOwnerLogin={organization.githubOwnerLogin}
           onValueChange={(value) => {

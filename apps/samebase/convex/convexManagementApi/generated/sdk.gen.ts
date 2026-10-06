@@ -28,8 +28,13 @@ import type {
   PostProjectsByProjectIdDeletePreviewDeployKeyData,
   PostProjectsByProjectIdDeletePreviewDeployKeyResponses,
   PostProjectsByProjectIdDeleteResponses,
+  PostTeamsByTeamIdCreateAccessTokenData,
+  PostTeamsByTeamIdCreateAccessTokenErrors,
+  PostTeamsByTeamIdCreateAccessTokenResponses,
   PostTeamsByTeamIdCreateProjectData,
   PostTeamsByTeamIdCreateProjectResponses,
+  PostTeamsByTeamIdDeleteAccessTokenData,
+  PostTeamsByTeamIdDeleteAccessTokenResponses,
 } from "./types.gen";
 import {
   vGetProjectsByProjectIdDeploymentPath,
@@ -61,9 +66,14 @@ import {
   vPostProjectsByProjectIdDeletePath,
   vPostProjectsByProjectIdDeletePreviewDeployKeyBody,
   vPostProjectsByProjectIdDeletePreviewDeployKeyPath,
+  vPostTeamsByTeamIdCreateAccessTokenBody,
+  vPostTeamsByTeamIdCreateAccessTokenPath,
+  vPostTeamsByTeamIdCreateAccessTokenResponse,
   vPostTeamsByTeamIdCreateProjectBody,
   vPostTeamsByTeamIdCreateProjectPath,
   vPostTeamsByTeamIdCreateProjectResponse,
+  vPostTeamsByTeamIdDeleteAccessTokenBody,
+  vPostTeamsByTeamIdDeleteAccessTokenPath,
 } from "./valibot.gen";
 
 export type Options<
@@ -514,6 +524,106 @@ export class POST {
         },
       ],
       url: "/projects/{project_id}/delete_preview_deploy_key",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+  }
+
+  /**
+   * Delete a team access token
+   *
+   * Deletes a team access token, identified by its secret value or name.
+   */
+  public static "/teams/{team_id}/delete_access_token"<ThrowOnError extends boolean = true>(
+    options: Options<PostTeamsByTeamIdDeleteAccessTokenData, ThrowOnError>,
+  ): RequestResult<PostTeamsByTeamIdDeleteAccessTokenResponses, unknown, ThrowOnError, "data"> {
+    return options.client.post<
+      PostTeamsByTeamIdDeleteAccessTokenResponses,
+      unknown,
+      ThrowOnError,
+      "data"
+    >({
+      requestValidator: async (data) =>
+        await v.parseAsync(
+          v.object({
+            body: vPostTeamsByTeamIdDeleteAccessTokenBody,
+            path: vPostTeamsByTeamIdDeleteAccessTokenPath,
+            query: v.optional(v.never()),
+          }),
+          data,
+        ),
+      responseStyle: "data",
+      security: [
+        {
+          key: "PAT",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+      ],
+      url: "/teams/{team_id}/delete_access_token",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+  }
+
+  /**
+   * Create a team access token
+   */
+  public static "/teams/{team_id}/create_access_token"<ThrowOnError extends boolean = true>(
+    options: Options<PostTeamsByTeamIdCreateAccessTokenData, ThrowOnError>,
+  ): RequestResult<
+    PostTeamsByTeamIdCreateAccessTokenResponses,
+    PostTeamsByTeamIdCreateAccessTokenErrors,
+    ThrowOnError,
+    "data"
+  > {
+    return options.client.post<
+      PostTeamsByTeamIdCreateAccessTokenResponses,
+      PostTeamsByTeamIdCreateAccessTokenErrors,
+      ThrowOnError,
+      "data"
+    >({
+      requestValidator: async (data) =>
+        await v.parseAsync(
+          v.object({
+            body: v.optional(vPostTeamsByTeamIdCreateAccessTokenBody),
+            path: vPostTeamsByTeamIdCreateAccessTokenPath,
+            query: v.optional(v.never()),
+          }),
+          data,
+        ),
+      responseValidator: async (data) =>
+        await v.parseAsync(vPostTeamsByTeamIdCreateAccessTokenResponse, data),
+      responseStyle: "data",
+      security: [
+        {
+          key: "PAT",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+      ],
+      url: "/teams/{team_id}/create_access_token",
       ...options,
       headers: {
         "Content-Type": "application/json",

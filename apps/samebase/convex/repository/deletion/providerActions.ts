@@ -5,7 +5,10 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { createConvexManagementClient } from "../../convexManagementApi/client";
+import {
+  createConvexManagementClient,
+  deleteConvexTeamAccessToken,
+} from "../../convexManagementApi/client";
 import { ConvexManagement } from "../../convexManagementApi/generated/sdk.gen";
 import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
@@ -132,6 +135,38 @@ export const deleteConvex = internalAction({
     const run = await getDeletionRun(ctx, args.runId);
     await requireDeletionContinuation(ctx, args.runId);
     const plan = readRetainedSnapshot(run).plan;
+    const provider = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
+      { authority: { kind: "deletion", runId: args.runId } },
+    );
+
+    // The Convex access token that Samebase minted for the repository's GitHub Actions goes with
+    // the repository, whichever resources the removal keeps: Samebase does not leave a credential
+    // that it issued behind. Its project and Worker belong to the GitHub Actions and stay.
+    const convexAccessToken = await ctx.runQuery(
+      internal.repositoryProvisioningWorkflow.readRepositoryActionsConvexAccessTokenForDeletion,
+      { runId: args.runId },
+    );
+    if (convexAccessToken) {
+      const credential = provider.configuration.convexCredential;
+      if (provider.configuration.convexTeam?.teamId !== convexAccessToken.teamId || !credential) {
+        throw new Error(
+          `Convex connection is required to delete the Convex access token ${convexAccessToken.name}.`,
+        );
+      }
+      await appendRunEvent(ctx, {
+        runId: args.runId,
+        step: "delete_convex",
+        level: "info",
+        message: `Deleting the Convex access token ${convexAccessToken.name} of the repository's GitHub Actions.`,
+      });
+      await deleteConvexTeamAccessToken({
+        token: credential.auth.credential,
+        teamId: convexAccessToken.teamId,
+        name: convexAccessToken.name,
+      });
+    }
+
     if (plan.convex.action === "skip") {
       return null;
     }
@@ -145,10 +180,6 @@ export const deleteConvex = internalAction({
     if (plan.convex.projects.length === 0) {
       throw new Error("Convex deletion plan must include at least one project.");
     }
-    const provider = await ctx.runQuery(
-      internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
-      { authority: { kind: "deletion", runId: args.runId } },
-    );
     for (const project of plan.convex.projects) {
       const credential = provider.configuration.convexCredential;
       if (

@@ -107,9 +107,15 @@ const testState = vi.hoisted(() => ({
   fallbackAction: vi.fn(async () => undefined),
 }));
 
-/** The organization's CI credentials status; undefined while the query loads. */
+/**
+The organization's CI credentials status, undefined while the query loads, and how the connected
+Convex team was connected.
+*/
 const ciCredentialsTestState = vi.hoisted(() => {
-  const state: { status: unknown } = { status: undefined };
+  const state: { status: unknown; convexAuthMethod: "oauth" | "api_key" } = {
+    status: undefined,
+    convexAuthMethod: "oauth",
+  };
   return state;
 });
 
@@ -123,7 +129,7 @@ vi.mock("convex/react", async (importOriginal) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.users.getConvexConnectionStatus)) {
         return {
-          authMethod: "oauth",
+          authMethod: ciCredentialsTestState.convexAuthMethod,
           state: "connected",
           teamId: "team-acme-platform",
           teamSlug: "acme-platform",
@@ -182,6 +188,7 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.state = "loaded";
     convexRegionTestState.defaultRegion = CONVEX_US_EAST_REGION;
     ciCredentialsTestState.status = undefined;
+    ciCredentialsTestState.convexAuthMethod = "oauth";
     testState.actions.clear();
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
@@ -499,15 +506,19 @@ describe("NewAppPage", () => {
     return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
   }
 
-  it("keeps the GitHub Actions setup disabled until the CI tokens are saved", async () => {
+  it("keeps the GitHub Actions setup disabled while Convex is connected with an API key", async () => {
+    // The Cloudflare CI token is saved, but only a Convex OAuth connection mints each repository's
+    // Convex access token.
     ciCredentialsTestState.status = {
       cloudflare: { accountId: "account-acme-production", updatedAt: 1 },
-      convex: null,
     };
+    ciCredentialsTestState.convexAuthMethod = "api_key";
     const container = await mountPage();
 
     const providersLink = [...container.querySelectorAll("a")].find((link) =>
-      link.parentElement?.textContent.startsWith("GitHub Actions setup needs the CI tokens"),
+      link.parentElement?.textContent.startsWith(
+        "GitHub Actions setup needs the Cloudflare CI token and a Convex OAuth connection",
+      ),
     );
     expect(providersLink?.getAttribute("href")).toBe("/org/samebase/providers");
     const options = await openSetupOptions(container);
@@ -522,7 +533,6 @@ describe("NewAppPage", () => {
     vi.useFakeTimers();
     ciCredentialsTestState.status = {
       cloudflare: { accountId: "account-acme-production", updatedAt: 1 },
-      convex: { teamId: "team-acme-platform", updatedAt: 2 },
     };
     const checkNames = vi.fn(async () => availableNames("not_required"));
     const createRepository = vi.fn(async () => undefined);
@@ -533,7 +543,7 @@ describe("NewAppPage", () => {
     testState.actions.set(getFunctionName(api.repository.create), createRepository);
     const container = await mountPage();
 
-    expect(container.textContent).not.toContain("GitHub Actions setup needs the CI tokens");
+    expect(container.textContent).not.toContain("GitHub Actions setup needs");
     const actionsOption = (await openSetupOptions(container)).at(1);
     if (!actionsOption) {
       throw new Error("GitHub Actions setup option was not rendered.");

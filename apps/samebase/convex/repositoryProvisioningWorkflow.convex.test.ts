@@ -1,5 +1,6 @@
 import { x25519 } from "@noble/curves/ed25519";
 import { Octokit } from "@octokit/rest";
+import sodium from "libsodium-wrappers";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({
@@ -7,6 +8,20 @@ const githubMocks = vi.hoisted(() => ({
   resolveAppAccess: vi.fn(),
   seedRepository: vi.fn(),
 }));
+
+const convexMocks = vi.hoisted(() => ({
+  createTeamAccessToken: vi.fn(),
+  deleteTeamAccessToken: vi.fn(),
+}));
+
+vi.mock("./convexManagementApi/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./convexManagementApi/client")>();
+  return {
+    ...actual,
+    createConvexTeamAccessToken: convexMocks.createTeamAccessToken,
+    deleteConvexTeamAccessToken: convexMocks.deleteTeamAccessToken,
+  };
+});
 
 vi.mock("./githubApp", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./githubApp")>();
@@ -494,9 +509,30 @@ describe("app provisioning workflow composition", () => {
   });
 });
 
+const actionsRepositorySecretKey = new Uint8Array(32).fill(7);
 const actionsRepositoryPublicKey = btoa(
-  String.fromCharCode(...x25519.getPublicKey(new Uint8Array(32).fill(7))),
+  String.fromCharCode(...x25519.getPublicKey(actionsRepositorySecretKey)),
 );
+
+/** Opens a secret that write_actions_secrets sealed for the fake repository's public key. */
+async function openActionsSecret(request: FakeGitHubRequest | undefined): Promise<string> {
+  const body = request?.body;
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("encrypted_value" in body) ||
+    typeof body.encrypted_value !== "string"
+  ) {
+    throw new Error("Expected a sealed secret.");
+  }
+  await sodium.ready;
+  return sodium.crypto_box_seal_open(
+    sodium.from_base64(body.encrypted_value, sodium.base64_variants.ORIGINAL),
+    x25519.getPublicKey(actionsRepositorySecretKey),
+    actionsRepositorySecretKey,
+    "text",
+  );
+}
 
 type FakeGitHubRequest = { method: string; path: string; body: unknown };
 
@@ -628,7 +664,7 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "samebase-convex-test-token" },
+        auth: { method: "oauth", credential: "convex-oauth-test-token" },
         connectedByUserId: userId,
         updatedAt: 1,
       },
@@ -643,12 +679,6 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
       cloudflare: {
         apiToken: "cloudflare-ci-test-token",
         accountId: "cloudflare-account",
-        connectedByUserId: userId,
-        updatedAt: 20,
-      },
-      convex: {
-        accessToken: "convex-ci-test-token",
-        teamId: "41",
         connectedByUserId: userId,
         updatedAt: 30,
       },
@@ -717,6 +747,12 @@ async function readRepositoryActionsState(
 describe("repository_actions provisioning workflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    let mintedTokens = 0;
+    convexMocks.createTeamAccessToken.mockImplementation(async () => {
+      mintedTokens += 1;
+      return `convex-minted-test-token-${mintedTokens}`;
+    });
+    convexMocks.deleteTeamAccessToken.mockResolvedValue(undefined);
   });
 
   it("writes the Actions secrets before the seed and skips every Samebase provider step", async () => {
@@ -750,6 +786,24 @@ describe("repository_actions provisioning workflow", () => {
       ciSecrets: { state: "written", credentialRevision: 30 },
     });
     expect(state.writeLock).toMatchObject({ owner: { runId }, state: "succeeded" });
+    // The Convex access token is minted for this repository through the OAuth connection, written
+    // as a secret, and only its name is kept.
+    expect(convexMocks.createTeamAccessToken).toHaveBeenCalledExactlyOnceWith({
+      token: "convex-oauth-test-token",
+      teamId: "41",
+      name: "samebase/samebase/actions-app",
+      recordApiCall: expect.any(Function),
+    });
+    expect(convexMocks.deleteTeamAccessToken).not.toHaveBeenCalled();
+    expect(state.plan).toMatchObject({
+      convexAccessToken: { state: "minted", name: "samebase/samebase/actions-app" },
+    });
+    expect(JSON.stringify(state.plan)).not.toContain("convex-minted-test-token");
+    await expect(
+      openActionsSecret(
+        github.requests.find((request) => request.path.endsWith("/secrets/CONVEX_ACCESS_TOKEN")),
+      ),
+    ).resolves.toBe("convex-minted-test-token-1");
     expect(githubMocks.seedRepository).toHaveBeenCalledWith(
       expect.objectContaining({ defaultBranch: "main", manifest: actionsStarterTemplateManifest }),
     );
@@ -817,6 +871,85 @@ describe("repository_actions provisioning workflow", () => {
     });
     expect(resumed.writeLock).toMatchObject({ owner: { runId: retryRunId }, state: "succeeded" });
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
+    // Every attempt after the first, in the refused run and in the retry, deleted the token that
+    // the attempt before it minted, by name, before it minted again.
+    const mintOrder = convexMocks.createTeamAccessToken.mock.invocationCallOrder;
+    const deleteOrder = convexMocks.deleteTeamAccessToken.mock.invocationCallOrder;
+    expect(mintOrder.length).toBeGreaterThanOrEqual(2);
+    expect(deleteOrder).toHaveLength(mintOrder.length - 1);
+    deleteOrder.forEach((order, index) => {
+      expect(convexMocks.deleteTeamAccessToken).toHaveBeenNthCalledWith(index + 1, {
+        token: "convex-oauth-test-token",
+        teamId: "41",
+        name: "samebase/samebase/actions-app",
+        recordApiCall: expect.any(Function),
+      });
+      expect(order).toBeGreaterThan(mintOrder[index] ?? Number.POSITIVE_INFINITY);
+      expect(order).toBeLessThan(mintOrder[index + 1] ?? 0);
+    });
+    await expect(
+      openActionsSecret(
+        github.requests
+          .filter((request) => request.path.endsWith("/secrets/CONVEX_ACCESS_TOKEN"))
+          .at(-1),
+      ),
+    ).resolves.toBe(`convex-minted-test-token-${mintOrder.length}`);
+  });
+
+  it("fails the step with the endpoint when the Convex connection cannot mint", async () => {
+    const mintRefusal =
+      "Convex answered 403 to POST /teams/{team_id}/create_access_token, so the Convex connection cannot mint the repository's access token. Reconnect Convex with OAuth on the Providers page, then retry.";
+    convexMocks.createTeamAccessToken.mockRejectedValue(new Error(mintRefusal));
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+    });
+    const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
+    await recordWorkflowFailure(t, { runId, message: `Error: ${mintRefusal}` });
+
+    const failed = await readRepositoryActionsState(t, { repositoryId, runId });
+    expect(failed.run).toMatchObject({
+      state: "failed",
+      currentStep: "write_actions_secrets",
+      lastError: mintRefusal,
+    });
+    expect(failed.plan).toMatchObject({ convexAccessToken: { state: "planned" } });
+    expect(github.requests.filter((request) => request.path.includes("/actions/secrets/"))).toEqual(
+      [],
+    );
+  });
+
+  it("deletes the minted Convex access token when the repository is removed from Samebase", async () => {
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: false,
+      failTreeSync: false,
+    });
+    const { repositoryId, t, userId } = await createRepositoryActionsRepository(github);
+    const { deletionRunId } = await t.mutation(internal.repository.deletion.runs.createInitialRun, {
+      userId,
+      repositoryId,
+      options: {
+        removeGithubRepo: false,
+        removeConvexProvision: false,
+        removeCloudflareProvision: false,
+      },
+    });
+    await t.mutation(internal.repository.deletion.runs.markWorkflowStarted, {
+      runId: deletionRunId,
+      workflowId: "actions-app-deletion",
+    });
+
+    await t.action(internal.repository.deletion.providerActions.deleteConvex, {
+      runId: deletionRunId,
+    });
+
+    expect(convexMocks.deleteTeamAccessToken).toHaveBeenCalledExactlyOnceWith({
+      token: "convex-oauth-test-token",
+      teamId: "41",
+      name: "samebase/samebase/actions-app",
+    });
   });
 
   it("never seeds again after a retry seeded and then failed in the tree sync", async () => {
@@ -953,6 +1086,7 @@ describe("repository_actions provisioning workflow", () => {
         repositoryId,
         convexConfigPath: "convex.json",
         ciSecrets: { state: "planned" },
+        convexAccessToken: { state: "planned" },
         seed: { state: "planned" },
         createdAt: 1,
         updatedAt: 1,

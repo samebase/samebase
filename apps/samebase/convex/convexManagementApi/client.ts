@@ -191,16 +191,61 @@ export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   return { teamId: details.teamId };
 }
 
-/** One cheap read against the team: the token can list the team's projects. */
-export async function verifyConvexTeamAccessToken(args: {
+/**
+Mints a team access token without expiry through `POST /teams/{team_id}/create_access_token`. The
+Management API accepts a personal access token or an OAuth team token there, not a team access
+token, so a refusal names the endpoint: it tells whether an OAuth connection can mint at all.
+*/
+export async function createConvexTeamAccessToken(args: {
   token: string;
   teamId: string;
+  name: string;
+  recordApiCall?: ProviderApiCallRecorder;
+}): Promise<string> {
+  try {
+    const response = await ConvexManagement.POST["/teams/{team_id}/create_access_token"]({
+      client: createConvexManagementClient({
+        token: args.token,
+        recordApiCall: args.recordApiCall,
+      }),
+      path: { team_id: args.teamId },
+      body: { name: args.name },
+    });
+    return response.accessToken;
+  } catch (error) {
+    if (
+      error instanceof ConvexManagementApiError &&
+      (error.status === 401 || error.status === 403)
+    ) {
+      throw new Error(
+        `Convex answered ${error.status} to POST /teams/{team_id}/create_access_token, so the Convex connection cannot mint the repository's access token. Reconnect Convex with OAuth on the Providers page, then retry.`,
+      );
+    }
+    throw error;
+  }
+}
+
+/** Deletes a team access token by its name; a token that no longer exists counts as deleted. */
+export async function deleteConvexTeamAccessToken(args: {
+  token: string;
+  teamId: string;
+  name: string;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
-  await ConvexManagement.GET["/teams/{team_id}/projects"]({
-    client: createConvexManagementClient({ token: args.token }),
-    path: { team_id: args.teamId },
-    query: { limit: 1 },
-  });
+  try {
+    await ConvexManagement.POST["/teams/{team_id}/delete_access_token"]({
+      client: createConvexManagementClient({
+        token: args.token,
+        recordApiCall: args.recordApiCall,
+      }),
+      path: { team_id: args.teamId },
+      body: { id: args.name },
+    });
+  } catch (error) {
+    if (!(error instanceof ConvexManagementApiError && error.status === 404)) {
+      throw error;
+    }
+  }
 }
 
 export async function listConvexManagementProjects(args: {

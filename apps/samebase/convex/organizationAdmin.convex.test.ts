@@ -182,9 +182,9 @@ describe("organization deletion", () => {
       });
       await ctx.db.insert("organizationCiCredentials", {
         organizationId: seed.organizationId,
-        convex: {
-          accessToken: "convex-ci-test-token",
-          teamId: "41",
+        cloudflare: {
+          apiToken: "cloudflare-ci-test-token",
+          accountId: "cloudflare-account",
           connectedByUserId: seed.ownerId,
           updatedAt: 1,
         },

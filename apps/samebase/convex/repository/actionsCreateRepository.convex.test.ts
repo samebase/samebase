@@ -12,7 +12,6 @@ const providerMocks = vi.hoisted(() => ({
   listConvexManagementProjects: vi.fn(),
   readGitHubAppInstallation: vi.fn(),
   requireCloudflareBuildTokenUuid: vi.fn(),
-  verifyConvexTeamAccessToken: vi.fn(),
 }));
 
 vi.mock("../githubApp", async (importOriginal) => {
@@ -40,7 +39,6 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   return {
     ...actual,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,
-    verifyConvexTeamAccessToken: providerMocks.verifyConvexTeamAccessToken,
   };
 });
 
@@ -165,9 +163,12 @@ beforeEach(() => {
   providerMocks.listAccountsForVerifiedUserApiToken.mockResolvedValue([
     { accountId: "cloudflare-account", accountName: "Cloudflare account" },
   ]);
-  providerMocks.verifyConvexTeamAccessToken.mockResolvedValue(undefined);
 });
 
+/**
+The organization state that a repository_actions creation needs: the Cloudflare CI token and a
+Convex connection made with OAuth, which mints each repository's Convex access token.
+*/
 async function saveCiCredentials(
   t: ConvexTestHandle,
   args: { organizationId: Id<"organizations">; userId: Id<"users"> },
@@ -181,11 +182,16 @@ async function saveCiCredentials(
         connectedByUserId: args.userId,
         updatedAt: 2,
       },
+    });
+    const credentials = await ctx.db.query("organizationProviderCredentials").unique();
+    if (!credentials) {
+      throw new Error("Expected provider credentials.");
+    }
+    await ctx.db.patch(credentials._id, {
       convex: {
-        accessToken: "convex-ci-test-token",
-        teamId: "convex-team",
+        auth: { method: "oauth", credential: "convex-oauth-test-token" },
         connectedByUserId: args.userId,
-        updatedAt: 3,
+        updatedAt: 1,
       },
     });
   });
@@ -200,13 +206,40 @@ const repositoryActionsCreateArgs = {
 } as const;
 
 describe("create repository with provisioning repository_actions", () => {
-  it("refuses before it creates anything when the CI tokens are not saved", async () => {
+  it("refuses before it creates anything when the Cloudflare CI token is not saved", async () => {
     const { organizationId, t, viewer } = await createRepositoryFixture();
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
-      data: "Save the Cloudflare and Convex CI tokens on the Providers page (/org/samebase/providers) before you create a repository that its GitHub Actions set up.",
+      data: "Save the Cloudflare CI token on the Providers page (/org/samebase/providers) before you create a repository that its GitHub Actions set up.",
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("repositories").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("refuses a Convex connection that cannot mint the repository's access token", async () => {
+    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
+    await saveCiCredentials(t, { organizationId, userId });
+    await t.run(async (ctx) => {
+      const credentials = await ctx.db.query("organizationProviderCredentials").unique();
+      if (!credentials) {
+        throw new Error("Expected provider credentials.");
+      }
+      await ctx.db.patch(credentials._id, {
+        convex: {
+          auth: { method: "api_key", credential: "convex-team-test-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+    });
+
+    await expect(
+      viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
+    ).rejects.toMatchObject({
+      data: "GitHub Actions setup needs a Convex connection made with OAuth: Samebase mints each repository's Convex access token through it. Connect Convex with OAuth on the Providers page (/org/samebase/providers).",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("repositories").collect()),
@@ -259,10 +292,6 @@ describe("create repository with provisioning repository_actions", () => {
     expect(providerMocks.listAccountsForVerifiedUserApiToken).toHaveBeenCalledWith(
       "cloudflare-ci-test-token",
     );
-    expect(providerMocks.verifyConvexTeamAccessToken).toHaveBeenCalledWith({
-      token: "convex-ci-test-token",
-      teamId: "convex-team",
-    });
     expect(providerMocks.isCloudflareWorkerNameAvailable).toHaveBeenCalledWith(
       expect.objectContaining({ workerName: "actions-app" }),
     );
@@ -276,7 +305,11 @@ describe("create repository with provisioning repository_actions", () => {
         repository: await ctx.db.get(result.repositoryId),
       })),
     ).resolves.toMatchObject({
-      plan: { provisioning: "repository_actions", ciSecrets: { state: "planned" } },
+      plan: {
+        provisioning: "repository_actions",
+        ciSecrets: { state: "planned" },
+        convexAccessToken: { state: "planned" },
+      },
       repository: { githubMode: "create_repository", githubRepositoryName: "actions-app" },
     });
   });

@@ -185,9 +185,9 @@ const vSamebaseProvisioningPlan = object({
 });
 
 /**
-The Actions secrets of one repository_actions repository. `credentialRevision` is the revision of
-the organization CI credentials that were written (`readCiCredentialRevision`), so a later rotation
-can find the repositories that still hold older values.
+The Actions secrets of one repository_actions repository. `credentialRevision` is the `updatedAt` of
+the organization's Cloudflare CI token that was written, so a later rotation can find the
+repositories that still hold an older value.
 */
 export const vRepositoryActionsCiSecrets = union(
   object({ state: literal("planned") }),
@@ -201,6 +201,11 @@ template's alchemy workflow deploys production from pushes to main.
 */
 export const REPOSITORY_ACTIONS_DEFAULT_BRANCH = "main";
 
+/** The name of the Convex team access token that Samebase mints for one repository_actions repository. */
+export function buildRepositoryActionsConvexAccessTokenName(repositoryFullName: string): string {
+  return `samebase/${repositoryFullName}`;
+}
+
 /**
 The starter seed of one repository_actions repository. The seed force-updates the default branch to
 a new root commit, so once it is `seeded` no retry seeds again: that would drop every commit pushed
@@ -211,11 +216,22 @@ export const vRepositoryActionsSeed = union(
   object({ state: literal("seeded"), seededAt: number(), manifestVersion: string() }),
 );
 
+/**
+The Convex team access token that write_actions_secrets mints for one repository_actions repository
+and writes as its CONVEX_ACCESS_TOKEN secret. Samebase stores only the name: a retry deletes the
+token by name before it mints a new one, and the repository's removal deletes it.
+*/
+export const vRepositoryActionsConvexAccessToken = union(
+  object({ state: literal("planned") }),
+  object({ state: literal("minted"), name: string(), mintedAt: number() }),
+);
+
 const vRepositoryActionsProvisioningPlan = object({
   provisioning: literal("repository_actions"),
   repositoryId: id("repositories"),
   convexConfigPath: string(),
   ciSecrets: vRepositoryActionsCiSecrets,
+  convexAccessToken: vRepositoryActionsConvexAccessToken,
   seed: vRepositoryActionsSeed,
   createdAt: number(),
   updatedAt: number(),

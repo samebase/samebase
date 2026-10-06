@@ -1680,7 +1680,6 @@ export function ProviderConnectionsPage({
           cloudflareAccountId={
             cloudflareConnection?.state === "connected" ? cloudflareConnection.accountId : null
           }
-          convexConnected={convexConnection?.state === "connected"}
           githubOwnerLogin={organization.githubOwnerLogin}
           organizationId={organizationId}
         />
