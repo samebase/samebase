@@ -513,3 +513,7 @@ C; Convex token minting per repository (spike pending); the template location lo
   dogfood is the first run on a runner, and the repository Samebase creates for it, with its secrets
   already written, is where any workflow fix gets debugged. Next: PR B's last two commits, Codex
   round 5, rebase onto main, merge, dogfood.
+- 2026-10-06: After the merge of PR #1693 the export job published the Mail-model template to
+  `samebase/base-actions`, and the published copy's own `alchemy` workflow now ends with both jobs
+  skipped by the `CONVEX_TEAM_ID` gate instead of failing. The RFC pull request carries the fresh
+  label v2098.
