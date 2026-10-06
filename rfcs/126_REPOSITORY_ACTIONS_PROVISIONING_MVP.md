@@ -555,3 +555,10 @@ C; Convex token minting per repository (spike pending); the template location lo
   token cannot create another one (`403 NotAllowed`), so an API key connection cannot mint. Decision
   pending: require OAuth, or fall back to writing the connection's own API key as
   `CONVEX_ACCESS_TOKEN` for API-key organizations (recommended; same scope, shared lifecycle).
+- 2026-10-07, Nicu's decision: option 2. Organizations whose Convex connection is an API key get
+  that key written as the repository's `CONVEX_ACCESS_TOKEN` (same team-wide scope as a minted
+  token, shared lifecycle with the connection); OAuth organizations keep the minted token; the OAuth
+  requirement on the New app option goes away. The Convex API key entry and the CI credentials copy
+  link to the team's access tokens page in the Convex dashboard (`/t/<team>/settings/access-tokens`,
+  the page Samebase already links for API-key connections; Convex has no prefilled-token URL).
+  Applied to PR B together with the preview-test fixes.
