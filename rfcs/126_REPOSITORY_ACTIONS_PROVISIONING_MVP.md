@@ -912,3 +912,10 @@ Open for PR C, in Nicu's words "how all this fits in":
   (PR C)" section now carries the proposed text. Stages: the template contract and publish step; the
   Samebase schema, reader, verification, apply, and write authority; the trigger workflow, the
   explicit apply, the status sources; docs and finish. One Codex round per stage.
+- 2026-10-07: PR C stage 1 (the template contract) live on `tmp-alchemy-v2`: the deploy job
+  published the block exactly as the contract says (version 1, `deployed`, the account id, one
+  Worker with tag, name, and root `/`, the team id and one project with `convexConfigPath`
+  `convex.json`, ids as decimal strings), 414 bytes, 90-day expiry; a rerun of the same run
+  (attempt 2) replaced the artifact under a new id with the same content, so the reader's "newest
+  artifact, then verify, then idempotent apply" holds. Stage 2 (the Samebase core) and the preview
+  seeding of the CI credentials (own PR) are in progress.
