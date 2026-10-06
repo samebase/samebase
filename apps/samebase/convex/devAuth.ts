@@ -328,6 +328,12 @@ export const approveSeedPasswordAccount = internalMutation({
   },
 });
 
+/**
+Creates or reconnects the seeded organization and connects each provider that has seed values. The
+same seed value also becomes that provider's CI token: the Convex team access token with its team
+id, and the Cloudflare API token with its account id. The seed does not verify the tokens; every
+repository_actions creation verifies both CI tokens before it writes them into the repository.
+*/
 export const seedOrganizationWithProviderCredentials = internalMutation({
   args: {
     userId: id("users"),
@@ -364,6 +370,12 @@ export const seedOrganizationWithProviderCredentials = internalMutation({
         teamId: args.convexConnection.teamId,
         teamSlug: args.convexConnection.teamSlug,
       });
+      await ctx.runMutation(internal.organizationProviderCredentials.setConvexCiCredential, {
+        organizationId: organization.organizationId,
+        userId: args.userId,
+        accessToken: args.convexConnection.credential,
+        teamId: args.convexConnection.teamId,
+      });
     }
 
     if (args.cloudflareConnection !== null) {
@@ -385,6 +397,12 @@ export const seedOrganizationWithProviderCredentials = internalMutation({
           accountId: args.cloudflareConnection.accountId,
           accountName: args.cloudflareConnection.accountId,
         },
+      });
+      await ctx.runMutation(internal.organizationProviderCredentials.setCloudflareCiCredential, {
+        organizationId: organization.organizationId,
+        userId: args.userId,
+        apiToken: args.cloudflareConnection.credential,
+        accountId: args.cloudflareConnection.accountId,
       });
     }
 

@@ -120,9 +120,10 @@ describe("devAuth password account seed", () => {
     } as const;
 
     await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, seed);
-    const initialProviderCredentials = await t.run(async (ctx) => {
-      return await ctx.db.query("organizationProviderCredentials").unique();
-    });
+    const initial = await t.run(async (ctx) => ({
+      providerCredentials: await ctx.db.query("organizationProviderCredentials").unique(),
+      ciCredentials: await ctx.db.query("organizationCiCredentials").unique(),
+    }));
     await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
       ...seed,
       convexConnection: {
@@ -141,6 +142,7 @@ describe("devAuth password account seed", () => {
         memberships: await ctx.db.query("organizationMemberships").collect(),
         billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
         providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
+        ciCredentials: await ctx.db.query("organizationCiCredentials").collect(),
       };
     });
 
@@ -148,6 +150,7 @@ describe("devAuth password account seed", () => {
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.billingAccounts).toHaveLength(1);
     expect(snapshot.providerCredentials).toHaveLength(1);
+    expect(snapshot.ciCredentials).toHaveLength(1);
 
     const organization = snapshot.organizations[0];
     expect(organization).toMatchObject({
@@ -177,7 +180,7 @@ describe("devAuth password account seed", () => {
     });
 
     expect(snapshot.providerCredentials[0]).toMatchObject({
-      _id: initialProviderCredentials?._id,
+      _id: initial.providerCredentials?._id,
       organizationId: organization._id,
       convex: {
         connectedByUserId: userId,
@@ -188,6 +191,61 @@ describe("devAuth password account seed", () => {
         auth: { credential: "cloudflare-updated-credential" },
       },
     });
+    expect(snapshot.ciCredentials[0]).toMatchObject({
+      _id: initial.ciCredentials?._id,
+      organizationId: organization._id,
+      convex: {
+        accessToken: "convex-updated-credential",
+        teamId: seed.convexConnection.teamId,
+        connectedByUserId: userId,
+      },
+      cloudflare: {
+        apiToken: "cloudflare-updated-credential",
+        accountId: seed.cloudflareConnection.accountId,
+        connectedByUserId: userId,
+      },
+    });
+  });
+
+  it("seeds CI credentials only for the providers that have seed values", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        state: "active",
+        email: "seed@example.com",
+        isApproved: true,
+      });
+    });
+    const seed = {
+      userId,
+      githubOwnerId: "285392744",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "samebase",
+      githubInstallationId: "151325701",
+      convexConnection: null,
+      cloudflareConnection: null,
+    } as const;
+
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, seed);
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").collect()),
+    ).resolves.toEqual([]);
+
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
+      ...seed,
+      cloudflareConnection: {
+        credential: "cloudflare-test-credential",
+        accountId: "cloudflare-account-id",
+      },
+    });
+    const ciCredentials = await t.run(
+      async (ctx) => await ctx.db.query("organizationCiCredentials").collect(),
+    );
+    expect(ciCredentials).toHaveLength(1);
+    expect(ciCredentials[0]).toMatchObject({
+      cloudflare: { apiToken: "cloudflare-test-credential", accountId: "cloudflare-account-id" },
+    });
+    expect(ciCredentials[0].convex).toBeUndefined();
   });
 
   it("seeds provider accounts by GitHub owner and preserves another organization", async () => {
@@ -269,6 +327,7 @@ describe("devAuth password account seed", () => {
       authAccounts: await ctx.db.query("authAccounts").collect(),
       githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
+      ciCredentials: await ctx.db.query("organizationCiCredentials").collect(),
       repositories: await ctx.db.query("repositories").collect(),
     }));
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
@@ -286,6 +345,7 @@ describe("devAuth password account seed", () => {
     });
     expect(snapshot.githubUserAuthorizations).toEqual([]);
     expect(snapshot.providerCredentials).toHaveLength(3);
+    expect(snapshot.ciCredentials).toHaveLength(3);
     expect(snapshot.repositories).toEqual([]);
 
     const samebaseOrganization = snapshot.organizations.find(
@@ -301,6 +361,22 @@ describe("devAuth password account seed", () => {
     expect(samebaseCredentials).toMatchObject({
       convex: { auth: { credential: "samebase-convex-credential" } },
       cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
+    });
+    expect(
+      snapshot.ciCredentials.find(
+        ({ organizationId }) => organizationId === samebaseOrganization?._id,
+      ),
+    ).toMatchObject({
+      convex: {
+        accessToken: "samebase-convex-credential",
+        teamId: "samebase-convex-team-id",
+        connectedByUserId: seedUser.userId,
+      },
+      cloudflare: {
+        apiToken: "samebase-cloudflare-credential",
+        accountId: "samebase-cloudflare-account-id",
+        connectedByUserId: seedUser.userId,
+      },
     });
 
     const personalOrganization = snapshot.organizations.find(
@@ -331,6 +407,17 @@ describe("devAuth password account seed", () => {
     expect(liveTestsCredentials).toMatchObject({
       convex: { auth: { credential: "preview-convex-credential" } },
       cloudflare: { auth: { credential: "preview-cloudflare-credential" } },
+    });
+    expect(
+      snapshot.ciCredentials.find(
+        ({ organizationId }) => organizationId === liveTestsOrganization?._id,
+      ),
+    ).toMatchObject({
+      convex: { accessToken: "preview-convex-credential", teamId: "preview-convex-team-id" },
+      cloudflare: {
+        apiToken: "preview-cloudflare-credential",
+        accountId: "preview-cloudflare-account-id",
+      },
     });
   });
 
