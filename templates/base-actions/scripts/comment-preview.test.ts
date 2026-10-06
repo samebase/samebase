@@ -39,6 +39,13 @@ function gitHub(answers: Record<string, unknown>) {
 
 const pulls =
   "GET https://api.github.com/repos/actions/checkout/pulls?state=open&head=actions%3Afeature%2FFoo_bar";
+const comments = (page: number) =>
+  `GET https://api.github.com/repos/actions/checkout/issues/2590/comments?per_page=100&page=${page}`;
+const ownComment = {
+  id: 7,
+  user: { login: "github-actions[bot]" },
+  body: "<!-- alchemy-preview -->\nold",
+};
 
 describe("commentPreview", () => {
   it("does nothing when no pull request from the branch is open", async () => {
@@ -50,9 +57,7 @@ describe("commentPreview", () => {
   it("creates the comment on the oldest open pull request", async () => {
     const { requests, fetchGitHub } = gitHub({
       [pulls]: pullRequests,
-      "GET https://api.github.com/repos/actions/checkout/issues/2590/comments?per_page=100": [
-        otherComment,
-      ],
+      [comments(1)]: [otherComment],
       "POST https://api.github.com/repos/actions/checkout/issues/2590/comments": {},
     });
     await expect(commentPreview(env, fetchGitHub)).resolves.toBe(2590);
@@ -69,14 +74,27 @@ Built from commit 82f7190. This comment is updated on each push.`,
   it("updates its own comment on a later push", async () => {
     const { requests, fetchGitHub } = gitHub({
       [pulls]: [{ number: 2590 }],
-      "GET https://api.github.com/repos/actions/checkout/issues/2590/comments?per_page=100": [
-        otherComment,
-        { id: 7, user: { login: "github-actions[bot]" }, body: "<!-- alchemy-preview -->\nold" },
-      ],
+      [comments(1)]: [otherComment, ownComment],
       "PATCH https://api.github.com/repos/actions/checkout/issues/comments/7": {},
     });
     await expect(commentPreview(env, fetchGitHub)).resolves.toBe(2590);
     expect(requests.at(-1)?.method).toBe("PATCH");
+  });
+
+  it("finds its own comment on a later page", async () => {
+    const { requests, fetchGitHub } = gitHub({
+      [pulls]: [{ number: 2590 }],
+      [comments(1)]: Array.from({ length: 100 }, () => otherComment),
+      [comments(2)]: [otherComment, ownComment],
+      "PATCH https://api.github.com/repos/actions/checkout/issues/comments/7": {},
+    });
+    await expect(commentPreview(env, fetchGitHub)).resolves.toBe(2590);
+    expect(requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
+      pulls,
+      comments(1),
+      comments(2),
+      "PATCH https://api.github.com/repos/actions/checkout/issues/comments/7",
+    ]);
   });
 
   it("fails on a GitHub error and without the run identity", async () => {

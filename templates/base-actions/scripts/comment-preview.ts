@@ -82,15 +82,21 @@ export async function commentPreview(
 Convex: ${convexUrl}
 
 Built from commit ${sha.slice(0, 7)}. This comment is updated on each push.`;
-  // The first page holds the oldest 100 comments, and the preview comment
-  // comes with the first preview of the pull request.
-  const comments = Schema.decodeUnknownSync(Comments)(
-    await request(`/issues/${pullRequest}/comments?per_page=100`),
-  );
-  const existing = comments.find(
-    (comment) =>
-      comment.user?.login === "github-actions[bot]" && comment.body?.startsWith(marker) === true,
-  );
+  // GitHub lists the comments oldest first, 100 per page. A page with fewer
+  // than 100 comments is the last one.
+  let existing: (typeof Comments.Type)[number] | undefined;
+  for (let page = 1; existing === undefined; page += 1) {
+    const comments = Schema.decodeUnknownSync(Comments)(
+      await request(`/issues/${pullRequest}/comments?per_page=100&page=${page}`),
+    );
+    existing = comments.find(
+      (comment) =>
+        comment.user?.login === "github-actions[bot]" && comment.body?.startsWith(marker) === true,
+    );
+    if (comments.length < 100) {
+      break;
+    }
+  }
   if (existing === undefined) {
     await request(`/issues/${pullRequest}/comments`, {
       method: "POST",
