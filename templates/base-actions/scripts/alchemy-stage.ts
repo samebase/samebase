@@ -7,6 +7,13 @@
 // other characters as one dash, no dash at the ends (`feature/Foo_bar`
 // becomes `feature-foo-bar`). alchemy.run.ts reads PREVIEW_BRANCH for the
 // branch itself and names the Convex preview deployment after it.
+//
+// Two branches whose names differ only in letter case or in characters other
+// than letters and digits, such as `feature/foo` and `feature-foo`, get the
+// same stage. They cannot have previews at the same time: the second deploy
+// fails with DeploymentIdentityChange from @samebase/alchemy-convex, because
+// the stage already holds the Convex preview deployment of the other branch.
+// Rename one of the branches.
 import { appendFileSync } from "node:fs";
 import process from "node:process";
 

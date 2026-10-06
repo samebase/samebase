@@ -67,7 +67,15 @@ The workflow runs `pnpm run check` before each deploy. The Worker, the Convex pr
 Alchemy stack take the repository name: lowercase, every run of other characters as one dash. On a
 pull request, `scripts/alchemy-stage.ts` makes the stage from the branch name the same way, and the
 Convex preview deployment gets the branch name itself, the name `npx convex deploy --preview-name`
-gives it.
+gives it. The Worker Preview gets the stage name. When the stage and the Worker name do not fit
+together in one 63-character DNS label, `workerPreviewName` in `alchemy.run.ts` cuts the stage and
+adds a short hash.
+
+Two branches whose names differ only in letter case or in characters other than letters and digits,
+such as `feature/foo` and `feature-foo`, get the same stage. They cannot have previews at the same
+time: the second deploy fails with `DeploymentIdentityChange` from `@samebase/alchemy-convex`,
+because the stage already holds the Convex preview deployment of the other branch. Rename one of the
+branches.
 
 The stack makes the Convex Auth keys: `JWT_PRIVATE_KEY` and `JWKS` on the production deployment,
 and the same two variables as project defaults for preview and dev deployments. The Convex project

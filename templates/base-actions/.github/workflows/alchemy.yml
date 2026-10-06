@@ -27,10 +27,13 @@ permissions:
   contents: read
   pull-requests: write
 
-# One run per ref at a time. Pending runs wait instead of replacing each
-# other, so a pull request close waits for its running deploy.
+# One run at a time per pull request, and per ref for a push. A merge closes
+# the pull request with another github.ref than its earlier runs, so pull
+# request runs share a group by number. Pending runs wait instead of replacing
+# each other, so the destroy waits for a running or queued deploy of the same
+# pull request.
 concurrency:
-  group: alchemy-${{ github.ref }}
+  group: alchemy-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref }}
   queue: max
   cancel-in-progress: false
 

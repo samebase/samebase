@@ -7,8 +7,8 @@
 //   Worker Preview name (scripts/alchemy-stage.ts), and PREVIEW_BRANCH holds
 //   the branch itself. A Convex preview deployment named after the branch, the
 //   name `npx convex deploy --preview-name` gives it, and a Worker Preview of
-//   the prod Worker named after the stage. `alchemy destroy --stage <stage>`
-//   deletes both.
+//   the prod Worker named after the stage (workerPreviewName). `alchemy
+//   destroy --stage <stage>` deletes both.
 // - No other stage. `pnpm run dev` runs Convex and Vite without Alchemy.
 //
 // .github/workflows/alchemy.yml runs the deploys. A deploy from a laptop needs
@@ -26,7 +26,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
-import { createPublicKey } from "node:crypto";
+import { createHash, createPublicKey } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
 // The stack, the Worker, and the Convex project take the name of the
@@ -68,6 +68,30 @@ const convexProjectName = resourceName(40);
 if (workerName === "") {
   throw new Error(`The repository name "${repositoryName}" has no letter or digit.`);
 }
+
+/**
+ * The Worker Preview name of a pull request stage. Samebase computes the same
+ * name to find the Preview of a pull request.
+ *
+ * Cloudflare serves a Preview at `<name>-<worker>.<subdomain>.workers.dev`, so
+ * `<name>-<worker>` must fit in one 63-character DNS label. Alchemy cuts a
+ * longer name, and two stages that start the same would then share one
+ * Preview. A stage that fits is the name. A longer stage is cut, and a dash
+ * and the first 4 hex characters of the SHA-256 of the full stage follow. A
+ * stage that does not start with a letter gets a `p` first, as in Alchemy.
+ */
+const workerPreviewName = (stage: string, worker: string) => {
+  const budget = 63 - worker.length - 1;
+  if (budget < 6) {
+    throw new Error(
+      `The Worker name "${worker}" leaves ${budget} characters for a Preview name in a 63-character DNS label. Use a shorter repository name.`,
+    );
+  }
+  const name = /^[a-z]/.test(stage) ? stage : `p${stage}`;
+  if (name.length <= budget) return name;
+  const hash = createHash("sha256").update(stage).digest("hex").slice(0, 4);
+  return `${name.slice(0, budget - 5).replace(/-+$/, "")}-${hash}`;
+};
 
 // Convex Auth reads JWT_PRIVATE_KEY (PKCS#8 PEM, line breaks as spaces) and
 // JWKS (the public key as a JSON Web Key Set). Same format as
@@ -210,8 +234,10 @@ export default Alchemy.Stack(
     const site = isPreview
       ? yield* Cloudflare.Website.Vite("Website", {
           ...settings,
-          // Alchemy names the Preview after the stage: the branch, made safe.
-          preview: { of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }) },
+          preview: {
+            of: yield* Cloudflare.Worker.ref("Website", { stage: "prod" }),
+            name: workerPreviewName(stage, workerName),
+          },
         })
       : yield* Cloudflare.Website.Vite("Website", { ...settings, name: workerName });
 
