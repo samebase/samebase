@@ -465,3 +465,11 @@ Score Four CI token), and the CI token for the dogfood organization.
   sync is admitted to retry. P2: the retry confirmation describes the mode's operation (secrets and
   variable write, seed if needed, tree sync). Codex round 2 on PR #1693: one P2, the branch check
   must query the exact Git ref and not follow GitHub's rename redirects. Fixes in progress on both.
+- 2026-10-06: Codex round 3 on PR #1693 brute-forced true 6-hex collisions (24 bits) for both the
+  stage and the Preview name. Decision: the stage, an internal state key, takes 16 hex characters of
+  sha256 of the raw branch name; the Preview name keeps 6 (a 16-character suffix in every preview
+  URL is a visible cost, the accidental risk is about 1e-5 at 20 open branches, and the 8-character
+  budget of a 54-character Worker name cannot be fixed by any hash length). The README states the
+  limit: previews of different branches can collide in rare cases, and a colliding deploy replaces
+  the other branch's preview. Alchemy reuses a Preview of the same name without an ownership check;
+  a provider-side ownership tag would be the real fix, later.
