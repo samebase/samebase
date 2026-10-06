@@ -312,3 +312,11 @@ Score Four CI token), and the CI token for the dogfood organization.
   `preview.name`, and the stack dies before any resource when `pr-<number>` does not fit next to the
   Worker name in a 63-character DNS label. Manifest `samebase-base-actions-14fa318a1291`. Codex
   round 4 and a redeploy of the test repository with the new workflow shape are running.
+- 2026-10-06: PR A done. Codex round 4 found nothing. The audited workflow ran on the real runner:
+  install without scripts, three audits, check, deploy with step-scoped credentials (2 updates).
+  Test resources removed: `alchemy destroy --stage prod` from the laptop (9 deleted, project and
+  production deployment retained by design), Convex project 3157834 deleted by exact name, GitHub
+  repository `nicu-chiciuc/tmp-actions-template` deleted, local token file removed. The Convex team
+  token `tmp-actions-template ci` has no delete endpoint in the Management API (`access_tokens`
+  answers 404) and is deleted in the Convex dashboard by Nicu. PR #1690 marked ready for review;
+  Nicu merges. Next: PR B (the mode in Samebase), after the open questions are answered.
