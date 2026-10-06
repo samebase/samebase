@@ -543,3 +543,7 @@ C; Convex token minting per repository (spike pending); the template location lo
   retry deletes by name then mints. 2625 tests green. Codex round 6 running. The GitHub docs do not
   say whether the first pushed branch of an empty repository becomes the default, so the step reads
   the default again instead of assuming; the dogfood shows the real behavior.
+- 2026-10-07: PR B Codex round 6 clean, CI green on `da6c4eafa`, ready to merge (six Codex rounds in
+  total). After the merge, production samebase.com has the mode behind the experimental choice; the
+  dogfood follows: paste the Cloudflare CI token through the prefilled link on the providers page,
+  create a `tmp-` app with the GitHub Actions option, watch the repository's run.
