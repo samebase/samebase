@@ -292,3 +292,14 @@ Score Four CI token), and the CI token for the dogfood organization.
   Previews (it uses the `branch` field that Workers Builds records, not the name). Manifest
   `samebase-base-actions-6b45e7b386ef`, 94 files. The test repository's old stack was destroyed from
   the laptop and its temporary Convex project deleted; the fixed template is deploying from zero.
+- 2026-10-06: Hand test complete on the round 3 template, all from the repository's own Actions.
+  Production from zero under the new stack name: 11 resources in 35 seconds, Convex production
+  `judicious-shark-160`, site and backend 200. Pull request from branch `feature/preview-check`:
+  stage `pr-1`, Worker Preview `pr-1` at `pr-1-tmp-actions-template.pfp.workers.dev` (200), Convex
+  preview `limitless-walrus-548` with `previewIdentifier` `feature/preview-check` (200), comment
+  with both URLs. Close: destroy of 5 resources in 11 seconds, preview deployment gone, preview
+  URL 404. Codex round 3: one P1 (the workflow installs dependencies with the credentials in the job
+  environment and without the `ci.yml` supply-chain audits) and one P2 (`pr-10000` and `pr-100000`
+  collide when the Worker name uses all 54 characters). Fixes in progress: audits before the deploy
+  with `--ignore-scripts` install, credentials scoped to the deploy and destroy steps, explicit
+  Preview name with a fail-closed budget check.
