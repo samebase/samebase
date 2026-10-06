@@ -83,12 +83,12 @@ if (workerName === "") {
  * The name of the Worker Preview of a preview stage. Cloudflare serves the
  * Preview at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>`
  * must fit in one 63-character DNS label, and the name must start with a
- * lowercase letter (`p` comes first when the stage starts with a digit). The
- * name is the stage when it fits. Otherwise the name is cut, its trailing
- * dashes go, and a dash and the first 6 hex characters of the SHA-256 of the
- * whole stage follow, so two long stages with the same start get two names.
- * Branch names are often long, so the cut is the normal case for a long
- * Worker name. Samebase computes the same name to find the Preview.
+ * lowercase letter. The name is a readable part, a dash, and the first 6 hex
+ * characters of the SHA-256 of the whole stage, so two stages never get one
+ * name. The readable part is the stage, with `p` first when the stage does not
+ * start with a letter, cut to fit without a trailing dash. Branch names are
+ * often long, so the cut is the normal case for a long Worker name. Samebase
+ * computes the same name to find the Preview.
  */
 export function workerPreviewName(stage: string, worker: string): string {
   const budget = 63 - worker.length - 1;
@@ -97,17 +97,16 @@ export function workerPreviewName(stage: string, worker: string): string {
       `The Worker name "${worker}" leaves ${budget} characters for a Worker Preview name in a 63-character DNS label, and a Preview name needs 8. Use a shorter repository name.`,
     );
   }
-  const name = /^[a-z]/.test(stage) ? stage : `p${stage}`;
-  const fitted =
-    name.length <= budget
-      ? name
-      : `${name.slice(0, budget - 7).replace(/-+$/, "")}-${createHash("sha256").update(stage).digest("hex").slice(0, 6)}`;
-  if (!/^[a-z][a-z0-9-]*$/.test(fitted)) {
+  const readable = (/^[a-z]/.test(stage) ? stage : `p${stage}`)
+    .slice(0, budget - 7)
+    .replace(/-+$/, "");
+  const name = `${readable}-${createHash("sha256").update(stage).digest("hex").slice(0, 6)}`;
+  if (!/^[a-z][a-z0-9-]*$/.test(name)) {
     throw new Error(
-      `Stage "${stage}" gives the Worker Preview name "${fitted}", which has characters other than a-z, 0-9, and dashes. Deploy a preview with the stage that scripts/alchemy-stage.ts computes.`,
+      `Stage "${stage}" gives the Worker Preview name "${name}", which has characters other than a-z, 0-9, and dashes. Deploy a preview with the stage that scripts/alchemy-stage.ts computes.`,
     );
   }
-  return fitted;
+  return name;
 }
 
 /**

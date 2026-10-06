@@ -15,35 +15,28 @@ import { pathToFileURL } from "node:url";
 /**
 The stage of a branch. The default branch is `prod`. Any other branch is
 lowercased, every run of characters outside `a-z` and `0-9` becomes one dash,
-and the dashes at both ends go. When that safe form differs from the branch, a
-dash and the first 6 hex characters of the SHA-256 of the branch (UTF-8)
-follow, so two branches that differ only in case or punctuation never share a
-stage. The result always matches the Alchemy stage pattern
-`^[a-z0-9]+([-_a-z0-9]+)*$`.
+the dashes at both ends go, and the result is cut to 40 characters without a
+trailing dash. A dash and the first 6 hex characters of the SHA-256 of the
+branch (UTF-8) always follow, so two branches never share a stage, and a
+preview stage is never `prod`. The result always matches the Alchemy stage
+pattern `^[a-z0-9]+([-_a-z0-9]+)*$`.
 */
 export function alchemyStage(args: { branch: string; defaultBranch: string }): string {
   if (args.branch === args.defaultBranch) {
     return "prod";
   }
-  const safe = args.branch
+  const readable = args.branch
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  if (safe === "") {
+    .replace(/^-|-$/g, "")
+    .slice(0, 40)
+    .replace(/-$/, "");
+  if (readable === "") {
     throw new Error(
       `The branch ${JSON.stringify(args.branch)} has no letter or digit, so it has no preview stage. Rename the branch.`,
     );
   }
-  const stage =
-    safe === args.branch
-      ? safe
-      : `${safe}-${createHash("sha256").update(args.branch).digest("hex").slice(0, 6)}`;
-  if (stage === "prod") {
-    throw new Error(
-      `The branch ${JSON.stringify(args.branch)} would deploy a preview as the stage prod. Rename the branch.`,
-    );
-  }
-  return stage;
+  return `${readable}-${createHash("sha256").update(args.branch).digest("hex").slice(0, 6)}`;
 }
 
 const entrypoint = process.argv[1];
