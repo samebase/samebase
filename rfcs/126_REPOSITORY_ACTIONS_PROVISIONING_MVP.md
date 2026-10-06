@@ -507,3 +507,9 @@ C; Convex token minting per repository (spike pending); the template location lo
   records that. One real fix: the comment script follows the comment pagination before creating a
   comment. Then CI, ready for review, and the hand test on a runner if Nicu wants it before the
   merge.
+- 2026-10-06: PR #1693 squash-merged by Fable with Nicu's go (v2097). The App now has Actions read
+  and write on the production and development instances, next to Secrets and Variables; no further
+  permission request is foreseen for this mode. The runner hand test is skipped by decision: the
+  dogfood is the first run on a runner, and the repository Samebase creates for it, with its secrets
+  already written, is where any workflow fix gets debugged. Next: PR B's last two commits, Codex
+  round 5, rebase onto main, merge, dogfood.
