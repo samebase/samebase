@@ -755,3 +755,15 @@ Open for PR C, in Nicu's words "how all this fits in":
   Cloudflare's comment with the per-commit and the branch alias URLs, both 200, and the Samebase
   dashboard listed the pull request with its status through the existing Workers Builds reads.
   Nothing in the template took part: Cloudflare did all of it.
+- 2026-10-07: Source of truth for PR C, decided with Nicu: the Alchemy state store holds what the
+  stack created and how it is wired, so it is the source of identity and wiring; the Workers Builds
+  and Convex reads stay the source of live status. Reading the store directly from Samebase is not
+  the way: every read needs the store's own bearer token, which lives in the Secrets Store, and the
+  CLI gets it by uploading a throwaway edge-preview Worker bound to the secret and calling it (two
+  undocumented endpoints, flaky by Alchemy's own comments). Instead the setup run, which holds the
+  token through the CLI, publishes `alchemy state read <stack>/prod/output` as a run artifact, and
+  Samebase reads the artifact of the `alchemy` run on the default branch through the Actions
+  permission it already has, validated by a version field the template puts in the output block. The
+  output block is the declared contract: the template decides what Samebase sees. Upstream ask for
+  Alchemy: a read-only token or a public outputs endpoint on the state store. Spike running on
+  `tmp-alchemy-v2`. The reader keeps a validator per output version it has met.
