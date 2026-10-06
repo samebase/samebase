@@ -783,3 +783,18 @@ Open for PR C, in Nicu's words "how all this fits in":
   (`research/2026-10-07-alchemy-as-samebase-source-of-truth.md`): inventory of what Samebase knows
   today, what Alchemy holds, the read options compared, trust, the mapping to the current workflows,
   the schema delta, edge cases, and a proposed RFC text, challenged by Codex before Nicu reads it.
+- 2026-10-07: Research note done, draft PR #1699
+  (`research/2026-10-07-alchemy-as-samebase-source-of-truth.md`, two Codex design rounds folded in).
+  Recommendation: the setup run publishes a versioned, secret-free output block under the `samebase`
+  key as the run artifact `samebase-setup-output`; Samebase reads the newest block from the
+  `alchemy` runs on the default branch, verifies every identity claim with the organization's
+  provider connections, and writes the two existing attachment rows with origin `setup_stack`, after
+  which every observer works unchanged. A block is a proposal: the first one applies by itself only
+  for the names Samebase reserved at creation, a unique project name, and resources created after
+  the app; anything else waits for a member's "Apply setup output". Samebase does not read the state
+  store (its token rewrites every stack and the state carries deploy keys). Two corrections to the
+  PR C sketch above: the `alchemy` check is not on every default-branch head (path filter), so the
+  setup status is the newest completed `alchemy` run; GitHub deletes runs and artifacts after
+  retention, so Samebase reads within minutes and keeps the result. The retirement of the `samebase`
+  mode's provider workflows is RFC 127, six phases. Open questions and a live identity spike (27
+  claims, one-off job on `tmp-alchemy-v2`) wait for Nicu.
