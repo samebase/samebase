@@ -481,3 +481,14 @@ Score Four CI token), and the CI token for the dogfood organization.
   branch when GitHub created another one. Initial runs that fail in the seed or the tree sync are
   admitted to retry. The retry confirmation describes the mode's operation. Account deletion removes
   only the CI entries the deleted member saved. Codex round 3 running.
+- 2026-10-06: Correction, Nicu's call, of an author error. The Actions template must follow the
+  model Mail and Score Four already run: `cloudflare.config.ts` owns the Worker and `cf` ships it;
+  the setup stack owns the Worker shell (our package's Worker resource, retained), the Convex side,
+  and the wiring, and never uploads Worker code. PR A and the first version of PR #1693 used
+  `Cloudflare.Website.Vite` from the score-four-alchemy copy instead, which was only the pure
+  Alchemy comparison. PR #1693 is back in draft and gets the rewrite: `cloudflare.config.ts` plus
+  `wrangler.config.ts`, the Worker shell in the run file, the Vite build with `VITE_CONVEX_URL` from
+  the stack, `cf deploy --prebuilt` on the default branch and `cf previews deploy --prebuilt <name>`
+  per branch with the name from `workerPreviewName`, and a Previews API delete on branch deletion
+  (`cf previews` has no delete in beta.12). The branch-model skeleton stays. No change to
+  `templates/base` is part of this.
