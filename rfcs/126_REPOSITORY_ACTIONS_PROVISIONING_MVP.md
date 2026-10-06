@@ -261,3 +261,11 @@ Score Four CI token), and the CI token for the dogfood organization.
   from the repository (shared per-account state store); `ensure-convex-auth.ts` stays for local dev;
   the overlay carries its own `pnpm-lock.yaml`; no bootstrap step (`deploy --yes` creates the state
   store); `alchemy dev` is not part of the variant. Codex review and the hand test follow.
+- 2026-10-06: Codex round 1 on PR A, three P2 items. Fixed: the workflow concurrency group is per
+  pull request number (a merge closes the pull request under a different `github.ref`, so the
+  destroy raced the preview deploy); the Worker Preview name is explicit,
+  `workerPreviewName(stage, worker)`: the stage when it fits `63 - worker.length - 1`, else the
+  stage cut to budget minus 5 plus a dash and 4 hex of sha256(stage), with a `p` prefix when the
+  stage starts with a digit; Part 3 computes the same name. Documented as a limit, not fixed: two
+  branches that differ only in characters outside letters and digits share a stage, and the second
+  deploy fails with `DeploymentIdentityChange`. Manifest `samebase-base-actions-4c16b72fbfa2`.
