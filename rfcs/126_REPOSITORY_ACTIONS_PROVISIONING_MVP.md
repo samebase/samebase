@@ -767,3 +767,11 @@ Open for PR C, in Nicu's words "how all this fits in":
   output block is the declared contract: the template decides what Samebase sees. Upstream ask for
   Alchemy: a read-only token or a public outputs endpoint on the state store. Spike running on
   `tmp-alchemy-v2`. The reader keeps a validator per output version it has met.
+- 2026-10-07: Spike passed on `tmp-alchemy-v2`: the deploy job ran `alchemy deploy --detect-drift`
+  (no changes, drift clean), then `alchemy state read --backend cloudflare <stack>/prod/output` into
+  a file, then `actions/upload-artifact`; the API listed the artifact (403 bytes, 90-day expiry) and
+  the download gave `{ workerUrl, convexUrl }`. 90 seconds in total. Two notes for PR C: the state
+  read prints log lines before the JSON object, so the publish step writes only the object (or the
+  reader takes the last object); the template's output block gets a `version` and the identity
+  fields (Worker name, Convex team, project, deployment, config path), and the reader keeps one
+  validator per version it has met.
