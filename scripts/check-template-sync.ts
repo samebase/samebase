@@ -17,9 +17,10 @@ export const templateDeployPaths = [
   // and the destroy.
   "scripts/alchemy-stage.ts",
   "scripts/alchemy-stage.test.ts",
-  // base-actions only: skips the deploy of a workflow run whose commit is no longer the branch head.
-  // It asks the GitHub API and ends the run without a deploy; the base head check reads Workers
-  // Builds variables and git, and fails the build.
+  // base-actions only: skips the deploy of a workflow run whose commit is no longer the branch head,
+  // and the destroy of a deleted branch that exists again. It asks the GitHub API and ends the run
+  // without a deploy or destroy; the base head check reads Workers Builds variables and git, and
+  // fails the build.
   "scripts/check-branch-head.ts",
   "scripts/check-branch-head.test.ts",
   // Deploy scripts and dependencies: Wrangler and the Workers Builds scripts in base; Alchemy,

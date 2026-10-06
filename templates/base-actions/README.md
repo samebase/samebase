@@ -70,7 +70,8 @@ gets the comment on the next push. A pull request from a fork gets no preview.
 
 The runs of one branch run one at a time, in order, so a branch delete waits for a running deploy.
 Before the deploy, the job checks that its commit is still the head of the branch. A rerun of an
-older push ends without a deploy.
+older push ends without a deploy. Before the destroy, the job checks that the branch is still
+deleted. A rerun of a delete after the branch was pushed again ends without a destroy.
 
 Both jobs run only when the repository variable `CONVEX_TEAM_ID` is set. A copy of the repository
 without the deploy setup skips them.
@@ -82,25 +83,30 @@ or destroy step gets the credentials.
 
 The names, for the repository `my-org/my-app` and the branch `feature/Foo_bar`:
 
-| Resource                  | Name                                                 | Example                  |
-| ------------------------- | ---------------------------------------------------- | ------------------------ |
-| Alchemy stack             | `<owner>_<repository>`, lowercase                    | `my-org_my-app`          |
-| Worker                    | The repository name made safe, at most 54 characters | `my-app`                 |
-| Convex project            | The repository name made safe, at most 40 characters | `my-app`                 |
-| Preview stage             | The branch made safe, plus a hash if that changed it | `feature-foo-bar-c86457` |
-| Convex preview deployment | The branch                                           | `feature/Foo_bar`        |
-| Worker Preview            | The stage, cut and hashed when it does not fit       | `feature-foo-bar-c86457` |
+| Resource                  | Name                                                    | Example                         |
+| ------------------------- | ------------------------------------------------------- | ------------------------------- |
+| Alchemy stack             | `<owner>_<repository>`, lowercase                       | `my-org_my-app`                 |
+| Worker                    | The repository name made safe, at most 54 characters    | `my-app`                        |
+| Convex project            | The repository name made safe, at most 40 characters    | `my-app`                        |
+| Preview stage             | The branch made safe, at most 40 characters, and a hash | `feature-foo-bar-c86457`        |
+| Convex preview deployment | The branch                                              | `feature/Foo_bar`               |
+| Worker Preview            | The stage, cut to fit, and a hash                       | `feature-foo-bar-c86457-91387f` |
 
 Made safe means lowercase, every run of characters other than `a-z` and `0-9` as one dash, and no
-dash at either end. The hash of a preview stage is a dash and the first 6 hex characters of the
-SHA-256 of the branch, so `feature/Foo_bar` and `feature-foo-bar` get two stages. A Worker Preview
-is served at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>` must fit in a
-63-character DNS label. A longer stage is cut, and a dash and the first 6 hex characters of the
-SHA-256 of the stage follow: next to a 47-character Worker name, `feature-foo-bar-c86457` becomes
-`feature-91387f`. A Worker Preview name starts with `p` when the stage starts with a digit.
+dash at either end. A hash is a dash and the first 6 hex characters of a SHA-256.
 
-A branch whose stage would be `prod` or empty, such as `prod` or `///`, stops the deploy; rename the
-branch. Renaming the repository is not supported by the deploy.
+Every preview stage ends with the hash of the branch, so two branches never share a stage:
+`feature/Foo_bar` gets `feature-foo-bar-c86457`, and `feature-foo-bar` gets
+`feature-foo-bar-8c7b58`. Only the default branch deploys as `prod`.
+
+Every Worker Preview name ends with the hash of the stage, so two stages never share a Preview. A
+Preview is served at `<name>-<worker>.<subdomain>.workers.dev`, so `<name>-<worker>` must fit in a
+63-character DNS label. The stage is cut to fit before the hash: next to a 47-character Worker
+name, `feature-foo-bar-c86457` becomes `feature-91387f`. The name starts with `p` when the stage
+starts with a digit.
+
+A branch without a letter or a digit, such as `///`, stops the deploy; rename the branch. Renaming
+the repository is not supported by the deploy.
 
 The deploy never takes over a Worker or a Convex project that it did not create. If the Cloudflare
 account already has a Worker with the same name that this stack did not create, or the Convex team
