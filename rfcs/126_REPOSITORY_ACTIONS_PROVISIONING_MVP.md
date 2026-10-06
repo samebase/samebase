@@ -612,3 +612,8 @@ C; Convex token minting per repository (spike pending); the template location lo
   200, and the pull request comment. Nicu's direction: no separate fix PR; the template fix is a
   commit on PR B (`a1e4a19b5`), and PR B stays open while apps are created and deleted on its
   preview until the mode is right. #1695 closed.
+- 2026-10-06: Destroy checked: deleting `preview/Check_01` ran the destroy job, which deleted the
+  Convex preview deployment, its functions, and its deploy key, then the Worker Preview; both URLs
+  answer 404. Open: an app owner has no destroy path for `prod` (the destroy job refuses it, and the
+  credentials live only in the repository secrets); the dogfood app's Convex project and Worker stay
+  until a manual cleanup.
