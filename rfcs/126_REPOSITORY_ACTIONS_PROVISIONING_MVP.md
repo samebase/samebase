@@ -2,41 +2,54 @@
 
 ## Document Control
 
-- Status: Proposal
+- Status: Proposal, in progress
 - Owner: Nicu Chiciuc
 - Created: 2026-10-06
-- Last updated: 2026-10-06
-- Base: `origin/main` at `06e612f0a` (v2094)
+- Last updated: 2026-10-06 (body rewritten after the direction audit; the Status log is the history)
+- Base: `origin/main` at `d4b397d6a` (v2096)
 - Evidence: `research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md`
-  ([PR #1685](https://github.com/samebase/samebase/pull/1685)); the Alchemy-way copy of Score Four,
-  [nicu-chiciuc/score-four-alchemy](https://github.com/nicu-chiciuc/score-four-alchemy) (private),
-  with its `docs/comparison.md`; [issue #1686](https://github.com/samebase/samebase/issues/1686)
+  ([PR #1685](https://github.com/samebase/samebase/pull/1685)); the model this RFC follows runs in
+  production for Mail (samebase/convex-cloudflare-email-inbox: `apps/mail/cloudflare.config.ts`,
+  root `alchemy.run.ts`) and Score Four (nicu-chiciuc/score-four: setup stack next to Workers
+  Builds); [nicu-chiciuc/score-four-alchemy](https://github.com/nicu-chiciuc/score-four-alchemy) is
+  the pure-Alchemy comparison only, not the model;
+  [issue #1686](https://github.com/samebase/samebase/issues/1686)
 - Related: `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`,
   `rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md`,
   `apps/samebase/convex/repository/provisioningModel.ts`,
   `apps/samebase/convex/repositoryProvisioningWorkflow.ts`, `scripts/export-starter-manifest.ts`
-- Packages: `alchemy@2.0.0-beta.80`, `@samebase/alchemy-convex@0.3.0`
+- Packages: `alchemy@2.0.0-beta.80`, `@samebase/alchemy-convex@0.3.0`,
+  `@samebase/alchemy-cloudflare-workers-builds` (the Worker shell resource), `cf@1.0.0-beta.12`
+
+## Goal
+
+Find out whether Alchemy plus GitHub Actions can replace the provisioning that Samebase does today
+in its own Convex workflows (create the Convex project, create the Worker, configure Workers Builds,
+install the deploy keys). The test is one app created from samebase.com in the new mode that
+provisions and deploys itself from its own repository. Everything in this document serves that test.
+Out of scope for the MVP: `templates/base` and its move to `cloudflare.config.ts`, the template
+location (monorepo or own repository), credential rotation, repository renames.
 
 ## Summary
 
 1. Today Samebase provisions a new app itself: after it creates and seeds the GitHub repository, its
    workflow creates the Convex project, creates the Worker, configures Workers Builds, and installs
    the deploy keys, all with Samebase's own provider tokens.
-2. This RFC adds a second mode next to it. Samebase copies a template repository into the user's
-   GitHub, writes three Actions secrets and one variable into it, and stops. The repository's own
-   GitHub Actions workflow runs `alchemy deploy`, which creates the Convex project, its production
-   deployment, the deploy keys, and the Worker, and deploys the code. Pull requests get a Convex
-   preview deployment and a Worker Preview from the same workflow, and a close destroys both.
+2. This RFC adds a second mode next to it. Samebase creates the repository, writes three Actions
+   secrets and one variable into it, seeds a template, and stops. The repository's own GitHub
+   Actions workflow does the rest on every push: `alchemy deploy` creates the Convex project, its
+   deployments, the deploy keys, the JWT keys, and the Worker shell, and pushes the Convex
+   functions; `cf` builds and ships the Worker code that `cloudflare.config.ts` defines. Every
+   branch gets a Convex preview deployment and a Worker Preview; deleting the branch destroys both.
 3. No hard cut. The current mode stays the default until the new mode has created and run a real app
    from samebase.com. The choice is made per repository at creation and recorded on its provisioning
    plan.
-4. The MVP is three pull requests. The first ships the template variant alone, so it can be proven
-   by hand before any Samebase code depends on it. The second ships the mode. The third ships the
-   observation that makes the dashboard show the new repositories, and is verified against a
-   repository the second one created.
-5. This document is the direction, not a contract. The work will find edge cases that this text does
-   not know yet. When a section changes, the Status log at the end records what changed and why, so
-   a reader sees the current plan and how it got there.
+4. Three pull requests: the template (PR A, merged, then reshaped by its follow-ups), the mode in
+   Samebase (PR B), and the observation that makes the dashboard show the new repositories (PR C,
+   verified against a repository PR B created).
+5. This document is the direction, not a contract. Every decision in it is the author's proposal;
+   reviewers, Codex included, challenge them. When a section changes, the Status log records what
+   changed and why.
 
 ## Decisions
 
@@ -45,12 +58,29 @@
 A repository's provisioning plan says who provisions it:
 
 - `samebase` (today): Samebase's workflow runs the attach, configure, and rotate steps.
-- `repository_actions` (new): the repository's GitHub Actions run `alchemy deploy`. Samebase only
-  creates the repository, writes the CI secrets, and seeds the template.
+- `repository_actions` (new): the repository's GitHub Actions run `alchemy deploy` and `cf`.
+  Samebase only creates the repository, writes the CI secrets, and seeds the template.
 
-The deployer inside the template (Workers Builds today, Alchemy in the new template) is a template
-detail, not a second axis. A Convex-only template later is another template variant in the same
-mode.
+### The template follows the Mail and Score Four model
+
+The split proven in Mail and Score Four applies unchanged, with GitHub Actions as the runner instead
+of Workers Builds:
+
+- `cloudflare.config.ts` owns the Worker's own things: name, compatibility date, assets handling,
+  bindings, previews. `cf build` produces the Build Output; `cf deploy --prebuilt` ships it on the
+  default branch; `cf previews deploy --prebuilt <name>` ships a Worker Preview on any other branch.
+- `alchemy.run.ts` owns lifecycle and cross-provider wiring: the Worker shell (the retained Worker
+  resource of our package, named from the config), the Convex project, the deployment of the stage,
+  the deploy keys, the JWT keys, the functions push, and the values the two sides must share. The
+  stack never uploads Worker code. One owner per field.
+- The workflow owns the order: `alchemy deploy`, then the app build with the Convex URL, then `cf`.
+
+### Previews per branch
+
+Workers Builds and Convex previews are per branch and start on a branch push, so the template
+follows that. A push to the default branch deploys stage `prod`. A push to any other branch deploys
+a preview stage; a branch deletion destroys it. Pull requests are not the unit: when a pull request
+is open for the branch, the run comments the URLs on it.
 
 ### Credentials
 
@@ -58,203 +88,151 @@ Samebase's own provider connection stays as it is: OAuth by default, API token a
 new mode needs a second kind of credential, one that lives in the user's repository as an Actions
 secret and that the GitHub runner uses:
 
-| Secret or variable      | Source                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | A user API token for CI, created by the user from a deep link, pasted once per organization            |
-| `CLOUDFLARE_ACCOUNT_ID` | Samebase knows it from the connection                                                                  |
-| `CONVEX_ACCESS_TOKEN`   | A Convex team access token: minted per repository by Samebase if its OAuth token may, else pasted once |
-| `CONVEX_TEAM_ID`        | Variable (not a secret). Samebase knows it from the connection; `Convex.Project` needs the numeric id  |
+| Secret or variable      | Source                                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | A user API token for CI, created by the user, pasted once per organization                            |
+| `CLOUDFLARE_ACCOUNT_ID` | Samebase knows it from the connection                                                                 |
+| `CONVEX_ACCESS_TOKEN`   | A Convex team access token, pasted once per organization (minting per repository is a later option)   |
+| `CONVEX_TEAM_ID`        | Variable (not a secret). Samebase knows it from the connection; `Convex.Project` needs the numeric id |
 
-OAuth cannot replace the Cloudflare CI token: OAuth access tokens expire within hours, and
-Cloudflare opens token minting (`account_api_tokens:create`) only to its first-party CLI today. When
-that scope opens to third parties, Samebase mints the token through OAuth and the paste step
-disappears. The secret-writing step stays the same.
-
-Samebase never puts its own OAuth tokens into user repositories: team-wide blast radius, and CI
-breaks when the user disconnects Samebase.
+Accepted for the MVP (Nicu, 2026-10-06): both tokens are account-wide or team-wide, and anyone who
+can push a workflow to the repository can read them, so one compromised repository exposes the
+sibling apps of the account and team. This is the release gate before real users get the option
+(later question 16 in the memory, finding 1 of the design review). OAuth cannot replace the
+Cloudflare token today: access tokens expire within hours, and token minting is open only to
+Cloudflare's own CLI. Samebase never puts its own OAuth tokens into user repositories.
 
 ### The template does not get edited at seed time
 
-The Alchemy run file reads the app name from `GITHUB_REPOSITORY` and the team id from the
-`CONVEX_TEAM_ID` variable. The template is byte-identical for every app, and the seed step stays a
-plain copy. A developer who runs the stack from a laptop sets the same values in `.env`.
+`cloudflare.config.ts` and `alchemy.run.ts` read the app name from `GITHUB_REPOSITORY` through one
+shared module, and the team id from `CONVEX_TEAM_ID`. The template is byte-identical for every app,
+and the seed is a plain copy. A developer who runs it from a laptop sets the same values in `.env`.
+
+### Names
+
+The stack is `<owner>_<repository>` (lowercase); the Worker and the Convex project take the
+repository name with Samebase's name rule. Without `--adopt`, a same-name Worker or project that is
+not in the stack's state stops the deploy with `OwnedBySomeoneElse`; nothing is adopted or
+overwritten. Renaming the repository is not supported for now and the template README says so.
 
 ### Default stays `samebase`
 
-The creation form offers the new mode as an experimental choice. `repository_create` takes an
-optional `provisioning` argument that defaults to `samebase`. Changing the default is a decision for
-after the dogfood run, not part of this RFC.
+The creation form offers the new mode as "Set up by GitHub Actions in the repository
+(experimental)". `repository_create` takes an optional `provisioning` argument that defaults to
+`samebase`. Changing the default is a decision for after the dogfood run.
 
 ## Schema
 
-The schema is the main concern of this RFC. Every change below is additive: no existing row changes
-shape, no backfill, no two-step deploy.
+Every change is additive: no existing row changes shape, no backfill, no two-step deploy.
 
-### `workflow_repositoryProvisioning_plans`
+- `workflow_repositoryProvisioning_plans` becomes a union of two objects: the existing object,
+  unchanged (its absence of `provisioning` means `samebase`), and
+  `{ provisioning: "repository_actions", repositoryId, convexConfigPath, ciSecrets, seed, createdAt, updatedAt }`
+  with `ciSecrets: { state: "planned" } | { state: "written", writtenAt, credentialRevision }` and
+  `seed: { state: "planned" } | { state: "seeded", seededAt, manifestVersion }`. One function
+  returns the mode of a plan. A required discriminant on both variants comes with a backfill when
+  the mode is accepted, not now.
+- `organizationCiCredentials`: a new table, one row per organization, with optional `cloudflare`
+  (`apiToken`, `accountId`, `connectedByUserId`, `updatedAt`) and `convex` (`accessToken`, `teamId`,
+  `connectedByUserId`, `updatedAt`) entries, indexed by organization and by the saving user, so
+  provider disconnects and account deletions of one member never delete another member's tokens.
+  Organization deletion removes the row. `organizationProviderCredentials` is unchanged.
+- `workflow_repositoryProvisioning_runs`: the step union gets `write_actions_secrets`.
+- Not changed: `repositories`, the attachment tables, the write locks, the provider API log.
 
-Today the table holds one object with `repositoryId`, `convexConfigPath`, `convex`, `cloudflare`,
-`createdAt`, `updatedAt`. It becomes a union of two objects:
+## The template
 
-- The existing object, unchanged. Its absence of a `provisioning` field means `samebase`.
-- A new object:
-  `{ provisioning: "repository_actions", repositoryId, convexConfigPath, ciSecrets, createdAt, updatedAt }`
-  where `ciSecrets` is `{ state: "planned" }` or `{ state: "written", writtenAt }`. It has no
-  `convex` and no `cloudflare` part, because Samebase makes no provider choice in this mode.
+`templates/base` stays the Workers Builds template and is not touched. `templates/base-actions` is a
+second, complete template: all files committed, runnable and checkable in place, exported directly
+to its own manifest and published as `samebase/base-actions`. A sync check keeps every path outside
+a declared list of deploy files byte-identical between the two templates.
 
-Code reads the mode with one narrowing on the plan, `"provisioning" in plan`, in one place that
-returns `"samebase" | "repository_actions"`.
+Its deploy files: `cloudflare.config.ts` and `wrangler.config.ts` (the Worker), `alchemy.run.ts`
+(the stack), `.github/workflows/alchemy.yml`, the stage and head-check scripts, the Worker build and
+Preview delete scripts, `package.json`, `pnpm-lock.yaml`, `tsconfig.node.json`, `.gitignore`,
+`README.md`. Local dev is the same as in the base template; `alchemy dev` is not part of it.
 
-Alternative considered: a required `provisioning` discriminant on both variants. It needs a deploy
-with the field optional, a backfill mutation run in production, and a second deploy that makes it
-required. The RFC 090 route (delete and recreate the rows) is not available: the rows belong to live
-repositories. The additive union avoids all of that now. When the new mode is accepted and the old
-one is removed, the cleanup that deletes the `samebase` variant gives every remaining row the field.
+Workflow: triggers `push` on every branch and `delete`; both jobs run only when the repository
+variable `CONVEX_TEAM_ID` is set (the published copy has none). The deploy job installs with
+`--ignore-scripts`, runs the three supply-chain audits of `ci.yml`, runs `pnpm run check`, checks
+that the pushed commit is still the branch head (exact Git ref, no redirects), runs
+`alchemy deploy`, builds the app with the Convex URL, and ships with `cf`. The destroy job installs
+with `--ignore-scripts`, runs the signature audit only, checks that the branch is still absent, then
+runs `alchemy destroy` and deletes the Worker Preview through the Previews API (`cf previews` has no
+delete). Credentials exist only on the deploy, ship, and destroy steps.
 
-### `organizationProviderCredentials`
-
-Both union variants get one optional field:
-
-```
-ci: optional(object({
-  cloudflare: optional(object({ apiToken: string(), accountId: string(), connectedByUserId, updatedAt })),
-  convex: optional(object({ accessToken: string(), teamId: string(), connectedByUserId, updatedAt })),
-}))
-```
-
-Stored the way the OAuth tokens are stored today (Convex encrypts at rest). If the Convex spike
-below shows that Samebase can mint a team access token per repository, the `convex` entry is not
-needed and is left out.
-
-### `workflow_repositoryProvisioning_runs`
-
-The step union gets one new literal, `write_actions_secrets`. Additive.
-
-### Not changed
-
-`repositories`, the attachment tables, the write locks, and the provider API log. The observation
-part records the Worker and the Convex project through the existing attachment contracts.
-
-## Template variant
-
-`templates/base` stays the Workers Builds template. `templates/base-actions` is a second, complete
-template: all of its files are committed, a person can open it, run `pnpm install` and
-`pnpm run check` in it, and the repository exports publish it as `samebase/base-actions` the way
-`templates/base` publishes as `samebase/base`. The exporter exports each template directory directly
-into its own generated manifest (`starterSeedManifest.generated.ts`,
-`starterSeedManifest.actions.generated.ts`), and `starterSeed.ts` takes the manifest as a parameter.
-(An overlay layout, with only the differing files composed by the exporter, was built first and
-replaced on Nicu's call; see the Status log.)
-
-A sync check, `scripts/check-template-sync.ts` (`check:template-sync`, part of `check:scripts` and
-CI), keeps the two templates one app: every path outside a declared list of deploy files must exist
-in both with the same bytes and mode, so an app change applied to one template fails CI until it is
-applied to the other. The declared list is exactly the deploy difference: `alchemy.run.ts`,
-`.github/workflows/alchemy.yml`, `package.json`, `pnpm-lock.yaml`, `tsconfig.node.json`,
-`.gitignore`, `README.md` on the Actions side; `wrangler.jsonc`, `scripts/build-cloudflare.ts`,
-`scripts/verify-current-branch-head.ts` and their tests on the Workers Builds side.
-`scripts/ensure-convex-auth.ts` is shared: the local dev launcher uses it in both. Local dev is the
-same in both templates (`pnpm run dev`, the isolated anonymous backend); `alchemy dev` is not part
-of the variant.
-
-The run file names the Alchemy stack `<owner>_<repository>` (lowercase) from `GITHUB_REPOSITORY`,
-and the Worker and the Convex project after the repository with Samebase's name rule (54 and 40
-characters). The stack name must differ per repository: Alchemy keys state by stack name and stage,
-and every stack in one Cloudflare account shares one state store; an underscore join keeps
-`team-a/app` and `team/a-app` apart because an owner name cannot contain an underscore. The run file
-reads `GITHUB_REPOSITORY` and `CONVEX_TEAM_ID` through `effect/Config`, process environment first,
-then `.env`, and fails closed with a clear message when either is missing. Without `--adopt`, an
-existing same-name Worker or Convex project stops the deploy with `OwnedBySomeoneElse`; nothing is
-adopted or overwritten.
-
-Stages: `prod` on a push to main; `pr-<number>` for a pull request (unique by construction, so a
-destroy can never hit another branch's stage), with the Worker Preview named after the stage and a
-fail-closed check that `pr-<number>` fits next to the Worker name in a 63-character DNS label. The
-Convex preview deployment is named after the raw branch today (`PREVIEW_BRANCH`); the design review
-asks for `pr-<number>` there too, and that change is a template follow-up. A `GitHub.Comment`
-carries both URLs; a close destroys the stage.
-
-The workflow installs with `--ignore-scripts`, runs the three supply-chain audits of `ci.yml`, then
-`pnpm run check`, and gives the four credentials only to the deploy and destroy steps. No separate
-bootstrap step: `alchemy deploy --yes` creates a missing Cloudflare state store itself. The
-published repository `samebase/base-actions` has no secrets, so its own push to main would fail at
-the deploy; a follow-up gates both jobs on the `CONVEX_TEAM_ID` variable being set.
+Stage rule: the default branch gives `prod`; any other branch gives its safe form (lowercase, runs
+of other characters as one dash, cut to 40) plus 16 hex of sha256 of the raw name, so two branches
+never share a stage. Worker Preview name: the stage cut to the DNS budget plus 6 hex of sha256 of
+the stage; the README states that this can collide in rare cases and that a long Worker name makes
+it more likely. The Convex preview deployment is named after the raw branch, the name
+`convex deploy --preview-name` gives it under Workers Builds and the name Samebase matches on.
 
 ## The new workflow mode
 
-For `provisioning: "repository_actions"` the run executes:
+For `provisioning: "repository_actions"`, after the pre-checks in `repository_create` (both CI
+tokens saved, verified, and matching the connected account and team; the installation's granted
+`secrets` and `actions_variables` write permissions; name availability), the run executes:
+`validate_connections`, `create_github_repository`, `connect_github_repository`,
+`write_actions_secrets` (upsert the three secrets sealed with the repository public key, create or
+update the variable, record the credential revision), `seed_starter` (the actions manifest, on
+`main`; the repository default branch is set to `main` when GitHub created another one),
+`sync_tree`, `finish`. It skips every Samebase provider step, and Samebase's manual provider writes
+refuse this mode. A failed secrets write, seed, or tree sync is retried without seeding twice. The
+retry confirmation describes this operation. The end of the run means "repository prepared"; the
+status says that deployment runs in the repository's GitHub Actions, with a link, until PR C
+observes the result.
 
-1. `validate_connections`: GitHub, Convex, and Cloudflare connected, and the CI credentials present.
-2. `create_github_repository`: unchanged.
-3. `write_actions_secrets` (new): `GET /repos/{owner}/{repo}/actions/secrets/public-key`, then one
-   `PUT /repos/{owner}/{repo}/actions/secrets/{name}` per secret, sealed with the repository's
-   public key (libsodium sealed box; a pure-JS implementation runs in the Convex runtime without
-   `"use node"`), and one `POST /repos/{owner}/{repo}/actions/variables` for `CONVEX_TEAM_ID`. Marks
-   `ciSecrets.state = "written"`. Runs before the seed, so the first workflow run has its secrets.
-4. `seed_starter` with the actions manifest.
-5. `connect_github_repository`, `sync_tree`, `finish`: unchanged.
+The Samebase GitHub App needs Secrets (write) and Variables (write) for the secrets step (done on
+the production App on 2026-10-06, installations accepted) and Actions (read) for PR C to read
+workflow runs of private repositories. The change applies to every App instance.
 
-Skipped: `claim_infra`, `attach_convex`, `attach_worker`, `configure_workers_builds_for_github`,
-`rotate_convex_deploy_keys_for_workers_builds`. The attention items that ask for a Workers Builds
-token or a deploy key do not apply to this mode.
+## Observation (PR C)
 
-The Samebase GitHub App needs two more repository permissions: Secrets (write) and Variables
-(write). Today it has administration, contents, workflows, pull requests, checks, statuses, members,
-metadata. Existing installations re-approve once. The change applies to every App instance (local
-development, preview, production).
-
-## Observation (Part 3)
-
-For a `repository_actions` repository the status read:
-
-- Shows the `alchemy` check on the default branch head as the deploy status, and the check on a pull
-  request head as the preview status. Logs are the Actions run behind the check.
-- After the first green `alchemy` check on the default branch, finds the Worker and the Convex
-  project by the repository name (the template names both after it) and records them through the
-  existing attach contracts, so the dashboard and the MCP status work unchanged.
-- Reads the Worker Preview of a pull request by name (branch made safe) from the Workers Previews
-  API. Today Samebase matches Worker Previews by the `branch` field that Workers Builds records,
-  which does not exist in this mode. Convex previews match by `previewIdentifier` already.
+For a `repository_actions` repository the status read shows the `alchemy` check on the default
+branch head as the deploy status and the check on a branch head as the preview status, with the
+Actions run as the logs link; after the first green run on the default branch it finds the Worker
+and the Convex project by the repository name and records them through the existing attach
+contracts; it reads a branch's Worker Preview by the name rule above and its Convex preview by
+`previewIdentifier`. Samebase's screens and slots stay the same; only their sources change per mode.
 
 ## Pull requests
 
-| PR  | Content                                                                                                                                           | Why its own PR                                                                                                                                 |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| A   | Template overlay, exporter changes, second manifest, exporter tests                                                                               | Proven by hand before Samebase code exists: copy the manifest into a temporary repository, set the four values, watch deploy, preview, destroy |
-| B   | Plan union variant, `ci` credentials, CI credentials UI, secrets write, the new workflow mode, `repository_create` argument, creation form choice | One coherent feature behind one choice; default unchanged                                                                                      |
-| C   | Observation and status reads for the mode                                                                                                         | Verified against a repository that PR B created                                                                                                |
-
-Outside the pull requests: the GitHub App permission change (Nicu, in GitHub settings), the Convex
-token spike (a script: can Samebase's OAuth token call
-`POST /v1/teams/{team_id}/create_access_token` on the Management API? A user login can; it made the
-Score Four CI token), and the CI token for the dogfood organization.
+| PR  | Content                                                                                                                                                                                                                                                                            | State                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| A   | The template and its manifest ([#1690](https://github.com/samebase/samebase/pull/1690)); full template with sync check ([#1691](https://github.com/samebase/samebase/pull/1691)); previews per branch and the Mail model ([#1693](https://github.com/samebase/samebase/pull/1693)) | 1690 and 1691 merged; 1693 in progress |
+| B   | Plan variant, `organizationCiCredentials`, CI credentials UI, secrets write, the workflow mode, `repository_create` argument, creation form choice ([#1692](https://github.com/samebase/samebase/pull/1692))                                                                       | In review                              |
+| C   | Observation and status reads for the mode                                                                                                                                                                                                                                          | After the dogfood of PR B              |
 
 ## Execution
 
-- Fable manages. Opus subagents implement, one worktree per PR, with `pnpm run dev --once` in the
-  worktree first. Codex reviews each PR (`codex exec review --base main --title ...`) until a pass
-  finds nothing; Astra extra high, Sol 6.1 extra high when Codex usage is under 10 percent.
+- Fable manages. Opus subagents implement, one worktree per PR. Codex reviews each PR until a pass
+  finds nothing, with the title stating that the RFC is the author's proposal open to challenge; a
+  design review of the RFC itself ran on 2026-10-06. When a Codex finding contradicts a decision, it
+  goes to Nicu with an assessment, not a defense.
 - Nicu merges samebase/samebase PRs. Fable may merge package and app PRs when that unblocks the
   chain.
-- Disposable resources use the `tmp-` prefix. Nothing deletes a Convex project; `Convex.Project`
-  retains by default. The Cloudflare state store Worker `alchemy-state-store` is never deleted.
+- Disposable resources use the `tmp-` prefix. Nothing deletes a Convex project that is not `tmp-`
+  prefixed; `Convex.Project` retains by default. The Cloudflare state store Worker
+  `alchemy-state-store` is never deleted.
 
 ## Test plan
 
-- Unit: exporter composition (removal list, overlay precedence, second manifest), sealed box against
-  a known vector, workflow step dispatch for both modes, plan narrowing.
-- Hand test of PR A: a temporary repository seeded from the generated manifest with the four values
-  set; `alchemy` workflow deploys prod; a pull request gets a preview and a comment; the close
-  destroys the preview; the temporary Convex project and Worker are deleted afterwards.
-- Dogfood of PR B: create one app from samebase.com in the new mode under the dogfood organization;
-  the first `alchemy` run on main is green; the app answers; a pull request preview works; then
-  delete the app's resources.
+- Unit: the exporter and the sync check, the sealed box against a known vector, workflow step
+  dispatch for both modes, plan narrowing, the stage and Preview-name rules, the head check.
+- Hand test of the template: a temporary repository with the four values set deploys production from
+  zero, a branch gets a preview and a comment, the branch deletion destroys it. Done for the first
+  template shape on 2026-10-06; to repeat for the Mail-model shape.
+- Dogfood of PR B on production samebase.com: paste the two CI tokens once, create one temporary app
+  in the new mode, watch the repository's run create the Convex project, the keys, and the Worker,
+  then delete the app's resources. This is the test the RFC exists for.
 
-## Open questions for Nicu
+## Decided and still open
 
-1. Schema: the additive plan variant (recommended) or the required discriminant with backfill.
-2. Convex CI token: mint per repository if the spike allows, else paste. The spike comes first.
-3. The GitHub App permission change: when to do it on the production App.
-4. The name of the mode: `repository_actions`.
+Decided (Nicu, 2026-10-06): additive plan variant; credential scope accepted for now; previews per
+branch; names stay, renames unsupported; destroy job without vulnerability audits; template as a
+full directory; the template follows the Mail model. Open: a hard release gate between PR B and PR
+C; Convex token minting per repository (spike pending); the template location long term.
 
 ## Status
 
@@ -492,3 +470,10 @@ Score Four CI token), and the CI token for the dogfood organization.
   per branch with the name from `workerPreviewName`, and a Previews API delete on branch deletion
   (`cf previews` has no delete in beta.12). The branch-model skeleton stays. No change to
   `templates/base` is part of this.
+- 2026-10-06: Direction audit of the whole body after the Worker-model correction. Besides
+  `Website.Vite`, the body still described pull request stages instead of previews per branch, PR A
+  as an overlay, the old schema (`ci` field, no seed checkpoint), the old step order (secrets before
+  connect), the old destroy audits, and four open questions already answered. The body is rewritten
+  to the current direction: Goal section, the Mail and Score Four model, previews per branch, the
+  schema as built, the mode as built, the decisions taken. The Status log above this entry is the
+  history and keeps its older wording.
