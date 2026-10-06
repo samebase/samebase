@@ -444,3 +444,14 @@ Score Four CI token), and the CI token for the dogfood organization.
   Nicu's assumption, recorded: the first real template for the mode relies on `cloudflare.config.ts`
   plus `alchemy.run.ts`, with the Worker defined the Cloudflare way and deployed by `cf` from
   Actions, and the stack owning Convex and the wiring; assessment pending.
+- 2026-10-06: Focus restated by Nicu: the MVP question is whether Alchemy plus GitHub Actions can
+  replace the provisioning Samebase does in its Convex workflows; the test is one app created from
+  samebase.com in the new mode. The base template and the `cf` migration are not part of it; the
+  `cf` shape stays recorded as the later direction for the template. Codex round 1 on PR B: P1, a
+  retry that re-seeds after a failed tree sync force-updates the default branch and drops later
+  commits (fix: a seed-completion checkpoint on the plan); P2, a saved retry context from before
+  this change lacks the mode field (fix: read it defensively as `samebase`); P2, a default branch
+  other than `main` never deploys with the current template trigger (resolved by PR #1693, so PR B
+  merges after it). Codex round 1 on PR #1693: two P1 collisions with constructed branch names (fix:
+  a hash in every preview stage and every Preview name) and a P2 delete rerun after a branch is
+  recreated (fix: check the branch is absent before destroying). Fixes in progress on both.
