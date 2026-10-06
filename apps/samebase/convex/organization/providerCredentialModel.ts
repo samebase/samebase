@@ -52,6 +52,18 @@ export const vOrganizationCiCredentials = object({
   ),
 });
 export type OrganizationCiCredentials = Infer<typeof vOrganizationCiCredentials>;
+export type CompleteOrganizationCiCredentials = {
+  cloudflare: NonNullable<OrganizationCiCredentials["cloudflare"]>;
+  convex: NonNullable<OrganizationCiCredentials["convex"]>;
+};
+
+/**
+The revision of the CI credentials that a repository holds: the later `updatedAt` of the two tokens.
+Saving either token again gives a higher revision, so the repositories with a lower one are stale.
+*/
+export function readCiCredentialRevision(ci: CompleteOrganizationCiCredentials): number {
+  return Math.max(ci.cloudflare.updatedAt, ci.convex.updatedAt);
+}
 
 export const vOrganizationProviderCredentials = union(
   object({

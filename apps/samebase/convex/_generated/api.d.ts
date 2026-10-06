@@ -98,6 +98,7 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as organization_billingLimits from "../organization/billingLimits.js";
+import type * as organization_ciCredentials from "../organization/ciCredentials.js";
 import type * as organization_invitationModel from "../organization/invitationModel.js";
 import type * as organization_memberGitHub from "../organization/memberGitHub.js";
 import type * as organization_model from "../organization/model.js";
@@ -300,6 +301,7 @@ declare const fullApi: ApiFromModules<{
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
   "organization/billingLimits": typeof organization_billingLimits;
+  "organization/ciCredentials": typeof organization_ciCredentials;
   "organization/invitationModel": typeof organization_invitationModel;
   "organization/memberGitHub": typeof organization_memberGitHub;
   "organization/model": typeof organization_model;

@@ -169,6 +169,7 @@ export function ProviderConnectionsPageVisualFixture({
       authorizationErrorMessage={
         mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
       }
+      ciCredentials={null}
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={false}
       cloudflareApiTokenDialog={null}

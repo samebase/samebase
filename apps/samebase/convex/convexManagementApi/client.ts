@@ -191,6 +191,18 @@ export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   return { teamId: details.teamId };
 }
 
+/** One cheap read against the team: the token can list the team's projects. */
+export async function verifyConvexTeamAccessToken(args: {
+  token: string;
+  teamId: string;
+}): Promise<void> {
+  await ConvexManagement.GET["/teams/{team_id}/projects"]({
+    client: createConvexManagementClient({ token: args.token }),
+    path: { team_id: args.teamId },
+    query: { limit: 1 },
+  });
+}
+
 export async function listConvexManagementProjects(args: {
   token: string;
   teamId: string;

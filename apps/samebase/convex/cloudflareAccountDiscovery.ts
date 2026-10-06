@@ -73,22 +73,24 @@ export async function listCloudflareAccountsForToken(args: {
   return normalizeCloudflareAccounts(accounts);
 }
 
+/** Verify a user API token with GET /user/tokens/verify, then return its direct-API accounts. */
+export async function listAccountsForVerifiedUserApiToken(
+  token: string,
+): Promise<CloudflareAccount[]> {
+  const { result: verification } = await Cloudflare.GET["/user/tokens/verify"]({
+    client: createCloudflareClient({ token, transport: "direct" }),
+  });
+  if (!verification?.id.trim() || verification.status !== "active") {
+    throw new Error("Cloudflare API token is not active.");
+  }
+  return await listCloudflareAccountsForToken({ token, transport: "direct" });
+}
+
 /** Verify the user token required by Workers Builds, then return its direct-API accounts. */
 export const listAccountsForUserApiToken = internalAction({
   args: {
     token: v.string(),
   },
   returns: v.array(vCloudflareAccount),
-  handler: async (_ctx, args) => {
-    const { result: verification } = await Cloudflare.GET["/user/tokens/verify"]({
-      client: createCloudflareClient({ token: args.token, transport: "direct" }),
-    });
-    if (!verification?.id.trim() || verification.status !== "active") {
-      throw new Error("Cloudflare API token is not active.");
-    }
-    return await listCloudflareAccountsForToken({
-      token: args.token,
-      transport: "direct",
-    });
-  },
+  handler: async (_ctx, args) => await listAccountsForVerifiedUserApiToken(args.token),
 });

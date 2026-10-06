@@ -731,6 +731,71 @@ describe("ProviderConnectionsPage", () => {
     expect(startCloudflareOAuth).not.toHaveBeenCalled();
   });
 
+  it("saves and removes the CI tokens below the provider connections", async () => {
+    const setConvexCiToken = vi.fn(async () => null);
+    const removeCiToken = vi.fn(async () => null);
+    testState.actions.set(getFunctionName(api.users.setConvexCiToken), setConvexCiToken);
+    testState.mutations.set(getFunctionName(api.users.removeCiToken), removeCiToken);
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "api_key",
+      state: "connected",
+      teamId: "team_samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "api_key",
+      state: "connected",
+    });
+    testState.queries.set(getFunctionName(api.users.getCiCredentialsStatus), {
+      cloudflare: {
+        accountId: "cloudflare-account",
+        updatedAt: 1,
+        connectedBy: { kind: "displayName", label: "Ada" },
+      },
+      convex: null,
+    });
+
+    const container = mountProviderConnectionsPage();
+    const [cloudflareRow, convexRow] = container.querySelectorAll<HTMLElement>(
+      '[data-testid="ci-credential-row"]',
+    );
+    expect(cloudflareRow.textContent).toContain("Saved by Ada");
+    expect(cloudflareRow.querySelector("a")?.href).toBe(
+      "https://dash.cloudflare.com/profile/api-tokens",
+    );
+    expect(convexRow.textContent).toContain("Not saved");
+    expect(findButton(convexRow, "Remove")).toBeUndefined();
+
+    const convexInput = convexRow.querySelector("input");
+    const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
+    if (!convexInput || !descriptor?.set) {
+      throw new Error("Convex CI token input was not found.");
+    }
+    descriptor.set.call(convexInput, "  convex-ci-token-for-tests  ");
+    await act(async () => {
+      convexInput.dispatchEvent(new Event("input", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      findButton(convexRow, "Save")?.click();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      findButton(cloudflareRow, "Remove")?.click();
+      await Promise.resolve();
+    });
+
+    expect(setConvexCiToken).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      token: "convex-ci-token-for-tests",
+    });
+    expect(removeCiToken).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      provider: "cloudflare",
+    });
+  });
+
   it("tells an owner to update a Cloudflare API token that fails its check", async () => {
     testState.actions.set(
       getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),

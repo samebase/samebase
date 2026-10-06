@@ -16,8 +16,14 @@ import {
 } from "./identity/accountModel";
 import {
   getOrganizationProviderConfiguration,
+  getOrganizationProviderCredentials,
+  removeCiCredential,
   type OrganizationProviderConfiguration,
 } from "./organizationProviderCredentials";
+import {
+  requireCloudflareCiAccountAccess,
+  requireConvexCiTeamAccess,
+} from "./organization/ciCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
@@ -1042,5 +1048,180 @@ export const connectConvexWithApiKey = action({
     });
 
     return { teamId: details.teamId };
+  },
+});
+
+const ciCredentialConnectorFields = {
+  updatedAt: number(),
+  connectedBy: optional(vAccountPresentation),
+};
+const vCiCredentialsStatus = object({
+  cloudflare: union(object({ accountId: string(), ...ciCredentialConnectorFields }), v.null()),
+  convex: union(object({ teamId: string(), ...ciCredentialConnectorFields }), v.null()),
+});
+
+/**
+Whether the organization's CI tokens are saved, and by whom. The tokens never leave the backend.
+Owners see who saved a token, like the provider connections above.
+*/
+export const getCiCredentialsStatus = query({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: vCiCredentialsStatus,
+  handler: async (ctx, args): Promise<Infer<typeof vCiCredentialsStatus>> => {
+    const membership = await requireOrganizationMembershipRecord(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    const credentials = await getOrganizationProviderCredentials(ctx.db, membership.organizationId);
+    const ci = credentials?.ci;
+    // Unlike provider credentials, account deletion does not remove a CI token, so its user may be
+    // gone; the status then names nobody.
+    const readConnectedBy = async (connectedByUserId: Id<"users">) => {
+      const user = membership.role === "owner" ? await ctx.db.get(connectedByUserId) : null;
+      if (user?.state !== "active") {
+        return undefined;
+      }
+      const presentation = resolveAccountPresentation(user);
+      return connectedByUserId !== ctx.viewer.userId && presentation.kind === "email"
+        ? undefined
+        : presentation;
+    };
+    const [cloudflareConnectedBy, convexConnectedBy] = await Promise.all([
+      ci?.cloudflare ? readConnectedBy(ci.cloudflare.connectedByUserId) : undefined,
+      ci?.convex ? readConnectedBy(ci.convex.connectedByUserId) : undefined,
+    ]);
+    return {
+      cloudflare: ci?.cloudflare
+        ? {
+            accountId: ci.cloudflare.accountId,
+            updatedAt: ci.cloudflare.updatedAt,
+            ...(cloudflareConnectedBy ? { connectedBy: cloudflareConnectedBy } : {}),
+          }
+        : null,
+      convex: ci?.convex
+        ? {
+            teamId: ci.convex.teamId,
+            updatedAt: ci.convex.updatedAt,
+            ...(convexConnectedBy ? { connectedBy: convexConnectedBy } : {}),
+          }
+        : null,
+    };
+  },
+});
+
+/**
+Saves the Cloudflare API token that a repository_actions repository receives as its
+CLOUDFLARE_API_TOKEN secret. Cloudflare verifies it with GET /user/tokens/verify, and it must reach
+the organization's connected account, whose id becomes the CLOUDFLARE_ACCOUNT_ID secret.
+*/
+export const setCloudflareCiToken = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+    token: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
+    );
+    const token = args.token.trim();
+    if (!token) {
+      throw new ConvexError("Cloudflare API token is required.");
+    }
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: ctx.viewer.userId },
+    );
+    const account = configuration.cloudflareAccount;
+    if (account === undefined || configuration.cloudflareCredential === undefined) {
+      throw new ConvexError("Connect Cloudflare before you save its CI token.");
+    }
+
+    let accounts: CloudflareAccount[];
+    try {
+      accounts = await ctx.runAction(
+        internal.cloudflareAccountDiscovery.listAccountsForUserApiToken,
+        { token },
+      );
+    } catch {
+      throw new ConvexError("Cloudflare could not verify this API token.");
+    }
+    requireCloudflareCiAccountAccess(accounts, account);
+
+    await ctx.runMutation(internal.organizationProviderCredentials.setCloudflareCiCredential, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      apiToken: token,
+      accountId: account.accountId,
+    });
+    return null;
+  },
+});
+
+/**
+Saves the Convex team access token that a repository_actions repository receives as its
+CONVEX_ACCESS_TOKEN secret. It must read the organization's connected team, whose id becomes the
+CONVEX_TEAM_ID variable.
+*/
+export const setConvexCiToken = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+    token: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
+    );
+    const token = args.token.trim();
+    if (!token) {
+      throw new ConvexError("Convex team access token is required.");
+    }
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: ctx.viewer.userId },
+    );
+    const team = configuration.convexTeam;
+    if (team === undefined || configuration.convexCredential === undefined) {
+      throw new ConvexError("Connect Convex before you save its CI token.");
+    }
+    await requireConvexCiTeamAccess({
+      token,
+      teamId: team.teamId,
+      teamLabel: team.teamSlug ?? team.teamId,
+    });
+
+    await ctx.runMutation(internal.organizationProviderCredentials.setConvexCiCredential, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      accessToken: token,
+      teamId: team.teamId,
+    });
+    return null;
+  },
+});
+
+/** Removes one CI token. Repositories that already hold it keep their Actions secrets. */
+export const removeCiToken = mutation({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+    provider: union(literal("cloudflare"), literal("convex")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    await removeCiCredential(ctx, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+      provider: args.provider,
+    });
+    return null;
   },
 });

@@ -1,5 +1,6 @@
 import { isInIframe } from "@/authClient";
 import { useApiKeyConnectDialog } from "@/organization/providers/ApiKeyConnectDialog";
+import { CiCredentialsSection } from "@/organization/providers/CiCredentialsSection";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import type { ViewerOrganization } from "@/organization/context";
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,7 @@ export type ProviderConnectionsPageConnectionState = {
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
   authorizationErrorMessage: ReactNode;
+  ciCredentials: ReactNode;
   cloudflareApiTokenDialog: ReactNode;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: boolean;
@@ -850,6 +852,7 @@ function ConnectionActionsMenu({
 
 export function ProviderConnectionsPageView({
   authorizationErrorMessage,
+  ciCredentials,
   cloudflareAccess,
   cloudflareAccessError,
   cloudflareApiTokenDialog,
@@ -1168,6 +1171,7 @@ export function ProviderConnectionsPageView({
       <div className="max-w-3xl">
         <ProviderConnectionRows providerRows={providerRows} />
       </div>
+      {ciCredentials}
       {convexApiKeyDialog}
       {cloudflareApiTokenDialog}
     </div>
@@ -1670,6 +1674,14 @@ export function ProviderConnectionsPage({
   return (
     <ProviderConnectionsPageView
       authorizationErrorMessage={authorizationErrorMessage}
+      ciCredentials={
+        <CiCredentialsSection
+          canManageOrganization={organization.role === "owner"}
+          cloudflareConnected={cloudflareConnection?.state === "connected"}
+          convexConnected={convexConnection?.state === "connected"}
+          organizationId={organizationId}
+        />
+      }
       cloudflareAccess={
         cloudflareAccessQuery.error === null ? (cloudflareAccessQuery.data ?? null) : null
       }
