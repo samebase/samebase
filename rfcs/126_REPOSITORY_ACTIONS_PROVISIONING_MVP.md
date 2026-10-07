@@ -964,3 +964,10 @@ Open for PR C, in Nicu's words "how all this fits in":
   Fix: a user token with Account Settings Read, Workers Scripts Edit, Workers Builds Configuration
   Edit, Secrets Store Edit, pasted on the preview and set as `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`
   for future previews; then Retry on the repository and a rerun of the workflow.
+- 2026-10-07: Gap found during the dogfood: after a successful Samebase run there is no way to
+  rewrite a `repository_actions` repository's Actions secrets from the organization's CI credentials
+  (the Retry admits only a failed run; Settings has no action). Needed when the organization
+  replaces a CI token, as happened here. Follow-up for PR C or right after: a "Rewrite CI secrets"
+  action (dashboard and MCP) that reuses `write_actions_secrets` and records the new credential
+  revision; until then a replaced token means a new app. The seeds are now user tokens with the four
+  permission groups on both Cloudflare accounts (Nicu, 2026-10-07).
