@@ -11,6 +11,7 @@ import {
   observedSpikeArtifact,
 } from "./fixtures/observedSetupOutput";
 import {
+  decideFirstSetupOutputApply,
   isNewerSetupOutput,
   orderSetupOutputArtifacts,
   parseSetupOutput,
@@ -302,6 +303,90 @@ describe("parseSetupOutput", () => {
     ).toEqual({
       ok: false,
       reason: "The setup output lists 882b2b3cde394f5d8661075e716eaf58 more than once.",
+    });
+  });
+});
+
+/*
+State axes of the first-apply rule, each tested below:
+- count: one Worker and one Convex project, or fewer or more of either
+- names: each the name reserved at creation, or another one; the project name unique in the team or
+  shared with another project
+- times: each resource created at or after the app, or before it
+*/
+describe("decideFirstSetupOutputApply", () => {
+  const appCreatedAt = Date.parse("2026-10-06T20:00:00Z");
+  const reservedNames = { workerName: "tmp-alchemy-v2", convexProjectName: "tmp-alchemy-v2" };
+  const worker = { workerName: "tmp-alchemy-v2", createdAt: appCreatedAt + 60_000 };
+  const project = {
+    projectName: "tmp-alchemy-v2",
+    createdAt: appCreatedAt + 30_000,
+    nameIsUniqueInTeam: true,
+  };
+  const decide = (overrides: {
+    workers?: ReadonlyArray<{ workerName: string; createdAt: number }>;
+    projects?: ReadonlyArray<{
+      projectName: string;
+      createdAt: number;
+      nameIsUniqueInTeam: boolean;
+    }>;
+  }) =>
+    decideFirstSetupOutputApply({
+      reservedNames,
+      appCreatedAt,
+      workers: overrides.workers ?? [worker],
+      projects: overrides.projects ?? [project],
+    });
+
+  it("applies the reserved Worker and project when both were created after the app", () => {
+    expect(decide({})).toEqual({ automatic: true });
+    expect(
+      decide({
+        workers: [{ ...worker, createdAt: appCreatedAt }],
+        projects: [{ ...project, createdAt: appCreatedAt }],
+      }),
+    ).toEqual({ automatic: true });
+  });
+
+  it("waits for a member when the output lists other than one of each", () => {
+    for (const lists of [
+      { workers: [], projects: [project] },
+      { workers: [worker], projects: [] },
+      { workers: [worker, { ...worker, workerName: "tmp-alchemy-v2-admin" }], projects: [project] },
+      { workers: [worker], projects: [project, { ...project, projectName: "tmp-alchemy-v2-b" }] },
+    ]) {
+      expect(decide(lists)).toEqual({
+        automatic: false,
+        reason: `The setup output lists ${lists.workers.length} Workers and ${lists.projects.length} Convex projects; Samebase reserved one of each when it created the app.`,
+      });
+    }
+  });
+
+  it("waits for a member when a name is not the reserved one or the project name is shared", () => {
+    expect(decide({ workers: [{ ...worker, workerName: "other-worker" }] })).toEqual({
+      automatic: false,
+      reason:
+        "The Worker is named other-worker, not tmp-alchemy-v2, the name Samebase reserved when it created the app.",
+    });
+    expect(decide({ projects: [{ ...project, projectName: "other-project" }] })).toEqual({
+      automatic: false,
+      reason:
+        "The Convex project is named other-project, not tmp-alchemy-v2, the name Samebase reserved when it created the app.",
+    });
+    expect(decide({ projects: [{ ...project, nameIsUniqueInTeam: false }] })).toEqual({
+      automatic: false,
+      reason: "Another Convex project of the team is also named tmp-alchemy-v2.",
+    });
+  });
+
+  it("waits for a member when a resource is older than the app", () => {
+    expect(decide({ workers: [{ ...worker, createdAt: appCreatedAt - 1 }] })).toEqual({
+      automatic: false,
+      reason: "The Worker tmp-alchemy-v2 existed before Samebase created the app.",
+    });
+    expect(decide({ projects: [{ ...project, createdAt: appCreatedAt - 1 }] })).toEqual({
+      automatic: false,
+      reason: "The Convex project tmp-alchemy-v2 existed before Samebase created the app.",
     });
   });
 });

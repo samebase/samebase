@@ -17,6 +17,7 @@ const cloudflareMocks = vi.hoisted(() => ({
 
 const convexMocks = vi.hoisted(() => ({
   getProject: vi.fn(),
+  listProjects: vi.fn(),
 }));
 
 vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
@@ -31,7 +32,10 @@ vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
 
 vi.mock("../convexManagementApi/generated/sdk.gen", () => ({
   ConvexManagement: {
-    GET: { "/projects/{project_id}": convexMocks.getProject },
+    GET: {
+      "/projects/{project_id}": convexMocks.getProject,
+      "/teams/{team_id}/projects": convexMocks.listProjects,
+    },
   },
 }));
 
@@ -45,7 +49,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 
 import { RequestError } from "@octokit/request-error";
 
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
@@ -56,7 +60,7 @@ import {
 } from "./fixtures/observedSetupOutput";
 
 /*
-State axes of the apply, each covered below:
+State axes of the apply mutation, each covered below:
 - plan: repository_actions with no applied output, an applied one, or a destroy receipt; a samebase
   plan refuses
 - checkpoint: the expected artifact id matches, or another apply moved it
@@ -72,7 +76,7 @@ const WORKER_TAG = "882b2b3cde394f5d8661075e716eaf58";
 const PROJECT_ID = "3161449";
 const REPOSITORY_ID = "1407894795";
 
-async function createFixture(options?: { mode?: "samebase" }) {
+async function createFixture(options?: { mode?: "samebase"; planCreatedAt?: number }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const now = Date.now();
@@ -178,7 +182,7 @@ async function createFixture(options?: { mode?: "samebase" }) {
             convexConfigPath: "convex.json",
             ciSecrets: { state: "written", writtenAt: now, credentialRevision: now },
             seed: { state: "seeded", seededAt: now, manifestVersion: "samebase-base-actions-test" },
-            createdAt: now,
+            createdAt: options?.planCreatedAt ?? now,
             updatedAt: now,
           });
     await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
@@ -194,6 +198,13 @@ async function createFixture(options?: { mode?: "samebase" }) {
 }
 
 type Fixture = Awaited<ReturnType<typeof createFixture>>;
+
+function asOwner(fixture: Fixture) {
+  return fixture.t.withIdentity({
+    subject: `${fixture.ids.ownerId}|test-session`,
+    tokenIdentifier: `test:${fixture.ids.ownerId}`,
+  });
+}
 
 const source = {
   runId: 37545425944,
@@ -596,12 +607,21 @@ function mockGitHub(options?: {
   });
 }
 
-function mockProviders(options?: { workerName?: string }) {
+/** Worker and project creation times after the plan of a fixture made with planCreatedAt: APP_CREATED_AT. */
+const APP_CREATED_AT = Date.parse("2026-10-06T20:00:00Z");
+const RESOURCE_CREATED_ON = "2026-10-06T21:00:00Z";
+
+function mockProviders(options?: {
+  workerName?: string;
+  workerCreatedOn?: string;
+  projectCreateTime?: number;
+}) {
   cloudflareMocks.getAccounts.mockResolvedValue({
     result: [{ id: ACCOUNT_ID, name: "Cloudflare account" }],
   });
   cloudflareMocks.getWorker.mockResolvedValue({
     result: {
+      created_on: options?.workerCreatedOn ?? RESOURCE_CREATED_ON,
       id: WORKER_TAG,
       name: options?.workerName ?? "tmp-alchemy-v2",
       references: { domains: [] },
@@ -618,13 +638,18 @@ function mockProviders(options?: { workerName?: string }) {
       },
     },
   });
-  convexMocks.getProject.mockResolvedValue({
+  const project = {
     id: PROJECT_ID,
     name: "tmp-alchemy-v2",
     slug: "tmp-alchemy-v2",
     teamId: TEAM_ID,
     teamSlug: "samebase",
-    createTime: 1,
+    createTime: options?.projectCreateTime ?? Date.parse(RESOURCE_CREATED_ON),
+  };
+  convexMocks.getProject.mockResolvedValue(project);
+  convexMocks.listProjects.mockResolvedValue({
+    items: [project],
+    pagination: { hasMore: false },
   });
 }
 
@@ -635,14 +660,13 @@ beforeEach(() => {
   }
 });
 
-describe("setupOutput.applyLatestForUser", () => {
+describe("setupOutput.apply by a member", () => {
   it("reads the recorded setup output, verifies it, applies it, and then finds nothing new", async () => {
     const fixture = await createFixture();
     mockGitHub();
     mockProviders();
     const apply = () =>
-      fixture.t.action(internal.repository.setupOutput.applyLatestForUser, {
-        userId: fixture.ids.ownerId,
+      asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
       });
 
@@ -674,8 +698,7 @@ describe("setupOutput.applyLatestForUser", () => {
     mockProviders({ workerName: "renamed-in-cloudflare" });
 
     expect(
-      await fixture.t.action(internal.repository.setupOutput.applyLatestForUser, {
-        userId: fixture.ids.ownerId,
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
       }),
     ).toMatchObject({
@@ -690,8 +713,7 @@ describe("setupOutput.applyLatestForUser", () => {
     const empty = await createFixture();
     mockGitHub({ runs: { total_count: 0, workflow_runs: [] } });
     expect(
-      await empty.t.action(internal.repository.setupOutput.applyLatestForUser, {
-        userId: empty.ids.ownerId,
+      await asOwner(empty).action(api.repository.setupOutput.apply, {
         repositoryId: empty.ids.repositoryId,
       }),
     ).toEqual({ state: "no_setup_run" });
@@ -699,8 +721,7 @@ describe("setupOutput.applyLatestForUser", () => {
     const withoutOutput = await createFixture();
     mockGitHub({ artifacts: { total_count: 0, artifacts: [] } });
     expect(
-      await withoutOutput.t.action(internal.repository.setupOutput.applyLatestForUser, {
-        userId: withoutOutput.ids.ownerId,
+      await asOwner(withoutOutput).action(api.repository.setupOutput.apply, {
         repositoryId: withoutOutput.ids.repositoryId,
       }),
     ).toMatchObject({ state: "no_output", latestRun: { runId: 37545425944 } });
@@ -719,8 +740,7 @@ describe("setupOutput.applyLatestForUser", () => {
     mockProviders();
 
     expect(
-      await fixture.t.action(internal.repository.setupOutput.applyLatestForUser, {
-        userId: fixture.ids.ownerId,
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
       }),
     ).toMatchObject({ state: "applied", source });
@@ -764,8 +784,7 @@ describe("setupOutput.applyLatestForUser", () => {
     });
 
     expect(
-      await fixture.t.action(internal.repository.setupOutput.applyLatestForUser, {
-        userId: fixture.ids.ownerId,
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
       }),
     ).toMatchObject({
@@ -775,6 +794,168 @@ describe("setupOutput.applyLatestForUser", () => {
     });
     expect((await readRows(fixture)).plan).toMatchObject({
       setupOutput: { state: "applied", artifactId: source.artifactId },
+    });
+  });
+});
+
+/*
+State axes of the first apply and the status, each covered below:
+- checkpoint: nothing applied yet, or an output already applied
+- first-apply rule: allows the output, or refuses it for a resource older than the app (the other
+  rules are setupOutputModel unit tests)
+- read: succeeds; a provider read that throws stops at its step; a GitHub read that throws is a
+  failed workflow step
+*/
+describe("setupOutput.applyFirstForCreator and readStatus", () => {
+  const applyFirst = (fixture: Fixture) =>
+    fixture.t.action(internal.repository.setupOutput.applyFirstForCreator, {
+      userId: fixture.ids.ownerId,
+      repositoryId: fixture.ids.repositoryId,
+    });
+  const readStatus = (fixture: Fixture) =>
+    asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+      repositoryId: fixture.ids.repositoryId,
+    });
+
+  it("applies the first output by itself when it names the reserved resources, created after the app", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub();
+    mockProviders();
+
+    expect(await readStatus(fixture)).toMatchObject({
+      latestRun: { runId: 37545425944 },
+      applied: null,
+      pending: {
+        state: "deployed",
+        source,
+        workers: [{ workerName: "tmp-alchemy-v2", rootDirectory: "/" }],
+        projects: [{ projectName: "tmp-alchemy-v2", codeLocationPath: "convex.json" }],
+        firstApply: { automatic: true },
+      },
+    });
+    expect(await applyFirst(fixture)).toMatchObject({
+      state: "applied",
+      source,
+      workerCount: 1,
+      projectCount: 1,
+    });
+    expect((await readRows(fixture)).workers).toMatchObject([
+      { workerName: "tmp-alchemy-v2", origin: "setup_stack" },
+    ]);
+    expect(await applyFirst(fixture)).toMatchObject({ state: "unchanged", source });
+    expect(await readStatus(fixture)).toMatchObject({
+      applied: { state: "applied", artifactId: source.artifactId },
+      pending: { state: "none" },
+    });
+  });
+
+  it("waits for a member when the Worker existed before the app, and the status says why", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub();
+    mockProviders({ workerCreatedOn: "2026-10-06T19:59:59Z" });
+    const reason = "The Worker tmp-alchemy-v2 existed before Samebase created the app.";
+
+    expect(await applyFirst(fixture)).toMatchObject({ state: "needs_member", source, reason });
+    expect((await readRows(fixture)).workers).toEqual([]);
+    expect(await readStatus(fixture)).toMatchObject({
+      applied: null,
+      pending: { state: "deployed", firstApply: { automatic: false, reason } },
+    });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({ state: "applied", source });
+  });
+
+  it("waits for a member when the Convex project existed before the app", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub();
+    mockProviders({ projectCreateTime: APP_CREATED_AT - 1 });
+
+    expect(await applyFirst(fixture)).toMatchObject({
+      state: "needs_member",
+      reason: "The Convex project tmp-alchemy-v2 existed before Samebase created the app.",
+    });
+    expect((await readRows(fixture)).projects).toEqual([]);
+  });
+
+  it("never applies a later output by itself once an output is applied", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.patch(fixture.ids.planId, {
+        setupOutput: {
+          state: "applied",
+          ...source,
+          artifactId: 1,
+          artifactCreatedAt: "2026-10-06T21:30:00Z",
+          outputVersion: 1,
+          appliedAt: 1,
+        },
+      });
+    });
+    mockGitHub();
+    mockProviders();
+
+    expect(await applyFirst(fixture)).toMatchObject({ state: "unchanged", source });
+    expect((await readRows(fixture)).workers).toEqual([]);
+    expect(await readStatus(fixture)).toMatchObject({
+      applied: { artifactId: 1 },
+      pending: { state: "deployed", source },
+    });
+  });
+
+  it("observes the first output after the setup finishes, and stops once it is applied", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub();
+    mockProviders();
+    vi.useFakeTimers();
+    try {
+      await fixture.t.mutation(
+        internal.repository.setupOutputWorkflow.startFirstSetupOutputObserver,
+        { userId: fixture.ids.ownerId, repositoryId: fixture.ids.repositoryId },
+      );
+      await fixture.t.finishAllScheduledFunctions(vi.runAllTimers, 1000);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect((await readRows(fixture)).workers).toMatchObject([
+      { workerName: "tmp-alchemy-v2", origin: "setup_stack" },
+    ]);
+    const runListReads = githubMocks.request.mock.calls.filter(
+      ([route]) => route === "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+    );
+    expect(runListReads).toHaveLength(1);
+  });
+
+  it("shows a refused claim in the status and reports a failed read as a result", async () => {
+    const refused = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub();
+    mockProviders({ workerName: "renamed-in-cloudflare" });
+    expect(await readStatus(refused)).toMatchObject({
+      pending: {
+        state: "refused",
+        source,
+        step: "verify_cloudflare",
+        claim: "cloudflare.workers[0].name",
+      },
+    });
+
+    const unreadable = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    cloudflareMocks.getWorker.mockRejectedValue(new Error("Cloudflare is unavailable."));
+    expect(await applyFirst(unreadable)).toMatchObject({
+      state: "refused",
+      step: "verify_cloudflare",
+      claim: null,
+      reason: "Samebase could not read the Workers from Cloudflare: Cloudflare is unavailable.",
+    });
+
+    const failing = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    githubMocks.createRepositoryOctokit.mockRejectedValue(new Error("GitHub is unavailable."));
+    expect(await applyFirst(failing)).toEqual({
+      state: "failed",
+      reason: "GitHub is unavailable.",
     });
   });
 });

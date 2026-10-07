@@ -3,6 +3,7 @@ import { ConvexError, v, type Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import { requireRepositoryForUser } from "../organizationAccess";
+import { buildDefaultAppResourceName } from "../../shared/appResourceNames";
 import { insertWorker } from "./cloudflareMutations";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { insertProject } from "./convexMutations";
@@ -39,6 +40,10 @@ export type VerifiedSetupOutput = Infer<typeof vVerifiedSetupOutput>;
 
 const vSetupOutputApplyContext = object({
   setupOutput: union(vRepositoryActionsSetupOutput, v.null()),
+  /** When the plan was made: the first-apply rule accepts only resources created after it. */
+  appCreatedAt: number(),
+  /** The names that the creation reserved, by Samebase's name rule from the repository name. */
+  reservedNames: object({ workerName: string(), convexProjectName: string() }),
   attachedWorkers: array(
     object({
       workerId: id("repositoryCloudflareWorkers"),
@@ -67,12 +72,21 @@ async function requireRepositoryActionsPlan(
   return plan;
 }
 
-/** What the apply compares the newest setup output with: the applied checkpoint and the Workers. */
+/**
+What the apply compares the newest setup output with: the applied checkpoint, the attached Workers,
+and the inputs of the first-apply rule. createRepositoryActionsAppForUser checked the reserved names
+for availability and fixed them by the same rule (repository/actions.ts).
+*/
 export const readApplyContext = internalQuery({
   args: { userId: id("users"), repositoryId: id("repositories") },
   returns: vSetupOutputApplyContext,
   handler: async (ctx, args): Promise<Infer<typeof vSetupOutputApplyContext>> => {
-    await requireRepositoryForUser(ctx.db, args);
+    const repository = await requireRepositoryForUser(ctx.db, args);
+    if (repository.state === "not_connected") {
+      throw new ConvexError(
+        "The repository has no GitHub repository yet, so it has no setup output to read.",
+      );
+    }
     const plan = await requireRepositoryActionsPlan(ctx, args.repositoryId);
     const workers = await ctx.db
       .query("repositoryCloudflareWorkers")
@@ -80,6 +94,17 @@ export const readApplyContext = internalQuery({
       .collect();
     return {
       setupOutput: plan.setupOutput ?? null,
+      appCreatedAt: plan.createdAt,
+      reservedNames: {
+        workerName: buildDefaultAppResourceName({
+          repositoryName: repository.githubRepositoryName,
+          provider: "cloudflare",
+        }),
+        convexProjectName: buildDefaultAppResourceName({
+          repositoryName: repository.githubRepositoryName,
+          provider: "convex",
+        }),
+      },
       attachedWorkers: workers
         .map((worker) => ({
           workerId: worker._id,

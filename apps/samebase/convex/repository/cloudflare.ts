@@ -520,6 +520,14 @@ export async function readCloudflareWorkerTagsByNameForUser(
   );
 }
 
+/** A Worker of a setup output as Cloudflare confirmed it, with its creation time for the first-apply rule. */
+type SetupStackWorker = {
+  workerName: string;
+  workerTag: string;
+  rootDirectory: string;
+  createdAt: number;
+};
+
 /**
 Checks the Workers of a deployed setup output with the organization's Cloudflare connection, the
 reads the attach dialog makes: the account is the repository's, each tag names a Worker of that
@@ -543,7 +551,7 @@ export async function verifySetupStackWorkers(
 ): Promise<
   | {
       ok: true;
-      workers: Array<{ workerName: string; workerTag: string; rootDirectory: string }>;
+      workers: SetupStackWorker[];
       replacedWorkerIds: Array<Id<"repositoryCloudflareWorkers">>;
     }
   | SetupOutputRefusal
@@ -613,6 +621,7 @@ export async function verifySetupStackWorkers(
             workerName: identity.workerName,
             workerTag: identity.workerTag,
             rootDirectory: discovery.rootDirectory,
+            createdAt: identity.createdAt,
           },
           replacedWorkerId: null,
         };
@@ -634,13 +643,14 @@ export async function verifySetupStackWorkers(
           workerName: identity.workerName,
           workerTag: identity.workerTag,
           rootDirectory: discovery.rootDirectory,
+          createdAt: identity.createdAt,
         },
         replacedWorkerId: sameName.workerId,
       };
     }),
   );
 
-  const workers: Array<{ workerName: string; workerTag: string; rootDirectory: string }> = [];
+  const workers: SetupStackWorker[] = [];
   const replacedWorkerIds: Array<Id<"repositoryCloudflareWorkers">> = [];
   for (const result of results) {
     if (!result.ok) {

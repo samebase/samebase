@@ -603,6 +603,18 @@ export async function discoverProjectsForUser(
 }
 
 /**
+A Convex project of a setup output as Convex confirmed it, with what the first-apply rule reads: its
+name, its creation time, and whether no other project of the team has that name.
+*/
+type SetupStackProject = {
+  projectId: string;
+  codeLocation: ConvexCodeLocation;
+  projectName: string;
+  createdAt: number;
+  nameIsUniqueInTeam: boolean;
+};
+
+/**
 Checks the Convex projects of a deployed setup output with the organization's Convex connection,
 the reads the attach dialog makes: the team is the repository's, each project exists in it, and
 each code location is one that the default branch's tree shows.
@@ -614,10 +626,7 @@ export async function verifySetupStackProjects(
     repositoryId: Id<"repositories">;
     convex: DeployedSetupOutput["convex"];
   },
-): Promise<
-  | { ok: true; projects: Array<{ projectId: string; codeLocation: ConvexCodeLocation }> }
-  | SetupOutputRefusal
-> {
+): Promise<{ ok: true; projects: SetupStackProject[] } | SetupOutputRefusal> {
   const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
   const teamId = requireConvexTeamId(sourceDiscovery.context);
   if (args.convex.teamId !== teamId) {
@@ -633,7 +642,8 @@ export async function verifySetupStackProjects(
     teamId,
   });
 
-  const projects: Array<{ projectId: string; codeLocation: ConvexCodeLocation }> = [];
+  const teamProjects = await listProjectsForConnection(connection);
+  const projects: SetupStackProject[] = [];
   for (const [index, claimed] of args.convex.projects.entries()) {
     const claim = `convex.projects[${index}]`;
     const codeLocation: ConvexCodeLocation =
@@ -684,7 +694,14 @@ export async function verifySetupStackProjects(
       };
     }
     await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-    projects.push({ projectId: project.id, codeLocation });
+    projects.push({
+      projectId: project.id,
+      codeLocation,
+      projectName: project.name,
+      createdAt: project.createTime,
+      nameIsUniqueInTeam:
+        teamProjects.filter((teamProject) => teamProject.name === project.name).length === 1,
+    });
   }
   return { ok: true, projects };
 }

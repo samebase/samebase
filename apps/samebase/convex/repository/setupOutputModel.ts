@@ -2,6 +2,8 @@ import { v, type Infer } from "convex/values";
 import { strFromU8, unzipSync } from "fflate";
 import { z } from "zod";
 
+import { vRepositoryActionsSetupOutput } from "./provisioningModel";
+
 /*
 The setup output of a repository_actions repository: what its Alchemy setup stack tells Samebase
 about the resources it owns. templates/base-actions/scripts/setup-output.ts defines it; the deploy
@@ -64,7 +66,7 @@ export const zGitHubArtifactPage = z.object({
   artifacts: z.array(zGitHubArtifact),
 });
 
-const { literal, number, object, string, union } = v;
+const { array, literal, number, object, string, union } = v;
 
 /** One run of the setup workflow, as the setup status shows it. */
 export const vSetupRun = object({
@@ -73,7 +75,6 @@ export const vSetupRun = object({
   event: string(),
   status: union(string(), v.null()),
   conclusion: union(string(), v.null()),
-  headSha: string(),
   startedAt: string(),
   url: string(),
 });
@@ -86,7 +87,6 @@ export function toSetupRun(run: GitHubWorkflowRun): SetupRun {
     event: run.event,
     status: run.status,
     conclusion: run.conclusion,
-    headSha: run.head_sha,
     startedAt: run.run_started_at,
     url: run.html_url,
   };
@@ -323,6 +323,133 @@ export function readSetupOutputArchive(archive: Uint8Array): SetupOutputParse {
   return parseSetupOutput(value);
 }
 
+/** Whether the first setup output may be applied without a member, and why not. */
+export const vFirstSetupOutputApply = union(
+  object({ automatic: literal(true) }),
+  object({ automatic: literal(false), reason: string() }),
+);
+export type FirstSetupOutputApply = Infer<typeof vFirstSetupOutputApply>;
+
+/**
+Whether the first setup output after the app's creation may be applied without a member. Creating
+the app was a member's request for one Worker and one Convex project with the names Samebase checked
+and reserved then, created after it. Anything else waits for a member's explicit apply: another
+name, a second resource, a project name that another project of the team shares, a resource older
+than the app (such as an older project renamed to the reserved name). Both providers always give a
+creation time: a Cloudflare Worker read without a valid `created_on` fails before this rule.
+*/
+export function decideFirstSetupOutputApply(args: {
+  reservedNames: { workerName: string; convexProjectName: string };
+  appCreatedAt: number;
+  workers: ReadonlyArray<{ workerName: string; createdAt: number }>;
+  projects: ReadonlyArray<{ projectName: string; createdAt: number; nameIsUniqueInTeam: boolean }>;
+}): FirstSetupOutputApply {
+  if (args.workers.length !== 1 || args.projects.length !== 1) {
+    return {
+      automatic: false,
+      reason: `The setup output lists ${args.workers.length} Workers and ${args.projects.length} Convex projects; Samebase reserved one of each when it created the app.`,
+    };
+  }
+  const [worker] = args.workers;
+  const [project] = args.projects;
+  if (worker.workerName !== args.reservedNames.workerName) {
+    return {
+      automatic: false,
+      reason: `The Worker is named ${worker.workerName}, not ${args.reservedNames.workerName}, the name Samebase reserved when it created the app.`,
+    };
+  }
+  if (project.projectName !== args.reservedNames.convexProjectName) {
+    return {
+      automatic: false,
+      reason: `The Convex project is named ${project.projectName}, not ${args.reservedNames.convexProjectName}, the name Samebase reserved when it created the app.`,
+    };
+  }
+  if (!project.nameIsUniqueInTeam) {
+    return {
+      automatic: false,
+      reason: `Another Convex project of the team is also named ${project.projectName}.`,
+    };
+  }
+  if (worker.createdAt < args.appCreatedAt) {
+    return {
+      automatic: false,
+      reason: `The Worker ${worker.workerName} existed before Samebase created the app.`,
+    };
+  }
+  if (project.createdAt < args.appCreatedAt) {
+    return {
+      automatic: false,
+      reason: `The Convex project ${project.projectName} existed before Samebase created the app.`,
+    };
+  }
+  return { automatic: true };
+}
+
+const vSetupOutputRefusalStep = union(
+  literal("verify_cloudflare"),
+  literal("verify_convex"),
+  literal("apply"),
+);
+
+/**
+The newest setup output that is not applied yet, as a status read sees it. It is never applied by
+the read.
+
+none = no setup output is newer than the applied one
+
+invalid_output = the newest artifact is not a setup output that Samebase can read
+
+refused = a provider did not confirm a claim; `claim` is its path in the output, or null when the
+provider could not be read
+
+deployed = every claim checked out; an apply attaches these Workers and Convex projects, and
+firstApply says whether the first apply could happen without a member
+
+destroyed = the app's confirmed destroy reported itself after the applied output
+*/
+const vSetupOutputPending = union(
+  object({ state: literal("none") }),
+  object({ state: literal("invalid_output"), source: vSetupOutputSource, reason: string() }),
+  object({
+    state: literal("refused"),
+    source: vSetupOutputSource,
+    step: vSetupOutputRefusalStep,
+    claim: union(string(), v.null()),
+    reason: string(),
+  }),
+  object({
+    state: literal("deployed"),
+    source: vSetupOutputSource,
+    workers: array(object({ workerName: string(), rootDirectory: string() })),
+    projects: array(object({ projectName: string(), codeLocationPath: string() })),
+    firstApply: vFirstSetupOutputApply,
+  }),
+  object({ state: literal("destroyed"), source: vSetupOutputSource }),
+);
+
+/**
+The setup status of a repository_actions repository: the newest run of its alchemy workflow on the
+default branch in any state, the setup output that Samebase applied, and the newest one that it did
+not apply yet. A destroy receipt reports the run; the provider observations show what is left.
+*/
+export const vSetupStatus = object({
+  latestRun: union(vSetupRun, v.null()),
+  applied: union(vRepositoryActionsSetupOutput, v.null()),
+  pending: vSetupOutputPending,
+});
+export type SetupStatus = Infer<typeof vSetupStatus>;
+
+/**
+The setup status in repository_getStatus, like the other live facts there.
+
+unavailable = GitHub, Cloudflare, or Convex could not be read
+*/
+export const vRepositorySetupStack = union(
+  object({ state: literal("available"), ...vSetupStatus.fields }),
+  object({ state: literal("unavailable") }),
+);
+export type RepositorySetupStack = Infer<typeof vRepositorySetupStack>;
+
 /**
 What one read and apply of the newest setup output did, so the first failure names its step and its
 reason.
@@ -333,8 +460,14 @@ no_output = no successful run has a live setup output artifact; latestRun says w
 
 invalid_output = the newest artifact is not a setup output that Samebase can read
 
-refused = a provider did not confirm a claim (verify_cloudflare, verify_convex), or the apply
-transaction refused the change (apply): a conflict, the connection quota, another operation
+refused = a provider did not confirm a claim or could not be read (verify_cloudflare,
+verify_convex; `claim` is null for a failed read), or the apply transaction refused the change
+(apply): a conflict, the connection quota, another operation
+
+needs_member = the first apply waits for a member, for `reason`
+
+failed = GitHub or Samebase's own records could not be read before Samebase could decide; `reason`
+is its error
 
 unchanged = no setup output is newer than the applied one
 
@@ -355,10 +488,17 @@ export const vSetupOutputApplyResult = union(
     state: literal("refused"),
     latestRun: vSetupRun,
     source: vSetupOutputSource,
-    step: union(literal("verify_cloudflare"), literal("verify_convex"), literal("apply")),
+    step: vSetupOutputRefusalStep,
     claim: union(string(), v.null()),
     reason: string(),
   }),
+  object({
+    state: literal("needs_member"),
+    latestRun: vSetupRun,
+    source: vSetupOutputSource,
+    reason: string(),
+  }),
+  object({ state: literal("failed"), reason: string() }),
   object({ state: literal("unchanged"), latestRun: vSetupRun, source: vSetupOutputSource }),
   object({
     state: literal("applied"),

@@ -7,13 +7,18 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
+import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { toErrorMessage } from "../jsonUtils";
+import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 import { verifySetupStackWorkers } from "./cloudflare";
+import { applySetupOutputContract } from "./contracts/applySetupOutput";
 import { verifySetupStackProjects } from "./convex";
+import type { RepositoryActionsSetupOutput } from "./provisioningModel";
 import type { VerifiedSetupOutput } from "./setupOutputMutations";
 import {
+  decideFirstSetupOutputApply,
   isNewerSetupOutput,
   orderSetupOutputArtifacts,
   readSetupOutputArchive,
@@ -24,6 +29,7 @@ import {
   SETUP_WORKFLOW_FILE_NAME,
   toSetupRun,
   vSetupOutputApplyResult,
+  vSetupStatus,
   zGitHubArtifactPage,
   zGitHubWorkflowRun,
   zGitHubWorkflowRunPage,
@@ -33,6 +39,7 @@ import {
   type SetupOutputApplyResult,
   type SetupOutputSource,
   type SetupRun,
+  type SetupStatus,
 } from "./setupOutputModel";
 
 /*
@@ -210,14 +217,34 @@ export async function readLatestSetupOutput(
 }
 
 /**
-Reads the newest setup output, verifies every claim, and applies it in one transaction. It applies
-on behalf of `userId`: the caller decides whether that member's request, or the creation of the
-app, covers this output.
+The newest setup output with every claim checked, ready to apply, or where it stopped. Nothing is
+written. `applied` is the checkpoint that an apply compares with.
 */
-export async function applyLatestSetupOutput(
+type PreparedSetupOutput =
+  | { state: "no_setup_run" }
+  | { state: "no_output"; latestRun: SetupRun }
+  | { state: "invalid_output"; latestRun: SetupRun; source: SetupOutputSource; reason: string }
+  | { state: "unchanged"; latestRun: SetupRun; source: SetupOutputSource }
+  | {
+      state: "refused";
+      latestRun: SetupRun;
+      source: SetupOutputSource;
+      step: "verify_cloudflare" | "verify_convex";
+      claim: string | null;
+      reason: string;
+    }
+  | {
+      state: "ready";
+      latestRun: SetupRun;
+      source: SetupOutputSource;
+      verified: VerifiedSetupOutput;
+      pending: Extract<SetupStatus["pending"], { state: "deployed" | "destroyed" }>;
+    };
+
+async function prepareLatestSetupOutput(
   ctx: ActionCtx,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
-): Promise<SetupOutputApplyResult> {
+): Promise<{ applied: RepositoryActionsSetupOutput | null; prepared: PreparedSetupOutput }> {
   const [read, context] = await Promise.all([
     readLatestSetupOutput(ctx, args),
     ctx.runQuery(internal.repository.setupOutputMutations.readApplyContext, {
@@ -225,11 +252,12 @@ export async function applyLatestSetupOutput(
       repositoryId: args.repositoryId,
     }),
   ]);
+  const applied = context.setupOutput;
   switch (read.state) {
     case "no_setup_run":
     case "no_output":
     case "invalid_output":
-      return read;
+      return { applied, prepared: read };
     case "output":
       break;
     default:
@@ -237,45 +265,22 @@ export async function applyLatestSetupOutput(
       throw new Error("Unknown setup output read.");
   }
   const { latestRun, source, output } = read;
-  const applied = context.setupOutput;
   if (!isNewerSetupOutput(source, applied)) {
-    return { state: "unchanged", latestRun, source };
+    return { applied, prepared: { state: "unchanged", latestRun, source } };
   }
-  const expectedArtifactId = applied?.artifactId ?? null;
-
-  /** Null when the transaction committed; the refusal when it threw. */
-  const apply = async (verified: VerifiedSetupOutput): Promise<SetupOutputApplyResult | null> => {
-    try {
-      await ctx.runMutation(internal.repository.setupOutputMutations.apply, {
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-        expectedArtifactId,
-        source: {
-          runId: source.runId,
-          runAttempt: source.runAttempt,
-          artifactId: source.artifactId,
-          artifactCreatedAt: source.artifactCreatedAt,
-        },
-        output: verified,
-      });
-      return null;
-    } catch (error) {
-      return {
-        state: "refused",
-        latestRun,
-        source,
-        step: "apply",
-        claim: null,
-        reason: toErrorMessage(error),
-      };
-    }
-  };
 
   switch (output.state) {
     case "destroyed":
-      return (
-        (await apply({ state: "destroyed" })) ?? { state: "destroy_reported", latestRun, source }
-      );
+      return {
+        applied,
+        prepared: {
+          state: "ready",
+          latestRun,
+          source,
+          verified: { state: "destroyed" },
+          pending: { state: "destroyed", source },
+        },
+      };
     case "deployed":
       break;
     default:
@@ -283,60 +288,242 @@ export async function applyLatestSetupOutput(
       throw new Error("Unknown setup output state.");
   }
 
+  // A provider read that fails stops at its step with the error, so the status names it.
   const workers = await verifySetupStackWorkers(ctx, {
     userId: args.userId,
     repositoryId: args.repositoryId,
     cloudflare: output.cloudflare,
     attachedWorkers: context.attachedWorkers,
-  });
+  }).catch((error: unknown) => ({
+    ok: false as const,
+    claim: null,
+    reason: `Samebase could not read the Workers from Cloudflare: ${toErrorMessage(error)}`,
+  }));
   if (!workers.ok) {
-    return {
-      state: "refused",
-      latestRun,
-      source,
-      step: "verify_cloudflare",
+    const refusal = {
+      step: "verify_cloudflare" as const,
       claim: workers.claim,
       reason: workers.reason,
     };
+    return { applied, prepared: { state: "refused", latestRun, source, ...refusal } };
   }
   const projects = await verifySetupStackProjects(ctx, {
     userId: args.userId,
     repositoryId: args.repositoryId,
     convex: output.convex,
-  });
+  }).catch((error: unknown) => ({
+    ok: false as const,
+    claim: null,
+    reason: `Samebase could not read the Convex projects: ${toErrorMessage(error)}`,
+  }));
   if (!projects.ok) {
+    const refusal = {
+      step: "verify_convex" as const,
+      claim: projects.claim,
+      reason: projects.reason,
+    };
+    return { applied, prepared: { state: "refused", latestRun, source, ...refusal } };
+  }
+  return {
+    applied,
+    prepared: {
+      state: "ready",
+      latestRun,
+      source,
+      verified: {
+        state: "deployed",
+        outputVersion: output.version,
+        accountId: output.cloudflare.accountId,
+        workers: workers.workers.map((worker) => ({
+          workerName: worker.workerName,
+          workerTag: worker.workerTag,
+          rootDirectory: worker.rootDirectory,
+        })),
+        replacedWorkerIds: workers.replacedWorkerIds,
+        teamId: output.convex.teamId,
+        projects: projects.projects.map((project) => ({
+          projectId: project.projectId,
+          codeLocation: project.codeLocation,
+        })),
+      },
+      pending: {
+        state: "deployed",
+        source,
+        workers: workers.workers.map((worker) => ({
+          workerName: worker.workerName,
+          rootDirectory: worker.rootDirectory,
+        })),
+        projects: projects.projects.map((project) => ({
+          projectName: project.projectName,
+          codeLocationPath: getConvexCodeLocationPath(project.codeLocation),
+        })),
+        firstApply: decideFirstSetupOutputApply({
+          reservedNames: context.reservedNames,
+          appCreatedAt: context.appCreatedAt,
+          workers: workers.workers,
+          projects: projects.projects,
+        }),
+      },
+    },
+  };
+}
+
+/**
+The setup status: the newest setup run, the applied output, and the newest output that is not
+applied yet with its checks. It writes nothing, so a status read never attaches a resource.
+*/
+export async function readSetupStatus(
+  ctx: ActionCtx,
+  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
+): Promise<SetupStatus> {
+  const { applied, prepared } = await prepareLatestSetupOutput(ctx, args);
+  switch (prepared.state) {
+    case "no_setup_run":
+      return { latestRun: null, applied, pending: { state: "none" } };
+    case "no_output":
+    case "unchanged":
+      return { latestRun: prepared.latestRun, applied, pending: { state: "none" } };
+    case "invalid_output":
+      return {
+        latestRun: prepared.latestRun,
+        applied,
+        pending: { state: "invalid_output", source: prepared.source, reason: prepared.reason },
+      };
+    case "refused":
+      return {
+        latestRun: prepared.latestRun,
+        applied,
+        pending: {
+          state: "refused",
+          source: prepared.source,
+          step: prepared.step,
+          claim: prepared.claim,
+          reason: prepared.reason,
+        },
+      };
+    case "ready":
+      return { latestRun: prepared.latestRun, applied, pending: prepared.pending };
+    default:
+      prepared satisfies never;
+      throw new Error("Unknown setup output state.");
+  }
+}
+
+/**
+Reads, verifies, and applies the newest setup output in one transaction, on behalf of `userId`.
+
+member = a member asked for this apply, so any newer output that every provider confirms is applied
+
+first_apply = the app's creation is the authority: only the first output, and only when
+decideFirstSetupOutputApply allows it; anything else waits for a member (needs_member)
+*/
+export async function applyLatestSetupOutput(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    authority: "member" | "first_apply";
+  },
+): Promise<SetupOutputApplyResult> {
+  const { applied, prepared } = await prepareLatestSetupOutput(ctx, args);
+  if (prepared.state !== "ready") {
+    return prepared;
+  }
+  const { latestRun, source } = prepared;
+  switch (args.authority) {
+    case "member":
+      break;
+    case "first_apply":
+      if (applied) {
+        return { state: "unchanged", latestRun, source };
+      }
+      if (prepared.pending.state === "deployed" && !prepared.pending.firstApply.automatic) {
+        return {
+          state: "needs_member",
+          latestRun,
+          source,
+          reason: prepared.pending.firstApply.reason,
+        };
+      }
+      break;
+    default:
+      args.authority satisfies never;
+      throw new Error("Unknown setup output authority.");
+  }
+
+  try {
+    await ctx.runMutation(internal.repository.setupOutputMutations.apply, {
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+      expectedArtifactId: applied?.artifactId ?? null,
+      source: {
+        runId: source.runId,
+        runAttempt: source.runAttempt,
+        artifactId: source.artifactId,
+        artifactCreatedAt: source.artifactCreatedAt,
+      },
+      output: prepared.verified,
+    });
+  } catch (error) {
     return {
       state: "refused",
       latestRun,
       source,
-      step: "verify_convex",
-      claim: projects.claim,
-      reason: projects.reason,
+      step: "apply",
+      claim: null,
+      reason: toErrorMessage(error),
     };
   }
-  return (
-    (await apply({
-      state: "deployed",
-      outputVersion: output.version,
-      accountId: output.cloudflare.accountId,
-      workers: workers.workers,
-      replacedWorkerIds: workers.replacedWorkerIds,
-      teamId: output.convex.teamId,
-      projects: projects.projects,
-    })) ?? {
-      state: "applied",
-      latestRun,
-      source,
-      workerCount: workers.workers.length,
-      projectCount: projects.projects.length,
-    }
-  );
+  return prepared.verified.state === "deployed"
+    ? {
+        state: "applied",
+        latestRun,
+        source,
+        workerCount: prepared.verified.workers.length,
+        projectCount: prepared.verified.projects.length,
+      }
+    : { state: "destroy_reported", latestRun, source };
 }
 
-/** Applies the newest setup output on behalf of `userId`; see applyLatestSetupOutput. */
-export const applyLatestForUser = internalAction({
+/**
+One step of setupOutputWorkflow.observeFirstSetupOutput: the first apply on behalf of the member who
+created the app. A failed call becomes a result, so the workflow can wait and read again.
+*/
+export const applyFirstForCreator = internalAction({
   args: { userId: id("users"), repositoryId: id("repositories") },
   returns: vSetupOutputApplyResult,
+  handler: async (ctx, args): Promise<SetupOutputApplyResult> => {
+    try {
+      return await applyLatestSetupOutput(ctx, {
+        userId: args.userId,
+        repositoryId: args.repositoryId,
+        authority: "first_apply",
+      });
+    } catch (error) {
+      return { state: "failed", reason: toErrorMessage(error) };
+    }
+  },
+});
+
+/** The setup status of a repository_actions repository, for the dashboard and repository_getStatus. */
+export const readStatus = action({
+  access: "access_dashboard",
+  args: { repositoryId: id("repositories") },
+  returns: vSetupStatus,
+  handler: async (ctx, args): Promise<SetupStatus> =>
+    await readSetupStatus(ctx, { userId: ctx.viewer.userId, repositoryId: args.repositoryId }),
+});
+
+/** A member's explicit apply of the newest setup output, from the dashboard or the MCP tool. */
+export const apply = action({
+  access: applySetupOutputContract.access,
+  args: applySetupOutputContract.args,
+  returns: applySetupOutputContract.returns,
+  mcp: applySetupOutputContract.mcp,
   handler: async (ctx, args): Promise<SetupOutputApplyResult> =>
-    await applyLatestSetupOutput(ctx, { userId: args.userId, repositoryId: args.repositoryId }),
+    await applyLatestSetupOutput(ctx, {
+      userId: ctx.viewer.userId,
+      repositoryId: args.repositoryId,
+      authority: "member",
+    }),
 });
