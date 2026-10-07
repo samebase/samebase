@@ -969,5 +969,20 @@ Open for PR C, in Nicu's words "how all this fits in":
   (the Retry admits only a failed run; Settings has no action). Needed when the organization
   replaces a CI token, as happened here. Follow-up for PR C or right after: a "Rewrite CI secrets"
   action (dashboard and MCP) that reuses `write_actions_secrets` and records the new credential
-  revision; until then a replaced token means a new app. The seeds are now user tokens with the four
-  permission groups on both Cloudflare accounts (Nicu, 2026-10-07).
+  revision; until then a replaced token means a new app.
+- 2026-10-07: Second dogfood (`samebase/tmp-alchemy-06`) failed the same way. Cause, proven by a
+  probe workflow using the repository's own secrets: the repository held the old seed token (no
+  Secrets Store). The four new tokens existed but were never used: a Convex preview deployment keeps
+  the env it was created with, project defaults reach only new preview deployments, and the
+  dashboard button "Use project defaults" appends duplicate rows so "Save All" fails on "name is not
+  unique". Fix used: the old token `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY` got Secrets Store Edit
+  added in place (an edit keeps the token value, a roll changes it). New previews get the new tokens
+  from the defaults.
+- 2026-10-07: Second dogfood PASSED after the rerun: `alchemy` run 37606095039 attempt 2 deployed
+  prod in one pass; artifact `samebase-setup-output` (413 B, version 1, one Worker, one Convex
+  project); the Worker serves 200. The observer window (ten reads over about 20 minutes after the
+  Samebase run) had expired before the rerun, so the first apply was the member path: the Overview
+  showed "Setup stack: success", the attention item "not applied yet", and the button "Apply setup
+  output"; the click attached the Worker and the Convex deployment and cleared the attention item.
+  Known limitation to decide later: a rerun after the observer window always needs the member click
+  (or an observer re-trigger from the Retry or a new run).
