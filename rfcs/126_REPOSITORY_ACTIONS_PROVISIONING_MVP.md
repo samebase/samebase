@@ -168,10 +168,13 @@ byte for byte.
 Workflow `alchemy`, Mail's `infra.yml` shape, gated on the repository variable `CONVEX_TEAM_ID`: on
 a pull request that touches the stack files, `alchemy plan` and `alchemy drift`, read-only; on a
 push to the default branch that touches them, `alchemy deploy --stage prod --detect-drift`; a
-dispatch with `adopt` for a first deploy next to resources that already exist, and with `confirm` =
-`owner/repository` for the confirmed destroy of the app (`DESTROY_APP=true` turns the Worker shell
-and the project from retain to destroy, then the stack state goes). Each job installs without
-lifecycle scripts and audits before any credential is in use.
+dispatch with `adopt` for a first deploy next to resources that already exist. The confirmed destroy
+of the app is a second workflow, `destroy.yml`, named "Destroy app", with one input: the member
+types `delete owner/repository`; any other text fails the run with an error that names the expected
+text, and the job never skips silently (`DESTROY_APP=true` turns the Worker shell and the project
+from retain to destroy, then the stack state goes). Decided by Nicu on 2026-10-07 after the live
+cleanup: one dispatch form per action, so the adopt checkbox and the destroy field never share a
+box. Each job installs without lifecycle scripts and audits before any credential is in use.
 
 The first build: Cloudflare does not build when the Builds link is created, and Samebase seeds
 `main` before the stack runs, so the stack's `FirstBuild` action starts one production build through
@@ -221,7 +224,7 @@ Samebase does not read Alchemy's state store.
   command's log lines, validates the `samebase` value against the version's strict field list, and
   writes only that value. A failed validation fails the step before anything is uploaded.
 - `scripts/destroy-app.ts` writes the destroy receipt only after `alchemy destroy` ran, and the
-  `destroy-app` job uploads it.
+  "Destroy app" workflow uploads it. The reader accepts receipts from that workflow's runs.
 - Version rule: an integer `version`. Version 1 rejects unknown fields, in the template and in the
   reader. Any added, removed, or retyped field is a new version. Samebase keeps one validator per
   version it has met and never drops one while a template that writes it can still run.
@@ -371,9 +374,9 @@ open decisions follow the table.
 
 The flows in order: Samebase creates and seeds; the setup stack runs once from the seed push and
 starts the first build; Workers Builds deploys every push from then on; Samebase observes (PR C);
-the owner destroys with the typed confirmation, before the repository goes; Samebase removes its
-rows and, if asked, the repository. No step triggers another across the Samebase and repository
-boundary, by decision.
+the owner destroys with the typed confirmation `delete owner/repository`, before the repository
+goes; Samebase removes its rows and, if asked, the repository. No step triggers another across the
+Samebase and repository boundary, by decision.
 
 Open for PR C, in Nicu's words "how all this fits in":
 
@@ -994,3 +997,7 @@ Open for PR C, in Nicu's words "how all this fits in":
   Usability gap seen live: the removal dialog tells the member to run the workflow with the confirm
   field but does not link the dispatch page, and the workflow shows three jobs; follow-up: link the
   "Run workflow" page from the dialog and name the three steps.
+- 2026-10-07: Decision (Nicu): the destroy leaves `alchemy.yml`. A separate workflow `destroy.yml`,
+  "Destroy app", has one input, the member types `delete owner/repository`, and a wrong text fails
+  the run with the expected text in the error. The removal dialog links that workflow page. Being
+  implemented on PR C (#1699); the setup-output reader must accept receipts from the new workflow.
