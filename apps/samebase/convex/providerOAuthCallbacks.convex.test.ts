@@ -30,10 +30,11 @@ vi.mock("./cloudflareApi/generated/sdk.gen", () => ({
   },
 }));
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
+import { buildProviderOAuthCompletionUrl } from "../shared/providerOAuthReturn";
 import type { OAuthProvider } from "./oauthState";
 
 const callbackScenarios = [
@@ -53,7 +54,6 @@ const callbackScenarios = [
     accessChange: "member",
   },
 ] as const;
-type CallbackScenario = (typeof callbackScenarios)[number];
 type TestBackend = ReturnType<typeof makeConvexTest>;
 
 async function createCloudflareMcpCallbackState(
@@ -91,6 +91,7 @@ const storageBoundaryScenarios = [
       access_token: "convex-access-token",
       token_type: "bearer",
     },
+    storedAuth: { method: "oauth", credential: "convex-access-token" },
   },
   {
     completionEventType: "cloudflare-oauth-complete",
@@ -102,6 +103,12 @@ const storageBoundaryScenarios = [
       refresh_token: "cloudflare-refresh-token",
       expires_in: 3_600,
     },
+    storedAuth: {
+      method: "oauth",
+      credential: "cloudflare-access-token",
+      refreshCredential: "cloudflare-refresh-token",
+      credentialExpiresAt: expect.any(Number),
+    },
   },
   {
     completionEventType: "cloudflare-mcp-oauth-complete",
@@ -112,6 +119,13 @@ const storageBoundaryScenarios = [
       access_token: "cloudflare-mcp-access-token",
       refresh_token: "cloudflare-mcp-refresh-token",
       expires_in: 3_600,
+    },
+    storedAuth: {
+      method: "mcp_oauth",
+      credential: "cloudflare-mcp-access-token",
+      refreshCredential: "cloudflare-mcp-refresh-token",
+      credentialExpiresAt: expect.any(Number),
+      clientId: "cloudflare-mcp-client",
     },
   },
 ] as const;
@@ -194,7 +208,7 @@ async function createCallbackState(
   t: TestBackend,
   args: {
     organizationId: Id<"organizations">;
-    scenario: CallbackScenario;
+    scenario: { provider: OAuthProvider };
     state: string;
     userId: Id<"users">;
   },
@@ -229,7 +243,7 @@ async function createCallbackState(
       });
       return;
     default:
-      args.scenario satisfies never;
+      args.scenario.provider satisfies never;
   }
 }
 
@@ -249,6 +263,90 @@ async function expectCompletionResponse(
   return html;
 }
 
+async function insertApprovedUser(t: TestBackend, email: string): Promise<Id<"users">> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("users", {
+      state: "active",
+      email,
+      isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
+    });
+  });
+}
+
+function signedInAs(t: TestBackend, userId: Id<"users">) {
+  return t.withIdentity({
+    subject: `${userId}|session`,
+    tokenIdentifier: `test:${userId}`,
+  });
+}
+
+function stubProviderOAuthEnv(provider: OAuthProvider) {
+  vi.stubEnv("SITE_URL", "https://samebase.com");
+  switch (provider) {
+    case "convex":
+      vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
+      vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET", "convex-secret");
+      vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://api.samebase.com/oauth/convex");
+      return;
+    case "cloudflare":
+      vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
+      vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
+      vi.stubEnv(
+        "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
+        "https://api.samebase.com/oauth/cloudflare",
+      );
+      return;
+    case "cloudflare_mcp":
+      vi.stubEnv(
+        "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
+        "https://api.samebase.com/oauth/cloudflare-mcp",
+      );
+      return;
+    default:
+      provider satisfies never;
+  }
+}
+
+async function readProviderOAuthSnapshot(
+  t: TestBackend,
+  args: { organizationId: Id<"organizations">; state: string },
+) {
+  return await t.run(async (ctx) => ({
+    credentials: await ctx.db
+      .query("organizationProviderCredentials")
+      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+      .unique(),
+    oauthState: await ctx.db
+      .query("providerOAuthCallbackStates")
+      .withIndex("by_state", (query) => query.eq("state", args.state))
+      .unique(),
+  }));
+}
+
+/**
+Runs the provider redirect to the callback and then the owner's completion from
+the app completion page, and returns the app URL the completion continues to.
+*/
+async function completeAsOwner(
+  t: TestBackend,
+  args: { provider: OAuthProvider; path: string; state: string; userId: Id<"users"> },
+): Promise<string> {
+  const callbackResponse = await t.fetch(`${args.path}?code=provider-code&state=${args.state}`);
+  await expectCompletionResponse(callbackResponse, {
+    eventType: readCompletionEventType(args.provider),
+    returnUrl: buildProviderOAuthCompletionUrl({
+      appOrigin: new URL("https://samebase.com"),
+      completion: { provider: args.provider, state: args.state, code: "provider-code" },
+    }),
+  });
+  return await signedInAs(t, args.userId).action(
+    api.providerOAuthCompletion.completeProviderOAuth,
+    { provider: args.provider, state: args.state, code: "provider-code" },
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   providerMocks.fetchConvexTeamTokenDetails.mockResolvedValue({ teamId: "convex-team" });
@@ -264,7 +362,7 @@ afterEach(() => {
 
 describe("provider OAuth callback organization returns", () => {
   it.each(callbackScenarios)(
-    "returns $provider callbacks to the scoped route after owner access changes",
+    "returns $provider completions to the scoped route after owner access changes",
     async (scenario) => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
@@ -312,17 +410,14 @@ describe("provider OAuth callback organization returns", () => {
       });
       vi.stubEnv("SITE_URL", "https://samebase.com");
 
-      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`, {
-        redirect: "manual",
-      });
-
-      await expectCompletionResponse(response, {
-        eventType: readCompletionEventType(scenario.provider),
-        returnUrl: buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
+      await expect(
+        completeAsOwner(t, { provider: scenario.provider, path: scenario.path, state, userId }),
+      ).resolves.toBe(
+        buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
           provider: scenario.provider === "convex" ? "convex" : "cloudflare",
           code: "access-changed",
         }),
-      });
+      );
       await expect(
         t.run(
           async (ctx) =>
@@ -496,20 +591,63 @@ describe("provider OAuth callback organization returns", () => {
       ),
     );
 
-    const response = await t.fetch(`/oauth/cloudflare/callback?code=provider-code&state=${state}`);
-    const html = await expectCompletionResponse(response, {
-      eventType: "cloudflare-oauth-complete",
-      returnUrl: buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
+    const returnUrl = await completeAsOwner(t, {
+      provider: "cloudflare",
+      path: "/oauth/cloudflare/callback",
+      state,
+      userId,
+    });
+
+    expect(returnUrl).toBe(
+      buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
         provider: "cloudflare",
         code: "failed",
       }),
-    });
-    expect(html).not.toContain("provider-code");
-    expect(html).not.toContain("provider-secret-detail");
+    );
+    expect(returnUrl).not.toContain("provider-code");
+    expect(returnUrl).not.toContain("provider-secret-detail");
   });
 
   it.each(storageBoundaryScenarios)(
-    "navigates the opener to the scoped return URL after successful $provider callbacks",
+    "hands the $provider code to the app completion page without calling the provider",
+    async (scenario) => {
+      const t = makeConvexTest();
+      const userId = await insertApprovedUser(t, `${scenario.provider}-handoff@example.com`);
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId,
+          githubOwnerId: `${scenario.provider}-handoff-owner`,
+          githubOwnerType: "organization",
+          githubOwnerLogin: "OAuth-Owner",
+          githubInstallationId: `${scenario.provider}-handoff-installation`,
+        },
+      );
+      const state = `${scenario.provider}-handoff-state`;
+      await createCallbackState(t, { organizationId, scenario, state, userId });
+      stubProviderOAuthEnv(scenario.provider);
+      const providerFetch = vi.fn();
+      vi.stubGlobal("fetch", providerFetch);
+
+      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
+
+      const html = await expectCompletionResponse(response, {
+        eventType: scenario.completionEventType,
+        returnUrl: `https://samebase.com/oauth/provider-complete#provider=${scenario.provider}&state=${state}&code=provider-code`,
+      });
+      expect(html).not.toContain("window.opener.location.reload()");
+      expect(providerFetch).not.toHaveBeenCalled();
+      expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
+      expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();
+      await expect(readProviderOAuthSnapshot(t, { organizationId, state })).resolves.toMatchObject({
+        credentials: null,
+        oauthState: { state, userId },
+      });
+    },
+  );
+
+  it.each(storageBoundaryScenarios)(
+    "stores the $provider credential and returns to the scoped route when the owner completes",
     async (scenario) => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
@@ -590,30 +728,27 @@ describe("provider OAuth callback organization returns", () => {
       });
       vi.stubGlobal("fetch", fetch);
 
-      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
-      const html = await response.text();
-      const returnTo = "https://samebase.com/org/oauth-owner/providers";
+      const returnUrl = await completeAsOwner(t, {
+        provider: scenario.provider,
+        path: scenario.path,
+        state,
+        userId,
+      });
 
-      expect(response.status).toBe(200);
+      expect(returnUrl).toBe("https://samebase.com/org/oauth-owner/providers");
       expect(fetch).toHaveBeenCalledOnce();
-      expect(html).toContain(`const returnTo = ${JSON.stringify(returnTo)};`);
-      expect(html).toContain("window.opener.location.replace(returnTo);");
-      expect(html).not.toContain("window.opener.location.reload()");
-      expect(html).toContain(`{ type: "${scenario.completionEventType}", returnTo }`);
-      expect(html).toContain("window.close();");
-      expect(html).toContain("window.location.replace(returnTo);");
-      const oauthState = await t.run(async (ctx) =>
-        ctx.db
-          .query("providerOAuthCallbackStates")
-          .withIndex("by_state", (query) => query.eq("state", state))
-          .unique(),
-      );
-      expect(oauthState).toBeNull();
+      const snapshot = await readProviderOAuthSnapshot(t, { organizationId, state });
+      expect(snapshot.oauthState).toBeNull();
+      expect(
+        scenario.provider === "convex"
+          ? snapshot.credentials?.convex
+          : snapshot.credentials?.cloudflare,
+      ).toMatchObject({ auth: scenario.storedAuth, connectedByUserId: userId });
     },
   );
 
   it.each(storageBoundaryCases)(
-    "returns $provider callbacks to the scoped route when owner access becomes $accessChange at storage",
+    "returns $provider completions to the scoped route when owner access becomes $accessChange at storage",
     async (scenario) => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
@@ -710,18 +845,20 @@ describe("provider OAuth callback organization returns", () => {
       });
       vi.stubGlobal("fetch", fetch);
 
-      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`, {
-        redirect: "manual",
+      const returnUrl = await completeAsOwner(t, {
+        provider: scenario.provider,
+        path: scenario.path,
+        state,
+        userId,
       });
 
       expect(fetch).toHaveBeenCalledOnce();
-      await expectCompletionResponse(response, {
-        eventType: scenario.completionEventType,
-        returnUrl: buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
+      expect(returnUrl).toBe(
+        buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
           provider: scenario.provider === "convex" ? "convex" : "cloudflare",
           code: "access-changed",
         }),
-      });
+      );
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
           .query("organizationProviderCredentials")
@@ -803,18 +940,19 @@ describe("provider OAuth callback organization returns", () => {
         ),
       );
 
-      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
+      const returnUrl = await completeAsOwner(t, {
+        provider: scenario.provider,
+        path: scenario.path,
+        state,
+        userId,
+      });
 
-      await expectCompletionResponse(response, {
-        eventType:
-          scenario.provider === "cloudflare"
-            ? "cloudflare-oauth-complete"
-            : "cloudflare-mcp-oauth-complete",
-        returnUrl: buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
+      expect(returnUrl).toBe(
+        buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
           provider: "cloudflare",
           code: "target-mismatch",
         }),
-      });
+      );
       expect(providerMocks.createCloudflareClient).toHaveBeenCalledWith({
         token: scenario.tokenResponse.access_token,
         transport: scenario.provider === "cloudflare" ? "direct" : "mcp",
@@ -969,20 +1107,19 @@ describe("provider OAuth callback organization returns", () => {
       });
       vi.stubGlobal("fetch", fetch);
 
-      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`, {
-        redirect: "manual",
+      const returnUrl = await completeAsOwner(t, {
+        provider: scenario.provider,
+        path: scenario.path,
+        state,
+        userId,
       });
 
-      await expectCompletionResponse(response, {
-        eventType:
-          scenario.provider === "cloudflare"
-            ? "cloudflare-oauth-complete"
-            : "cloudflare-mcp-oauth-complete",
-        returnUrl: buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
+      expect(returnUrl).toBe(
+        buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
           provider: "cloudflare",
           code: scenario.failure === "access_lost" ? "access-changed" : "configuration-changed",
         }),
-      });
+      );
       expect(fetch).toHaveBeenCalledOnce();
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
@@ -999,7 +1136,7 @@ describe("provider OAuth callback organization returns", () => {
     },
   );
 
-  it("keeps the configured Convex team and credential after a callback selects another team", async () => {
+  it("keeps the configured Convex team and credential after a completion selects another team", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -1057,14 +1194,19 @@ describe("provider OAuth callback organization returns", () => {
       ),
     );
 
-    const response = await t.fetch(`/oauth/convex/callback?code=provider-code&state=${state}`);
-    const html = await expectCompletionResponse(response, {
-      eventType: "convex-oauth-complete",
-      returnUrl: buildAuthorizationErrorUrl(
+    const returnUrl = await completeAsOwner(t, {
+      provider: "convex",
+      path: "/oauth/convex/callback",
+      state,
+      userId,
+    });
+
+    expect(returnUrl).toBe(
+      buildAuthorizationErrorUrl(
         "https://samebase.com/org/oauth-owner/providers?prod-ui#connections",
         { provider: "convex", code: "target-mismatch" },
       ),
-    });
+    );
     const snapshot = await t.run(async (ctx) => ({
       credentials: await ctx.db
         .query("organizationProviderCredentials")
@@ -1082,12 +1224,12 @@ describe("provider OAuth callback organization returns", () => {
     });
     expect(snapshot.credentials?.convex?.auth).toEqual(storedAuth);
     expect(snapshot.oauthState).toBeNull();
-    expect(html).not.toContain("provider-code");
-    expect(html).not.toContain("new-convex-token");
+    expect(returnUrl).not.toContain("provider-code");
+    expect(returnUrl).not.toContain("new-convex-token");
   });
 
   it.each(reusedCloudflareGrantScenarios)(
-    "keeps the configured Cloudflare account and credential after a $provider callback exposes another account too",
+    "keeps the configured Cloudflare account and credential after a $provider completion exposes another account too",
     async (scenario) => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
@@ -1174,17 +1316,19 @@ describe("provider OAuth callback organization returns", () => {
         ),
       );
 
-      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
-      const html = await expectCompletionResponse(response, {
-        eventType:
-          scenario.provider === "cloudflare"
-            ? "cloudflare-oauth-complete"
-            : "cloudflare-mcp-oauth-complete",
-        returnUrl: buildAuthorizationErrorUrl(
+      const returnUrl = await completeAsOwner(t, {
+        provider: scenario.provider,
+        path: scenario.path,
+        state,
+        userId,
+      });
+
+      expect(returnUrl).toBe(
+        buildAuthorizationErrorUrl(
           "https://samebase.com/org/oauth-owner/providers?prod-ui#connections",
           { provider: "cloudflare", code: "target-mismatch" },
         ),
-      });
+      );
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
           .query("organizationProviderCredentials")
@@ -1202,8 +1346,133 @@ describe("provider OAuth callback organization returns", () => {
       });
       expect(snapshot.credentials?.cloudflare?.auth).toEqual(scenario.auth);
       expect(snapshot.oauthState).toBeNull();
-      expect(html).not.toContain("provider-code");
-      expect(html).not.toContain("exchanged-access-token");
+      expect(returnUrl).not.toContain("provider-code");
+      expect(returnUrl).not.toContain("exchanged-access-token");
     },
   );
+});
+
+describe("provider OAuth completion binding", () => {
+  it.each(storageBoundaryScenarios)(
+    "links nothing when another account receives the $provider authorization code",
+    async (scenario) => {
+      const t = makeConvexTest();
+      const ownerId = await insertApprovedUser(t, `${scenario.provider}-owner@example.com`);
+      const victimId = await insertApprovedUser(t, `${scenario.provider}-victim@example.com`);
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId: ownerId,
+          githubOwnerId: `${scenario.provider}-binding-owner`,
+          githubOwnerType: "organization",
+          githubOwnerLogin: "OAuth-Owner",
+          githubInstallationId: `${scenario.provider}-binding-installation`,
+        },
+      );
+      const state = `${scenario.provider}-binding-state`;
+      await createCallbackState(t, { organizationId, scenario, state, userId: ownerId });
+      stubProviderOAuthEnv(scenario.provider);
+      const providerFetch = vi.fn(
+        async () =>
+          new Response(JSON.stringify(scenario.tokenResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      );
+      vi.stubGlobal("fetch", providerFetch);
+
+      // The provider sends the victim's browser to the callback with the victim's code.
+      const callbackResponse = await t.fetch(`${scenario.path}?code=victim-code&state=${state}`);
+
+      expect(callbackResponse.status).toBe(200);
+      expect(providerFetch).not.toHaveBeenCalled();
+      await expect(readProviderOAuthSnapshot(t, { organizationId, state })).resolves.toMatchObject({
+        credentials: null,
+      });
+
+      const authorizationProvider = scenario.provider === "convex" ? "convex" : "cloudflare";
+      await expect(
+        signedInAs(t, victimId).action(api.providerOAuthCompletion.completeProviderOAuth, {
+          provider: scenario.provider,
+          state,
+          code: "victim-code",
+        }),
+      ).resolves.toBe(
+        buildAuthorizationErrorUrl("https://samebase.com/org", {
+          provider: authorizationProvider,
+          code: "started-by-another-account",
+        }),
+      );
+      await expect(readProviderOAuthSnapshot(t, { organizationId, state })).resolves.toEqual({
+        credentials: null,
+        oauthState: null,
+      });
+
+      await expect(
+        signedInAs(t, ownerId).action(api.providerOAuthCompletion.completeProviderOAuth, {
+          provider: scenario.provider,
+          state,
+          code: "victim-code",
+        }),
+      ).resolves.toBe(
+        buildAuthorizationErrorUrl("https://samebase.com/org", {
+          provider: authorizationProvider,
+          code: "expired",
+        }),
+      );
+      await expect(readProviderOAuthSnapshot(t, { organizationId, state })).resolves.toEqual({
+        credentials: null,
+        oauthState: null,
+      });
+      expect(providerFetch).not.toHaveBeenCalled();
+      expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
+      expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();
+    },
+  );
+
+  it("links nothing when the owner completes after the authorization expired", async () => {
+    const t = makeConvexTest();
+    const userId = await insertApprovedUser(t, "convex-expired-owner@example.com");
+    const { organizationId } = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId,
+        githubOwnerId: "convex-expired-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "OAuth-Owner",
+        githubInstallationId: "convex-expired-installation",
+      },
+    );
+    const state = "convex-expired-state";
+    await t.mutation(internal.oauthState.createOauthState, {
+      provider: "convex",
+      userId,
+      organizationId,
+      state,
+      codeVerifier: "convex-code-verifier",
+      createdAt: Date.now() - 120_000,
+      expiresAt: Date.now() - 1,
+    });
+    stubProviderOAuthEnv("convex");
+    const providerFetch = vi.fn();
+    vi.stubGlobal("fetch", providerFetch);
+
+    await expect(
+      signedInAs(t, userId).action(api.providerOAuthCompletion.completeProviderOAuth, {
+        provider: "convex",
+        state,
+        code: "provider-code",
+      }),
+    ).resolves.toBe(
+      buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
+        provider: "convex",
+        code: "expired",
+      }),
+    );
+    await expect(readProviderOAuthSnapshot(t, { organizationId, state })).resolves.toEqual({
+      credentials: null,
+      oauthState: null,
+    });
+    expect(providerFetch).not.toHaveBeenCalled();
+  });
 });

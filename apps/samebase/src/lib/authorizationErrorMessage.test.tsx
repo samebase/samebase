@@ -26,6 +26,11 @@ describe("formatAuthorizationErrorMessage", () => {
         "You no longer have permission to complete this authorization. No changes were saved.",
     },
     {
+      authorizationError: { code: "started-by-another-account", provider: "convex" },
+      expected:
+        "Convex authorization was started by another Samebase account, so no changes were saved.",
+    },
+    {
       authorizationError: { code: "configuration-changed", provider: "cloudflare" },
       expected: "The Cloudflare connection changed before authorization finished. Start again.",
     },

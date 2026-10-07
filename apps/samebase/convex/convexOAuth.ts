@@ -3,7 +3,7 @@ import { httpAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { z } from "zod";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { connectConvexCredential } from "./organizationProviderCredentials";
@@ -19,7 +19,11 @@ import {
   parseConvexOAuthTokenResponse,
   type ConvexOAuthTokenResponse,
 } from "./convexManagementApi/oauthToken";
-import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
+import {
+  buildProviderOAuthCompletionUrl,
+  buildProviderOAuthDefaultReturnUrl,
+  readProviderOAuthAppOrigin,
+} from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import {
@@ -251,6 +255,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("Invalid OAuth state", { status: 400 });
   }
 
+  let appOrigin: URL;
   let returnUrl: string;
   try {
     const githubOwnerLogin: string = await ctx.runQuery(
@@ -259,10 +264,13 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
         organizationId: oauthState.organizationId,
       },
     );
-    returnUrl = buildProviderOAuthDefaultReturnUrl({
+    appOrigin = readProviderOAuthAppOrigin({
       configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
-      githubOwnerLogin,
       requestUrl: request.url,
+    });
+    returnUrl = buildProviderOAuthDefaultReturnUrl({
+      appOrigin,
+      githubOwnerLogin,
       returnToPath: oauthState.returnToPath,
     });
   } catch {
@@ -323,17 +331,41 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     });
   }
 
+  // This origin has no app session. The app completion page links the credential
+  // only for the signed-in user who started this authorization.
+  return buildAuthorizationCompletionResponse({
+    eventType: "convex-oauth-complete",
+    returnUrl: buildProviderOAuthCompletionUrl({
+      appOrigin,
+      completion: { provider: "convex", state, code },
+    }),
+    title: "Convex OAuth",
+  });
+});
+
+/**
+Exchanges a Convex authorization code for the owner who started `oauthState`
+and stores the team token for that organization. The caller has already
+checked that the signed-in user is `oauthState.userId`. Returns `returnUrl`
+with the outcome for the Providers page.
+*/
+export async function completeConvexOAuth(
+  ctx: ActionCtx,
+  args: {
+    code: string;
+    oauthState: Extract<Doc<"providerOAuthCallbackStates">, { provider: "convex" }>;
+    returnUrl: string;
+  },
+): Promise<string> {
+  const { code, oauthState, returnUrl } = args;
+
   if (!oauthState.codeVerifier) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    return buildAuthorizationCompletionResponse({
-      eventType: "convex-oauth-complete",
-      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
-        provider: "convex",
-        code: "failed",
-      }),
-      title: "Convex OAuth",
+    return buildAuthorizationErrorUrl(returnUrl, {
+      provider: "convex",
+      code: "failed",
     });
   }
 
@@ -350,13 +382,9 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       organizationId: oauthState.organizationId,
       outcome: "access-changed",
     });
-    return buildAuthorizationCompletionResponse({
-      eventType: "convex-oauth-complete",
-      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
-        provider: "convex",
-        code: "access-changed",
-      }),
-      title: "Convex OAuth",
+    return buildAuthorizationErrorUrl(returnUrl, {
+      provider: "convex",
+      code: "access-changed",
     });
   }
 
@@ -384,7 +412,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
         accessToken: token.accessToken,
         teamId: details.teamId,
         oauthStateId: oauthState._id,
-        oauthState: state,
+        oauthState: oauthState.state,
       },
     );
     completionReturnUrl = buildProviderOAuthStoreReturnUrl({
@@ -413,9 +441,5 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     });
   }
 
-  return buildAuthorizationCompletionResponse({
-    eventType: "convex-oauth-complete",
-    returnUrl: completionReturnUrl,
-    title: "Convex OAuth",
-  });
-});
+  return completionReturnUrl;
+}

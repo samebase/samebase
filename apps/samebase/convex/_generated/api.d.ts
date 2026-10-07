@@ -118,6 +118,7 @@ import type * as previewSeedAccount from "../previewSeedAccount.js";
 import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerAuth from "../providerAuth.js";
 import type * as providerAuthFingerprint from "../providerAuthFingerprint.js";
+import type * as providerOAuthCompletion from "../providerOAuthCompletion.js";
 import type * as providerResponseValidation from "../providerResponseValidation.js";
 import type * as repository from "../repository.js";
 import type * as repository_actions from "../repository/actions.js";
@@ -328,6 +329,7 @@ declare const fullApi: ApiFromModules<{
   providerApiLog: typeof providerApiLog;
   providerAuth: typeof providerAuth;
   providerAuthFingerprint: typeof providerAuthFingerprint;
+  providerOAuthCompletion: typeof providerOAuthCompletion;
   providerResponseValidation: typeof providerResponseValidation;
   repository: typeof repository;
   "repository/actions": typeof repository_actions;
