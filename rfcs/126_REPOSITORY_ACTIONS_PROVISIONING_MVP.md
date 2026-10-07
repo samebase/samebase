@@ -248,20 +248,24 @@ Samebase does not read Alchemy's state store.
 }
 ```
 
-The destroy receipt is `{ "version": 1, "state": "destroyed" }`.
+The destroy receipt is `{ "version": 1, "state": "destroyed" }`. A deploy that fails writes
+`{ "version": 1, "state": "failed" }` from an `if: failure()` step, so a broken token or a bad
+deploy reports itself through the same artifact (decided 2026-10-07, parity follow-up PR).
 
 ### PR C: The reader
 
-1. List every retained run, page by page:
-   `GET /repos/{o}/{r}/actions/workflows/alchemy.yml/runs?branch=<live default branch>`. Keep runs
-   whose `path` is `.github/workflows/alchemy.yml`, `event` is `push` or `workflow_dispatch`, and
-   whose `repository.id` and `head_repository.id` are the repository's GitHub id. The kept run with
-   the newest `run_started_at` (a rerun moves it), in any state, is the setup status. No cutoff by
-   run age: a rerun of an older run can carry the newest artifact.
-2. Find the block: the newest non-expired artifact named `samebase-setup-output` among the
-   successful kept runs, by the artifact's `created_at`, then id. Its `workflow_run` id, repository
-   ids, and `head_sha` must equal the run's. An artifact id equal to the checkpoint's means nothing
-   new.
+1. List the repository's artifacts named `samebase-setup-output`, page by page
+   (`GET /repos/{o}/{r}/actions/artifacts?name=samebase-setup-output`). This one list covers every
+   workflow of the repository, so no workflow file name is part of the interface (decided
+   2026-10-07; the first version filtered on `alchemy.yml` and `destroy.yml` and listed that
+   workflow's runs, which would have made a rename a Samebase change).
+2. For each artifact, read its producing run and keep it only when the run is on the live default
+   branch, its `repository.id` and `head_repository.id` are the repository's GitHub id, and its
+   conclusion matches the state inside: `deployed` and `destroyed` need `success`, `failed` needs
+   `failure`. The newest kept artifact by its run's `created_at`, then id, is the setup status. An
+   artifact id equal to the checkpoint's means nothing new. With no artifact after the seed, the
+   status is "waiting for the setup output" with a link to the repository's Actions page; no run
+   listing.
 3. Download, require one file, one JSON document, the size bound, and a known version.
 4. `deployed`: verify every claim as in section 4 with the organization's connections. A failed
    claim applies nothing and reports which claim failed, distinctly from a failed run.
@@ -1001,3 +1005,13 @@ Open for PR C, in Nicu's words "how all this fits in":
   "Destroy app", has one input, the member types `delete owner/repository`, and a wrong text fails
   the run with the expected text in the error. The removal dialog links that workflow page. Being
   implemented on PR C (#1699); the setup-output reader must accept receipts from the new workflow.
+- 2026-10-07: PR C squashed (v2103). Parity follow-up PR in progress (branch
+  `actions-mode-parity-fixes`): apply-failure reason as an attention item (the dogfood hit the free
+  organization quota of six connections and the Overview showed no reason), artifact-only reads
+  without a workflow filter plus the `failed` state, the quota check at New App for this mode, and
+  probe-based verification of a pasted CI token at save time. Direction after the dogfood (Nicu):
+  Samebase is the recipe, the credential handoff, the status and MCP surface, and the quota; the
+  engine lives in the repository. No Alchemy inside Samebase. Later: retire the Samebase-side
+  provisioning (RFC 127), Samebase adopts a setup stack, Mail becomes a component with an infra
+  function. Open: a destroy leaves Wrangler-provisioned resources of the Worker behind (open
+  question 18 of the Alchemy list); moot while the template has only `assets`.
