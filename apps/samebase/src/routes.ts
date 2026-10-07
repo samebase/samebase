@@ -13,6 +13,7 @@ import {
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
+import { PROVIDER_OAUTH_COMPLETION_ROUTE } from "../shared/providerOAuthReturn";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
@@ -59,6 +60,7 @@ export const routes = rootRoute("root.tsx", [
   route("/visual-fixture", "visual-fixture.tsx"),
   route(AGENT_BROWSER_HANDOFF_ROUTE, "agents-connect.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
+  route(PROVIDER_OAUTH_COMPLETION_ROUTE, "oauth-provider-complete.tsx"),
   route("/landing", "landing.tsx"),
   route(DOCS_INDEX_ROUTE, "docs.tsx"),
   route(DOCS_CLOUDFLARE_SETUP_ROUTE, "docs-cloudflare-setup.tsx"),

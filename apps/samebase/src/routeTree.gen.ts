@@ -31,6 +31,7 @@ import { Route as indexRouteImport } from "./routes/index";
 import { Route as repositoryFileRouteImport } from "./routes/repository-file";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as orgRouteImport } from "./routes/org";
+import { Route as oauthProviderCompleteRouteImport } from "./routes/oauth-provider-complete";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
@@ -172,6 +173,11 @@ const pitchPrintRoute = pitchPrintRouteImport.update({
 const orgRoute = orgRouteImport.update({
   id: "/org/$owner",
   path: "/org/$owner",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const oauthProviderCompleteRoute = oauthProviderCompleteRouteImport.update({
+  id: "/oauth/provider-complete",
+  path: "/oauth/provider-complete",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
@@ -375,6 +381,7 @@ export interface FileRoutesByFullPath {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/repo/$": typeof repositoryFileRoute;
@@ -431,6 +438,7 @@ export interface FileRoutesByTo {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/repo/$": typeof repositoryFileRoute;
@@ -488,6 +496,7 @@ export interface FileRoutesById {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/repo/$": typeof repositoryFileRoute;
@@ -546,6 +555,7 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/oauth/provider-complete"
     | "/org/$owner"
     | "/pitch/print"
     | "/repo/$"
@@ -602,6 +612,7 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/oauth/provider-complete"
     | "/org/$owner"
     | "/pitch/print"
     | "/repo/$"
@@ -658,6 +669,7 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/oauth/provider-complete"
     | "/org/$owner"
     | "/pitch/print"
     | "/repo/$"
@@ -715,6 +727,7 @@ export interface RootRouteChildren {
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
+  oauthProviderCompleteRoute: typeof oauthProviderCompleteRoute;
   orgRoute: typeof orgRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   repositoryFileRoute: typeof repositoryFileRoute;
@@ -890,6 +903,13 @@ declare module "@tanstack/react-router" {
       path: "/org/$owner";
       fullPath: "/org/$owner";
       preLoaderRoute: typeof orgRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/oauth/provider-complete": {
+      id: "/oauth/provider-complete";
+      path: "/oauth/provider-complete";
+      fullPath: "/oauth/provider-complete";
+      preLoaderRoute: typeof oauthProviderCompleteRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo/transition": {
@@ -1155,6 +1175,7 @@ const rootRouteChildren: RootRouteChildren = {
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
+  oauthProviderCompleteRoute: oauthProviderCompleteRoute,
   orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
   repositoryFileRoute: repositoryFileRoute,

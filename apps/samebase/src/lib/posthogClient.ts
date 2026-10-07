@@ -2,6 +2,7 @@ import {
   hasAgentBrowserHandoffFragment,
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
+import { isProviderOAuthCompletionPath } from "../../shared/providerOAuthReturn";
 import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
 import { isRecord } from "@samebase/dependent";
 import type { BeforeSendFn as SamebasePostHogBeforeSend } from "posthog-js";
@@ -42,6 +43,11 @@ function sanitizeSamebasePostHogUrlLikeValue(value: string): string {
     url = isPath ? new URL(value, "https://samebase.invalid") : new URL(value);
   } catch {
     return value;
+  }
+  // The completion page receives the provider OAuth state and code in its fragment.
+  if (isProviderOAuthCompletionPath(url.pathname)) {
+    url.hash = "";
+    return isPath ? `${url.pathname}${url.search}` : url.href;
   }
   if (!isOrganizationInvitationPath(url.pathname)) {
     return value;
@@ -210,6 +216,9 @@ export function sanitizeSamebasePostHogPageviewUrl(href: string, origin: string)
     url.pathname = "/invite/[invitation]";
   }
   if (isAgentBrowserHandoffRoute(url.pathname) && hasAgentBrowserHandoffFragment(url.hash)) {
+    url.hash = "";
+  }
+  if (isProviderOAuthCompletionPath(url.pathname)) {
     url.hash = "";
   }
 

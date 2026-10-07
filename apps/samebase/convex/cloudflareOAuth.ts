@@ -4,7 +4,7 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import { httpAction, internalAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { action } from "./functions";
 import {
   fetchWithTimeout,
@@ -29,7 +29,11 @@ import {
   vCloudflareAccount,
 } from "./cloudflareAccountDiscovery";
 import { utf8ToBase64 } from "../shared/base64";
-import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
+import {
+  buildProviderOAuthCompletionUrl,
+  buildProviderOAuthDefaultReturnUrl,
+  readProviderOAuthAppOrigin,
+} from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import {
@@ -877,6 +881,7 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     return new Response("Invalid OAuth state", { status: 400 });
   }
 
+  let appOrigin: URL;
   let returnUrl: string;
   try {
     const githubOwnerLogin: string = await ctx.runQuery(
@@ -885,10 +890,13 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
         organizationId: oauthState.organizationId,
       },
     );
-    returnUrl = buildProviderOAuthDefaultReturnUrl({
+    appOrigin = readProviderOAuthAppOrigin({
       configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
-      githubOwnerLogin,
       requestUrl: request.url,
+    });
+    returnUrl = buildProviderOAuthDefaultReturnUrl({
+      appOrigin,
+      githubOwnerLogin,
       returnToPath: oauthState.returnToPath,
     });
   } catch {
@@ -949,6 +957,34 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     });
   }
 
+  // This origin has no app session. The app completion page links the credential
+  // only for the signed-in user who started this authorization.
+  return buildAuthorizationCompletionResponse({
+    eventType: "cloudflare-oauth-complete",
+    returnUrl: buildProviderOAuthCompletionUrl({
+      appOrigin,
+      completion: { provider: "cloudflare", state, code },
+    }),
+    title: "Cloudflare OAuth",
+  });
+});
+
+/**
+Exchanges a Cloudflare authorization code for the owner who started
+`oauthState` and stores the grant for that organization. The caller has already
+checked that the signed-in user is `oauthState.userId`. Returns `returnUrl`
+with the outcome for the Providers page.
+*/
+export async function completeCloudflareOAuth(
+  ctx: ActionCtx,
+  args: {
+    code: string;
+    oauthState: Extract<Doc<"providerOAuthCallbackStates">, { provider: "cloudflare" }>;
+    returnUrl: string;
+  },
+): Promise<string> {
+  const { code, oauthState, returnUrl } = args;
+
   try {
     await ctx.runQuery(internal.organizationAccess.requireOrganizationOwnerIdForUser, {
       userId: oauthState.userId,
@@ -962,13 +998,9 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
       organizationId: oauthState.organizationId,
       outcome: "access-changed",
     });
-    return buildAuthorizationCompletionResponse({
-      eventType: "cloudflare-oauth-complete",
-      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
-        provider: "cloudflare",
-        code: "access-changed",
-      }),
-      title: "Cloudflare OAuth",
+    return buildAuthorizationErrorUrl(returnUrl, {
+      provider: "cloudflare",
+      code: "access-changed",
     });
   }
 
@@ -1008,7 +1040,7 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
         expiresAt,
         account,
         oauthStateId: oauthState._id,
-        oauthState: state,
+        oauthState: oauthState.state,
       },
     );
     completionReturnUrl = buildProviderOAuthStoreReturnUrl({
@@ -1046,9 +1078,5 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     });
   }
 
-  return buildAuthorizationCompletionResponse({
-    eventType: "cloudflare-oauth-complete",
-    returnUrl: completionReturnUrl,
-    title: "Cloudflare OAuth",
-  });
-});
+  return completionReturnUrl;
+}

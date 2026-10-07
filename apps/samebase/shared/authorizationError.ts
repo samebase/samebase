@@ -20,6 +20,7 @@ export const AUTHORIZATION_ERROR_CODES = [
   "github-sign-in-mismatch",
   "expired",
   "access-changed",
+  "started-by-another-account",
   "configuration-changed",
   "target-mismatch",
   "organization-owner-required",

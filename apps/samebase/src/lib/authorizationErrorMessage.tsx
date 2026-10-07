@@ -68,6 +68,8 @@ export function formatAuthorizationErrorMessage(
       return `${authorizationLabel} expired. Start again.`;
     case "access-changed":
       return "You no longer have permission to complete this authorization. No changes were saved.";
+    case "started-by-another-account":
+      return `${authorizationLabel} was started by another Samebase account, so no changes were saved.`;
     case "configuration-changed":
       return `The ${connectionLabel} connection changed before authorization finished. Start again.`;
     case "target-mismatch":
