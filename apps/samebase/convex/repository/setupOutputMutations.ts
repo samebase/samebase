@@ -252,13 +252,17 @@ export const apply = internalMutation({
 /**
 Records why the apply transaction refused an automatic apply of observeFirstSetupOutput, such as on
 the organization connection quota. Nobody sees that apply's result, so the setup status shows this
-until an apply succeeds.
+until an apply succeeds. The automatic apply only applies the first output, so once an output is
+applied, such as by a member while the automatic apply ran, its refusal is not recorded.
 */
 export const recordApplyFailure = internalMutation({
   args: { repositoryId: id("repositories"), reason: string() },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const plan = await requireRepositoryActionsPlan(ctx, args.repositoryId);
+    if (plan.setupOutput) {
+      return null;
+    }
     const now = Date.now();
     await ctx.db.patch(plan._id, {
       setupOutputApplyFailure: { reason: args.reason, failedAt: now },

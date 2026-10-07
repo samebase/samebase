@@ -75,7 +75,10 @@ function describeApplyProblem(result: SetupOutputApplyResult | undefined): strin
     : null;
 }
 
-/** Whether the setup status can change only by a new run, a member's apply, or a new attachment. */
+/**
+Whether the setup status waits for something soon: the first setup output, or the first apply that
+observeFirstSetupOutput may still make.
+*/
 function isSetupStatusSettled({ latestRun, applied, pending }: SetupStatus): boolean {
   // A new app waits for its first setup output; an applied one stays after GitHub deletes its run.
   if (latestRun === null) {
@@ -158,10 +161,12 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
     // The read lists the setup output artifacts, reads their runs, and checks every claim with
     // Cloudflare and Convex.
     staleTime: 60 * 1000,
-    // GitHub does not push run changes, so the open overview reads again while the first setup
-    // output has not arrived or observeFirstSetupOutput may still apply it.
+    // GitHub does not push new artifacts, and the status read lists no runs, so it cannot tell
+    // whether a run is publishing a newer output. The open overview reads every 30 seconds while
+    // the first setup output has not arrived or observeFirstSetupOutput may still apply it, and
+    // every 2 minutes otherwise, so a later run's output appears without a reload.
     refetchInterval: (query) =>
-      query.state.data && isSetupStatusSettled(query.state.data) ? false : 30 * 1000,
+      query.state.data && isSetupStatusSettled(query.state.data) ? 2 * 60 * 1000 : 30 * 1000,
     retry: false,
   });
   const applyMutation = useMutation({

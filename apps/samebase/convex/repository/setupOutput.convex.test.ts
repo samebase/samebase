@@ -684,8 +684,9 @@ beforeEach(() => {
 
 /*
 State axes of a member's apply, each covered below:
-- read: no setup run, no output, a run outside the listed pages, the destroy receipt of a Destroy app
-  run, an output older than the applied one
+- read: no output, an artifact of a cancelled or unfinished run, the failed output of a failed run, a
+  state that does not match its run's conclusion, the destroy receipt of a run of another workflow,
+  an output older than the applied one
 - output: newer than the applied one, the one applied, or the same identities under a new artifact
 - review: the artifact that the member reviewed is the newest one, or a newer one replaced it
 - providers: confirm every claim, or refuse one
@@ -1195,6 +1196,13 @@ describe("setupOutput.applyFirstForCreator and readStatus", () => {
       applied: { state: "applied", artifactId: source.artifactId },
       applyFailure: null,
     });
+
+    // An automatic apply that lost to the member's apply records nothing.
+    await fixture.t.mutation(internal.repository.setupOutputMutations.recordApplyFailure, {
+      repositoryId: fixture.ids.repositoryId,
+      reason: "The applied setup output changed while Samebase read the newest one.",
+    });
+    expect((await readRows(fixture)).plan).not.toHaveProperty("setupOutputApplyFailure");
   });
 
   it("shows a refused claim in the status and reports a failed read as a result", async () => {
