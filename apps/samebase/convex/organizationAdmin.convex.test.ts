@@ -1,7 +1,56 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { makeConvexTest } from "./test.setup";
+
+async function insertFailedRepositoryRemoval(
+  ctx: MutationCtx,
+  seed: { organizationId: Id<"organizations">; ownerId: Id<"users"> },
+  suffix: string,
+) {
+  const repositoryId = await ctx.db.insert("repositories", {
+    state: "not_connected",
+    organizationId: seed.organizationId,
+    convexTeamId: "convex-team",
+    cloudflareAccountId: "cloudflare-account",
+    deletion: { state: "not_deleting" },
+    createdAt: 1,
+  });
+  const failedRunId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
+    state: "failed",
+    organizationId: seed.organizationId,
+    userId: seed.ownerId,
+    repositoryId,
+    githubRepositoryFullName: `organization-${suffix}/app`,
+    createdAt: 1,
+    updatedAt: 2,
+    attempt: { kind: "initial" },
+    workflow: { state: "started", workflowId: `${suffix}-initial` },
+    currentStep: "delete_cloudflare",
+    snapshot: {
+      state: "retained_for_retry",
+      plan: {
+        target: {
+          kind: "samebase_managed_repository",
+          githubRepositoryDatabaseId: `github-repository-${suffix}`,
+          githubOwnerLogin: `organization-${suffix}`,
+          githubRepositoryName: "app",
+          githubRepositoryFullName: `organization-${suffix}/app`,
+        },
+        convex: { action: "skip", reason: "not_requested" },
+        cloudflare: { action: "skip", reason: "not_requested" },
+        githubRepository: { action: "skip", reason: "not_requested" },
+      },
+    },
+    lastError: "Cloudflare cleanup failed.",
+    completedAt: 2,
+  });
+  // Without the repository row, only the retained deletion runs decide organization deletion.
+  await ctx.db.delete(repositoryId);
+  return { failedRunId, repositoryId };
+}
 
 async function seedDeletableOrganization(t: ReturnType<typeof makeConvexTest>, suffix: string) {
   const seed = await t.run(async (ctx) => {
@@ -488,6 +537,60 @@ describe("organization deletion", () => {
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         deletionConfirmationText: "organization-provisioning",
+      }),
+    ).rejects.toThrow("Finish organization repository cleanup before deletion.");
+  });
+
+  it("deletes an organization whose failed repository removal later succeeded on retry", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "retried-removal");
+    await t.run(async (ctx) => {
+      const { failedRunId, repositoryId } = await insertFailedRepositoryRemoval(
+        ctx,
+        seed,
+        "retried-removal",
+      );
+      await ctx.db.insert("workflow_repositoryDeletion_runs", {
+        state: "succeeded",
+        organizationId: seed.organizationId,
+        userId: seed.ownerId,
+        repositoryId,
+        githubRepositoryFullName: "organization-retried-removal/app",
+        createdAt: 3,
+        updatedAt: 4,
+        attempt: { kind: "retry", retryOf: failedRunId },
+        workflow: { state: "started", workflowId: "retried-removal-retry" },
+        currentStep: "finish",
+        snapshot: { state: "scrubbed_after_success" },
+        completedAt: 4,
+      });
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-retried-removal",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => ({
+        organization: await ctx.db.get(seed.organizationId),
+        deletionRuns: await ctx.db.query("workflow_repositoryDeletion_runs").collect(),
+      })),
+    ).resolves.toEqual({ organization: null, deletionRuns: [] });
+  });
+
+  it("rejects a failed repository removal that has not succeeded on retry", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "failed-removal");
+    await t.run(async (ctx) => {
+      await insertFailedRepositoryRemoval(ctx, seed, "failed-removal");
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-failed-removal",
       }),
     ).rejects.toThrow("Finish organization repository cleanup before deletion.");
   });
