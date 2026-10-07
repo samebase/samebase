@@ -61,6 +61,16 @@ Builds tab, and a dashboard that works without the tool.
    that declares only the Worker name leaves observability, tags, and routes to Wrangler. The
    catch-all rule is the live example: Alchemy owns it in Mail today, and Wrangler's `addresses`
    would take it over and fail the CI deploy as a conflict. Pick one.
+4. **Apps are Cloudflare-native, components are Alchemy-native.** (2026-10-07) A top-level app keeps
+   the Cloudflare way: Workers Builds deploys its Worker on every push, previews per branch, the
+   Builds tab, Wrangler or `cf` in the repository; its stack declares only the shell, the Builds
+   link, and the glue. A component is infrastructure: its infra function declares its resources with
+   Alchemy, and when the component needs a Worker of its own, the npm package ships the bundle and
+   the function uploads it, with no previews, because the package version is the deploy version. A
+   component may instead add a handler to the app's Worker, as Mail does through its `./worker`
+   export. Either way the app's build never knows how the component is deployed, and the destroy
+   covers the component's resources because the stack created them. Consequence: a component-owned
+   Worker is pinned by the lockfile, so the stack workflow must also run when the lockfile changes.
 
 Ordering between the stack and the builds is not a problem. The newer Workers API separates the
 Worker (name, settings, secrets) from its versions (code, bindings, variables). Wrangler writes
