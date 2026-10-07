@@ -986,3 +986,11 @@ Open for PR C, in Nicu's words "how all this fits in":
   output"; the click attached the Worker and the Convex deployment and cleared the attention item.
   Known limitation to decide later: a rerun after the observer window always needs the member click
   (or an observer re-trigger from the Retry or a new run).
+- 2026-10-07: Confirmed destroy PASSED on `samebase/tmp-alchemy-06`: a `workflow_dispatch` of the
+  `alchemy` workflow on `main` with the repository name in the confirm field ran only `destroy-app`;
+  the receipt artifact reads `{version: 1, state: "destroyed"}`; the Worker returns 404. The
+  Overview showed the destroy report with "Apply setup output"; the click recorded it: "Samebase did
+  not check this report. The Workers and Convex projects stay attached until you remove them."
+  Usability gap seen live: the removal dialog tells the member to run the workflow with the confirm
+  field but does not link the dispatch page, and the workflow shows three jobs; follow-up: link the
+  "Run workflow" page from the dialog and name the three steps.
