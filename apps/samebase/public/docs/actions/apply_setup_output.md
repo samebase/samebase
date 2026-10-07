@@ -5,15 +5,15 @@
 MCP tool `repository_setupOutput_apply` · scope `access_provider_connections` · write
 
 For a repository that its GitHub Actions set up (`repository_create` with provisioning
-repository_actions), the repository's alchemy workflow publishes a setup output after each deploy:
-the ids of the Workers and the Convex projects that its setup stack owns. `repository_getStatus`
-shows the newest one that waits (`setupStack.pending`). This action applies it: it reads the newest
-one again from the runs of that workflow on the default branch, stops when its artifact is not
-`artifactId` (a newer run replaced the one that the user reviewed), checks every claim with the
-organization's Cloudflare and Convex connections (the account and the team are the repository's,
-each Worker builds this repository through Workers Builds, each project exists in the team, each
-Convex code location is on the default branch), and attaches the Workers and projects in one step.
-An output older than the applied one is never applied.
+repository_actions), the repository's setup stack publishes a setup output after each deploy: the
+ids of the Workers and the Convex projects that it owns. `repository_getStatus` shows the newest one
+that waits (`setupStack.pending`). This action applies it: it reads the newest one again from the
+runs on the default branch, stops when its artifact is not `artifactId` (a newer run replaced the
+one that the user reviewed), checks every claim with the organization's Cloudflare and Convex
+connections (the account and the team are the repository's, each Worker builds this repository
+through Workers Builds, each project exists in the team, each Convex code location is on the default
+branch), and attaches the Workers and projects in one step. An output older than the applied one is
+never applied.
 
 Samebase applies the first output after the app's creation by itself when it names exactly the
 Worker and the Convex project that Samebase reserved at creation, no other project of the team has
@@ -22,9 +22,9 @@ resource, a later output, or a Worker that a drift repair recreated, waits for t
 `repository_getStatus` shows the waiting output and why Samebase did not apply it by itself.
 
 The attached resources are managed by the setup stack in `alchemy.run.ts`: Samebase never deletes
-them or changes their provider settings. A destroy receipt, which the repository's `Destroy app`
-workflow uploads under the same artifact name after it destroyed the app, is recorded as a report;
-the attachments stay until they are removed.
+them or changes their provider settings. A destroy receipt, which the repository's confirmed destroy
+uploads under the same artifact name, is recorded as a report; the attachments stay until they are
+removed. A failed output reports a failed setup run and has nothing to apply (`setup_failed`).
 
 ## Arguments
 
@@ -45,7 +45,7 @@ JSON Schema for the tool's `structuredContent`:
       "type": "object",
       "properties": {
         "state": {
-          "const": "no_setup_run"
+          "const": "no_output"
         }
       },
       "required": ["state"],
@@ -55,7 +55,7 @@ JSON Schema for the tool's `structuredContent`:
       "type": "object",
       "properties": {
         "state": {
-          "const": "no_output"
+          "const": "invalid_output"
         },
         "latestRun": {
           "type": "object",
@@ -66,26 +66,13 @@ JSON Schema for the tool's `structuredContent`:
             "runAttempt": {
               "type": "number"
             },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "conclusion": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "const": "success"
                 },
                 {
-                  "type": "null"
+                  "const": "failure"
                 }
               ]
             },
@@ -96,75 +83,8 @@ JSON Schema for the tool's `structuredContent`:
               "type": "string"
             }
           },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
           "additionalProperties": false
-        }
-      },
-      "required": ["state", "latestRun"],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "state": {
-          "const": "invalid_output"
-        },
-        "latestRun": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "runId": {
-                  "type": "number"
-                },
-                "runAttempt": {
-                  "type": "number"
-                },
-                "event": {
-                  "type": "string"
-                },
-                "status": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "conclusion": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "runId",
-                "runAttempt",
-                "event",
-                "status",
-                "conclusion",
-                "startedAt",
-                "url"
-              ],
-              "additionalProperties": false
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "source": {
           "type": "object",
@@ -199,61 +119,33 @@ JSON Schema for the tool's `structuredContent`:
           "const": "refused"
         },
         "latestRun": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "runId": {
-                  "type": "number"
-                },
-                "runAttempt": {
-                  "type": "number"
-                },
-                "event": {
-                  "type": "string"
-                },
-                "status": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "conclusion": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "runId",
-                "runAttempt",
-                "event",
-                "status",
-                "conclusion",
-                "startedAt",
-                "url"
-              ],
-              "additionalProperties": false
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
             },
-            {
-              "type": "null"
+            "runAttempt": {
+              "type": "number"
+            },
+            "conclusion": {
+              "anyOf": [
+                {
+                  "const": "success"
+                },
+                {
+                  "const": "failure"
+                }
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
             }
-          ]
+          },
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
+          "additionalProperties": false
         },
         "source": {
           "type": "object",
@@ -311,61 +203,33 @@ JSON Schema for the tool's `structuredContent`:
           "const": "needs_member"
         },
         "latestRun": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "runId": {
-                  "type": "number"
-                },
-                "runAttempt": {
-                  "type": "number"
-                },
-                "event": {
-                  "type": "string"
-                },
-                "status": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "conclusion": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "runId",
-                "runAttempt",
-                "event",
-                "status",
-                "conclusion",
-                "startedAt",
-                "url"
-              ],
-              "additionalProperties": false
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
             },
-            {
-              "type": "null"
+            "runAttempt": {
+              "type": "number"
+            },
+            "conclusion": {
+              "anyOf": [
+                {
+                  "const": "success"
+                },
+                {
+                  "const": "failure"
+                }
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
             }
-          ]
+          },
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
+          "additionalProperties": false
         },
         "source": {
           "type": "object",
@@ -413,61 +277,33 @@ JSON Schema for the tool's `structuredContent`:
           "const": "unchanged"
         },
         "latestRun": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "runId": {
-                  "type": "number"
-                },
-                "runAttempt": {
-                  "type": "number"
-                },
-                "event": {
-                  "type": "string"
-                },
-                "status": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "conclusion": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "runId",
-                "runAttempt",
-                "event",
-                "status",
-                "conclusion",
-                "startedAt",
-                "url"
-              ],
-              "additionalProperties": false
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
             },
-            {
-              "type": "null"
+            "runAttempt": {
+              "type": "number"
+            },
+            "conclusion": {
+              "anyOf": [
+                {
+                  "const": "success"
+                },
+                {
+                  "const": "failure"
+                }
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
             }
-          ]
+          },
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
+          "additionalProperties": false
         },
         "source": {
           "type": "object",
@@ -499,61 +335,33 @@ JSON Schema for the tool's `structuredContent`:
           "const": "applied"
         },
         "latestRun": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "runId": {
-                  "type": "number"
-                },
-                "runAttempt": {
-                  "type": "number"
-                },
-                "event": {
-                  "type": "string"
-                },
-                "status": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "conclusion": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "runId",
-                "runAttempt",
-                "event",
-                "status",
-                "conclusion",
-                "startedAt",
-                "url"
-              ],
-              "additionalProperties": false
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
             },
-            {
-              "type": "null"
+            "runAttempt": {
+              "type": "number"
+            },
+            "conclusion": {
+              "anyOf": [
+                {
+                  "const": "success"
+                },
+                {
+                  "const": "failure"
+                }
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
             }
-          ]
+          },
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
+          "additionalProperties": false
         },
         "source": {
           "type": "object",
@@ -591,61 +399,91 @@ JSON Schema for the tool's `structuredContent`:
           "const": "destroy_reported"
         },
         "latestRun": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "runId": {
-                  "type": "number"
-                },
-                "runAttempt": {
-                  "type": "number"
-                },
-                "event": {
-                  "type": "string"
-                },
-                "status": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "conclusion": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "startedAt": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "runId",
-                "runAttempt",
-                "event",
-                "status",
-                "conclusion",
-                "startedAt",
-                "url"
-              ],
-              "additionalProperties": false
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
             },
-            {
-              "type": "null"
+            "runAttempt": {
+              "type": "number"
+            },
+            "conclusion": {
+              "anyOf": [
+                {
+                  "const": "success"
+                },
+                {
+                  "const": "failure"
+                }
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
             }
-          ]
+          },
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
+            },
+            "runAttempt": {
+              "type": "number"
+            },
+            "artifactId": {
+              "type": "number"
+            },
+            "artifactCreatedAt": {
+              "type": "string"
+            }
+          },
+          "required": ["runId", "runAttempt", "artifactId", "artifactCreatedAt"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["state", "latestRun", "source"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "const": "setup_failed"
+        },
+        "latestRun": {
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "number"
+            },
+            "runAttempt": {
+              "type": "number"
+            },
+            "conclusion": {
+              "anyOf": [
+                {
+                  "const": "success"
+                },
+                {
+                  "const": "failure"
+                }
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": ["runId", "runAttempt", "conclusion", "startedAt", "url"],
+          "additionalProperties": false
         },
         "source": {
           "type": "object",
