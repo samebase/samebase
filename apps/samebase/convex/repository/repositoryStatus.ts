@@ -149,9 +149,9 @@ function buildRepositoryActionsAttention(args: {
 }
 
 /**
-The items of the setup status: the newest alchemy run when it did not succeed, the setup output that
-waits, and a destroy that a Destroy app run reported. An unreadable setup status gives no item, like any
-other unreadable fact.
+The items of the setup status: the wait for the first setup output, the last automatic apply that
+failed, a failed setup run, the setup output that waits, and a destroy that a run reported. An
+unreadable setup status gives no item, like any other unreadable fact.
 */
 function buildSetupStackAttention(args: {
   repository: RepositoryStatusRepository;
@@ -161,31 +161,25 @@ function buildSetupStackAttention(args: {
   if (setupStack === null || setupStack.state === "unavailable") {
     return [];
   }
-  const { latestRun, applied, pending } = setupStack;
+  const { latestRun, applied, pending, applyFailure } = setupStack;
+  const repositoryFullName = args.repository.githubRepositoryFullName;
   const items: RepositoryAttentionItem[] = [];
-  if (latestRun === null) {
+  if (latestRun === null && applied === null) {
     items.push({
       tool: null,
-      problem: `The alchemy workflow has not run on the default branch of ${args.repository.githubRepositoryFullName} yet. A push to the default branch starts it.`,
+      problem: `Waiting for the setup output of ${repositoryFullName}: its GitHub Actions publish it after the setup stack deploys. The runs are at https://github.com/${repositoryFullName}/actions. Call ${STATUS_TOOL} again when one finishes.`,
     });
-  } else if (latestRun.status !== "completed") {
-    items.push({
-      tool: null,
-      problem: `The alchemy workflow run ${latestRun.url} is ${latestRun.status ?? "not started"}. Call ${STATUS_TOOL} again when it completes.`,
-    });
-  } else if (latestRun.conclusion !== "success") {
-    items.push({
-      tool: null,
-      problem: `The alchemy workflow run ${latestRun.url} ended with ${latestRun.conclusion ?? "no conclusion"}. Read its log, then change alchemy.run.ts or run the workflow again.`,
-    });
+  }
+  if (applyFailure) {
+    items.push({ tool: null, problem: `Automatic apply failed: ${applyFailure.reason}` });
   }
   switch (pending.state) {
     case "none":
       break;
-    case "no_output":
+    case "failed":
       items.push({
         tool: null,
-        problem: `The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one: https://github.com/${args.repository.githubRepositoryFullName}/actions/workflows/alchemy.yml`,
+        problem: `Setup failed in run ${pending.source.runId}: https://github.com/${repositoryFullName}/actions/runs/${pending.source.runId}. Read its log, fix the cause in the repository, then run it again.`,
       });
       break;
     case "invalid_output":
@@ -197,7 +191,7 @@ function buildSetupStackAttention(args: {
     case "refused":
       items.push({
         tool: null,
-        problem: `Samebase cannot apply the setup output of alchemy run ${pending.source.runId}${pending.claim === null ? "" : ` (${pending.claim})`}: ${pending.reason}`,
+        problem: `Samebase cannot apply the setup output of run ${pending.source.runId}${pending.claim === null ? "" : ` (${pending.claim})`}: ${pending.reason}`,
       });
       break;
     case "deployed": {
@@ -214,7 +208,7 @@ function buildSetupStackAttention(args: {
       items.push({
         tool: APPLY_SETUP_OUTPUT_TOOL,
         artifactId: pending.source.artifactId,
-        problem: `The setup output of alchemy run ${pending.source.runId} is not applied yet. Workers: ${workers.join(", ") || "none"}. Convex projects: ${projects.join(", ") || "none"}.${waitsForMember}`,
+        problem: `The setup output of run ${pending.source.runId} is not applied yet. Workers: ${workers.join(", ") || "none"}. Convex projects: ${projects.join(", ") || "none"}.${waitsForMember}`,
       });
       break;
     }
@@ -222,7 +216,7 @@ function buildSetupStackAttention(args: {
       items.push({
         tool: APPLY_SETUP_OUTPUT_TOOL,
         artifactId: pending.source.artifactId,
-        problem: `Destroy app run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
+        problem: `Run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
       });
       break;
     default:
@@ -231,7 +225,7 @@ function buildSetupStackAttention(args: {
   if (applied?.state === "destroy_reported" && pending.state === "none") {
     items.push({
       tool: null,
-      problem: `Destroy app run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.`,
+      problem: `Run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.`,
     });
   }
   return items;

@@ -34,11 +34,11 @@ export const applySetupOutputContract = {
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `For a repository that its GitHub Actions set up (\`repository_create\` with provisioning
-repository_actions), the repository's alchemy workflow publishes a setup output after each deploy:
-the ids of the Workers and the Convex projects that its setup stack owns. \`repository_getStatus\`
-shows the newest one that waits (\`setupStack.pending\`). This action applies it: it reads the newest
-one again from the runs of that workflow on the default branch, stops when its artifact is not
-\`artifactId\` (a newer run replaced the one that the user reviewed), checks every claim with the
+repository_actions), the repository's setup stack publishes a setup output after each deploy: the
+ids of the Workers and the Convex projects that it owns. \`repository_getStatus\` shows the newest
+one that waits (\`setupStack.pending\`). This action applies it: it reads the newest one again from
+the runs on the default branch, stops when its artifact is not \`artifactId\` (a newer run replaced
+the one that the user reviewed), checks every claim with the
 organization's Cloudflare and Convex connections (the account and the team are the repository's,
 each Worker builds this repository through Workers Builds, each project exists in the team, each
 Convex code location is on the default branch), and attaches the Workers and projects in one step.
@@ -51,7 +51,7 @@ resource, a later output, or a Worker that a drift repair recreated, waits for t
 did not apply it by itself.
 
 The attached resources are managed by the setup stack in \`alchemy.run.ts\`: Samebase never deletes
-them or changes their provider settings. A destroy receipt, which the repository's \`Destroy app\`
-workflow uploads under the same artifact name after it destroyed the app, is recorded as a report;
-the attachments stay until they are removed.`,
+them or changes their provider settings. A destroy receipt, which the repository's confirmed destroy
+uploads under the same artifact name, is recorded as a report; the attachments stay until they are
+removed. A failed output reports a failed setup run and has nothing to apply (\`setup_failed\`).`,
 } as const;

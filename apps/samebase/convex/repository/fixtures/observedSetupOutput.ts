@@ -1,3 +1,5 @@
+import { strToU8, zipSync } from "fflate";
+
 // Captured with read-only `gh api` calls from samebase/tmp-alchemy-v2 on 2026-10-07, after the
 // template's `alchemy` workflow published its first setup output (run 37545425944, rerun once).
 
@@ -9,6 +11,7 @@ export const observedSetupOutputRepository = {
 
 // GET /repos/samebase/tmp-alchemy-v2/actions/workflows/alchemy.yml/runs?branch=main, the fields of
 // each run that the reader reads plus its name and numbers. Run 37545425944 is attempt 2 of a rerun.
+// The reader reads each run by id (GET .../actions/runs/{run_id}), which returns the same run object.
 export const observedSetupWorkflowRunPage = {
   total_count: 3,
   workflow_runs: [
@@ -148,40 +151,12 @@ export const observedSpikeArchiveBase64 =
 // Captured with read-only `gh api` calls from samebase/tmp-alchemy-06 on 2026-10-07, after the
 // confirmed destroy of the app in run 37612780148. The template ran that destroy as a job of its
 // `alchemy` workflow; it now runs it in the `Destroy app` workflow. So the destroy run below has
-// that workflow's `name` and `path`, and the alchemy run list leaves it out. Every other field is
-// as recorded.
+// that workflow's `name` and `path`. Every other field is as recorded.
 
 /** The repository's GitHub id and default branch at the time of the capture. */
 export const observedDestroyRepository = {
   githubRepositoryDatabaseId: "1408601277",
   defaultBranch: "main",
-};
-
-// GET /repos/samebase/tmp-alchemy-06/actions/workflows/alchemy.yml/runs?branch=main, the fields of
-// each run that the reader reads plus its name and numbers, without the destroy run (total_count 2
-// as recorded). Run 37606095039 is attempt 2 of a rerun, the deploy before the destroy.
-export const observedDestroyAlchemyRunPage = {
-  total_count: 1,
-  workflow_runs: [
-    {
-      id: 37606095039,
-      name: "alchemy",
-      path: ".github/workflows/alchemy.yml",
-      event: "push",
-      head_branch: "main",
-      head_sha: "0ca4d3e7df275a56b1b03da0882cc19ffe14e70e",
-      status: "completed",
-      conclusion: "success",
-      run_attempt: 2,
-      run_number: 1,
-      created_at: "2026-10-07T10:14:39Z",
-      updated_at: "2026-10-07T11:07:27Z",
-      run_started_at: "2026-10-07T11:05:58Z",
-      html_url: "https://github.com/samebase/tmp-alchemy-06/actions/runs/37606095039",
-      repository: { id: 1408601277 },
-      head_repository: { id: 1408601277 },
-    },
-  ],
 };
 
 // GET /repos/samebase/tmp-alchemy-06/actions/runs/37612780148, the same fields, with the Destroy app
@@ -258,3 +233,15 @@ export const observedDestroyArtifactPage = {
 /** GET /repos/samebase/tmp-alchemy-06/actions/artifacts/11479280115/zip, base64. */
 export const observedDestroyReceiptArchiveBase64 =
   "UEsDBBQACAAIAAxaR10AAAAAAAAAAAAAAAAaAAAAc2FtZWJhc2Utc2V0dXAtb3V0cHV0Lmpzb26r5lJQUCpLLSrOzM9TslIw1AHxi0sSS1KVrBSUUlKLS4ryK1NTlLhquQBQSwcII8GdoyoAAAArAAAAUEsBAi0DFAAIAAgADFpHXSPBnaMqAAAAKwAAABoAAAAAAAAAAAAgAKSBAAAAAHNhbWViYXNlLXNldHVwLW91dHB1dC5qc29uUEsFBgAAAAABAAEASAAAAHIAAAAAAA==";
+
+// No repository has published the failed output yet: the template writes it since 2026-10-07. The
+// failed run is the recorded run 37545425944 with only `conclusion` changed to failure, and its
+// artifact is the recorded artifact 11450791196 with only its content changed: the archive holds
+// the file that `publish-setup-output.ts --failed` writes, zipped here.
+const [recordedRun] = observedSetupWorkflowRunPage.workflow_runs;
+export const derivedFailedSetupRun = { ...recordedRun, conclusion: "failure" };
+export const derivedFailedSetupOutputArchive = zipSync({
+  "samebase-setup-output.json": strToU8(
+    `${JSON.stringify({ version: 1, state: "failed" }, null, 2)}\n`,
+  ),
+});

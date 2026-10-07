@@ -2,6 +2,8 @@ import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  derivedFailedSetupOutputArchive,
+  derivedFailedSetupRun,
   observedDestroyArtifactPage,
   observedDestroyReceiptArchiveBase64,
   observedDestroyRepository,
@@ -22,31 +24,28 @@ import {
   parseSetupOutput,
   readSetupOutputArchive,
   readSetupOutputSource,
-  selectSetupRuns,
   SETUP_OUTPUT_MAX_BYTES,
   zGitHubArtifactPage,
   zGitHubWorkflowRun,
-  zGitHubWorkflowRunPage,
 } from "./setupOutputModel";
 
 /*
 State axes of the reader, each tested below:
-- run: kept or filtered out by workflow path, event, branch, repository, or fork; order by start
-  time, which a rerun moves. A Destroy app run is never a setup run.
-- artifact: newest of a successful setup run or Destroy app run, or skipped for its name, expiry, a
-  run that did not succeed or is of another workflow, or provenance that differs from the run; order
-  by the artifact's creation time
+- artifact: the newest by its creation time, or skipped for its name, expiry, or a missing run
+- run: of any workflow, completed with success or failure on the live default branch of this
+  repository; refused when it has not finished, was cancelled, is on another branch, comes from a
+  fork, or differs from the artifact's run and commit
 - applied checkpoint: none, the same artifact, or a newer one, which an older output never replaces
 - archive: exactly the one JSON file, or more files, another name, a corrupt or oversized archive,
   or a file that is not one JSON document
-- output: version 1 deployed or destroyed, with one or several entries per list; any other
-  version, section, kind of resource, or field fails closed
+- output: version 1 deployed, destroyed, or failed, with one or several entries per list; any other
+  version, state, section, kind of resource, or field fails closed
 */
 
-const runs = zGitHubWorkflowRunPage.parse(observedSetupWorkflowRunPage).workflow_runs;
-const artifacts = zGitHubArtifactPage.parse(observedSetupOutputArtifactPage).artifacts;
+const runs = observedSetupWorkflowRunPage.workflow_runs.map((run) => zGitHubWorkflowRun.parse(run));
 const newestRun = runs.at(0);
 const firstRun = runs.at(2);
+const artifacts = zGitHubArtifactPage.parse(observedSetupOutputArtifactPage).artifacts;
 const observedArtifact = artifacts.at(0);
 const observedOrigin = observedArtifact?.workflow_run;
 if (!newestRun || !firstRun || !observedArtifact || !observedOrigin) {
@@ -60,47 +59,28 @@ if (!destroyReceipt) {
 const archiveOf = (files: Record<string, string>) =>
   zipSync(Object.fromEntries(Object.entries(files).map(([name, text]) => [name, strToU8(text)])));
 
-describe("selectSetupRuns", () => {
-  it("keeps the template's workflow runs on the default branch, newest start first", () => {
-    expect(selectSetupRuns(runs, observedSetupOutputRepository).map((run) => run.id)).toEqual([
-      37545425944, 37531835607, 37528068073,
-    ]);
-  });
-
-  it("drops runs of another workflow, event, branch, repository, or a fork", () => {
-    const filtered = [
-      { ...newestRun, id: 1, path: ".github/workflows/ci.yml" },
-      { ...newestRun, id: 2, event: "pull_request" },
-      { ...newestRun, id: 3, head_branch: "feature" },
-      { ...newestRun, id: 4, repository: { id: 1 } },
-      { ...newestRun, id: 5, head_repository: { id: 1 } },
-    ];
-    expect(selectSetupRuns(filtered, observedSetupOutputRepository)).toEqual([]);
-  });
-
-  it("orders a rerun of an older run by its new start time", () => {
-    const rerunOfFirst = { ...firstRun, run_attempt: 2, run_started_at: "2026-10-07T08:00:00Z" };
-    expect(
-      selectSetupRuns([newestRun, rerunOfFirst], observedSetupOutputRepository).map(
-        (run) => run.id,
-      ),
-    ).toEqual([37528068073, 37545425944]);
-  });
-});
-
 describe("orderSetupOutputArtifacts and readSetupOutputSource", () => {
-  const source = (artifact: typeof observedArtifact, run: typeof newestRun) =>
+  const read = (artifact: typeof observedArtifact, run: typeof newestRun) =>
     readSetupOutputSource({ artifact, run, repository: observedSetupOutputRepository });
 
   it("reads the recorded artifact of the recorded run with its attempt and creation time", () => {
     expect(orderSetupOutputArtifacts(artifacts)).toEqual([
       { artifact: observedArtifact, runId: 37545425944 },
     ]);
-    expect(source(observedArtifact, newestRun)).toEqual({
-      runId: 37545425944,
-      runAttempt: 2,
-      artifactId: 11450791196,
-      artifactCreatedAt: "2026-10-06T23:17:16Z",
+    expect(read(observedArtifact, newestRun)).toEqual({
+      source: {
+        runId: 37545425944,
+        runAttempt: 2,
+        artifactId: 11450791196,
+        artifactCreatedAt: "2026-10-06T23:17:16Z",
+      },
+      run: {
+        runId: 37545425944,
+        runAttempt: 2,
+        conclusion: "success",
+        startedAt: "2026-10-06T23:15:54Z",
+        url: "https://github.com/samebase/tmp-alchemy-v2/actions/runs/37545425944",
+      },
     });
   });
 
@@ -118,49 +98,61 @@ describe("orderSetupOutputArtifacts and readSetupOutputSource", () => {
     ).toEqual([]);
   });
 
-  it("reads the recorded destroy receipt of a Destroy app run, which is not a setup run", () => {
-    expect(selectSetupRuns([destroyRun], observedDestroyRepository)).toEqual([]);
+  it("reads the recorded destroy receipt of a run of another workflow", () => {
     expect(
       readSetupOutputSource({
         artifact: destroyReceipt,
         run: destroyRun,
         repository: observedDestroyRepository,
       }),
-    ).toEqual({
-      runId: 37612780148,
-      runAttempt: 1,
-      artifactId: 11479280115,
-      artifactCreatedAt: "2026-10-07T11:16:41Z",
+    ).toMatchObject({
+      source: {
+        runId: 37612780148,
+        runAttempt: 1,
+        artifactId: 11479280115,
+        artifactCreatedAt: "2026-10-07T11:16:41Z",
+      },
+      run: { runId: 37612780148, conclusion: "success" },
     });
-    expect(
-      readSetupOutputSource({
-        artifact: destroyReceipt,
-        run: { ...destroyRun, path: ".github/workflows/ci.yml" },
-        repository: observedDestroyRepository,
-      }),
-    ).toBeNull();
     expect(
       readSetupOutputArchive(Buffer.from(observedDestroyReceiptArchiveBase64, "base64")),
     ).toEqual({ ok: true, output: { version: 1, state: "destroyed" } });
   });
 
-  it("refuses a run that did not succeed, is not a setup run, or differs from the artifact", () => {
-    expect(source(observedArtifact, { ...newestRun, conclusion: null })).toBeNull();
-    expect(source(observedArtifact, { ...newestRun, conclusion: "failure" })).toBeNull();
-    expect(source(observedArtifact, { ...newestRun, head_branch: "feature" })).toBeNull();
+  it("reads the failed output of a failed run", () => {
+    expect(read(observedArtifact, zGitHubWorkflowRun.parse(derivedFailedSetupRun))).toMatchObject({
+      run: { runId: 37545425944, conclusion: "failure" },
+    });
+    expect(readSetupOutputArchive(derivedFailedSetupOutputArchive)).toEqual({
+      ok: true,
+      output: { version: 1, state: "failed" },
+    });
+  });
+
+  it("refuses a run that has not finished, was cancelled, or is off the default branch", () => {
+    expect(read(observedArtifact, { ...newestRun, status: "in_progress", conclusion: null })).toBe(
+      null,
+    );
+    expect(read(observedArtifact, { ...newestRun, conclusion: "cancelled" })).toBeNull();
+    expect(read(observedArtifact, { ...newestRun, head_branch: "feature" })).toBeNull();
+    expect(read(observedArtifact, { ...newestRun, repository: { id: 1 } })).toBeNull();
+  });
+
+  it("refuses a run from a fork or a run that differs from the artifact", () => {
+    expect(read(observedArtifact, { ...newestRun, head_repository: { id: 1 } })).toBeNull();
     expect(
-      source(
+      read(
         { ...observedArtifact, workflow_run: { ...observedOrigin, head_sha: "0".repeat(40) } },
         newestRun,
       ),
     ).toBeNull();
     expect(
-      source(
+      read(
         { ...observedArtifact, workflow_run: { ...observedOrigin, repository_id: 1 } },
         newestRun,
       ),
     ).toBeNull();
-    expect(source(observedArtifact, firstRun)).toBeNull();
+    expect(read(observedArtifact, firstRun)).toBeNull();
   });
 
   it("orders by the artifact's creation time, which a rerun of an older run makes newest", () => {
@@ -247,10 +239,14 @@ describe("readSetupOutputArchive", () => {
 });
 
 describe("parseSetupOutput", () => {
-  it("reads the destroy receipt and several entries per list", () => {
+  it("reads the destroy receipt, the failed output, and several entries per list", () => {
     expect(parseSetupOutput({ version: 1, state: "destroyed" })).toEqual({
       ok: true,
       output: { version: 1, state: "destroyed" },
+    });
+    expect(parseSetupOutput({ version: 1, state: "failed" })).toEqual({
+      ok: true,
+      output: { version: 1, state: "failed" },
     });
     // The Workers, roots, and code locations of the shared-convex-monorepo-fixture in
     // src/repository/dashboard/RepositoryOverviewDialogsVisualFixture.tsx.
@@ -301,6 +297,7 @@ describe("parseSetupOutput", () => {
         convex: { ...observedSetupOutput.convex, region: "aws-us-east-1" },
       },
       { version: 1, state: "destroyed", reason: "manual" },
+      { version: 1, state: "failed", runId: 1 },
       { version: 1, state: "paused" },
       [],
     ]) {

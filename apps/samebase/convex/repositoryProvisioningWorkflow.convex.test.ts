@@ -884,7 +884,7 @@ describe("repository_actions provisioning workflow", () => {
     const actionsRequests = github.requests.map(({ method, path }) => `${method} ${path}`);
     expect(
       actionsRequests.filter(
-        (request) => request.includes("/actions/") && !request.includes("/actions/workflows/"),
+        (request) => request.includes("/actions/") && !request.includes("/actions/artifacts"),
       ),
     ).toEqual([
       "GET /repos/samebase/actions-app/actions/secrets/public-key",
@@ -894,10 +894,11 @@ describe("repository_actions provisioning workflow", () => {
       "GET /repos/samebase/actions-app/actions/variables/CONVEX_TEAM_ID",
       "POST /repos/samebase/actions-app/actions/variables",
     ]);
-    // After finish, observeFirstSetupOutput reads the setup runs a bounded number of times. This
-    // fake GitHub has no alchemy workflow, so every read fails and the observer stops after the last.
-    expect(actionsRequests.filter((request) => request.includes("/actions/workflows/"))).toEqual(
-      Array(10).fill("GET /repos/samebase/actions-app/actions/workflows/alchemy.yml/runs"),
+    // After finish, observeFirstSetupOutput reads the setup output artifacts a bounded number of
+    // times. This fake GitHub has no artifacts endpoint, so every read fails and the observer stops
+    // after the last.
+    expect(actionsRequests.filter((request) => request.includes("/actions/artifacts"))).toEqual(
+      Array(10).fill("GET /repos/samebase/actions-app/actions/artifacts"),
     );
     expect(
       github.requests.find(
