@@ -137,6 +137,16 @@ const clearMatchingStagingSnapshotArgsValidator = {
   branch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
 };
+const committedStagedFileValidator = object({
+  snapshot: stagedFileSnapshotValidator,
+  committedContent: contentValidator,
+  committedBlobSha: nullableStringValidator,
+});
+const clearCommittedStagingArgsValidator = {
+  repositoryId: repositoryIdValidator,
+  branch: branchValidator,
+  committedFiles: array(committedStagedFileValidator),
+};
 
 const deletionArgsValidator = {
   repositoryId: repositoryIdValidator,
@@ -446,17 +456,14 @@ export const deletePendingUploadBlob = mutation({
       userId: ctx.viewer.userId,
     });
 
+    // Any repository can reference the blob, not only `args.repositoryId`.
     const stagedFile = await ctx.db
       .query("repositoryStagedFiles")
-      .withIndex("by_repository_and_storageId", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("storageId", args.storageId),
-      )
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
       .first();
     const cachedBlob = await ctx.db
       .query("observations_repositoryFiles_blobs")
-      .withIndex("by_repository_and_storageId", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("storageId", args.storageId),
-      )
+      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
       .first();
     if (stagedFile || cachedBlob) {
       throw new Error("Cannot delete a blob that is already attached to staging.");
@@ -781,6 +788,68 @@ export const clearMatchingStagingSnapshot = internalMutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     return await clearMatchingStagingSnapshotImpl(ctx, args);
+  },
+});
+
+/**
+ * Clear the `branch` staging rows that a commit wrote to GitHub. `snapshot` is
+ * the row the commit read, `committedContent` is what it wrote at
+ * `snapshot.filePath`, and `committedBlobSha` is that blob, or null when the
+ * commit deleted the file. A row edited after the snapshot keeps its edits: its
+ * base becomes the committed blob, with the snapshot content its edits started
+ * from as `initialContent`, so the next rebase replays only the newer edits.
+ */
+export const clearCommittedStaging = internalMutation({
+  args: clearCommittedStagingArgsValidator,
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    for (const { snapshot, committedContent, committedBlobSha } of args.committedFiles) {
+      if (snapshot.repositoryId !== args.repositoryId) {
+        throw new Error("Staging snapshot belongs to a different repository.");
+      }
+      if (snapshot.branch !== args.branch) {
+        throw new Error("Staging snapshot belongs to a different branch.");
+      }
+
+      const current = await ctx.db.get(snapshot._id);
+      if (!current) {
+        continue;
+      }
+
+      if (
+        matchesStagedFileSnapshot({ current, snapshot }) ||
+        (current.fileDeleted === snapshot.fileDeleted &&
+          current.kind === snapshot.kind &&
+          current.filePath === snapshot.filePath &&
+          current.storageId === snapshot.storageId &&
+          current.stagedBlobSha === snapshot.stagedBlobSha &&
+          (current.fileDeleted || current.content === committedContent))
+      ) {
+        await ctx.db.delete(current._id);
+        for (const filePath of new Set([current.filePath, current.initialFilePath])) {
+          await scheduleCollaborativeFileUpdatesCleanup(ctx, {
+            repositoryId: args.repositoryId,
+            branch: args.branch,
+            filePath,
+            cutoffTimestamp: current.lastEditTime + 1,
+          });
+        }
+        continue;
+      }
+
+      await ctx.db.patch(
+        current._id,
+        committedBlobSha === null
+          ? { initialFilePath: current.filePath, initialContent: "", parentCommitSha: null }
+          : {
+              initialFilePath: snapshot.filePath,
+              initialContent: snapshot.content,
+              parentCommitSha: committedBlobSha,
+            },
+      );
+    }
+
+    return null;
   },
 });
 
@@ -1672,9 +1741,33 @@ export const reconcileStagingWithTree = internalMutation({
 
     const cleanupCutoffTimestamp = Date.now() + 1;
     for (const instruction of args.instructions) {
+      // Commits and clears can remove rows while the pull action runs.
+      const staged = await ctx.db.get(instruction.stagingId);
+      if (!staged) {
+        continue;
+      }
+
       if (instruction.action === "delete") {
-        await ctx.db.delete(instruction.stagingId);
+        // The pull deletes rows it read as unchanged. A row edited since then
+        // keeps its edits.
+        if (hasStagedFileChanges(staged)) {
+          continue;
+        }
+        await ctx.db.delete(staged._id);
+        for (const filePath of new Set([staged.filePath, staged.initialFilePath])) {
+          await scheduleCollaborativeFileUpdatesCleanup(ctx, {
+            repositoryId: args.repositoryId,
+            branch: staged.branch,
+            filePath,
+            cutoffTimestamp: cleanupCutoffTimestamp,
+          });
+        }
       } else {
+        // A staged delete keeps its base so the commit reports an upstream edit
+        // as a conflict. The pull can read the row before the delete.
+        if (staged.fileDeleted && instruction.parentCommitSha !== null) {
+          continue;
+        }
         const patch: Record<string, unknown> = {
           parentCommitSha: instruction.parentCommitSha,
         };
@@ -1683,16 +1776,6 @@ export const reconcileStagingWithTree = internalMutation({
         }
         await ctx.db.patch(instruction.stagingId, patch);
       }
-    }
-
-    // Clean up collaborative updates for deleted staging records
-    // (schedule batched deletion to avoid hitting read limits)
-    const hasDeletes = args.instructions.some((i) => i.action === "delete");
-    if (hasDeletes) {
-      await scheduleCollaborativeUpdatesCleanup(ctx, {
-        repositoryId: args.repositoryId,
-        cutoffTimestamp: cleanupCutoffTimestamp,
-      });
     }
 
     return null;

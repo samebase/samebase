@@ -301,6 +301,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/email.convex.test.ts",
   "apps/samebase/convex/email.ts",
   "apps/samebase/convex/feedback.ts",
+  "apps/samebase/convex/fileStaging.convex.test.ts",
   "apps/samebase/convex/fileStaging.test.ts",
   "apps/samebase/convex/fileStaging.ts",
   "apps/samebase/convex/fileStagingActions.branchCache.test.ts",

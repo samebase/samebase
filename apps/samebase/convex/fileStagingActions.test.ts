@@ -625,6 +625,28 @@ describe("buildCommitPreviewFromStagedFiles", () => {
       }),
     ]);
   });
+
+  it("shows a deleted renamed file at the path the commit deletes", () => {
+    const preview = buildCommitPreviewFromStagedFiles({
+      branch: "feature",
+      includePatch: false,
+      stagedFiles: [
+        {
+          filePath: "b.md",
+          initialFilePath: "a.md",
+          content: "text\n",
+          initialContent: "text\n",
+          fileDeleted: true,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+      ],
+    });
+
+    expect(preview.files).toEqual([
+      expect.objectContaining({ status: "deleted", path: "a.md", previousPath: undefined }),
+    ]);
+  });
 });
 
 describe("buildRemoteComparePreviewFile", () => {
@@ -1328,6 +1350,46 @@ describe("createCommitWithMultipleFiles", () => {
     }
     expect(deletionEntry.sha).toBe(null);
     expect(readInlineContent(additionEntry)).toBe("file content");
+  });
+
+  it("Test 3b: Deleting a renamed file removes its original path", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    const createCommitSpy = vi
+      .spyOn(octokit.rest.git, "createCommit")
+      .mockResolvedValue(makeCreateCommitResponse("newtree123", "commit123"));
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "b.md",
+          content: "file content",
+          fileDeleted: true,
+          initialFilePath: "a.md",
+          initialContent: "file content",
+          parentCommitSha: "parent123",
+        },
+      ],
+      branch: "main",
+    });
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+    expect(createTreeCall.tree).toEqual([
+      { path: "a.md", mode: "100644", type: "blob", sha: null },
+    ]);
+    expect(createCommitSpy).toHaveBeenCalledWith(expect.objectContaining({ message: "D a.md" }));
   });
 
   /**

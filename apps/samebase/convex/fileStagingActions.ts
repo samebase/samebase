@@ -814,14 +814,14 @@ function formatUpstreamConflictError(paths: string[]): string {
   return `Commit conflicts with upstream changes. Resolve and retry: ${uniquePaths.join(", ")}`;
 }
 
-export async function inspectStagedFilesAgainstLatestHead(args: {
+export async function inspectStagedFilesAgainstLatestHead<File extends StagedFileForCommit>(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branch: string;
-  stagedFiles: StagedFileForCommit[];
+  stagedFiles: File[];
 }): Promise<{
-  rebasedFiles: StagedFileForCommit[];
+  rebasedFiles: File[];
   conflicts: StagedFileRebaseConflict[];
 }> {
   if (args.stagedFiles.length === 0) {
@@ -939,7 +939,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   await Promise.all(Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)));
 
   const conflicts: StagedFileRebaseConflict[] = [];
-  const rebasedFiles: StagedFileForCommit[] = [];
+  const rebasedFiles: File[] = [];
 
   for (const file of args.stagedFiles) {
     const upstreamLocation = resolveUpstreamLocationForFile(file);
@@ -1089,13 +1089,13 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   };
 }
 
-export async function rebaseStagedFilesOnLatestHead(args: {
+export async function rebaseStagedFilesOnLatestHead<File extends StagedFileForCommit>(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branch: string;
-  stagedFiles: StagedFileForCommit[];
-}): Promise<StagedFileForCommit[]> {
+  stagedFiles: File[];
+}): Promise<File[]> {
   const inspection = await inspectStagedFilesAgainstLatestHead(args);
   if (inspection.conflicts.length > 0) {
     throw new Error(formatUpstreamConflictError(inspection.conflicts.map((file) => file.filePath)));
@@ -1506,8 +1506,8 @@ export function buildCommitPreviewFromStagedFiles({
 
       return buildCommitPreviewFileFromContents({
         status,
-        path: file.filePath,
-        previousPath: renamed ? file.initialFilePath : undefined,
+        path: file.fileDeleted ? file.initialFilePath : file.filePath,
+        previousPath: renamed && !file.fileDeleted ? file.initialFilePath : undefined,
         isBinary,
         mimeType: isBinary ? file.mime : undefined,
         oldContent: isBinary ? "" : file.initialContent,
@@ -2561,8 +2561,9 @@ export const pullFromGitHubInternal = internalAction({
       includeUnchanged: true,
     });
 
-    const treeMapByBranch = new Map<string, Promise<Map<string, string>>>();
-    const getTreeMapForBranch = (branch: string): Promise<Map<string, string>> => {
+    // null is a branch deleted on GitHub, such as a merged pull request branch.
+    const treeMapByBranch = new Map<string, Promise<Map<string, string> | null>>();
+    const getTreeMapForBranch = (branch: string): Promise<Map<string, string> | null> => {
       const existing = treeMapByBranch.get(branch);
       if (existing) {
         return existing;
@@ -2573,6 +2574,11 @@ export const pullFromGitHubInternal = internalAction({
         owner: githubAccess.githubOwnerLogin,
         repo: connectedRepository.githubRepositoryName,
         branch,
+      }).catch((error: unknown) => {
+        if (getErrorStatus(error) === 404) {
+          return null;
+        }
+        throw error;
       });
       treeMapByBranch.set(branch, loaded);
       return loaded;
@@ -2598,7 +2604,6 @@ export const pullFromGitHubInternal = internalAction({
       version: number;
       stagedContent: string;
       initialContent: string;
-      fileDeleted: boolean;
     }> = [];
 
     for (const staged of allStaged) {
@@ -2610,14 +2615,20 @@ export const pullFromGitHubInternal = internalAction({
         continue;
       }
 
-      const pathInTree = staged.initialFilePath;
-      const newSha = branchTreeMap.get(pathInTree);
-      const fileExistsOnGitHub = newSha !== undefined;
-
       if (!isEdited) {
         instructions.push({ action: "delete", stagingId: staged._id });
         continue;
       }
+
+      // Edits on a deleted branch keep their base so they can still be read or
+      // discarded.
+      if (!branchTreeMap) {
+        continue;
+      }
+
+      const pathInTree = staged.initialFilePath;
+      const newSha = branchTreeMap.get(pathInTree);
+      const fileExistsOnGitHub = newSha !== undefined;
 
       if (!fileExistsOnGitHub) {
         instructions.push({
@@ -2642,6 +2653,11 @@ export const pullFromGitHubInternal = internalAction({
           }
           continue;
         }
+        // A staged delete keeps its base so the commit reports the upstream
+        // edit as a conflict instead of deleting it.
+        if (staged.fileDeleted) {
+          continue;
+        }
         blobFetchQueue.push({
           stagingId: staged._id,
           sha: newSha,
@@ -2651,7 +2667,6 @@ export const pullFromGitHubInternal = internalAction({
           version: staged.version,
           stagedContent: staged.content,
           initialContent: staged.initialContent,
-          fileDeleted: staged.fileDeleted,
         });
       }
     }
@@ -2667,53 +2682,51 @@ export const pullFromGitHubInternal = internalAction({
         const buffer = Buffer.from(blob.data.content, "base64");
         const newContent = buffer.toString("utf-8");
         let shouldAdvanceParentCommit = true;
-        if (!item.fileDeleted) {
-          const rebaseResult = rebaseStagedContent({
-            baseContent: item.initialContent,
-            stagedContent: item.stagedContent,
-            upstreamContent: newContent,
-          });
+        const rebaseResult = rebaseStagedContent({
+          baseContent: item.initialContent,
+          stagedContent: item.stagedContent,
+          upstreamContent: newContent,
+        });
 
-          if (rebaseResult.content !== item.stagedContent) {
-            try {
-              await ctx.runMutation(internal.collaborative.pushContentUpdate, {
-                repositoryId: args.repositoryId,
-                filePath: item.filePath,
-                branch: item.branch,
-                expectedVersion: item.version,
-                newContent: rebaseResult.content,
-                userId: args.userId,
+        if (rebaseResult.content !== item.stagedContent) {
+          try {
+            await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+              repositoryId: args.repositoryId,
+              filePath: item.filePath,
+              branch: item.branch,
+              expectedVersion: item.version,
+              newContent: rebaseResult.content,
+              userId: args.userId,
+            });
+          } catch (error) {
+            if (!isStaleBaseVersionError(error)) {
+              throw error;
+            }
+
+            const latestStaging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
+              repositoryId: args.repositoryId,
+              originalFilePath: item.initialFilePath,
+              branch: item.branch,
+            });
+
+            if (!latestStaging) {
+              shouldAdvanceParentCommit = false;
+            } else if (!latestStaging.fileDeleted) {
+              const retriedRebase = rebaseStagedContent({
+                baseContent: latestStaging.initialContent,
+                stagedContent: latestStaging.content,
+                upstreamContent: newContent,
               });
-            } catch (error) {
-              if (!isStaleBaseVersionError(error)) {
-                throw error;
-              }
 
-              const latestStaging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
-                repositoryId: args.repositoryId,
-                originalFilePath: item.initialFilePath,
-                branch: item.branch,
-              });
-
-              if (!latestStaging) {
-                shouldAdvanceParentCommit = false;
-              } else if (!latestStaging.fileDeleted) {
-                const retriedRebase = rebaseStagedContent({
-                  baseContent: latestStaging.initialContent,
-                  stagedContent: latestStaging.content,
-                  upstreamContent: newContent,
+              if (retriedRebase.content !== latestStaging.content) {
+                await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+                  repositoryId: args.repositoryId,
+                  filePath: latestStaging.filePath,
+                  branch: item.branch,
+                  expectedVersion: latestStaging.version,
+                  newContent: retriedRebase.content,
+                  userId: args.userId,
                 });
-
-                if (retriedRebase.content !== latestStaging.content) {
-                  await ctx.runMutation(internal.collaborative.pushContentUpdate, {
-                    repositoryId: args.repositoryId,
-                    filePath: latestStaging.filePath,
-                    branch: item.branch,
-                    expectedVersion: latestStaging.version,
-                    newContent: retriedRebase.content,
-                    userId: args.userId,
-                  });
-                }
               }
             }
           }
@@ -2757,6 +2770,10 @@ export const pullFromGitHubInternal = internalAction({
       connectedRepository.defaultBranch,
     ]);
     for (const branch of touchedBranches) {
+      const treeMap = treeMapByBranch.get(branch);
+      if (treeMap && (await treeMap) === null) {
+        continue;
+      }
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
         repositoryId: args.repositoryId,
@@ -3472,9 +3489,10 @@ export async function createCommitWithMultipleFiles({
 
   for (const file of changedResolvedStagedFiles) {
     if (file.fileDeleted) {
-      // Only delete paths that actually exist in the repo
+      // Only delete paths that actually exist in the repo. A renamed row still
+      // exists upstream at initialFilePath.
       if (file.parentCommitSha !== null) {
-        pathsToDelete.add(file.filePath);
+        pathsToDelete.add(file.initialFilePath);
       }
     } else {
       const isRenamed = file.filePath !== file.initialFilePath;
@@ -3721,7 +3739,7 @@ export const commitAllStaged = internalAction({
     const fullRepo = `${repoOwner}/${repoName}`;
 
     // Get the staging record
-    const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
+    const changedFiles: DraftSourceStagingRecord[] = await ctx.runQuery(
       internal.fileStaging.listAllStagedFiles,
       {
         repositoryId: args.repositoryId,
@@ -3756,7 +3774,10 @@ export const commitAllStaged = internalAction({
       owner: repoOwner,
       repo: repoName,
       branch: commitBranch,
-      stagedFiles: changedFiles,
+      stagedFiles: changedFiles.map((file) => ({
+        ...file,
+        snapshot: stripCreationTimeFromStagingRecord(file),
+      })),
     });
 
     // Create a commit with all staged files
@@ -3843,12 +3864,20 @@ export const commitAllStaged = internalAction({
       }
     }
 
-    // 4. NOW clear staging. Client will refetch with correct tree + blobs.
-    await ctx.runMutation(internal.fileStaging.clearAllStagingForOperation, {
+    // 4. NOW clear the committed staging rows. Client will refetch with correct
+    //    tree + blobs. Rows edited after `changedFiles` was read keep their edits.
+    await ctx.runMutation(internal.fileStaging.clearCommittedStaging, {
       repositoryId: args.repositoryId,
-      userId: args.userId,
       branch: commitBranch,
-      skipTreeUpdate: true,
+      committedFiles: resolvedChangedFiles.map((file) => ({
+        snapshot: file.snapshot,
+        committedContent: file.content,
+        committedBlobSha: file.fileDeleted
+          ? null
+          : isBinaryStagedFile(file)
+            ? (file.stagedBlobSha ?? null)
+            : computeGitBlobShaFromText(file.content),
+      })),
     });
 
     return null;
