@@ -1655,6 +1655,7 @@ describe("RepositoryOverviewPage", () => {
               addCloudflareWorker: { disabled: false },
               addConvexProject: { disabled: false },
               providerActionBlockReason: null,
+              providerSettingsOwner: null,
               roots: [],
             }}
             workspace={{
@@ -1715,6 +1716,7 @@ describe("RepositoryOverviewPage", () => {
               addCloudflareWorker: { disabled: true },
               addConvexProject: { disabled: true },
               providerActionBlockReason: "A provider operation is in progress.",
+              providerSettingsOwner: null,
               roots: [
                 {
                   rootDirectory: "/",
@@ -1819,6 +1821,7 @@ describe("RepositoryOverviewPage", () => {
                   addCloudflareWorker: { disabled: true },
                   addConvexProject: { disabled: true },
                   providerActionBlockReason: null,
+                  providerSettingsOwner: null,
                   roots: [],
                 }}
                 workspace={workspace}
@@ -1883,6 +1886,7 @@ describe("RepositoryDeleteDialogContent", () => {
           hasCloudflareProvision: true,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: true,
+          setupStack: null,
         }}
       />,
     );
@@ -1904,12 +1908,42 @@ describe("RepositoryDeleteDialogContent", () => {
           hasCloudflareProvision: false,
           canRemoveConvexProvision: true,
           canRemoveCloudflareProvision: false,
+          setupStack: null,
         }}
       />,
     );
 
     expect(markup).toContain("Also delete the Convex project and deployment");
     expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
+  });
+
+  it("names what removal keeps and links the destroy for a repository that its GitHub Actions set up", () => {
+    const markup = renderToStaticMarkup(
+      <RepositoryDeleteDialogContent
+        {...baseProps}
+        target={{
+          repositoryId: fakeRepositoryId(),
+          githubRepositoryFullName: "ada/chess-merge",
+          isSamebaseManaged: true,
+          canRemoveGithubRepo: true,
+          hasConvexProvision: true,
+          hasCloudflareProvision: true,
+          canRemoveConvexProvision: false,
+          canRemoveCloudflareProvision: false,
+          setupStack: { workerNames: ["chess-merge"], convexCodeLocations: ["convex.json"] },
+        }}
+      />,
+    );
+
+    expect(markup).toContain(
+      "Samebase keeps the Worker chess-merge, the Convex project at convex.json. To delete what the setup stack in alchemy.run.ts created, first open the",
+    );
+    expect(markup).toContain(
+      'href="https://github.com/ada/chess-merge/actions/workflows/destroy.yml"',
+    );
+    expect(markup).toContain(
+      'workflow, click Run workflow, and type <span class="font-mono">delete ada/chess-merge</span> in its field.',
+    );
   });
 
   it("shows the server block reason and disables removal", () => {
@@ -1926,6 +1960,7 @@ describe("RepositoryDeleteDialogContent", () => {
           hasCloudflareProvision: false,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: false,
+          setupStack: null,
         }}
       />,
     );
@@ -3367,6 +3402,66 @@ describe("buildRepositorySettingsState", () => {
         "Production and preview use different API tokens: production (producti), preview (preview-).",
       ),
     });
+  });
+
+  it("leaves the Builds token and deploy keys of a setup stack repository to its stack", () => {
+    const workerId = fakeCloudflareWorkerId("worker-setup-stack");
+    const buildState = (providerPlan: RepositorySettingsBuilderRepository["providerPlan"]) =>
+      buildRepositorySettingsState({
+        addCloudflareWorkerOnClick: vi.fn(),
+        cloudflareAccount: undefined,
+        cloudflareBuildTokens: {
+          state: "loaded",
+          tokens: [{ name: "alchemy-samebase_tmp-alchemy-v2", uuid: "12345678-token" }],
+        },
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
+          builds: [
+            makeAvailableRepositorySettingsCloudflareBuildsObservation({
+              workerId,
+              builds: {
+                state: "connected",
+                productionBuildTokenUuid: "12345678-token",
+                previewBuildTokenUuid: "12345678-token",
+              },
+              productionBuild: { state: "unavailable", reasons: ["request_failed"] },
+            }),
+          ],
+          convexBuildAccess: [
+            { state: "available", workerId, convexBuildAccess: { state: "not_configured" } },
+          ],
+        }),
+        configureWorkersBuildsForGitHubOnClick: vi.fn(),
+        convexObservations: {
+          state: "loaded",
+          refreshFailed: false,
+          reload: () => {},
+          observations: [],
+        },
+        pendingAction: null,
+        repository: makeRepositorySettingsBuilderRepository({
+          cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+          providerPlan,
+        }),
+        rotateConvexDeployKeysForWorkersBuildsOnClick: vi.fn(),
+      });
+
+    const samebaseState = buildState(null);
+    expect(samebaseState.providerSettingsOwner).toBeNull();
+    expect(
+      getRepositorySettingsResource(samebaseState, "/", "cloudflare").actions?.map(
+        (action) => action.label,
+      ),
+    ).toEqual(["Change API token"]);
+
+    const stackState = buildState({
+      provisioning: "repository_actions",
+      convexConfigPath: "convex.json",
+      ciSecrets: { state: "written", writtenAt: 1, credentialRevision: 1 },
+    });
+    expect(stackState.providerSettingsOwner).toContain("The setup stack in alchemy.run.ts");
+    expect(getRepositorySettingsResource(stackState, "/", "cloudflare").actions).toBeUndefined();
+    expect(stackState.addCloudflareWorker.disabled).toBe(false);
   });
 
   it("shows readable planned targets while managed setup is active", () => {

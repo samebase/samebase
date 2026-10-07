@@ -237,6 +237,7 @@ describe("actionsStarterTemplateManifest", () => {
     expect(filePaths).toEqual(
       expect.arrayContaining([
         ".github/workflows/alchemy.yml",
+        ".github/workflows/destroy.yml",
         "alchemy.run.ts",
         "scripts/build-cloudflare.ts",
         "scripts/ensure-convex-auth.ts",

@@ -555,6 +555,7 @@ describe("NewAppPage", () => {
     const container = await mountPage();
 
     expect(container.textContent).not.toContain("in Providers.");
+    expect(container.textContent).not.toContain("Cloudflare Workers and Pages GitHub App");
     const actionsOption = (await openSetupOptions(container)).at(1);
     if (!actionsOption) {
       throw new Error("GitHub Actions setup option was not rendered.");
@@ -563,6 +564,9 @@ describe("NewAppPage", () => {
       actionsOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
     });
     await act(async () => actionsOption.click());
+    expect(container.textContent).toContain(
+      "The setup needs the Cloudflare Workers and Pages GitHub App on",
+    );
     expect(container.querySelector("[aria-label='Convex project name']")).toBeNull();
     expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
     expect(document.getElementById("new-app-convex-production-region")).toBeNull();

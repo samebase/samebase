@@ -17,6 +17,11 @@ repository overview shows. It changes nothing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
   first 6 open pull requests, most recently updated first. Each lists its checks and, per app, the
   preview build and preview URL.
+- Setup stack, for a repository that its GitHub Actions set up (null for any other): the newest run
+  of its `alchemy` workflow on the default branch in any state, the setup output that Samebase
+  applied, and the newest output that it did not apply yet, with the Workers and Convex projects it
+  lists and, before the first apply, why Samebase does not apply it by itself. A destroy receipt is
+  the report of a run of its `Destroy app` workflow: the app facts show what is left.
 - Attention items: each names a problem and the tool that fixes it. The provider setup state comes
   first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
   the only item names `repository_retryProviderSetup`. When Cloudflare setup is pending, an item
@@ -25,7 +30,10 @@ repository overview shows. It changes nothing.
   Builds settings are missing or use different tokens, and
   `repository_cloudflare_rotateConvexDeployKeys` fixes a Worker whose Convex deploy key is missing
   or targets another project. "Deploy the Convex project to production first" means that a project
-  has no production deployment yet, so no deploy key can be installed.
+  has no production deployment yet, so no deploy key can be installed. For a repository that its
+  GitHub Actions set up, the setup stack owns those settings, so those items name no tool; an item
+  names `repository_setupOutput_apply` with the `artifactId` of the setup output that waits for a
+  member. Show the user its Workers and Convex projects before the apply.
 
 Checks give the total, failed, pending, and unknown counts of every check, and the names of the
 failed checks among the first 100 that GitHub lists; `failedNamesComplete` is false when a failed
@@ -452,6 +460,400 @@ JSON Schema for the tool's `structuredContent`:
         "additionalProperties": false
       }
     },
+    "setupStack": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "available"
+            },
+            "latestRun": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "number"
+                    },
+                    "runAttempt": {
+                      "type": "number"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "conclusion": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "runId",
+                    "runAttempt",
+                    "event",
+                    "status",
+                    "conclusion",
+                    "startedAt",
+                    "url"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "applied": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "applied"
+                        },
+                        "runId": {
+                          "type": "number"
+                        },
+                        "runAttempt": {
+                          "type": "number"
+                        },
+                        "artifactId": {
+                          "type": "number"
+                        },
+                        "artifactCreatedAt": {
+                          "type": "string"
+                        },
+                        "outputVersion": {
+                          "const": 1
+                        },
+                        "appliedAt": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "runId",
+                        "runAttempt",
+                        "artifactId",
+                        "artifactCreatedAt",
+                        "outputVersion",
+                        "appliedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "const": "destroy_reported"
+                        },
+                        "runId": {
+                          "type": "number"
+                        },
+                        "runAttempt": {
+                          "type": "number"
+                        },
+                        "artifactId": {
+                          "type": "number"
+                        },
+                        "artifactCreatedAt": {
+                          "type": "string"
+                        },
+                        "reportedAt": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "runId",
+                        "runAttempt",
+                        "artifactId",
+                        "artifactCreatedAt",
+                        "reportedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pending": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "const": "none"
+                    }
+                  },
+                  "required": ["state"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "const": "no_output"
+                    }
+                  },
+                  "required": ["state"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "const": "invalid_output"
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "runId": {
+                          "type": "number"
+                        },
+                        "runAttempt": {
+                          "type": "number"
+                        },
+                        "artifactId": {
+                          "type": "number"
+                        },
+                        "artifactCreatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["runId", "runAttempt", "artifactId", "artifactCreatedAt"],
+                      "additionalProperties": false
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["state", "source", "reason"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "const": "refused"
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "runId": {
+                          "type": "number"
+                        },
+                        "runAttempt": {
+                          "type": "number"
+                        },
+                        "artifactId": {
+                          "type": "number"
+                        },
+                        "artifactCreatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["runId", "runAttempt", "artifactId", "artifactCreatedAt"],
+                      "additionalProperties": false
+                    },
+                    "step": {
+                      "anyOf": [
+                        {
+                          "const": "verify_cloudflare"
+                        },
+                        {
+                          "const": "verify_convex"
+                        },
+                        {
+                          "const": "apply"
+                        }
+                      ]
+                    },
+                    "claim": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["state", "source", "step", "claim", "reason"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "const": "deployed"
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "runId": {
+                          "type": "number"
+                        },
+                        "runAttempt": {
+                          "type": "number"
+                        },
+                        "artifactId": {
+                          "type": "number"
+                        },
+                        "artifactCreatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["runId", "runAttempt", "artifactId", "artifactCreatedAt"],
+                      "additionalProperties": false
+                    },
+                    "workers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "workerName": {
+                            "type": "string"
+                          },
+                          "rootDirectory": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["workerName", "rootDirectory"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "projects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "projectName": {
+                            "type": "string"
+                          },
+                          "projectSlug": {
+                            "type": "string"
+                          },
+                          "codeLocationPath": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["projectName", "projectSlug", "codeLocationPath"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "firstApply": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "automatic": {
+                              "const": true
+                            }
+                          },
+                          "required": ["automatic"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "automatic": {
+                              "const": false
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["automatic", "reason"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["state", "source", "workers", "projects", "firstApply"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "const": "destroyed"
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "runId": {
+                          "type": "number"
+                        },
+                        "runAttempt": {
+                          "type": "number"
+                        },
+                        "artifactId": {
+                          "type": "number"
+                        },
+                        "artifactCreatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["runId", "runAttempt", "artifactId", "artifactCreatedAt"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["state", "source"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": ["state", "latestRun", "applied", "pending"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            }
+          },
+          "required": ["state"],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "attention": {
       "type": "array",
       "items": {
@@ -534,6 +936,22 @@ JSON Schema for the tool's `structuredContent`:
             "type": "object",
             "properties": {
               "tool": {
+                "const": "repository_setupOutput_apply"
+              },
+              "artifactId": {
+                "type": "number"
+              },
+              "problem": {
+                "type": "string"
+              }
+            },
+            "required": ["tool", "artifactId", "problem"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tool": {
                 "type": "null"
               },
               "problem": {
@@ -554,6 +972,7 @@ JSON Schema for the tool's `structuredContent`:
     "apps",
     "convexProjects",
     "pullRequests",
+    "setupStack",
     "attention"
   ],
   "additionalProperties": false

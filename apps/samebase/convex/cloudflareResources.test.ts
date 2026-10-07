@@ -396,8 +396,29 @@ describe("cloudflare resources", () => {
       },
       workerName: "samebase-app",
       workerTag: "worker-tag",
+      createdAt: Date.parse("2026-06-22T00:00:00Z"),
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a Worker response without a valid creation time", async () => {
+    stubCloudflareWorkerRead(
+      cloudflareWorkerReadEnvelope.replace(
+        '"created_on":"2026-06-22T00:00:00Z"',
+        '"created_on":"not a time"',
+      ),
+    );
+
+    await expect(
+      readCloudflareWorkerIdentity({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase-app",
+      }),
+    ).rejects.toThrow(
+      "Cloudflare API returned an invalid response for GET /accounts/{account_id}/workers/workers/{worker_id}.",
+    );
   });
 
   it("reads a renamed Worker by its immutable tag and returns its current name", async () => {

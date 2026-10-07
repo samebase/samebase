@@ -958,7 +958,8 @@ Samebase's part of a repository_actions setup, after connect_github_repository: 
 then the starter seed whose push starts the repository's first deploy, then the tree sync. The
 secrets come first so the first workflow run has them. A retry resumes here: the writes are upserts,
 the seed step skips a seed that the plan records and still finishes the switch of the default
-branch to main, and the tree sync always runs again.
+branch to main, and the tree sync always runs again. The last step starts observeFirstSetupOutput,
+which reads the first setup output of the repository's alchemy run outside this run and its lock.
 */
 async function runRepositoryActionsSetup(
   step: WorkflowCtx,
@@ -1019,6 +1020,11 @@ async function runRepositoryActionsSetup(
       state: "succeeded",
     },
     { name: "finish_repository_actions" },
+  );
+  await step.runMutation(
+    internal.repository.setupOutputWorkflow.startFirstSetupOutputObserver,
+    { userId: args.userId, repositoryId: args.repositoryId },
+    { name: "observe_first_setup_output" },
   );
 }
 

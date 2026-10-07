@@ -50,9 +50,13 @@ const NEW_APP_SETUP_LABELS = {
   repository_actions: "Set up by GitHub Actions in the repository (experimental)",
 } as const satisfies Record<RepositoryProvisioningMode, string>;
 
+const CLOUDFLARE_GITHUB_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages";
+
 /**
 Who sets up the new app. GitHub Actions needs the organization's Cloudflare and Convex CI tokens, so
-that choice stays disabled until both are saved on the Providers page.
+that choice stays disabled until both are saved on the Providers page. Its setup stack links the
+Worker to the repository through Workers Builds, which fails in the repository's run, out of
+Samebase's sight, when the Cloudflare GitHub App cannot see the new repository.
 */
 function NewAppSetupField({
   cloudflareCiTokenSaved,
@@ -106,6 +110,20 @@ function NewAppSetupField({
           {convexCiTokenSaved ? null : <>Save the Convex CI token in {providersLink}.</>}
         </div>
       )}
+      {value === "repository_actions" ? (
+        <div className="text-xs leading-5 text-muted-foreground">
+          The setup needs the{" "}
+          <a
+            className={linkStyle}
+            href={CLOUDFLARE_GITHUB_APP_URL}
+            rel="noreferrer noopener"
+            target="_blank"
+          >
+            Cloudflare Workers and Pages GitHub App
+          </a>{" "}
+          on {githubOwnerLogin}, with access to all repositories.
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { detachResourceContract } from "../repository/contracts/detachResource";
+import { applySetupOutputContract } from "../repository/contracts/applySetupOutput";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
 /**
@@ -51,6 +52,7 @@ export const actionContracts = [
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
   detachResourceContract,
+  applySetupOutputContract,
   submitFeedbackContract,
   createBrowserHandoffContract,
   getAuthenticationStatusContract,

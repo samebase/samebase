@@ -124,7 +124,11 @@ async function readMatchingProject(
   throw new Error("Convex project is already attached.");
 }
 
-async function insertProject(
+/**
+Attaches one Convex project, or returns this repository's row with the same identity. A provisioned
+or setup_stack insert takes over the row's origin; a selected_existing insert never changes it.
+*/
+export async function insertProject(
   ctx: Pick<MutationCtx, "db">,
   repository: Extract<Doc<"repositories">, { state: "connected" }>,
   args: {
@@ -148,8 +152,8 @@ async function insertProject(
     codeLocation,
   });
   if (existing) {
-    if (args.origin === "provisioned" && existing.origin !== "provisioned") {
-      await ctx.db.patch(existing._id, { origin: "provisioned" });
+    if (args.origin !== "selected_existing" && existing.origin !== args.origin) {
+      await ctx.db.patch(existing._id, { origin: args.origin });
     }
     return existing._id;
   }

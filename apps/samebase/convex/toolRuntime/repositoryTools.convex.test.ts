@@ -538,6 +538,7 @@ describe("repository_getStatus", () => {
           },
         ],
         pullRequests: [],
+        setupStack: null,
         attention: [],
       },
     });

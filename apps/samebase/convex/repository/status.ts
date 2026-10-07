@@ -20,16 +20,20 @@ import {
   observeConvexProjectsForUser,
   readGitHubDefaultBranchForUser,
 } from "./providerObservations";
+import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
 import { getPullRequestResourcesForUser } from "./pullRequestResources";
 import { buildRepositoryAttention, type RepositoryObservations } from "./repositoryStatus";
+import { readSetupStatus } from "./setupOutput";
+import type { RepositorySetupStack } from "./setupOutputModel";
 
 const { id } = v;
 
 /**
 Reads what the repository overview shows with the overview's own reads: the four provider
-observations and the two pull request reads. Unlike the overview, the pull request page reads the
-head of GitHub's live default branch instead of the recorded one. A read that fails becomes
-unavailable facts, so one provider outage does not hide the others.
+observations, the two pull request reads, and for a repository_actions plan the setup status. Unlike
+the overview, the pull request page reads the head of GitHub's live default branch instead of the
+recorded one. A read that fails becomes unavailable facts, so one provider outage does not hide the
+others.
 */
 export async function readRepositoryStatusForUser(
   ctx: ActionCtx,
@@ -61,7 +65,16 @@ export async function readRepositoryStatusForUser(
     () => null,
   );
 
-  const [workers, workerBuilds, convexProjects, pullRequests] = await Promise.all([
+  const plan = repository.providerPlan;
+  const setupStackRead: Promise<RepositorySetupStack | null> =
+    plan && !isSamebaseManagedProviderPlan(plan)
+      ? readSetupStatus(ctx, { userId, repositoryId }).then(
+          (status) => ({ state: "available" as const, ...status }),
+          () => ({ state: "unavailable" as const }),
+        )
+      : Promise.resolve(null);
+
+  const [workers, workerBuilds, convexProjects, pullRequests, setupStack] = await Promise.all([
     observeCloudflareWorkersForUser(ctx, { userId, repositoryId }).catch(() =>
       failedWorkerObservations(attachedWorkerIds),
     ),
@@ -94,6 +107,7 @@ export async function readRepositoryStatusForUser(
             () => ({ state: "unavailable" as const }),
           ),
     ),
+    setupStackRead,
   ]);
 
   // The overview reads deploy keys only for Workers whose Builds settings are connected.
@@ -135,6 +149,7 @@ export async function readRepositoryStatusForUser(
     convexProjects,
     pullRequests,
     pullRequestResources,
+    setupStack,
   };
   return {
     ...observations,

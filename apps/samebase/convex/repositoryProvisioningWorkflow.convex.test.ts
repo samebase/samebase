@@ -701,6 +701,12 @@ function readCallsBeforeStarterPush(github: ReturnType<typeof createFakeGitHub>)
   );
 }
 
+/**
+A finished repository_actions setup starts observeFirstSetupOutput. Its reads of the setup output
+wait about 20 minutes in all, and the workpool reports every minute while a step waits.
+*/
+const SETUP_DRAIN_ITERATIONS = 1000;
+
 async function createRepositoryActionsRepository(github: ReturnType<typeof createFakeGitHub>) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
@@ -779,7 +785,7 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
         plan: { provisioning: "repository_actions" },
       },
     );
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
     return { ...ids, ...created, t };
   } finally {
     vi.useRealTimers();
@@ -875,10 +881,12 @@ describe("repository_actions provisioning workflow", () => {
     // GitHub created the repository with main, so the default branch stays as it is.
     expect(github.requests.filter((request) => request.method === "PATCH")).toEqual([]);
     expect(state.repository).toMatchObject({ defaultBranch: "main" });
-    const writes = github.requests
-      .filter((request) => request.path.includes("/actions/"))
-      .map(({ method, path }) => `${method} ${path}`);
-    expect(writes).toEqual([
+    const actionsRequests = github.requests.map(({ method, path }) => `${method} ${path}`);
+    expect(
+      actionsRequests.filter(
+        (request) => request.includes("/actions/") && !request.includes("/actions/workflows/"),
+      ),
+    ).toEqual([
       "GET /repos/samebase/actions-app/actions/secrets/public-key",
       "PUT /repos/samebase/actions-app/actions/secrets/CLOUDFLARE_API_TOKEN",
       "PUT /repos/samebase/actions-app/actions/secrets/CLOUDFLARE_ACCOUNT_ID",
@@ -886,6 +894,11 @@ describe("repository_actions provisioning workflow", () => {
       "GET /repos/samebase/actions-app/actions/variables/CONVEX_TEAM_ID",
       "POST /repos/samebase/actions-app/actions/variables",
     ]);
+    // After finish, observeFirstSetupOutput reads the setup runs a bounded number of times. This
+    // fake GitHub has no alchemy workflow, so every read fails and the observer stops after the last.
+    expect(actionsRequests.filter((request) => request.includes("/actions/workflows/"))).toEqual(
+      Array(10).fill("GET /repos/samebase/actions-app/actions/workflows/alchemy.yml/runs"),
+    );
     expect(
       github.requests.find(
         (request) =>
@@ -1247,7 +1260,7 @@ async function retryProviderSetup(
       surface: { kind: "dashboard" },
       confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
     });
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
   } finally {
     vi.useRealTimers();
   }

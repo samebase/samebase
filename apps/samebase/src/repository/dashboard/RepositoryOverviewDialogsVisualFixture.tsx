@@ -279,6 +279,7 @@ export function RepositoryOverviewDialogsVisualFixture({
               hasCloudflareProvision: true,
               canRemoveConvexProvision: true,
               canRemoveCloudflareProvision: true,
+              setupStack: null,
             }}
           />
         </DialogFixture>
