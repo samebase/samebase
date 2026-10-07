@@ -205,7 +205,7 @@ function buildSetupStackAttention(args: {
         (worker) => `${worker.workerName} at ${worker.rootDirectory}`,
       );
       const projects = pending.projects.map(
-        (project) => `${project.projectName} at ${project.codeLocationPath}`,
+        (project) => `${project.projectSlug} at ${project.codeLocationPath}`,
       );
       const waitsForMember =
         !applied && !pending.firstApply.automatic

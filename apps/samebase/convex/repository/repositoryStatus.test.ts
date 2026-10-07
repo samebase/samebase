@@ -528,10 +528,16 @@ describe("buildRepositoryAttention", () => {
         state: "deployed" as const,
         source,
         workers: [{ workerName: "chess-merge", rootDirectory: "/" }],
-        projects: [{ projectName: "chess-merge", codeLocationPath: "convex.json" }],
+        projects: [
+          {
+            projectName: "chess-merge",
+            projectSlug: "chess-merge-2",
+            codeLocationPath: "convex.json",
+          },
+        ],
         firstApply: {
           automatic: false as const,
-          reason: "The Worker chess-merge existed before Samebase created the app.",
+          reason: "Another Convex project of the team is also named chess-merge.",
         },
       };
       expect(
@@ -541,7 +547,7 @@ describe("buildRepositoryAttention", () => {
           tool: "repository_setupOutput_apply",
           artifactId: 11450791196,
           problem:
-            "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge at convex.json. Samebase does not apply the first output by itself: The Worker chess-merge existed before Samebase created the app.",
+            "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json. Samebase does not apply the first output by itself: Another Convex project of the team is also named chess-merge.",
         },
       ]);
       expect(setupStackAttention({ ...settledSetupStack, pending: deployed })).toEqual([
@@ -549,7 +555,7 @@ describe("buildRepositoryAttention", () => {
           tool: "repository_setupOutput_apply",
           artifactId: 11450791196,
           problem:
-            "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge at convex.json.",
+            "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json.",
         },
       ]);
     });

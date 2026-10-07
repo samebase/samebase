@@ -742,18 +742,36 @@ describe("setupOutput.apply by a member", () => {
 
   it("names the claim that Cloudflare does not confirm and attaches nothing", async () => {
     const fixture = await createFixture();
+    const apply = () =>
+      asOwner(fixture).action(api.repository.setupOutput.apply, {
+        repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
+      });
     mockGitHub();
     mockProviders({ workerName: "renamed-in-cloudflare" });
 
-    expect(
-      await asOwner(fixture).action(api.repository.setupOutput.apply, {
-        repositoryId: fixture.ids.repositoryId,
-        artifactId: source.artifactId,
-      }),
-    ).toMatchObject({
+    expect(await apply()).toMatchObject({
       state: "refused",
       step: "verify_cloudflare",
       claim: "cloudflare.workers[0].name",
+    });
+
+    // Cloudflare also finds a Worker by its name, which returns another tag than the claimed one.
+    mockProviders();
+    cloudflareMocks.getWorker.mockResolvedValue({
+      result: {
+        created_on: RESOURCE_CREATED_ON,
+        id: "another-worker-tag",
+        name: "tmp-alchemy-v2",
+        references: { domains: [] },
+        subdomain: { enabled: true, previews_enabled: true },
+      },
+    });
+    expect(await apply()).toMatchObject({
+      state: "refused",
+      step: "verify_cloudflare",
+      claim: "cloudflare.workers[0].tag",
+      reason: `Cloudflare has no Worker with tag ${WORKER_TAG} in account ${ACCOUNT_ID}.`,
     });
     expect((await readRows(fixture)).workers).toEqual([]);
   });
@@ -809,7 +827,7 @@ describe("setupOutput.apply by a member", () => {
     });
   });
 
-  it("reads the destroy receipt of a Destroy app run by id, and keeps the alchemy run as the newest setup run", async () => {
+  it("reads the destroy receipt of a Destroy app run by id, with or without a setup run left", async () => {
     const fixture = await createFixture({
       githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
     });
@@ -827,13 +845,18 @@ describe("setupOutput.apply by a member", () => {
         },
       });
     });
-    mockGitHub({
-      githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
-      runs: observedDestroyAlchemyRunPage,
-      artifacts: observedDestroyArtifactPage,
-      runsById: new Map([[observedDestroyRun.id, observedDestroyRun]]),
-      archiveBase64: observedDestroyReceiptArchiveBase64,
-    });
+    const mockDestroyedRepository = (runs: unknown) =>
+      mockGitHub({
+        githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
+        runs,
+        artifacts: observedDestroyArtifactPage,
+        runsById: new Map([[observedDestroyRun.id, observedDestroyRun]]),
+        archiveBase64: observedDestroyReceiptArchiveBase64,
+      });
+    const readStatus = () =>
+      asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      });
     const receipt = {
       runId: 37612780148,
       runAttempt: 1,
@@ -841,11 +864,16 @@ describe("setupOutput.apply by a member", () => {
       artifactCreatedAt: "2026-10-07T11:16:41Z",
     };
 
-    expect(
-      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
-        repositoryId: fixture.ids.repositoryId,
-      }),
-    ).toMatchObject({
+    // GitHub no longer lists a setup run, such as after the default branch was renamed.
+    mockDestroyedRepository({ total_count: 0, workflow_runs: [] });
+    expect(await readStatus()).toMatchObject({
+      latestRun: null,
+      pending: { state: "destroyed", source: receipt },
+    });
+
+    // The Destroy app run started after the deploy, but the newest setup run stays the deploy.
+    mockDestroyedRepository(observedDestroyAlchemyRunPage);
+    expect(await readStatus()).toMatchObject({
       latestRun: { runId: 37606095039 },
       applied: { state: "applied", artifactId: 11477119111 },
       pending: { state: "destroyed", source: receipt },
@@ -971,7 +999,13 @@ describe("setupOutput.applyFirstForCreator and readStatus", () => {
         state: "deployed",
         source,
         workers: [{ workerName: "tmp-alchemy-v2", rootDirectory: "/" }],
-        projects: [{ projectName: "tmp-alchemy-v2", codeLocationPath: "convex.json" }],
+        projects: [
+          {
+            projectName: "tmp-alchemy-v2",
+            projectSlug: "tmp-alchemy-v2",
+            codeLocationPath: "convex.json",
+          },
+        ],
         firstApply: { automatic: true },
       },
     });

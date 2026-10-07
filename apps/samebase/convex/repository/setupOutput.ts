@@ -21,7 +21,6 @@ import {
   decideFirstSetupOutputApply,
   namesOnlyAttachedSetupStack,
   isNewerSetupOutput,
-  isSetupRun,
   orderSetupOutputArtifacts,
   readSetupOutputArchive,
   readSetupOutputSource,
@@ -97,11 +96,17 @@ async function readWorkflowRun(
   }
 }
 
+/** `latestRun` is null when no setup run remains but a Destroy app run published a receipt. */
 type SetupOutputRead =
   | { state: "no_setup_run" }
   | { state: "no_output"; latestRun: SetupRun }
-  | { state: "invalid_output"; latestRun: SetupRun; source: SetupOutputSource; reason: string }
-  | { state: "output"; latestRun: SetupRun; source: SetupOutputSource; output: SetupOutput };
+  | {
+      state: "invalid_output";
+      latestRun: SetupRun | null;
+      source: SetupOutputSource;
+      reason: string;
+    }
+  | { state: "output"; latestRun: SetupRun | null; source: SetupOutputSource; output: SetupOutput };
 
 /**
 The newest run of the setup workflow on the live default branch, and the newest setup output: every
@@ -151,11 +156,6 @@ export async function readLatestSetupOutput(
     }),
     { githubRepositoryDatabaseId: context.githubRepositoryDatabaseId, defaultBranch },
   );
-  const newestRun = runs.at(0);
-  if (!newestRun) {
-    return { state: "no_setup_run" };
-  }
-
   const artifacts = await listAllPages(async (page) => {
     const response = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", {
       owner,
@@ -191,17 +191,13 @@ export async function readLatestSetupOutput(
       break;
     }
   }
-  // A setup run read by id can be newer than every listed run: a rerun of an old run starts again. A
-  // Destroy app run is not a setup run: it shows only through its receipt.
-  const latestRun = toSetupRun(
-    selected &&
-      isSetupRun(selected.run, repository) &&
-      selected.run.run_started_at.localeCompare(newestRun.run_started_at) > 0
-      ? selected.run
-      : newestRun,
-  );
+  // The newest setup run in any state. A setup run read by id can be newer than every listed run: a
+  // rerun of an old run starts again. A Destroy app run is not a setup run: it shows only through
+  // its receipt, which can outlive every setup run.
+  const newestRun = selectSetupRuns(selected ? [selected.run, ...runs] : runs, repository).at(0);
+  const latestRun = newestRun ? toSetupRun(newestRun) : null;
   if (!selected) {
-    return { state: "no_output", latestRun };
+    return latestRun ? { state: "no_output", latestRun } : { state: "no_setup_run" };
   }
   const { source } = selected;
   if (selected.artifact.size_in_bytes > SETUP_OUTPUT_MAX_BYTES) {
@@ -240,11 +236,16 @@ written. `applied` is the checkpoint that an apply compares with.
 type PreparedSetupOutput =
   | { state: "no_setup_run" }
   | { state: "no_output"; latestRun: SetupRun }
-  | { state: "invalid_output"; latestRun: SetupRun; source: SetupOutputSource; reason: string }
-  | { state: "unchanged"; latestRun: SetupRun; source: SetupOutputSource }
+  | {
+      state: "invalid_output";
+      latestRun: SetupRun | null;
+      source: SetupOutputSource;
+      reason: string;
+    }
+  | { state: "unchanged"; latestRun: SetupRun | null; source: SetupOutputSource }
   | {
       state: "refused";
-      latestRun: SetupRun;
+      latestRun: SetupRun | null;
       source: SetupOutputSource;
       step: "verify_cloudflare" | "verify_convex";
       claim: string | null;
@@ -252,7 +253,7 @@ type PreparedSetupOutput =
     }
   | {
       state: "ready";
-      latestRun: SetupRun;
+      latestRun: SetupRun | null;
       source: SetupOutputSource;
       verified: VerifiedSetupOutput;
       pending: Extract<SetupStatus["pending"], { state: "deployed" | "destroyed" }>;
@@ -383,6 +384,7 @@ async function prepareLatestSetupOutput(
         })),
         projects: projects.projects.map((project) => ({
           projectName: project.projectName,
+          projectSlug: project.projectSlug,
           codeLocationPath: getConvexCodeLocationPath(project.codeLocation),
         })),
         firstApply: decideFirstSetupOutputApply({

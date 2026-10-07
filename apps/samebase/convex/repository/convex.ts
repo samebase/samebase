@@ -610,6 +610,8 @@ type SetupStackProject = {
   projectId: string;
   codeLocation: ConvexCodeLocation;
   projectName: string;
+  /** Unique in the team, unlike the name. */
+  projectSlug: string;
   createdAt: number;
   nameIsUniqueInTeam: boolean;
 };
@@ -698,6 +700,7 @@ export async function verifySetupStackProjects(
       projectId: project.id,
       codeLocation,
       projectName: project.name,
+      projectSlug: project.slug,
       createdAt: project.createTime,
       nameIsUniqueInTeam:
         teamProjects.filter((teamProject) => teamProject.name === project.name).length === 1,

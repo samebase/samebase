@@ -82,6 +82,8 @@ export const vSetupRun = object({
   url: string(),
 });
 export type SetupRun = Infer<typeof vSetupRun>;
+/** The newest setup run, or null when none remains, such as after a destroy outlived every setup run. */
+const vLatestSetupRun = union(vSetupRun, v.null());
 
 export function toSetupRun(run: GitHubWorkflowRun): SetupRun {
   return {
@@ -458,8 +460,9 @@ invalid_output = the newest artifact is not a setup output that Samebase can rea
 refused = a provider did not confirm a claim; `claim` is its path in the output, or null when the
 provider could not be read
 
-deployed = every claim checked out; an apply attaches these Workers and Convex projects, and
-firstApply says whether the first apply could happen without a member
+deployed = every claim checked out; an apply attaches these Workers and Convex projects, each
+project named by its slug too, which is unique in the team where its name may not be; firstApply
+says whether the first apply could happen without a member
 
 destroyed = the app's confirmed destroy reported itself after the applied output
 */
@@ -478,7 +481,9 @@ const vSetupOutputPending = union(
     state: literal("deployed"),
     source: vSetupOutputSource,
     workers: array(object({ workerName: string(), rootDirectory: string() })),
-    projects: array(object({ projectName: string(), codeLocationPath: string() })),
+    projects: array(
+      object({ projectName: string(), projectSlug: string(), codeLocationPath: string() }),
+    ),
     firstApply: vFirstSetupOutputApply,
   }),
   object({ state: literal("destroyed"), source: vSetupOutputSource }),
@@ -490,7 +495,7 @@ default branch in any state, the setup output that Samebase applied, and the new
 not apply yet. A destroy receipt reports the run; the provider observations show what is left.
 */
 export const vSetupStatus = object({
-  latestRun: union(vSetupRun, v.null()),
+  latestRun: vLatestSetupRun,
   applied: union(vRepositoryActionsSetupOutput, v.null()),
   pending: vSetupOutputPending,
 });
@@ -511,7 +516,8 @@ export type RepositorySetupStack = Infer<typeof vRepositorySetupStack>;
 What one read and apply of the newest setup output did, so the first failure names its step and its
 reason.
 
-no_setup_run = the repository has no run of its alchemy workflow on the default branch
+no_setup_run = the repository has no run of its alchemy workflow on the default branch and no setup
+output
 
 no_output = no successful run has a live setup output artifact; latestRun says what ran last
 
@@ -538,13 +544,13 @@ export const vSetupOutputApplyResult = union(
   object({ state: literal("no_output"), latestRun: vSetupRun }),
   object({
     state: literal("invalid_output"),
-    latestRun: vSetupRun,
+    latestRun: vLatestSetupRun,
     source: vSetupOutputSource,
     reason: string(),
   }),
   object({
     state: literal("refused"),
-    latestRun: vSetupRun,
+    latestRun: vLatestSetupRun,
     source: vSetupOutputSource,
     step: vSetupOutputRefusalStep,
     claim: union(string(), v.null()),
@@ -552,19 +558,23 @@ export const vSetupOutputApplyResult = union(
   }),
   object({
     state: literal("needs_member"),
-    latestRun: vSetupRun,
+    latestRun: vLatestSetupRun,
     source: vSetupOutputSource,
     reason: string(),
   }),
   object({ state: literal("failed"), reason: string() }),
-  object({ state: literal("unchanged"), latestRun: vSetupRun, source: vSetupOutputSource }),
+  object({ state: literal("unchanged"), latestRun: vLatestSetupRun, source: vSetupOutputSource }),
   object({
     state: literal("applied"),
-    latestRun: vSetupRun,
+    latestRun: vLatestSetupRun,
     source: vSetupOutputSource,
     workerCount: number(),
     projectCount: number(),
   }),
-  object({ state: literal("destroy_reported"), latestRun: vSetupRun, source: vSetupOutputSource }),
+  object({
+    state: literal("destroy_reported"),
+    latestRun: vLatestSetupRun,
+    source: vSetupOutputSource,
+  }),
 );
 export type SetupOutputApplyResult = Infer<typeof vSetupOutputApplyResult>;

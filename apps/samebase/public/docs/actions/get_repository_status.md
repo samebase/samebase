@@ -762,11 +762,14 @@ JSON Schema for the tool's `structuredContent`:
                           "projectName": {
                             "type": "string"
                           },
+                          "projectSlug": {
+                            "type": "string"
+                          },
                           "codeLocationPath": {
                             "type": "string"
                           }
                         },
-                        "required": ["projectName", "codeLocationPath"],
+                        "required": ["projectName", "projectSlug", "codeLocationPath"],
                         "additionalProperties": false
                       }
                     },

@@ -575,11 +575,12 @@ export async function verifySetupStackWorkers(
     args.cloudflare.workers.map(async (claimed, index) => {
       const claim = `cloudflare.workers[${index}]`;
       const identity = await readCloudflareWorkerIdentityByTag({ ...read, workerTag: claimed.tag });
-      if (!identity) {
+      // Cloudflare also finds a Worker by its name; only the immutable tag identifies it.
+      if (!identity || identity.workerTag !== claimed.tag) {
         return {
           ok: false as const,
           claim: `${claim}.tag`,
-          reason: `Cloudflare has no Worker ${claimed.tag} in account ${accountId}.`,
+          reason: `Cloudflare has no Worker with tag ${claimed.tag} in account ${accountId}.`,
         };
       }
       if (identity.workerName !== claimed.name) {

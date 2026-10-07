@@ -110,46 +110,61 @@ JSON Schema for the tool's `structuredContent`:
           "const": "invalid_output"
         },
         "latestRun": {
-          "type": "object",
-          "properties": {
-            "runId": {
-              "type": "number"
-            },
-            "runAttempt": {
-              "type": "number"
-            },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "number"
+                },
+                "runAttempt": {
+                  "type": "number"
+                },
+                "event": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "conclusion": {
-              "anyOf": [
-                {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conclusion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "startedAt": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
+                "url": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "runId",
+                "runAttempt",
+                "event",
+                "status",
+                "conclusion",
+                "startedAt",
+                "url"
+              ],
+              "additionalProperties": false
             },
-            "startedAt": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
-          "additionalProperties": false
+          ]
         },
         "source": {
           "type": "object",
@@ -184,46 +199,61 @@ JSON Schema for the tool's `structuredContent`:
           "const": "refused"
         },
         "latestRun": {
-          "type": "object",
-          "properties": {
-            "runId": {
-              "type": "number"
-            },
-            "runAttempt": {
-              "type": "number"
-            },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "number"
+                },
+                "runAttempt": {
+                  "type": "number"
+                },
+                "event": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "conclusion": {
-              "anyOf": [
-                {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conclusion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "startedAt": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
+                "url": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "runId",
+                "runAttempt",
+                "event",
+                "status",
+                "conclusion",
+                "startedAt",
+                "url"
+              ],
+              "additionalProperties": false
             },
-            "startedAt": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
-          "additionalProperties": false
+          ]
         },
         "source": {
           "type": "object",
@@ -281,46 +311,61 @@ JSON Schema for the tool's `structuredContent`:
           "const": "needs_member"
         },
         "latestRun": {
-          "type": "object",
-          "properties": {
-            "runId": {
-              "type": "number"
-            },
-            "runAttempt": {
-              "type": "number"
-            },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "number"
+                },
+                "runAttempt": {
+                  "type": "number"
+                },
+                "event": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "conclusion": {
-              "anyOf": [
-                {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conclusion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "startedAt": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
+                "url": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "runId",
+                "runAttempt",
+                "event",
+                "status",
+                "conclusion",
+                "startedAt",
+                "url"
+              ],
+              "additionalProperties": false
             },
-            "startedAt": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
-          "additionalProperties": false
+          ]
         },
         "source": {
           "type": "object",
@@ -368,46 +413,61 @@ JSON Schema for the tool's `structuredContent`:
           "const": "unchanged"
         },
         "latestRun": {
-          "type": "object",
-          "properties": {
-            "runId": {
-              "type": "number"
-            },
-            "runAttempt": {
-              "type": "number"
-            },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "number"
+                },
+                "runAttempt": {
+                  "type": "number"
+                },
+                "event": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "conclusion": {
-              "anyOf": [
-                {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conclusion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "startedAt": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
+                "url": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "runId",
+                "runAttempt",
+                "event",
+                "status",
+                "conclusion",
+                "startedAt",
+                "url"
+              ],
+              "additionalProperties": false
             },
-            "startedAt": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
-          "additionalProperties": false
+          ]
         },
         "source": {
           "type": "object",
@@ -439,46 +499,61 @@ JSON Schema for the tool's `structuredContent`:
           "const": "applied"
         },
         "latestRun": {
-          "type": "object",
-          "properties": {
-            "runId": {
-              "type": "number"
-            },
-            "runAttempt": {
-              "type": "number"
-            },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "number"
+                },
+                "runAttempt": {
+                  "type": "number"
+                },
+                "event": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "conclusion": {
-              "anyOf": [
-                {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conclusion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "startedAt": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
+                "url": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "runId",
+                "runAttempt",
+                "event",
+                "status",
+                "conclusion",
+                "startedAt",
+                "url"
+              ],
+              "additionalProperties": false
             },
-            "startedAt": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
-          "additionalProperties": false
+          ]
         },
         "source": {
           "type": "object",
@@ -516,46 +591,61 @@ JSON Schema for the tool's `structuredContent`:
           "const": "destroy_reported"
         },
         "latestRun": {
-          "type": "object",
-          "properties": {
-            "runId": {
-              "type": "number"
-            },
-            "runAttempt": {
-              "type": "number"
-            },
-            "event": {
-              "type": "string"
-            },
-            "status": {
-              "anyOf": [
-                {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "number"
+                },
+                "runAttempt": {
+                  "type": "number"
+                },
+                "event": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "conclusion": {
-              "anyOf": [
-                {
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "conclusion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "startedAt": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
+                "url": {
+                  "type": "string"
                 }
-              ]
+              },
+              "required": [
+                "runId",
+                "runAttempt",
+                "event",
+                "status",
+                "conclusion",
+                "startedAt",
+                "url"
+              ],
+              "additionalProperties": false
             },
-            "startedAt": {
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
+            {
+              "type": "null"
             }
-          },
-          "required": ["runId", "runAttempt", "event", "status", "conclusion", "startedAt", "url"],
-          "additionalProperties": false
+          ]
         },
         "source": {
           "type": "object",

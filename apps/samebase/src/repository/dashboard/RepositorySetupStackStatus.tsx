@@ -53,7 +53,7 @@ function describePending(
         (worker) => `${worker.workerName} at ${worker.rootDirectory}`,
       );
       const projects = pending.projects.map(
-        (project) => `${project.projectName} at ${project.codeLocationPath}`,
+        (project) => `${project.projectSlug} at ${project.codeLocationPath}`,
       );
       const waitsForMember =
         !applied && !pending.firstApply.automatic ? ` ${pending.firstApply.reason}` : "";
@@ -85,7 +85,13 @@ function describeApplyProblem(result: SetupOutputApplyResult | undefined): strin
 
 /** Whether the setup status can change only by a new push, a member's apply, or a new attachment. */
 function isSetupStatusSettled({ latestRun, applied, pending }: SetupStatus): boolean {
-  if (latestRun?.status !== "completed") {
+  // Without a setup run, only a new app that waits for its first run changes by itself; a destroy
+  // receipt can outlive every setup run.
+  if (
+    latestRun === null
+      ? applied === null && pending.state === "none"
+      : latestRun.status !== "completed"
+  ) {
     return false;
   }
   return !(applied === null && pending.state === "deployed" && pending.firstApply.automatic);
