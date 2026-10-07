@@ -25,6 +25,11 @@ function describePending(status: SetupStatus): { text: string; canApply: boolean
             canApply: false,
           }
         : null;
+    case "no_output":
+      return {
+        text: "The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one.",
+        canApply: false,
+      };
     case "invalid_output":
       return {
         text: `Samebase cannot read the setup output of run ${pending.source.runId}: ${pending.reason}`,
@@ -60,6 +65,14 @@ function describePending(status: SetupStatus): { text: string; canApply: boolean
   }
 }
 
+/** Whether the setup status can change only by a new push or a member's apply. */
+function isSetupStatusSettled({ latestRun, applied, pending }: SetupStatus): boolean {
+  if (latestRun?.status !== "completed") {
+    return false;
+  }
+  return !(applied === null && pending.state === "deployed" && pending.firstApply.automatic);
+}
+
 /**
 The setup status of a repository that its GitHub Actions set up, once Samebase's own setup finished:
 the newest alchemy run on the default branch, and the setup output that waits for a member's apply.
@@ -80,6 +93,10 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
     enabled,
     // The read lists workflow runs and checks every claim with Cloudflare and Convex.
     staleTime: 60 * 1000,
+    // GitHub does not push run changes, so the open overview reads again while the newest run has
+    // not finished or observeFirstSetupOutput may still apply the first output.
+    refetchInterval: (query) =>
+      query.state.data && isSetupStatusSettled(query.state.data) ? false : 30 * 1000,
     retry: false,
   });
   const applyMutation = useMutation({

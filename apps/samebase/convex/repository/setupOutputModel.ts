@@ -397,6 +397,10 @@ the read.
 
 none = no setup output is newer than the applied one
 
+no_output = nothing is applied, and the newest run succeeded without a live setup output: a template
+from before the setup output, or an artifact that GitHub deleted. A run of the alchemy workflow on
+the default branch publishes one.
+
 invalid_output = the newest artifact is not a setup output that Samebase can read
 
 refused = a provider did not confirm a claim; `claim` is its path in the output, or null when the
@@ -409,6 +413,7 @@ destroyed = the app's confirmed destroy reported itself after the applied output
 */
 const vSetupOutputPending = union(
   object({ state: literal("none") }),
+  object({ state: literal("no_output") }),
   object({ state: literal("invalid_output"), source: vSetupOutputSource, reason: string() }),
   object({
     state: literal("refused"),

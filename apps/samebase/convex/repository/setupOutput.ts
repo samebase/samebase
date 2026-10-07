@@ -381,6 +381,14 @@ export async function readSetupStatus(
     case "no_setup_run":
       return { latestRun: null, applied, pending: { state: "none" } };
     case "no_output":
+      return {
+        latestRun: prepared.latestRun,
+        applied,
+        pending:
+          applied === null && prepared.latestRun.conclusion === "success"
+            ? { state: "no_output" }
+            : { state: "none" },
+      };
     case "unchanged":
       return { latestRun: prepared.latestRun, applied, pending: { state: "none" } };
     case "invalid_output":
@@ -435,7 +443,12 @@ export async function applyLatestSetupOutput(
       break;
     case "first_apply":
       if (applied) {
-        return { state: "unchanged", latestRun, source };
+        return {
+          state: "needs_member",
+          latestRun,
+          source,
+          reason: "Samebase applied an earlier setup output, so a member applies each later one.",
+        };
       }
       if (prepared.pending.state === "deployed" && !prepared.pending.firstApply.automatic) {
         return {

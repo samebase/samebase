@@ -619,6 +619,16 @@ JSON Schema for the tool's `structuredContent`:
                   "type": "object",
                   "properties": {
                     "state": {
+                      "const": "no_output"
+                    }
+                  },
+                  "required": ["state"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
                       "const": "invalid_output"
                     },
                     "source": {

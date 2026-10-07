@@ -725,6 +725,12 @@ describe("setupOutput.apply by a member", () => {
         repositoryId: withoutOutput.ids.repositoryId,
       }),
     ).toMatchObject({ state: "no_output", latestRun: { runId: 37545425944 } });
+    // A successful run without an output, before anything is applied, is not a settled status.
+    expect(
+      await asOwner(withoutOutput).action(api.repository.setupOutput.readStatus, {
+        repositoryId: withoutOutput.ids.repositoryId,
+      }),
+    ).toMatchObject({ applied: null, pending: { state: "no_output" } });
   });
 
   it("reads the run of an artifact that the run pages do not list", async () => {
@@ -897,7 +903,11 @@ describe("setupOutput.applyFirstForCreator and readStatus", () => {
     mockGitHub();
     mockProviders();
 
-    expect(await applyFirst(fixture)).toMatchObject({ state: "unchanged", source });
+    expect(await applyFirst(fixture)).toMatchObject({
+      state: "needs_member",
+      source,
+      reason: "Samebase applied an earlier setup output, so a member applies each later one.",
+    });
     expect((await readRows(fixture)).workers).toEqual([]);
     expect(await readStatus(fixture)).toMatchObject({
       applied: { artifactId: 1 },

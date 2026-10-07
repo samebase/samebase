@@ -552,6 +552,22 @@ describe("buildRepositoryAttention", () => {
       ]);
     });
 
+    it("asks for a new run when a successful run left no setup output before the first apply", () => {
+      expect(
+        setupStackAttention({
+          ...settledSetupStack,
+          applied: null,
+          pending: { state: "no_output" },
+        }),
+      ).toEqual([
+        {
+          tool: null,
+          problem:
+            "The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one: https://github.com/samebase/chess-merge/actions/workflows/alchemy.yml",
+        },
+      ]);
+    });
+
     it("names the claim that a provider refused and an output that Samebase cannot read", () => {
       expect(
         setupStackAttention({

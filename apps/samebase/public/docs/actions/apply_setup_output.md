@@ -14,10 +14,10 @@ Convex code location is on the default branch), and attaches the Workers and pro
 An output older than the applied one is never applied.
 
 Samebase applies the first output after the app's creation by itself when it names exactly the
-Worker and the Convex project that Samebase reserved at creation, both created after the app.
-Anything else, such as a second Worker, an adopted resource, or a Worker that a drift repair
-recreated, waits for this action. `repository_getStatus` shows the waiting output and why Samebase
-did not apply it by itself.
+Worker and the Convex project that Samebase reserved at creation, no other project of the team has
+that name, and both were created after the app. Anything else, such as a second Worker, an adopted
+resource, a later output, or a Worker that a drift repair recreated, waits for this action.
+`repository_getStatus` shows the waiting output and why Samebase did not apply it by itself.
 
 The attached resources are managed by the setup stack in `alchemy.run.ts`: Samebase never deletes
 them or changes their provider settings. A destroy receipt from the confirmed destroy of the app is

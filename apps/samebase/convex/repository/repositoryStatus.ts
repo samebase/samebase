@@ -182,6 +182,12 @@ function buildSetupStackAttention(args: {
   switch (pending.state) {
     case "none":
       break;
+    case "no_output":
+      items.push({
+        tool: null,
+        problem: `The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one: https://github.com/${args.repository.githubRepositoryFullName}/actions/workflows/alchemy.yml`,
+      });
+      break;
     case "invalid_output":
       items.push({
         tool: null,
