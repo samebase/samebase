@@ -946,3 +946,12 @@ Open for PR C, in Nicu's words "how all this fits in":
   validator requires `created_on`, so a bad value stops both applies at `verify_cloudflare` with the
   reason in the status; the status lives on the Overview. Stage 4 (docs, PR body, ready) next, then
   the live run on the PR's preview deploy, which now seeds the CI credentials by itself.
+- 2026-10-07: PR C ready: #1699
+  `v2103: Make the Alchemy setup output the source of truth for repository_actions apps (RFC 126 PR C)`,
+  head `9a21871f5`, 58 files, CI green, on the latest main (which has the preview seeding, #1700).
+  Final Codex round: one P1 (the member's apply now binds to the artifact the member reviewed; a
+  newer output stops it) and two P2 (overview refresh after a late automatic apply; a rerun read by
+  id counts as newest only when it started after every listed run), all fixed. Self-found: an output
+  naming the already attached identities has nothing to apply, so a push that changes
+  `alchemy.run.ts` no longer asks a member. Live run next on the PR's preview deploy, with the CI
+  credentials seeded.
