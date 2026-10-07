@@ -1936,10 +1936,13 @@ describe("RepositoryDeleteDialogContent", () => {
     );
 
     expect(markup).toContain(
-      "Samebase keeps the Worker chess-merge, the Convex project at convex.json. To delete what the setup stack in alchemy.run.ts created, first run the",
+      "Samebase keeps the Worker chess-merge, the Convex project at convex.json. To delete what the setup stack in alchemy.run.ts created, first open the",
     );
     expect(markup).toContain(
-      'href="https://github.com/ada/chess-merge/actions/workflows/alchemy.yml"',
+      'href="https://github.com/ada/chess-merge/actions/workflows/destroy.yml"',
+    );
+    expect(markup).toContain(
+      'workflow, click Run workflow, and type <span class="font-mono">delete ada/chess-merge</span> in its field.',
     );
   });
 

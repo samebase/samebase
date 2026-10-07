@@ -150,7 +150,7 @@ function buildRepositoryActionsAttention(args: {
 
 /**
 The items of the setup status: the newest alchemy run when it did not succeed, the setup output that
-waits, and a destroy that the workflow reported. An unreadable setup status gives no item, like any
+waits, and a destroy that a Destroy app run reported. An unreadable setup status gives no item, like any
 other unreadable fact.
 */
 function buildSetupStackAttention(args: {
@@ -191,7 +191,7 @@ function buildSetupStackAttention(args: {
     case "invalid_output":
       items.push({
         tool: null,
-        problem: `Samebase cannot read the setup output of alchemy run ${pending.source.runId}: ${pending.reason}`,
+        problem: `Samebase cannot read the setup output of run ${pending.source.runId}: ${pending.reason}`,
       });
       break;
     case "refused":
@@ -222,7 +222,7 @@ function buildSetupStackAttention(args: {
       items.push({
         tool: APPLY_SETUP_OUTPUT_TOOL,
         artifactId: pending.source.artifactId,
-        problem: `Alchemy run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
+        problem: `Destroy app run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
       });
       break;
     default:
@@ -231,7 +231,7 @@ function buildSetupStackAttention(args: {
   if (applied?.state === "destroy_reported" && pending.state === "none") {
     items.push({
       tool: null,
-      problem: `Alchemy run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.`,
+      problem: `Destroy app run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.`,
     });
   }
   return items;

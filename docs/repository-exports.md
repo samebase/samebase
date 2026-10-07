@@ -88,13 +88,14 @@ same contract as the base: it owns its `package.json`, `pnpm-workspace.yaml`, an
 `pnpm run template:export` writes it to `starterSeedManifest.actions.generated.ts`, root CI audits
 and builds it, and the publisher sends it to `samebase/base-actions`.
 
-The variant's `alchemy` workflow uploads the artifact `samebase-setup-output` after each deploy and
-after a confirmed destroy. `templates/base-actions/scripts/setup-output.ts` defines the file, and
-Samebase reads it with one validator per version in
-`apps/samebase/convex/repository/setupOutputModel.ts` before it attaches the listed Workers and
-Convex projects. Both sides reject a version or a field that they do not define. A change to the
-file is a new `version` in both places in the same pull request, and Samebase keeps reading every
-older version, because apps keep the template copy that they were created from.
+The variant's `alchemy` workflow uploads the artifact `samebase-setup-output` after each deploy, and
+its `Destroy app` workflow uploads a destroy receipt under the same name after a confirmed destroy.
+`templates/base-actions/scripts/setup-output.ts` defines the file, and Samebase reads it with one
+validator per version in `apps/samebase/convex/repository/setupOutputModel.ts` before it attaches
+the listed Workers and Convex projects. Both sides reject a version or a field that they do not
+define. A change to the file is a new `version` in both places in the same pull request, and
+Samebase keeps reading every older version, because apps keep the template copy that they were
+created from.
 
 `pnpm run check:template-sync` keeps the two templates in sync. Every path must exist in both
 templates with the same bytes and mode, except the deploy files that `templateDeployPaths` in

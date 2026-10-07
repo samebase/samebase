@@ -598,7 +598,7 @@ describe("buildRepositoryAttention", () => {
         {
           tool: null,
           problem:
-            "Samebase cannot read the setup output of alchemy run 37545425944: The setup output has version 2.",
+            "Samebase cannot read the setup output of run 37545425944: The setup output has version 2.",
         },
       ]);
     });
@@ -611,7 +611,7 @@ describe("buildRepositoryAttention", () => {
           tool: "repository_setupOutput_apply",
           artifactId: 11450791196,
           problem:
-            "Alchemy run 37545425944 reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.",
+            "Destroy app run 37545425944 reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.",
         },
       ]);
       expect(
@@ -623,7 +623,7 @@ describe("buildRepositoryAttention", () => {
         {
           tool: null,
           problem:
-            "Alchemy run 37545425944 reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.",
+            "Destroy app run 37545425944 reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.",
         },
       ]);
     });

@@ -29,7 +29,7 @@ function describePending(
     case "none":
       return applied?.state === "destroy_reported"
         ? {
-            text: `Run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report. The Workers and Convex projects stay attached until you remove them.`,
+            text: `Destroy app run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report. The Workers and Convex projects stay attached until you remove them.`,
             applyArtifactId: null,
           }
         : null;
@@ -64,7 +64,7 @@ function describePending(
     }
     case "destroyed":
       return {
-        text: `Run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until you remove them.`,
+        text: `Destroy app run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until you remove them.`,
         applyArtifactId: pending.source.artifactId,
       };
     default:

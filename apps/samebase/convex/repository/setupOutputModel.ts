@@ -8,14 +8,16 @@ import { vRepositoryActionsSetupOutput } from "./provisioningModel";
 /*
 The setup output of a repository_actions repository: what its Alchemy setup stack tells Samebase
 about the resources it owns. templates/base-actions/scripts/setup-output.ts defines it; the deploy
-job of the template's `alchemy` workflow uploads it as an artifact after each deploy, and the
-destroy-app job uploads a destroy receipt under the same name. This module holds the pure parts of
-reading it: the GitHub response shapes the reader uses, the choice of run and artifact, the archive,
-and one validator per output version.
+job of the template's `alchemy` workflow uploads it as an artifact after each deploy, and its
+`Destroy app` workflow uploads a destroy receipt under the same name. This module holds the pure
+parts of reading it: the GitHub response shapes the reader uses, the choice of run and artifact, the
+archive, and one validator per output version.
 */
 
 export const SETUP_WORKFLOW_FILE_NAME = "alchemy.yml";
 const SETUP_WORKFLOW_PATH = `.github/workflows/${SETUP_WORKFLOW_FILE_NAME}`;
+/** The template's `Destroy app` workflow. Its runs upload only the destroy receipt. */
+const DESTROY_WORKFLOW_PATH = ".github/workflows/destroy.yml";
 export const SETUP_OUTPUT_ARTIFACT_NAME = "samebase-setup-output";
 const SETUP_OUTPUT_FILE_NAME = "samebase-setup-output.json";
 /** The bound for the artifact and for the file in it. A version 1 output is a few hundred bytes. */
@@ -96,17 +98,26 @@ export function toSetupRun(run: GitHubWorkflowRun): SetupRun {
 type SetupRepository = { githubRepositoryDatabaseId: string; defaultBranch: string };
 
 /**
-Whether a run can carry the setup output: the template's workflow file, a push or a run of the
-workflow on the live default branch, in this repository and not a fork.
+Whether a run is of the template's workflow file at `path`, a push or a run of the workflow on the
+live default branch, in this repository and not a fork.
 */
-export function isSetupRun(run: GitHubWorkflowRun, repository: SetupRepository): boolean {
+function isDefaultBranchRunOf(
+  path: string,
+  run: GitHubWorkflowRun,
+  repository: SetupRepository,
+): boolean {
   return (
-    run.path === SETUP_WORKFLOW_PATH &&
+    run.path === path &&
     (run.event === "push" || run.event === "workflow_dispatch") &&
     run.head_branch === repository.defaultBranch &&
     String(run.repository.id) === repository.githubRepositoryDatabaseId &&
     String(run.head_repository.id) === repository.githubRepositoryDatabaseId
   );
+}
+
+/** Whether a run is a setup run: a run of the template's `alchemy` workflow on the default branch. */
+export function isSetupRun(run: GitHubWorkflowRun, repository: SetupRepository): boolean {
+  return isDefaultBranchRunOf(SETUP_WORKFLOW_PATH, run, repository);
 }
 
 /** The setup runs, newest first by start time, which a rerun moves, then by id. */
@@ -153,8 +164,9 @@ export function orderSetupOutputArtifacts(
 }
 
 /**
-The source of a setup output when the artifact belongs to a successful setup run and names the
-run's repository and commit; null otherwise.
+The source of a setup output when the artifact belongs to a successful setup run, or to a successful
+run of the `Destroy app` workflow, which uploads the destroy receipt, and names the run's repository
+and commit; null otherwise.
 */
 export function readSetupOutputSource(args: {
   artifact: GitHubArtifact;
@@ -164,7 +176,8 @@ export function readSetupOutputSource(args: {
   const { artifact, run } = args;
   const origin = artifact.workflow_run;
   return origin &&
-    isSetupRun(run, args.repository) &&
+    (isSetupRun(run, args.repository) ||
+      isDefaultBranchRunOf(DESTROY_WORKFLOW_PATH, run, args.repository)) &&
     run.conclusion === "success" &&
     origin.id === run.id &&
     origin.repository_id === run.repository.id &&

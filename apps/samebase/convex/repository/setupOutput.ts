@@ -21,6 +21,7 @@ import {
   decideFirstSetupOutputApply,
   namesOnlyAttachedSetupStack,
   isNewerSetupOutput,
+  isSetupRun,
   orderSetupOutputArtifacts,
   readSetupOutputArchive,
   readSetupOutputSource,
@@ -72,8 +73,8 @@ async function listAllPages<Item>(
 
 /**
 The artifacts the reader checks, newest first. Any workflow of the repository can upload an artifact
-under this name; past this many whose run is not a successful setup run, the reader reports no
-output instead of reading more runs.
+under this name; past this many whose run cannot carry the setup output, the reader reports no output
+instead of reading more runs.
 */
 const MAX_ARTIFACT_CANDIDATES = 10;
 
@@ -104,7 +105,9 @@ type SetupOutputRead =
 
 /**
 The newest run of the setup workflow on the live default branch, and the newest setup output: every
-retained run, every live artifact named samebase-setup-output, then the one archive.
+retained run, every live artifact named samebase-setup-output, then the one archive. A destroy
+receipt comes from a run of the `Destroy app` workflow, which the artifact names and the reader
+reads by id.
 */
 export async function readLatestSetupOutput(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -164,8 +167,9 @@ export async function readLatestSetupOutput(
     const parsed = zGitHubArtifactPage.parse(response.data);
     return { totalCount: parsed.total_count, items: parsed.artifacts };
   });
-  // The newest artifact whose run is a successful setup run. A run outside the listed pages (more
-  // than 1,000 retained runs, a rerun of an old run) is read by id.
+  // The newest artifact whose run is a successful setup run or Destroy app run. A run outside the
+  // listed pages (a Destroy app run, more than 1,000 retained runs, a rerun of an old run) is read
+  // by id.
   const repository = {
     githubRepositoryDatabaseId: context.githubRepositoryDatabaseId,
     defaultBranch,
@@ -187,9 +191,12 @@ export async function readLatestSetupOutput(
       break;
     }
   }
-  // A run read by id can be newer than every listed run: a rerun of an old run starts again.
+  // A setup run read by id can be newer than every listed run: a rerun of an old run starts again. A
+  // Destroy app run is not a setup run: it shows only through its receipt.
   const latestRun = toSetupRun(
-    selected && selected.run.run_started_at.localeCompare(newestRun.run_started_at) > 0
+    selected &&
+      isSetupRun(selected.run, repository) &&
+      selected.run.run_started_at.localeCompare(newestRun.run_started_at) > 0
       ? selected.run
       : newestRun,
   );

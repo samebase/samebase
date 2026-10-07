@@ -21,7 +21,7 @@ repository overview shows. It changes nothing.
   of its `alchemy` workflow on the default branch in any state, the setup output that Samebase
   applied, and the newest output that it did not apply yet, with the Workers and Convex projects it
   lists and, before the first apply, why Samebase does not apply it by itself. A destroy receipt is
-  the workflow's report: the app facts show what is left.
+  the report of a run of its `Destroy app` workflow: the app facts show what is left.
 - Attention items: each names a problem and the tool that fixes it. The provider setup state comes
   first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
   the only item names `repository_retryProviderSetup`. When Cloudflare setup is pending, an item

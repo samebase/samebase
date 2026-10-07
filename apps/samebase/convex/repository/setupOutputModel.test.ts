@@ -2,6 +2,10 @@ import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  observedDestroyArtifactPage,
+  observedDestroyReceiptArchiveBase64,
+  observedDestroyRepository,
+  observedDestroyRun,
   observedSetupOutput,
   observedSetupOutputArchiveBase64,
   observedSetupOutputArtifactPage,
@@ -21,16 +25,17 @@ import {
   selectSetupRuns,
   SETUP_OUTPUT_MAX_BYTES,
   zGitHubArtifactPage,
+  zGitHubWorkflowRun,
   zGitHubWorkflowRunPage,
 } from "./setupOutputModel";
 
 /*
 State axes of the reader, each tested below:
 - run: kept or filtered out by workflow path, event, branch, repository, or fork; order by start
-  time, which a rerun moves
-- artifact: newest of a successful setup run, or skipped for its name, expiry, a run that did not
-  succeed or is not a setup run, or provenance that differs from the run; order by the artifact's
-  creation time
+  time, which a rerun moves. A Destroy app run is never a setup run.
+- artifact: newest of a successful setup run or Destroy app run, or skipped for its name, expiry, a
+  run that did not succeed or is of another workflow, or provenance that differs from the run; order
+  by the artifact's creation time
 - applied checkpoint: none, the same artifact, or a newer one, which an older output never replaces
 - archive: exactly the one JSON file, or more files, another name, a corrupt or oversized archive,
   or a file that is not one JSON document
@@ -46,6 +51,11 @@ const observedArtifact = artifacts.at(0);
 const observedOrigin = observedArtifact?.workflow_run;
 if (!newestRun || !firstRun || !observedArtifact || !observedOrigin) {
   throw new Error("The recorded pages hold three runs and one artifact of a run.");
+}
+const destroyRun = zGitHubWorkflowRun.parse(observedDestroyRun);
+const destroyReceipt = zGitHubArtifactPage.parse(observedDestroyArtifactPage).artifacts.at(0);
+if (!destroyReceipt) {
+  throw new Error("The recorded destroy page lists the receipt first.");
 }
 const archiveOf = (files: Record<string, string>) =>
   zipSync(Object.fromEntries(Object.entries(files).map(([name, text]) => [name, strToU8(text)])));
@@ -106,6 +116,32 @@ describe("orderSetupOutputArtifacts and readSetupOutputSource", () => {
         { ...observedArtifact, workflow_run: null },
       ]),
     ).toEqual([]);
+  });
+
+  it("reads the recorded destroy receipt of a Destroy app run, which is not a setup run", () => {
+    expect(selectSetupRuns([destroyRun], observedDestroyRepository)).toEqual([]);
+    expect(
+      readSetupOutputSource({
+        artifact: destroyReceipt,
+        run: destroyRun,
+        repository: observedDestroyRepository,
+      }),
+    ).toEqual({
+      runId: 37612780148,
+      runAttempt: 1,
+      artifactId: 11479280115,
+      artifactCreatedAt: "2026-10-07T11:16:41Z",
+    });
+    expect(
+      readSetupOutputSource({
+        artifact: destroyReceipt,
+        run: { ...destroyRun, path: ".github/workflows/ci.yml" },
+        repository: observedDestroyRepository,
+      }),
+    ).toBeNull();
+    expect(
+      readSetupOutputArchive(Buffer.from(observedDestroyReceiptArchiveBase64, "base64")),
+    ).toEqual({ ok: true, output: { version: 1, state: "destroyed" } });
   });
 
   it("refuses a run that did not succeed, is not a setup run, or differs from the artifact", () => {

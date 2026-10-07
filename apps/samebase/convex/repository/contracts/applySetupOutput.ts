@@ -51,6 +51,7 @@ resource, a later output, or a Worker that a drift repair recreated, waits for t
 did not apply it by itself.
 
 The attached resources are managed by the setup stack in \`alchemy.run.ts\`: Samebase never deletes
-them or changes their provider settings. A destroy receipt from the confirmed destroy of the app is
-recorded as a report; the attachments stay until they are removed.`,
+them or changes their provider settings. A destroy receipt, which the repository's \`Destroy app\`
+workflow uploads under the same artifact name after it destroyed the app, is recorded as a report;
+the attachments stay until they are removed.`,
 } as const;

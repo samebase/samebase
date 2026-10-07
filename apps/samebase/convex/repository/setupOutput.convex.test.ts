@@ -54,6 +54,11 @@ import type { Id } from "../_generated/dataModel";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 import {
+  observedDestroyAlchemyRunPage,
+  observedDestroyArtifactPage,
+  observedDestroyReceiptArchiveBase64,
+  observedDestroyRepository,
+  observedDestroyRun,
   observedSetupOutputArchiveBase64,
   observedSetupOutputArtifactPage,
   observedSetupWorkflowRunPage,
@@ -76,7 +81,11 @@ const WORKER_TAG = "882b2b3cde394f5d8661075e716eaf58";
 const PROJECT_ID = "3161449";
 const REPOSITORY_ID = "1407894795";
 
-async function createFixture(options?: { mode?: "samebase"; planCreatedAt?: number }) {
+async function createFixture(options?: {
+  mode?: "samebase";
+  planCreatedAt?: number;
+  githubRepositoryDatabaseId?: string;
+}) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const now = Date.now();
@@ -151,7 +160,7 @@ async function createFixture(options?: { mode?: "samebase"; planCreatedAt?: numb
       cloudflareAccountId: ACCOUNT_ID,
       deletion: { state: "not_deleting" },
       runId,
-      githubRepositoryDatabaseId: REPOSITORY_ID,
+      githubRepositoryDatabaseId: options?.githubRepositoryDatabaseId ?? REPOSITORY_ID,
       defaultBranch: "main",
       connectedAt: now,
       githubRepositoryName: "tmp-alchemy-v2",
@@ -548,13 +557,15 @@ describe("setupOutputMutations.apply", () => {
 });
 
 function mockGitHub(options?: {
+  githubRepositoryDatabaseId?: string;
   runs?: unknown;
   artifacts?: unknown;
   runsById?: ReadonlyMap<number, unknown>;
+  archiveBase64?: string;
 }) {
   githubMocks.getRepository.mockResolvedValue({
     data: {
-      id: Number(REPOSITORY_ID),
+      id: Number(options?.githubRepositoryDatabaseId ?? REPOSITORY_ID),
       default_branch: "main",
       owner: { id: 1, login: "samebase" },
     },
@@ -587,7 +598,10 @@ function mockGitHub(options?: {
       case "GET /repos/{owner}/{repo}/actions/artifacts":
         return { data: options?.artifacts ?? observedSetupOutputArtifactPage };
       case "GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}": {
-        const bytes = Buffer.from(observedSetupOutputArchiveBase64, "base64");
+        const bytes = Buffer.from(
+          options?.archiveBase64 ?? observedSetupOutputArchiveBase64,
+          "base64",
+        );
         return { data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
       }
       default:
@@ -662,7 +676,8 @@ beforeEach(() => {
 
 /*
 State axes of a member's apply, each covered below:
-- read: no setup run, no output, a run outside the listed pages, an output older than the applied one
+- read: no setup run, no output, a run outside the listed pages, the destroy receipt of a Destroy app
+  run, an output older than the applied one
 - output: newer than the applied one, the one applied, or the same identities under a new artifact
 - review: the artifact that the member reviewed is the newest one, or a newer one replaced it
 - providers: confirm every claim, or refuse one
@@ -791,6 +806,62 @@ describe("setupOutput.apply by a member", () => {
       source,
       // The run read by id started after every listed run, so it is the newest run.
       latestRun: { runId: recordedRun.id },
+    });
+  });
+
+  it("reads the destroy receipt of a Destroy app run by id, and keeps the alchemy run as the newest setup run", async () => {
+    const fixture = await createFixture({
+      githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
+    });
+    // The deploy before the destroy published artifact 11477119111, which Samebase applied.
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.patch(fixture.ids.planId, {
+        setupOutput: {
+          state: "applied",
+          runId: 37606095039,
+          runAttempt: 2,
+          artifactId: 11477119111,
+          artifactCreatedAt: "2026-10-07T11:07:23Z",
+          outputVersion: 1,
+          appliedAt: 1,
+        },
+      });
+    });
+    mockGitHub({
+      githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
+      runs: observedDestroyAlchemyRunPage,
+      artifacts: observedDestroyArtifactPage,
+      runsById: new Map([[observedDestroyRun.id, observedDestroyRun]]),
+      archiveBase64: observedDestroyReceiptArchiveBase64,
+    });
+    const receipt = {
+      runId: 37612780148,
+      runAttempt: 1,
+      artifactId: 11479280115,
+      artifactCreatedAt: "2026-10-07T11:16:41Z",
+    };
+
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({
+      latestRun: { runId: 37606095039 },
+      applied: { state: "applied", artifactId: 11477119111 },
+      pending: { state: "destroyed", source: receipt },
+    });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
+        repositoryId: fixture.ids.repositoryId,
+        artifactId: receipt.artifactId,
+      }),
+    ).toMatchObject({
+      state: "destroy_reported",
+      latestRun: { runId: 37606095039 },
+      source: receipt,
+    });
+    expect((await readRows(fixture)).plan).toMatchObject({
+      setupOutput: { state: "destroy_reported", artifactId: receipt.artifactId },
     });
   });
 

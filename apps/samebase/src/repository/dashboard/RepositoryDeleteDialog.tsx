@@ -28,7 +28,7 @@ type RepositoryDeleteTarget = {
   canRemoveCloudflareProvision: boolean;
   /**
   For a repository that its GitHub Actions set up: the attached resources, which removal keeps. Only
-  the repository's alchemy workflow destroys what its setup stack created.
+  the repository's Destroy app workflow destroys what its setup stack created.
   */
   setupStack: { workerNames: string[]; convexCodeLocations: string[] } | null;
 };
@@ -69,17 +69,18 @@ function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
   return (
     <div className="text-sm text-muted-foreground">
       Samebase keeps {retained.join(", ") || "the Workers and Convex projects of this app"}. To
-      delete what the setup stack in alchemy.run.ts created, first run the{" "}
+      delete what the setup stack in alchemy.run.ts created, first open the{" "}
       <a
         className="font-medium text-foreground underline underline-offset-4"
-        href={`https://github.com/${target.githubRepositoryFullName}/actions/workflows/alchemy.yml`}
+        href={`https://github.com/${target.githubRepositoryFullName}/actions/workflows/destroy.yml`}
         rel="noreferrer noopener"
         target="_blank"
       >
-        alchemy workflow
+        Destroy app
       </a>{" "}
-      on main with <span className="font-mono">{target.githubRepositoryFullName}</span> in its
-      confirm field. Deleting the GitHub repository also deletes that workflow.
+      workflow, click Run workflow, and type{" "}
+      <span className="font-mono">{`delete ${target.githubRepositoryFullName}`}</span> in its field.
+      Deleting the GitHub repository also deletes that workflow.
     </div>
   );
 }
