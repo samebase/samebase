@@ -213,6 +213,7 @@ function buildSetupStackAttention(args: {
           : "";
       items.push({
         tool: APPLY_SETUP_OUTPUT_TOOL,
+        artifactId: pending.source.artifactId,
         problem: `The setup output of alchemy run ${pending.source.runId} is not applied yet. Workers: ${workers.join(", ") || "none"}. Convex projects: ${projects.join(", ") || "none"}.${waitsForMember}`,
       });
       break;
@@ -220,6 +221,7 @@ function buildSetupStackAttention(args: {
     case "destroyed":
       items.push({
         tool: APPLY_SETUP_OUTPUT_TOOL,
+        artifactId: pending.source.artifactId,
         problem: `Alchemy run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
       });
       break;

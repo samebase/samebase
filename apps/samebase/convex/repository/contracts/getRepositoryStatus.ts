@@ -51,6 +51,7 @@ const vRepositoryAttentionItem = union(
   }),
   object({
     tool: literal(applySetupOutputContract.mcp.name),
+    artifactId: number(),
     problem: string(),
   }),
   object({
@@ -235,7 +236,8 @@ the repository overview shows. It changes nothing.
   missing or targets another project. "Deploy the Convex project to production first" means that a
   project has no production deployment yet, so no deploy key can be installed. For a repository
   that its GitHub Actions set up, the setup stack owns those settings, so those items name no tool;
-  an item names \`repository_setupOutput_apply\` when a setup output waits for a member.
+  an item names \`repository_setupOutput_apply\` with the \`artifactId\` of the setup output that waits
+  for a member. Show the user its Workers and Convex projects before the apply.
 
 Checks give the total, failed, pending, and unknown counts of every check, and the names of the
 failed checks among the first 100 that GitHub lists; \`failedNamesComplete\` is false when a

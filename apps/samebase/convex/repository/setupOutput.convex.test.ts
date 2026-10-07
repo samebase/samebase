@@ -660,6 +660,13 @@ beforeEach(() => {
   }
 });
 
+/*
+State axes of a member's apply, each covered below:
+- read: no setup run, no output, a run outside the listed pages, an output older than the applied one
+- output: newer than the applied one, the one applied, or the same identities under a new artifact
+- review: the artifact that the member reviewed is the newest one, or a newer one replaced it
+- providers: confirm every claim, or refuse one
+*/
 describe("setupOutput.apply by a member", () => {
   it("reads the recorded setup output, verifies it, applies it, and then finds nothing new", async () => {
     const fixture = await createFixture();
@@ -668,6 +675,7 @@ describe("setupOutput.apply by a member", () => {
     const apply = () =>
       asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
       });
 
     expect(await apply()).toMatchObject({
@@ -725,6 +733,7 @@ describe("setupOutput.apply by a member", () => {
     expect(
       await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
       }),
     ).toMatchObject({
       state: "refused",
@@ -740,6 +749,7 @@ describe("setupOutput.apply by a member", () => {
     expect(
       await asOwner(empty).action(api.repository.setupOutput.apply, {
         repositoryId: empty.ids.repositoryId,
+        artifactId: source.artifactId,
       }),
     ).toEqual({ state: "no_setup_run" });
 
@@ -748,6 +758,7 @@ describe("setupOutput.apply by a member", () => {
     expect(
       await asOwner(withoutOutput).action(api.repository.setupOutput.apply, {
         repositoryId: withoutOutput.ids.repositoryId,
+        artifactId: source.artifactId,
       }),
     ).toMatchObject({ state: "no_output", latestRun: { runId: 37545425944 } });
     // A successful run without an output, before anything is applied, is not a settled status.
@@ -773,8 +784,36 @@ describe("setupOutput.apply by a member", () => {
     expect(
       await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
       }),
-    ).toMatchObject({ state: "applied", source });
+    ).toMatchObject({
+      state: "applied",
+      source,
+      // The run read by id started after every listed run, so it is the newest run.
+      latestRun: { runId: recordedRun.id },
+    });
+  });
+
+  it("applies only the output that the member reviewed", async () => {
+    const fixture = await createFixture();
+    mockGitHub();
+    mockProviders();
+
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
+        repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId - 1,
+      }),
+    ).toMatchObject({
+      state: "refused",
+      step: "apply",
+      claim: null,
+      reason:
+        "Run 37545425944 published a newer setup output than the one you reviewed, so nothing changed. Review the newest one and apply it.",
+    });
+    const rows = await readRows(fixture);
+    expect(rows.workers).toEqual([]);
+    expect(rows.plan).not.toHaveProperty("setupOutput");
   });
 
   it("never replaces the applied output with an older one while the applied run reruns", async () => {
@@ -817,6 +856,7 @@ describe("setupOutput.apply by a member", () => {
     expect(
       await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
       }),
     ).toMatchObject({
       state: "unchanged",
@@ -895,6 +935,7 @@ describe("setupOutput.applyFirstForCreator and readStatus", () => {
     expect(
       await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
       }),
     ).toMatchObject({ state: "applied", source });
   });

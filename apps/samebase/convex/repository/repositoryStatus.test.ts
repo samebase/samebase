@@ -539,6 +539,7 @@ describe("buildRepositoryAttention", () => {
       ).toEqual([
         {
           tool: "repository_setupOutput_apply",
+          artifactId: 11450791196,
           problem:
             "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge at convex.json. Samebase does not apply the first output by itself: The Worker chess-merge existed before Samebase created the app.",
         },
@@ -546,6 +547,7 @@ describe("buildRepositoryAttention", () => {
       expect(setupStackAttention({ ...settledSetupStack, pending: deployed })).toEqual([
         {
           tool: "repository_setupOutput_apply",
+          artifactId: 11450791196,
           problem:
             "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge at convex.json.",
         },
@@ -607,6 +609,7 @@ describe("buildRepositoryAttention", () => {
       ).toEqual([
         {
           tool: "repository_setupOutput_apply",
+          artifactId: 11450791196,
           problem:
             "Alchemy run 37545425944 reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.",
         },

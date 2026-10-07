@@ -6,7 +6,10 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
-import type { SetupStatus } from "../../../convex/repository/setupOutputModel";
+import type {
+  SetupOutputApplyResult,
+  SetupStatus,
+} from "../../../convex/repository/setupOutputModel";
 
 /** GitHub's run status or conclusion, such as in_progress or timed_out, as words. */
 function describeLatestRun(run: NonNullable<SetupStatus["latestRun"]>): string {
@@ -14,31 +17,36 @@ function describeLatestRun(run: NonNullable<SetupStatus["latestRun"]>): string {
   return (state ?? "not started").replace(/_/g, " ");
 }
 
-/** What the newest setup output says that Samebase did not apply, or null when nothing waits. */
-function describePending(status: SetupStatus): { text: string; canApply: boolean } | null {
+/**
+What the newest setup output says that Samebase did not apply, or null when nothing waits.
+`applyArtifactId` is the artifact that the member sees and applies; null when it has nothing to apply.
+*/
+function describePending(
+  status: SetupStatus,
+): { text: string; applyArtifactId: number | null } | null {
   const { applied, pending } = status;
   switch (pending.state) {
     case "none":
       return applied?.state === "destroy_reported"
         ? {
             text: `Run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report. The Workers and Convex projects stay attached until you remove them.`,
-            canApply: false,
+            applyArtifactId: null,
           }
         : null;
     case "no_output":
       return {
         text: "The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one.",
-        canApply: false,
+        applyArtifactId: null,
       };
     case "invalid_output":
       return {
         text: `Samebase cannot read the setup output of run ${pending.source.runId}: ${pending.reason}`,
-        canApply: false,
+        applyArtifactId: null,
       };
     case "refused":
       return {
         text: `Samebase cannot apply the setup output of run ${pending.source.runId}${pending.claim === null ? "" : ` (${pending.claim})`}: ${pending.reason}`,
-        canApply: false,
+        applyArtifactId: null,
       };
     case "deployed": {
       const workers = pending.workers.map(
@@ -51,13 +59,13 @@ function describePending(status: SetupStatus): { text: string; canApply: boolean
         !applied && !pending.firstApply.automatic ? ` ${pending.firstApply.reason}` : "";
       return {
         text: `The setup output of run ${pending.source.runId} is not applied yet. Workers: ${workers.join(", ") || "none"}. Convex projects: ${projects.join(", ") || "none"}.${waitsForMember}`,
-        canApply: true,
+        applyArtifactId: pending.source.artifactId,
       };
     }
     case "destroyed":
       return {
         text: `Run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until you remove them.`,
-        canApply: true,
+        applyArtifactId: pending.source.artifactId,
       };
     default:
       pending satisfies never;
@@ -65,7 +73,17 @@ function describePending(status: SetupStatus): { text: string; canApply: boolean
   }
 }
 
-/** Whether the setup status can change only by a new push or a member's apply. */
+/**
+What the last apply adds to the status. The status read repeats a refused claim, so only the apply
+transaction's refusal (such as a newer output than the reviewed one) and a failed read are new.
+*/
+function describeApplyProblem(result: SetupOutputApplyResult | undefined): string | null {
+  return result?.state === "failed" || (result?.state === "refused" && result.step === "apply")
+    ? result.reason
+    : null;
+}
+
+/** Whether the setup status can change only by a new push, a member's apply, or a new attachment. */
 function isSetupStatusSettled({ latestRun, applied, pending }: SetupStatus): boolean {
   if (latestRun?.status !== "completed") {
     return false;
@@ -85,12 +103,20 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
     repository.deletion.state === "not_deleting" &&
     providerPlan !== null &&
     !isSamebaseManagedProviderPlan(providerPlan);
+  // The attachments are a live Convex subscription. An apply by observeFirstSetupOutput or by
+  // another member changes them, which changes this key and reads the status again.
+  const attachments = [
+    ...repository.cloudflareWorkers.map((worker) => worker.workerTag),
+    ...repository.convexProjects.map((project) => project.projectId),
+  ].sort((left, right) => left.localeCompare(right));
   const readStatus = useAction(api.repository.setupOutput.readStatus);
   const applySetupOutput = useAction(api.repository.setupOutput.apply);
   const statusQuery = useQuery({
-    queryKey: [...repositoryExternalDataQueryKey(repositoryId), "setup-stack"],
+    queryKey: [...repositoryExternalDataQueryKey(repositoryId), "setup-stack", attachments],
     queryFn: () => readStatus({ repositoryId }),
     enabled,
+    // Keep the last status on screen while a new attachment reads it again.
+    placeholderData: (previous) => previous,
     // The read lists workflow runs and checks every claim with Cloudflare and Convex.
     staleTime: 60 * 1000,
     // GitHub does not push run changes, so the open overview reads again while the newest run has
@@ -100,7 +126,7 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
     retry: false,
   });
   const applyMutation = useMutation({
-    mutationFn: () => applySetupOutput({ repositoryId }),
+    mutationFn: (artifactId: number) => applySetupOutput({ repositoryId, artifactId }),
     onSettled: () => statusQuery.refetch(),
   });
 
@@ -127,15 +153,10 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
     return null;
   }
   const pending = describePending(status);
-  const applyResult = applyMutation.data;
-  // The status read repeats a refused claim; only the apply transaction's refusal and a failed read
-  // are new here.
+  const applyArtifactId = pending?.applyArtifactId ?? null;
   const applyProblem = applyMutation.isError
     ? "Could not apply the setup output."
-    : applyResult?.state === "failed" ||
-        (applyResult?.state === "refused" && applyResult.step === "apply")
-      ? applyResult.reason
-      : null;
+    : describeApplyProblem(applyMutation.data);
 
   return (
     <section aria-label="Setup stack" className="grid gap-2 text-sm">
@@ -160,18 +181,18 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
       {pending ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <p className="min-w-0 text-xs leading-5 text-muted-foreground">{pending.text}</p>
-          {pending.canApply ? (
+          {applyArtifactId === null ? null : (
             <Button
               disabled={applyMutation.isPending}
               size="sm"
               type="button"
               variant="outline"
-              onClick={() => applyMutation.mutate()}
+              onClick={() => applyMutation.mutate(applyArtifactId)}
             >
               {applyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {applyMutation.isPending ? "Applying..." : "Apply setup output"}
             </Button>
-          ) : null}
+          )}
         </div>
       ) : null}
       {applyProblem ? (

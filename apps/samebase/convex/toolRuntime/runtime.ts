@@ -563,7 +563,7 @@ export const repositoryApplySetupOutputTool = defineMcpTool({
     const structuredContent = await applyLatestSetupOutput(ctx, {
       userId: args.userId,
       repositoryId: repository.repositoryId,
-      authority: "member",
+      authority: { kind: "member", artifactId: args.artifactId },
     });
     return { text: JSON.stringify(structuredContent, null, 2), structuredContent };
   },

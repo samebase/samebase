@@ -6,8 +6,10 @@ MCP tool `repository_setupOutput_apply` Â· scope `access_provider_connections` Â
 
 For a repository that its GitHub Actions set up (`repository_create` with provisioning
 repository_actions), the repository's alchemy workflow publishes a setup output after each deploy:
-the ids of the Workers and the Convex projects that its setup stack owns. This action reads the
-newest one from the runs of that workflow on the default branch, checks every claim with the
+the ids of the Workers and the Convex projects that its setup stack owns. `repository_getStatus`
+shows the newest one that waits (`setupStack.pending`). This action applies it: it reads the newest
+one again from the runs of that workflow on the default branch, stops when its artifact is not
+`artifactId` (a newer run replaced the one that the user reviewed), checks every claim with the
 organization's Cloudflare and Convex connections (the account and the team are the repository's,
 each Worker builds this repository through Workers Builds, each project exists in the team, each
 Convex code location is on the default branch), and attaches the Workers and projects in one step.
@@ -27,6 +29,8 @@ recorded as a report; the attachments stay until they are removed.
 
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
   repository_list.
+- `artifactId` (number, required): setupStack.pending.source.artifactId from repository_getStatus:
+  the setup output that the user reviewed. A newer output stops the apply.
 
 ## Returns
 

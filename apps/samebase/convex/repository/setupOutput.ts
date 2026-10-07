@@ -152,7 +152,6 @@ export async function readLatestSetupOutput(
   if (!newestRun) {
     return { state: "no_setup_run" };
   }
-  const latestRun = toSetupRun(newestRun);
 
   const artifacts = await listAllPages(async (page) => {
     const response = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", {
@@ -172,18 +171,28 @@ export async function readLatestSetupOutput(
     defaultBranch,
   };
   const listedRuns = new Map(runs.map((run) => [run.id, run]));
-  let selected: { artifact: GitHubArtifact; source: SetupOutputSource } | null = null;
+  let selected: {
+    artifact: GitHubArtifact;
+    source: SetupOutputSource;
+    run: GitHubWorkflowRun;
+  } | null = null;
   for (const { artifact, runId } of orderSetupOutputArtifacts(artifacts).slice(
     0,
     MAX_ARTIFACT_CANDIDATES,
   )) {
     const run = listedRuns.get(runId) ?? (await readWorkflowRun(octokit, { owner, repo, runId }));
     const source = run ? readSetupOutputSource({ artifact, run, repository }) : null;
-    if (source) {
-      selected = { artifact, source };
+    if (run && source) {
+      selected = { artifact, source, run };
       break;
     }
   }
+  // A run read by id can be newer than every listed run: a rerun of an old run starts again.
+  const latestRun = toSetupRun(
+    selected && selected.run.run_started_at.localeCompare(newestRun.run_started_at) > 0
+      ? selected.run
+      : newestRun,
+  );
   if (!selected) {
     return { state: "no_output", latestRun };
   }
@@ -432,7 +441,8 @@ export async function readSetupStatus(
 /**
 Reads, verifies, and applies the newest setup output in one transaction, on behalf of `userId`.
 
-member = a member asked for this apply, so any newer output that every provider confirms is applied
+member = a member reviewed the output with this artifact id and asked for its apply; a newer output
+stops the apply, so the member never applies an output that they did not see
 
 first_apply = the app's creation is the authority: only the first output, and only when
 decideFirstSetupOutputApply allows it; anything else waits for a member (needs_member)
@@ -442,7 +452,7 @@ export async function applyLatestSetupOutput(
   args: {
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
-    authority: "member" | "first_apply";
+    authority: { kind: "member"; artifactId: number } | { kind: "first_apply" };
   },
 ): Promise<SetupOutputApplyResult> {
   const { applied, prepared } = await prepareLatestSetupOutput(ctx, args);
@@ -450,8 +460,19 @@ export async function applyLatestSetupOutput(
     return prepared;
   }
   const { latestRun, source } = prepared;
-  switch (args.authority) {
+  const { authority } = args;
+  switch (authority.kind) {
     case "member":
+      if (source.artifactId !== authority.artifactId) {
+        return {
+          state: "refused",
+          latestRun,
+          source,
+          step: "apply",
+          claim: null,
+          reason: `Run ${source.runId} published a newer setup output than the one you reviewed, so nothing changed. Review the newest one and apply it.`,
+        };
+      }
       break;
     case "first_apply":
       if (applied) {
@@ -472,7 +493,7 @@ export async function applyLatestSetupOutput(
       }
       break;
     default:
-      args.authority satisfies never;
+      authority satisfies never;
       throw new Error("Unknown setup output authority.");
   }
 
@@ -522,7 +543,7 @@ export const applyFirstForCreator = internalAction({
       return await applyLatestSetupOutput(ctx, {
         userId: args.userId,
         repositoryId: args.repositoryId,
-        authority: "first_apply",
+        authority: { kind: "first_apply" },
       });
     } catch (error) {
       return { state: "failed", reason: toErrorMessage(error) };
@@ -549,6 +570,6 @@ export const apply = action({
     await applyLatestSetupOutput(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
-      authority: "member",
+      authority: { kind: "member", artifactId: args.artifactId },
     }),
 });
