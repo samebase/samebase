@@ -4,6 +4,8 @@ import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
+import { getConvexCodeLocationPath } from "../../../shared/convexCodeLocation";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,6 +26,11 @@ type RepositoryDeleteTarget = {
   hasCloudflareProvision: boolean;
   canRemoveConvexProvision: boolean;
   canRemoveCloudflareProvision: boolean;
+  /**
+  For a repository that its GitHub Actions set up: the attached resources, which removal keeps. Only
+  the repository's alchemy workflow destroys what its setup stack created.
+  */
+  setupStack: { workerNames: string[]; convexCodeLocations: string[] } | null;
 };
 
 type RepositoryDeleteOptionKey =
@@ -47,6 +54,35 @@ type RepositoryDeleteOptions = {
   removeGithubRepo: boolean;
   removeCloudflareProvision: boolean;
 };
+
+/** What removal keeps for a repository that its GitHub Actions set up, and the destroy to run first. */
+function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
+  if (!target.setupStack) {
+    return null;
+  }
+  const retained = [
+    ...target.setupStack.workerNames.map((workerName) => `the Worker ${workerName}`),
+    ...target.setupStack.convexCodeLocations.map(
+      (codeLocation) => `the Convex project at ${codeLocation}`,
+    ),
+  ];
+  return (
+    <div className="text-sm text-muted-foreground">
+      Samebase keeps {retained.join(", ") || "the Workers and Convex projects of this app"}. To
+      delete what the setup stack in alchemy.run.ts created, first run the{" "}
+      <a
+        className="font-medium text-foreground underline underline-offset-4"
+        href={`https://github.com/${target.githubRepositoryFullName}/actions/workflows/alchemy.yml`}
+        rel="noreferrer noopener"
+        target="_blank"
+      >
+        alchemy workflow
+      </a>{" "}
+      on main with <span className="font-mono">{target.githubRepositoryFullName}</span> in its
+      confirm field. Deleting the GitHub repository also deletes that workflow.
+    </div>
+  );
+}
 
 export function RepositoryDeleteDialogContent({
   blockedReason,
@@ -157,6 +193,7 @@ export function RepositoryDeleteDialogContent({
               </label>
             </div>
           ) : null}
+          <SetupStackRemovalNote target={target} />
           {deleteError ? <div className="text-sm text-red-600">{deleteError}</div> : null}
           {commitError ? <div className="text-sm text-red-600">{commitError}</div> : null}
           {blockedReason ? (
@@ -255,6 +292,17 @@ export function RepositoryDeleteDialog({
     hasCloudflareProvision: repository.hasCloudflareProvision,
     canRemoveConvexProvision: repository.canRemoveConvexProvision,
     canRemoveCloudflareProvision: repository.canRemoveCloudflareProvision,
+    setupStack:
+      repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan)
+        ? {
+            workerNames: repository.cloudflareWorkers
+              .map((worker) => worker.workerName)
+              .sort((left, right) => left.localeCompare(right)),
+            convexCodeLocations: repository.convexProjects
+              .map((project) => getConvexCodeLocationPath(project.codeLocation))
+              .sort((left, right) => left.localeCompare(right)),
+          }
+        : null,
   };
 
   const handleCommitBeforeRemove = async () => {

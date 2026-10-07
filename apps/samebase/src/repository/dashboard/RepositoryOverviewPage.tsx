@@ -6,6 +6,7 @@ import {
 } from "@/repository/dashboard/RepositoryEnvironmentTree";
 import { PullRequestsSection } from "@/repository/dashboard/RepositoryPullRequestsSection";
 import { RepositorySettings } from "@/repository/dashboard/RepositorySettings";
+import { RepositorySetupStackStatus } from "@/repository/dashboard/RepositorySetupStackStatus";
 import { RepositoryWorkspaceDataInspector } from "@/repository/dashboard/RepositoryWorkspaceDataInspector";
 import type { RepositorySettingsState } from "@/repository/dashboard/repositorySettingsState";
 import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
@@ -369,6 +370,7 @@ export function RepositoryOverviewPage({
           )}
           {showRepositoryContent ? (
             <>
+              <RepositorySetupStackStatus repository={workspace.repository} />
               <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
               {developerToolsVisible ? (
                 <RepositoryWorkspaceDataInspector workspace={workspace} />

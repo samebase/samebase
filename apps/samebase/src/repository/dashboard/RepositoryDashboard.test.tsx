@@ -1886,6 +1886,7 @@ describe("RepositoryDeleteDialogContent", () => {
           hasCloudflareProvision: true,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: true,
+          setupStack: null,
         }}
       />,
     );
@@ -1907,12 +1908,39 @@ describe("RepositoryDeleteDialogContent", () => {
           hasCloudflareProvision: false,
           canRemoveConvexProvision: true,
           canRemoveCloudflareProvision: false,
+          setupStack: null,
         }}
       />,
     );
 
     expect(markup).toContain("Also delete the Convex project and deployment");
     expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
+  });
+
+  it("names what removal keeps and links the destroy for a repository that its GitHub Actions set up", () => {
+    const markup = renderToStaticMarkup(
+      <RepositoryDeleteDialogContent
+        {...baseProps}
+        target={{
+          repositoryId: fakeRepositoryId(),
+          githubRepositoryFullName: "ada/chess-merge",
+          isSamebaseManaged: true,
+          canRemoveGithubRepo: true,
+          hasConvexProvision: true,
+          hasCloudflareProvision: true,
+          canRemoveConvexProvision: false,
+          canRemoveCloudflareProvision: false,
+          setupStack: { workerNames: ["chess-merge"], convexCodeLocations: ["convex.json"] },
+        }}
+      />,
+    );
+
+    expect(markup).toContain(
+      "Samebase keeps the Worker chess-merge, the Convex project at convex.json. To delete what the setup stack in alchemy.run.ts created, first run the",
+    );
+    expect(markup).toContain(
+      'href="https://github.com/ada/chess-merge/actions/workflows/alchemy.yml"',
+    );
   });
 
   it("shows the server block reason and disables removal", () => {
@@ -1929,6 +1957,7 @@ describe("RepositoryDeleteDialogContent", () => {
           hasCloudflareProvision: false,
           canRemoveConvexProvision: false,
           canRemoveCloudflareProvision: false,
+          setupStack: null,
         }}
       />,
     );
