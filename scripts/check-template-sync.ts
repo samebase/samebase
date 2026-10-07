@@ -12,8 +12,10 @@ exist in both with the same bytes and mode.
 export const templateDeployPaths = [
   // The setup stack: the Worker shell, the Workers Builds link, the Convex project and keys.
   "alchemy.run.ts",
-  // The workflow that plans, deploys, and destroys the stack.
+  // The workflow that plans and deploys the stack.
   ".github/workflows/alchemy.yml",
+  // The workflow that destroys the app after the typed confirmation.
+  ".github/workflows/destroy.yml",
   // The stack, Worker, and Convex project names from GITHUB_REPOSITORY.
   "scripts/deploy-names.ts",
   "scripts/deploy-names.test.ts",
