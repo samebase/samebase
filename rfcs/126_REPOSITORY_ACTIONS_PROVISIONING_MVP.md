@@ -1015,3 +1015,12 @@ Open for PR C, in Nicu's words "how all this fits in":
   provisioning (RFC 127), Samebase adopts a setup stack, Mail becomes a component with an infra
   function. Open: a destroy leaves Wrangler-provisioned resources of the Worker behind (open
   question 18 of the Alchemy list); moot while the template has only `assets`.
+- 2026-10-07: Parity follow-up PR #1701 (v2106) ready and checked live on its preview with a fresh
+  app: the first deploy failed on a transient Convex error, the deploy job uploaded
+  `{ "version": 1, "state": "failed" }`, the Overview read "Setup failed in run N" from the artifact
+  alone; the rerun's newer artifact replaced it and the automatic apply attached the Worker and the
+  Convex deployment. Known limit: a job that fails before the install uploads nothing, so the status
+  stays "waiting" with the Actions link. Research for the second template, the Mail app, is in
+  research/2026-10-07-mail-app-as-a-samebase-template.md (draft PR #1702) with six decisions for the
+  operator; it also found that `scripts/destroy-app.ts` re-creates resources that an earlier destroy
+  left in `deleting`, a fix for this template.
