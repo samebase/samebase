@@ -13,6 +13,7 @@ import {
 import {
   decideFirstSetupOutputApply,
   isNewerSetupOutput,
+  namesOnlyAttachedSetupStack,
   orderSetupOutputArtifacts,
   parseSetupOutput,
   readSetupOutputArchive,
@@ -388,5 +389,50 @@ describe("decideFirstSetupOutputApply", () => {
       automatic: false,
       reason: "The Convex project tmp-alchemy-v2 existed before Samebase created the app.",
     });
+  });
+});
+
+/*
+State axes of the identity comparison: the output lists the same, more, or fewer resources than the
+attached setup_stack rows, per provider; a row with the same identity but another origin does not
+count, because applying the output would take it over.
+*/
+describe("namesOnlyAttachedSetupStack", () => {
+  const attachedWorkers = [
+    { workerTag: "tag-app", origin: "setup_stack" as const },
+    { workerTag: "tag-admin", origin: "setup_stack" as const },
+  ];
+  const attachedProjects = [{ projectId: "3161449", origin: "setup_stack" as const }];
+
+  it("finds nothing to apply when the output lists exactly the attached setup_stack rows", () => {
+    expect(
+      namesOnlyAttachedSetupStack({
+        workerTags: ["tag-admin", "tag-app"],
+        projectIds: ["3161449"],
+        attachedWorkers,
+        attachedProjects,
+      }),
+    ).toBe(true);
+  });
+
+  it("finds something to apply for a new, a dropped, or a hand-attached resource", () => {
+    for (const lists of [
+      { workerTags: ["tag-admin", "tag-app", "tag-docs"], projectIds: ["3161449"] },
+      { workerTags: ["tag-app"], projectIds: ["3161449"] },
+      { workerTags: ["tag-admin", "tag-app"], projectIds: ["3161449", "3161450"] },
+      { workerTags: ["tag-admin", "tag-app"], projectIds: [] },
+    ]) {
+      expect(namesOnlyAttachedSetupStack({ ...lists, attachedWorkers, attachedProjects })).toBe(
+        false,
+      );
+    }
+    expect(
+      namesOnlyAttachedSetupStack({
+        workerTags: ["tag-admin", "tag-app"],
+        projectIds: ["3161449"],
+        attachedWorkers,
+        attachedProjects: [{ projectId: "3161449", origin: "selected_existing" }],
+      }),
+    ).toBe(false);
   });
 });

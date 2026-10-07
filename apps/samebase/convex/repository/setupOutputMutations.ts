@@ -52,6 +52,9 @@ const vSetupOutputApplyContext = object({
       origin: vRepositoryProviderResourceOrigin,
     }),
   ),
+  attachedProjects: array(
+    object({ projectId: string(), origin: vRepositoryProviderResourceOrigin }),
+  ),
 });
 
 async function requireRepositoryActionsPlan(
@@ -92,6 +95,10 @@ export const readApplyContext = internalQuery({
       .query("repositoryCloudflareWorkers")
       .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
       .collect();
+    const projects = await ctx.db
+      .query("repositoryConvexProjects")
+      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+      .collect();
     return {
       setupOutput: plan.setupOutput ?? null,
       appCreatedAt: plan.createdAt,
@@ -117,6 +124,9 @@ export const readApplyContext = internalQuery({
             left.workerName.localeCompare(right.workerName) ||
             left.workerTag.localeCompare(right.workerTag),
         ),
+      attachedProjects: projects
+        .map((project) => ({ projectId: project.projectId, origin: project.origin }))
+        .sort((left, right) => left.projectId.localeCompare(right.projectId)),
     };
   },
 });

@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import { strFromU8, unzipSync } from "fflate";
 import { z } from "zod";
 
+import type { RepositoryProviderResourceOrigin } from "./model";
 import { vRepositoryActionsSetupOutput } from "./provisioningModel";
 
 /*
@@ -385,6 +386,43 @@ export function decideFirstSetupOutputApply(args: {
   return { automatic: true };
 }
 
+/**
+Whether a verified output names exactly the Workers and Convex projects that the setup stack already
+has attached: the same Worker tags and project ids, and no setup_stack row that it no longer lists.
+A rerun or a stack change that keeps its resources publishes such an output; applying it would only
+move the checkpoint, so there is nothing to apply.
+*/
+export function namesOnlyAttachedSetupStack(args: {
+  workerTags: readonly string[];
+  projectIds: readonly string[];
+  attachedWorkers: ReadonlyArray<{ workerTag: string; origin: RepositoryProviderResourceOrigin }>;
+  attachedProjects: ReadonlyArray<{ projectId: string; origin: RepositoryProviderResourceOrigin }>;
+}): boolean {
+  const sameValues = (left: readonly string[], right: readonly string[]) => {
+    const sortedRight = [...right].sort((a, b) => a.localeCompare(b));
+    return (
+      left.length === right.length &&
+      [...left]
+        .sort((a, b) => a.localeCompare(b))
+        .every((value, index) => value === sortedRight[index])
+    );
+  };
+  return (
+    sameValues(
+      args.workerTags,
+      args.attachedWorkers.flatMap((worker) =>
+        worker.origin === "setup_stack" ? [worker.workerTag] : [],
+      ),
+    ) &&
+    sameValues(
+      args.projectIds,
+      args.attachedProjects.flatMap((project) =>
+        project.origin === "setup_stack" ? [project.projectId] : [],
+      ),
+    )
+  );
+}
+
 const vSetupOutputRefusalStep = union(
   literal("verify_cloudflare"),
   literal("verify_convex"),
@@ -395,7 +433,8 @@ const vSetupOutputRefusalStep = union(
 The newest setup output that is not applied yet, as a status read sees it. It is never applied by
 the read.
 
-none = no setup output is newer than the applied one
+none = nothing to apply: no setup output is newer than the applied one, or the newer one names
+exactly the attached setup_stack resources (namesOnlyAttachedSetupStack)
 
 no_output = nothing is applied, and the newest run succeeded without a live setup output: a template
 from before the setup output, or an artifact that GitHub deleted. A run of the alchemy workflow on
@@ -474,7 +513,8 @@ needs_member = the first apply waits for a member, for `reason`
 failed = GitHub or Samebase's own records could not be read before Samebase could decide; `reason`
 is its error
 
-unchanged = no setup output is newer than the applied one
+unchanged = nothing to apply: no setup output is newer than the applied one, or the newer one
+names exactly the attached setup_stack resources
 
 applied = the Workers and Convex projects of a deployed output are attached
 

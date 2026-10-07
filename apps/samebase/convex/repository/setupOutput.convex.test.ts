@@ -690,6 +690,31 @@ describe("setupOutput.apply by a member", () => {
       { projectId: PROJECT_ID, convexConfigPath: "convex.json", origin: "setup_stack" },
     ]);
     expect(await apply()).toMatchObject({ state: "unchanged", source });
+
+    // A rerun publishes the same identities under a new artifact: nothing to apply.
+    const rerunSource = {
+      ...source,
+      artifactId: 11450799999,
+      artifactCreatedAt: "2026-10-07T01:00:00Z",
+    };
+    mockGitHub({
+      artifacts: {
+        total_count: 1,
+        artifacts: [
+          {
+            ...observedSetupOutputArtifactPage.artifacts[0],
+            id: rerunSource.artifactId,
+            created_at: rerunSource.artifactCreatedAt,
+          },
+        ],
+      },
+    });
+    expect(await apply()).toMatchObject({ state: "unchanged", source: rerunSource });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({ applied: { artifactId: source.artifactId }, pending: { state: "none" } });
   });
 
   it("names the claim that Cloudflare does not confirm and attaches nothing", async () => {

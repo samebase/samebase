@@ -19,6 +19,7 @@ import type { RepositoryActionsSetupOutput } from "./provisioningModel";
 import type { VerifiedSetupOutput } from "./setupOutputMutations";
 import {
   decideFirstSetupOutputApply,
+  namesOnlyAttachedSetupStack,
   isNewerSetupOutput,
   orderSetupOutputArtifacts,
   readSetupOutputArchive,
@@ -323,6 +324,17 @@ async function prepareLatestSetupOutput(
       reason: projects.reason,
     };
     return { applied, prepared: { state: "refused", latestRun, source, ...refusal } };
+  }
+  if (
+    workers.replacedWorkerIds.length === 0 &&
+    namesOnlyAttachedSetupStack({
+      workerTags: workers.workers.map((worker) => worker.workerTag),
+      projectIds: projects.projects.map((project) => project.projectId),
+      attachedWorkers: context.attachedWorkers,
+      attachedProjects: context.attachedProjects,
+    })
+  ) {
+    return { applied, prepared: { state: "unchanged", latestRun, source } };
   }
   return {
     applied,
