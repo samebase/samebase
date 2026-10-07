@@ -196,7 +196,7 @@ export const getRepositoryStatusContract = {
     title: "Get repository status",
     name: "repository_getStatus",
     description:
-      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up the newest run of its alchemy workflow and its setup output, and attention items that name the tool that fixes each problem.",
+      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up its newest setup output and the run that published it, and attention items that name the tool that fixes each problem.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -221,12 +221,14 @@ the repository overview shows. It changes nothing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
   first 6 open pull requests, most recently updated first. Each lists its checks and, per app, the
   preview build and preview URL.
-- Setup stack, for a repository that its GitHub Actions set up (null for any other): the newest
-  run of its \`alchemy\` workflow on the default branch in any state, the setup output that
-  Samebase applied, and the newest output that it did not apply yet, with the Workers and Convex
-  projects it lists and, before the first apply, why Samebase does not apply it by itself. A
-  destroy receipt is the report of a run of its \`Destroy app\` workflow: the app facts show what
-  is left.
+- Setup stack, for a repository that its GitHub Actions set up (null for any other): the run that
+  published the newest setup output on the default branch (\`latestRun\`, null while Samebase
+  waits for the first one), the setup output that Samebase applied, the newest output that it did
+  not apply yet, with the Workers and Convex projects it lists and, before the first apply, why
+  Samebase does not apply it by itself, and the last automatic apply that failed
+  (\`applyFailure\`). A failed output (\`pending.state\` failed) means that the setup failed in
+  that run. A destroy receipt is the report of the run that destroyed the app: the app facts show
+  what is left.
 - Attention items: each names a problem and the tool that fixes it. The provider setup state comes
   first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
   the only item names \`repository_retryProviderSetup\`. When Cloudflare setup is pending, an item

@@ -216,8 +216,8 @@ export const vRepositoryActionsSeed = union(
 );
 
 /**
-The setup output that Samebase last applied: the artifact `samebase-setup-output` of one run of the
-repository's `alchemy` workflow (templates/base-actions/scripts/setup-output.ts). `artifactId` is
+The setup output that Samebase last applied: the artifact `samebase-setup-output` of one workflow run
+on the repository's default branch (templates/base-actions/scripts/setup-output.ts). `artifactId` is
 the change key: a rerun publishes the same content under a new artifact id. `artifactCreatedAt`
 orders outputs, so an older one is never applied over it. The run's ids keep this readable after
 GitHub deletes the run at the end of its retention period.
@@ -251,6 +251,16 @@ export const vRepositoryActionsSetupOutput = union(
 );
 export type RepositoryActionsSetupOutput = Infer<typeof vRepositoryActionsSetupOutput>;
 
+/**
+The last automatic apply of a setup output that failed in the apply transaction, such as on the
+organization connection quota: observeFirstSetupOutput records its reason, and the next successful
+apply removes it. An absent field means that no automatic apply failed since the last success.
+*/
+export const vRepositoryActionsSetupOutputApplyFailure = object({
+  reason: string(),
+  failedAt: number(),
+});
+
 const vRepositoryActionsProvisioningPlan = object({
   provisioning: literal("repository_actions"),
   repositoryId: id("repositories"),
@@ -258,6 +268,7 @@ const vRepositoryActionsProvisioningPlan = object({
   ciSecrets: vRepositoryActionsCiSecrets,
   seed: vRepositoryActionsSeed,
   setupOutput: optional(vRepositoryActionsSetupOutput),
+  setupOutputApplyFailure: optional(vRepositoryActionsSetupOutputApplyFailure),
   createdAt: number(),
   updatedAt: number(),
 });

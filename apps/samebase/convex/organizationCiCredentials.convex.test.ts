@@ -14,7 +14,6 @@ vi.mock("./convexManagementApi/client", async (importOriginal) => {
 
 import { api } from "./_generated/api";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
-import { requireCloudflareCiAccountAccess } from "./organization/ciCredentials";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const cloudflareAccountId = "a".repeat(32);
@@ -23,34 +22,47 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** The reads that stand for the permission groups of the Cloudflare CI token, by path. */
+const probePaths = {
+  accountSettings: `/client/v4/accounts/${cloudflareAccountId}`,
+  workersScripts: `/client/v4/accounts/${cloudflareAccountId}/workers/scripts`,
+  secretsStore: `/client/v4/accounts/${cloudflareAccountId}/secrets_store/stores`,
+  workersBuilds: `/client/v4/accounts/${cloudflareAccountId}/builds/tokens`,
+};
+
 /**
-Cloudflare's API for one user API token that reaches `accounts`. Without `workersBuilds`, the
-Workers Builds read answers with the code and message that Workers Builds gives a token without
-Builds access (12006 Invalid token, as cloudflareResources.test.ts records it).
+Cloudflare's API for one user API token with `status`. A path in `denied` answers the way
+Cloudflare answers a token without that permission: 403 with code 10000 Authentication error (as
+cloudflareResources.test.ts records it), and 12006 Invalid token for Workers Builds.
 */
-function stubCloudflareCiToken(
-  accounts: Array<{ id: string; name: string }>,
-  { workersBuilds = true }: { workersBuilds?: boolean } = {},
-) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: string | URL | Request) => {
-      const url = new URL(input instanceof Request ? input.url : input.toString());
-      if (url.pathname === `/client/v4/accounts/${cloudflareAccountId}/builds/tokens`) {
-        return workersBuilds
-          ? Response.json({ success: true, errors: [], messages: [], result: [] })
-          : Response.json(
-              { success: false, errors: [{ code: 12006, message: "Invalid token" }], messages: [] },
-              { status: 403 },
-            );
-      }
-      const result =
-        url.pathname === "/client/v4/user/tokens/verify"
-          ? { id: "c".repeat(32), status: "active" }
-          : accounts.map((account) => ({ ...account, type: "standard" }));
-      return Response.json({ success: true, errors: [], messages: [], result });
-    }),
-  );
+function stubCloudflareCiToken({
+  status = "active",
+  denied = [],
+}: { status?: string; denied?: string[] } = {}) {
+  const fetch = vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input.toString());
+    if (url.pathname === "/client/v4/user/tokens/verify") {
+      return Response.json({
+        success: true,
+        errors: [],
+        messages: [],
+        result: { id: "c".repeat(32), status },
+      });
+    }
+    if (denied.includes(url.pathname)) {
+      const error =
+        url.pathname === probePaths.workersBuilds
+          ? { code: 12006, message: "Invalid token" }
+          : { code: 10000, message: "Authentication error" };
+      return Response.json(
+        { success: false, errors: [error], messages: [], result: null },
+        { status: 403 },
+      );
+    }
+    return Response.json({ success: true, errors: [], messages: [], result: [] });
+  });
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
 }
 
 async function createOrganization(role: "owner" | "member" = "owner") {
@@ -108,13 +120,19 @@ beforeEach(() => {
 describe("organization CI credentials", () => {
   it("saves a verified Cloudflare CI token for the connected account and removes it", async () => {
     const { organizationId, t, viewer } = await createOrganization();
-    stubCloudflareCiToken([{ id: cloudflareAccountId, name: "Samebase" }]);
+    const fetch = stubCloudflareCiToken();
 
     await viewer.action(api.users.setCloudflareCiToken, {
       organizationId,
       token: "  cloudflare-ci-test-token  ",
     });
 
+    const readPaths = fetch.mock.calls.map(
+      ([input]) => new URL(input instanceof Request ? input.url : input.toString()).pathname,
+    );
+    expect(readPaths.sort()).toEqual(
+      ["/client/v4/user/tokens/verify", ...Object.values(probePaths)].sort(),
+    );
     await expect(
       viewer.query(api.users.getCiCredentialsStatus, { organizationId }),
     ).resolves.toMatchObject({
@@ -137,28 +155,42 @@ describe("organization CI credentials", () => {
     ).resolves.toBeNull();
   });
 
-  it("rejects a Cloudflare CI token that cannot reach the connected account", async () => {
+  /*
+  State axes of the save: the token active or not; each of the four permission probes answered or
+  denied. A token for another account is denied every probe.
+  */
+  it("names the permission group of each probe that Cloudflare denies, and saves nothing", async () => {
     const { organizationId, t, viewer } = await createOrganization();
-    stubCloudflareCiToken([{ id: "b".repeat(32), name: "Other" }]);
-
-    await expect(
+    const save = () =>
       viewer.action(api.users.setCloudflareCiToken, {
         organizationId,
         token: "cloudflare-ci-test-token",
-      }),
-    ).rejects.toMatchObject({
-      data: "The Cloudflare CI token cannot access the Cloudflare account Samebase.",
+      });
+    const refusal = (permissions: string) =>
+      `Cloudflare could not confirm that the Cloudflare CI token has ${permissions} in the Cloudflare account Samebase. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, which preselects every permission that the setup stack needs, or try again.`;
+
+    stubCloudflareCiToken({ denied: [probePaths.secretsStore] });
+    await expect(save()).rejects.toMatchObject({ data: refusal("Secrets Store Edit") });
+
+    stubCloudflareCiToken({ denied: [probePaths.workersBuilds] });
+    await expect(save()).rejects.toMatchObject({
+      data: refusal("Workers Builds Configuration Edit"),
+    });
+
+    stubCloudflareCiToken({ denied: Object.values(probePaths) });
+    await expect(save()).rejects.toMatchObject({
+      data: refusal(
+        "Account Settings Read, Workers Scripts Edit, Secrets Store Edit, Workers Builds Configuration Edit",
+      ),
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
     ).resolves.toBeNull();
   });
 
-  it("rejects a Cloudflare CI token that cannot read Workers Builds", async () => {
+  it("rejects a Cloudflare CI token that is not active", async () => {
     const { organizationId, t, viewer } = await createOrganization();
-    stubCloudflareCiToken([{ id: cloudflareAccountId, name: "Samebase" }], {
-      workersBuilds: false,
-    });
+    const fetch = stubCloudflareCiToken({ status: "disabled" });
 
     await expect(
       viewer.action(api.users.setCloudflareCiToken, {
@@ -166,8 +198,9 @@ describe("organization CI credentials", () => {
         token: "cloudflare-ci-test-token",
       }),
     ).rejects.toMatchObject({
-      data: "Cloudflare could not confirm that the Cloudflare CI token reaches Workers Builds in the Cloudflare account Samebase. The token needs Workers Builds Configuration Edit. Try again, or save a new token on the Providers page.",
+      data: "Cloudflare could not verify the Cloudflare CI token as an active API token. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, or try again.",
     });
+    expect(fetch).toHaveBeenCalledOnce();
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
     ).resolves.toBeNull();
@@ -234,14 +267,5 @@ describe("organization CI credentials", () => {
       viewer.action(api.users.setConvexCiToken, { organizationId, token: "convex-ci-test-token" }),
     ).rejects.toThrow();
     expect(managementMocks.verifyConvexTeamAccessToken).not.toHaveBeenCalled();
-  });
-
-  it("requires the Cloudflare CI token to reach the connected account", () => {
-    const account = { accountId: "cloudflare-account", accountName: "Samebase" };
-
-    expect(() => requireCloudflareCiAccountAccess([account], account)).not.toThrow();
-    expect(() =>
-      requireCloudflareCiAccountAccess([{ accountId: "other", accountName: "Other" }], account),
-    ).toThrow("The Cloudflare CI token cannot access the Cloudflare account Samebase.");
   });
 });

@@ -11,12 +11,6 @@ import type {
   SetupStatus,
 } from "../../../convex/repository/setupOutputModel";
 
-/** GitHub's run status or conclusion, such as in_progress or timed_out, as words. */
-function describeLatestRun(run: NonNullable<SetupStatus["latestRun"]>): string {
-  const state = run.status === "completed" ? (run.conclusion ?? "completed") : run.status;
-  return (state ?? "not started").replace(/_/g, " ");
-}
-
 /**
 What the newest setup output says that Samebase did not apply, or null when nothing waits.
 `applyArtifactId` is the artifact that the member sees and applies; null when it has nothing to apply.
@@ -29,15 +23,13 @@ function describePending(
     case "none":
       return applied?.state === "destroy_reported"
         ? {
-            text: `Destroy app run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report. The Workers and Convex projects stay attached until you remove them.`,
+            text: `Run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report. The Workers and Convex projects stay attached until you remove them.`,
             applyArtifactId: null,
           }
         : null;
-    case "no_output":
-      return {
-        text: "The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one.",
-        applyArtifactId: null,
-      };
+    case "failed":
+      // The headline names the failed run.
+      return null;
     case "invalid_output":
       return {
         text: `Samebase cannot read the setup output of run ${pending.source.runId}: ${pending.reason}`,
@@ -64,7 +56,7 @@ function describePending(
     }
     case "destroyed":
       return {
-        text: `Destroy app run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until you remove them.`,
+        text: `Run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until you remove them.`,
         applyArtifactId: pending.source.artifactId,
       };
     default:
@@ -83,27 +75,70 @@ function describeApplyProblem(result: SetupOutputApplyResult | undefined): strin
     : null;
 }
 
-/** Whether the setup status can change only by a new push, a member's apply, or a new attachment. */
+/**
+Whether the setup status waits for something soon: the first setup output, or the first apply that
+observeFirstSetupOutput may still make.
+*/
 function isSetupStatusSettled({ latestRun, applied, pending }: SetupStatus): boolean {
-  // Without a setup run, only a new app that waits for its first run changes by itself; a destroy
-  // receipt can outlive every setup run.
-  if (
-    latestRun === null
-      ? applied === null && pending.state === "none"
-      : latestRun.status !== "completed"
-  ) {
-    return false;
+  // A new app waits for its first setup output; an applied one stays after GitHub deletes its run.
+  if (latestRun === null) {
+    return applied !== null;
   }
   return !(applied === null && pending.state === "deployed" && pending.firstApply.automatic);
 }
 
+const linkClassName = "font-medium text-foreground underline underline-offset-4";
+
+/**
+The run of the newest setup output, or the wait for the first one with the repository's Actions
+page. An applied output whose run GitHub deleted shows no headline.
+*/
+function SetupStackHeadline({
+  status,
+  githubRepositoryFullName,
+}: {
+  status: SetupStatus;
+  githubRepositoryFullName: string;
+}) {
+  const { latestRun } = status;
+  if (latestRun === null) {
+    return status.applied === null ? (
+      <p className="text-muted-foreground">
+        Waiting for the setup output from{" "}
+        <a
+          className={linkClassName}
+          href={`https://github.com/${githubRepositoryFullName}/actions`}
+          rel="noreferrer noopener"
+          target="_blank"
+        >
+          GitHub Actions
+        </a>
+        .
+      </p>
+    ) : null;
+  }
+  const runLink = (
+    <a className={linkClassName} href={latestRun.url} rel="noreferrer noopener" target="_blank">
+      run {latestRun.runId}
+    </a>
+  );
+  return status.pending.state === "failed" ? (
+    <p className="text-muted-foreground">Setup failed in {runLink}.</p>
+  ) : (
+    <p className="text-muted-foreground">
+      Setup stack: {runLink} {latestRun.conclusion === "success" ? "succeeded" : "failed"}.
+    </p>
+  );
+}
+
 /**
 The setup status of a repository that its GitHub Actions set up, once Samebase's own setup finished:
-the newest alchemy run on the default branch, and the setup output that waits for a member's apply.
-The status is a live GitHub, Cloudflare, and Convex read, so it renders nothing until it loads.
+the run of the newest setup output, the setup output that waits for a member's apply, and the last
+automatic apply that failed. The status is a live GitHub, Cloudflare, and Convex read, so it renders
+nothing until it loads.
 */
 export function RepositorySetupStackStatus({ repository }: { repository: UserRepositoryResult }) {
-  const { repositoryId, providerPlan } = repository;
+  const { repositoryId, providerPlan, githubRepositoryFullName } = repository;
   const enabled =
     repository.providerSetup.status === "ready" &&
     repository.deletion.state === "not_deleting" &&
@@ -123,12 +158,15 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
     enabled,
     // Keep the last status on screen while a new attachment reads it again.
     placeholderData: (previous) => previous,
-    // The read lists workflow runs and checks every claim with Cloudflare and Convex.
+    // The read lists the setup output artifacts, reads their runs, and checks every claim with
+    // Cloudflare and Convex.
     staleTime: 60 * 1000,
-    // GitHub does not push run changes, so the open overview reads again while the newest run has
-    // not finished or observeFirstSetupOutput may still apply the first output.
+    // GitHub does not push new artifacts, and the status read lists no runs, so it cannot tell
+    // whether a run is publishing a newer output. The open overview reads every 30 seconds while
+    // the first setup output has not arrived or observeFirstSetupOutput may still apply it, and
+    // every 2 minutes otherwise, so a later run's output appears without a reload.
     refetchInterval: (query) =>
-      query.state.data && isSetupStatusSettled(query.state.data) ? false : 30 * 1000,
+      query.state.data && isSetupStatusSettled(query.state.data) ? 2 * 60 * 1000 : 30 * 1000,
     retry: false,
   });
   const applyMutation = useMutation({
@@ -166,24 +204,12 @@ export function RepositorySetupStackStatus({ repository }: { repository: UserRep
 
   return (
     <section aria-label="Setup stack" className="grid gap-2 text-sm">
-      <p className="text-muted-foreground">
-        {status.latestRun ? (
-          <>
-            Setup stack:{" "}
-            <a
-              className="font-medium text-foreground underline underline-offset-4"
-              href={status.latestRun.url}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              alchemy run {status.latestRun.runId}
-            </a>{" "}
-            {describeLatestRun(status.latestRun)}.
-          </>
-        ) : (
-          "Setup stack: the alchemy workflow has not run on the default branch yet."
-        )}
-      </p>
+      <SetupStackHeadline status={status} githubRepositoryFullName={githubRepositoryFullName} />
+      {status.applyFailure ? (
+        <p className="text-xs leading-5 text-red-700" role="alert">
+          Automatic apply failed: {status.applyFailure.reason}
+        </p>
+      ) : null}
       {pending ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <p className="min-w-0 text-xs leading-5 text-muted-foreground">{pending.text}</p>

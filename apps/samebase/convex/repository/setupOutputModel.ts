@@ -3,31 +3,29 @@ import { strFromU8, unzipSync } from "fflate";
 import { z } from "zod";
 
 import type { RepositoryProviderResourceOrigin } from "./model";
-import { vRepositoryActionsSetupOutput } from "./provisioningModel";
+import {
+  vRepositoryActionsSetupOutput,
+  vRepositoryActionsSetupOutputApplyFailure,
+} from "./provisioningModel";
 
 /*
 The setup output of a repository_actions repository: what its Alchemy setup stack tells Samebase
-about the resources it owns. templates/base-actions/scripts/setup-output.ts defines it; the deploy
-job of the template's `alchemy` workflow uploads it as an artifact after each deploy, and its
-`Destroy app` workflow uploads a destroy receipt under the same name. This module holds the pure
-parts of reading it: the GitHub response shapes the reader uses, the choice of run and artifact, the
-archive, and one validator per output version.
+about the resources it owns. templates/base-actions/scripts/setup-output.ts defines it; the
+template's deploy job uploads it as an artifact after each deploy, or the failed output after a
+failed deploy, and its confirmed destroy uploads a destroy receipt under the same name. The reader
+takes the artifact from any workflow run on the default branch: workflow file names are not part
+of the contract. This module holds the pure parts of reading it: the GitHub response shapes the
+reader uses, the choice of artifact, the archive, and one validator per output version.
 */
 
-export const SETUP_WORKFLOW_FILE_NAME = "alchemy.yml";
-const SETUP_WORKFLOW_PATH = `.github/workflows/${SETUP_WORKFLOW_FILE_NAME}`;
-/** The template's `Destroy app` workflow. Its runs upload only the destroy receipt. */
-const DESTROY_WORKFLOW_PATH = ".github/workflows/destroy.yml";
 export const SETUP_OUTPUT_ARTIFACT_NAME = "samebase-setup-output";
 const SETUP_OUTPUT_FILE_NAME = "samebase-setup-output.json";
 /** The bound for the artifact and for the file in it. A version 1 output is a few hundred bytes. */
 export const SETUP_OUTPUT_MAX_BYTES = 64 * 1024;
 
-/** A workflow run as GitHub returns it in a run list or from GET .../actions/runs/{run_id}. */
+/** A workflow run as GitHub returns it from GET .../actions/runs/{run_id}. */
 export const zGitHubWorkflowRun = z.object({
   id: z.number().int().positive(),
-  path: z.string(),
-  event: z.string(),
   head_branch: z.string().nullable(),
   head_sha: z.string(),
   status: z.string().nullable(),
@@ -39,12 +37,6 @@ export const zGitHubWorkflowRun = z.object({
   head_repository: z.object({ id: z.number().int() }),
 });
 export type GitHubWorkflowRun = z.infer<typeof zGitHubWorkflowRun>;
-
-/** GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs, the fields the reader uses. */
-export const zGitHubWorkflowRunPage = z.object({
-  total_count: z.number().int(),
-  workflow_runs: z.array(zGitHubWorkflowRun),
-});
 
 const zGitHubArtifact = z.object({
   id: z.number().int().positive(),
@@ -71,69 +63,22 @@ export const zGitHubArtifactPage = z.object({
 
 const { array, literal, number, object, string, union } = v;
 
-/** One run of the setup workflow, as the setup status shows it. */
+/**
+The run of the newest setup output, as the setup status shows it. The reader accepts only a
+completed run that succeeded or failed, so its conclusion is one of the two.
+*/
 export const vSetupRun = object({
   runId: number(),
   runAttempt: number(),
-  event: string(),
-  status: union(string(), v.null()),
-  conclusion: union(string(), v.null()),
+  conclusion: union(literal("success"), literal("failure")),
   startedAt: string(),
   url: string(),
 });
 export type SetupRun = Infer<typeof vSetupRun>;
-/** The newest setup run, or null when none remains, such as after a destroy outlived every setup run. */
+/** The run of the newest setup output, or null while the repository has none. */
 const vLatestSetupRun = union(vSetupRun, v.null());
 
-export function toSetupRun(run: GitHubWorkflowRun): SetupRun {
-  return {
-    runId: run.id,
-    runAttempt: run.run_attempt,
-    event: run.event,
-    status: run.status,
-    conclusion: run.conclusion,
-    startedAt: run.run_started_at,
-    url: run.html_url,
-  };
-}
-
 type SetupRepository = { githubRepositoryDatabaseId: string; defaultBranch: string };
-
-/**
-Whether a run is of the template's workflow file at `path`, a push or a run of the workflow on the
-live default branch, in this repository and not a fork.
-*/
-function isDefaultBranchRunOf(
-  path: string,
-  run: GitHubWorkflowRun,
-  repository: SetupRepository,
-): boolean {
-  return (
-    run.path === path &&
-    (run.event === "push" || run.event === "workflow_dispatch") &&
-    run.head_branch === repository.defaultBranch &&
-    String(run.repository.id) === repository.githubRepositoryDatabaseId &&
-    String(run.head_repository.id) === repository.githubRepositoryDatabaseId
-  );
-}
-
-/** Whether a run is a setup run: a run of the template's `alchemy` workflow on the default branch. */
-export function isSetupRun(run: GitHubWorkflowRun, repository: SetupRepository): boolean {
-  return isDefaultBranchRunOf(SETUP_WORKFLOW_PATH, run, repository);
-}
-
-/** The setup runs, newest first by start time, which a rerun moves, then by id. */
-export function selectSetupRuns(
-  runs: readonly GitHubWorkflowRun[],
-  repository: SetupRepository,
-): GitHubWorkflowRun[] {
-  return runs
-    .filter((run) => isSetupRun(run, repository))
-    .sort(
-      (left, right) =>
-        right.run_started_at.localeCompare(left.run_started_at) || right.id - left.id,
-    );
-}
 
 /**
 Which artifact the output came from. `artifactId` is the change key: a rerun uploads a new one.
@@ -166,33 +111,56 @@ export function orderSetupOutputArtifacts(
 }
 
 /**
-The source of a setup output when the artifact belongs to a successful setup run, or to a successful
-run of the `Destroy app` workflow, which uploads the destroy receipt, and names the run's repository
-and commit; null otherwise.
+The artifact's source and its run when the run of any workflow is on the live default branch, in
+this repository and not a fork, completed with success or failure, and is the run and commit that
+the artifact names; null otherwise. A cancelled run or one that has not finished never publishes a
+setup output, even when it uploaded one.
 */
 export function readSetupOutputSource(args: {
   artifact: GitHubArtifact;
   run: GitHubWorkflowRun;
   repository: SetupRepository;
-}): SetupOutputSource | null {
-  const { artifact, run } = args;
+}): { source: SetupOutputSource; run: SetupRun } | null {
+  const { artifact, run, repository } = args;
   const origin = artifact.workflow_run;
+  const { conclusion } = run;
   return origin &&
-    (isSetupRun(run, args.repository) ||
-      isDefaultBranchRunOf(DESTROY_WORKFLOW_PATH, run, args.repository)) &&
-    run.conclusion === "success" &&
+    run.head_branch === repository.defaultBranch &&
+    String(run.repository.id) === repository.githubRepositoryDatabaseId &&
+    String(run.head_repository.id) === repository.githubRepositoryDatabaseId &&
+    run.status === "completed" &&
+    (conclusion === "success" || conclusion === "failure") &&
     origin.id === run.id &&
     origin.repository_id === run.repository.id &&
     origin.head_repository_id === run.head_repository.id &&
     origin.head_sha === run.head_sha
     ? {
-        runId: run.id,
-        runAttempt: run.run_attempt,
-        artifactId: artifact.id,
-        artifactCreatedAt: artifact.created_at,
+        source: {
+          runId: run.id,
+          runAttempt: run.run_attempt,
+          artifactId: artifact.id,
+          artifactCreatedAt: artifact.created_at,
+        },
+        run: {
+          runId: run.id,
+          runAttempt: run.run_attempt,
+          conclusion,
+          startedAt: run.run_started_at,
+          url: run.html_url,
+        },
       }
     : null;
 }
+
+/**
+The run conclusion that each state needs: a deploy or a destroy reports only a run that succeeded,
+and the failed output only a run that failed. Any other pair is an invalid output.
+*/
+export const SETUP_OUTPUT_RUN_CONCLUSIONS = {
+  deployed: "success",
+  destroyed: "success",
+  failed: "failure",
+} as const satisfies Record<SetupOutput["state"], SetupRun["conclusion"]>;
 
 /**
 Whether a setup output was published after the applied one. An older one is never applied: while a
@@ -247,6 +215,7 @@ const zSetupOutputVersion1 = z.discriminatedUnion("state", [
     }),
   }),
   z.strictObject({ version: z.literal(1), state: z.literal("destroyed") }),
+  z.strictObject({ version: z.literal(1), state: z.literal("failed") }),
 ]);
 export type SetupOutput = z.infer<typeof zSetupOutputVersion1>;
 export type DeployedSetupOutput = Extract<SetupOutput, { state: "deployed" }>;
@@ -448,14 +417,12 @@ const vSetupOutputRefusalStep = union(
 The newest setup output that is not applied yet, as a status read sees it. It is never applied by
 the read.
 
-none = nothing to apply: no setup output is newer than the applied one, or the newer one names
-exactly the attached setup_stack resources (namesOnlyAttachedSetupStack)
+none = nothing to apply: the repository has no setup output yet, no setup output is newer than the
+applied one, or the newer one names exactly the attached setup_stack resources
+(namesOnlyAttachedSetupStack)
 
-no_output = nothing is applied, and the newest run succeeded without a live setup output: a template
-from before the setup output, or an artifact that GitHub deleted. A run of the alchemy workflow on
-the default branch publishes one.
-
-invalid_output = the newest artifact is not a setup output that Samebase can read
+invalid_output = the newest artifact is not a setup output that Samebase can read, or its state
+does not match how its run ended (SETUP_OUTPUT_RUN_CONCLUSIONS)
 
 refused = a provider did not confirm a claim; `claim` is its path in the output, or null when the
 provider could not be read
@@ -465,10 +432,12 @@ project named by its slug too, which is unique in the team where its name may no
 says whether the first apply could happen without a member
 
 destroyed = the app's confirmed destroy reported itself after the applied output
+
+failed = the newest setup output is the failed output of a failed run; nothing waits to be applied
+until a later run succeeds
 */
 const vSetupOutputPending = union(
   object({ state: literal("none") }),
-  object({ state: literal("no_output") }),
   object({ state: literal("invalid_output"), source: vSetupOutputSource, reason: string() }),
   object({
     state: literal("refused"),
@@ -487,17 +456,20 @@ const vSetupOutputPending = union(
     firstApply: vFirstSetupOutputApply,
   }),
   object({ state: literal("destroyed"), source: vSetupOutputSource }),
+  object({ state: literal("failed"), source: vSetupOutputSource }),
 );
 
 /**
-The setup status of a repository_actions repository: the newest run of its alchemy workflow on the
-default branch in any state, the setup output that Samebase applied, and the newest one that it did
-not apply yet. A destroy receipt reports the run; the provider observations show what is left.
+The setup status of a repository_actions repository: the run of the newest setup output, the setup
+output that Samebase applied, the newest one that it did not apply yet, and the last automatic
+apply that failed. Without a run and an applied output, Samebase waits for the first setup output.
+A destroy receipt reports the run; the provider observations show what is left.
 */
 export const vSetupStatus = object({
   latestRun: vLatestSetupRun,
   applied: union(vRepositoryActionsSetupOutput, v.null()),
   pending: vSetupOutputPending,
+  applyFailure: union(vRepositoryActionsSetupOutputApplyFailure, v.null()),
 });
 export type SetupStatus = Infer<typeof vSetupStatus>;
 
@@ -516,12 +488,10 @@ export type RepositorySetupStack = Infer<typeof vRepositorySetupStack>;
 What one read and apply of the newest setup output did, so the first failure names its step and its
 reason.
 
-no_setup_run = the repository has no run of its alchemy workflow on the default branch and no setup
-output
+no_output = no run on the default branch has published a live setup output yet
 
-no_output = no successful run has a live setup output artifact; latestRun says what ran last
-
-invalid_output = the newest artifact is not a setup output that Samebase can read
+invalid_output = the newest artifact is not a setup output that Samebase can read, or its state
+does not match how its run ended
 
 refused = a provider did not confirm a claim or could not be read (verify_cloudflare,
 verify_convex; `claim` is null for a failed read), or the apply transaction refused the change
@@ -538,19 +508,21 @@ names exactly the attached setup_stack resources
 applied = the Workers and Convex projects of a deployed output are attached
 
 destroy_reported = the app's confirmed destroy reported itself
+
+setup_failed = the newest setup output is the failed output of a failed run: nothing to apply until
+a later run succeeds
 */
 export const vSetupOutputApplyResult = union(
-  object({ state: literal("no_setup_run") }),
-  object({ state: literal("no_output"), latestRun: vSetupRun }),
+  object({ state: literal("no_output") }),
   object({
     state: literal("invalid_output"),
-    latestRun: vLatestSetupRun,
+    latestRun: vSetupRun,
     source: vSetupOutputSource,
     reason: string(),
   }),
   object({
     state: literal("refused"),
-    latestRun: vLatestSetupRun,
+    latestRun: vSetupRun,
     source: vSetupOutputSource,
     step: vSetupOutputRefusalStep,
     claim: union(string(), v.null()),
@@ -558,23 +530,24 @@ export const vSetupOutputApplyResult = union(
   }),
   object({
     state: literal("needs_member"),
-    latestRun: vLatestSetupRun,
+    latestRun: vSetupRun,
     source: vSetupOutputSource,
     reason: string(),
   }),
   object({ state: literal("failed"), reason: string() }),
-  object({ state: literal("unchanged"), latestRun: vLatestSetupRun, source: vSetupOutputSource }),
+  object({ state: literal("unchanged"), latestRun: vSetupRun, source: vSetupOutputSource }),
   object({
     state: literal("applied"),
-    latestRun: vLatestSetupRun,
+    latestRun: vSetupRun,
     source: vSetupOutputSource,
     workerCount: number(),
     projectCount: number(),
   }),
   object({
     state: literal("destroy_reported"),
-    latestRun: vLatestSetupRun,
+    latestRun: vSetupRun,
     source: vSetupOutputSource,
   }),
+  object({ state: literal("setup_failed"), latestRun: vSetupRun, source: vSetupOutputSource }),
 );
 export type SetupOutputApplyResult = Infer<typeof vSetupOutputApplyResult>;

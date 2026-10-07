@@ -54,7 +54,8 @@ import type { Id } from "../_generated/dataModel";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 import {
-  observedDestroyAlchemyRunPage,
+  derivedFailedSetupOutputArchive,
+  derivedFailedSetupRun,
   observedDestroyArtifactPage,
   observedDestroyReceiptArchiveBase64,
   observedDestroyRepository,
@@ -556,9 +557,15 @@ describe("setupOutputMutations.apply", () => {
   });
 });
 
+const failedArchiveBase64 = Buffer.from(derivedFailedSetupOutputArchive).toString("base64");
+
+/** The recorded runs, which the reader reads by id. */
+const recordedRunsById = new Map(
+  observedSetupWorkflowRunPage.workflow_runs.map((run): [number, unknown] => [run.id, run]),
+);
+
 function mockGitHub(options?: {
   githubRepositoryDatabaseId?: string;
-  runs?: unknown;
   artifacts?: unknown;
   runsById?: ReadonlyMap<number, unknown>;
   archiveBase64?: string;
@@ -585,7 +592,10 @@ function mockGitHub(options?: {
   githubMocks.request.mockImplementation(async (route: string, params: { run_id?: number }) => {
     switch (route) {
       case "GET /repos/{owner}/{repo}/actions/runs/{run_id}": {
-        const run = params.run_id === undefined ? undefined : options?.runsById?.get(params.run_id);
+        const run =
+          params.run_id === undefined
+            ? undefined
+            : (options?.runsById ?? recordedRunsById).get(params.run_id);
         if (!run) {
           throw new RequestError("Not Found", 404, {
             request: { method: "GET", url: "https://api.github.com/run", headers: {} },
@@ -593,8 +603,6 @@ function mockGitHub(options?: {
         }
         return { data: run };
       }
-      case "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs":
-        return { data: options?.runs ?? observedSetupWorkflowRunPage };
       case "GET /repos/{owner}/{repo}/actions/artifacts":
         return { data: options?.artifacts ?? observedSetupOutputArtifactPage };
       case "GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}": {
@@ -676,8 +684,9 @@ beforeEach(() => {
 
 /*
 State axes of a member's apply, each covered below:
-- read: no setup run, no output, a run outside the listed pages, the destroy receipt of a Destroy app
-  run, an output older than the applied one
+- read: no output, an artifact of a cancelled or unfinished run, the failed output of a failed run, a
+  state that does not match its run's conclusion, the destroy receipt of a run of another workflow,
+  an output older than the applied one
 - output: newer than the applied one, the one applied, or the same identities under a new artifact
 - review: the artifact that the member reviewed is the newest one, or a newer one replaced it
 - providers: confirm every claim, or refuse one
@@ -776,58 +785,88 @@ describe("setupOutput.apply by a member", () => {
     expect((await readRows(fixture)).workers).toEqual([]);
   });
 
-  it("reports no setup run, and no output when no successful run published one", async () => {
-    const empty = await createFixture();
-    mockGitHub({ runs: { total_count: 0, workflow_runs: [] } });
-    expect(
-      await asOwner(empty).action(api.repository.setupOutput.apply, {
-        repositoryId: empty.ids.repositoryId,
-        artifactId: source.artifactId,
-      }),
-    ).toEqual({ state: "no_setup_run" });
-
-    const withoutOutput = await createFixture();
-    mockGitHub({ artifacts: { total_count: 0, artifacts: [] } });
-    expect(
-      await asOwner(withoutOutput).action(api.repository.setupOutput.apply, {
-        repositoryId: withoutOutput.ids.repositoryId,
-        artifactId: source.artifactId,
-      }),
-    ).toMatchObject({ state: "no_output", latestRun: { runId: 37545425944 } });
-    // A successful run without an output, before anything is applied, is not a settled status.
-    expect(
-      await asOwner(withoutOutput).action(api.repository.setupOutput.readStatus, {
-        repositoryId: withoutOutput.ids.repositoryId,
-      }),
-    ).toMatchObject({ applied: null, pending: { state: "no_output" } });
-  });
-
-  it("reads the run of an artifact that the run pages do not list", async () => {
+  it("waits for the setup output while no run on the default branch published one", async () => {
     const fixture = await createFixture();
-    const [recordedRun] = observedSetupWorkflowRunPage.workflow_runs;
-    mockGitHub({
-      runs: {
-        total_count: 1001,
-        workflow_runs: observedSetupWorkflowRunPage.workflow_runs.slice(1),
-      },
-      runsById: new Map([[recordedRun.id, recordedRun]]),
-    });
-    mockProviders();
-
+    mockGitHub({ artifacts: { total_count: 0, artifacts: [] } });
     expect(
       await asOwner(fixture).action(api.repository.setupOutput.apply, {
         repositoryId: fixture.ids.repositoryId,
         artifactId: source.artifactId,
       }),
-    ).toMatchObject({
-      state: "applied",
-      source,
-      // The run read by id started after every listed run, so it is the newest run.
-      latestRun: { runId: recordedRun.id },
-    });
+    ).toEqual({ state: "no_output" });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toEqual({ latestRun: null, applied: null, pending: { state: "none" }, applyFailure: null });
+
+    // A cancelled run and a run that has not finished publish nothing, even with an artifact.
+    for (const run of [
+      { ...observedSetupWorkflowRunPage.workflow_runs[0], conclusion: "cancelled" },
+      { ...observedSetupWorkflowRunPage.workflow_runs[0], status: "in_progress", conclusion: null },
+    ]) {
+      mockGitHub({ runsById: new Map([[run.id, run]]) });
+      expect(
+        await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+          repositoryId: fixture.ids.repositoryId,
+        }),
+      ).toMatchObject({ latestRun: null, pending: { state: "none" } });
+    }
   });
 
-  it("reads the destroy receipt of a Destroy app run by id, with or without a setup run left", async () => {
+  it("shows a failed setup run and applies nothing until a later run succeeds", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub({
+      runsById: new Map([[derivedFailedSetupRun.id, derivedFailedSetupRun]]),
+      archiveBase64: failedArchiveBase64,
+    });
+    mockProviders();
+    const failedRun = { runId: 37545425944, runAttempt: 2, conclusion: "failure" };
+
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toEqual({
+      latestRun: {
+        ...failedRun,
+        startedAt: "2026-10-06T23:15:54Z",
+        url: "https://github.com/samebase/tmp-alchemy-v2/actions/runs/37545425944",
+      },
+      applied: null,
+      pending: { state: "failed", source },
+      applyFailure: null,
+    });
+    expect(
+      await fixture.t.action(internal.repository.setupOutput.applyFirstForCreator, {
+        userId: fixture.ids.ownerId,
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({ state: "setup_failed", latestRun: failedRun, source });
+    expect((await readRows(fixture)).workers).toEqual([]);
+
+    // The deploy output of a failed run, and the failed output of a successful one, fail closed.
+    mockGitHub({ runsById: new Map([[derivedFailedSetupRun.id, derivedFailedSetupRun]]) });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({
+      pending: {
+        state: "invalid_output",
+        reason:
+          "The setup output of run 37545425944 says deployed, but the run ended with failure. Samebase reads deployed only from a run that ended with success.",
+      },
+    });
+    mockGitHub({ archiveBase64: failedArchiveBase64 });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.readStatus, {
+        repositoryId: fixture.ids.repositoryId,
+      }),
+    ).toMatchObject({ pending: { state: "invalid_output" } });
+  });
+
+  it("reads the destroy receipt of a run of any workflow", async () => {
     const fixture = await createFixture({
       githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
     });
@@ -845,14 +884,12 @@ describe("setupOutput.apply by a member", () => {
         },
       });
     });
-    const mockDestroyedRepository = (runs: unknown) =>
-      mockGitHub({
-        githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
-        runs,
-        artifacts: observedDestroyArtifactPage,
-        runsById: new Map([[observedDestroyRun.id, observedDestroyRun]]),
-        archiveBase64: observedDestroyReceiptArchiveBase64,
-      });
+    mockGitHub({
+      githubRepositoryDatabaseId: observedDestroyRepository.githubRepositoryDatabaseId,
+      artifacts: observedDestroyArtifactPage,
+      runsById: new Map([[observedDestroyRun.id, observedDestroyRun]]),
+      archiveBase64: observedDestroyReceiptArchiveBase64,
+    });
     const readStatus = () =>
       asOwner(fixture).action(api.repository.setupOutput.readStatus, {
         repositoryId: fixture.ids.repositoryId,
@@ -864,17 +901,8 @@ describe("setupOutput.apply by a member", () => {
       artifactCreatedAt: "2026-10-07T11:16:41Z",
     };
 
-    // GitHub no longer lists a setup run, such as after the default branch was renamed.
-    mockDestroyedRepository({ total_count: 0, workflow_runs: [] });
     expect(await readStatus()).toMatchObject({
-      latestRun: null,
-      pending: { state: "destroyed", source: receipt },
-    });
-
-    // The Destroy app run started after the deploy, but the newest setup run stays the deploy.
-    mockDestroyedRepository(observedDestroyAlchemyRunPage);
-    expect(await readStatus()).toMatchObject({
-      latestRun: { runId: 37606095039 },
+      latestRun: { runId: 37612780148, conclusion: "success" },
       applied: { state: "applied", artifactId: 11477119111 },
       pending: { state: "destroyed", source: receipt },
     });
@@ -885,7 +913,7 @@ describe("setupOutput.apply by a member", () => {
       }),
     ).toMatchObject({
       state: "destroy_reported",
-      latestRun: { runId: 37606095039 },
+      latestRun: { runId: 37612780148 },
       source: receipt,
     });
     expect((await readRows(fixture)).plan).toMatchObject({
@@ -939,13 +967,10 @@ describe("setupOutput.apply by a member", () => {
       },
     };
     mockGitHub({
-      runs: {
-        total_count: 3,
-        workflow_runs: [
-          { ...rerunning, run_attempt: 3, status: "in_progress", conclusion: null },
-          ...observedSetupWorkflowRunPage.workflow_runs.slice(1),
-        ],
-      },
+      runsById: new Map<number, unknown>([
+        [rerunning.id, { ...rerunning, run_attempt: 3, status: "in_progress", conclusion: null }],
+        [olderRun.id, olderRun],
+      ]),
       artifacts: {
         total_count: 2,
         artifacts: [...observedSetupOutputArtifactPage.artifacts, olderReceipt],
@@ -958,8 +983,9 @@ describe("setupOutput.apply by a member", () => {
         artifactId: source.artifactId,
       }),
     ).toMatchObject({
+      // The rerun has not finished, so its artifact is skipped, and the older one is not newer.
       state: "unchanged",
-      latestRun: { runId: rerunning.id, status: "in_progress" },
+      latestRun: { runId: olderRun.id },
       source: { artifactId: 11443958000 },
     });
     expect((await readRows(fixture)).plan).toMatchObject({
@@ -1104,10 +1130,79 @@ describe("setupOutput.applyFirstForCreator and readStatus", () => {
     expect((await readRows(fixture)).workers).toMatchObject([
       { workerName: "tmp-alchemy-v2", origin: "setup_stack" },
     ]);
-    const runListReads = githubMocks.request.mock.calls.filter(
-      ([route]) => route === "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+    const artifactListReads = githubMocks.request.mock.calls.filter(
+      ([route]) => route === "GET /repos/{owner}/{repo}/actions/artifacts",
     );
-    expect(runListReads).toHaveLength(1);
+    expect(artifactListReads).toHaveLength(1);
+  });
+
+  it("records an automatic apply that the quota refused until a later apply succeeds", async () => {
+    const fixture = await createFixture({ planCreatedAt: APP_CREATED_AT });
+    mockGitHub();
+    mockProviders();
+    // The organization's six free connections: this connected repository and five Workers of
+    // another repository.
+    const otherWorkerIds = await fixture.t.run(async (ctx) => {
+      const otherRepositoryId = await ctx.db.insert("repositories", {
+        createdAt: 1,
+        state: "not_connected",
+        organizationId: fixture.ids.organizationId,
+        convexTeamId: TEAM_ID,
+        cloudflareAccountId: ACCOUNT_ID,
+        deletion: { state: "not_deleting" },
+      });
+      const workerIds: Array<Id<"repositoryCloudflareWorkers">> = [];
+      for (const index of [1, 2, 3, 4, 5]) {
+        workerIds.push(
+          await ctx.db.insert("repositoryCloudflareWorkers", {
+            repositoryId: otherRepositoryId,
+            organizationId: fixture.ids.organizationId,
+            accountId: ACCOUNT_ID,
+            workerName: `other-worker-${index}`,
+            workerTag: `other-worker-tag-${index}`,
+            rootDirectory: "/",
+            origin: "selected_existing",
+          }),
+        );
+      }
+      return workerIds;
+    });
+    const reason = "Organization connection limit reached (6).";
+
+    expect(await applyFirst(fixture)).toMatchObject({
+      state: "refused",
+      step: "apply",
+      source,
+      reason,
+    });
+    expect(await readStatus(fixture)).toMatchObject({
+      applied: null,
+      pending: { state: "deployed", source, firstApply: { automatic: true } },
+      applyFailure: { reason, failedAt: expect.any(Number) },
+    });
+
+    await fixture.t.run(async (ctx) => {
+      for (const workerId of otherWorkerIds) {
+        await ctx.db.delete(workerId);
+      }
+    });
+    expect(
+      await asOwner(fixture).action(api.repository.setupOutput.apply, {
+        repositoryId: fixture.ids.repositoryId,
+        artifactId: source.artifactId,
+      }),
+    ).toMatchObject({ state: "applied", source });
+    expect(await readStatus(fixture)).toMatchObject({
+      applied: { state: "applied", artifactId: source.artifactId },
+      applyFailure: null,
+    });
+
+    // An automatic apply that lost to the member's apply records nothing.
+    await fixture.t.mutation(internal.repository.setupOutputMutations.recordApplyFailure, {
+      repositoryId: fixture.ids.repositoryId,
+      reason: "The applied setup output changed while Samebase read the newest one.",
+    });
+    expect((await readRows(fixture)).plan).not.toHaveProperty("setupOutputApplyFailure");
   });
 
   it("shows a refused claim in the status and reports a failed read as a result", async () => {

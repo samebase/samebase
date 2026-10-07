@@ -17,11 +17,14 @@ const FIRST_SETUP_OUTPUT_READ_DELAYS_MS = [
   30_000, 30_000, 60_000, 60_000, 60_000, 120_000, 120_000, 180_000, 180_000, 360_000,
 ];
 
-/** Whether the observer reads again after this result of the first apply. */
+/**
+Whether the observer reads again after this result of the first apply. A failed setup run waits
+for a rerun, which can still publish the first output in time.
+*/
 function isFirstSetupOutputSettled(result: SetupOutputApplyResult): boolean {
   switch (result.state) {
-    case "no_setup_run":
     case "no_output":
+    case "setup_failed":
     case "refused":
     case "failed":
       return false;

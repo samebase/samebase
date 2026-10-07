@@ -24,16 +24,13 @@ import {
   orderSetupOutputArtifacts,
   readSetupOutputArchive,
   readSetupOutputSource,
-  selectSetupRuns,
   SETUP_OUTPUT_ARTIFACT_NAME,
   SETUP_OUTPUT_MAX_BYTES,
-  SETUP_WORKFLOW_FILE_NAME,
-  toSetupRun,
+  SETUP_OUTPUT_RUN_CONCLUSIONS,
   vSetupOutputApplyResult,
   vSetupStatus,
   zGitHubArtifactPage,
   zGitHubWorkflowRun,
-  zGitHubWorkflowRunPage,
   type GitHubArtifact,
   type GitHubWorkflowRun,
   type SetupOutput,
@@ -47,7 +44,7 @@ import {
 The reader of a repository_actions repository's setup output. It reads GitHub with the Samebase
 GitHub App's installation token (Actions: read) and verifies the claims with the organization's
 provider connections; it never reads Alchemy's state store. The result names the step that stopped
-it: reading the runs and the artifact, verifying Cloudflare, verifying Convex, or the apply.
+it: reading the artifact and its run, verifying Cloudflare, verifying Convex, or the apply.
 */
 
 const { id } = v;
@@ -56,23 +53,9 @@ const { id } = v;
 const GITHUB_PAGE_SIZE = 100;
 const GITHUB_MAX_PAGES = 10;
 
-async function listAllPages<Item>(
-  readPage: (page: number) => Promise<{ totalCount: number; items: Item[] }>,
-): Promise<Item[]> {
-  const items: Item[] = [];
-  for (let page = 1; page <= GITHUB_MAX_PAGES; page += 1) {
-    const result = await readPage(page);
-    items.push(...result.items);
-    if (result.items.length < GITHUB_PAGE_SIZE || items.length >= result.totalCount) {
-      break;
-    }
-  }
-  return items;
-}
-
 /**
-The artifacts the reader checks, newest first. Any workflow of the repository can upload an artifact
-under this name; past this many whose run cannot carry the setup output, the reader reports no output
+The artifacts the reader checks, newest first. Past this many whose run cannot publish a setup output
+(a pull request run, a cancelled run, a run that has not finished), the reader reports no output
 instead of reading more runs.
 */
 const MAX_ARTIFACT_CANDIDATES = 10;
@@ -96,25 +79,17 @@ async function readWorkflowRun(
   }
 }
 
-/** `latestRun` is null when no setup run remains but a Destroy app run published a receipt. */
 type SetupOutputRead =
-  | { state: "no_setup_run" }
-  | { state: "no_output"; latestRun: SetupRun }
-  | {
-      state: "invalid_output";
-      latestRun: SetupRun | null;
-      source: SetupOutputSource;
-      reason: string;
-    }
-  | { state: "output"; latestRun: SetupRun | null; source: SetupOutputSource; output: SetupOutput };
+  | { state: "no_output" }
+  | { state: "invalid_output"; latestRun: SetupRun; source: SetupOutputSource; reason: string }
+  | { state: "output"; latestRun: SetupRun; source: SetupOutputSource; output: SetupOutput };
 
 /**
-The newest run of the setup workflow on the live default branch, and the newest setup output: every
-retained run, every live artifact named samebase-setup-output, then the one archive. A destroy
-receipt comes from a run of the `Destroy app` workflow, which the artifact names and the reader
-reads by id.
+The newest setup output: every live artifact named samebase-setup-output, newest first, each with
+its run read by id, until one belongs to a finished run on the live default branch
+(readSetupOutputSource); then that one archive, whose state must match how its run ended.
 */
-export async function readLatestSetupOutput(
+async function readLatestSetupOutput(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
 ): Promise<SetupOutputRead> {
@@ -138,25 +113,8 @@ export async function readLatestSetupOutput(
     expectedRepoId: context.githubRepositoryDatabaseId,
   });
 
-  const runs = selectSetupRuns(
-    await listAllPages(async (page) => {
-      const response = await octokit.request(
-        "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
-        {
-          owner,
-          repo,
-          workflow_id: SETUP_WORKFLOW_FILE_NAME,
-          branch: defaultBranch,
-          per_page: GITHUB_PAGE_SIZE,
-          page,
-        },
-      );
-      const parsed = zGitHubWorkflowRunPage.parse(response.data);
-      return { totalCount: parsed.total_count, items: parsed.workflow_runs };
-    }),
-    { githubRepositoryDatabaseId: context.githubRepositoryDatabaseId, defaultBranch },
-  );
-  const artifacts = await listAllPages(async (page) => {
+  const artifacts: GitHubArtifact[] = [];
+  for (let page = 1; page <= GITHUB_MAX_PAGES; page += 1) {
     const response = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", {
       owner,
       repo,
@@ -165,41 +123,32 @@ export async function readLatestSetupOutput(
       page,
     });
     const parsed = zGitHubArtifactPage.parse(response.data);
-    return { totalCount: parsed.total_count, items: parsed.artifacts };
-  });
-  // The newest artifact whose run is a successful setup run or Destroy app run. A run outside the
-  // listed pages (a Destroy app run, more than 1,000 retained runs, a rerun of an old run) is read
-  // by id.
+    artifacts.push(...parsed.artifacts);
+    if (parsed.artifacts.length < GITHUB_PAGE_SIZE || artifacts.length >= parsed.total_count) {
+      break;
+    }
+  }
   const repository = {
     githubRepositoryDatabaseId: context.githubRepositoryDatabaseId,
     defaultBranch,
   };
-  const listedRuns = new Map(runs.map((run) => [run.id, run]));
-  let selected: {
-    artifact: GitHubArtifact;
-    source: SetupOutputSource;
-    run: GitHubWorkflowRun;
-  } | null = null;
+  let selected: { artifact: GitHubArtifact; source: SetupOutputSource; run: SetupRun } | null =
+    null;
   for (const { artifact, runId } of orderSetupOutputArtifacts(artifacts).slice(
     0,
     MAX_ARTIFACT_CANDIDATES,
   )) {
-    const run = listedRuns.get(runId) ?? (await readWorkflowRun(octokit, { owner, repo, runId }));
-    const source = run ? readSetupOutputSource({ artifact, run, repository }) : null;
-    if (run && source) {
-      selected = { artifact, source, run };
+    const run = await readWorkflowRun(octokit, { owner, repo, runId });
+    const read = run ? readSetupOutputSource({ artifact, run, repository }) : null;
+    if (read) {
+      selected = { artifact, ...read };
       break;
     }
   }
-  // The newest setup run in any state. A setup run read by id can be newer than every listed run: a
-  // rerun of an old run starts again. A Destroy app run is not a setup run: it shows only through
-  // its receipt, which can outlive every setup run.
-  const newestRun = selectSetupRuns(selected ? [selected.run, ...runs] : runs, repository).at(0);
-  const latestRun = newestRun ? toSetupRun(newestRun) : null;
   if (!selected) {
-    return latestRun ? { state: "no_output", latestRun } : { state: "no_setup_run" };
+    return { state: "no_output" };
   }
-  const { source } = selected;
+  const { source, run: latestRun } = selected;
   if (selected.artifact.size_in_bytes > SETUP_OUTPUT_MAX_BYTES) {
     return {
       state: "invalid_output",
@@ -224,28 +173,33 @@ export async function readLatestSetupOutput(
     };
   }
   const parsed = readSetupOutputArchive(new Uint8Array(archive));
-  return parsed.ok
+  if (!parsed.ok) {
+    return { state: "invalid_output", latestRun, source, reason: parsed.reason };
+  }
+  const { state } = parsed.output;
+  const conclusion = SETUP_OUTPUT_RUN_CONCLUSIONS[state];
+  return latestRun.conclusion === conclusion
     ? { state: "output", latestRun, source, output: parsed.output }
-    : { state: "invalid_output", latestRun, source, reason: parsed.reason };
+    : {
+        state: "invalid_output",
+        latestRun,
+        source,
+        reason: `The setup output of run ${source.runId} says ${state}, but the run ended with ${latestRun.conclusion}. Samebase reads ${state} only from a run that ended with ${conclusion}.`,
+      };
 }
 
 /**
 The newest setup output with every claim checked, ready to apply, or where it stopped. Nothing is
-written. `applied` is the checkpoint that an apply compares with.
+written.
 */
 type PreparedSetupOutput =
-  | { state: "no_setup_run" }
-  | { state: "no_output"; latestRun: SetupRun }
-  | {
-      state: "invalid_output";
-      latestRun: SetupRun | null;
-      source: SetupOutputSource;
-      reason: string;
-    }
-  | { state: "unchanged"; latestRun: SetupRun | null; source: SetupOutputSource }
+  | { state: "no_output" }
+  | { state: "invalid_output"; latestRun: SetupRun; source: SetupOutputSource; reason: string }
+  | { state: "unchanged"; latestRun: SetupRun; source: SetupOutputSource }
+  | { state: "setup_failed"; latestRun: SetupRun; source: SetupOutputSource }
   | {
       state: "refused";
-      latestRun: SetupRun | null;
+      latestRun: SetupRun;
       source: SetupOutputSource;
       step: "verify_cloudflare" | "verify_convex";
       claim: string | null;
@@ -253,16 +207,24 @@ type PreparedSetupOutput =
     }
   | {
       state: "ready";
-      latestRun: SetupRun | null;
+      latestRun: SetupRun;
       source: SetupOutputSource;
       verified: VerifiedSetupOutput;
       pending: Extract<SetupStatus["pending"], { state: "deployed" | "destroyed" }>;
     };
 
+/**
+`applied` is the checkpoint that an apply compares with, and `applyFailure` the last automatic apply
+that failed.
+*/
 async function prepareLatestSetupOutput(
   ctx: ActionCtx,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
-): Promise<{ applied: RepositoryActionsSetupOutput | null; prepared: PreparedSetupOutput }> {
+): Promise<{
+  applied: RepositoryActionsSetupOutput | null;
+  applyFailure: SetupStatus["applyFailure"];
+  prepared: PreparedSetupOutput;
+}> {
   const [read, context] = await Promise.all([
     readLatestSetupOutput(ctx, args),
     ctx.runQuery(internal.repository.setupOutputMutations.readApplyContext, {
@@ -270,12 +232,11 @@ async function prepareLatestSetupOutput(
       repositoryId: args.repositoryId,
     }),
   ]);
-  const applied = context.setupOutput;
+  const { setupOutput: applied, setupOutputApplyFailure: applyFailure } = context;
   switch (read.state) {
-    case "no_setup_run":
     case "no_output":
     case "invalid_output":
-      return { applied, prepared: read };
+      return { applied, applyFailure, prepared: read };
     case "output":
       break;
     default:
@@ -284,13 +245,14 @@ async function prepareLatestSetupOutput(
   }
   const { latestRun, source, output } = read;
   if (!isNewerSetupOutput(source, applied)) {
-    return { applied, prepared: { state: "unchanged", latestRun, source } };
+    return { applied, applyFailure, prepared: { state: "unchanged", latestRun, source } };
   }
 
   switch (output.state) {
     case "destroyed":
       return {
         applied,
+        applyFailure,
         prepared: {
           state: "ready",
           latestRun,
@@ -299,6 +261,8 @@ async function prepareLatestSetupOutput(
           pending: { state: "destroyed", source },
         },
       };
+    case "failed":
+      return { applied, applyFailure, prepared: { state: "setup_failed", latestRun, source } };
     case "deployed":
       break;
     default:
@@ -323,7 +287,7 @@ async function prepareLatestSetupOutput(
       claim: workers.claim,
       reason: workers.reason,
     };
-    return { applied, prepared: { state: "refused", latestRun, source, ...refusal } };
+    return { applied, applyFailure, prepared: { state: "refused", latestRun, source, ...refusal } };
   }
   const projects = await verifySetupStackProjects(ctx, {
     userId: args.userId,
@@ -340,7 +304,7 @@ async function prepareLatestSetupOutput(
       claim: projects.claim,
       reason: projects.reason,
     };
-    return { applied, prepared: { state: "refused", latestRun, source, ...refusal } };
+    return { applied, applyFailure, prepared: { state: "refused", latestRun, source, ...refusal } };
   }
   if (
     workers.replacedWorkerIds.length === 0 &&
@@ -351,10 +315,11 @@ async function prepareLatestSetupOutput(
       attachedProjects: context.attachedProjects,
     })
   ) {
-    return { applied, prepared: { state: "unchanged", latestRun, source } };
+    return { applied, applyFailure, prepared: { state: "unchanged", latestRun, source } };
   }
   return {
     applied,
+    applyFailure,
     prepared: {
       state: "ready",
       latestRun,
@@ -399,33 +364,33 @@ async function prepareLatestSetupOutput(
 }
 
 /**
-The setup status: the newest setup run, the applied output, and the newest output that is not
-applied yet with its checks. It writes nothing, so a status read never attaches a resource.
+The setup status: the run of the newest setup output, the applied output, the newest output that is
+not applied yet with its checks, and the last automatic apply that failed. It writes nothing, so a
+status read never attaches a resource.
 */
 export async function readSetupStatus(
   ctx: ActionCtx,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
 ): Promise<SetupStatus> {
-  const { applied, prepared } = await prepareLatestSetupOutput(ctx, args);
+  const { applied, applyFailure, prepared } = await prepareLatestSetupOutput(ctx, args);
   switch (prepared.state) {
-    case "no_setup_run":
-      return { latestRun: null, applied, pending: { state: "none" } };
     case "no_output":
+      return { latestRun: null, applied, pending: { state: "none" }, applyFailure };
+    case "unchanged":
+      return { latestRun: prepared.latestRun, applied, pending: { state: "none" }, applyFailure };
+    case "setup_failed":
       return {
         latestRun: prepared.latestRun,
         applied,
-        pending:
-          applied === null && prepared.latestRun.conclusion === "success"
-            ? { state: "no_output" }
-            : { state: "none" },
+        pending: { state: "failed", source: prepared.source },
+        applyFailure,
       };
-    case "unchanged":
-      return { latestRun: prepared.latestRun, applied, pending: { state: "none" } };
     case "invalid_output":
       return {
         latestRun: prepared.latestRun,
         applied,
         pending: { state: "invalid_output", source: prepared.source, reason: prepared.reason },
+        applyFailure,
       };
     case "refused":
       return {
@@ -438,9 +403,10 @@ export async function readSetupStatus(
           claim: prepared.claim,
           reason: prepared.reason,
         },
+        applyFailure,
       };
     case "ready":
-      return { latestRun: prepared.latestRun, applied, pending: prepared.pending };
+      return { latestRun: prepared.latestRun, applied, pending: prepared.pending, applyFailure };
     default:
       prepared satisfies never;
       throw new Error("Unknown setup output state.");
@@ -542,18 +508,27 @@ export async function applyLatestSetupOutput(
 
 /**
 One step of setupOutputWorkflow.observeFirstSetupOutput: the first apply on behalf of the member who
-created the app. A failed call becomes a result, so the workflow can wait and read again.
+created the app. A failed call becomes a result, so the workflow can wait and read again. An apply
+that the apply transaction refused, such as on the organization connection quota, is recorded on
+the plan, because nobody sees this result: the setup status shows it until an apply succeeds.
 */
 export const applyFirstForCreator = internalAction({
   args: { userId: id("users"), repositoryId: id("repositories") },
   returns: vSetupOutputApplyResult,
   handler: async (ctx, args): Promise<SetupOutputApplyResult> => {
     try {
-      return await applyLatestSetupOutput(ctx, {
+      const result = await applyLatestSetupOutput(ctx, {
         userId: args.userId,
         repositoryId: args.repositoryId,
         authority: { kind: "first_apply" },
       });
+      if (result.state === "refused" && result.step === "apply") {
+        await ctx.runMutation(internal.repository.setupOutputMutations.recordApplyFailure, {
+          repositoryId: args.repositoryId,
+          reason: result.reason,
+        });
+      }
+      return result;
     } catch (error) {
       return { state: "failed", reason: toErrorMessage(error) };
     }

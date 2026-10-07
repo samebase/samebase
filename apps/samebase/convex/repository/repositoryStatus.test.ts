@@ -430,9 +430,7 @@ describe("buildRepositoryAttention", () => {
     const successfulRun = {
       runId: 37545425944,
       runAttempt: 2,
-      event: "push",
-      status: "completed",
-      conclusion: "success",
+      conclusion: "success" as const,
       startedAt: "2026-10-06T23:10:00Z",
       url: "https://github.com/samebase/chess-merge/actions/runs/37545425944",
     };
@@ -453,6 +451,7 @@ describe("buildRepositoryAttention", () => {
       latestRun: successfulRun,
       applied: appliedOutput,
       pending: { state: "none" as const },
+      applyFailure: null,
     };
     const setupStackAttention = (setupStack: RepositorySetupStack | null) =>
       buildRepositoryAttention({
@@ -476,49 +475,76 @@ describe("buildRepositoryAttention", () => {
     });
 
     /*
-    State axes of the setup status items: the status read or unavailable; the newest run absent,
-    running, failed, or successful; the pending output none, invalid, refused, deployed (before or
-    after the first apply), or a destroy receipt; the applied checkpoint none, applied, or a
-    reported destroy.
+    State axes of the setup status items: the status read or unavailable; the run of the newest
+    setup output absent or present; the pending output none, failed, invalid, refused, deployed
+    (before or after the first apply), or a destroy receipt; the applied checkpoint none, applied,
+    or a reported destroy; the last automatic apply failure none or recorded.
     */
     it("gives nothing for a settled or unreadable setup status", () => {
       expect(setupStackAttention(settledSetupStack)).toEqual([]);
+      expect(setupStackAttention({ ...settledSetupStack, latestRun: null })).toEqual([]);
       expect(setupStackAttention({ state: "unavailable" })).toEqual([]);
       expect(setupStackAttention(null)).toEqual([]);
     });
 
-    it("names the newest alchemy run while it is absent, running, or did not succeed", () => {
+    it("waits for the first setup output with the Actions page of the repository", () => {
       expect(setupStackAttention({ ...settledSetupStack, latestRun: null, applied: null })).toEqual(
         [
           {
             tool: null,
             problem:
-              "The alchemy workflow has not run on the default branch of samebase/chess-merge yet. A push to the default branch starts it.",
+              "Waiting for the setup output of samebase/chess-merge: its GitHub Actions publish it after the setup stack deploys. The runs are at https://github.com/samebase/chess-merge/actions. Call repository_getStatus again when one finishes.",
           },
         ],
       );
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          latestRun: { ...successfulRun, status: "in_progress", conclusion: null },
-        }),
-      ).toEqual([
-        {
-          tool: null,
-          problem:
-            "The alchemy workflow run https://github.com/samebase/chess-merge/actions/runs/37545425944 is in_progress. Call repository_getStatus again when it completes.",
-        },
-      ]);
+    });
+
+    it("names a failed setup run with its link", () => {
       expect(
         setupStackAttention({
           ...settledSetupStack,
           latestRun: { ...successfulRun, conclusion: "failure" },
+          pending: { state: "failed", source },
         }),
       ).toEqual([
         {
           tool: null,
           problem:
-            "The alchemy workflow run https://github.com/samebase/chess-merge/actions/runs/37545425944 ended with failure. Read its log, then change alchemy.run.ts or run the workflow again.",
+            "Setup failed in run 37545425944: https://github.com/samebase/chess-merge/actions/runs/37545425944. Read its log, fix the cause in the repository, then run it again.",
+        },
+      ]);
+    });
+
+    it("names an automatic apply that failed next to the output that waits", () => {
+      expect(
+        setupStackAttention({
+          ...settledSetupStack,
+          applied: null,
+          pending: {
+            state: "deployed",
+            source,
+            workers: [{ workerName: "chess-merge", rootDirectory: "/" }],
+            projects: [
+              {
+                projectName: "chess-merge",
+                projectSlug: "chess-merge",
+                codeLocationPath: "convex.json",
+              },
+            ],
+            firstApply: { automatic: true },
+          },
+          applyFailure: { reason: "Organization connection limit reached (6).", failedAt: 3 },
+        }),
+      ).toEqual([
+        {
+          tool: null,
+          problem: "Automatic apply failed: Organization connection limit reached (6).",
+        },
+        {
+          tool: "repository_setupOutput_apply",
+          artifactId: 11450791196,
+          problem:
+            "The setup output of run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge at convex.json.",
         },
       ]);
     });
@@ -547,7 +573,7 @@ describe("buildRepositoryAttention", () => {
           tool: "repository_setupOutput_apply",
           artifactId: 11450791196,
           problem:
-            "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json. Samebase does not apply the first output by itself: Another Convex project of the team is also named chess-merge.",
+            "The setup output of run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json. Samebase does not apply the first output by itself: Another Convex project of the team is also named chess-merge.",
         },
       ]);
       expect(setupStackAttention({ ...settledSetupStack, pending: deployed })).toEqual([
@@ -555,23 +581,7 @@ describe("buildRepositoryAttention", () => {
           tool: "repository_setupOutput_apply",
           artifactId: 11450791196,
           problem:
-            "The setup output of alchemy run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json.",
-        },
-      ]);
-    });
-
-    it("asks for a new run when a successful run left no setup output before the first apply", () => {
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          applied: null,
-          pending: { state: "no_output" },
-        }),
-      ).toEqual([
-        {
-          tool: null,
-          problem:
-            "The alchemy workflow succeeded without a setup output, so Samebase attached nothing. Run the alchemy workflow on the default branch to publish one: https://github.com/samebase/chess-merge/actions/workflows/alchemy.yml",
+            "The setup output of run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json.",
         },
       ]);
     });
@@ -592,7 +602,7 @@ describe("buildRepositoryAttention", () => {
         {
           tool: null,
           problem:
-            "Samebase cannot apply the setup output of alchemy run 37545425944 (cloudflare.workers[0].name): Cloudflare names the Worker renamed, not chess-merge.",
+            "Samebase cannot apply the setup output of run 37545425944 (cloudflare.workers[0].name): Cloudflare names the Worker renamed, not chess-merge.",
         },
       ]);
       expect(
@@ -609,7 +619,7 @@ describe("buildRepositoryAttention", () => {
       ]);
     });
 
-    it("shows a destroy receipt as the workflow's report, before and after it is recorded", () => {
+    it("shows a destroy receipt as its run's report, before and after it is recorded", () => {
       expect(
         setupStackAttention({ ...settledSetupStack, pending: { state: "destroyed", source } }),
       ).toEqual([
@@ -617,7 +627,7 @@ describe("buildRepositoryAttention", () => {
           tool: "repository_setupOutput_apply",
           artifactId: 11450791196,
           problem:
-            "Destroy app run 37545425944 reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.",
+            "Run 37545425944 reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.",
         },
       ]);
       expect(
@@ -629,7 +639,7 @@ describe("buildRepositoryAttention", () => {
         {
           tool: null,
           problem:
-            "Destroy app run 37545425944 reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.",
+            "Run 37545425944 reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.",
         },
       ]);
     });

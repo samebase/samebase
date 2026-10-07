@@ -9,7 +9,10 @@ import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { insertProject } from "./convexMutations";
 import { requireUserRepositoryInfrastructureIdle } from "./infrastructureOperation";
 import { vRepositoryProviderResourceOrigin } from "./model";
-import { vRepositoryActionsSetupOutput } from "./provisioningModel";
+import {
+  vRepositoryActionsSetupOutput,
+  vRepositoryActionsSetupOutputApplyFailure,
+} from "./provisioningModel";
 import { isSamebaseProvisioningPlan } from "./provisioningPlan";
 import { isNewerSetupOutput, vSetupOutputSource } from "./setupOutputModel";
 
@@ -40,6 +43,7 @@ export type VerifiedSetupOutput = Infer<typeof vVerifiedSetupOutput>;
 
 const vSetupOutputApplyContext = object({
   setupOutput: union(vRepositoryActionsSetupOutput, v.null()),
+  setupOutputApplyFailure: union(vRepositoryActionsSetupOutputApplyFailure, v.null()),
   /** When the plan was made: the first-apply rule accepts only resources created after it. */
   appCreatedAt: number(),
   /** The names that the creation reserved, by Samebase's name rule from the repository name. */
@@ -101,6 +105,7 @@ export const readApplyContext = internalQuery({
       .collect();
     return {
       setupOutput: plan.setupOutput ?? null,
+      setupOutputApplyFailure: plan.setupOutputApplyFailure ?? null,
       appCreatedAt: plan.createdAt,
       reservedNames: {
         workerName: buildDefaultAppResourceName({
@@ -137,7 +142,8 @@ applied artifact id, so two applies of different reads cannot both win. A deploy
 every Worker and Convex project with origin setup_stack: a row of this repository with the same
 identity keeps its coordinates and takes the origin, a replaced Worker row is deleted first, and the
 insert helpers keep the exclusivity, destination, and connection quota rules of the attach dialogs.
-A destroy receipt only moves the checkpoint; the rows stay until a member removes them.
+A destroy receipt only moves the checkpoint; the rows stay until a member removes them. Either one
+removes the last automatic apply failure.
 */
 export const apply = internalMutation({
   args: {
@@ -171,6 +177,7 @@ export const apply = internalMutation({
             artifactCreatedAt: args.source.artifactCreatedAt,
             reportedAt: now,
           },
+          setupOutputApplyFailure: undefined,
           updatedAt: now,
         });
         return null;
@@ -235,6 +242,30 @@ export const apply = internalMutation({
         outputVersion: output.outputVersion,
         appliedAt: now,
       },
+      setupOutputApplyFailure: undefined,
+      updatedAt: now,
+    });
+    return null;
+  },
+});
+
+/**
+Records why the apply transaction refused an automatic apply of observeFirstSetupOutput, such as on
+the organization connection quota. Nobody sees that apply's result, so the setup status shows this
+until an apply succeeds. The automatic apply only applies the first output, so once an output is
+applied, such as by a member while the automatic apply ran, its refusal is not recorded.
+*/
+export const recordApplyFailure = internalMutation({
+  args: { repositoryId: id("repositories"), reason: string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const plan = await requireRepositoryActionsPlan(ctx, args.repositoryId);
+    if (plan.setupOutput) {
+      return null;
+    }
+    const now = Date.now();
+    await ctx.db.patch(plan._id, {
+      setupOutputApplyFailure: { reason: args.reason, failedAt: now },
       updatedAt: now,
     });
     return null;
