@@ -35,6 +35,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
 import { detachResourceContract } from "../repository/contracts/detachResource";
+import { applySetupOutputContract } from "../repository/contracts/applySetupOutput";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
 import {
@@ -210,6 +211,9 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   ),
   [detachResourceContract.mcp.name]: createMcpGrantToolCall(
     internal.toolRuntime.runtime.repositoryDetachResourceTool,
+  ),
+  [applySetupOutputContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.repositoryApplySetupOutputTool,
   ),
   [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(internal.feedback.submit),
   [createBrowserHandoffContract.mcp.name]: createMcpGrantToolCall(

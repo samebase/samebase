@@ -188,6 +188,18 @@
         "destructive_justification": "Removes the Samebase attachment record, so Samebase stops managing that Worker or Convex project for the repository. It does not delete the provider resource or user data. The server gates it: the first call changes nothing and returns the effect, an acknowledgement sentence, and a one-use token that expires after 10 minutes. The agent tells the user the effect. Only a second call after the user approves, with the same arguments, that token, and the exact sentence, performs it."
       }
     },
+    "repository_setupOutput_apply": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Attaches the Workers and Convex projects that the repository's own GitHub Actions setup output lists to the Samebase repository record.",
+        "open_world_justification": "Reads the repository's GitHub Actions artifacts and checks each listed resource in the caller's Cloudflare account and Convex team. It changes nothing in GitHub, Cloudflare, or Convex.",
+        "destructive_justification": "Changes only Samebase attachment records: it can replace the record of a Worker that the setup stack recreated. It does not delete or change any provider resource or user data."
+      }
+    },
     "feedback_submit": {
       "annotations": {
         "readOnlyHint": false,

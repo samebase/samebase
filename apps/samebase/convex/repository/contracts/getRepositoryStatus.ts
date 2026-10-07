@@ -10,6 +10,8 @@ import {
   vConvexProjectObservation,
 } from "../providerObservationModel";
 import { vPullRequestResources, vRepositoryPullRequestPage } from "../pullRequestModel";
+import { vRepositorySetupStack } from "../setupOutputModel";
+import { applySetupOutputContract } from "./applySetupOutput";
 import { cloudflareCreateWorkerContract } from "./cloudflareAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "./cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./cloudflareRotateConvexDeployKeysForWorkersBuilds";
@@ -48,10 +50,17 @@ const vRepositoryAttentionItem = union(
     problem: string(),
   }),
   object({
+    tool: literal(applySetupOutputContract.mcp.name),
+    problem: string(),
+  }),
+  object({
     tool: v.null(),
     problem: string(),
   }),
 );
+
+/** The setup status of a repository that its GitHub Actions set up; null for any other. */
+const vRepositoryStatusSetupStack = union(...vRepositorySetupStack.members, v.null());
 
 /** The dashboard result: the same live reads that the repository overview makes today. */
 const vRepositoryStatus = object({
@@ -64,6 +73,7 @@ const vRepositoryStatus = object({
     object({ state: literal("unavailable") }),
   ),
   pullRequestResources: array(vPullRequestResources),
+  setupStack: vRepositoryStatusSetupStack,
   attention: array(vRepositoryAttentionItem),
 });
 
@@ -168,6 +178,7 @@ const vMcpRepositoryStatus = object({
       ),
     }),
   ),
+  setupStack: vRepositoryStatusSetupStack,
   attention: array(vRepositoryAttentionItem),
 });
 
@@ -184,7 +195,7 @@ export const getRepositoryStatusContract = {
     title: "Get repository status",
     name: "repository_getStatus",
     description:
-      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, and attention items that name the tool that fixes each problem.",
+      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up the newest run of its alchemy workflow and its setup output, and attention items that name the tool that fixes each problem.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -209,6 +220,11 @@ the repository overview shows. It changes nothing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
   first 6 open pull requests, most recently updated first. Each lists its checks and, per app, the
   preview build and preview URL.
+- Setup stack, for a repository that its GitHub Actions set up (null for any other): the newest
+  run of its \`alchemy\` workflow on the default branch in any state, the setup output that
+  Samebase applied, and the newest output that it did not apply yet, with the Workers and Convex
+  projects it lists and, before the first apply, why Samebase does not apply it by itself. A
+  destroy receipt is the workflow's report: the app facts show what is left.
 - Attention items: each names a problem and the tool that fixes it. The provider setup state comes
   first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
   the only item names \`repository_retryProviderSetup\`. When Cloudflare setup is pending, an item
@@ -217,7 +233,9 @@ the repository overview shows. It changes nothing.
   Workers Builds settings are missing or use different tokens, and
   \`repository_cloudflare_rotateConvexDeployKeys\` fixes a Worker whose Convex deploy key is
   missing or targets another project. "Deploy the Convex project to production first" means that a
-  project has no production deployment yet, so no deploy key can be installed.
+  project has no production deployment yet, so no deploy key can be installed. For a repository
+  that its GitHub Actions set up, the setup stack owns those settings, so those items name no tool;
+  an item names \`repository_setupOutput_apply\` when a setup output waits for a member.
 
 Checks give the total, failed, pending, and unknown counts of every check, and the names of the
 failed checks among the first 100 that GitHub lists; \`failedNamesComplete\` is false when a

@@ -144,6 +144,14 @@ export const toolJustifications = {
       "Changes only Samebase state. It reads the connected Convex team only to resolve a project slug, changes nothing in GitHub, Convex, or Cloudflare, and the resource keeps running in the provider account.",
     destructive_justification: `Removes the Samebase attachment record, so Samebase stops managing that Worker or Convex project for the repository. It does not delete the provider resource or user data. ${serverConfirmation}`,
   },
+  repository_setupOutput_apply: {
+    read_only_justification:
+      "Attaches the Workers and Convex projects that the repository's own GitHub Actions setup output lists to the Samebase repository record.",
+    open_world_justification:
+      "Reads the repository's GitHub Actions artifacts and checks each listed resource in the caller's Cloudflare account and Convex team. It changes nothing in GitHub, Cloudflare, or Convex.",
+    destructive_justification:
+      "Changes only Samebase attachment records: it can replace the record of a Worker that the setup stack recreated. It does not delete or change any provider resource or user data.",
+  },
   feedback_submit: {
     read_only_justification:
       "Sends one user-approved feedback report to a fixed Samebase staff mailbox and updates an account-linked submission-attempt counter.",

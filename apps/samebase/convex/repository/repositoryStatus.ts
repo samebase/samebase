@@ -22,8 +22,10 @@ import {
   type UserRepositoryResult,
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
+import { applySetupOutputContract } from "./contracts/applySetupOutput";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
 import type { RepositoryActionsCiSecrets } from "./provisioningModel";
+import type { RepositorySetupStack } from "./setupOutputModel";
 import {
   isSamebaseManagedProviderPlan,
   readProviderInfrastructureWriter,
@@ -37,6 +39,7 @@ status.ts gathers the provider facts; this module decides what needs attention a
 it, so the rules have unit tests without provider requests.
 */
 
+const APPLY_SETUP_OUTPUT_TOOL = applySetupOutputContract.mcp.name;
 const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
 const CREATE_WORKER_TOOL = cloudflareCreateWorkerContract.mcp.name;
 const LIST_TOOL = getUserRepositoriesContract.mcp.name;
@@ -120,13 +123,14 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
 }
 
 /**
-The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished.
-Its attached Workers and Convex projects get the same items as any other repository, with the
-repair advice of buildSetupStackAttention.
+The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished:
+the Actions secrets, then the setup status. Its attached Workers and Convex projects get the same
+items as any other repository, with the repair advice of adviseSetupStack.
 */
 function buildRepositoryActionsAttention(args: {
   repository: RepositoryStatusRepository;
   ciSecrets: RepositoryActionsCiSecrets;
+  setupStack: RepositorySetupStack | null;
 }): RepositoryAttentionItem[] {
   switch (args.ciSecrets.state) {
     case "planned":
@@ -137,16 +141,92 @@ function buildRepositoryActionsAttention(args: {
         },
       ];
     case "written":
-      return [
-        {
-          tool: null,
-          problem: `The deployment of this repository runs in its GitHub Actions: https://github.com/${args.repository.githubRepositoryFullName}/actions. Samebase does not read its result yet.`,
-        },
-      ];
+      return buildSetupStackAttention(args);
     default:
       args.ciSecrets satisfies never;
       return [];
   }
+}
+
+/**
+The items of the setup status: the newest alchemy run when it did not succeed, the setup output that
+waits, and a destroy that the workflow reported. An unreadable setup status gives no item, like any
+other unreadable fact.
+*/
+function buildSetupStackAttention(args: {
+  repository: RepositoryStatusRepository;
+  setupStack: RepositorySetupStack | null;
+}): RepositoryAttentionItem[] {
+  const { setupStack } = args;
+  if (setupStack === null || setupStack.state === "unavailable") {
+    return [];
+  }
+  const { latestRun, applied, pending } = setupStack;
+  const items: RepositoryAttentionItem[] = [];
+  if (latestRun === null) {
+    items.push({
+      tool: null,
+      problem: `The alchemy workflow has not run on the default branch of ${args.repository.githubRepositoryFullName} yet. A push to the default branch starts it.`,
+    });
+  } else if (latestRun.status !== "completed") {
+    items.push({
+      tool: null,
+      problem: `The alchemy workflow run ${latestRun.url} is ${latestRun.status ?? "not started"}. Call ${STATUS_TOOL} again when it completes.`,
+    });
+  } else if (latestRun.conclusion !== "success") {
+    items.push({
+      tool: null,
+      problem: `The alchemy workflow run ${latestRun.url} ended with ${latestRun.conclusion ?? "no conclusion"}. Read its log, then change alchemy.run.ts or run the workflow again.`,
+    });
+  }
+  switch (pending.state) {
+    case "none":
+      break;
+    case "invalid_output":
+      items.push({
+        tool: null,
+        problem: `Samebase cannot read the setup output of alchemy run ${pending.source.runId}: ${pending.reason}`,
+      });
+      break;
+    case "refused":
+      items.push({
+        tool: null,
+        problem: `Samebase cannot apply the setup output of alchemy run ${pending.source.runId}${pending.claim === null ? "" : ` (${pending.claim})`}: ${pending.reason}`,
+      });
+      break;
+    case "deployed": {
+      const workers = pending.workers.map(
+        (worker) => `${worker.workerName} at ${worker.rootDirectory}`,
+      );
+      const projects = pending.projects.map(
+        (project) => `${project.projectName} at ${project.codeLocationPath}`,
+      );
+      const waitsForMember =
+        !applied && !pending.firstApply.automatic
+          ? ` Samebase does not apply the first output by itself: ${pending.firstApply.reason}`
+          : "";
+      items.push({
+        tool: APPLY_SETUP_OUTPUT_TOOL,
+        problem: `The setup output of alchemy run ${pending.source.runId} is not applied yet. Workers: ${workers.join(", ") || "none"}. Convex projects: ${projects.join(", ") || "none"}.${waitsForMember}`,
+      });
+      break;
+    }
+    case "destroyed":
+      items.push({
+        tool: APPLY_SETUP_OUTPUT_TOOL,
+        problem: `Alchemy run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
+      });
+      break;
+    default:
+      pending satisfies never;
+  }
+  if (applied?.state === "destroy_reported" && pending.state === "none") {
+    items.push({
+      tool: null,
+      problem: `Alchemy run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.`,
+    });
+  }
+  return items;
 }
 
 /**
@@ -188,7 +268,11 @@ export function buildRepositoryAttention(args: {
   const resourceItems = buildResourceAttention({ repository, observations });
   if (plan && !isSamebaseManagedProviderPlan(plan)) {
     return [
-      ...buildRepositoryActionsAttention({ repository, ciSecrets: plan.ciSecrets }),
+      ...buildRepositoryActionsAttention({
+        repository,
+        ciSecrets: plan.ciSecrets,
+        setupStack: observations.setupStack,
+      }),
       ...resourceItems,
     ];
   }
@@ -209,6 +293,7 @@ function adviseSetupStack(item: RepositoryAttentionItem): RepositoryAttentionIte
         problem: `${item.problem} The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.`,
       };
     case RETRY_PROVIDER_SETUP_TOOL:
+    case APPLY_SETUP_OUTPUT_TOOL:
     case null:
       return item;
     default:
@@ -553,6 +638,7 @@ export function projectRepositoryStatusForMcp(args: {
               })),
       };
     }),
+    setupStack: status.setupStack,
     attention: status.attention,
   };
 }

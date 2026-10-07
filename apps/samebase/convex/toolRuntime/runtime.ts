@@ -30,6 +30,8 @@ import {
   type DetachableResource,
 } from "../repository/contracts/detachResource";
 import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
+import { applySetupOutputContract } from "../repository/contracts/applySetupOutput";
+import { applyLatestSetupOutput } from "../repository/setupOutput";
 import { projectRepositoryStatusForMcp } from "../repository/repositoryStatus";
 import { readRepositoryStatusForUser } from "../repository/status";
 import { retryProviderSetupForUser } from "../repository";
@@ -374,7 +376,7 @@ export const repositoryGetStatusTool = defineMcpTool({
       repository,
       status: await readRepositoryStatusForUser(ctx, { userId: args.userId, repository }),
     });
-    const { apps, attention, convexProjects, defaultBranch, openPullRequestCount } =
+    const { apps, attention, convexProjects, defaultBranch, openPullRequestCount, setupStack } =
       structuredContent;
 
     // An empty attention list means only that no setup repair applies: a failed build or check
@@ -396,6 +398,7 @@ export const repositoryGetStatusTool = defineMcpTool({
     }
     const unreadable = [
       ...(defaultBranch === null ? ["the default branch head"] : []),
+      ...(setupStack?.state === "unavailable" ? ["the setup stack status"] : []),
       ...apps.flatMap(({ workerName, productionBuild }) =>
         productionBuild.state === "unavailable" ? [`the production build of ${workerName}`] : [],
       ),
@@ -546,6 +549,23 @@ export const repositoryRetryProviderSetupTool = defineMcpTool({
       text: `Started a provider setup run for ${repository.githubRepositoryFullName}. Poll repository_list for progress.`,
       structuredContent: { state: "setup_started" as const },
     };
+  },
+});
+
+export const repositoryApplySetupOutputTool = defineMcpTool({
+  contract: applySetupOutputContract,
+  args: applySetupOutputContract.mcpArgs,
+  successFields: {
+    structuredContent: applySetupOutputContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const repository = await readRepositoryForMcp(ctx, args);
+    const structuredContent = await applyLatestSetupOutput(ctx, {
+      userId: args.userId,
+      repositoryId: repository.repositoryId,
+      authority: "member",
+    });
+    return { text: JSON.stringify(structuredContent, null, 2), structuredContent };
   },
 });
 
