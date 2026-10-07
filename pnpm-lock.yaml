@@ -279,8 +279,11 @@ importers:
         specifier: ^0.0.7
         version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.3)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.3)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.6.0)(@codemirror/view@6.43.0)
       '@samebase/convex-cloudflare-email-inbox':
+        specifier: 0.3.0
+        version: 0.3.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)
+      '@samebase/convex-cloudflare-email-inbox-ui':
         specifier: 0.1.0
-        version: 0.1.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)
+        version: 0.1.0(@samebase/convex-cloudflare-email-inbox@0.3.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3))(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)
       '@samebase/dependent':
         specifier: workspace:*
         version: link:../../packages/dependent
@@ -2628,12 +2631,25 @@ packages:
       webpack-hot-middleware:
         optional: true
 
-  '@samebase/convex-cloudflare-email-inbox@0.1.0':
-    resolution: {integrity: sha512-1p13IQ7nq7ZVLGaoK1ow+tXT5uHAQ6dhNc0ptnlMW8P5OnlnHSGWO+pZrJWUQBuq9kw9JiXKlNv6v2mrZBJXaQ==}
+  '@samebase/convex-cloudflare-email-inbox-ui@0.1.0':
+    resolution: {integrity: sha512-Mc1tIHKttPqfSNBh+YedQzloqxGBrHGh4eumY/f6OcbOG3X8hLaNL+eTtHlGl6EbqOEFKIQEX9JcajDktWTvwQ==}
     peerDependencies:
+      '@samebase/convex-cloudflare-email-inbox': ^0.2.0 || ^0.3.0
+      convex: ^1.45.0
+      react: ^19.0.0
+
+  '@samebase/convex-cloudflare-email-inbox@0.3.0':
+    resolution: {integrity: sha512-BPNxEcp3FtY5x9n9doLsZO/vqzZaFNqgensEutX+9fQBFgp8/Um17mj14T4ugmE5qNpZzy+HEnZovtH2VLpTOQ==}
+    peerDependencies:
+      '@samebase/alchemy-convex': 0.2.0
+      alchemy: 2.0.0-beta.80
       convex: ^1.45.0
       convex-test: ^0.0.56
     peerDependenciesMeta:
+      '@samebase/alchemy-convex':
+        optional: true
+      alchemy:
+        optional: true
       convex-test:
         optional: true
 
@@ -9128,7 +9144,19 @@ snapshots:
       html-entities: 2.6.0
       react-refresh: 0.18.0
 
-  '@samebase/convex-cloudflare-email-inbox@0.1.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)':
+  '@samebase/convex-cloudflare-email-inbox-ui@0.1.0(@samebase/convex-cloudflare-email-inbox@0.3.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3))(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)':
+    dependencies:
+      '@samebase/convex-cloudflare-email-inbox': 0.3.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)
+      convex: 1.45.0(react@19.2.6)
+      convex-helpers: 0.1.124(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)
+      react: 19.2.6
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+      - hono
+      - typescript
+      - zod
+
+  '@samebase/convex-cloudflare-email-inbox@0.3.0(@standard-schema/spec@1.1.0)(convex-test@0.0.56(convex@1.45.0(react@19.2.6)))(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)':
     dependencies:
       cloudflare: 7.2.0
       convex: 1.45.0(react@19.2.6)
@@ -10579,6 +10607,16 @@ snapshots:
   convert-source-map@2.0.0: {}
 
   convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6):
+    dependencies:
+      convex: 1.45.0(react@19.2.6)
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 4.13.7
+      react: 19.2.6
+      typescript: 6.0.3
+      zod: 4.3.6
+
+  convex-helpers@0.1.124(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6):
     dependencies:
       convex: 1.45.0(react@19.2.6)
     optionalDependencies:
