@@ -932,3 +932,17 @@ Open for PR C, in Nicu's words "how all this fits in":
   from the note: reserved names derived from the repository name instead of stored; the checkpoint
   optional (absent means nothing applied, no migration); Settings keeps Add, detach, name, and root.
   Stage 3 next, with both creation-time rules for the automatic first apply.
+- 2026-10-07: PR C stage 3 on #1699: the observer workflow after `finish` (ten reads in about twenty
+  minutes, no lock, `runAfter` steps); the automatic first apply only for one Worker and one project
+  with the reserved names, a project name unique in the team, and both creation times at or after
+  the plan; the member's apply as one action behind the dashboard button "Apply setup output" and
+  the MCP tool `repository_setupOutput_apply` (the name follows the function path);
+  `repository_getStatus.setupStack` with the newest run, the checkpoint, and the pending output
+  (none, no output, invalid, refused with step and claim, deployed, destroyed); attention items for
+  each case; the Overview block with the run link and the button; the removal dialog names what
+  Samebase keeps and links the confirmed destroy. Codex two P2 fixed: a stale overview (now re-read
+  every 30 seconds while a run is open or the first apply can still happen) and a successful run
+  without an artifact shown as settled (now `no_output`). 658 tests. Departures: Cloudflare's
+  validator requires `created_on`, so a bad value stops both applies at `verify_cloudflare` with the
+  reason in the status; the status lives on the Overview. Stage 4 (docs, PR body, ready) next, then
+  the live run on the PR's preview deploy, which now seeds the CI credentials by itself.
