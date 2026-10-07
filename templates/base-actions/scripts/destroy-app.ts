@@ -1,5 +1,5 @@
-// Destroys the whole app: the destroy-app job of .github/workflows/alchemy.yml
-// runs it after the typed confirmation, with the credentials of the deploy.
+// Destroys the whole app: .github/workflows/destroy.yml runs it after the
+// typed confirmation, with the credentials of the deploy.
 //
 // 1. A dry run of the deploy below opens the state store with --yes, which
 //    upgrades an out-of-date store; the `alchemy state` commands cannot. A

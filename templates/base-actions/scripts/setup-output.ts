@@ -1,8 +1,9 @@
 // The setup output: what this stack tells Samebase about the resources it
 // owns, version 1. alchemy.run.ts returns it under the `samebase` key of the
 // stack output; scripts/publish-setup-output.ts writes it after a deploy and
-// scripts/destroy-app.ts after a destroy; .github/workflows/alchemy.yml
-// uploads the file as the artifact samebase-setup-output.
+// scripts/destroy-app.ts after a destroy; .github/workflows/alchemy.yml and
+// .github/workflows/destroy.yml upload the file as the artifact
+// samebase-setup-output.
 //
 // One section per provider. Each section names its destination (the
 // Cloudflare account, the Convex team) and holds one list per kind of
