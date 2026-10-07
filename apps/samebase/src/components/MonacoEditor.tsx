@@ -19,6 +19,7 @@ import { buildMonacoAppliedCacheKey } from "@/repository/editor/editorCacheKeys"
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { flushCollaborativeUpdates } from "@/lib/collaborativeUpdates";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -166,12 +167,20 @@ export function MonacoEditor({
   const cmStateRef = useRef(
     EditorState.create({
       doc: firstDoc.content,
-      extensions: [collab({ startVersion: firstDoc.version })],
+      extensions: [
+        collab({ startVersion: firstDoc.version }),
+        // The server splits staged content on "\n" only, and Monaco offsets
+        // count "\r\n" as two characters, so "\r" stays line content here.
+        EditorState.lineSeparator.of("\n"),
+      ],
     }),
   );
 
   // Monaco editor instance (set on mount)
   const editorRef = useRef<MonacoEditorInstance | null>(null);
+  // A pulled batch that lands before Monaco mounts must be applied on mount;
+  // the batch itself does not change again to rerun the effect.
+  const [isEditorMounted, setIsEditorMounted] = useState(false);
 
   // Suppression flag: true while we are programmatically applying remote
   // changes to Monaco so the onDidChangeModelContent handler ignores them.
@@ -180,6 +189,8 @@ export function MonacoEditor({
   // Guard against concurrent pushes
   const pushingRef = useRef(false);
   const releasePageLeaveGuardRef = useRef<(() => void) | null>(null);
+  // Push retries outlive unmount; after it the final flush owns the remaining edits.
+  const isMountedRef = useRef(false);
 
   // Collab version – drives the pullUpdates subscription
   const [version, setVersion] = useState(firstDoc.version);
@@ -201,12 +212,22 @@ export function MonacoEditor({
     }
   }, [filePath]);
 
+  // Unmount stops the retry that sends edits typed during an in-flight push, so
+  // flush them here and keep the page-leave guard until that flush settles.
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      releasePageLeaveGuardRef.current?.();
+      isMountedRef.current = false;
+      const releasePageLeaveGuard = releasePageLeaveGuardRef.current;
       releasePageLeaveGuardRef.current = null;
+      void flushCollaborativeUpdates({
+        state: cmStateRef.current,
+        githubRepositoryFullName,
+        branch,
+        filePath,
+      }).then(() => releasePageLeaveGuard?.());
     };
-  }, []);
+  }, [githubRepositoryFullName, branch, filePath]);
 
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
@@ -219,7 +240,7 @@ export function MonacoEditor({
   const pushToServer = useCallback(async () => {
     const state = cmStateRef.current;
     const pending = sendableUpdates(state);
-    if (pushingRef.current || !pending.length) return;
+    if (!isMountedRef.current || pushingRef.current || !pending.length) return;
 
     pushingRef.current = true;
     const ver = getSyncedVersion(state);
@@ -311,7 +332,7 @@ export function MonacoEditor({
     cmStateRef.current = tr.state;
     setVersion(getSyncedVersion(tr.state));
     syncPageLeaveGuard();
-  }, [remoteUpdates, syncPageLeaveGuard]);
+  }, [remoteUpdates, syncPageLeaveGuard, isEditorMounted]);
 
   // ---- Sync project files into Monaco models ----
   useEffect(() => {
@@ -342,6 +363,7 @@ export function MonacoEditor({
   // ---- Monaco mount handler ----
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    setIsEditorMounted(true);
     monacoRef.current = monaco;
 
     // If project files are already loaded (cache hit), sync immediately

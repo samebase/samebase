@@ -160,6 +160,18 @@ function FileViewWrapper() {
   const branch = routeBranch ?? repository?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const repositoryId = repository?.repositoryId;
+  const stagedFiles = useQuery(
+    api.fileStaging.listStagedFiles,
+    repositoryId && branch ? { repositoryId, branch } : "skip",
+  );
+  // Tree paths deleted in staging must not be reopened as the best initial file.
+  const stagedDeletedPaths = useMemo(
+    () =>
+      new Set(
+        (stagedFiles ?? []).filter((file) => file.fileDeleted).map((file) => file.initialFilePath),
+      ),
+    [stagedFiles],
+  );
   const selectedTreeEntry = useMemo(
     () =>
       repository?.treeData?.tree.find((item: { path: string }) => item.path === selectedFile) ??
@@ -421,12 +433,13 @@ function FileViewWrapper() {
       !branch ||
       !owner ||
       !repoName ||
+      stagedFiles === undefined ||
       (repository?.treeData?.tree ?? []).length === 0
     ) {
       return;
     }
 
-    const bestFile = findBestInitialFile(repository?.treeData?.tree ?? []);
+    const bestFile = findBestInitialFile(repository?.treeData?.tree ?? [], stagedDeletedPaths);
     if (bestFile) {
       navigateByHref(
         appendCurrentSearch(
@@ -451,6 +464,8 @@ function FileViewWrapper() {
     branch,
     isCompareRequested,
     navigateByHref,
+    stagedFiles,
+    stagedDeletedPaths,
   ]);
 
   const stagedFile = useQuery(
@@ -478,7 +493,7 @@ function FileViewWrapper() {
     if (stagedFile === undefined) return;
     if (stagedFile || selectedFileExistsInTree) return;
 
-    const bestFile = findBestInitialFile(repository.treeData.tree);
+    const bestFile = findBestInitialFile(repository.treeData.tree, stagedDeletedPaths);
     if (bestFile) {
       navigateByHref(
         appendCurrentSearch(
@@ -519,6 +534,7 @@ function FileViewWrapper() {
     branch,
     isCompareRequested,
     navigateByHref,
+    stagedDeletedPaths,
   ]);
 
   /**
@@ -2568,7 +2584,7 @@ function FileViewInner({
             filePath={selectedFile}
             branch={branch}
           />
-        ) : stagedFile ? (
+        ) : stagedFile && !stagedFile.fileDeleted ? (
           <CodeEditorWrapper
             key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
             githubRepositoryFullName={githubRepositoryFullName}
