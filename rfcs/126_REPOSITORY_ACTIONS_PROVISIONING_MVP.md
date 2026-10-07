@@ -955,3 +955,12 @@ Open for PR C, in Nicu's words "how all this fits in":
   naming the already attached identities has nothing to apply, so a push that changes
   `alchemy.run.ts` no longer asks a member. Live run next on the PR's preview deploy, with the CI
   credentials seeded.
+- 2026-10-07: First dogfood through Samebase, on the PR C preview: Nicu created `tmp-alchemy-05`
+  with the GitHub Actions option. Samebase's side worked end to end (repository, secrets, seed,
+  workflow start). The repository's `alchemy deploy` failed at "Refreshing Cloudflare State Store
+  credentials" with `Unauthorized: Authentication error`: the CI token the preview seeds is the
+  provider connection's key, which lacks Secrets Store Edit; Alchemy reads the state store's auth
+  token from the Secrets Store through a temporary Worker. This is the one-time step PR #1700 named.
+  Fix: a user token with Account Settings Read, Workers Scripts Edit, Workers Builds Configuration
+  Edit, Secrets Store Edit, pasted on the preview and set as `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`
+  for future previews; then Retry on the repository and a rerun of the workflow.
