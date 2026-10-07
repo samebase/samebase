@@ -100,10 +100,11 @@ After each deploy, the workflow uploads the artifact `samebase-setup-output`: th
 and the Convex projects that the stack owns. Samebase reads the newest one from the runs on the
 default branch, checks each id with Cloudflare and Convex, and attaches the Workers and projects to
 the app. It applies the first one by itself only when it names the Worker and the Convex project
-that Samebase reserved when it created the app, both created after the app. Any other output waits
-for **Apply setup output** on the app's overview in Samebase. Samebase never changes or deletes
-what the stack owns. A confirmed destroy uploads a receipt under the same name, which Samebase
-shows as the workflow's report. `scripts/setup-output.ts` defines the file:
+that Samebase reserved when it created the app, both created after the app. Another first output,
+and a later output that adds, drops, or replaces a Worker or a Convex project, waits for **Apply
+setup output** on the app's overview in Samebase. Samebase never changes or deletes what the stack
+owns. A confirmed destroy uploads a receipt under the same name, which Samebase shows as the
+workflow's report. `scripts/setup-output.ts` defines the file:
 
 - One section per provider, each with its destination (the Cloudflare account, the Convex team) and
   one list per kind of resource. A stack with several Workers or Convex projects lists them all.
