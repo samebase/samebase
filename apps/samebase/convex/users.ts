@@ -21,8 +21,7 @@ import {
   type OrganizationProviderConfiguration,
 } from "./organizationProviderCredentials";
 import {
-  requireCloudflareCiAccountAccess,
-  requireCloudflareCiWorkersBuildsAccess,
+  requireCloudflareCiTokenPermissions,
   requireConvexCiTeamAccess,
 } from "./organization/ciCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
@@ -1107,8 +1106,9 @@ export const getCiCredentialsStatus = query({
 
 /**
 Saves the Cloudflare API token that a repository_actions repository receives as its
-CLOUDFLARE_API_TOKEN secret. Cloudflare verifies it with GET /user/tokens/verify, and it must reach
-the organization's connected account, whose id becomes the CLOUDFLARE_ACCOUNT_ID secret.
+CLOUDFLARE_API_TOKEN secret, after requireCloudflareCiTokenPermissions confirmed that it is active
+and reaches the organization's connected account, whose id becomes the CLOUDFLARE_ACCOUNT_ID
+secret, with every permission group that the setup stack needs.
 */
 export const setCloudflareCiToken = action({
   access: "access_provider_connections",
@@ -1134,18 +1134,7 @@ export const setCloudflareCiToken = action({
     if (account === undefined || configuration.cloudflareCredential === undefined) {
       throw new ConvexError("Connect Cloudflare before you save its CI token.");
     }
-
-    let accounts: CloudflareAccount[];
-    try {
-      accounts = await ctx.runAction(
-        internal.cloudflareAccountDiscovery.listAccountsForUserApiToken,
-        { token },
-      );
-    } catch {
-      throw new ConvexError("Cloudflare could not verify this API token.");
-    }
-    requireCloudflareCiAccountAccess(accounts, account);
-    await requireCloudflareCiWorkersBuildsAccess({ token, account });
+    await requireCloudflareCiTokenPermissions({ token, account });
 
     await ctx.runMutation(internal.organizationProviderCredentials.setCloudflareCiCredential, {
       organizationId,

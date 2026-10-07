@@ -16,12 +16,7 @@ import {
 } from "../githubAppAccess";
 import { createGitHubRepositoryInstallationOctokit, readGitHubAppInstallation } from "../githubApp";
 import {
-  listAccountsForVerifiedUserApiToken,
-  type CloudflareAccount,
-} from "../cloudflareAccountDiscovery";
-import {
-  requireCloudflareCiAccountAccess,
-  requireCloudflareCiWorkersBuildsAccess,
+  requireCloudflareCiTokenPermissions,
   requireCompleteCiCredentials,
   requireConvexCiTeamAccess,
 } from "../organization/ciCredentials";
@@ -980,16 +975,7 @@ async function createRepositoryActionsAppForUser(
     cloudflareAccountId: cloudflareAccount.accountId,
     githubOwnerLogin: githubAccess.githubOwnerLogin,
   });
-  let ciAccounts: CloudflareAccount[];
-  try {
-    ciAccounts = await listAccountsForVerifiedUserApiToken(ciCredentials.cloudflare.apiToken);
-  } catch {
-    throw new ConvexError(
-      "Cloudflare could not verify the Cloudflare CI token. Save a new one on the Providers page.",
-    );
-  }
-  requireCloudflareCiAccountAccess(ciAccounts, cloudflareAccount);
-  await requireCloudflareCiWorkersBuildsAccess({
+  await requireCloudflareCiTokenPermissions({
     token: ciCredentials.cloudflare.apiToken,
     account: cloudflareAccount,
   });

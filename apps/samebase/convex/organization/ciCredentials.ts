@@ -1,3 +1,4 @@
+import { notEmpty } from "@samebase/dependent/main";
 import { ConvexError } from "convex/values";
 
 import type { CloudflareAccount } from "../cloudflareAccountDiscovery";
@@ -16,38 +17,65 @@ Saving a token runs them, and so does every repository_actions creation, because
 revoked after it was saved.
 */
 
-/** The Cloudflare CI token must reach the organization's connected Cloudflare account. */
-export function requireCloudflareCiAccountAccess(
-  accounts: readonly CloudflareAccount[],
-  account: CloudflareAccount,
-): void {
-  if (!accounts.some((candidate) => candidate.accountId === account.accountId)) {
-    throw new ConvexError(
-      `The Cloudflare CI token cannot access the Cloudflare account ${account.accountName}.`,
-    );
-  }
-}
+/**
+One read per permission group that the template's setup stack needs, the groups that
+buildCloudflareCiApiTokenUrl preselects. A read cannot prove Edit, so a token with only Read passes
+here and fails in the stack's first deploy. A probe reads only Cloudflare's success flag, so it
+parses no response body.
+*/
+const CLOUDFLARE_CI_TOKEN_PROBES = [
+  { permission: "Account Settings Read", url: "/accounts/{account_id}", query: {} },
+  { permission: "Workers Scripts Edit", url: "/accounts/{account_id}/workers/scripts", query: {} },
+  // Alchemy's state store in the account reads its bearer token from the Secrets Store.
+  {
+    permission: "Secrets Store Edit",
+    url: "/accounts/{account_id}/secrets_store/stores",
+    query: { page: 1, per_page: 1 },
+  },
+  // The read that @samebase/alchemy-cloudflare-workers-builds makes before it links the Worker:
+  // the account's Workers Builds tokens.
+  {
+    permission: "Workers Builds Configuration Edit",
+    url: "/accounts/{account_id}/builds/tokens",
+    query: { page: 1, per_page: 1 },
+  },
+] as const;
 
 /**
-The Cloudflare CI token must reach Workers Builds in that account: the repository's setup stack links
-the repository to its Worker there. One read of the account's build tokens catches a token saved
-before the preset asked for Workers Builds Configuration. A read cannot prove Edit, so a token with
-only Read passes and fails in the stack's first deploy. Any failure stops the save or the create,
-and the message also covers a failure that a retry fixes.
+The Cloudflare CI token must be an active user API token that reaches the organization's connected
+account with every permission group of CLOUDFLARE_CI_TOKEN_PROBES. A probe that Cloudflare could
+not answer reads like a missing permission, so the message also says to try again.
 */
-export async function requireCloudflareCiWorkersBuildsAccess(args: {
+export async function requireCloudflareCiTokenPermissions(args: {
   token: string;
   account: CloudflareAccount;
 }): Promise<void> {
-  try {
-    await Cloudflare.GET["/accounts/{account_id}/builds/tokens"]({
-      client: createCloudflareClient({ token: args.token, transport: "direct" }),
-      path: { account_id: args.account.accountId },
-      query: { page: 1, per_page: 1 },
-    });
-  } catch {
+  const client = createCloudflareClient({ token: args.token, transport: "direct" });
+  const verification = await Cloudflare.GET["/user/tokens/verify"]({ client }).then(
+    ({ result }) => result,
+    () => undefined,
+  );
+  if (verification?.status !== "active") {
     throw new ConvexError(
-      `Cloudflare could not confirm that the Cloudflare CI token reaches Workers Builds in the Cloudflare account ${args.account.accountName}. The token needs Workers Builds Configuration Edit. Try again, or save a new token on the Providers page.`,
+      "Cloudflare could not verify the Cloudflare CI token as an active API token. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, or try again.",
+    );
+  }
+
+  const missing = (
+    await Promise.all(
+      CLOUDFLARE_CI_TOKEN_PROBES.map((probe) =>
+        client
+          .get({ url: probe.url, path: { account_id: args.account.accountId }, query: probe.query })
+          .then(
+            () => null,
+            () => probe.permission,
+          ),
+      ),
+    )
+  ).filter(notEmpty);
+  if (missing.length > 0) {
+    throw new ConvexError(
+      `Cloudflare could not confirm that the Cloudflare CI token has ${missing.join(", ")} in the Cloudflare account ${args.account.accountName}. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, which preselects every permission that the setup stack needs, or try again.`,
     );
   }
 }

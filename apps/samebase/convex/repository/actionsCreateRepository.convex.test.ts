@@ -7,7 +7,6 @@ const providerMocks = vi.hoisted(() => ({
   discoverPreviewSeedGitHubAppInstallations: vi.fn(),
   getRepository: vi.fn(),
   isCloudflareWorkerNameAvailable: vi.fn(),
-  listAccountsForVerifiedUserApiToken: vi.fn(),
   listCloudflareBuildTokens: vi.fn(),
   listConvexManagementProjects: vi.fn(),
   readGitHubAppInstallation: vi.fn(),
@@ -24,14 +23,6 @@ vi.mock("../githubApp", async (importOriginal) => {
     discoverPreviewSeedGitHubAppInstallations:
       providerMocks.discoverPreviewSeedGitHubAppInstallations,
     readGitHubAppInstallation: providerMocks.readGitHubAppInstallation,
-  };
-});
-
-vi.mock("../cloudflareAccountDiscovery", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../cloudflareAccountDiscovery")>();
-  return {
-    ...actual,
-    listAccountsForVerifiedUserApiToken: providerMocks.listAccountsForVerifiedUserApiToken,
   };
 });
 
@@ -146,9 +137,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Cloudflare's answer to the Workers Builds read of the CI token check. */
-function stubCiWorkersBuildsRead(response: () => Response) {
-  const fetch = vi.fn(async () => response());
+/**
+Cloudflare's answers to the CI token check: the token is active, and a path in `denied` answers
+like a token without that permission (403, code 10000 Authentication error).
+*/
+function stubCloudflareCiToken({ denied = [] }: { denied?: string[] } = {}) {
+  const fetch = vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input.toString());
+    if (url.pathname === "/client/v4/user/tokens/verify") {
+      return Response.json({
+        success: true,
+        errors: [],
+        messages: [],
+        result: { id: "c".repeat(32), status: "active" },
+      });
+    }
+    return denied.includes(url.pathname)
+      ? Response.json(
+          {
+            success: false,
+            errors: [{ code: 10000, message: "Authentication error" }],
+            messages: [],
+            result: null,
+          },
+          { status: 403 },
+        )
+      : Response.json({ success: true, errors: [], messages: [], result: [] });
+  });
   vi.stubGlobal("fetch", fetch);
   return fetch;
 }
@@ -170,9 +185,6 @@ beforeEach(() => {
       { access: "write", key: "secrets" },
     ],
   });
-  providerMocks.listAccountsForVerifiedUserApiToken.mockResolvedValue([
-    { accountId: "cloudflare-account", accountName: "Cloudflare account" },
-  ]);
   providerMocks.verifyConvexTeamAccessToken.mockResolvedValue(undefined);
 });
 
@@ -238,66 +250,82 @@ describe("create repository with provisioning repository_actions", () => {
     ).resolves.toEqual([]);
   });
 
-  it("refuses a Cloudflare CI token that cannot reach the connected account", async () => {
+  it("refuses a saved Cloudflare CI token that lost a permission group", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
     await saveCiCredentials(t, { organizationId, userId });
-    providerMocks.listAccountsForVerifiedUserApiToken.mockResolvedValue([
-      { accountId: "other-account", accountName: "Other account" },
-    ]);
+    stubCloudflareCiToken({
+      denied: ["/client/v4/accounts/cloudflare-account/secrets_store/stores"],
+    });
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
-      data: "The Cloudflare CI token cannot access the Cloudflare account Cloudflare account.",
+      data: "Cloudflare could not confirm that the Cloudflare CI token has Secrets Store Edit in the Cloudflare account Cloudflare account. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, which preselects every permission that the setup stack needs, or try again.",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("repositories").collect()),
     ).resolves.toEqual([]);
   });
 
-  it("refuses a saved Cloudflare CI token that cannot read Workers Builds", async () => {
+  it("refuses before it creates anything when the organization has fewer than three connections left", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
     await saveCiCredentials(t, { organizationId, userId });
-    // The code and message that Workers Builds gives a token without Builds access.
-    const fetch = stubCiWorkersBuildsRead(() =>
-      Response.json(
-        { success: false, errors: [{ code: 12006, message: "Invalid token" }], messages: [] },
-        { status: 403 },
-      ),
-    );
+    stubCloudflareCiToken();
+    // Four of the organization's six free connections: Workers of another repository.
+    const otherRepositoryId = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert("repositories", {
+        createdAt: 1,
+        state: "not_connected",
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+      });
+      for (const index of [1, 2, 3, 4]) {
+        await ctx.db.insert("repositoryCloudflareWorkers", {
+          repositoryId,
+          organizationId,
+          accountId: "cloudflare-account",
+          workerName: `other-worker-${index}`,
+          workerTag: `other-worker-tag-${index}`,
+          rootDirectory: "/",
+          origin: "selected_existing",
+        });
+      }
+      return repositoryId;
+    });
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
-      data: "Cloudflare could not confirm that the Cloudflare CI token reaches Workers Builds in the Cloudflare account Cloudflare account. The token needs Workers Builds Configuration Edit. Try again, or save a new token on the Providers page.",
+      data: "Organization connection limit reached (6). This takes 3 connections, and the organization has 2 left.",
     });
-    expect(fetch).toHaveBeenCalledOnce();
     await expect(
-      t.run(async (ctx) => await ctx.db.query("repositories").collect()),
-    ).resolves.toEqual([]);
+      t.run(async (ctx) => (await ctx.db.query("repositories").collect()).map((row) => row._id)),
+    ).resolves.toEqual([otherRepositoryId]);
   });
 
   it("writes the repository_actions plan after every check passes", async () => {
     const { organizationId, t, userId, viewer } = await createRepositoryFixture();
     await saveCiCredentials(t, { organizationId, userId });
-    const fetch = stubCiWorkersBuildsRead(() =>
-      Response.json({ success: true, errors: [], messages: [], result: [] }),
-    );
+    const fetch = stubCloudflareCiToken();
 
     const result = await viewer.action(api.repository.create, {
       organizationId,
       ...repositoryActionsCreateArgs,
     });
 
-    expect(providerMocks.listAccountsForVerifiedUserApiToken).toHaveBeenCalledWith(
-      "cloudflare-ci-test-token",
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/builds/tokens?page=1&per_page=1",
-      }),
-      expect.anything(),
-    );
+    expect(
+      fetch.mock.calls
+        .map(([input]) => (input instanceof Request ? input.url : input.toString()))
+        .sort(),
+    ).toEqual([
+      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account",
+      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/builds/tokens?page=1&per_page=1",
+      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/secrets_store/stores?page=1&per_page=1",
+      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/workers/scripts",
+      "https://api.cloudflare.com/client/v4/user/tokens/verify",
+    ]);
     expect(providerMocks.verifyConvexTeamAccessToken).toHaveBeenCalledWith({
       token: "convex-ci-test-token",
       teamId: "convex-team",

@@ -119,11 +119,16 @@ async function readOrganizationConnectionCounts(
   };
 }
 
+/**
+Fails unless the organization's member seats are paid and it has `connections` connections left:
+the repositories, Workers, and Convex projects that the caller is about to add.
+*/
 export async function requireBillingResourceCapacity(
   ctx: BillingResourceReadCtx,
   args: {
     organizationId: Id<"organizations">;
     userId: Id<"users">;
+    connections: number;
   },
 ): Promise<void> {
   const billing = await requireBillingAccountForOrganization(ctx.db, args);
@@ -143,22 +148,35 @@ export async function requireBillingResourceCapacity(
       `${ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX}. Billing and member management are still available.`,
     );
   }
-  await requireOrganizationConnectionCapacity(ctx, billing.account, organization);
+  await requireOrganizationConnectionCapacity(ctx, {
+    account: billing.account,
+    organization,
+    connections: args.connections,
+  });
 }
 
 async function requireOrganizationConnectionCapacity(
   ctx: BillingResourceReadCtx,
-  account: Doc<"organizationBillingAccounts">,
-  organization: Doc<"organizations">,
+  args: {
+    account: Doc<"organizationBillingAccounts">;
+    organization: Doc<"organizations">;
+    connections: number;
+  },
 ): Promise<void> {
-  const limit = readOrganizationConnectionLimit(account, organization);
+  const limit = readOrganizationConnectionLimit(args.account, args.organization);
   const used = await readOrganizationConnectionCounts(ctx, {
-    organizationId: account.organizationId,
+    organizationId: args.account.organizationId,
     maximumRows: limit + 1,
   });
-  if (used.total >= limit) {
-    throw new ConvexError(`${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} (${limit}).`);
+  if (used.total + args.connections <= limit) {
+    return;
   }
+  const left = Math.max(0, limit - used.total);
+  throw new ConvexError(
+    args.connections === 1
+      ? `${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} (${limit}).`
+      : `${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} (${limit}). This takes ${args.connections} connections, and the organization has ${left} left.`,
+  );
 }
 
 async function requireOrganizationConnectionCapacityForId(
@@ -178,7 +196,7 @@ async function requireOrganizationConnectionCapacityForId(
   if (organization === null) {
     throw new Error("Organization not found.");
   }
-  await requireOrganizationConnectionCapacity(ctx, account, organization);
+  await requireOrganizationConnectionCapacity(ctx, { account, organization, connections: 1 });
 }
 
 export const requireBillingResourceCapacityForProviderCreate = internalQuery({
@@ -188,7 +206,11 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    await requireBillingResourceCapacity(ctx, args);
+    await requireBillingResourceCapacity(ctx, {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      connections: 1,
+    });
     return null;
   },
 });
@@ -204,6 +226,7 @@ export async function requireBillingResourceCapacityForAuthority(
       await requireBillingResourceCapacity(ctx, {
         organizationId: args.authority.organizationId,
         userId: args.authority.userId,
+        connections: 1,
       });
       return;
     case "repository_provisioning": {

@@ -454,6 +454,7 @@ export const createInitializingExistingRepositoryForUser = internalMutation({
     await requireBillingResourceCapacity(ctx, {
       organizationId: organization._id,
       userId: args.userId,
+      connections: 1,
     });
     const now = Date.now();
     const repositoryId = await ctx.db.insert("repositories", {
@@ -661,6 +662,10 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
     await requireBillingResourceCapacity(ctx, {
       organizationId: organization._id,
       userId: args.userId,
+      // A repository_actions app takes its three connections when observeFirstSetupOutput applies
+      // the setup output: the repository, its Worker, and its Convex project. Nobody watches that
+      // apply, so the creation checks all three before anything exists.
+      connections: args.plan.provisioning === "repository_actions" ? 3 : 1,
     });
     const now = Date.now();
     const repositoryId = await ctx.db.insert("repositories", {
