@@ -17,7 +17,7 @@
   [PR #1661](https://github.com/samebase/samebase/pull/1661),
   [PR #1662](https://github.com/samebase/samebase/pull/1662)
 - Amends: the tool-name table in the `Final MCP Contract` section of
-  `rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md`. This RFC keeps its rule that a
+  `archive/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md`. This RFC keeps its rule that a
   tool name is the Convex function path, and moves functions so that the paths read well.
 
 ## Summary
@@ -61,15 +61,15 @@ catalog comes first, then one submission.
 ### Vocabulary
 
 - **Repository** means the Samebase object, and **GitHub repository** means the provider object, as
-  `rfcs/123` defines them
-  ([L52-L66](../rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md#domain-language)).
+  `archive/123` defines them
+  ([L52-L66](../archive/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md#domain-language)).
   Repository-level tools use "repository" in their names, titles, descriptions, and arguments.
 - **App** means one deployable unit inside a repository: a Cloudflare Worker attachment and its root
   directory. One repository can hold several apps, for example a monorepo with Workers at different
   root directories. "App" is a descriptive word only: Samebase stores no app entity
   ([spec 115 L29-L30](../specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md#domain-entities)),
   and no tool takes an app argument.
-- Removal of the Samebase record is "Remove from Samebase", as `rfcs/123` requires.
+- Removal of the Samebase record is "Remove from Samebase", as `archive/123` requires.
 
 ### Catalog (18 tools)
 
@@ -553,9 +553,10 @@ Deviations found during step 5:
 
 ## Open questions for the operator
 
-1. **The word for a deployable unit.** `rfcs/123` defines "repository" and "GitHub repository" but
-   no word for a Worker attachment and its root directory, and spec 115 says that Samebase has no
-   app entity. This RFC uses "app" for it in descriptions only. Keep "app", or choose another word?
+1. **The word for a deployable unit.** `archive/123` defines "repository" and "GitHub repository"
+   but no word for a Worker attachment and its root directory, and spec 115 says that Samebase has
+   no app entity. This RFC uses "app" for it in descriptions only. Keep "app", or choose another
+   word?
 
 ## Appendix A: Capability map
 

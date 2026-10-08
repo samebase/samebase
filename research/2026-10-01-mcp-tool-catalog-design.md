@@ -8,7 +8,7 @@
 - Base: `origin/main` at `0a8596197` (v2076)
 - Related: [RFC 125 on PR #1664](https://github.com/samebase/samebase/pull/1664) (candidate catalog
   P below),
-  [`rfcs/123`](../rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md#final-mcp-contract)
+  [`archive/123`](../archive/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md#final-mcp-contract)
   (current name table),
   [`rfcs/089`](../rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md#explicit-public-tool-names) (origin
   of explicit names),
@@ -197,7 +197,7 @@ Collision risks for unprefixed Samebase names:
   chose names close to the Convex reference "to preserve developer familiarity", and it also said
   not to infer names from paths, because "file/export renames silently change a public MCP tool
   contract". [PR #1103](https://github.com/samebase/samebase/pull/1103) (2026-06-26) changed dots to
-  underscores. `rfcs/123` only lists the names and gives no reason.
+  underscores. `archive/123` only lists the names and gives no reason.
 - The name is a hand-written string in each contract, colocated with its Convex function. A search
   for the name finds the contract, which imports the handler. Traceability does not need the path
   rule. The docs URL is `/docs/actions/<contract id>.md`, not the tool name.
