@@ -7,7 +7,7 @@
 - Owner: Nicu Chiciuc
 - Created: 2026-10-06
 - Last updated: 2026-10-08 (body aligned with the code on `main`; the Status log is the history)
-- Base: `origin/main` at `aaaf4fe9c` (v2115)
+- Base: `origin/main` at `7fea3e28e` (v2116)
 - Evidence: `research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md`
   ([PR #1685](https://github.com/samebase/samebase/pull/1685), rule 4 from
   [PR #1703](https://github.com/samebase/samebase/pull/1703));
@@ -19,7 +19,7 @@
   pure-Alchemy comparison only, not the model;
   [issue #1686](https://github.com/samebase/samebase/issues/1686)
 - Related: `specs/115_REPOSITORY_RESOURCE_ATTACHMENT_MODEL_SPEC.md`,
-  `rfcs/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md`, `templates/base-actions/`,
+  `archive/123_REPOSITORY_TERMINOLOGY_AND_DATA_MIGRATION_ROLLOUT.md`, `templates/base-actions/`,
   `scripts/check-template-sync.ts`, `scripts/export-starter-manifest.ts`,
   `apps/samebase/convex/repository/provisioningModel.ts`,
   `apps/samebase/convex/repositoryProvisioningWorkflow.ts`,
@@ -1123,7 +1123,7 @@ The questions that were open for PR C, in Nicu's words "how all this fits in", a
 - 2026-10-07: [PR #1703](https://github.com/samebase/samebase/pull/1703) merged as v2111: rule 4 of
   the split note. Top-level apps stay Cloudflare-native through Workers Builds; components are
   Alchemy-native and may own a Worker uploaded from their package. This template is an app.
-- 2026-10-08: Body aligned with the code on `main` (v2115) before this RFC lands, because `main`
+- 2026-10-08: Body aligned with the code on `main` (v2116) before this RFC lands, because `main`
   cites RFC 126 by number and `rfcs/` outranks `research/`. Changed: the `wrangler.jsonc` model
   instead of `cf` and `cloudflare.config.ts` (the clean-slate entry above is the reason), the
   stack's scope (no Convex functions push, no auth keys, no destroy on branch deletion), the
