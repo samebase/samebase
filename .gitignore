@@ -25,6 +25,7 @@ coverage
 
 # Tooling caches
 *.tsbuildinfo
+.alchemy
 .vite
 .playwright-cli/
 playwright-report/
