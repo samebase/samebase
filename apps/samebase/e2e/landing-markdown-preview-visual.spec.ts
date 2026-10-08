@@ -106,6 +106,11 @@ test("landing overview preserves its video frame and wide desktop layout", async
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
+  const templateLink = article.getByRole("link", {
+    name: "samebase/base",
+  });
+  await expect(templateLink).toBeInViewport();
+  await expect(templateLink).toHaveAttribute("href", "https://github.com/samebase/base");
 
   // The interactive logo canvases render nondeterministically across GPUs.
   await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
@@ -250,7 +255,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(
     article.getByRole("heading", {
-      name: /The correct way to build web apps/,
+      name: /Give your coding agent a working app/,
     }),
   ).toBeVisible();
   const monorepo = article.getByRole("region", { name: "Monorepo" });
@@ -405,6 +410,11 @@ test.describe("mobile landing preview", () => {
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     const heroVideo = article.getByTestId("landing-preview-hero-video");
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
+    await expect(
+      article.getByRole("link", {
+        name: "samebase/base",
+      }),
+    ).toBeInViewport();
     await expect(heroVideo).toBeVisible();
     await expect(page).toHaveScreenshot("landing-preview-hero-mobile.png", {
       animations: "disabled",

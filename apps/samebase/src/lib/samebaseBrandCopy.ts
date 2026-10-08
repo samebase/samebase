@@ -6,8 +6,9 @@ export const SAMEBASE_BRAND_COPY = {
   siteName: "samebase.com",
   tagline,
   homepage: {
-    title: `Samebase | ${tagline}`,
-    description: `${tagline}. Convex + Cloudflare is all you need. You own 100% of your code and data.`,
+    title: "Samebase | Give your coding agent a working app",
+    description:
+      "One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account.",
   },
   socialCard: {
     title: "samebase.com social card",

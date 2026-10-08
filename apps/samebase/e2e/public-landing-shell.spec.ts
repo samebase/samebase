@@ -328,7 +328,7 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(
     landingArticle.getByRole("heading", {
       level: 1,
-      name: "The correct way to build web apps.",
+      name: "Give your coding agent a working app.",
     }),
   ).toBeVisible();
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);

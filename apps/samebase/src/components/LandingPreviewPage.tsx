@@ -376,10 +376,22 @@ function LandingPreviewOverview() {
                 <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
               </p>
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-                The correct way to build web apps.
+                Give your coding agent a working app.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
                 One place to manage GitHub, Convex, and Cloudflare across all your apps.
+              </p>
+              <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
+                Just use the{" "}
+                <a
+                  className="underline decoration-current underline-offset-4 hover:text-foreground"
+                  href="https://github.com/samebase/base"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  samebase/base
+                </a>{" "}
+                template without creating an account.
               </p>
               <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
                 <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
@@ -492,7 +504,7 @@ function LandingPreviewOverview() {
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
               </LandingInlineLink>
-              : the identical stack, no account at all.
+              : the identical stack, no Samebase account required.
             </LandingClaim>
             <LandingClaim
               heading={
