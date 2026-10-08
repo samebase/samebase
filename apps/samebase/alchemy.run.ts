@@ -27,20 +27,16 @@ export default Alchemy.Stack(
     // The PostHog reverse proxy on e.samebase.com. The name is the Worker that
     // Workers Builds deployed before this stack, so Alchemy finds it by name.
     // adopt(true) lets the first deploy take over that Worker and its route,
-    // which carry no Alchemy ownership tags. The compatibility date, the
-    // observability settings, and the route are the values of the Wrangler
-    // config this replaces. workers.dev is off: the proxy has one address.
+    // which carry no Alchemy ownership tags. main is the file URL of the entry
+    // next to this file; Alchemy reads file URLs the same way it reads
+    // import.meta.url, and a plain relative path would resolve from the
+    // current directory instead. Compatibility date and observability are
+    // Alchemy's defaults. workers.dev is off: the proxy has one address.
     // Retained on destroy: samebase.com analytics run through it.
     const posthogProxy = yield* Cloudflare.Worker("PosthogProxy", {
       name: "samebase-posthog-proxy",
       main: new URL("../posthog-proxy/src/index.ts", import.meta.url).href,
-      compatibility: { date: "2026-06-29" },
       workersDev: false,
-      observability: {
-        enabled: true,
-        headSamplingRate: 1,
-        logs: { enabled: true, headSamplingRate: 1, invocationLogs: true, persist: true },
-      },
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
