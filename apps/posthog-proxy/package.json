@@ -5,16 +5,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "wrangler deploy --dry-run",
-    "check": "pnpm run typecheck && pnpm run deploy:dry-run",
-    "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler preview",
-    "deploy:dry-run": "wrangler deploy --dry-run",
-    "dev": "wrangler dev",
+    "check": "pnpm run typecheck",
     "typecheck": "pnpm --dir ../.. exec tsgo -p apps/posthog-proxy/tsconfig.json --pretty false"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260921.1",
-    "wrangler": "4.136.2"
+    "@cloudflare/workers-types": "5.20260921.1"
   }
 }

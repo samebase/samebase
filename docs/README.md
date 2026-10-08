@@ -25,8 +25,8 @@ Current key docs:
   builds preserve data and sessions
 - `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger
   settings
-- `docs/samebase-posthog-proxy-workers-builds.md` for the `samebase-posthog-proxy` PostHog proxy
-  Workers Builds trigger settings
+- `apps/samebase/alchemy.run.ts` for the Samebase setup stack: the `samebase-posthog-proxy` Worker
+  and its route, deployed by `.github/workflows/infra.yml`
 - `docs/compliance/` for compliance artifacts
 
 Do not use `docs/` as a dumping ground for accepted behavior or open-ended research; put those in
