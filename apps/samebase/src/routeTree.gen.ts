@@ -46,6 +46,7 @@ import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflar
 import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/docs-cloudflare-previews-migration";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminUsersRouteImport } from "./routes/admin-users";
+import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as repositoryDashboardRootRouteImport } from "./routes/repository-dashboard-root";
 import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
@@ -251,6 +252,11 @@ const adminUsersRoute = adminUsersRouteImport.update({
   path: "/admin/users",
   getParentRoute: () => rootRouteImport,
 } as any);
+const adminEmailsRoute = adminEmailsRouteImport.update({
+  id: "/admin/emails",
+  path: "/admin/emails",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   id: "/admin/account-deletions",
   path: "/admin/account-deletions",
@@ -367,6 +373,7 @@ export interface FileRoutesByFullPath {
   "/youtube": typeof youtubeRoute;
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/emails": typeof adminEmailsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
@@ -424,6 +431,7 @@ export interface FileRoutesByTo {
   "/youtube": typeof youtubeRoute;
   "/repo": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/emails": typeof adminEmailsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
@@ -482,6 +490,7 @@ export interface FileRoutesById {
   "/youtube": typeof youtubeRoute;
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/emails": typeof adminEmailsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
@@ -541,6 +550,7 @@ export interface FileRouteTypes {
     | "/youtube"
     | "/repo/"
     | "/admin/account-deletions"
+    | "/admin/emails"
     | "/admin/users"
     | "/agents/connect"
     | "/docs/cloudflare-previews-migration"
@@ -598,6 +608,7 @@ export interface FileRouteTypes {
     | "/youtube"
     | "/repo"
     | "/admin/account-deletions"
+    | "/admin/emails"
     | "/admin/users"
     | "/agents/connect"
     | "/docs/cloudflare-previews-migration"
@@ -655,6 +666,7 @@ export interface FileRouteTypes {
     | "/youtube"
     | "/repo/"
     | "/admin/account-deletions"
+    | "/admin/emails"
     | "/admin/users"
     | "/agents/connect"
     | "/docs/cloudflare-previews-migration"
@@ -713,6 +725,7 @@ export interface RootRouteChildren {
   youtubeRoute: typeof youtubeRoute;
   repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
+  adminEmailsRoute: typeof adminEmailsRoute;
   adminUsersRoute: typeof adminUsersRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
   docsCloudflarePreviewsMigrationRoute: typeof docsCloudflarePreviewsMigrationRoute;
@@ -1010,6 +1023,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminUsersRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/admin/emails": {
+      id: "/admin/emails";
+      path: "/admin/emails";
+      fullPath: "/admin/emails";
+      preLoaderRoute: typeof adminEmailsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/admin/account-deletions": {
       id: "/admin/account-deletions";
       path: "/admin/account-deletions";
@@ -1161,6 +1181,7 @@ const rootRouteChildren: RootRouteChildren = {
   youtubeRoute: youtubeRoute,
   repositoryDashboardRootRoute: repositoryDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
+  adminEmailsRoute: adminEmailsRoute,
   adminUsersRoute: adminUsersRoute,
   agentsConnectRoute: agentsConnectRoute,
   docsCloudflarePreviewsMigrationRoute: docsCloudflarePreviewsMigrationRoute,

@@ -54,6 +54,7 @@ import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
 import type * as email from "../email.js";
+import type * as emailMonitor from "../emailMonitor.js";
 import type * as feedback from "../feedback.js";
 import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingActions from "../fileStagingActions.js";
@@ -265,6 +266,7 @@ declare const fullApi: ApiFromModules<{
   deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
   email: typeof email;
+  emailMonitor: typeof emailMonitor;
   feedback: typeof feedback;
   fileStaging: typeof fileStaging;
   fileStagingActions: typeof fileStagingActions;

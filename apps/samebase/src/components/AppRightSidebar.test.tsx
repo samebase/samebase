@@ -815,6 +815,7 @@ describe("AppRightSidebarContent", () => {
     ["/settings?dev#profile", "Account settings"],
     ["/admin/users", "Users"],
     ["/admin/account-deletions", "Account deletions"],
+    ["/admin/emails", "Emails"],
     ["/org/samebase/repositories", "Repositories"],
     ["/org/samebase/providers", "Providers"],
     ["/org/samebase/new-app", "New app"],
@@ -865,7 +866,7 @@ describe("AppRightSidebarContent", () => {
     }
   });
 
-  it("renders both admin routes for staff", async () => {
+  it("renders admin routes for staff", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
         [
@@ -891,6 +892,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('aria-label="Admin"');
     expect(hydratedMarkup).toContain('href="/admin/users"');
     expect(hydratedMarkup).toContain('href="/admin/account-deletions"');
+    expect(hydratedMarkup).toContain('href="/admin/emails"');
   });
 
   it.each([

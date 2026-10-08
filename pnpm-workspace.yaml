@@ -17,8 +17,9 @@ minimumReleaseAgeExclude:
   # (shell-quote quote() command injection). Remove after 2026-10-09, when the
   # 7-day cooling period is complete.
   - "shell-quote@1.12.0"
-  # Reviewed first-party release. Remove after 2026-10-09.
-  - "@samebase/convex-cloudflare-email-inbox@0.1.0"
+  # Reviewed first-party releases. Remove after 2026-10-15.
+  - "@samebase/convex-cloudflare-email-inbox@0.3.0"
+  - "@samebase/convex-cloudflare-email-inbox-ui@0.1.0"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
   # 7-day cooling period.
   - "@voidzero-dev/vite-plus-core@0.3.0"

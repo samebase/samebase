@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase application email and deployment configuration
-- Last updated: 2026-10-02
+- Last updated: 2026-10-03
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `apps/samebase/convex/deploymentProfile.ts`
@@ -72,9 +72,9 @@ recipient, base subject, and text body.
 
 Samebase retains full message content and delivery history until a trusted application operator
 explicitly deletes them. Account deletion does not automatically delete this operational email
-history. The component is available only to Samebase's server functions and trusted operators.
-Samebase adds no public inbox APIs. Sending-only use requires no R2 bucket. Mail uses the same
-package and keeps its R2 inbound-message storage.
+history. The component is available only to Samebase's server functions and authorized staff. The
+staff email monitor exposes read-only queries with server-side staff authorization. Sending-only use
+requires no R2 bucket. Mail uses the same package and keeps its R2 inbound-message storage.
 
 The first caller is the Convex Auth user-creation callback:
 
@@ -119,6 +119,18 @@ email itself. A throttled message remains queued in the component; the workflow 
 `delivery_failed` with an explicit pending-delivery note because acceptance is not yet confirmed.
 Final deletion continues. Its message includes the deletion reference and manual upstream revocation
 steps.
+
+## Staff Email Monitor
+
+Staff can inspect application email at `/admin/emails` within the normal Samebase app. The page
+shows inboxes, paginated message history, message content, and delivery details. Staff can filter
+history by inbox and message status. These views read the existing component records and do not copy
+messages into another database.
+
+Only Samebase staff can read this history. Organization ownership does not grant access. Every query
+checks staff access before reading an inbox, message, or delivery record. The email monitor is
+excluded from session recordings. Viewing a message does not change its read state or send it again.
+The monitor provides no compose, resend, or inbox-management controls.
 
 ## Domain Setup Guidance
 

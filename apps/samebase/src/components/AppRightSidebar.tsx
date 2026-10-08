@@ -354,6 +354,13 @@ function AdminAppRightSidebarLinks() {
       >
         Account deletions
       </Link>
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        to="/admin/emails"
+      >
+        Emails
+      </Link>
     </nav>
   );
 }

@@ -38,6 +38,10 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/admin/emails": {
+    access: "access_admin",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/indexDB": { access: "access_admin" },
   "/invite/$code": {
     access: "access_public",
