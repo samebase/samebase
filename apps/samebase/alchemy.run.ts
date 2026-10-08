@@ -5,10 +5,10 @@
 //
 // .github/workflows/infra.yml runs it: a plan and a drift report on every pull
 // request that touches the files it lists, a deploy on main. Run it from
-// apps/samebase. Locally it needs CLOUDFLARE_API_TOKEN and
-// CLOUDFLARE_ACCOUNT_ID in apps/samebase/.env (a token with Workers Scripts
-// Edit, Workers Routes Edit and Zone Read on samebase.com, Secrets Store Edit,
-// Account Settings Read):
+// apps/samebase. Locally it needs a Cloudflare login: `npx alchemy login`, or
+// CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in apps/samebase/.env (a
+// token with Workers Scripts Edit, Workers Routes Edit and Zone Read on
+// samebase.com, Secrets Store Edit, Account Settings Read):
 //   npx alchemy plan --stage prod
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
