@@ -2143,6 +2143,7 @@ export const trackedFilePaths = [
   "rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md",
   "rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md",
   "rfcs/125_INTENT_BASED_ACTION_CATALOG_PLAN.md",
+  "rfcs/126_REPOSITORY_ACTIONS_PROVISIONING_MVP.md",
   "rfcs/README.md",
   "rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png",
   "rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png",
