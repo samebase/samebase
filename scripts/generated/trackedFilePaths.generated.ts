@@ -50,7 +50,6 @@ export const trackedFilePaths = [
   ".github/workflows/blacksmith-testbox.yml",
   ".github/workflows/ci.yml",
   ".github/workflows/public-media.yml",
-  ".github/workflows/sync-ssr.yml",
   ".gitignore",
   ".lfsconfig",
   ".nvmrc",
