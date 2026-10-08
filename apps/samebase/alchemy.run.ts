@@ -27,15 +27,15 @@ export default Alchemy.Stack(
     // The PostHog reverse proxy on e.samebase.com. The name is the Worker that
     // Workers Builds deployed before this stack, so Alchemy finds it by name.
     // adopt(true) lets the first deploy take over that Worker and its route,
-    // which carry no Alchemy ownership tags. main is the file URL of the entry
-    // next to this file; Alchemy reads file URLs the same way it reads
-    // import.meta.url, and a plain relative path would resolve from the
-    // current directory instead. Compatibility date and observability are
+    // which carry no Alchemy ownership tags. main is relative to apps/samebase,
+    // where this stack runs; Alchemy saves main in the state as written and
+    // reuses it when it repairs drift, so a file URL would pin the path of the
+    // machine that deployed last. Compatibility date and observability are
     // Alchemy's defaults. workers.dev is off: the proxy has one address.
     // Retained on destroy: samebase.com analytics run through it.
     const posthogProxy = yield* Cloudflare.Worker("PosthogProxy", {
       name: "samebase-posthog-proxy",
-      main: new URL("../posthog-proxy/src/index.ts", import.meta.url).href,
+      main: "../posthog-proxy/src/index.ts",
       workersDev: false,
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
@@ -48,7 +48,7 @@ export default Alchemy.Stack(
     // and its routes.
     const domains = yield* Cloudflare.Worker("Domains", {
       name: "samebase-domains",
-      main: new URL("../domain-router/src/index.ts", import.meta.url).href,
+      main: "../domain-router/src/index.ts",
       workersDev: false,
       routes: [
         { pattern: "*.json.md/*", zoneName: "json.md" },
