@@ -3,6 +3,12 @@
 Date: October 5, 2026. Status: research. It informs the Alchemy decision; it does not define product
 behavior.
 
+Superseded on the Alchemy side by
+[Alchemy setup stacks next to Workers Builds](./2026-10-05-alchemy-setup-stack-and-wrangler-split.md):
+`@samebase/alchemy-cloudflare-workers-builds` gives Alchemy the Worker shell and the Builds link, so
+the stack runs pattern B plus C, not C alone. The recommendation to keep Workers Builds as the
+deployer stands. `samebase/tmp-alchemy-base` is deleted.
+
 ## Question
 
 Nicu's hypothesis: an infrastructure tool such as Alchemy should make sure the Workers and the other

@@ -2074,6 +2074,7 @@ export const trackedFilePaths = [
   "research/2026-10-03-typed-openapi-evaluation.md",
   "research/2026-10-04-repository-sidebar-hierarchy.md",
   "research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md",
+  "research/2026-10-05-workers-builds-and-iac-split.md",
   "research/2026-10-06-cf-cli-gaps-for-vite-plus-apps.md",
   "research/2026-10-07-alchemy-as-samebase-source-of-truth.md",
   "research/README.md",
