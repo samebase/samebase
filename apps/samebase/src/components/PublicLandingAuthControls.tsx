@@ -7,7 +7,7 @@ import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
   resolvePublicLandingPasswordAuthMode,
-  shouldRenderOAuthSignupClosedState,
+  shouldRenderOAuthReturnNotice,
   type PasswordAuthSurface,
 } from "@/lib/publicLandingAuthState";
 import {
@@ -135,13 +135,10 @@ export function PublicLandingAuthControls({
     }),
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const showOAuthSignupClosedState = shouldRenderOAuthSignupClosedState(
-    location.pathname,
-    rootRouteSearch,
-  );
+  const showOAuthReturnNotice = shouldRenderOAuthReturnNotice(location.pathname, rootRouteSearch);
   const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
 
-  if (isAuthenticated || showOAuthSignupClosedState) {
+  if (isAuthenticated || showOAuthReturnNotice) {
     return null;
   }
 

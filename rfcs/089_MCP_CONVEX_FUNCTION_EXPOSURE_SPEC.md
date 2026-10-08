@@ -7,7 +7,7 @@
 - Date: 2026-06-24
 - Related docs:
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
-  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+  - `archive/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `docs/repo-documentation-standard.md`
   - `apps/samebase/convex/functions.ts`
   - `apps/samebase/convex/toolRuntime/catalog.ts`

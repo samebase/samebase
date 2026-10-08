@@ -14,10 +14,10 @@
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
   - `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
-  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+  - `archive/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
-This contract defines the organization boundary before public beta. It replaces both user-owned
+This contract defines the organization boundary for the first public beta. It replaces user-owned
 product resources and independent Samebase workspaces that group several GitHub owners.
 
 ## Domain Model
@@ -446,7 +446,6 @@ required before production deployment, not before development implementation and
 - WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation
 - Automatic GitHub identity updates or installation lifecycle webhooks
 - Several Convex teams or Cloudflare accounts in one organization
-- General signup auto-approval before the beta release gate changes
 - Multi-member FileView commit coordination
 - Backward-compatible pre-beta migration machinery
 

@@ -196,7 +196,7 @@ describe("PasswordAuthForm", () => {
     );
   });
 
-  it("hides OAuth and password controls after a closed Google return", async () => {
+  it("hides OAuth and password controls while the OAuth return notice is visible", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",

@@ -66,7 +66,7 @@ describe("ApprovalGate", () => {
 
     const markup = renderApprovalGate();
 
-    expect(markup).toContain("Account access pending");
+    expect(markup).toContain("Account access unavailable");
     expect(markup).not.toContain("Terms acceptance");
     expect(markup).not.toContain("Route child");
   });

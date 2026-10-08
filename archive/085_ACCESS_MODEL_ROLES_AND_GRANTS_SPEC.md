@@ -2,18 +2,24 @@
 
 ## Document Control
 
-- Status: Proposed
-- Owner: Noter platform
+- Status: Superseded
+- Owner: Samebase platform
 - Date: 2026-06-12
-- Last updated: 2026-07-28
-- Related specs:
-  - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
+- Last updated: 2026-08-22
+- Superseded by:
+  - `apps/samebase/shared/accessModel.ts`
+  - `specs/018_AUTH_APPROVAL_BOUNDARY_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+- Related historical documents:
   - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
   - `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
-  - `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`
+  - `archive/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
   - `docs/code-guardrails.md`
+
+This archived proposal was written when Samebase used the Noter name. It contains obsolete role
+names, access grants, and file paths. It does not define current Samebase behavior.
 
 ## Summary
 
@@ -232,10 +238,9 @@ admin/debug explanation surfaces.
 
 ### Auth allowlist compatibility
 
-`specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` now records the revised approval boundary:
-Noter may keep authenticated waitlisted accounts, but those accounts resolve to `role_waitlisted`
-and project only `access_public` plus `access_user_preferences`. Approving the account is a data
-change to `users.isApproved`, which changes the derived role to `role_member`.
+This proposal allowed authenticated waitlisted accounts. Those accounts resolved to
+`role_waitlisted` and received only `access_public` plus `access_user_preferences`. Approval changed
+`users.isApproved`, which changed the derived role to `role_member`.
 
 ### Backend enforcement: app function wrappers
 

@@ -52,7 +52,7 @@ export function resolvePublicLandingPasswordAuthMode(
   return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
 }
 
-export function shouldRenderOAuthSignupClosedState(
+export function shouldRenderOAuthReturnNotice(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {

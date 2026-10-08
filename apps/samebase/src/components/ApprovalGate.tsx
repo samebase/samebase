@@ -49,9 +49,9 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     return (
       <div className="container my-auto">
         <div className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">Account access pending</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Account access unavailable</h2>
           <p className="text-sm text-muted-foreground">
-            This account does not have app access yet.
+            This account does not have access to Samebase.
           </p>
           <Button
             variant="outline"
