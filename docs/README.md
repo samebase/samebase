@@ -23,10 +23,8 @@ Current key docs:
 - [Worker Previews](https://samebase.com/docs/cloudflare-previews-migration) for switching an
   existing Convex app to Worker Previews, separating build keys, and checking that repeated preview
   builds preserve data and sessions
-- `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger
-  settings
-- `apps/samebase/alchemy.run.ts` for the Samebase setup stack: the `samebase-posthog-proxy` Worker
-  and its route, deployed by `.github/workflows/infra.yml`
+- `apps/samebase/alchemy.run.ts` for the Samebase setup stack: the `samebase-posthog-proxy` and
+  `samebase-domains` Workers and their routes, deployed by `.github/workflows/infra.yml`
 - `docs/compliance/` for compliance artifacts
 
 Do not use `docs/` as a dumping ground for accepted behavior or open-ended research; put those in

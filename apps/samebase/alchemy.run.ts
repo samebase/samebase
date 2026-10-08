@@ -40,6 +40,22 @@ export default Alchemy.Stack(
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
-    return { posthogProxy: posthogProxy.url };
+    // The domain router: redirects registered <label>.json.md and
+    // <label>.xml.md hostnames to their targets, declared in its source. Same
+    // takeover as the proxy. Its zones are json.md and xml.md, so the CI
+    // token needs Workers Routes on all zones of the account. A test, not a
+    // part of Samebase, so not retained: deleting it here deletes the Worker
+    // and its routes.
+    const domains = yield* Cloudflare.Worker("Domains", {
+      name: "samebase-domains",
+      main: new URL("../domain-router/src/index.ts", import.meta.url).href,
+      workersDev: false,
+      routes: [
+        { pattern: "*.json.md/*", zoneName: "json.md" },
+        { pattern: "*.xml.md/*", zoneName: "xml.md" },
+      ],
+    }).pipe(adopt(true));
+
+    return { posthogProxy: posthogProxy.url, domains: domains.url };
   }),
 );

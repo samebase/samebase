@@ -24,21 +24,20 @@ export default {
 
     const targetUrl = new URL(requestUrl.pathname + requestUrl.search, targetBase);
 
-    return Response.redirect(targetUrl, 302);
+    return Response.redirect(targetUrl.href, 302);
   },
 };
 
+// One label in front of a supported zone: the zone has exactly one dot, and the
+// label pattern has none, so "a.b.json.md" fails on the zone lookup.
 function isSupportedHostname(hostname: string) {
-  const parts = hostname.split(".");
+  const dot = hostname.indexOf(".");
 
-  if (parts.length !== 3) {
+  if (dot === -1) {
     return false;
   }
 
-  const [label, secondLevel, topLevel] = parts;
-  const zone = `${secondLevel}.${topLevel}`;
-
-  return supportedZones.has(zone) && isSupportedLabel(label);
+  return supportedZones.has(hostname.slice(dot + 1)) && isSupportedLabel(hostname.slice(0, dot));
 }
 
 function isSupportedLabel(label: string) {

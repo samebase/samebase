@@ -1,7 +1,7 @@
 # Runs the setup stack in apps/samebase/alchemy.run.ts, from apps/samebase.
 # Workers Builds keeps deploying samebase.com on every push; this workflow
-# deploys the Workers around it that the stack declares, today the PostHog
-# proxy on e.samebase.com.
+# deploys the Workers around it that the stack declares: the PostHog proxy on
+# e.samebase.com and the domain router on json.md and xml.md.
 #
 # Pull request: a plan, read-only, as a check. Push to main: a deploy. Both
 # compare against the live account (--detect-drift), so a changed route or
@@ -16,6 +16,8 @@ on:
       - apps/samebase/package.json
       - apps/posthog-proxy/src/**
       - apps/posthog-proxy/package.json
+      - apps/domain-router/src/**
+      - apps/domain-router/package.json
       - pnpm-lock.yaml
       - .github/workflows/infra.yml
   push:
@@ -25,6 +27,8 @@ on:
       - apps/samebase/package.json
       - apps/posthog-proxy/src/**
       - apps/posthog-proxy/package.json
+      - apps/domain-router/src/**
+      - apps/domain-router/package.json
       - pnpm-lock.yaml
       - .github/workflows/infra.yml
   workflow_dispatch:
