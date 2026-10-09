@@ -491,6 +491,11 @@ test.describe("mobile landing preview", () => {
       waitUntil: "domcontentloaded",
     });
 
+    await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+      "data-viewport-measured",
+      "",
+    );
+
     const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
