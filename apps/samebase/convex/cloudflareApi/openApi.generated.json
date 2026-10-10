@@ -3574,7 +3574,7 @@
           {
             "name": "bindings_inherit",
             "in": "query",
-            "description": "When set to \"strict\", the upload will fail if any `inherit` type bindings cannot be resolved against the previous version of the script. Without this, unresolvable inherit bindings are silently dropped.",
+            "description": "When set to \"strict\", the upload will fail with error 10057 if any `inherit` type bindings cannot be resolved against the latest uploaded version of the script, which may not be the deployed version. Without this, unresolvable inherit bindings are silently dropped.",
             "schema": {
               "type": "string",
               "enum": ["strict"]
@@ -5165,6 +5165,24 @@
               "example": "production"
             },
             "deprecated": true
+          },
+          {
+            "name": "previews_enabled",
+            "in": "query",
+            "schema": {
+              "description": "Whether previews are routable for the domain.",
+              "type": "boolean",
+              "example": false
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "schema": {
+              "description": "Whether the configured hostname is routable for the domain.",
+              "type": "boolean",
+              "example": true
+            }
           }
         ],
         "responses": {
@@ -19924,7 +19942,7 @@
           {
             "name": "bindings_inherit",
             "in": "query",
-            "description": "When set to \"strict\", the upload will fail if any `inherit` type bindings cannot be resolved against the previous version of the Worker. Without this, unresolvable inherit bindings are silently dropped.",
+            "description": "When set to \"strict\", the upload will fail with error 10057 if any `inherit` type bindings cannot be resolved against the latest uploaded version of the Worker, which may not be the deployed version. Without this, unresolvable inherit bindings are silently dropped.",
             "schema": {
               "type": "string",
               "enum": ["strict"]
@@ -22263,7 +22281,7 @@
           {
             "name": "bindings_inherit",
             "in": "query",
-            "description": "When set to \"strict\", the upload will fail if any `inherit` type bindings cannot be resolved against the previous version of the Worker. Without this, unresolvable inherit bindings are silently dropped.",
+            "description": "When set to \"strict\", the upload will fail with error 10057 if any `inherit` type bindings cannot be resolved against the latest uploaded version of the Worker, which may not be the deployed version. Without this, unresolvable inherit bindings are silently dropped.",
             "schema": {
               "type": "string",
               "enum": ["strict"]
@@ -24230,7 +24248,8 @@
             "schema": {
               "description": "Identifier for the Worker, which can be ID or name.",
               "type": "string"
-            }
+            },
+            "x-fern-parameter-name": "worker"
           },
           {
             "name": "preview_id",
@@ -24239,7 +24258,8 @@
             "schema": {
               "description": "Identifier for the Preview, which can be ID, slug, or URL-encoded name.",
               "type": "string"
-            }
+            },
+            "x-fern-parameter-name": "name"
           },
           {
             "name": "force",
@@ -24284,11 +24304,10 @@
         ],
         "tags": ["Previews"],
         "x-api-token-group": ["Workers Scripts Write"],
-        "x-fern-audiences": ["sdk"],
         "x-fern-availability": "beta",
-        "x-fern-sdk-group-name": "workers.previews",
+        "x-fern-sdk-group-name": "previews",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-require-confirmation": "This will permanently delete the preview."
+        "x-forge-require-confirmation": "This operation permanently deletes the Preview."
       },
       "get": {
         "operationId": "workers.previews.get",
@@ -29731,9 +29750,9 @@
             "x-auditable": true
           },
           "version_id": {
-            "description": "Identifier for the version to inherit the binding from, which can be the version ID or the literal \"latest\" to inherit from the latest version. Defaults to inheriting the binding from the latest version.",
+            "description": "Identifier for the version to inherit the binding from. This can be a version ID, or the literal \"latest\" to inherit from the most recently uploaded version, which may not be the deployed version. Defaults to \"latest\". Only the Workers API version endpoints under `/accounts/{account_id}/workers/workers/{worker_id}/versions` accept a version ID. Other endpoints, including script upload and script version upload, accept only \"latest\" and reject a version ID with error 10057.",
             "type": "string",
-            "example": "8969331f-7192-434c-9938-6aea24ed58bf",
+            "example": "latest",
             "default": "latest",
             "x-auditable": true
           }
@@ -31406,6 +31425,14 @@
             "readOnly": true,
             "x-auditable": true
           },
+          "enabled": {
+            "description": "Whether the configured hostname is routable for the domain. If disabled, then requests to the configured hostname will not be routed to the configured Worker. If disabled, then preview routing must be enabled, and only subdomains of the configured hostname will be routable.",
+            "type": "boolean",
+            "example": true,
+            "default": true,
+            "x-auditable": true,
+            "x-stainless-terraform-configurability": "computed_optional"
+          },
           "environment": {
             "description": "Worker environment associated with the domain.",
             "type": "string",
@@ -31426,6 +31453,14 @@
             "example": "dbe10b4bc17c295377eabd600e1787fd",
             "readOnly": true,
             "x-auditable": true
+          },
+          "previews_enabled": {
+            "description": "Whether previews are routable for the domain. If enabled, previews will be routable as subdomains of the configured hostname. For example, if the configured hostname is `app.example.com`, then requests to `my-feature.app.example.com` will be routed to the preview with slug `my-feature`, if such a preview exists. If preview routing is disabled, then hostname routing must be enabled.",
+            "type": "boolean",
+            "example": false,
+            "default": false,
+            "x-auditable": true,
+            "x-stainless-terraform-configurability": "computed_optional"
           },
           "service": {
             "description": "Name of the Worker associated with the domain. Requests to the configured hostname will be routed to this Worker.",
@@ -31448,7 +31483,17 @@
             "x-stainless-terraform-configurability": "computed_optional"
           }
         },
-        "required": ["id", "cert_id", "environment", "zone_id", "zone_name", "hostname", "service"]
+        "required": [
+          "id",
+          "cert_id",
+          "environment",
+          "zone_id",
+          "zone_name",
+          "hostname",
+          "service",
+          "previews_enabled",
+          "enabled"
+        ]
       },
       "workers_namespace": {
         "type": "object",
