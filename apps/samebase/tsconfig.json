@@ -21,6 +21,6 @@
     "sourceMap": true,
     "inlineSources": true
   },
-  "include": ["src/**/*", "shared/**/*", "vite.config.ts", "convex/**/*"],
+  "include": ["src/**/*", "shared/**/*", "alchemy.run.ts", "vite.config.ts", "convex/**/*"],
   "exclude": ["node_modules", "convex/_generated"]
 }

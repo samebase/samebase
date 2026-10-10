@@ -5,14 +5,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "wrangler deploy --dry-run",
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler preview",
-    "deploy:dry-run": "wrangler deploy --dry-run",
-    "check": "wrangler deploy --dry-run"
+    "check": "pnpm run typecheck",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p apps/domain-router/tsconfig.json --pretty false"
   },
   "devDependencies": {
-    "wrangler": "4.136.2"
+    "@cloudflare/workers-types": "5.20260921.1"
   }
 }
