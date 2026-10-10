@@ -79,6 +79,7 @@ export const trackedFilePaths = [
   "VISION.md",
   "apps/domain-router/package.json",
   "apps/domain-router/src/index.ts",
+  "apps/domain-router/tsconfig.json",
   "apps/posthog-proxy/package.json",
   "apps/posthog-proxy/src/index.test.ts",
   "apps/posthog-proxy/src/index.ts",
