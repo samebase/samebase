@@ -20,6 +20,10 @@ minimumReleaseAgeExclude:
   # Reviewed first-party releases. Remove after 2026-10-15.
   - "@samebase/convex-cloudflare-email-inbox@0.3.0"
   - "@samebase/convex-cloudflare-email-inbox-ui@0.1.0"
+  # Reviewed first-party Alchemy providers (apps/samebase/alchemy.run.ts),
+  # published 2026-10-05. Remove after 2026-10-13.
+  - "@samebase/alchemy-cloudflare-workers-builds@0.5.0"
+  - "@samebase/alchemy-convex@0.2.0"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
   # 7-day cooling period.
   - "@voidzero-dev/vite-plus-core@0.3.0"

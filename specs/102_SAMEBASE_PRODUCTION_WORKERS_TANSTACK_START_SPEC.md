@@ -87,17 +87,18 @@ name through `WRANGLER_CI_OVERRIDE_NAME`; the config does not need a fixed name.
 
 Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. Production
 and Previews Base build settings each supply `CONVEX_DEPLOY_KEY` with the corresponding Convex key.
-The app uses `WORKERS_CI_BRANCH` to deploy production on `main` or reuse the named Convex preview.
-Local builds never deploy Convex. The Workers Builds variable table does not store
-`VITE_CONVEX_URL`; `convex deploy --cmd` supplies the selected production or preview deployment URL
-to the child build command. After building the app and immediately before Convex pushes functions,
-the command compares `WORKERS_CI_COMMIT_SHA` with the current remote head of `WORKERS_CI_BRANCH`. A
-stale build must fail without deploying Convex. This protects both production and named branch
-previews from an older concurrent Workers Build finishing after a newer one. The guard adds one
-authenticated `git ls-remote` request per provider build. It is not an atomic compare-and-swap: a
-branch can still advance in the short interval between the Git check and Convex's internal push.
-Eliminating that residual race requires provider-side serialization or a Convex source-commit
-concurrency primitive.
+The setup stack in `apps/samebase/alchemy.run.ts` mints both keys and writes them, together with the
+Builds settings, through `.github/workflows/infra.yml`. The app uses `WORKERS_CI_BRANCH` to deploy
+production on `main` or reuse the named Convex preview. Local builds never deploy Convex. The
+Workers Builds variable table does not store `VITE_CONVEX_URL`; `convex deploy --cmd` supplies the
+selected production or preview deployment URL to the child build command. After building the app and
+immediately before Convex pushes functions, the command compares `WORKERS_CI_COMMIT_SHA` with the
+current remote head of `WORKERS_CI_BRANCH`. A stale build must fail without deploying Convex. This
+protects both production and named branch previews from an older concurrent Workers Build finishing
+after a newer one. The guard adds one authenticated `git ls-remote` request per provider build. It
+is not an atomic compare-and-swap: a branch can still advance in the short interval between the Git
+check and Convex's internal push. Eliminating that residual race requires provider-side
+serialization or a Convex source-commit concurrency primitive.
 
 ### Static Page Prerendering And SPA Shell
 
