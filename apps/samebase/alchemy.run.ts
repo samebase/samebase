@@ -7,8 +7,9 @@
 // request that touches the files it lists, a deploy on main. Run it from
 // apps/samebase. Locally it needs a Cloudflare login: `npx alchemy login`, or
 // CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in apps/samebase/.env (a
-// token with Workers Scripts Edit, Workers Routes Edit and Zone Read on
-// samebase.com, Secrets Store Edit, Account Settings Read):
+// token with Workers Scripts Edit, Secrets Store Edit and Account Settings
+// Read, plus Workers Routes Edit and Zone Read on samebase.com, json.md and
+// xml.md):
 //   npx alchemy plan --stage prod
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
@@ -42,10 +43,9 @@ export default Alchemy.Stack(
 
     // The domain router: redirects registered <label>.json.md and
     // <label>.xml.md hostnames to their targets, declared in its source. Same
-    // takeover as the proxy. Its zones are json.md and xml.md, so the CI
-    // token needs Workers Routes on all zones of the account. A test, not a
-    // part of Samebase, so not retained: deleting it here deletes the Worker
-    // and its routes.
+    // takeover as the proxy. The CI token needs Workers Routes on json.md and
+    // xml.md. This is a test outside the Samebase app, so it is not retained:
+    // deleting it here deletes the Worker and its routes.
     const domains = yield* Cloudflare.Worker("Domains", {
       name: "samebase-domains",
       main: "../domain-router/src/index.ts",
