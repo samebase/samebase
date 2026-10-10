@@ -67,7 +67,9 @@ export default Alchemy.Stack(
 
     // Exactly the actions scripts/build-cloudflare.ts names for the production
     // key. Without allowedActions, Convex grants every deployment action,
-    // including data writes and backup deletes.
+    // including data writes and backup deletes. Both keys are retained like
+    // the Builds configuration that holds them: a destroy that revoked them
+    // would leave every later build failing to authenticate.
     const deployKey = yield* Convex.DeployKey("DeployKey", {
       deployment,
       name: "workers-builds",
@@ -77,11 +79,11 @@ export default Alchemy.Stack(
         "deployment:env:write",
         "deployment:data:view",
       ],
-    });
+    }).pipe(Alchemy.RemovalPolicy.retain());
     const previewKey = yield* Convex.PreviewDeployKey("PreviewDeployKey", {
       projectId: project.projectId,
       name: "workers-builds",
-    });
+    }).pipe(Alchemy.RemovalPolicy.retain());
 
     yield* WorkersBuilds.Repository("Builds", {
       worker: worker.workerId,
