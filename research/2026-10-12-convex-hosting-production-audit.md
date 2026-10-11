@@ -115,8 +115,9 @@ Some valid all-letter build hashes get the opposite result. An ETag cannot repai
 still allowed to reuse its fresh immutable response.
 
 Fix: record cache policy as build metadata. Default ordinary public files to revalidation. Use
-immutable caching only for URLs whose bytes cannot change. A versioned namespace or a verified
-content digest can establish that rule. The `/assets/` directory alone cannot establish it.
+immutable caching only for URLs whose bytes cannot change. A versioned namespace or a
+content-addressed URL whose digest is verified can establish that rule. The `/assets/` directory
+alone cannot establish it.
 
 ### 5. File deletion and retention have no clear production removal contract
 
@@ -243,12 +244,12 @@ GitHub Actions workflow as the build runner instead of creating a second CI serv
 ```mermaid
 flowchart LR
   A[Resolve and verify target] --> B[Build once with build ID]
-  B --> C[Upload and verify immutable files]
+  B --> C[Start session and upload immutable files]
   C --> D[Seal manifest]
   D --> E[Deploy matching backend and renderer]
   E --> F[Activate static entry points]
   F --> G[Verify public response and build ID]
-  D --> H[Bounded scheduled cleanup]
+  C --> H[Bounded scheduled cleanup]
 ```
 
 Use a deployment record with explicit states such as uploading, ready, active, and expired. Keep
@@ -258,7 +259,11 @@ deployment ID in a small site record. Do not copy the complete manifest during a
 Each manifest needs an expected unique entry count and a digest or equivalent completeness check.
 Validate storage and metadata while staging. Seal the manifest so later chunks cannot change it.
 Activation must check the expected previous generation and return the same result when retried.
-Record the source commit and resolved Convex deployment identity for diagnosis.
+Serialize the whole release sequence for one target, including backend deployment and manifest
+activation. A manifest generation check alone cannot stop an older job from replacing newer backend
+code. The release runner must stop stale jobs before they change that code. Record the source commit
+and resolved Convex deployment identity for diagnosis. Schedule abandoned-upload cleanup when the
+session starts, so failures before manifest sealing also receive cleanup.
 
 Make immutable build files reachable through their build namespace before deploying the renderer.
 Keep mutable files and HTML behind the active deployment. No new renderer may refer to unpublished
@@ -285,8 +290,8 @@ lose access to existing assets. The package boundary is public even when Samebas
 
 Keep the TanStack adapter explicit about supported versions and runtime APIs. Add real deployment
 tests for server functions, cookies, auth redirects, Suspense, cancellation, and errors. Preserve
-the current dynamic-response `no-store` default until an application deliberately sets a safe
-policy.
+existing app-owned `no-store` policies for dynamic responses until an application deliberately sets
+a safe policy. The published adapter itself does not set this header.
 
 ## Work order and release gates
 
