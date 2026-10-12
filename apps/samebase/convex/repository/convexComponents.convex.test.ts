@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
+import { isRecord } from "../jsonUtils";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  observedConvexComponentsList,
+  observedConvexFileCounts,
+  observedConvexModulesForAllComponents,
+  observedConvexTableMappings,
+  observedConvexTableSizes,
+} from "./fixtures/observedConvexComponents";
 
 type RecordedRequest = {
   authorization: string | null;
@@ -9,47 +17,25 @@ type RecordedRequest = {
   url: string;
 };
 
-/**
-Captured on 2026-10-12 from a local Convex backend (precompiled-2026-10-06-a3538c6) running the
-Samebase app, which mounts `workflow` (with its nested `workpool`) and `mail`.
-*/
-const componentsListResponse = {
-  status: "success",
-  value: [
-    {
-      args: {},
-      httpPrefix: null,
-      id: "m0225s8f0jeedvq61vgxp7c6qx8g54zc",
-      name: null,
-      path: "",
-      state: "active",
-    },
-    {
-      args: {},
-      httpPrefix: null,
-      id: "m02ebtw0m7ky3x0rdj6zeytkds8g5t2b",
-      name: "workflow",
-      path: "workflow",
-      state: "active",
-    },
-    {
-      args: {},
-      httpPrefix: null,
-      id: "m02f5czs7a0jgvf5jx9thy07gn8g5r6r",
-      name: "workpool",
-      path: "workflow/workpool",
-      state: "active",
-    },
-    {
-      args: {},
-      httpPrefix: null,
-      id: "m022zrs6f3rfbcxr8fqnkqpswd8g4778",
-      name: "mail",
-      path: "mail",
-      state: "active",
-    },
-  ],
-};
+function answerSystemQuery(query: unknown): unknown {
+  if (!isRecord(query) || !isRecord(query["args"])) {
+    throw new Error("Expected a system query.");
+  }
+  const componentId = String(query["args"]["componentId"]);
+  switch (query["path"]) {
+    case "_system/frontend/components:list":
+      return observedConvexComponentsList;
+    case "_system/frontend/modules:listForAllComponents":
+      return observedConvexModulesForAllComponents;
+    case "_system/frontend/getTableMapping:default":
+      return observedConvexTableMappings[componentId];
+    case "_system/frontend/fileStorageV2:numFiles":
+      return observedConvexFileCounts[componentId];
+    case "_system/frontend/tableSize:default":
+      return observedConvexTableSizes[componentId]?.[String(query["args"]["tableName"])];
+  }
+  throw new Error(`Unexpected system query: ${String(query["path"])}`);
+}
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -151,16 +137,13 @@ function installComponentsFetchStub(requests: RecordedRequest[]) {
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
-      requests.push({
-        url,
-        authorization: new Headers(init?.headers).get("Authorization"),
-        body:
-          typeof init?.body === "string"
-            ? JSON.parse(init.body)
-            : input instanceof Request && input.method !== "GET"
-              ? await input.json()
-              : undefined,
-      });
+      const body: unknown =
+        typeof init?.body === "string"
+          ? JSON.parse(init.body)
+          : input instanceof Request && input.method !== "GET"
+            ? await input.json()
+            : undefined;
+      requests.push({ url, authorization: new Headers(init?.headers).get("Authorization"), body });
 
       if (url.endsWith("/projects/1001/deployment?defaultProd=true")) {
         return jsonResponse({
@@ -183,8 +166,17 @@ function installComponentsFetchStub(requests: RecordedRequest[]) {
       if (url.endsWith("/delete_deploy_key")) {
         return new Response(null, { status: 200 });
       }
-      if (url === "https://demo.convex.cloud/api/query") {
-        return jsonResponse(componentsListResponse);
+      if (
+        url === "https://demo.convex.cloud/api/query_batch" &&
+        isRecord(body) &&
+        Array.isArray(body["queries"])
+      ) {
+        return jsonResponse({
+          results: body["queries"].map((query: unknown) => ({
+            status: "success",
+            value: answerSystemQuery(query),
+          })),
+        });
       }
 
       throw new Error(`Unexpected Convex request: ${url}`);
@@ -198,43 +190,99 @@ afterEach(() => {
 });
 
 describe("repository Convex components", () => {
-  it("reads the production component tree with a revoked inspection key", async () => {
+  it("reads the production components and their metadata with a revoked inspection key", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedComponentsRepository(t);
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: RecordedRequest[] = [];
     installComponentsFetchStub(requests);
 
-    await expect(
-      user.action(api.repository.convexComponents.observe, {
-        repositoryId: ids.repositoryId,
-        convexProjectId: ids.convexProjectId,
-      }),
-    ).resolves.toEqual({
-      deploymentName: "demo-prod",
-      components: [
-        { id: "m022zrs6f3rfbcxr8fqnkqpswd8g4778", name: "mail", path: "mail", state: "active" },
-        {
-          id: "m02ebtw0m7ky3x0rdj6zeytkds8g5t2b",
-          name: "workflow",
-          path: "workflow",
-          state: "active",
-        },
-        {
-          id: "m02f5czs7a0jgvf5jx9thy07gn8g5r6r",
-          name: "workpool",
-          path: "workflow/workpool",
-          state: "active",
-        },
-      ],
+    const observation = await user.action(api.repository.convexComponents.observe, {
+      repositoryId: ids.repositoryId,
+      convexProjectId: ids.convexProjectId,
     });
 
-    const queryRequest = requests.find((request) => request.url.endsWith("/api/query"));
-    expect(queryRequest).toEqual({
-      url: "https://demo.convex.cloud/api/query",
-      authorization: "Convex prod:demo-prod|components-secret",
-      body: { path: "_system/frontend/components:list", args: {}, format: "json" },
+    expect(observation.deploymentName).toBe("demo-prod");
+    expect(
+      observation.components.map((component) => ({
+        path: component.path,
+        state: component.state,
+        httpPrefix: component.httpPrefix,
+        fileCount: component.fileCount,
+        tables: component.tables,
+        functionCount: component.functions.length,
+        crons: component.crons,
+      })),
+    ).toEqual([
+      {
+        path: "mail",
+        state: "active",
+        httpPrefix: null,
+        fileCount: 0,
+        tables: [
+          { name: "emailAttachments", documentCount: 0 },
+          { name: "emailBodies", documentCount: 0 },
+          { name: "emailMessages", documentCount: 0 },
+          { name: "emailThreads", documentCount: 0 },
+          { name: "inboxes", documentCount: 0 },
+          { name: "ingressReceipts", documentCount: 0 },
+          { name: "mailDomains", documentCount: 0 },
+        ],
+        functionCount: 22,
+        crons: [],
+      },
+      {
+        path: "workflow",
+        state: "active",
+        httpPrefix: null,
+        fileCount: 0,
+        tables: [
+          { name: "config", documentCount: 1 },
+          { name: "events", documentCount: 0 },
+          { name: "onCompleteFailures", documentCount: 0 },
+          { name: "steps", documentCount: 4 },
+          { name: "workflows", documentCount: 1 },
+        ],
+        functionCount: 19,
+        crons: [],
+      },
+      {
+        path: "workflow/workpool",
+        state: "active",
+        httpPrefix: null,
+        fileCount: 0,
+        tables: [
+          { name: "globals", documentCount: 1 },
+          { name: "internalState", documentCount: 1 },
+          { name: "payload", documentCount: 0 },
+          { name: "pendingCancelation", documentCount: 0 },
+          { name: "pendingCompletion", documentCount: 0 },
+          { name: "pendingStart", documentCount: 0 },
+          { name: "runStatus", documentCount: 1 },
+          { name: "work", documentCount: 0 },
+        ],
+        functionCount: 21,
+        crons: [
+          {
+            name: "healthcheck",
+            functionPath: "crons.js:healthcheck",
+            schedule: '{"seconds":"1800","type":"interval"}',
+          },
+        ],
+      },
+    ]);
+    expect(observation.components[2]?.functions[0]).toEqual({
+      module: "complete.js",
+      name: "complete",
+      type: "Mutation",
+      visibility: "internal",
     });
+
+    const batchRequests = requests.filter((request) => request.url.endsWith("/api/query_batch"));
+    expect(batchRequests).toHaveLength(4);
+    expect(new Set(batchRequests.map((request) => request.authorization))).toEqual(
+      new Set(["Convex prod:demo-prod|components-secret"]),
+    );
     expect(requests.find((request) => request.url.endsWith("/delete_deploy_key"))?.body).toEqual({
       id: "samebase-components-demo-prod-ltk9ukg0",
     });

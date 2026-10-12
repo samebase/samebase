@@ -2,22 +2,26 @@ import {
   array as sureArray,
   literal as sureLiteral,
   nil as sureNil,
+  number as sureNumber,
   object as sureObject,
+  optional as sureOptional,
   string as sureString,
+  tuple as sureTuple,
   union as sureUnion,
+  unknown as sureUnknown,
 } from "@samebase/sure";
 import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { action } from "../functions";
+import { isRecord } from "../jsonUtils";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import {
-  fetchConvexSystemQuery,
+  fetchConvexSystemQueryBatch,
   withConvexInspectionDeployKey,
 } from "./convexDeploymentInspection";
 
-const { array, id, literal, object, string, union } = v;
+const { array, id, literal, number, object, string, union } = v;
 
-const vConvexComponentState = union(literal("active"), literal("unmounted"));
 const vConvexComponentsObservation = object({
   deploymentName: string(),
   components: array(
@@ -25,29 +29,68 @@ const vConvexComponentsObservation = object({
       id: string(),
       name: string(),
       path: string(),
-      state: vConvexComponentState,
+      state: union(literal("active"), literal("unmounted")),
+      httpPrefix: union(string(), v.null()),
+      fileCount: number(),
+      tables: array(object({ name: string(), documentCount: number() })),
+      functions: array(
+        object({ module: string(), name: string(), type: string(), visibility: string() }),
+      ),
+      crons: array(object({ name: string(), functionPath: string(), schedule: string() })),
     }),
   ),
 });
 type ConvexComponentsObservation = Infer<typeof vConvexComponentsObservation>;
 
 /**
-Rows of the Convex dashboard's `_system/frontend/components:list` system query. Convex does not
-document this query, so the rows are validated here. The root app row has `name: null` and
-`path: ""`. Nested component paths join instance names with `/`, such as `workflow/workpool`.
+Convex does not document the dashboard system queries below, so their results are validated here.
+The root app row of `components:list` has `name: null` and `path: ""`. Nested component paths join
+instance names with `/`, such as `workflow/workpool`.
 
 @see https://github.com/get-convex/convex-backend/blob/5a633b42800113d393f0db162f8fc67f5bf01e14/npm-packages/system-udfs/convex/_system/frontend/components.ts#L4-L40
+@see https://github.com/get-convex/convex-backend/blob/5a633b42800113d393f0db162f8fc67f5bf01e14/npm-packages/system-udfs/convex/_system/frontend/modules.ts#L15-L41
 */
-const sureConvexComponentRows = sureArray(
+const sureComponentRows = sureArray(
   sureObject({
     id: sureString,
     name: sureUnion(sureString, sureNil),
     path: sureString,
     state: sureUnion(sureLiteral("active"), sureLiteral("unmounted")),
+    httpPrefix: sureUnion(sureString, sureNil),
   }),
 );
+/** `cronSpecs[].udfArgs` holds the literal cron arguments, which can be secrets, so it is not read. */
+const sureModulesByComponent = sureArray(
+  sureTuple([
+    sureUnion(sureString, sureNil),
+    sureArray(
+      sureTuple([
+        sureString,
+        sureObject({
+          functions: sureArray(
+            sureObject({
+              name: sureString,
+              udfType: sureString,
+              visibility: sureObject({ kind: sureString }),
+            }),
+          ),
+          cronSpecs: sureOptional(
+            sureArray(
+              sureTuple([
+                sureString,
+                sureObject({ udfPath: sureString, cronSchedule: sureUnknown }),
+              ]),
+            ),
+          ),
+        }),
+      ]),
+    ),
+  ]),
+);
+const sureTableNames = sureArray(sureString);
+const sureCounts = sureArray(sureNumber);
 
-/** Reads the component tree of the project's production deployment. */
+/** Reads the components of the project's production deployment with their functions, crons, tables, and files. */
 export const observe = action({
   access: "access_dashboard",
   args: {
@@ -69,30 +112,119 @@ export const observe = action({
       throw new Error("Convex project has no production deployment.");
     }
 
-    const response = await withConvexInspectionDeployKey(
+    const components = await withConvexInspectionDeployKey(
       { deployment, purpose: "components", target },
-      async (deployKey) =>
-        await fetchConvexSystemQuery({
-          deployKey,
-          deploymentUrl: deployment.deploymentUrl,
-          path: "_system/frontend/components:list",
-          queryArgs: {},
-        }),
-    );
-    const [valid, rows] = sureConvexComponentRows(response?.value);
-    if (!valid) {
-      throw new Error("Convex returned an unexpected component list.");
-    }
-
-    return {
-      deploymentName: deployment.name,
-      components: rows
-        .flatMap((row) =>
-          row.name === null
+      async (deployKey) => {
+        const query = async (queries: { path: string; args: Record<string, unknown> }[]) =>
+          queries.length === 0
             ? []
-            : [{ id: row.id, name: row.name, path: row.path, state: row.state }],
-        )
-        .sort((left, right) => left.path.localeCompare(right.path)),
-    };
+            : await fetchConvexSystemQueryBatch({
+                deployKey,
+                deploymentUrl: deployment.deploymentUrl,
+                queries,
+              });
+
+        const [rowsValue, modulesValue] = await query([
+          { path: "_system/frontend/components:list", args: {} },
+          { path: "_system/frontend/modules:listForAllComponents", args: {} },
+        ]);
+        const [validRows, rows] = sureComponentRows(rowsValue);
+        const [validModules, modulesByComponent] = sureModulesByComponent(modulesValue);
+        if (!validRows || !validModules) {
+          throw new Error("Convex returned an unexpected component list.");
+        }
+        const componentRows = rows
+          .flatMap((row) => (row.name === null ? [] : [{ ...row, name: row.name }]))
+          .sort((left, right) => left.path.localeCompare(right.path));
+
+        const [tableMappingValues, fileCountValues] = await Promise.all([
+          query(
+            componentRows.map((row) => ({
+              path: "_system/frontend/getTableMapping:default",
+              args: { componentId: row.id },
+            })),
+          ),
+          query(
+            componentRows.map((row) => ({
+              path: "_system/frontend/fileStorageV2:numFiles",
+              args: { componentId: row.id },
+            })),
+          ),
+        ]);
+        const [validFileCounts, fileCounts] = sureCounts(fileCountValues);
+        if (!validFileCounts) {
+          throw new Error("Convex returned an unexpected file count.");
+        }
+        const tableNamesByComponent = tableMappingValues.map((mapping) => {
+          const [validTableNames, tableNames] = sureTableNames(
+            isRecord(mapping) ? Object.values(mapping) : null,
+          );
+          if (!validTableNames) {
+            throw new Error("Convex returned an unexpected table list.");
+          }
+          // System tables such as `_scheduled_jobs` have no `tableSize`; `numFiles` counts files.
+          return tableNames
+            .filter((tableName) => !tableName.startsWith("_"))
+            .sort((left, right) => left.localeCompare(right));
+        });
+
+        const tables = componentRows.flatMap((row, index) =>
+          tableNamesByComponent[index].map((tableName) => ({ componentId: row.id, tableName })),
+        );
+        const [validDocumentCounts, documentCounts] = sureCounts(
+          await query(
+            tables.map((table) => ({
+              path: "_system/frontend/tableSize:default",
+              args: { componentId: table.componentId, tableName: table.tableName },
+            })),
+          ),
+        );
+        if (!validDocumentCounts) {
+          throw new Error("Convex returned an unexpected table size.");
+        }
+
+        return componentRows.map((row, index) => {
+          const modules =
+            modulesByComponent.find(([componentId]) => componentId === row.id)?.[1] ?? [];
+          return {
+            id: row.id,
+            name: row.name,
+            path: row.path,
+            state: row.state,
+            httpPrefix: row.httpPrefix,
+            fileCount: fileCounts[index],
+            tables: tables.flatMap((table, tableIndex) =>
+              table.componentId === row.id
+                ? [{ name: table.tableName, documentCount: documentCounts[tableIndex] }]
+                : [],
+            ),
+            functions: modules
+              .flatMap(([module, { functions }]) =>
+                functions.map((fn) => ({
+                  module,
+                  name: fn.name,
+                  type: fn.udfType,
+                  visibility: fn.visibility.kind,
+                })),
+              )
+              .sort(
+                (left, right) =>
+                  left.module.localeCompare(right.module) || left.name.localeCompare(right.name),
+              ),
+            crons: modules
+              .flatMap(([, { cronSpecs }]) =>
+                (cronSpecs ?? []).map(([name, spec]) => ({
+                  name,
+                  functionPath: spec.udfPath,
+                  schedule: JSON.stringify(spec.cronSchedule),
+                })),
+              )
+              .sort((left, right) => left.name.localeCompare(right.name)),
+          };
+        });
+      },
+    );
+
+    return { deploymentName: deployment.name, components };
   },
 });

@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import { Loader2 } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { notEmpty } from "@samebase/dependent";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
@@ -51,12 +52,22 @@ function ConvexComponentTreeChildren({
     <ul className="ml-2.5 border-l border-border pl-3">
       {children.map((component) => (
         <li key={component.id}>
-          <div className="flex min-w-0 items-baseline gap-2 py-1">
-            <span className="min-w-0 truncate font-mono">{component.name}</span>
-            {component.state === "unmounted" ? (
-              <span className="text-xs text-muted-foreground">unmounted</span>
-            ) : null}
-          </div>
+          <details className="group">
+            <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
+              <span className="min-w-0 truncate font-mono">{component.name}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {[
+                  component.state === "unmounted" ? "unmounted" : null,
+                  `${component.functions.length} ${component.functions.length === 1 ? "function" : "functions"}`,
+                  `${component.tables.length} ${component.tables.length === 1 ? "table" : "tables"}`,
+                ]
+                  .filter(notEmpty)
+                  .join(" · ")}
+              </span>
+            </summary>
+            <ConvexComponentDetails component={component} />
+          </details>
           <ConvexComponentTreeChildren
             childrenByParentPath={childrenByParentPath}
             parentPath={component.path}
@@ -64,6 +75,73 @@ function ConvexComponentTreeChildren({
         </li>
       ))}
     </ul>
+  );
+}
+
+function ConvexComponentDetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="grid min-w-0 gap-0.5">{children}</dd>
+    </>
+  );
+}
+
+function ConvexComponentDetailItem({ detail, name }: { detail: string; name: string }) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+      <span className="min-w-0 break-all font-mono">{name}</span>
+      <span className="min-w-0 break-all text-muted-foreground">{detail}</span>
+    </div>
+  );
+}
+
+function ConvexComponentDetails({ component }: { component: ConvexComponent }) {
+  return (
+    <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
+      <ConvexComponentDetailRow label="ID">
+        <span className="min-w-0 break-all font-mono">{component.id}</span>
+      </ConvexComponentDetailRow>
+      {component.httpPrefix ? (
+        <ConvexComponentDetailRow label="HTTP prefix">
+          <span className="font-mono">{component.httpPrefix}</span>
+        </ConvexComponentDetailRow>
+      ) : null}
+      <ConvexComponentDetailRow label="Files">{component.fileCount}</ConvexComponentDetailRow>
+      {component.tables.length === 0 ? null : (
+        <ConvexComponentDetailRow label="Tables">
+          {component.tables.map((table) => (
+            <ConvexComponentDetailItem
+              key={table.name}
+              name={table.name}
+              detail={`${table.documentCount} ${table.documentCount === 1 ? "document" : "documents"}`}
+            />
+          ))}
+        </ConvexComponentDetailRow>
+      )}
+      {component.functions.length === 0 ? null : (
+        <ConvexComponentDetailRow label="Functions">
+          {component.functions.map((fn) => (
+            <ConvexComponentDetailItem
+              key={`${fn.module}:${fn.name}`}
+              name={`${fn.module}:${fn.name}`}
+              detail={`${fn.type}, ${fn.visibility}`}
+            />
+          ))}
+        </ConvexComponentDetailRow>
+      )}
+      {component.crons.length === 0 ? null : (
+        <ConvexComponentDetailRow label="Crons">
+          {component.crons.map((cron) => (
+            <ConvexComponentDetailItem
+              key={cron.name}
+              name={cron.name}
+              detail={`${cron.functionPath} ${cron.schedule}`}
+            />
+          ))}
+        </ConvexComponentDetailRow>
+      )}
+    </dl>
   );
 }
 

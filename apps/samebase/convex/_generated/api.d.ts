@@ -166,6 +166,7 @@ import type * as repository_deletion_state from "../repository/deletion/state.js
 import type * as repository_deletion_workflow from "../repository/deletion/workflow.js";
 import type * as repository_editorModel from "../repository/editorModel.js";
 import type * as repository_eventOrderModel from "../repository/eventOrderModel.js";
+import type * as repository_fixtures_observedConvexComponents from "../repository/fixtures/observedConvexComponents.js";
 import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
 import type * as repository_folders from "../repository/folders.js";
@@ -380,6 +381,7 @@ declare const fullApi: ApiFromModules<{
   "repository/deletion/workflow": typeof repository_deletion_workflow;
   "repository/editorModel": typeof repository_editorModel;
   "repository/eventOrderModel": typeof repository_eventOrderModel;
+  "repository/fixtures/observedConvexComponents": typeof repository_fixtures_observedConvexComponents;
   "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
   "repository/folderModel": typeof repository_folderModel;
   "repository/folders": typeof repository_folders;

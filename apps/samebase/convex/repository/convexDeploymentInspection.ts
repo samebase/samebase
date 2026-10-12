@@ -1,3 +1,11 @@
+import {
+  array as sureArray,
+  literal as sureLiteral,
+  object as sureObject,
+  string as sureString,
+  union as sureUnion,
+  unknown as sureUnknown,
+} from "@samebase/sure";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { internalQuery } from "../_generated/server";
@@ -191,4 +199,48 @@ export async function fetchConvexSystemQuery(args: {
     return null;
   }
   return { value: response["value"] };
+}
+
+const sureSystemQueryBatchResponse = sureObject({
+  results: sureArray(
+    sureUnion(
+      sureObject({ status: sureLiteral("success"), value: sureUnknown }),
+      sureObject({ status: sureLiteral("error"), errorMessage: sureString }),
+    ),
+  ),
+});
+
+/**
+Runs `queries` in one `/api/query_batch` request, at one database snapshot, and returns their values
+in the same order. Convex reports each query error separately; this throws on the first one so a
+caller never shows a partial read.
+*/
+export async function fetchConvexSystemQueryBatch(args: {
+  deployKey: string;
+  deploymentUrl: string;
+  queries: { path: string; args: Record<string, unknown> }[];
+}): Promise<unknown[]> {
+  const response = await fetchConvexDeploymentJson({
+    deployKey: args.deployKey,
+    deploymentUrl: args.deploymentUrl,
+    path: "/api/query_batch",
+    body: {
+      queries: args.queries.map((query) => ({
+        path: query.path,
+        args: query.args,
+        format: "json",
+      })),
+    },
+  });
+  const [valid, batch] = sureSystemQueryBatchResponse(response);
+  if (!valid || batch.results.length !== args.queries.length) {
+    throw new Error("Convex returned an unexpected query batch response.");
+  }
+
+  return batch.results.map((result) => {
+    if (result.status === "error") {
+      throw new Error(result.errorMessage);
+    }
+    return result.value;
+  });
 }
