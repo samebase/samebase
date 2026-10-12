@@ -11,19 +11,26 @@ Add a thin Convex component that associates stored blobs with file names and pat
 bytes in Convex storage. Give applications and other components a common way to describe and find
 files, instead of each component creating its own file metadata tables.
 
-Provide a small file browser with folders, file details, and previews. The browser could ship with
-the component and use Convex hosting. This could establish a pattern for components to supply a
-useful management UI beside the general Convex dashboard.
+Provide a small file browser with folders, file details, and previews. The file component should be
+the default whenever code we own stores a file. Every completed file must have a useful path, so an
+operator can browse the files and understand what they are.
 
 The first possible consumers are `@samebase/convex-hosting` and application uploads. Hosting could
 use the file component for shared file metadata while retaining its own deployment behavior.
 
-## Main concern
+## Clarified intent
 
-An opaque storage ID does not explain what a blob meant. If application metadata is damaged or lost,
-an operator can have file bytes without a useful name, path, or connection to the original record. A
-folder browser improves inspection, but the research must determine what preserves that meaning
-during backup, export, and recovery.
+The operator clarified that inspection and consistent file handling are the main needs. The first
+research pass gave disaster recovery too much weight. A recovery manifest is not a prerequisite for
+the proposed component.
+
+The design target is one default way to work with Convex files, with a required, unique path. Any
+case that requires bypassing that component should have a concrete explanation. Optional R2 support
+is useful if it preserves the same basic file API.
+
+The broader Samebase idea is an admin view of the app's component tree, where selecting a component
+opens a suitable management UI. Record that as a separate product idea. It must not expand the
+initial file component into a general component-dashboard framework.
 
 ## Questions to investigate
 
@@ -37,25 +44,19 @@ during backup, export, and recovery.
 
 ## Recommendation
 
-The idea is useful. Start with a bounded evaluation of Files Control in native Convex mode before
-creating another storage component. Its source already has indexed `virtualPath` values, exact path
-lookup, and path moves. The evaluation must resolve two source-level correctness gaps: atomic path
-uniqueness and verified native upload registration. The likely additional work is a folder browser,
-a consistent export format, and recovery checks.
+Use one named-file component as the default for files in code we own. For native Convex storage, one
+`files` table with required `storageId` and `virtualPath` fields is a sound starting model. Use the
+row's existing `_id` as stable file identity. Enforce path uniqueness within each component
+instance.
 
-Keep three requirements separate:
+Evaluate Files Control against that small contract before creating another package. Its native
+storage and R2 support are relevant, but its access-key model is mandatory today. The decision must
+consider the required behavior and operations, not only the number of tables. Resolve the path-move
+and native-registration findings below before adoption.
 
-1. A common file registry makes files easier to find and reuse.
-2. A file browser makes that registry easier to inspect.
-3. A complete backup and a retained name-to-blob mapping make files recoverable.
-
-A component that adds a naming table satisfies the first requirement. It does not, by itself,
-preserve names when its own table is lost. This is the main limit to resolve before calling the
-result a safer storage standard.
-
-Do not migrate hosting first. Prove the file contract with application uploads, then evaluate
-hosting as a second consumer. Hosting already has path metadata and stricter publication and
-retention rules.
+Keep the first browser focused on listing and inspecting files. Validate application uploads and
+hosting before calling the component the default. A production hosting migration remains a separate
+step because storage ownership, publication, and serving costs need proof.
 
 ## What native Convex storage preserves
 
@@ -139,6 +140,31 @@ Sources:
 and
 [native registration](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/upload.ts#L240).
 
+### What the extra Files Control table costs
+
+Its `files` row contains `storageId`, `storageProvider`, optional `virtualPath`, and optional
+`expiresAt`. The second table, `fileAccess`, associates files with access keys. Registration
+requires at least one key, writes an access row per key, and refuses removal of the last key. One
+host-owned key therefore adds one row per file even when the app handles all authorization itself.
+
+That table serves access-filtered listing and private download grants. Ordinary listing and path
+lookup read `files` directly. A host can leave download grants unused, but cannot avoid the access
+row without changing the component. This is a concrete cost to compare with maintaining our own
+package. It is not enough by itself to reject reuse.
+
+Required paths can be enforced for our callers through host wrappers. A universal component rule
+needs required schema/API fields and validation on every write path. Registration already checks
+path conflicts within its mutation; moves need the correction described above. The current file
+summaries omit size, checksum, and content type, so inspection also needs a metadata read API.
+
+Sources:
+[file schema](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/schema.ts#L6),
+[required access keys and registration](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/upload.ts#L226),
+[last-key rule](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/accessControl.ts#L114),
+[file queries](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/queries.ts#L36),
+and
+[summary fields](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/validators.ts#L33).
+
 ### Convex Filesystem is a broader product
 
 The inspected `@fatagnus/convex-filesystem` version is 0.1.0 at
@@ -158,7 +184,7 @@ Sources:
 and
 [project source](https://github.com/ozanturksever/convex-filesystem/tree/8ecf3e2b70ec9947b1357eee7f318617454a4ab9).
 
-## Recovery is part of the file contract
+## Backup background, outside the initial scope
 
 Convex can export component tables and file storage together. File bytes are optional, so use
 `--include-file-storage` for a complete portable backup. Exported blobs use storage IDs as
@@ -175,40 +201,85 @@ Sources: [backup and restore](https://docs.convex.dev/database/backup-restore),
 and
 [storage export format](https://github.com/get-convex/convex-backend/blob/5a633b42800113d393f0db162f8fc67f5bf01e14/crates/exports/src/export_storage.rs#L114).
 
-The proposed file contract should include a versioned manifest with the owner or component instance,
-logical file ID, path, storage ID, checksum, size, and content type. An offline export should place
-the bytes under readable paths and retain that manifest. A prior export must remain available
-outside the live naming table.
+If a readable offline export is needed later, include the paths and bytes together. Losing all
+copies of the mapping still loses the names. This is backup background, not the reason for the
+component or a requirement to build a recovery subsystem now.
 
-This permits an operator to inspect files without the app and to check whether each manifest entry
-has the expected bytes. It does not promise that names can be inferred from unidentified blobs. If
-all copies of the mapping are gone, a hash can match a known file but cannot recover its former
-name. That conclusion follows from the native metadata and archive format.
+## A small default contract
 
-ConvexFS illustrates the same limit. Its orphan recovery tool can reconnect retained bytes, but the
-operator must supply both the blob ID and the lost path.
+For native Convex, begin with this one-table model:
 
-Source: [ConvexFS recovery tools](https://convexfs.dev/guides/admin-tools/).
+| Field         | Meaning                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `_id`         | Convex-generated stable file identity for application references.       |
+| `virtualPath` | Required logical path, unique within this component instance.           |
+| `storageId`   | Required native storage ID for a completed file owned by this instance. |
 
-## A small shared contract
+Convex also supplies `_creationTime`. Derive the displayed filename from the last path segment and
+folders from path prefixes. Rename changes `virtualPath`, leaving `_id` unchanged. A new upload gets
+a new file ID. Creating an existing path should fail; replacement must be explicit and must not
+silently change bytes used by existing file references.
 
-Evaluate these capabilities before choosing the package:
+Uniqueness is an operation rule. Define an index on the path, then check and insert or update inside
+the same mutation. An index alone does not enforce it, and `.unique()` is a query assertion that
+throws when multiple matches exist.
 
-- A stable logical file ID, independent of the path.
-- A path that is unique within one owner or namespace. Derive the filename from the final segment.
-- Explicit duplicate-path, rename, replacement, and deletion behavior.
-- Upload completion that verifies the stored blob before registering it.
-- Exact lookup and paginated prefix listing for a folder view.
-- Metadata and download access through host-authorized functions.
-- Export and restore of the mapping and bytes.
+Sources: [indexes](https://docs.convex.dev/database/reading-data/indexes/),
+[query unique](https://docs.convex.dev/api/interfaces/server.Query#unique), and
+[transaction guarantees](https://docs.convex.dev/database/advanced/occ).
+
+The operations still need verified upload completion, lookup by ID and path, paginated prefix
+listing, metadata reads, download access, rename, and explicit deletion. The host checks application
+permissions. A path prefix organizes files; it does not authorize access.
 
 Use native `_storage` metadata where possible. Do not create a second mutable source for size, hash,
 or content type merely to render the browser. Export those values when an offline manifest needs
 them.
 
-The first version does not need a POSIX filesystem, empty directories, symlinks, a search service,
-Drive sync, or a general permissions system. Application ownership and authorization belong to the
-host. Define case and path normalization rules before data enters the registry.
+Define case and path normalization rules before data enters the registry. Keep the package focused
+on these operations. Extra tables are justified by behavior we need, such as upload state or access
+grants, rather than by a target table count.
+
+### Cases the default must cover
+
+- Two uploads named `photo.jpg` can use `uploads/<uploadId>/photo.jpg`. The full path is unique; the
+  original filename need not be globally unique.
+- Generated or temporary files still get paths, such as `exports/<jobId>/report.csv`. Their owner
+  decides when to delete them.
+- Hosting can use `deployments/<deploymentId>/index.html` for inspection while serving `/index.html`
+  from the selected deployment. The registry path and the public URL path have different jobs.
+- Interrupted uploads need explicit handling. Native upload sends the bytes first, then registers
+  the returned storage ID in another request. A one-table registry can guarantee names for completed
+  files, but cannot eliminate the interval or leftover blobs from an abandoned upload. Decide
+  whether the same table tracks pending uploads or whether bounded cleanup handles them.
+
+Source:
+[native upload sequence](https://docs.convex.dev/file-storage/upload-files#uploading-files-via-upload-urls).
+
+The practical limit to "always" is storage owned by an existing third-party component. Convex
+isolates component storage, so an app cannot transparently intercept its internal file writes. That
+component needs to adopt the file API or expose an integration. For components we control, use the
+same package with separate instances. Validate the serving cost before applying it to hosting.
+
+Source: [component isolation](https://docs.convex.dev/components/understanding#isolation).
+
+### R2 can fit the same file model
+
+Keep logical file identity and path separate from the provider location. If the component supports
+both providers, the storage reference identifies either a Convex storage ID or an R2 object key,
+with bucket configuration owned by the instance. Native Convex remains the default. Files Control
+already uses a provider field and treats `storageId` as the R2 key for R2 files.
+
+This can still use one `files` table. The added complexity is in operations: R2 work is external to
+the Convex transaction, so upload, replacement, and deletion need retry-safe completion. A logical
+rename can update only the path when the R2 key stays stable. If R2 object keys must also match the
+visible paths, rename requires copying to a new key and deleting the old object. Choose that
+behavior explicitly before promising provider-independent rename semantics.
+
+Sources:
+[Files Control provider fields](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/schema.ts#L6)
+and
+[R2 object operations](https://developers.cloudflare.com/r2/api/s3/api/#implemented-object-level-operations).
 
 ## Hosting can reuse the contract without giving up deployment rules
 
@@ -256,7 +327,12 @@ Sources:
 and
 [publication limits](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/packages/convex-hosting/src/component/lib.ts#L698).
 
-## A component can ship its own UI
+## Separate Samebase idea: component navigation and UIs
+
+The wider product idea is to show the app's internal component tree in Samebase and let an admin
+select a component to open its management UI. A file browser could be the first example. Discovery,
+UI registration, and permission routing need separate product research. They are not prerequisites
+for the named-file component.
 
 Package the browser as an optional frontend module. Mount it on a host-app admin route, with
 functions that check the current user's access before calling the component. This lets the same
@@ -264,8 +340,8 @@ browser inspect several component instances through an explicit host adapter.
 
 Convex components do not inherit `ctx.auth`. A component-specific UI still needs a host-owned
 authentication boundary. Do not place a deployment admin key in the browser. A first browser can
-provide folder navigation, metadata, previews, downloads, and manifest export. Writes can follow
-after the file lifecycle is proven.
+provide folder navigation, metadata, previews, and downloads. Writes can follow after the file
+lifecycle is proven.
 
 Sources:
 [component authentication](https://docs.convex.dev/components/authoring#authentication-via-ctxauth)
@@ -294,19 +370,20 @@ flowchart TD
 
 ## Suggested next research step
 
-Run a small Files Control evaluation with native storage and a host-owned file browser. Check:
+Run a small Files Control evaluation against the default file contract. Check:
 
-1. Two owners can use the same relative path without sharing access or deletion authority.
+1. Every completed file has a required path, with stable identity across rename.
 2. Upload registration rejects missing or foreign storage IDs, including when metadata is supplied.
 3. Rename and replacement enforce path uniqueness inside one mutation under concurrent requests.
-4. Prefix listing is paginated and does not scan every file.
-5. A named export remains understandable without Convex or the original application.
-6. A fresh deployment can restore a full backup with paths, bytes, hashes, and references intact.
-7. A missing live naming table can be recovered from a retained mapping.
+4. Prefix listing is paginated, and metadata can be read for the selected file.
+5. Repeated original filenames, generated files, temporary files, and separate deployments fit
+   without bypassing the component.
+6. Interrupted upload handling and the required access-key row have acceptable cost.
+7. R2 can preserve the logical API with explicit retry and rename behavior.
 
 If Files Control can support this contract with small changes, contribute those changes or build a
 thin integration around it. Create a new native component only if the evaluation finds a concrete
-ownership, lifecycle, or recovery conflict that cannot fit its API.
+ownership, lifecycle, or naming conflict that cannot fit its API.
 
 Then test a hosting integration against its existing publication, retry, retention, and serving
 contracts. Do not make a production hosting migration part of the initial file-browser experiment.
@@ -314,5 +391,7 @@ contracts. Do not make a production hosting migration part of the initial file-b
 ## Research record
 
 Three read-only research lanes covered existing packages, hosting boundaries, and Convex recovery
-and component UIs. The findings above combine those source checks. No new component, UI, storage
-migration, provider change, or restore experiment was implemented for this note.
+and component UIs. Two lanes then checked the operator's clarified default-file goal against the
+Files Control access model, minimal schema, and hosting edge cases. The findings above combine those
+source checks. No new component, UI, storage migration, provider change, or restore experiment was
+implemented for this note.
