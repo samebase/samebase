@@ -106,7 +106,8 @@ export const observe = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const productionDeployments = await Promise.all(
+    // A failed lookup of another attached project must not block a deployment that matched.
+    const lookups = await Promise.allSettled(
       target.projects.map(
         async (project) =>
           await readConvexProductionDeployment({
@@ -115,10 +116,14 @@ export const observe = action({
           }),
       ),
     );
-    const deployment = productionDeployments.find(
-      (candidate) => candidate?.name === args.deploymentName,
-    );
+    const deployment = lookups
+      .flatMap((lookup) => (lookup.status === "fulfilled" && lookup.value ? [lookup.value] : []))
+      .find((candidate) => candidate.name === args.deploymentName);
     if (!deployment) {
+      const failedLookup = lookups.find((lookup) => lookup.status === "rejected");
+      if (failedLookup) {
+        throw failedLookup.reason;
+      }
       throw new Error("This repository has no Convex production deployment with this name.");
     }
 

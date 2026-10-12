@@ -145,6 +145,12 @@ function installComponentsFetchStub(requests: RecordedRequest[]) {
             : undefined;
       requests.push({ url, authorization: new Headers(init?.headers).get("Authorization"), body });
 
+      if (url.endsWith("/projects/1002/deployment?defaultProd=true")) {
+        return new Response(JSON.stringify({ code: "Forbidden", message: "Forbidden" }), {
+          status: 403,
+          headers: { "content-type": "application/json" },
+        });
+      }
       if (url.endsWith("/projects/1001/deployment?defaultProd=true")) {
         return jsonResponse({
           class: "s16",
@@ -286,6 +292,36 @@ describe("repository Convex components", () => {
     expect(requests.find((request) => request.url.endsWith("/delete_deploy_key"))?.body).toEqual({
       id: "samebase-components-demo-prod-ltk9ukg0",
     });
+  });
+
+  it("reads a matched deployment when another attached project fails to load", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedComponentsRepository(t);
+    await t.run(async (ctx) => {
+      const repository = await ctx.db.get(ids.repositoryId);
+      if (!repository) {
+        throw new Error("Expected the seeded repository.");
+      }
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: ids.repositoryId,
+        organizationId: repository.organizationId,
+        teamId: "1000",
+        projectId: "1002",
+        convexConfigPath: "apps/other/convex.json",
+        origin: "selected_existing",
+      });
+    });
+    installComponentsFetchStub([]);
+
+    const observation = await user.action(api.repository.convexComponents.observe, {
+      repositoryId: ids.repositoryId,
+      deploymentName: "demo-prod",
+    });
+    expect(observation.components.map((component) => component.path)).toEqual([
+      "mail",
+      "workflow",
+      "workflow/workpool",
+    ]);
   });
 
   it("rejects a deployment that is not the production deployment of an attached project", async () => {
