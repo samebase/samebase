@@ -140,12 +140,30 @@ Sources:
 and
 [native registration](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/upload.ts#L240).
 
-### What the extra Files Control table costs
+### What the four Files Control tables do
+
+Version 0.5.9 defines four tables. Each has a distinct responsibility:
+
+| Table            | Responsibility                                                             | Use for native hosting                                      |
+| ---------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `files`          | Provider location, optional path, and optional expiry.                     | One record per stored asset.                                |
+| `fileAccess`     | Access-key associations for a file.                                        | At least one association per file is currently required.    |
+| `pendingUploads` | Temporary upload tokens and expiry before final registration.              | Used during the upload flow, then removed after completion. |
+| `downloadGrants` | Expiring, usage-limited, shareable, or password-protected download grants. | Unneeded if static serving uses a trusted read API.         |
+
+These are reasonable features for a reusable file package. Reducing the table count is not an
+adoption goal. The component also mounts Action Retrier for retryable work, so the four tables are
+not its whole component tree.
+
+Sources:
+[complete schema](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/schema.ts#L5)
+and
+[child component](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/convex.config.ts#L1).
 
 Its `files` row contains `storageId`, `storageProvider`, optional `virtualPath`, and optional
-`expiresAt`. The second table, `fileAccess`, associates files with access keys. Registration
-requires at least one key, writes an access row per key, and refuses removal of the last key. One
-host-owned key therefore adds one row per file even when the app handles all authorization itself.
+`expiresAt`. The `fileAccess` table associates files with access keys. Registration requires at
+least one key, writes an access row per key, and refuses removal of the last key. One host-owned key
+therefore adds one row per file even when the app handles all authorization itself.
 
 That table serves access-filtered listing and private download grants. Ordinary listing and path
 lookup read `files` directly. A host can leave download grants unused, but cannot avoid the access
@@ -164,6 +182,54 @@ Sources:
 [file queries](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/queries.ts#L36),
 and
 [summary fields](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/validators.ts#L33).
+
+### Large files depend on the upload path
+
+Convex already supports direct file uploads through generated upload URLs. Its documentation gives
+no file-size cap for that path, but each upload POST must finish within two minutes. Files Control
+wraps that transport; it does not remove the timeout.
+
+The inspected React uploader sends one POST for native Convex or one PUT for R2. Its HTTP mode uses
+`multipart/form-data`, which means a form request containing the file. That is different from a
+resumable multipart protocol that sends separately retryable chunks. The reviewed upload paths do
+not implement R2 multipart upload or native chunk/resume sessions.
+
+Use direct uploads for hosting assets. Hosting should obtain an upload URL from the child that owns
+the storage, let the CLI send bytes there, and finalize the named record through a component call.
+Avoid sending file bytes as component-function arguments or buffering all uploads in a hosting
+action.
+
+Current transport limits to distinguish:
+
+| Path                                | Relevant limit                                                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Native Convex upload URL            | No stated size cap; one POST has a two-minute timeout.                                                          |
+| Convex HTTP action with a form body | `multipart/form-data` has a 20 MiB body limit.                                                                  |
+| Convex HTTP action with a raw body  | No specific request-size cap; runtime memory still applies.                                                     |
+| R2 single upload                    | Nominal 5 GiB maximum; interrupted uploads restart.                                                             |
+| R2 multipart upload                 | About 5 TiB per object with separately retryable parts; not implemented by the reviewed Files Control uploader. |
+
+The Convex runtime has 64 MiB of memory; Node actions have 512 MiB. These are memory budgets, not
+promises about maximum file size. Large-file requirements must name a target size and network
+condition. If they require resumable uploads, Files Control needs additional transport support.
+
+Sources: [Convex upload limits](https://docs.convex.dev/file-storage/upload-files#limits),
+[HTTP action limits](https://docs.convex.dev/functions/http-actions#limits),
+[function memory limits](https://docs.convex.dev/production/state/limits#functions), and
+[R2 upload methods](https://developers.cloudflare.com/r2/objects/upload-objects/).
+
+Package sources:
+[direct uploader](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/react/index.ts#L83),
+[single-part R2 URL](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/r2.ts#L43),
+and
+[HTTP form upload](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/react/index.ts#L131).
+
+Provider transfer is a separate limit: the current transfer action buffers the complete response as
+a Blob or ArrayBuffer. Direct upload support therefore does not imply support for transferring files
+of the same size between providers.
+
+Source:
+[provider transfer](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/transfer.ts#L213).
 
 ### Convex Filesystem is a broader product
 
@@ -283,6 +349,17 @@ and
 
 ## Hosting can reuse the contract without giving up deployment rules
 
+Using Files Control as a child of hosting is a reasonable architecture. Prefer a small integration
+and upstream improvements over creating another package only to remove tables. Version 0.5.9 is not
+ready to replace hosting storage unchanged: it needs a read-only native serving API, abandoned-blob
+cleanup, the validation fixes above, and an integration check for publication and cleanup.
+
+Convex explicitly supports a component installing child components with `component.use(...)`.
+Hosting can mount its own Files Control instance, while an application mounts another instance for
+its uploads. The reuse is the package and its API, with separate storage ownership.
+
+Source: [component composition](https://docs.convex.dev/components/authoring).
+
 Samebase hosting already stores `path`, storage references, content type, and deployment identity.
 It has separate state for staged, live, and retained assets. Its path lookup, SPA fallback, cache
 rules, publication, and cleanup serve deployment-specific requirements.
@@ -326,6 +403,41 @@ Sources:
 [direct serving](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/packages/convex-hosting/src/component/http.ts#L48)
 and
 [publication limits](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/packages/convex-hosting/src/component/lib.ts#L698).
+
+### Specific integration work for Files Control
+
+Its current native download-URL API consumes a download grant. Even a grant with unlimited uses
+updates `useCount` for every request. That flow is unsuitable for ordinary static asset requests.
+The parent-callable query API should resolve an existing native file to a URL and metadata without
+creating or consuming a grant. Hosting remains responsible for selecting which file is public.
+
+The HTTP handler then needs a read path compatible with child-owned storage. Its existing direct
+`ctx.storage.get` call cannot read the child's blob. Test URL retrieval and streaming fetch against
+the current serving path before choosing it for production.
+
+Register the child's files during bounded upload/staging work. Do not move those registrations into
+the final publication mutation. Mandatory access rows add storage and registration work, but do not
+inherently add writes to publication. Keep retention in hosting rather than setting expiry on every
+file during publication. Delete retired files through bounded maintenance after hosting checks that
+no staged, live, or retained manifest needs them.
+
+Files Control exposes a deletion mutation, but underlying storage deletion is scheduled through
+Action Retrier. Hosting must account for that eventual completion in its cleanup behavior. A live
+integration test must cover failed uploads, publication retries, retained assets, and cleanup.
+
+There is a specific abandoned-upload gap. Expiry cleanup deletes pending upload-token records but
+does not delete bytes uploaded before failed or abandoned finalization. Hosting currently scans its
+own storage for abandoned blobs; after extraction it cannot scan the child's private storage. Add
+bounded abandoned-blob cleanup inside Files Control to preserve this behavior. Keep file expiry
+unset for hosting assets, and let hosting decide when deletion is allowed.
+
+Sources:
+[download URL and grant counter](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/download.ts#L288),
+[current direct serving](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/packages/convex-hosting/src/component/http.ts#L104),
+[Files Control deletion](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/cleanUp.ts#L52),
+[expired upload-token cleanup](https://github.com/gilhrpenner/convex-files-control/blob/54c6c047b4a085f0d03f7ff8841316a1d0f85bab/src/component/cleanUp.ts#L162),
+and
+[hosting storage scan](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/packages/convex-hosting/src/component/lib.ts#L562).
 
 ## Separate Samebase idea: component navigation and UIs
 
@@ -393,5 +505,7 @@ contracts. Do not make a production hosting migration part of the initial file-b
 Three read-only research lanes covered existing packages, hosting boundaries, and Convex recovery
 and component UIs. Two lanes then checked the operator's clarified default-file goal against the
 Files Control access model, minimal schema, and hosting edge cases. The findings above combine those
-source checks. No new component, UI, storage migration, provider change, or restore experiment was
-implemented for this note.
+source checks. A further three-lane check confirmed all four tables, current upload transport
+limits, and the serving and cleanup additions needed for a nested hosting integration. These are
+source findings; no runtime integration or performance benchmark was run. No new component, UI,
+storage migration, provider change, or restore experiment was implemented for this note.
