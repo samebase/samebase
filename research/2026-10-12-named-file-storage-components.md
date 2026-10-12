@@ -49,14 +49,16 @@ Use one named-file component as the default for files in code we own. For native
 row's existing `_id` as stable file identity. Enforce path uniqueness within each component
 instance.
 
-Evaluate Files Control against that small contract before creating another package. Its native
-storage and R2 support are relevant, but its access-key model is mandatory today. The decision must
-consider the required behavior and operations, not only the number of tables. Resolve the path-move
-and native-registration findings below before adoption.
+Files Control remains a candidate, not a selected dependency. Its paths, R2 support, and access
+features can be useful for application uploads. Large-file upload is already provided by Convex, so
+that capability alone does not justify this package. Evaluate the total implementation and operating
+cost of the common file contract before choosing it or creating another package.
 
 Keep the first browser focused on listing and inspecting files. Validate application uploads and
 hosting before calling the component the default. A production hosting migration remains a separate
-step because storage ownership, publication, and serving costs need proof.
+step because storage ownership, publication, and serving costs need proof. Keep hosting's current
+native storage while evaluating that choice. Its existing path records can support an inspection API
+without first moving the bytes or adding another file registry.
 
 ## What native Convex storage preserves
 
@@ -349,10 +351,16 @@ and
 
 ## Hosting can reuse the contract without giving up deployment rules
 
-Using Files Control as a child of hosting is a reasonable architecture. Prefer a small integration
-and upstream improvements over creating another package only to remove tables. Version 0.5.9 is not
-ready to replace hosting storage unchanged: it needs a read-only native serving API, abandoned-blob
-cleanup, the validation fixes above, and an integration check for publication and cleanup.
+Using Files Control as a child of hosting is technically feasible. The evidence does not yet justify
+adoption. Hosting already has named paths and file lifecycle rules. Files Control would add a common
+API and reusable queries, but also extra records, a storage migration, and a different serving path.
+No completed integration or benchmark shows that these costs produce a net benefit.
+
+Keep native storage in hosting for now. If application use proves that Files Control reduces total
+file-handling code and satisfies the default contract, evaluate hosting integration against that
+working baseline. Version 0.5.9 would still need a read-only native serving API, abandoned-blob
+cleanup, the validation fixes above, and checks for publication and cleanup. These are conditions
+for evaluation, not a committed plan to extend and adopt it.
 
 Convex explicitly supports a component installing child components with `component.use(...)`.
 Hosting can mount its own Files Control instance, while an application mounts another instance for
@@ -497,8 +505,10 @@ If Files Control can support this contract with small changes, contribute those 
 thin integration around it. Create a new native component only if the evaluation finds a concrete
 ownership, lifecycle, or naming conflict that cannot fit its API.
 
-Then test a hosting integration against its existing publication, retry, retention, and serving
-contracts. Do not make a production hosting migration part of the initial file-browser experiment.
+Only pursue a hosting integration if the evaluation shows a concrete benefit over its current
+named-file model. Compare total code, serving cost, and operational behavior while preserving
+publication, retry, and retention guarantees. The initial file-browser experiment does not require a
+production storage migration.
 
 ## Research record
 
