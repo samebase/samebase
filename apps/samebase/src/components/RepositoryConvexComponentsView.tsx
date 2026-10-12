@@ -6,7 +6,9 @@ import { notEmpty } from "@samebase/dependent";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { useCacheQuery as useRepositoryQuery } from "@/lib/convexQueryCache";
+import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
+import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySelectedWorkspace";
+import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
 
 export type ConvexComponentsObservation =
   (typeof api.repository.convexComponents.observe)["_returnType"];
@@ -209,22 +211,49 @@ export function RepositoryConvexComponentsView({
   owner: string;
   repoName: string;
 }) {
-  const repositories = useRepositoryQuery(api.repository.list);
-  const repository = repositories?.find(
-    (candidate) => candidate.githubRepositoryFullName === `${owner}/${repoName}`,
-  );
+  const workspaceModel = useRepositoryWorkspaceModel(`${owner}/${repoName}`);
+  const workspace =
+    workspaceModel.state === "ready" && workspaceModel.selection.state === "selected"
+      ? workspaceModel.selection.workspace
+      : null;
 
   return (
-    <AppWorkspaceRouteChrome rightToggleVisibility="all">
+    <AppWorkspaceRouteChrome
+      left={
+        workspace
+          ? {
+              content: (
+                <RepositorySelectedWorkspace
+                  key={workspace.repository.repositoryId}
+                  developerToolsVisible={false}
+                  page="overview"
+                  workspace={workspace}
+                />
+              ),
+            }
+          : workspaceModel.state === "loading"
+            ? {
+                content: (
+                  <RepositoryOverviewLoadingPage
+                    owner={owner}
+                    page="overview"
+                    repoName={repoName}
+                  />
+                ),
+              }
+            : null
+      }
+      rightToggleVisibility="all"
+    >
       <div className="flex min-h-0 flex-1 flex-col">
-        {repositories === undefined ? (
+        {workspaceModel.state === "loading" ? (
           <RepositoryConvexComponentsStatus>
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading components
           </RepositoryConvexComponentsStatus>
-        ) : repository ? (
+        ) : workspace ? (
           <RepositoryConvexComponentsTree
-            repositoryId={repository.repositoryId}
+            repositoryId={workspace.repository.repositoryId}
             deploymentName={deploymentName}
           />
         ) : (
