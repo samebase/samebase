@@ -99,7 +99,7 @@ export const routes = rootRoute("root.tsx", [
     "repository-schema-project.tsx",
   ),
   route(
-    `${DASHBOARD_ROUTE}/$owner/$repository/components/project/$convexProjectId`,
-    "repository-components-project.tsx",
+    `${DASHBOARD_ROUTE}/$owner/$repository/components/$deploymentName`,
+    "repository-components-deployment.tsx",
   ),
 ]);

@@ -90,26 +90,36 @@ const sureModulesByComponent = sureArray(
 const sureTableNames = sureArray(sureString);
 const sureCounts = sureArray(sureNumber);
 
-/** Reads the components of the project's production deployment with their functions, crons, tables, and files. */
+/**
+Reads the components of `deploymentName` with their functions, crons, tables, and files. The
+deployment must be the production deployment of a Convex project attached to the repository.
+*/
 export const observe = action({
   access: "access_dashboard",
   args: {
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    deploymentName: string(),
   },
   returns: vConvexComponentsObservation,
   handler: async (ctx, args): Promise<ConvexComponentsObservation> => {
     const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
-      convexProjectId: args.convexProjectId,
     });
-    const deployment = await readConvexProductionDeployment({
-      token: target.token,
-      projectId: target.project.projectId,
-    });
+    const productionDeployments = await Promise.all(
+      target.projects.map(
+        async (project) =>
+          await readConvexProductionDeployment({
+            token: target.token,
+            projectId: project.projectId,
+          }),
+      ),
+    );
+    const deployment = productionDeployments.find(
+      (candidate) => candidate?.name === args.deploymentName,
+    );
     if (!deployment) {
-      throw new Error("Convex project has no production deployment.");
+      throw new Error("This repository has no Convex production deployment with this name.");
     }
 
     const components = await withConvexInspectionDeployKey(

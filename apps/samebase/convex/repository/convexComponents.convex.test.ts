@@ -111,7 +111,7 @@ async function seedComponentsRepository(t: ReturnType<typeof makeConvexTest>) {
       defaultBranch: "main",
       connectedAt: 20,
     });
-    const convexProjectId = await ctx.db.insert("repositoryConvexProjects", {
+    await ctx.db.insert("repositoryConvexProjects", {
       repositoryId,
       organizationId,
       teamId: "1000",
@@ -120,7 +120,7 @@ async function seedComponentsRepository(t: ReturnType<typeof makeConvexTest>) {
       origin: "selected_existing",
     });
 
-    return { convexProjectId, userId, repositoryId };
+    return { userId, repositoryId };
   });
 
   return {
@@ -199,7 +199,7 @@ describe("repository Convex components", () => {
 
     const observation = await user.action(api.repository.convexComponents.observe, {
       repositoryId: ids.repositoryId,
-      convexProjectId: ids.convexProjectId,
+      deploymentName: "demo-prod",
     });
 
     expect(observation.deploymentName).toBe("demo-prod");
@@ -286,5 +286,20 @@ describe("repository Convex components", () => {
     expect(requests.find((request) => request.url.endsWith("/delete_deploy_key"))?.body).toEqual({
       id: "samebase-components-demo-prod-ltk9ukg0",
     });
+  });
+
+  it("rejects a deployment that is not the production deployment of an attached project", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedComponentsRepository(t);
+    const requests: RecordedRequest[] = [];
+    installComponentsFetchStub(requests);
+
+    await expect(
+      user.action(api.repository.convexComponents.observe, {
+        repositoryId: ids.repositoryId,
+        deploymentName: "other-team-prod",
+      }),
+    ).rejects.toThrow("This repository has no Convex production deployment with this name.");
+    expect(requests.some((request) => request.url.endsWith("/create_deploy_key"))).toBe(false);
   });
 });

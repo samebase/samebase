@@ -973,11 +973,14 @@ export const refresh = action({
     const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
-      convexProjectId: args.convexProjectId,
     });
+    const project = target.projects.find((candidate) => candidate._id === args.convexProjectId);
+    if (!project) {
+      throw new Error("Convex project not found.");
+    }
     const deployment: ConvexCloudDeployment | null = await readConvexProductionDeployment({
       token: target.token,
-      projectId: target.project.projectId,
+      projectId: project.projectId,
     });
     if (!deployment) {
       throw new Error("Convex project has no production deployment.");
@@ -995,7 +998,7 @@ export const refresh = action({
     const snapshotId = await ctx.runMutation(internal.repository.convexSchemaGraph.recordSnapshot, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
-      convexProjectId: target.project._id,
+      convexProjectId: project._id,
       deploymentName: deployment.name,
       schemaHash: buildSchemaHash(graph),
       graph,

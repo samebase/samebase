@@ -315,7 +315,7 @@ export function buildProductionEnvironmentRoots({
                     href: buildRepositoryComponentsRoute({
                       owner,
                       repoName,
-                      convexProjectId: project.convexProjectId,
+                      deploymentName: deployment.deploymentName,
                     }),
                     label: "Components",
                   },

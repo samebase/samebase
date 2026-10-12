@@ -7,7 +7,6 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { useCacheQuery as useRepositoryQuery } from "@/lib/convexQueryCache";
-import { findRepositoryConvexProjectAttachment } from "@/lib/repositoryConvexProjectAttachment";
 
 export type ConvexComponentsObservation =
   (typeof api.repository.convexComponents.observe)["_returnType"];
@@ -146,16 +145,16 @@ function ConvexComponentDetails({ component }: { component: ConvexComponent }) {
 }
 
 function RepositoryConvexComponentsTree({
-  convexProjectId,
+  deploymentName,
   repositoryId,
 }: {
-  convexProjectId: Id<"repositoryConvexProjects">;
+  deploymentName: string;
   repositoryId: Id<"repositories">;
 }) {
   const observe = useAction(api.repository.convexComponents.observe);
   const observation = useQuery({
-    queryKey: ["repository-convex-components", repositoryId, convexProjectId],
-    queryFn: async () => await observe({ repositoryId, convexProjectId }),
+    queryKey: ["repository-convex-components", repositoryId, deploymentName],
+    queryFn: async () => await observe({ repositoryId, deploymentName }),
     retry: false,
   });
 
@@ -202,22 +201,18 @@ export function ConvexComponentTree({
 }
 
 export function RepositoryConvexComponentsView({
-  convexProjectId: routeConvexProjectId,
+  deploymentName,
   owner,
   repoName,
 }: {
-  convexProjectId: string;
+  deploymentName: string;
   owner: string;
   repoName: string;
 }) {
   const repositories = useRepositoryQuery(api.repository.list);
-  const attachment = repositories
-    ? findRepositoryConvexProjectAttachment(
-        repositories,
-        `${owner}/${repoName}`,
-        routeConvexProjectId,
-      )
-    : null;
+  const repository = repositories?.find(
+    (candidate) => candidate.githubRepositoryFullName === `${owner}/${repoName}`,
+  );
 
   return (
     <AppWorkspaceRouteChrome rightToggleVisibility="all">
@@ -227,15 +222,13 @@ export function RepositoryConvexComponentsView({
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading components
           </RepositoryConvexComponentsStatus>
-        ) : attachment?.project ? (
+        ) : repository ? (
           <RepositoryConvexComponentsTree
-            repositoryId={attachment.repository.repositoryId}
-            convexProjectId={attachment.project.convexProjectId}
+            repositoryId={repository.repositoryId}
+            deploymentName={deploymentName}
           />
         ) : (
-          <RepositoryConvexComponentsStatus>
-            Convex project is not attached to this repository.
-          </RepositoryConvexComponentsStatus>
+          <RepositoryConvexComponentsStatus>Repository not found.</RepositoryConvexComponentsStatus>
         )}
       </div>
     </AppWorkspaceRouteChrome>

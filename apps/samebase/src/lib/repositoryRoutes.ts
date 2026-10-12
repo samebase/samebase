@@ -68,9 +68,9 @@ export function buildRepositorySchemaRoute(args: {
 export function buildRepositoryComponentsRoute(args: {
   owner: string;
   repoName: string;
-  convexProjectId: string;
+  deploymentName: string;
 }): string {
-  return `/repo/${args.owner}/${args.repoName}/components/project/${encodeURIComponent(args.convexProjectId)}`;
+  return `/repo/${args.owner}/${args.repoName}/components/${encodeURIComponent(args.deploymentName)}`;
 }
 
 export interface ParsedRepositoryPathContext {

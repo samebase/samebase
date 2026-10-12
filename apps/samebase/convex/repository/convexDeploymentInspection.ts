@@ -22,11 +22,12 @@ import {
 import { vRepositoryConvexProjectDocument } from "./model";
 import { isLiveConnectedRepository } from "./state";
 
-const { id, literal, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 type ConvexInspectionTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
-  project: Doc<"repositoryConvexProjects">;
+  /** The Convex projects attached to the repository. */
+  projects: Doc<"repositoryConvexProjects">[];
   token: string;
 };
 type ConvexSystemQueryResponse = {
@@ -43,14 +44,13 @@ const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
 const vConvexInspectionTarget = object({
   token: string(),
   authMethod: vConvexProviderAuthMethod,
-  project: vRepositoryConvexProjectDocument,
+  projects: array(vRepositoryConvexProjectDocument),
 });
 
 export const readTarget = internalQuery({
   args: {
     repositoryId: id("repositories"),
     userId: id("users"),
-    convexProjectId: id("repositoryConvexProjects"),
   },
   returns: vConvexInspectionTarget,
   handler: async (ctx, args): Promise<ConvexInspectionTarget> => {
@@ -62,14 +62,10 @@ export const readTarget = internalQuery({
       throw new Error("Repository not found.");
     }
 
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !project ||
-      project.repositoryId !== args.repositoryId ||
-      project.organizationId !== repository.organizationId
-    ) {
-      throw new Error("Convex project not found.");
-    }
+    const projects = await ctx.db
+      .query("repositoryConvexProjects")
+      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+      .collect();
 
     const configuration = await getOrganizationProviderConfiguration(
       ctx.db,
@@ -86,7 +82,7 @@ export const readTarget = internalQuery({
     return {
       token,
       authMethod: credential.auth.method,
-      project,
+      projects: projects.filter((project) => project.organizationId === repository.organizationId),
     };
   },
 });

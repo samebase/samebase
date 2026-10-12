@@ -3,7 +3,7 @@ import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
-const pathname = "/repo/$owner/$repository/components/project/$convexProjectId";
+const pathname = "/repo/$owner/$repository/components/$deploymentName";
 
 const RepositoryConvexComponentsView = lazy(async () => {
   const module = await import("@/components/RepositoryConvexComponentsView");
@@ -11,22 +11,20 @@ const RepositoryConvexComponentsView = lazy(async () => {
 });
 
 function RepositoryComponentsRouteComponent() {
-  const { convexProjectId, owner, repository } = Route.useParams();
+  const { deploymentName, owner, repository } = Route.useParams();
 
   return (
     <AuthenticatedAppRoutePage>
       <RepositoryConvexComponentsView
         owner={owner}
         repoName={repository}
-        convexProjectId={convexProjectId}
+        deploymentName={deploymentName}
       />
     </AuthenticatedAppRoutePage>
   );
 }
 
-export const Route = createFileRoute(
-  "/repo/$owner/$repository/components/project/$convexProjectId",
-)({
+export const Route = createFileRoute("/repo/$owner/$repository/components/$deploymentName")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: RepositoryComponentsRouteComponent,
 });

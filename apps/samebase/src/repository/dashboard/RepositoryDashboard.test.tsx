@@ -413,7 +413,7 @@ describe("buildProductionEnvironmentRoots", () => {
               },
               {
                 destination: "samebase",
-                href: `/repo/ada/demo/components/project/${convexProjectId}`,
+                href: `/repo/ada/demo/components/calm-swan-123`,
                 label: "Components",
               },
             ],
@@ -758,7 +758,7 @@ describe("repository environment roots", () => {
               },
               {
                 destination: "samebase",
-                href: `/repo/ada/demo/components/project/${convexProjectId}`,
+                href: `/repo/ada/demo/components/calm-swan-123`,
                 label: "Components",
               },
             ],
