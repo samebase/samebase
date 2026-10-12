@@ -147,6 +147,7 @@ import type * as repository_contracts_repositoryReference from "../repository/co
 import type * as repository_contracts_retryInfrastructureProvisioning from "../repository/contracts/retryInfrastructureProvisioning.js";
 import type * as repository_convex from "../repository/convex.js";
 import type * as repository_convexDeployKeys from "../repository/convexDeployKeys.js";
+import type * as repository_convexDeploymentInspection from "../repository/convexDeploymentInspection.js";
 import type * as repository_convexMutations from "../repository/convexMutations.js";
 import type * as repository_convexProjectResources from "../repository/convexProjectResources.js";
 import type * as repository_convexSchemaGraph from "../repository/convexSchemaGraph.js";
@@ -359,6 +360,7 @@ declare const fullApi: ApiFromModules<{
   "repository/contracts/retryInfrastructureProvisioning": typeof repository_contracts_retryInfrastructureProvisioning;
   "repository/convex": typeof repository_convex;
   "repository/convexDeployKeys": typeof repository_convexDeployKeys;
+  "repository/convexDeploymentInspection": typeof repository_convexDeploymentInspection;
   "repository/convexMutations": typeof repository_convexMutations;
   "repository/convexProjectResources": typeof repository_convexProjectResources;
   "repository/convexSchemaGraph": typeof repository_convexSchemaGraph;
