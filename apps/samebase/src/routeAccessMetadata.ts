@@ -166,6 +166,10 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
     access: "access_schema_graph",
   },
+  "/repo/$owner/$repository/components/project/$convexProjectId": {
+    access: "access_dashboard",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/visual-fixture": {
     access: "access_public",
     availableEnvironments: ["local"],

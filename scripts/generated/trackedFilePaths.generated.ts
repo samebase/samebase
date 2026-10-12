@@ -449,6 +449,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/repository/contracts/retryInfrastructureProvisioning.ts",
   "apps/samebase/convex/repository/convex.ts",
   "apps/samebase/convex/repository/convexDeployKeys.ts",
+  "apps/samebase/convex/repository/convexDeploymentInspection.ts",
   "apps/samebase/convex/repository/convexMutations.ts",
   "apps/samebase/convex/repository/convexProjectResources.ts",
   "apps/samebase/convex/repository/convexProvisioningRegions.convex.test.ts",
