@@ -6,7 +6,11 @@ import type {
 } from "../../../convex/repository/pullRequestModel";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
-import { buildRepositoryDatabaseRoute, buildRepositorySchemaRoute } from "@/lib/repositoryRoutes";
+import {
+  buildRepositoryComponentsRoute,
+  buildRepositoryDatabaseRoute,
+  buildRepositorySchemaRoute,
+} from "@/lib/repositoryRoutes";
 import type {
   RepositoryCloudflareProviderObservationState,
   RepositoryCloudflareWorkerBuildsObservation,
@@ -306,6 +310,15 @@ export function buildProductionEnvironmentRoots({
                         },
                       ]
                     : []),
+                  {
+                    destination: "samebase",
+                    href: buildRepositoryComponentsRoute({
+                      owner,
+                      repoName,
+                      deploymentName: deployment.deploymentName,
+                    }),
+                    label: "Components",
+                  },
                 ],
                 href,
                 label: deployment.deploymentName,

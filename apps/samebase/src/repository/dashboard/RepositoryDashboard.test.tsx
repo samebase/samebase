@@ -411,6 +411,11 @@ describe("buildProductionEnvironmentRoots", () => {
                 href: `/repo/ada/demo/schema/main/project/${convexProjectId}`,
                 label: "Schema",
               },
+              {
+                destination: "samebase",
+                href: `/repo/ada/demo/components/calm-swan-123`,
+                label: "Components",
+              },
             ],
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             label: "calm-swan-123",
@@ -750,6 +755,11 @@ describe("repository environment roots", () => {
                 destination: "samebase",
                 href: `/repo/ada/demo/db/main/project/${convexProjectId}`,
                 label: "Data",
+              },
+              {
+                destination: "samebase",
+                href: `/repo/ada/demo/components/calm-swan-123`,
+                label: "Components",
               },
             ],
             href: dashboardUrl,

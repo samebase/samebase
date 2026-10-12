@@ -146,7 +146,9 @@ import type * as repository_contracts_getUserRepositories from "../repository/co
 import type * as repository_contracts_repositoryReference from "../repository/contracts/repositoryReference.js";
 import type * as repository_contracts_retryInfrastructureProvisioning from "../repository/contracts/retryInfrastructureProvisioning.js";
 import type * as repository_convex from "../repository/convex.js";
+import type * as repository_convexComponents from "../repository/convexComponents.js";
 import type * as repository_convexDeployKeys from "../repository/convexDeployKeys.js";
+import type * as repository_convexDeploymentInspection from "../repository/convexDeploymentInspection.js";
 import type * as repository_convexMutations from "../repository/convexMutations.js";
 import type * as repository_convexProjectResources from "../repository/convexProjectResources.js";
 import type * as repository_convexSchemaGraph from "../repository/convexSchemaGraph.js";
@@ -164,6 +166,7 @@ import type * as repository_deletion_state from "../repository/deletion/state.js
 import type * as repository_deletion_workflow from "../repository/deletion/workflow.js";
 import type * as repository_editorModel from "../repository/editorModel.js";
 import type * as repository_eventOrderModel from "../repository/eventOrderModel.js";
+import type * as repository_fixtures_observedConvexComponents from "../repository/fixtures/observedConvexComponents.js";
 import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
 import type * as repository_folders from "../repository/folders.js";
@@ -358,7 +361,9 @@ declare const fullApi: ApiFromModules<{
   "repository/contracts/repositoryReference": typeof repository_contracts_repositoryReference;
   "repository/contracts/retryInfrastructureProvisioning": typeof repository_contracts_retryInfrastructureProvisioning;
   "repository/convex": typeof repository_convex;
+  "repository/convexComponents": typeof repository_convexComponents;
   "repository/convexDeployKeys": typeof repository_convexDeployKeys;
+  "repository/convexDeploymentInspection": typeof repository_convexDeploymentInspection;
   "repository/convexMutations": typeof repository_convexMutations;
   "repository/convexProjectResources": typeof repository_convexProjectResources;
   "repository/convexSchemaGraph": typeof repository_convexSchemaGraph;
@@ -376,6 +381,7 @@ declare const fullApi: ApiFromModules<{
   "repository/deletion/workflow": typeof repository_deletion_workflow;
   "repository/editorModel": typeof repository_editorModel;
   "repository/eventOrderModel": typeof repository_eventOrderModel;
+  "repository/fixtures/observedConvexComponents": typeof repository_fixtures_observedConvexComponents;
   "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
   "repository/folderModel": typeof repository_folderModel;
   "repository/folders": typeof repository_folders;

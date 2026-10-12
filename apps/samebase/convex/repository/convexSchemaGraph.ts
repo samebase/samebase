@@ -5,19 +5,17 @@ import {
 } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { internalMutation, type MutationCtx } from "../_generated/server";
 import { action, mutation, query } from "../functions";
-import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
+import { isRecord, readBoolean, readString } from "../jsonUtils";
 import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
-import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isLiveConnectedRepository } from "./state";
 import {
-  createConvexDeploymentDeployKey,
-  deleteConvexDeploymentDeployKey,
-  type ConvexDeployKeyAllowedAction,
-  type ConvexDeployKeyAuthMethod,
-} from "./convexDeployKeys";
+  fetchConvexDeploymentJson,
+  fetchConvexSystemQuery,
+  withConvexInspectionDeployKey,
+} from "./convexDeploymentInspection";
 import {
   vRepositoryConvexSchemaGraph as vConvexSchemaGraph,
   type RepositoryConvexSchemaGraph as ConvexSchemaGraph,
@@ -28,19 +26,10 @@ import {
   type RepositoryConvexSchemaGraphTable as ConvexSchemaGraphTable,
   type RepositoryConvexSchemaGraphTableSource as ConvexSchemaGraphTableSource,
 } from "./convexSchemaGraphModel";
-import { vRepositoryConvexProjectDocument } from "./model";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { array, id, number, object, optional, string, union } = v;
 
-type ConvexSchemaRefreshTarget = {
-  authMethod: ConvexDeployKeyAuthMethod;
-  project: Doc<"repositoryConvexProjects">;
-  token: string;
-};
-type ConvexSystemQueryResponse = {
-  value: unknown;
-};
 type DeclaredTable = {
   documentType: unknown;
   indexes: ConvexSchemaGraphIndex[];
@@ -69,22 +58,10 @@ type ConvexSchemaFetchResult = {
   inferredSchemaJson?: string;
 };
 
-const CONVEX_SCHEMA_REFRESH_TIMEOUT_MS = 10_000;
-const CONVEX_SCHEMA_INSPECTION_KEY_TTL_MS = 31 * 60 * 1000;
 const CONVEX_SCHEMA_SNAPSHOT_DOCUMENT_SOFT_LIMIT = 900_000;
 const CONVEX_SCHEMA_RAW_JSON_TOTAL_MAX_LENGTH = 500_000;
 const CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT = 5;
 const CONVEX_SCHEMA_TABLE_COUNT_CONCURRENCY = 8;
-const CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS = [
-  "deployment:data:view",
-] satisfies ConvexDeployKeyAllowedAction[];
-
-const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
-const vConvexSchemaRefreshTarget = object({
-  token: string(),
-  authMethod: vConvexProviderAuthMethod,
-  project: vRepositoryConvexProjectDocument,
-});
 
 const vConvexSchemaGraphLayoutPoint = object({
   nodeId: string(),
@@ -199,110 +176,6 @@ function buildFieldTargetProperties(targetTables: string[]): {
   return { targetTables: uniqueTargetTables };
 }
 
-function readSystemQueryResponse(response: unknown): ConvexSystemQueryResponse | null {
-  if (!isRecord(response) || !("value" in response)) {
-    return null;
-  }
-  return { value: response["value"] };
-}
-
-function buildConvexInspectionDeployKeyName(deploymentName: string): string {
-  const timestamp = Date.now().toString(36);
-  const normalizedDeploymentName = deploymentName.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 40);
-  return `samebase-schema-${normalizedDeploymentName}-${timestamp}`;
-}
-
-async function createConvexInspectionDeployKey(args: {
-  authMethod: ConvexDeployKeyAuthMethod;
-  deploymentName: string;
-  token: string;
-}): Promise<{ deployKey: string; name: string }> {
-  const name = buildConvexInspectionDeployKeyName(args.deploymentName);
-  const expiresAt = Date.now() + CONVEX_SCHEMA_INSPECTION_KEY_TTL_MS;
-  const deployKey = await createConvexDeploymentDeployKey({
-    allowedActions: CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS,
-    authMethod: args.authMethod,
-    deploymentName: args.deploymentName,
-    expiresAt,
-    name,
-    token: args.token,
-  });
-  return { deployKey, name };
-}
-
-async function deleteConvexInspectionDeployKey(args: {
-  deploymentName: string;
-  name: string;
-  token: string;
-}): Promise<void> {
-  await deleteConvexDeploymentDeployKey({
-    deploymentName: args.deploymentName,
-    name: args.name,
-    token: args.token,
-  });
-}
-
-async function fetchConvexDeploymentJson(args: {
-  deployKey: string;
-  deploymentUrl: string;
-  path: string;
-  body?: unknown;
-}): Promise<unknown> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, CONVEX_SCHEMA_REFRESH_TIMEOUT_MS);
-  const headers = new Headers({
-    Authorization: `Convex ${args.deployKey}`,
-    "Content-Type": "application/json",
-  });
-  let body: string | undefined;
-  if (args.body !== undefined) {
-    body = JSON.stringify(args.body);
-  }
-
-  try {
-    const response = await fetch(new Request(`${args.deploymentUrl}${args.path}`), {
-      method: args.body === undefined ? "GET" : "POST",
-      headers,
-      body,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(
-        `Convex deployment request failed: ${response.status} ${response.statusText}`,
-      );
-    }
-    return await response.json();
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Convex deployment request timed out.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function fetchConvexSystemQuery(args: {
-  deployKey: string;
-  deploymentUrl: string;
-  path: string;
-  queryArgs: unknown;
-}): Promise<ConvexSystemQueryResponse | null> {
-  const response = await fetchConvexDeploymentJson({
-    deployKey: args.deployKey,
-    deploymentUrl: args.deploymentUrl,
-    path: "/api/query",
-    body: {
-      path: args.path,
-      args: args.queryArgs,
-      format: "json",
-    },
-  });
-  return readSystemQueryResponse(response);
-}
-
 async function fetchTableCount(args: {
   deployKey: string;
   deploymentUrl: string;
@@ -321,7 +194,7 @@ async function fetchTableCount(args: {
   }
 }
 
-function readDeclaredTables(schema: unknown): DeclaredTable[] {
+export function readDeclaredTables(schema: unknown): DeclaredTable[] {
   if (!isRecord(schema) || !Array.isArray(schema["tables"])) {
     return [];
   }
@@ -656,7 +529,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
   }
 }
 
-function fieldsFromDeclaredDocumentType(documentType: unknown): ConvexSchemaGraphField[] {
+export function fieldsFromDeclaredDocumentType(documentType: unknown): ConvexSchemaGraphField[] {
   const fields = new Map<string, ConvexSchemaGraphField>();
   collectDeclaredFields({
     fields,
@@ -1097,109 +970,43 @@ export const refresh = action({
     ctx,
     args,
   ): Promise<{ snapshotId: Id<"observations_repositoryConvexSchema_snapshots"> }> => {
-    const target = await ctx.runQuery(internal.repository.convexSchemaGraph.readRefreshTarget, {
+    const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
-      convexProjectId: args.convexProjectId,
     });
+    const project = target.projects.find((candidate) => candidate._id === args.convexProjectId);
+    if (!project) {
+      throw new Error("Convex project not found.");
+    }
     const deployment: ConvexCloudDeployment | null = await readConvexProductionDeployment({
       token: target.token,
-      projectId: target.project.projectId,
+      projectId: project.projectId,
     });
     if (!deployment) {
       throw new Error("Convex project has no production deployment.");
     }
-    let deployKey: string | null = null;
-    let deployKeyName: string | null = null;
-    try {
-      const createdDeployKey = await createConvexInspectionDeployKey({
-        authMethod: target.authMethod,
-        deploymentName: deployment.name,
-        token: target.token,
-      });
-      deployKey = createdDeployKey.deployKey;
-      deployKeyName = createdDeployKey.name;
-      const fetched = await fetchConvexSchemaGraph({
-        deployKey,
-        deploymentUrl: deployment.deploymentUrl,
-      });
-      const graph = fetched.graph;
-      const snapshotId = await ctx.runMutation(
-        internal.repository.convexSchemaGraph.recordSnapshot,
-        {
-          userId: ctx.viewer.userId,
-          repositoryId: args.repositoryId,
-          convexProjectId: target.project._id,
-          deploymentName: deployment.name,
-          schemaHash: buildSchemaHash(graph),
-          graph,
-          declaredSchemaJson: fetched.declaredSchemaJson,
-          inferredSchemaJson: fetched.inferredSchemaJson,
-          fetchedAt: Date.now(),
-        },
-      );
-      return { snapshotId };
-    } finally {
-      if (deployKeyName) {
-        try {
-          await deleteConvexInspectionDeployKey({
-            deploymentName: deployment.name,
-            name: deployKeyName,
-            token: target.token,
-          });
-        } catch (error) {
-          console.warn("convex_schema_graph:deploy_key_cleanup_failed", {
-            deploymentName: deployment.name,
-            message: toErrorMessage(error),
-          });
-        }
-      }
-    }
-  },
-});
 
-export const readRefreshTarget = internalQuery({
-  args: {
-    repositoryId: id("repositories"),
-    userId: id("users"),
-    convexProjectId: id("repositoryConvexProjects"),
-  },
-  returns: vConvexSchemaRefreshTarget,
-  handler: async (ctx, args): Promise<ConvexSchemaRefreshTarget> => {
-    const repository = await requireRepositoryForUser(ctx.db, {
-      userId: args.userId,
-      repositoryId: args.repositoryId,
-    });
-    if (!isLiveConnectedRepository(repository)) {
-      throw new Error("Repository not found.");
-    }
-
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !project ||
-      project.repositoryId !== args.repositoryId ||
-      project.organizationId !== repository.organizationId
-    ) {
-      throw new Error("Convex project not found.");
-    }
-
-    const configuration = await getOrganizationProviderConfiguration(
-      ctx.db,
-      repository.organizationId,
+    const fetched = await withConvexInspectionDeployKey(
+      { deployment, purpose: "schema", target },
+      async (deployKey) =>
+        await fetchConvexSchemaGraph({
+          deployKey,
+          deploymentUrl: deployment.deploymentUrl,
+        }),
     );
-    const credential = configuration.convexCredential;
-    if (configuration.convexTeam?.teamId !== repository.convexTeamId || !credential) {
-      throw new Error("Convex connection is required.");
-    }
-    const token = credential.auth.credential.trim();
-    if (!token) {
-      throw new Error("Convex connection is required.");
-    }
-    return {
-      token,
-      authMethod: credential.auth.method,
-      project,
-    };
+    const graph = fetched.graph;
+    const snapshotId = await ctx.runMutation(internal.repository.convexSchemaGraph.recordSnapshot, {
+      userId: ctx.viewer.userId,
+      repositoryId: args.repositoryId,
+      convexProjectId: project._id,
+      deploymentName: deployment.name,
+      schemaHash: buildSchemaHash(graph),
+      graph,
+      declaredSchemaJson: fetched.declaredSchemaJson,
+      inferredSchemaJson: fetched.inferredSchemaJson,
+      fetchedAt: Date.now(),
+    });
+    return { snapshotId };
   },
 });
 

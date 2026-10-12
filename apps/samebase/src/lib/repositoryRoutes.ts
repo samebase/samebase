@@ -65,6 +65,14 @@ export function buildRepositorySchemaRoute(args: {
   return `/repo/${args.owner}/${args.repoName}/schema/${encodeRepositoryBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
+export function buildRepositoryComponentsRoute(args: {
+  owner: string;
+  repoName: string;
+  deploymentName: string;
+}): string {
+  return `/repo/${args.owner}/${args.repoName}/components/${encodeURIComponent(args.deploymentName)}`;
+}
+
 export interface ParsedRepositoryPathContext {
   owner?: string;
   githubRepositoryFullName?: string;
