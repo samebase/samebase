@@ -194,7 +194,7 @@ async function fetchTableCount(args: {
   }
 }
 
-function readDeclaredTables(schema: unknown): DeclaredTable[] {
+export function readDeclaredTables(schema: unknown): DeclaredTable[] {
   if (!isRecord(schema) || !Array.isArray(schema["tables"])) {
     return [];
   }
@@ -529,7 +529,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
   }
 }
 
-function fieldsFromDeclaredDocumentType(documentType: unknown): ConvexSchemaGraphField[] {
+export function fieldsFromDeclaredDocumentType(documentType: unknown): ConvexSchemaGraphField[] {
   const fields = new Map<string, ConvexSchemaGraphField>();
   collectDeclaredFields({
     fields,

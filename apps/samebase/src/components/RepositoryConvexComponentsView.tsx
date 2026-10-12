@@ -97,6 +97,39 @@ function ConvexComponentDetailItem({ detail, name }: { detail: string; name: str
   );
 }
 
+function ConvexComponentTable({ table }: { table: ConvexComponent["tables"][number] }) {
+  const documents = `${table.documentCount} ${table.documentCount === 1 ? "document" : "documents"}`;
+  if (!table.schema) {
+    return <ConvexComponentDetailItem name={table.name} detail={`${documents}, no schema`} />;
+  }
+
+  return (
+    <details className="group/table">
+      <summary className="flex min-w-0 cursor-pointer list-none flex-wrap items-baseline gap-x-2">
+        <span className="min-w-0 break-all font-mono">{table.name}</span>
+        <span className="min-w-0 break-all text-muted-foreground">{documents}</span>
+        <ChevronRight className="size-3 shrink-0 self-center text-muted-foreground group-open/table:rotate-90" />
+      </summary>
+      <div className="grid gap-0.5 border-l border-border py-1 pl-3">
+        {table.schema.fields.map((field) => (
+          <ConvexComponentDetailItem
+            key={field.path}
+            name={field.path}
+            detail={field.optional ? `${field.kind}, optional` : field.kind}
+          />
+        ))}
+        {table.schema.indexes.map((index) => (
+          <ConvexComponentDetailItem
+            key={index.name}
+            name={index.name}
+            detail={`index on ${index.fields.join(", ")}`}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function ConvexComponentDetails({ component }: { component: ConvexComponent }) {
   return (
     <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
@@ -112,11 +145,7 @@ function ConvexComponentDetails({ component }: { component: ConvexComponent }) {
       {component.tables.length === 0 ? null : (
         <ConvexComponentDetailRow label="Tables">
           {component.tables.map((table) => (
-            <ConvexComponentDetailItem
-              key={table.name}
-              name={table.name}
-              detail={`${table.documentCount} ${table.documentCount === 1 ? "document" : "documents"}`}
-            />
+            <ConvexComponentTable key={table.name} table={table} />
           ))}
         </ConvexComponentDetailRow>
       )}

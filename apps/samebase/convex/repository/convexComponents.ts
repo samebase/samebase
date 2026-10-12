@@ -15,12 +15,13 @@ import { internal } from "../_generated/api";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import { readConvexProductionDeployment } from "./convexProjectResources";
+import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexSchemaGraph";
 import {
   fetchConvexSystemQueryBatch,
   withConvexInspectionDeployKey,
 } from "./convexDeploymentInspection";
 
-const { array, id, literal, number, object, string, union } = v;
+const { array, boolean, id, literal, number, object, string, union } = v;
 
 const vConvexComponentsObservation = object({
   deploymentName: string(),
@@ -32,7 +33,20 @@ const vConvexComponentsObservation = object({
       state: union(literal("active"), literal("unmounted")),
       httpPrefix: union(string(), v.null()),
       fileCount: number(),
-      tables: array(object({ name: string(), documentCount: number() })),
+      tables: array(
+        object({
+          name: string(),
+          documentCount: number(),
+          /** `null` when the component schema does not declare the table. */
+          schema: union(
+            object({
+              fields: array(object({ path: string(), kind: string(), optional: boolean() })),
+              indexes: array(object({ name: string(), fields: array(string()) })),
+            }),
+            v.null(),
+          ),
+        }),
+      ),
       functions: array(
         object({ module: string(), name: string(), type: string(), visibility: string() }),
       ),
@@ -88,6 +102,8 @@ const sureModulesByComponent = sureArray(
   ]),
 );
 const sureTableNames = sureArray(sureString);
+/** `active` is the deployed schema as JSON text; it is missing when the component declares no schema. */
+const sureSchemas = sureArray(sureObject({ active: sureOptional(sureString) }));
 const sureCounts = sureArray(sureNumber);
 
 /**
@@ -152,7 +168,7 @@ export const observe = action({
           .flatMap((row) => (row.name === null ? [] : [{ ...row, name: row.name }]))
           .sort((left, right) => left.path.localeCompare(right.path));
 
-        const [tableMappingValues, fileCountValues] = await Promise.all([
+        const [tableMappingValues, fileCountValues, schemaValues] = await Promise.all([
           query(
             componentRows.map((row) => ({
               path: "_system/frontend/getTableMapping:default",
@@ -165,7 +181,21 @@ export const observe = action({
               args: { componentId: row.id },
             })),
           ),
+          query(
+            componentRows.map((row) => ({
+              path: "_system/frontend/getSchemas:default",
+              args: { componentId: row.id },
+            })),
+          ),
         ]);
+        const [validSchemas, schemas] = sureSchemas(schemaValues);
+        if (!validSchemas) {
+          throw new Error("Convex returned an unexpected schema.");
+        }
+        const declaredTablesByComponent = schemas.map(({ active }) => {
+          const schema: unknown = active ? JSON.parse(active) : null;
+          return readDeclaredTables(schema);
+        });
         const [validFileCounts, fileCounts] = sureCounts(fileCountValues);
         if (!validFileCounts) {
           throw new Error("Convex returned an unexpected file count.");
@@ -208,11 +238,32 @@ export const observe = action({
             state: row.state,
             httpPrefix: row.httpPrefix,
             fileCount: fileCounts[index],
-            tables: tables.flatMap((table, tableIndex) =>
-              table.componentId === row.id
-                ? [{ name: table.tableName, documentCount: documentCounts[tableIndex] }]
-                : [],
-            ),
+            tables: tables.flatMap((table, tableIndex) => {
+              if (table.componentId !== row.id) {
+                return [];
+              }
+              const declaredTable = declaredTablesByComponent[index].find(
+                (candidate) => candidate.tableName === table.tableName,
+              );
+              return [
+                {
+                  name: table.tableName,
+                  documentCount: documentCounts[tableIndex],
+                  schema: declaredTable
+                    ? {
+                        fields: fieldsFromDeclaredDocumentType(declaredTable.documentType).map(
+                          (field) => ({
+                            path: field.path,
+                            kind: field.kind,
+                            optional: field.optional,
+                          }),
+                        ),
+                        indexes: declaredTable.indexes,
+                      }
+                    : null,
+                },
+              ];
+            }),
             functions: modules
               .flatMap(([module, { functions }]) =>
                 functions.map((fn) => ({

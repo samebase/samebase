@@ -28,7 +28,17 @@ const observation = {
       state: "active",
       httpPrefix: null,
       fileCount: 0,
-      tables: [{ name: "workflows", documentCount: 1 }],
+      tables: [
+        { name: "events", documentCount: 0, schema: null },
+        {
+          name: "workflows",
+          documentCount: 1,
+          schema: {
+            fields: [{ path: "name", kind: "string", optional: true }],
+            indexes: [{ name: "name", fields: ["name", "_creationTime"] }],
+          },
+        },
+      ],
       functions: [
         { module: "workflow.js", name: "create", type: "Mutation", visibility: "public" },
       ],
@@ -76,7 +86,7 @@ describe("ConvexComponentTree", () => {
 
     expect(outline).toEqual([
       "mail0 functions · 0 tables",
-      "workflow1 function · 1 table",
+      "workflow1 function · 2 tables",
       "  workpoolunmounted · 0 functions · 0 tables",
     ]);
   });
@@ -94,7 +104,7 @@ describe("ConvexComponentTree", () => {
         "Files",
         "0",
         "Tables",
-        "workflows1 document",
+        "events0 documents, no schemaworkflows1 documentnamestring, optionalnameindex on name, _creationTime",
         "Functions",
         "workflow.js:createMutation, public",
       ],

@@ -7,6 +7,7 @@ import {
   observedConvexComponentsList,
   observedConvexFileCounts,
   observedConvexModulesForAllComponents,
+  observedConvexSchemas,
   observedConvexTableMappings,
   observedConvexTableSizes,
 } from "./fixtures/observedConvexComponents";
@@ -31,6 +32,8 @@ function answerSystemQuery(query: unknown): unknown {
       return observedConvexTableMappings[componentId];
     case "_system/frontend/fileStorageV2:numFiles":
       return observedConvexFileCounts[componentId];
+    case "_system/frontend/getSchemas:default":
+      return { active: JSON.stringify(observedConvexSchemas[componentId]) };
     case "_system/frontend/tableSize:default":
       return observedConvexTableSizes[componentId]?.[String(query["args"]["tableName"])];
   }
@@ -221,35 +224,32 @@ describe("repository Convex components", () => {
       })),
     ).toEqual([
       {
-        path: "mail",
-        state: "active",
-        httpPrefix: null,
-        fileCount: 0,
-        tables: [
-          { name: "emailAttachments", documentCount: 0 },
-          { name: "emailBodies", documentCount: 0 },
-          { name: "emailMessages", documentCount: 0 },
-          { name: "emailThreads", documentCount: 0 },
-          { name: "inboxes", documentCount: 0 },
-          { name: "ingressReceipts", documentCount: 0 },
-          { name: "mailDomains", documentCount: 0 },
-        ],
-        functionCount: 22,
-        crons: [],
-      },
-      {
         path: "workflow",
         state: "active",
         httpPrefix: null,
         fileCount: 0,
         tables: [
-          { name: "config", documentCount: 1 },
-          { name: "events", documentCount: 0 },
-          { name: "onCompleteFailures", documentCount: 0 },
-          { name: "steps", documentCount: 4 },
-          { name: "workflows", documentCount: 1 },
+          {
+            name: "config",
+            documentCount: 1,
+            schema: {
+              fields: [
+                {
+                  path: "logLevel",
+                  kind: '"DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR"',
+                  optional: true,
+                },
+                { path: "maxParallelism", kind: "number", optional: true },
+              ],
+              indexes: [],
+            },
+          },
+          { name: "events", documentCount: 0, schema: null },
+          { name: "onCompleteFailures", documentCount: 0, schema: null },
+          { name: "steps", documentCount: 4, schema: null },
+          { name: "workflows", documentCount: 1, schema: null },
         ],
-        functionCount: 19,
+        functionCount: 11,
         crons: [],
       },
       {
@@ -258,16 +258,29 @@ describe("repository Convex components", () => {
         httpPrefix: null,
         fileCount: 0,
         tables: [
-          { name: "globals", documentCount: 1 },
-          { name: "internalState", documentCount: 1 },
-          { name: "payload", documentCount: 0 },
-          { name: "pendingCancelation", documentCount: 0 },
-          { name: "pendingCompletion", documentCount: 0 },
-          { name: "pendingStart", documentCount: 0 },
-          { name: "runStatus", documentCount: 1 },
-          { name: "work", documentCount: 0 },
+          { name: "globals", documentCount: 1, schema: null },
+          { name: "internalState", documentCount: 1, schema: null },
+          { name: "payload", documentCount: 0, schema: null },
+          { name: "pendingCancelation", documentCount: 0, schema: null },
+          { name: "pendingCompletion", documentCount: 0, schema: null },
+          {
+            name: "pendingStart",
+            documentCount: 0,
+            schema: {
+              fields: [
+                { path: "segment", kind: "bigint", optional: false },
+                { path: "workId", kind: "Id<work>", optional: false },
+              ],
+              indexes: [
+                { name: "segment", fields: ["segment", "_creationTime"] },
+                { name: "workId", fields: ["workId", "_creationTime"] },
+              ],
+            },
+          },
+          { name: "runStatus", documentCount: 1, schema: null },
+          { name: "work", documentCount: 0, schema: null },
         ],
-        functionCount: 21,
+        functionCount: 2,
         crons: [
           {
             name: "healthcheck",
@@ -277,15 +290,13 @@ describe("repository Convex components", () => {
         ],
       },
     ]);
-    expect(observation.components[2]?.functions[0]).toEqual({
-      module: "complete.js",
-      name: "complete",
-      type: "Mutation",
-      visibility: "internal",
-    });
+    expect(observation.components[1]?.functions).toEqual([
+      { module: "complete.js", name: "complete", type: "Mutation", visibility: "internal" },
+      { module: "crons.js", name: "healthcheck", type: "Mutation", visibility: "internal" },
+    ]);
 
     const batchRequests = requests.filter((request) => request.url.endsWith("/api/query_batch"));
-    expect(batchRequests).toHaveLength(4);
+    expect(batchRequests).toHaveLength(5);
     expect(new Set(batchRequests.map((request) => request.authorization))).toEqual(
       new Set(["Convex prod:demo-prod|components-secret"]),
     );
@@ -318,7 +329,6 @@ describe("repository Convex components", () => {
       deploymentName: "demo-prod",
     });
     expect(observation.components.map((component) => component.path)).toEqual([
-      "mail",
       "workflow",
       "workflow/workpool",
     ]);
