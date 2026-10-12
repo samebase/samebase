@@ -45,20 +45,52 @@ initial file component into a general component-dashboard framework.
 ## Recommendation
 
 Use one named-file component as the default for files in code we own. For native Convex storage, one
-`files` table with required `storageId` and `virtualPath` fields is a sound starting model. Use the
-row's existing `_id` as stable file identity. Enforce path uniqueness within each component
-instance.
+`files` table with required `storageId` and `path` fields is a sound starting model. Use the row's
+existing `_id` as stable file identity. Enforce path uniqueness within each component instance.
 
-Files Control remains a candidate, not a selected dependency. Its paths, R2 support, and access
-features can be useful for application uploads. Large-file upload is already provided by Convex, so
-that capability alone does not justify this package. Evaluate the total implementation and operating
-cost of the common file contract before choosing it or creating another package.
+The next useful experiment is a small native component in the hosting monorepo, with the scope
+below. This directly tests the missing naming contract without adopting access grants or provider
+transfer behavior. Files Control remains a comparison candidate. Large-file upload is already
+provided by Convex, so that capability alone does not justify either package.
 
 Keep the first browser focused on listing and inspecting files. Validate application uploads and
 hosting before calling the component the default. A production hosting migration remains a separate
 step because storage ownership, publication, and serving costs need proof. Keep hosting's current
 native storage while evaluating that choice. Its existing path records can support an inspection API
 without first moving the bytes or adding another file registry.
+
+## Proposed prototype in the hosting monorepo
+
+Create a sibling package at `packages/convex-files` beside `packages/convex-hosting`. The existing
+workspace includes `packages/*`, and its build and typecheck commands run across packages. This
+allows the component and its first consumer to change together while keeping their APIs separate. A
+separate repository is unnecessary at this stage; a separate package provides the reuse boundary.
+
+Sources:
+[workspace packages](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/pnpm-workspace.yaml#L1)
+and
+[root commands](https://github.com/samebase/convex-hosting/blob/9978f58b59b1580187b352810c78016ad22fc93e/package.json#L5).
+
+Use one application table, `files`, with required `path` and `storageId` fields. The component owns
+the native blobs. Convex supplies the record ID, creation time, and native storage metadata. Enforce
+path uniqueness in the registration and rename mutations, within each component instance.
+
+Keep the functions to native upload, verified registration, lookup, paginated listing, rename,
+read-only URL and metadata access, and explicit deletion. Preserve bounded abandoned-upload cleanup.
+The host owns authorization; hosting owns deployment publication, public URL paths, and retention.
+R2 and the browser can follow a demonstrated need without expanding this first backend experiment.
+
+Owning the blobs is necessary for this package to provide their file operations. A path table that
+only refers to another component's storage cannot read or delete those blobs. It would require each
+caller to supply those operations separately.
+
+Source: [component storage isolation](https://docs.convex.dev/components/understanding#isolation).
+
+Prove the package in a nested example before migrating existing hosting storage. A custom component
+has the same child-storage boundary as Files Control: hosting must use the child's read API rather
+than its own direct storage read. Check uncached serving cost, publication at the current asset
+limit, retained files, and interrupted uploads. The proposal is a bounded prototype, not a claim
+that one table removes upload lifecycle or serving work. No package was created in this research.
 
 ## What native Convex storage preserves
 
@@ -277,16 +309,16 @@ component or a requirement to build a recovery subsystem now.
 
 For native Convex, begin with this one-table model:
 
-| Field         | Meaning                                                                 |
-| ------------- | ----------------------------------------------------------------------- |
-| `_id`         | Convex-generated stable file identity for application references.       |
-| `virtualPath` | Required logical path, unique within this component instance.           |
-| `storageId`   | Required native storage ID for a completed file owned by this instance. |
+| Field       | Meaning                                                                 |
+| ----------- | ----------------------------------------------------------------------- |
+| `_id`       | Convex-generated stable file identity for application references.       |
+| `path`      | Required logical path, unique within this component instance.           |
+| `storageId` | Required native storage ID for a completed file owned by this instance. |
 
 Convex also supplies `_creationTime`. Derive the displayed filename from the last path segment and
-folders from path prefixes. Rename changes `virtualPath`, leaving `_id` unchanged. A new upload gets
-a new file ID. Creating an existing path should fail; replacement must be explicit and must not
-silently change bytes used by existing file references.
+folders from path prefixes. Rename changes `path`, leaving `_id` unchanged. A new upload gets a new
+file ID. Creating an existing path should fail; replacement must be explicit and must not silently
+change bytes used by existing file references.
 
 Uniqueness is an operation rule. Define an index on the path, then check and insert or update inside
 the same mutation. An index alone does not enforce it, and `.unique()` is a query assertion that
@@ -490,7 +522,8 @@ flowchart TD
 
 ## Suggested next research step
 
-Run a small Files Control evaluation against the default file contract. Check:
+Prototype the native one-table package in the hosting monorepo and compare the resulting contract
+with Files Control. Check:
 
 1. Every completed file has a required path, with stable identity across rename.
 2. Upload registration rejects missing or foreign storage IDs, including when metadata is supplied.
@@ -498,12 +531,11 @@ Run a small Files Control evaluation against the default file contract. Check:
 4. Prefix listing is paginated, and metadata can be read for the selected file.
 5. Repeated original filenames, generated files, temporary files, and separate deployments fit
    without bypassing the component.
-6. Interrupted upload handling and the required access-key row have acceptable cost.
-7. R2 can preserve the logical API with explicit retry and rename behavior.
+6. Interrupted upload handling preserves hosting's existing cleanup guarantees.
+7. Child storage access preserves acceptable serving cost and hosting transaction limits.
 
-If Files Control can support this contract with small changes, contribute those changes or build a
-thin integration around it. Create a new native component only if the evaluation finds a concrete
-ownership, lifecycle, or naming conflict that cannot fit its API.
+Compare the total code and maintenance cost with the changes Files Control would require. Keep the
+experiment limited to native named files; evaluate R2 separately if a concrete consumer needs it.
 
 Only pursue a hosting integration if the evaluation shows a concrete benefit over its current
 named-file model. Compare total code, serving cost, and operational behavior while preserving
