@@ -193,9 +193,7 @@ function readAppWorkspaceRouteChromeStaticDataFromRoutes(
 function useAppWorkspaceRouteChromeStaticData(pathname: string) {
   const router = useRouter();
 
-  return readAppWorkspaceRouteChromeStaticDataFromRoutes(
-    router.getMatchedRoutes(pathname).matchedRoutes,
-  );
+  return readAppWorkspaceRouteChromeStaticDataFromRoutes(router.getMatchedRoutes(pathname)[0]);
 }
 
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
@@ -353,7 +351,7 @@ function AppWorkspaceShellFrame({
 
 /**
 Cloudflare can serve the `/`-based `index.html` for another route. TanStack marks the build render
-with `isShell()` and the browser fallback render with `ssr === false` or `globalNotFound`. Keep both
+with `isShell()` and the browser fallback render with `ssr === false` or `_notFound`. Keep both
 renders on `/`. The effect enables the requested route after hydration.
 */
 function useAppWorkspaceSpaShellFirstRender() {
@@ -367,7 +365,7 @@ function useAppWorkspaceSpaShellFirstRender() {
   return (
     !hasHydrated &&
     (router.isShell() ||
-      router.state.matches.some((match) => match.ssr === false || match.globalNotFound))
+      router.state.matches.some((match) => match.ssr === false || match._notFound))
   );
 }
 
