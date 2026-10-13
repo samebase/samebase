@@ -1185,7 +1185,7 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
 
       // This push bypasses router.navigate so suggestion previews can become a
       // new entry; carry the same-path scroll decision into the router first.
-      router.resetNextScroll =
+      router._scroll.n =
         readRouteEditorNavigationOptions({
           currentRouteAddress: baseRouteAddress,
           nextRouteAddress: routeAddress,

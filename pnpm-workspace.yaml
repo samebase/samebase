@@ -91,7 +91,7 @@ overrides:
   sharp: 0.35.5
   "semver@6": 7.7.4
   shell-quote: 1.12.0
-  seroval: 1.6.3
+  seroval: 1.6.8
   source-map-js: 1.2.2
   tinypool: 2.1.2
   undici: 7.29.1
