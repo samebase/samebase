@@ -12,6 +12,12 @@ const { useQueryMock } = vi.hoisted(() => ({
   useQueryMock: vi.fn(),
 }));
 
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
+}));
+
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
 
