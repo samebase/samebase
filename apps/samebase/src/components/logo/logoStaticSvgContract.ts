@@ -4,6 +4,7 @@ import { type LogoFaceTreatment } from "@samebase/logo-model/face-treatment";
 export const LOGO_THREE_SVG_VIEWBOX_SIZE = 360;
 export const LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING = 1.12;
 export const STATIC_LOGO_BACKGROUND_COLOR = "transparent";
+/** The version 3 history mark the `/logo` labs render. Spec 089 names the product logo file. */
 export const DEFAULT_STATIC_LOGO_SVG_URL = "/logo-static.svg";
 export const LOGO_BRAND_ASSET_ROOT = "/brand";
 export const LOGO_IDENTITY_TREATMENT_ASSET_PATHS = {

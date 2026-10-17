@@ -907,7 +907,6 @@ export const trackedFilePaths = [
   "apps/samebase/public/logo-static.svg",
   "apps/samebase/public/logo-v1-side-primary.svg",
   "apps/samebase/public/logo-v2-side-diagonal.svg",
-  "apps/samebase/public/logo_pick.svg",
   "apps/samebase/public/manifest.webmanifest",
   "apps/samebase/public/media-visual-fixture.svg",
   "apps/samebase/public/onboarding/complete-onboarding-poster.webp",
