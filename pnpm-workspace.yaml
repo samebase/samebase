@@ -70,6 +70,8 @@ overrides:
   "brace-expansion@5": 5.0.12
   body-parser: 2.3.0
   browserslist: 4.28.7
+  # GHSA-g5c8-w9fp-h5vm also affects the copy pinned by the mail component.
+  convex-helpers: 0.1.127
   dompurify: 3.4.16
   esbuild: 0.28.1
   fast-uri: 3.1.8
