@@ -1943,6 +1943,7 @@ export const trackedFilePaths = [
   "patches/@convex-dev__auth@0.0.94.patch",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
+  "renovate.json",
   "research/050_T3_CODE_REFERENCE_ARCHITECTURE_SPEC.md",
   "research/056_ORB_VS_POLAR_SPEC.md",
   "research/2026-04-01-agent-memory-structure-audit.md",
