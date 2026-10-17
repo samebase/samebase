@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend
-- Last updated: 2026-08-20
+- Last updated: 2026-10-18
 - Related files: `apps/samebase/src/components/logo/logoStaticSvgContract.ts`,
   `apps/samebase/src/components/logo/logoStaticSvgAsset.ts`,
   `apps/samebase/src/components/compactIdentitySvgAsset.ts`,
@@ -32,8 +32,13 @@ sequence a code and asset invariant rather than an implied memory.
 
 Compact identity surfaces use the clean version 1 projection as a single dark square with its center
 square removed. This is the canonical icon treatment for browser chrome, app installation, plugin
-and mention avatars, structured identity metadata, and compact in-app navigation. The spatial
-version 3 mark remains the expressive rendering for landing and social compositions.
+and mention avatars, structured identity metadata, and compact in-app navigation. The logo file is
+`apps/samebase/public/brand/icon/compact-v1.svg` (served as `/samebase-icon.svg`);
+`logo-v1-side-primary.svg` is the same mark on a transparent background. The landing lockup, the
+social card, and the JSON-LD logo all use this version 1 square. The spatial version 3 mark
+(`/logo-static.svg`, the isometric view) is history kept for the `/logo` labs; it is not the landing
+or social mark. The live 3D renders on samebase.com draw a Menger sponge
+(`MENGER_SPONGE_VOXEL_STATE`) whose depth-1 front face is this square.
 
 Recursive `/logo?depth=...` previews and `gridSize=2` playground states are exploration render
 states. They do not change the canonical identity asset contract unless this spec, the generated
@@ -92,7 +97,8 @@ gets the same stripe phase.
 
 - `/logo-v1-side-primary.svg` is the version 1 side-primary mark.
 - `/logo-v2-side-diagonal.svg` is the version 2 side-diagonal mark.
-- `/logo-static.svg` is the version 3 spatial mark and remains the canonical public static logo.
+- `/logo-static.svg` is the version 3 spatial mark, kept as history for the `/logo` labs. It is not
+  the product logo.
 - Stable root logo URLs point at the current default treatment.
 - Treatment-named assets under `apps/samebase/public/brand/logo/` preserve both `duotone` and
   `striped` exports for each identity view.
@@ -119,8 +125,8 @@ When a product surface needs a compact Samebase identity mark, use the clean ver
 
 - Use version 1 for favicons, avatars, install icons, compact navigation, and other icon roles.
 - Use version 2 only when explaining the transition between the primary side and the spatial mark.
-- Use version 3 for public marketing and social-card compositions where the full spatial object
-  carries the brand.
+- Version 3 is history: use it only in the `/logo` labs and in the X profile banner sequence, never
+  as the landing, social-card, or listing mark.
 - When any of the three identity views needs a single-color treatment, preserve that view's camera
   and shape, then apply the canonical single-color stripe treatment above.
 
