@@ -9,147 +9,67 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/root";
-import { Route as youtubeRouteImport } from "./routes/youtube";
-import { Route as xRouteImport } from "./routes/x";
-import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
-import { Route as testRouteImport } from "./routes/test";
-import { Route as termsRouteImport } from "./routes/terms";
-import { Route as settingsRouteImport } from "./routes/settings";
-import { Route as privacyRouteImport } from "./routes/privacy";
-import { Route as pricingRouteImport } from "./routes/pricing";
-import { Route as pitchRouteImport } from "./routes/pitch";
-import { Route as organizationsRouteImport } from "./routes/organizations";
-import { Route as logoRouteImport } from "./routes/logo";
-import { Route as localStorageRouteImport } from "./routes/localStorage";
-import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
-import { Route as landingRouteImport } from "./routes/landing";
-import { Route as indexDBRouteImport } from "./routes/indexDB";
-import { Route as docsRouteImport } from "./routes/docs";
-import { Route as discordRouteImport } from "./routes/discord";
-import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
-import { Route as repositoryFileRouteImport } from "./routes/repository-file";
-import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
-import { Route as orgRouteImport } from "./routes/org";
-import { Route as oauthProviderCompleteRouteImport } from "./routes/oauth-provider-complete";
-import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
-import { Route as logoSvgRouteImport } from "./routes/logo-svg";
-import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
-import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
-import { Route as logoRasterRouteImport } from "./routes/logo-raster";
-import { Route as logoIsoRouteImport } from "./routes/logo-iso";
-import { Route as inviteRouteImport } from "./routes/invite";
-import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
-import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
-import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
-import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
-import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/docs-cloudflare-previews-migration";
-import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
-import { Route as adminUsersRouteImport } from "./routes/admin-users";
-import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
+import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
+import { Route as discordRouteImport } from "./routes/discord";
+import { Route as docsRouteImport } from "./routes/docs";
+import { Route as indexDBRouteImport } from "./routes/indexDB";
+import { Route as landingRouteImport } from "./routes/landing";
+import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
+import { Route as localStorageRouteImport } from "./routes/localStorage";
+import { Route as logoRouteImport } from "./routes/logo";
+import { Route as organizationsRouteImport } from "./routes/organizations";
+import { Route as pitchRouteImport } from "./routes/pitch";
+import { Route as pricingRouteImport } from "./routes/pricing";
+import { Route as privacyRouteImport } from "./routes/privacy";
+import { Route as settingsRouteImport } from "./routes/settings";
+import { Route as termsRouteImport } from "./routes/terms";
+import { Route as testRouteImport } from "./routes/test";
+import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
+import { Route as xRouteImport } from "./routes/x";
+import { Route as youtubeRouteImport } from "./routes/youtube";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
+import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
+import { Route as adminUsersRouteImport } from "./routes/admin-users";
+import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
+import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/docs-cloudflare-previews-migration";
+import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
+import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
+import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
+import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
+import { Route as inviteRouteImport } from "./routes/invite";
+import { Route as logoIsoRouteImport } from "./routes/logo-iso";
+import { Route as logoRasterRouteImport } from "./routes/logo-raster";
+import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
+import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
+import { Route as logoSvgRouteImport } from "./routes/logo-svg";
+import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
+import { Route as oauthProviderCompleteRouteImport } from "./routes/oauth-provider-complete";
+import { Route as orgRouteImport } from "./routes/org";
+import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as repositoryDashboardRootRouteImport } from "./routes/repository-dashboard-root";
-import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
-import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
-import { Route as orgSettingsRouteImport } from "./routes/org-settings";
-import { Route as orgRepositoriesRouteImport } from "./routes/org-repositories";
-import { Route as orgProvidersRouteImport } from "./routes/org-providers";
-import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
-import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
-import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
-import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
-import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
-import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
+import { Route as repositoryFileRouteImport } from "./routes/repository-file";
 import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
-import { Route as repositorySettingsRouteImport } from "./routes/repository-settings";
+import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
+import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
+import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
+import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
+import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
+import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
+import { Route as orgProvidersRouteImport } from "./routes/org-providers";
+import { Route as orgRepositoriesRouteImport } from "./routes/org-repositories";
+import { Route as orgSettingsRouteImport } from "./routes/org-settings";
+import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
+import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
 import { Route as orgMembersRouteImport } from "./routes/org-members";
+import { Route as repositorySettingsRouteImport } from "./routes/repository-settings";
 import { Route as repositoryComponentsDeploymentRouteImport } from "./routes/repository-components-deployment";
-import { Route as repositorySchemaProjectRouteImport } from "./routes/repository-schema-project";
 import { Route as repositoryDatabaseProjectRouteImport } from "./routes/repository-database-project";
+import { Route as repositorySchemaProjectRouteImport } from "./routes/repository-schema-project";
 
-const youtubeRoute = youtubeRouteImport.update({
-  id: "/youtube",
-  path: "/youtube",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const xRoute = xRouteImport.update({
-  id: "/x.com",
-  path: "/x.com",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const visualFixtureRoute = visualFixtureRouteImport.update({
-  id: "/visual-fixture",
-  path: "/visual-fixture",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const testRoute = testRouteImport.update({
-  id: "/test",
-  path: "/test",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const termsRoute = termsRouteImport.update({
-  id: "/terms",
-  path: "/terms",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const settingsRoute = settingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const privacyRoute = privacyRouteImport.update({
-  id: "/privacy",
-  path: "/privacy",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const pricingRoute = pricingRouteImport.update({
-  id: "/pricing",
-  path: "/pricing",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const pitchRoute = pitchRouteImport.update({
-  id: "/pitch",
-  path: "/pitch",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const organizationsRoute = organizationsRouteImport.update({
-  id: "/org",
-  path: "/org",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const logoRoute = logoRouteImport.update({
-  id: "/logo",
-  path: "/logo",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const localStorageRoute = localStorageRouteImport.update({
-  id: "/localStorage",
-  path: "/localStorage",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const landingPreviewRoute = landingPreviewRouteImport.update({
-  id: "/landing-preview",
-  path: "/landing-preview",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const landingRoute = landingRouteImport.update({
-  id: "/landing",
-  path: "/landing",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const indexDBRoute = indexDBRouteImport.update({
-  id: "/indexDB",
-  path: "/indexDB",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const docsRoute = docsRouteImport.update({
-  id: "/docs",
-  path: "/docs",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const discordRoute = discordRouteImport.update({
-  id: "/discord",
-  path: "/discord",
+const indexRoute = indexRouteImport.update({
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
 const accountDeletionRoute = accountDeletionRouteImport.update({
@@ -157,84 +77,109 @@ const accountDeletionRoute = accountDeletionRouteImport.update({
   path: "/account-deletion",
   getParentRoute: () => rootRouteImport,
 } as any);
-const indexRoute = indexRouteImport.update({
-  id: "/",
-  path: "/",
+const discordRoute = discordRouteImport.update({
+  id: "/discord",
+  path: "/discord",
   getParentRoute: () => rootRouteImport,
 } as any);
-const repositoryFileRoute = repositoryFileRouteImport.update({
-  id: "/repo/$",
-  path: "/repo/$",
+const docsRoute = docsRouteImport.update({
+  id: "/docs",
+  path: "/docs",
   getParentRoute: () => rootRouteImport,
 } as any);
-const pitchPrintRoute = pitchPrintRouteImport.update({
-  id: "/pitch/print",
-  path: "/pitch/print",
+const indexDBRoute = indexDBRouteImport.update({
+  id: "/indexDB",
+  path: "/indexDB",
   getParentRoute: () => rootRouteImport,
 } as any);
-const orgRoute = orgRouteImport.update({
-  id: "/org/$owner",
-  path: "/org/$owner",
+const landingRoute = landingRouteImport.update({
+  id: "/landing",
+  path: "/landing",
   getParentRoute: () => rootRouteImport,
 } as any);
-const oauthProviderCompleteRoute = oauthProviderCompleteRouteImport.update({
-  id: "/oauth/provider-complete",
-  path: "/oauth/provider-complete",
+const landingPreviewRoute = landingPreviewRouteImport.update({
+  id: "/landing-preview",
+  path: "/landing-preview",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
-  id: "/logo/transition",
-  path: "/logo/transition",
+const localStorageRoute = localStorageRouteImport.update({
+  id: "/localStorage",
+  path: "/localStorage",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoSvgRoute = logoSvgRouteImport.update({
-  id: "/logo/svg",
-  path: "/logo/svg",
+const logoRoute = logoRouteImport.update({
+  id: "/logo",
+  path: "/logo",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
-  id: "/logo/single-cube",
-  path: "/logo/single-cube",
+const organizationsRoute = organizationsRouteImport.update({
+  id: "/org",
+  path: "/org",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoRasterSeamsRoute = logoRasterSeamsRouteImport.update({
-  id: "/logo/raster-seams",
-  path: "/logo/raster-seams",
+const pitchRoute = pitchRouteImport.update({
+  id: "/pitch",
+  path: "/pitch",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoRasterRoute = logoRasterRouteImport.update({
-  id: "/logo/raster",
-  path: "/logo/raster",
+const pricingRoute = pricingRouteImport.update({
+  id: "/pricing",
+  path: "/pricing",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoIsoRoute = logoIsoRouteImport.update({
-  id: "/logo/iso",
-  path: "/logo/iso",
+const privacyRoute = privacyRouteImport.update({
+  id: "/privacy",
+  path: "/privacy",
   getParentRoute: () => rootRouteImport,
 } as any);
-const inviteRoute = inviteRouteImport.update({
-  id: "/invite/$code",
-  path: "/invite/$code",
+const settingsRoute = settingsRouteImport.update({
+  id: "/settings",
+  path: "/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
-const docsTheStackRoute = docsTheStackRouteImport.update({
-  id: "/docs/the-stack",
-  path: "/docs/the-stack",
+const termsRoute = termsRouteImport.update({
+  id: "/terms",
+  path: "/terms",
   getParentRoute: () => rootRouteImport,
 } as any);
-const docsReceiptsRoute = docsReceiptsRouteImport.update({
-  id: "/docs/receipts",
-  path: "/docs/receipts",
+const testRoute = testRouteImport.update({
+  id: "/test",
+  path: "/test",
   getParentRoute: () => rootRouteImport,
 } as any);
-const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
-  id: "/docs/do-it-yourself",
-  path: "/docs/do-it-yourself",
+const visualFixtureRoute = visualFixtureRouteImport.update({
+  id: "/visual-fixture",
+  path: "/visual-fixture",
   getParentRoute: () => rootRouteImport,
 } as any);
-const docsCloudflareSetupRoute = docsCloudflareSetupRouteImport.update({
-  id: "/docs/cloudflare-setup",
-  path: "/docs/cloudflare-setup",
+const xRoute = xRouteImport.update({
+  id: "/x.com",
+  path: "/x.com",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const youtubeRoute = youtubeRouteImport.update({
+  id: "/youtube",
+  path: "/youtube",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
+  id: "/admin/account-deletions",
+  path: "/admin/account-deletions",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const adminEmailsRoute = adminEmailsRouteImport.update({
+  id: "/admin/emails",
+  path: "/admin/emails",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const adminUsersRoute = adminUsersRouteImport.update({
+  id: "/admin/users",
+  path: "/admin/users",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const agentsConnectRoute = agentsConnectRouteImport.update({
+  id: "/agents/connect",
+  path: "/agents/connect",
   getParentRoute: () => rootRouteImport,
 } as any);
 const docsCloudflarePreviewsMigrationRoute =
@@ -243,24 +188,74 @@ const docsCloudflarePreviewsMigrationRoute =
     path: "/docs/cloudflare-previews-migration",
     getParentRoute: () => rootRouteImport,
   } as any);
-const agentsConnectRoute = agentsConnectRouteImport.update({
-  id: "/agents/connect",
-  path: "/agents/connect",
+const docsCloudflareSetupRoute = docsCloudflareSetupRouteImport.update({
+  id: "/docs/cloudflare-setup",
+  path: "/docs/cloudflare-setup",
   getParentRoute: () => rootRouteImport,
 } as any);
-const adminUsersRoute = adminUsersRouteImport.update({
-  id: "/admin/users",
-  path: "/admin/users",
+const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
+  id: "/docs/do-it-yourself",
+  path: "/docs/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
-const adminEmailsRoute = adminEmailsRouteImport.update({
-  id: "/admin/emails",
-  path: "/admin/emails",
+const docsReceiptsRoute = docsReceiptsRouteImport.update({
+  id: "/docs/receipts",
+  path: "/docs/receipts",
   getParentRoute: () => rootRouteImport,
 } as any);
-const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
-  id: "/admin/account-deletions",
-  path: "/admin/account-deletions",
+const docsTheStackRoute = docsTheStackRouteImport.update({
+  id: "/docs/the-stack",
+  path: "/docs/the-stack",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const inviteRoute = inviteRouteImport.update({
+  id: "/invite/$code",
+  path: "/invite/$code",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoIsoRoute = logoIsoRouteImport.update({
+  id: "/logo/iso",
+  path: "/logo/iso",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoRasterRoute = logoRasterRouteImport.update({
+  id: "/logo/raster",
+  path: "/logo/raster",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoRasterSeamsRoute = logoRasterSeamsRouteImport.update({
+  id: "/logo/raster-seams",
+  path: "/logo/raster-seams",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoIsoStudyRoute = logoIsoStudyRouteImport.update({
+  id: "/logo/single-cube",
+  path: "/logo/single-cube",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoSvgRoute = logoSvgRouteImport.update({
+  id: "/logo/svg",
+  path: "/logo/svg",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
+  id: "/logo/transition",
+  path: "/logo/transition",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const oauthProviderCompleteRoute = oauthProviderCompleteRouteImport.update({
+  id: "/oauth/provider-complete",
+  path: "/oauth/provider-complete",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgRoute = orgRouteImport.update({
+  id: "/org/$owner",
+  path: "/org/$owner",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const pitchPrintRoute = pitchPrintRouteImport.update({
+  id: "/pitch/print",
+  path: "/pitch/print",
   getParentRoute: () => rootRouteImport,
 } as any);
 const repositoryDashboardRootRoute = repositoryDashboardRootRouteImport.update({
@@ -268,61 +263,9 @@ const repositoryDashboardRootRoute = repositoryDashboardRootRouteImport.update({
   path: "/repo/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const repositoryDashboardRoute = repositoryDashboardRouteImport.update({
-  id: "/repo/$owner/$repository",
-  path: "/repo/$owner/$repository",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
-  id: "/pitch/print/mobile",
-  path: "/pitch/print/mobile",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const orgSettingsRoute = orgSettingsRouteImport.update({
-  id: "/org/$owner/settings",
-  path: "/org/$owner/settings",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const orgRepositoriesRoute = orgRepositoriesRouteImport.update({
-  id: "/org/$owner/repositories",
-  path: "/org/$owner/repositories",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const orgProvidersRoute = orgProvidersRouteImport.update({
-  id: "/org/$owner/providers",
-  path: "/org/$owner/providers",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const orgNewAppRoute = orgNewAppRouteImport.update({
-  id: "/org/$owner/new-app",
-  path: "/org/$owner/new-app",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
-  id: "/org/$owner/connect-repo",
-  path: "/org/$owner/connect-repo",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const mcpConsentRoute = mcpConsentRouteImport.update({
-  id: "/oauth/mcp/consent",
-  path: "/oauth/mcp/consent",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const logoTransitionTransformsLabRoute =
-  logoTransitionTransformsLabRouteImport.update({
-    id: "/logo/transition/transforms",
-    path: "/logo/transition/transforms",
-    getParentRoute: () => rootRouteImport,
-  } as any);
-const logoMengerTransitionResearchRoute =
-  logoMengerTransitionResearchRouteImport.update({
-    id: "/logo/transition/menger",
-    path: "/logo/transition/menger",
-    getParentRoute: () => rootRouteImport,
-  } as any);
-const logoMengerHoverResearchRoute = logoMengerHoverResearchRouteImport.update({
-  id: "/logo/hover/menger",
-  path: "/logo/hover/menger",
+const repositoryFileRoute = repositoryFileRouteImport.update({
+  id: "/repo/$",
+  path: "/repo/$",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
@@ -330,14 +273,71 @@ const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
   path: "/logo/hover/carpet",
   getParentRoute: () => rootRouteImport,
 } as any);
-const repositorySettingsRoute = repositorySettingsRouteImport.update({
-  id: "/repo/$owner/$repository/settings",
-  path: "/repo/$owner/$repository/settings",
+const logoMengerHoverResearchRoute = logoMengerHoverResearchRouteImport.update({
+  id: "/logo/hover/menger",
+  path: "/logo/hover/menger",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const logoMengerTransitionResearchRoute =
+  logoMengerTransitionResearchRouteImport.update({
+    id: "/logo/transition/menger",
+    path: "/logo/transition/menger",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const logoTransitionTransformsLabRoute =
+  logoTransitionTransformsLabRouteImport.update({
+    id: "/logo/transition/transforms",
+    path: "/logo/transition/transforms",
+    getParentRoute: () => rootRouteImport,
+  } as any);
+const mcpConsentRoute = mcpConsentRouteImport.update({
+  id: "/oauth/mcp/consent",
+  path: "/oauth/mcp/consent",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
+  id: "/org/$owner/connect-repo",
+  path: "/org/$owner/connect-repo",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgNewAppRoute = orgNewAppRouteImport.update({
+  id: "/org/$owner/new-app",
+  path: "/org/$owner/new-app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgProvidersRoute = orgProvidersRouteImport.update({
+  id: "/org/$owner/providers",
+  path: "/org/$owner/providers",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgRepositoriesRoute = orgRepositoriesRouteImport.update({
+  id: "/org/$owner/repositories",
+  path: "/org/$owner/repositories",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgSettingsRoute = orgSettingsRouteImport.update({
+  id: "/org/$owner/settings",
+  path: "/org/$owner/settings",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
+  id: "/pitch/print/mobile",
+  path: "/pitch/print/mobile",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const repositoryDashboardRoute = repositoryDashboardRouteImport.update({
+  id: "/repo/$owner/$repository",
+  path: "/repo/$owner/$repository",
   getParentRoute: () => rootRouteImport,
 } as any);
 const orgMembersRoute = orgMembersRouteImport.update({
   id: "/org/$owner/settings/members",
   path: "/org/$owner/settings/members",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const repositorySettingsRoute = repositorySettingsRouteImport.update({
+  id: "/repo/$owner/$repository/settings",
+  path: "/repo/$owner/$repository/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
 const repositoryComponentsDeploymentRoute =
@@ -346,17 +346,17 @@ const repositoryComponentsDeploymentRoute =
     path: "/repo/$owner/$repository/components/$deploymentName",
     getParentRoute: () => rootRouteImport,
   } as any);
-const repositorySchemaProjectRoute = repositorySchemaProjectRouteImport.update({
-  id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
-  path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const repositoryDatabaseProjectRoute =
   repositoryDatabaseProjectRouteImport.update({
     id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
     path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
     getParentRoute: () => rootRouteImport,
   } as any);
+const repositorySchemaProjectRoute = repositorySchemaProjectRouteImport.update({
+  id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
+  path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
@@ -778,123 +778,11 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/youtube": {
-      id: "/youtube";
-      path: "/youtube";
-      fullPath: "/youtube";
-      preLoaderRoute: typeof youtubeRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/x.com": {
-      id: "/x.com";
-      path: "/x.com";
-      fullPath: "/x.com";
-      preLoaderRoute: typeof xRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/visual-fixture": {
-      id: "/visual-fixture";
-      path: "/visual-fixture";
-      fullPath: "/visual-fixture";
-      preLoaderRoute: typeof visualFixtureRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/test": {
-      id: "/test";
-      path: "/test";
-      fullPath: "/test";
-      preLoaderRoute: typeof testRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/terms": {
-      id: "/terms";
-      path: "/terms";
-      fullPath: "/terms";
-      preLoaderRoute: typeof termsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/settings": {
-      id: "/settings";
-      path: "/settings";
-      fullPath: "/settings";
-      preLoaderRoute: typeof settingsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/privacy": {
-      id: "/privacy";
-      path: "/privacy";
-      fullPath: "/privacy";
-      preLoaderRoute: typeof privacyRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pricing": {
-      id: "/pricing";
-      path: "/pricing";
-      fullPath: "/pricing";
-      preLoaderRoute: typeof pricingRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pitch": {
-      id: "/pitch";
-      path: "/pitch";
-      fullPath: "/pitch";
-      preLoaderRoute: typeof pitchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org": {
-      id: "/org";
-      path: "/org";
-      fullPath: "/org";
-      preLoaderRoute: typeof organizationsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo": {
-      id: "/logo";
-      path: "/logo";
-      fullPath: "/logo";
-      preLoaderRoute: typeof logoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/localStorage": {
-      id: "/localStorage";
-      path: "/localStorage";
-      fullPath: "/localStorage";
-      preLoaderRoute: typeof localStorageRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/landing-preview": {
-      id: "/landing-preview";
-      path: "/landing-preview";
-      fullPath: "/landing-preview";
-      preLoaderRoute: typeof landingPreviewRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/landing": {
-      id: "/landing";
-      path: "/landing";
-      fullPath: "/landing";
-      preLoaderRoute: typeof landingRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/indexDB": {
-      id: "/indexDB";
-      path: "/indexDB";
-      fullPath: "/indexDB";
-      preLoaderRoute: typeof indexDBRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/docs": {
-      id: "/docs";
-      path: "/docs";
-      fullPath: "/docs";
-      preLoaderRoute: typeof docsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/discord": {
-      id: "/discord";
-      path: "/discord";
-      fullPath: "/discord";
-      preLoaderRoute: typeof discordRouteImport;
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof indexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/account-deletion": {
@@ -904,144 +792,123 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof accountDeletionRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof indexRouteImport;
+    "/discord": {
+      id: "/discord";
+      path: "/discord";
+      fullPath: "/discord";
+      preLoaderRoute: typeof discordRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/repo/$": {
-      id: "/repo/$";
-      path: "/repo/$";
-      fullPath: "/repo/$";
-      preLoaderRoute: typeof repositoryFileRouteImport;
+    "/docs": {
+      id: "/docs";
+      path: "/docs";
+      fullPath: "/docs";
+      preLoaderRoute: typeof docsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/pitch/print": {
-      id: "/pitch/print";
-      path: "/pitch/print";
-      fullPath: "/pitch/print";
-      preLoaderRoute: typeof pitchPrintRouteImport;
+    "/indexDB": {
+      id: "/indexDB";
+      path: "/indexDB";
+      fullPath: "/indexDB";
+      preLoaderRoute: typeof indexDBRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/org/$owner": {
-      id: "/org/$owner";
-      path: "/org/$owner";
-      fullPath: "/org/$owner";
-      preLoaderRoute: typeof orgRouteImport;
+    "/landing": {
+      id: "/landing";
+      path: "/landing";
+      fullPath: "/landing";
+      preLoaderRoute: typeof landingRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/oauth/provider-complete": {
-      id: "/oauth/provider-complete";
-      path: "/oauth/provider-complete";
-      fullPath: "/oauth/provider-complete";
-      preLoaderRoute: typeof oauthProviderCompleteRouteImport;
+    "/landing-preview": {
+      id: "/landing-preview";
+      path: "/landing-preview";
+      fullPath: "/landing-preview";
+      preLoaderRoute: typeof landingPreviewRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/transition": {
-      id: "/logo/transition";
-      path: "/logo/transition";
-      fullPath: "/logo/transition";
-      preLoaderRoute: typeof logoTransitionLabRouteImport;
+    "/localStorage": {
+      id: "/localStorage";
+      path: "/localStorage";
+      fullPath: "/localStorage";
+      preLoaderRoute: typeof localStorageRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/svg": {
-      id: "/logo/svg";
-      path: "/logo/svg";
-      fullPath: "/logo/svg";
-      preLoaderRoute: typeof logoSvgRouteImport;
+    "/logo": {
+      id: "/logo";
+      path: "/logo";
+      fullPath: "/logo";
+      preLoaderRoute: typeof logoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/single-cube": {
-      id: "/logo/single-cube";
-      path: "/logo/single-cube";
-      fullPath: "/logo/single-cube";
-      preLoaderRoute: typeof logoIsoStudyRouteImport;
+    "/org": {
+      id: "/org";
+      path: "/org";
+      fullPath: "/org";
+      preLoaderRoute: typeof organizationsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/raster-seams": {
-      id: "/logo/raster-seams";
-      path: "/logo/raster-seams";
-      fullPath: "/logo/raster-seams";
-      preLoaderRoute: typeof logoRasterSeamsRouteImport;
+    "/pitch": {
+      id: "/pitch";
+      path: "/pitch";
+      fullPath: "/pitch";
+      preLoaderRoute: typeof pitchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/raster": {
-      id: "/logo/raster";
-      path: "/logo/raster";
-      fullPath: "/logo/raster";
-      preLoaderRoute: typeof logoRasterRouteImport;
+    "/pricing": {
+      id: "/pricing";
+      path: "/pricing";
+      fullPath: "/pricing";
+      preLoaderRoute: typeof pricingRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/logo/iso": {
-      id: "/logo/iso";
-      path: "/logo/iso";
-      fullPath: "/logo/iso";
-      preLoaderRoute: typeof logoIsoRouteImport;
+    "/privacy": {
+      id: "/privacy";
+      path: "/privacy";
+      fullPath: "/privacy";
+      preLoaderRoute: typeof privacyRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/invite/$code": {
-      id: "/invite/$code";
-      path: "/invite/$code";
-      fullPath: "/invite/$code";
-      preLoaderRoute: typeof inviteRouteImport;
+    "/settings": {
+      id: "/settings";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof settingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/the-stack": {
-      id: "/docs/the-stack";
-      path: "/docs/the-stack";
-      fullPath: "/docs/the-stack";
-      preLoaderRoute: typeof docsTheStackRouteImport;
+    "/terms": {
+      id: "/terms";
+      path: "/terms";
+      fullPath: "/terms";
+      preLoaderRoute: typeof termsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/receipts": {
-      id: "/docs/receipts";
-      path: "/docs/receipts";
-      fullPath: "/docs/receipts";
-      preLoaderRoute: typeof docsReceiptsRouteImport;
+    "/test": {
+      id: "/test";
+      path: "/test";
+      fullPath: "/test";
+      preLoaderRoute: typeof testRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/do-it-yourself": {
-      id: "/docs/do-it-yourself";
-      path: "/docs/do-it-yourself";
-      fullPath: "/docs/do-it-yourself";
-      preLoaderRoute: typeof docsDoItYourselfRouteImport;
+    "/visual-fixture": {
+      id: "/visual-fixture";
+      path: "/visual-fixture";
+      fullPath: "/visual-fixture";
+      preLoaderRoute: typeof visualFixtureRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/cloudflare-setup": {
-      id: "/docs/cloudflare-setup";
-      path: "/docs/cloudflare-setup";
-      fullPath: "/docs/cloudflare-setup";
-      preLoaderRoute: typeof docsCloudflareSetupRouteImport;
+    "/x.com": {
+      id: "/x.com";
+      path: "/x.com";
+      fullPath: "/x.com";
+      preLoaderRoute: typeof xRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/docs/cloudflare-previews-migration": {
-      id: "/docs/cloudflare-previews-migration";
-      path: "/docs/cloudflare-previews-migration";
-      fullPath: "/docs/cloudflare-previews-migration";
-      preLoaderRoute: typeof docsCloudflarePreviewsMigrationRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/agents/connect": {
-      id: "/agents/connect";
-      path: "/agents/connect";
-      fullPath: "/agents/connect";
-      preLoaderRoute: typeof agentsConnectRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/admin/users": {
-      id: "/admin/users";
-      path: "/admin/users";
-      fullPath: "/admin/users";
-      preLoaderRoute: typeof adminUsersRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/admin/emails": {
-      id: "/admin/emails";
-      path: "/admin/emails";
-      fullPath: "/admin/emails";
-      preLoaderRoute: typeof adminEmailsRouteImport;
+    "/youtube": {
+      id: "/youtube";
+      path: "/youtube";
+      fullPath: "/youtube";
+      preLoaderRoute: typeof youtubeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/admin/account-deletions": {
@@ -1051,6 +918,132 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminAccountDeletionsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/admin/emails": {
+      id: "/admin/emails";
+      path: "/admin/emails";
+      fullPath: "/admin/emails";
+      preLoaderRoute: typeof adminEmailsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin/users": {
+      id: "/admin/users";
+      path: "/admin/users";
+      fullPath: "/admin/users";
+      preLoaderRoute: typeof adminUsersRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/agents/connect": {
+      id: "/agents/connect";
+      path: "/agents/connect";
+      fullPath: "/agents/connect";
+      preLoaderRoute: typeof agentsConnectRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/cloudflare-previews-migration": {
+      id: "/docs/cloudflare-previews-migration";
+      path: "/docs/cloudflare-previews-migration";
+      fullPath: "/docs/cloudflare-previews-migration";
+      preLoaderRoute: typeof docsCloudflarePreviewsMigrationRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/cloudflare-setup": {
+      id: "/docs/cloudflare-setup";
+      path: "/docs/cloudflare-setup";
+      fullPath: "/docs/cloudflare-setup";
+      preLoaderRoute: typeof docsCloudflareSetupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/do-it-yourself": {
+      id: "/docs/do-it-yourself";
+      path: "/docs/do-it-yourself";
+      fullPath: "/docs/do-it-yourself";
+      preLoaderRoute: typeof docsDoItYourselfRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/receipts": {
+      id: "/docs/receipts";
+      path: "/docs/receipts";
+      fullPath: "/docs/receipts";
+      preLoaderRoute: typeof docsReceiptsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/the-stack": {
+      id: "/docs/the-stack";
+      path: "/docs/the-stack";
+      fullPath: "/docs/the-stack";
+      preLoaderRoute: typeof docsTheStackRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/invite/$code": {
+      id: "/invite/$code";
+      path: "/invite/$code";
+      fullPath: "/invite/$code";
+      preLoaderRoute: typeof inviteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/iso": {
+      id: "/logo/iso";
+      path: "/logo/iso";
+      fullPath: "/logo/iso";
+      preLoaderRoute: typeof logoIsoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/raster": {
+      id: "/logo/raster";
+      path: "/logo/raster";
+      fullPath: "/logo/raster";
+      preLoaderRoute: typeof logoRasterRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/raster-seams": {
+      id: "/logo/raster-seams";
+      path: "/logo/raster-seams";
+      fullPath: "/logo/raster-seams";
+      preLoaderRoute: typeof logoRasterSeamsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/single-cube": {
+      id: "/logo/single-cube";
+      path: "/logo/single-cube";
+      fullPath: "/logo/single-cube";
+      preLoaderRoute: typeof logoIsoStudyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/svg": {
+      id: "/logo/svg";
+      path: "/logo/svg";
+      fullPath: "/logo/svg";
+      preLoaderRoute: typeof logoSvgRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/transition": {
+      id: "/logo/transition";
+      path: "/logo/transition";
+      fullPath: "/logo/transition";
+      preLoaderRoute: typeof logoTransitionLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/oauth/provider-complete": {
+      id: "/oauth/provider-complete";
+      path: "/oauth/provider-complete";
+      fullPath: "/oauth/provider-complete";
+      preLoaderRoute: typeof oauthProviderCompleteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner": {
+      id: "/org/$owner";
+      path: "/org/$owner";
+      fullPath: "/org/$owner";
+      preLoaderRoute: typeof orgRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pitch/print": {
+      id: "/pitch/print";
+      path: "/pitch/print";
+      fullPath: "/pitch/print";
+      preLoaderRoute: typeof pitchPrintRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/repo/": {
       id: "/repo/";
       path: "/repo";
@@ -1058,81 +1051,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof repositoryDashboardRootRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/repo/$owner/$repository": {
-      id: "/repo/$owner/$repository";
-      path: "/repo/$owner/$repository";
-      fullPath: "/repo/$owner/$repository";
-      preLoaderRoute: typeof repositoryDashboardRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pitch/print/mobile": {
-      id: "/pitch/print/mobile";
-      path: "/pitch/print/mobile";
-      fullPath: "/pitch/print/mobile";
-      preLoaderRoute: typeof pitchPrintMobileRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org/$owner/settings": {
-      id: "/org/$owner/settings";
-      path: "/org/$owner/settings";
-      fullPath: "/org/$owner/settings";
-      preLoaderRoute: typeof orgSettingsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org/$owner/repositories": {
-      id: "/org/$owner/repositories";
-      path: "/org/$owner/repositories";
-      fullPath: "/org/$owner/repositories";
-      preLoaderRoute: typeof orgRepositoriesRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org/$owner/providers": {
-      id: "/org/$owner/providers";
-      path: "/org/$owner/providers";
-      fullPath: "/org/$owner/providers";
-      preLoaderRoute: typeof orgProvidersRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org/$owner/new-app": {
-      id: "/org/$owner/new-app";
-      path: "/org/$owner/new-app";
-      fullPath: "/org/$owner/new-app";
-      preLoaderRoute: typeof orgNewAppRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org/$owner/connect-repo": {
-      id: "/org/$owner/connect-repo";
-      path: "/org/$owner/connect-repo";
-      fullPath: "/org/$owner/connect-repo";
-      preLoaderRoute: typeof orgConnectRepoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/oauth/mcp/consent": {
-      id: "/oauth/mcp/consent";
-      path: "/oauth/mcp/consent";
-      fullPath: "/oauth/mcp/consent";
-      preLoaderRoute: typeof mcpConsentRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo/transition/transforms": {
-      id: "/logo/transition/transforms";
-      path: "/logo/transition/transforms";
-      fullPath: "/logo/transition/transforms";
-      preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo/transition/menger": {
-      id: "/logo/transition/menger";
-      path: "/logo/transition/menger";
-      fullPath: "/logo/transition/menger";
-      preLoaderRoute: typeof logoMengerTransitionResearchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/logo/hover/menger": {
-      id: "/logo/hover/menger";
-      path: "/logo/hover/menger";
-      fullPath: "/logo/hover/menger";
-      preLoaderRoute: typeof logoMengerHoverResearchRouteImport;
+    "/repo/$": {
+      id: "/repo/$";
+      path: "/repo/$";
+      fullPath: "/repo/$";
+      preLoaderRoute: typeof repositoryFileRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo/hover/carpet": {
@@ -1142,11 +1065,81 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoCarpetHoverResearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/repo/$owner/$repository/settings": {
-      id: "/repo/$owner/$repository/settings";
-      path: "/repo/$owner/$repository/settings";
-      fullPath: "/repo/$owner/$repository/settings";
-      preLoaderRoute: typeof repositorySettingsRouteImport;
+    "/logo/hover/menger": {
+      id: "/logo/hover/menger";
+      path: "/logo/hover/menger";
+      fullPath: "/logo/hover/menger";
+      preLoaderRoute: typeof logoMengerHoverResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/transition/menger": {
+      id: "/logo/transition/menger";
+      path: "/logo/transition/menger";
+      fullPath: "/logo/transition/menger";
+      preLoaderRoute: typeof logoMengerTransitionResearchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/logo/transition/transforms": {
+      id: "/logo/transition/transforms";
+      path: "/logo/transition/transforms";
+      fullPath: "/logo/transition/transforms";
+      preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/oauth/mcp/consent": {
+      id: "/oauth/mcp/consent";
+      path: "/oauth/mcp/consent";
+      fullPath: "/oauth/mcp/consent";
+      preLoaderRoute: typeof mcpConsentRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/connect-repo": {
+      id: "/org/$owner/connect-repo";
+      path: "/org/$owner/connect-repo";
+      fullPath: "/org/$owner/connect-repo";
+      preLoaderRoute: typeof orgConnectRepoRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/new-app": {
+      id: "/org/$owner/new-app";
+      path: "/org/$owner/new-app";
+      fullPath: "/org/$owner/new-app";
+      preLoaderRoute: typeof orgNewAppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/providers": {
+      id: "/org/$owner/providers";
+      path: "/org/$owner/providers";
+      fullPath: "/org/$owner/providers";
+      preLoaderRoute: typeof orgProvidersRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/repositories": {
+      id: "/org/$owner/repositories";
+      path: "/org/$owner/repositories";
+      fullPath: "/org/$owner/repositories";
+      preLoaderRoute: typeof orgRepositoriesRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/settings": {
+      id: "/org/$owner/settings";
+      path: "/org/$owner/settings";
+      fullPath: "/org/$owner/settings";
+      preLoaderRoute: typeof orgSettingsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/pitch/print/mobile": {
+      id: "/pitch/print/mobile";
+      path: "/pitch/print/mobile";
+      fullPath: "/pitch/print/mobile";
+      preLoaderRoute: typeof pitchPrintMobileRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/repo/$owner/$repository": {
+      id: "/repo/$owner/$repository";
+      path: "/repo/$owner/$repository";
+      fullPath: "/repo/$owner/$repository";
+      preLoaderRoute: typeof repositoryDashboardRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/org/$owner/settings/members": {
@@ -1156,6 +1149,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof orgMembersRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/repo/$owner/$repository/settings": {
+      id: "/repo/$owner/$repository/settings";
+      path: "/repo/$owner/$repository/settings";
+      fullPath: "/repo/$owner/$repository/settings";
+      preLoaderRoute: typeof repositorySettingsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/repo/$owner/$repository/components/$deploymentName": {
       id: "/repo/$owner/$repository/components/$deploymentName";
       path: "/repo/$owner/$repository/components/$deploymentName";
@@ -1163,18 +1163,18 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof repositoryComponentsDeploymentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
-      id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      fullPath: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      preLoaderRoute: typeof repositorySchemaProjectRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/repo/$owner/$repository/db/$branch/project/$convexProjectId": {
       id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       fullPath: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       preLoaderRoute: typeof repositoryDatabaseProjectRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
+      id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+      path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+      fullPath: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+      preLoaderRoute: typeof repositorySchemaProjectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
