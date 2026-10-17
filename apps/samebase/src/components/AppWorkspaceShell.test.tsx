@@ -26,6 +26,12 @@ const { toggleLeftPaneMock, toggleRightPaneMock, useConvexAuthMock, useQueryMock
   }),
 );
 
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
+}));
+
 vi.mock("@samebase/sidebars/SidebarRuntime", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@samebase/sidebars/SidebarRuntime")>();
 
