@@ -238,10 +238,10 @@ importers:
         version: 0.1.0(@tanstack/react-query@5.90.20(react@19.2.6))(convex@1.46.0(react@19.2.6))
       '@convex-dev/workflow':
         specifier: ^0.4.9
-        version: 0.4.10(@convex-dev/workpool@0.4.7(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6)))(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))
+        version: 0.4.10(@convex-dev/workpool@0.4.14(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6))(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))
       '@convex-dev/workpool':
         specifier: ^0.4.7
-        version: 0.4.7(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))
+        version: 0.4.14(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6)
       '@evolu/common':
         specifier: 8.10.0
         version: 8.10.0
@@ -1269,6 +1269,12 @@ packages:
       react:
         optional: true
 
+  '@convex-dev/batch-worker@0.2.2':
+    resolution: {integrity: sha512-3knigElzTVhWw1sN28EYkGBTdrJZ03vMj2PJPuFq3V0Tg41i7tcv/EWDBFQWcUaKzBWWVw693hcJtxCF3CRtEw==}
+    peerDependencies:
+      convex: ^1.36.1
+      react: ^18.3.1 || ^19.0.0
+
   '@convex-dev/eslint-plugin@2.0.0':
     resolution: {integrity: sha512-GxYe0b5RoAb7c7JzcAX3t+UrdT6edQDtSgJ2F9UPECLyQGU0TeTkyGsDXNm3HK+MnWYi8isRlqaqoYTUD0Ko+Q==}
     peerDependencies:
@@ -1290,10 +1296,10 @@ packages:
       convex: ^1.46.0
       convex-helpers: 0.1.127
 
-  '@convex-dev/workpool@0.4.7':
-    resolution: {integrity: sha512-4O3VKcJXqYZ9icDgKdVPxjDGUAFK3oG0hbUwLcyYMYgsvVKlZDhvZRmczqSBZHLyrCGPpf925byh0dBigCfAGA==}
+  '@convex-dev/workpool@0.4.14':
+    resolution: {integrity: sha512-uTgOlLo7/Sv5OYhb6jjQ/+COAgLhOd1sMfHtJbN5qB298SHJQGoUUab66f6kqfEb8ugD1FnkL0oNZmk6fMqkow==}
     peerDependencies:
-      convex: ^1.31.7
+      convex: ^1.36.1
       convex-helpers: 0.1.127
 
   '@cspotcode/source-map-support@0.8.1':
@@ -2355,9 +2361,11 @@ packages:
 
   '@oslojs/asn1@1.0.0':
     resolution: {integrity: sha512-zw/wn0sj0j0QKbIXfIlnEcTviaCzYOY3V5rAyjR6YtOByFtJiT574+8p9Wlach0lZH9fddD4yb9laEAIl4vXQA==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@oslojs/binary@1.0.0':
     resolution: {integrity: sha512-9RCU6OwXU6p67H4NODbuxv2S3eenuQ4/WFLrsq+K/k682xrznH5EVWA7N4VFk9VYVcbFtKqur5YQQZc0ySGhsQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@oslojs/crypto@1.0.1':
     resolution: {integrity: sha512-7n08G8nWjAr/Yu3vu9zzrd0L9XnrJfpMioQcvCMxBIiF5orECHe5/3J0jmXRVvgfqMm/+4oxlQ+Sq39COYLcNQ==}
@@ -8493,6 +8501,11 @@ snapshots:
     optionalDependencies:
       react: 19.2.6
 
+  '@convex-dev/batch-worker@0.2.2(convex@1.46.0(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      convex: 1.46.0(react@19.2.6)
+      react: 19.2.6
+
   '@convex-dev/eslint-plugin@2.0.0(convex@1.46.0(react@19.2.6))(eslint@8.57.1(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)':
     dependencies:
       '@typescript-eslint/types': 8.58.2
@@ -8522,17 +8535,20 @@ snapshots:
       '@tanstack/react-query': 5.90.20(react@19.2.6)
       convex: 1.46.0(react@19.2.6)
 
-  '@convex-dev/workflow@0.4.10(@convex-dev/workpool@0.4.7(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6)))(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))':
+  '@convex-dev/workflow@0.4.10(@convex-dev/workpool@0.4.14(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6))(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))':
     dependencies:
-      '@convex-dev/workpool': 0.4.7(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))
+      '@convex-dev/workpool': 0.4.14(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6)
       async-channel: 0.2.0
       convex: 1.46.0(react@19.2.6)
       convex-helpers: 0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)
 
-  '@convex-dev/workpool@0.4.7(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))':
+  '@convex-dev/workpool@0.4.14(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6)':
     dependencies:
+      '@convex-dev/batch-worker': 0.2.2(convex@1.46.0(react@19.2.6))(react@19.2.6)
       convex: 1.46.0(react@19.2.6)
       convex-helpers: 0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)
+    transitivePeerDependencies:
+      - react
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
