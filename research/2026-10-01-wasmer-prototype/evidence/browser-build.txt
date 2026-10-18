@@ -1,0 +1,72 @@
+Saved. Built and refreshed in 33.0 s.
+BROWSER_BUILD_RUNTIME wasi unknown v24.13.2
+vite v8.2.0 building client environment for production...
+[2Ktransforming...✓ 123 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/assets/routes-QREZrU3s.js    0.68 kB │ gzip:   0.37 kB
+dist/client/assets/index-jmURnpjb.js   798.96 kB │ gzip: 167.00 kB
+
+✓ built in 7.08s
+[33m[PLUGIN_TIMINGS] [0mYour build spent 49% of 6.1s inside plugin hooks (3.0s).
+Not measurable — 8 hooks whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+  - tanstack-start-core:import-protection resolveId (333 calls)
+  - tanstack-start-core:import-protection-transform-cache transform (123 calls)
+  - tanstack-router:code-splitter:compile-reference-file transform (4 calls)
+  … and 5 more
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+vite v8.2.0 building ssr environment for production...
+[2Ktransforming...✓ 49 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/server/assets/start-5Z2QO8AU.js                        0.14 kB │ gzip:  0.13 kB
+dist/server/assets/empty-plugin-adapters-D9UWiqvJ.js        0.22 kB │ gzip:  0.16 kB
+dist/server/assets/routes-DzJLhzex.js                       0.46 kB │ gzip:  0.30 kB
+dist/server/assets/_tanstack-start-manifest_v-Dsfa-xrZ.js   0.47 kB │ gzip:  0.28 kB
+dist/server/assets/router-Cel42bpQ.js                       1.18 kB │ gzip:  0.54 kB
+dist/server/server.js                                      59.49 kB │ gzip: 15.26 kB
+
+✓ built in 22.83s
+[33m[PLUGIN_TIMINGS] [0mYour build spent 83% of 13.3s inside plugin hooks (11.0s).
+Not measurable — 9 hooks whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+  - tanstack-start-core:import-protection resolveId (105 calls)
+  - tanstack-start-core:import-protection-transform-cache transform (47 calls)
+  - vite:worker renderChunk (6 calls)
+  … and 6 more
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+BROWSER_BUILD_COMPLETE
+BROWSER_GUEST_RUNTIME wasi unknown v24.13.2
+BROWSER_GUEST_READY
+Warning: A notFoundError was encountered on the route with ID "__root__", but a notFoundComponent option was not configured, nor was a router level defaultNotFoundComponent configured. Consider configuring at least one of these to avoid TanStack Router's overly generic defaultNotFoundComponent (<p>Not Found</p>)
+BROWSER_BUILD_RUNTIME wasi unknown v24.13.2
+vite v8.2.0 building client environment for production...
+[2Ktransforming...✓ 123 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/assets/routes-DXaSjJzb.js    0.67 kB │ gzip:   0.37 kB
+dist/client/assets/index-FFPnxH4T.js   798.96 kB │ gzip: 167.00 kB
+
+✓ built in 6.97s
+[33m[PLUGIN_TIMINGS] [0mYour build spent 50% of 6.0s inside plugin hooks (3.0s).
+Not measurable — 8 hooks whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+  - tanstack-start-core:import-protection resolveId (333 calls)
+  - tanstack-start-core:import-protection-transform-cache transform (123 calls)
+  - tanstack-router:code-splitter:compile-reference-file transform (4 calls)
+  … and 5 more
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+vite v8.2.0 building ssr environment for production...
+[2Ktransforming...✓ 49 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/server/assets/start-5Z2QO8AU.js                        0.14 kB │ gzip:  0.13 kB
+dist/server/assets/empty-plugin-adapters-D9UWiqvJ.js        0.22 kB │ gzip:  0.16 kB
+dist/server/assets/routes-C5SzDySy.js                       0.46 kB │ gzip:  0.30 kB
+dist/server/assets/_tanstack-start-manifest_v-Bf4rQwm5.js   0.47 kB │ gzip:  0.29 kB
+dist/server/assets/router-jGq4R_Sn.js                       1.18 kB │ gzip:  0.55 kB
+dist/server/server.js                                      59.49 kB │ gzip: 15.27 kB
+
+✓ built in 22.90s
+BROWSER_BUILD_COMPLETE

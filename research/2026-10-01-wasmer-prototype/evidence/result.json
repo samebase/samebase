@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "sourcePath": "/workspace/src/routes/index.tsx",
+  "seconds": 35.198,
+  "buildSeconds": 35.13,
+  "sdkFileWrite": true,
+  "buildInsideWasmer": true,
+  "iframeReload": true,
+  "wholeAppRebuild": true
+}
