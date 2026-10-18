@@ -36,7 +36,7 @@ npx --yes @playwright/cli -s=<session> press Enter
 
 ```bash
 npx --yes @playwright/cli -s=<session> console
-npx --yes @playwright/cli -s=<session> network
+npx --yes @playwright/cli -s=<session> requests
 npx --yes @playwright/cli -s=<session> screenshot --filename=/tmp/samebase-step.png
 ```
 

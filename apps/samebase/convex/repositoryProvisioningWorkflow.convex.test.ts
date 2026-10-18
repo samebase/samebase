@@ -1,7 +1,7 @@
 import { x25519 } from "@noble/curves/ed25519";
 import { Octokit } from "@octokit/rest";
 import sodium from "libsodium-wrappers";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({
   createRepositoryOctokit: vi.fn(),
@@ -35,7 +35,6 @@ vi.mock("./starterSeed", async (importOriginal) => {
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { formatMissingGitHubAppPermissionMessage } from "./githubActionsSecrets";
 import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import { isSamebaseProvisioningPlan } from "./repository/provisioningPlan";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
@@ -769,27 +768,22 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
   });
   githubMocks.createRepositoryOctokit.mockResolvedValue(github.octokit);
 
-  vi.useFakeTimers();
-  try {
-    const created = await t.mutation(
-      internal.repository.records.createInitializingSamebaseManagedRepositoryForUser,
-      {
-        userId: ids.userId,
-        organizationId: ids.organizationId,
-        githubOwnerLogin: "samebase",
-        githubRepositoryName: "actions-app",
-        visibility: "private",
-        description: null,
-        convexTeamId: "41",
-        cloudflareAccountId: "cloudflare-account",
-        plan: { provisioning: "repository_actions" },
-      },
-    );
-    await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
-    return { ...ids, ...created, t };
-  } finally {
-    vi.useRealTimers();
-  }
+  const created = await t.mutation(
+    internal.repository.records.createInitializingSamebaseManagedRepositoryForUser,
+    {
+      userId: ids.userId,
+      organizationId: ids.organizationId,
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "actions-app",
+      visibility: "private",
+      description: null,
+      convexTeamId: "41",
+      cloudflareAccountId: "cloudflare-account",
+      plan: { provisioning: "repository_actions" },
+    },
+  );
+  await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
+  return { ...ids, ...created, t };
 }
 
 async function readRepositoryActionsState(
@@ -821,6 +815,11 @@ async function readRepositoryActionsState(
 describe("repository_actions provisioning workflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("writes the Actions secrets before the seed and skips every Samebase provider step", async () => {
@@ -916,13 +915,6 @@ describe("repository_actions provisioning workflow", () => {
       failTreeSync: false,
     });
     const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
-    await recordWorkflowFailure(t, {
-      runId,
-      message: `Error: ${formatMissingGitHubAppPermissionMessage({
-        permission: "Secrets",
-        repositoryFullName: "samebase/actions-app",
-      })}`,
-    });
 
     const failed = await readRepositoryActionsState(t, { repositoryId, runId });
     expect(failed.run).toMatchObject({ state: "failed", currentStep: "write_actions_secrets" });
@@ -958,12 +950,10 @@ describe("repository_actions provisioning workflow", () => {
       denySecrets: true,
       failTreeSync: true,
     });
-    const { repositoryId, runId, t, userId } = await createRepositoryActionsRepository(github);
-    await recordWorkflowFailure(t, { runId, message: "Error: GitHub refused the secrets." });
+    const { repositoryId, t, userId } = await createRepositoryActionsRepository(github);
 
     github.options.denySecrets = false;
     const firstRetryRunId = await retryProviderSetup(t, { userId, repositoryId });
-    await recordWorkflowFailure(t, { runId: firstRetryRunId, message: "Error: Server Error" });
     const firstRetry = await readRepositoryActionsState(t, {
       repositoryId,
       runId: firstRetryRunId,
@@ -1070,7 +1060,6 @@ describe("repository_actions provisioning workflow", () => {
     const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
     const refusal =
       "main of samebase/actions-app has commits that Samebase did not make, so Samebase cannot seed the starter without dropping them. Push the starter app yourself, or remove the repository from Samebase and create it again.";
-    await recordWorkflowFailure(t, { runId, message: `Error: ${refusal}` });
 
     const failed = await readRepositoryActionsState(t, { repositoryId, runId });
     expect(failed.run).toMatchObject({
@@ -1189,7 +1178,6 @@ describe("repository_actions provisioning workflow", () => {
     });
     const { organizationId, repositoryId, runId, t, userId } =
       await createRepositoryActionsRepository(github);
-    await recordWorkflowFailure(t, { runId, message: "Error: Server Error" });
 
     const failed = await readRepositoryActionsState(t, { repositoryId, runId });
     expect(failed.run).toMatchObject({
@@ -1221,25 +1209,6 @@ describe("repository_actions provisioning workflow", () => {
   });
 });
 
-/**
-convex-test cannot run the failure branch of the workflow's onComplete handler (no crypto in the
-component context), so the tests record the failure that onComplete records.
-*/
-async function recordWorkflowFailure(
-  t: ReturnType<typeof makeConvexTest>,
-  args: { runId: Id<"workflow_repositoryProvisioning_runs">; message: string },
-) {
-  const run = await t.run(async (ctx) => await ctx.db.get(args.runId));
-  if (!run?.workflowId) {
-    throw new Error("Expected the run's workflow id.");
-  }
-  await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
-    runId: args.runId,
-    workflowId: run.workflowId,
-    message: args.message,
-  });
-}
-
 /** One confirmed dashboard retry, run to its end; returns the retry run. */
 async function retryProviderSetup(
   t: ReturnType<typeof makeConvexTest>,
@@ -1253,18 +1222,13 @@ async function retryProviderSetup(
   if (!challenge) {
     throw new Error("Expected a confirmation request.");
   }
-  vi.useFakeTimers();
-  try {
-    await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
-      userId: args.userId,
-      repositoryId: args.repositoryId,
-      surface: { kind: "dashboard" },
-      confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
-    });
-    await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
-  } finally {
-    vi.useRealTimers();
-  }
+  await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+    surface: { kind: "dashboard" },
+    confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
+  });
+  await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
   const retryRun = await t.run(
     async (ctx) =>
       await ctx.db
