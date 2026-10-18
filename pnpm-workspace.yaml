@@ -68,7 +68,7 @@ overrides:
   "@babel/core": 7.29.7
   "@hono/node-server": 2.0.10
   "@modelcontextprotocol/sdk": 1.31.0
-  "@protobufjs/utf8": 1.1.1
+  "@protobufjs/utf8": 1.1.2
   "ajv@6": 6.15.0
   "ajv@8": 8.18.0
   "brace-expansion@1": 5.0.12

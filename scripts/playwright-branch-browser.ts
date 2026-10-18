@@ -298,25 +298,16 @@ function getBundledPlaywrightCliPath(repoRoot: string): string {
 function getBundledBrowserExecutablePath(playwrightCliPath: string): string {
   const resolveExecutableProgram = `const path = require("node:path")
 const playwrightCliPath = process.argv[1]
-const browserName = process.argv[2]
-const registryPath = require.resolve("playwright-core/lib/server/registry/index", {
+const playwrightCorePath = require.resolve("playwright-core", {
   paths: [path.dirname(playwrightCliPath)],
 })
-const { registry } = require(registryPath)
-const executable = registry.findExecutable(browserName)
-if (!executable) {
-  process.exit(1)
-}
-process.stdout.write(executable.executablePath())`;
+const { chromium } = require(playwrightCorePath)
+process.stdout.write(chromium.executablePath())`;
 
-  const result = spawnSync(
-    "node",
-    ["-e", resolveExecutableProgram, playwrightCliPath, PLAYWRIGHT_CLI_CHANNEL],
-    {
-      encoding: "utf8",
-      stdio: "pipe",
-    },
-  );
+  const result = spawnSync("node", ["-e", resolveExecutableProgram, playwrightCliPath], {
+    encoding: "utf8",
+    stdio: "pipe",
+  });
 
   if (result.status !== 0) {
     process.stderr.write(result.stderr);
@@ -389,7 +380,11 @@ function runPlaywrightCli(
   options: { allowFailure?: boolean; stdio?: "inherit" | "pipe" } = {},
 ): import("node:child_process").SpawnSyncReturns<string> {
   const repoRoot = getRepoRoot();
-  const configPath = ensurePlaywrightCliConfig(repoRoot);
+  const command = args.find((arg) => !arg.startsWith("-"));
+  const configArgs =
+    command === "open" || command === "attach"
+      ? [`--config=${ensurePlaywrightCliConfig(repoRoot)}`]
+      : [];
   const result = spawnSync(
     PNPM_COMMAND,
     [
@@ -397,7 +392,7 @@ function runPlaywrightCli(
       path.join(repoRoot, "apps/samebase"),
       "exec",
       "playwright-cli",
-      `--config=${configPath}`,
+      ...configArgs,
       ...args,
     ],
     {
