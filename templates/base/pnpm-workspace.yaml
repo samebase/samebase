@@ -4,6 +4,8 @@ allowBuilds:
   sharp: false
   workerd: true
 overrides:
+  # Shared adapter 4.0.5 requires Effect ^4.0.5.
+  "@effect/platform-node-shared": 4.0.3
   "@hono/node-server": 2.0.10
   "@modelcontextprotocol/sdk": 1.31.0
   "brace-expansion@5": 5.0.12
