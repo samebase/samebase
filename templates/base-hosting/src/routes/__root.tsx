@@ -1,10 +1,22 @@
-import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import type { ConvexQueryClient } from "@convex-dev/react-query";
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+  createRootRouteWithContext,
+} from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import appCss from "../style.css?url";
 import { SamebaseAttribution } from "#components/SamebaseAttribution";
 import { Button } from "#components/ui/button";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient;
+  convexQueryClient: ConvexQueryClient;
+}>()({
   head: () => ({
     meta: [
       {
@@ -31,27 +43,33 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootComponent,
+  notFoundComponent: NotFoundPage,
 });
 
 function RootComponent() {
+  const { convexQueryClient } = Route.useRouteContext();
+  // Convex Auth keeps the session in the browser and reads it after hydration, so the server and
+  // the first browser render are both signed out and agree.
   return (
     <RootDocument>
-      <nav className="mx-auto flex w-full max-w-2xl pt-2">
-        <Button asChild variant="link">
-          <Link to="/" activeOptions={{ exact: true }}>
-            Home
-          </Link>
-        </Button>
-        <Button asChild variant="link">
-          <Link to="/about">About</Link>
-        </Button>
-      </nav>
-      <div className="flex-1">
-        <Outlet />
-      </div>
-      <footer className="mx-auto w-full max-w-2xl px-4 py-3 text-right text-muted-foreground">
-        <SamebaseAttribution />
-      </footer>
+      <ConvexAuthProvider client={convexQueryClient.convexClient}>
+        <nav className="mx-auto flex w-full max-w-2xl pt-2">
+          <Button asChild variant="link">
+            <Link to="/" activeOptions={{ exact: true }}>
+              Home
+            </Link>
+          </Button>
+          <Button asChild variant="link">
+            <Link to="/about">About</Link>
+          </Button>
+        </nav>
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <footer className="mx-auto w-full max-w-2xl px-4 py-3 text-right text-muted-foreground">
+          <SamebaseAttribution />
+        </footer>
+      </ConvexAuthProvider>
     </RootDocument>
   );
 }
@@ -68,4 +86,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </body>
     </html>
   );
+}
+
+function NotFoundPage() {
+  return <p>Not Found</p>;
 }

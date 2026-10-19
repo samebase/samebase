@@ -76,17 +76,15 @@ index 0000000000000000000000000000000000000000..0ccc22b2558ac21e1e8b4830de1787f0
 +      - uses: samebase/convex-hosting/actions/cleanup@v1
 +        with: { deploy-key: "${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}" }
 diff --git a/AGENTS.md b/AGENTS.md
-index c5db3685e5635d1b337c1b19b43c8a5ac1c60367..2379294abc37b96f1cf236354bf95883e7b6b516 100644
+index 3a38905384f879e7fb4871ff558197ea858c61fb..7585b0805072b534c57dd26b244d8b4822cb7845 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
-@@ -50,9 +50,10 @@ remove the line when you edit the file.
-   and required shipped browser artifacts can be valid exceptions. Do not add a repository-wide
+@@ -51,8 +51,9 @@ remove the line when you edit the file.
    extension scanner.
  - Run `pnpm run check`. It checks formatting, lint, browser TypeScript, Node TypeScript, Convex
--  TypeScript, tests, and generated Cloudflare redirects.
+   TypeScript, and tests.
 -- Run `pnpm run build` before a deploy. The real Cloudflare build path runs the complete check before
 -  it builds the app.
-+  TypeScript, tests, and the generated `_redirects` rules.
 +- Deploy with `pnpm run deploy` or `pnpm run deploy:dev`, never with a plain `npx convex deploy`: a
 +  plain push serves the files of the last deploy from this checkout, often another deployment's. The
 +  deploy runs the complete check before it builds the app.
@@ -119,27 +117,32 @@ index 0000000000000000000000000000000000000000..0f6747c74cb9264d6659229873474fef
 +
 +export default app;
 diff --git a/convex/http.ts b/convex/http.ts
-index 1816e5b26cd42bf82d5116f312b3b51ce8b6498a..cdaa34f69a466678337658b5daf0fefe09c847f8 100644
+index 1816e5b26cd42bf82d5116f312b3b51ce8b6498a..0caa6a5062bb6811db1d7cec955d426d4d979223 100644
 --- a/convex/http.ts
 +++ b/convex/http.ts
-@@ -1,8 +1,15 @@
+@@ -1,8 +1,20 @@
  import { httpRouter } from "convex/server";
 +import { routeAll } from "@samebase/convex-hosting";
 +import { components } from "./_generated/api";
 +import { versionId } from "../.convex-hosting/version.js";
++// Type only, nothing is bundled: the server build imported below.
++import type {} from "@samebase/convex-hosting-tanstack-start/server-build";
++import server from "../dist/server/server.js";
  import { auth } from "./auth";
  
  const http = httpRouter();
  
  auth.addHttpRoutes(http);
  
-+// The site answers every path that the Convex Auth routes above do not: a file of the build, else
-+// the single-page shell. `pnpm run deploy` writes .convex-hosting/version.js.
-+routeAll(http, components.hosting, versionId);
++// Every method, every path that the Convex Auth routes above do not answer, as a Cloudflare Worker
++// with static assets: a file of the build, else the page that src/server.ts renders. Convex Auth
++// keeps the session in the browser, so the server renders signed out. `pnpm run deploy` writes the
++// build and .convex-hosting/version.js.
++routeAll(http, components.hosting, versionId, server);
 +
  export default http;
 diff --git a/docs/local-setup.md b/docs/local-setup.md
-index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..e93d4015acff1986707814f224fdb5510596acf1 100644
+index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..f92a4df095f492439f87fb141b34ee4483e0c831 100644
 --- a/docs/local-setup.md
 +++ b/docs/local-setup.md
 @@ -1,7 +1,7 @@
@@ -151,15 +154,16 @@ index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..e93d4015acff1986707814f224fdb551
  
  ## Install Vite+
  
-@@ -41,6 +41,21 @@ local backend.
+@@ -41,6 +41,22 @@ local backend.
  
  Open the local URL printed by Vite.
  
 +## First run
 +
 +On a fresh clone, the first push of `pnpm run dev` fails: `convex/http.ts` imports
-+`.convex-hosting/version.js`, which only a deploy writes. Keep `pnpm run dev` running, because
-+a local backend runs inside it, and run this in a second terminal:
++`.convex-hosting/version.js` and the server build `dist/server/server.js`, which only a deploy
++writes. Keep `pnpm run dev` running, because a local backend runs inside it, and run this in a
++second terminal:
 +
 +```sh
 +pnpm run deploy:dev
@@ -174,31 +178,34 @@ index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..e93d4015acff1986707814f224fdb551
  
  Use the normal `pnpm run dev` command in a linked Git worktree. Use the explicit
 diff --git a/package.json b/package.json
-index c5171f59c4b6a4afe09febaea0e3de555f4fb07e..6960f45cc1f150e1a364331759b6e40e1d9d3b3f 100644
+index 5fef82360b1804d1e690f5703591d235284fee31..26ee9e29ee1b690124670ff905c32dd25ff0fe41 100644
 --- a/package.json
 +++ b/package.json
 @@ -15,11 +15,9 @@
      "dev:frontend": "vp dev",
      "dev:worktree": "node ./scripts/run-worktree-dev.ts",
-     "check": "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
+     "check": "vp check && vp run typecheck && vp test && vp run verify:dev-launcher-version",
 -    "build": "node ./scripts/build-cloudflare.ts",
 -    "build:app": "vp run check && vp build",
 -    "deploy": "wrangler deploy",
 -    "deploy:preview": "wrangler preview",
 -    "deploy:dry-run": "pnpm run build && wrangler deploy --dry-run",
 +    "build": "vp run check && vp build",
-+    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts --prod\" --dist dist/client --html-handling none --not-found-handling single-page-application",
-+    "deploy:dev": "convex-hosting deploy --dev --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling none --not-found-handling single-page-application",
++    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts --prod\" --dist dist/client --html-handling drop-trailing-slash",
++    "deploy:dev": "convex-hosting deploy --dev --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling drop-trailing-slash",
      "format": "vp fmt",
      "format:check": "vp fmt --check",
-     "generate:cloudflare-redirects": "node ./scripts/generate-cloudflare-redirects.ts",
-@@ -36,12 +34,13 @@
-   "dependencies": {
+     "generate:dev-launcher-version": "node ./scripts/generate-dev-launcher-version.ts --write",
+@@ -35,6 +33,8 @@
      "@auth/core": "0.41.3",
      "@convex-dev/auth": "^0.0.94",
+     "@convex-dev/react-query": "^0.1.0",
 +    "@samebase/convex-hosting": "^0.13.1",
++    "@samebase/convex-hosting-tanstack-start": "^0.9.5",
      "@tailwindcss/vite": "^4.3.0",
+     "@tanstack/react-query": "^5.104.4",
      "@tanstack/react-router": "^1.170.41",
+@@ -42,7 +42,7 @@
      "@tanstack/react-start": "^1.168.60",
      "class-variance-authority": "^0.7.1",
      "clsx": "^2.1.1",
@@ -207,12 +214,20 @@ index c5171f59c4b6a4afe09febaea0e3de555f4fb07e..6960f45cc1f150e1a364331759b6e40e
      "lucide-react": "^1.14.0",
      "qrcode.react": "^4.2.0",
      "radix-ui": "^1.4.3",
-@@ -61,8 +60,7 @@
+@@ -53,7 +53,6 @@
+     "tw-animate-css": "^1.4.0"
+   },
+   "devDependencies": {
+-    "@cloudflare/vite-plugin": "1.63.0",
+     "@tanstack/router-plugin": "^1.168.23",
+     "@types/node": "^24.0.0",
+     "@types/react": "^19.2.14",
+@@ -63,8 +62,7 @@
      "typescript": "~6.0.2",
      "vite": "catalog:",
      "vite-plus": "catalog:",
 -    "vitest": "catalog:",
--    "wrangler": "4.136.2"
+-    "wrangler": "4.148.0"
 +    "vitest": "catalog:"
    },
    "packageManager": "pnpm@11.1.1"
@@ -733,22 +748,48 @@ index b26cdb53dd6c8c53095e1cd14b397b23bdda5933..00000000000000000000000000000000
 -if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
 -  verifyCurrentBranchHead(process.env);
 -}
+diff --git a/src/server.ts b/src/server.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ebcfaaaacd664392fd5198fdd516cad12a4c4f85
+--- /dev/null
++++ b/src/server.ts
+@@ -0,0 +1 @@
++export { default } from "@samebase/convex-hosting-tanstack-start/server";
+diff --git a/vite.config.ts b/vite.config.ts
+index 1ecd90f5f686b05a7fc566a3e14c476b65110afc..1a46adb688f367df6188109f196d891eeb6a68cd 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -1,4 +1,4 @@
+-import { cloudflare } from "@cloudflare/vite-plugin";
++import { convexSsr } from "@samebase/convex-hosting-tanstack-start/vite";
+ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+ import tailwindcss from "@tailwindcss/vite";
+ import react from "@vitejs/plugin-react";
+@@ -14,8 +14,7 @@ export default defineConfig({
+   },
+   plugins: [
+     tailwindcss(),
+-    // Vitest loads this config for the script tests, and the Cloudflare plugin rejects its setup.
+-    !process.env["VITEST"] && cloudflare({ viteEnvironment: { name: "ssr" } }),
++    convexSsr(),
+     // Prerenders /about only, into a file of the build. `prerender: { enabled: true }` would also
+     // prerender every static route, and crawling would follow /about's links.
+     tanstackStart({
 diff --git a/wrangler.jsonc b/wrangler.jsonc
 deleted file mode 100644
-index 17360dc8ac487eab1d687d906c3723d893fe1b3f..0000000000000000000000000000000000000000
+index 554b8921847710962445f3f662421eefa4b8ba5d..0000000000000000000000000000000000000000
 --- a/wrangler.jsonc
 +++ /dev/null
-@@ -1,13 +0,0 @@
+@@ -1,12 +0,0 @@
 -{
 -  "$schema": "./node_modules/wrangler/config-schema.json",
--  "compatibility_date": "2026-05-14",
+-  "compatibility_date": "2026-10-01",
+-  // TanStack Start's server entry is the Worker. It renders every request that no file answers.
+-  "main": "@tanstack/react-start/server-entry",
 -  "preview_urls": true,
 -  "previews": {},
 -  "assets": {
--    "directory": "./dist/client",
--    "html_handling": "none",
--    // Cloudflare SPA mode serves /index.html for unknown app routes. Keep
--    // vite.config.ts emitting the TanStack Start shell there.
--    "not_found_handling": "single-page-application",
+-    // Serves the prerendered /about/index.html at /about, the path that the app links to.
+-    "html_handling": "drop-trailing-slash",
 -  },
 -}

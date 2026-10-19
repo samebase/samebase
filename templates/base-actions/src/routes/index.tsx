@@ -1,11 +1,12 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { QRCodeSVG } from "qrcode.react";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { ConvexClientProvider } from "../lib/convex";
 import { Button } from "#components/ui/button";
 import { Checkbox } from "#components/ui/checkbox";
 import { Input } from "#components/ui/input";
@@ -22,26 +23,24 @@ type VisibleTodo = {
 };
 
 export const Route = createFileRoute("/")({
-  component: HomePage,
+  loader: async ({ context }) => {
+    // @ts-expect-error convexQuery always sets queryFn, but its type allows undefined there, which `query` rejects under exactOptionalPropertyTypes.
+    await context.queryClient.query(convexQuery(api.todos.list, {}));
+  },
+  component: TodoPage,
 });
-
-function HomePage() {
-  return (
-    <ConvexClientProvider>
-      <TodoPage />
-    </ConvexClientProvider>
-  );
-}
 
 function TodoPage() {
   const [shareUrl, setShareUrl] = useState("");
-  const todoState = useQuery(api.todos.list, {});
-  const todos = todoState?.todos ?? [];
-  const viewerTodoCount = todoState?.viewerTodoCount ?? null;
+  // The loader fetched the list, so the server renders it. The browser keeps it live and queries
+  // it again as the viewer once the session is known.
+  const {
+    data: { todos, viewerTodoCount },
+  } = useSuspenseQuery(convexQuery(api.todos.list, {}));
   const todoLimitReached = viewerTodoCount !== null && viewerTodoCount >= TODO_LIMIT;
 
   useEffect(() => {
-    // Read the browser URL after mount so prerendered HTML stays stable.
+    // The server has no browser URL, and the first browser render must match the server HTML.
     setShareUrl(window.location.href);
   }, []);
 

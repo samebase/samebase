@@ -1,13 +1,12 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "compatibility_date": "2026-05-14",
+  "compatibility_date": "2026-10-01",
+  // TanStack Start's server entry is the Worker. It renders every request that no file answers.
+  "main": "@tanstack/react-start/server-entry",
   "preview_urls": true,
   "previews": {},
   "assets": {
-    "directory": "./dist/client",
-    "html_handling": "none",
-    // Cloudflare SPA mode serves /index.html for unknown app routes. Keep
-    // vite.config.ts emitting the TanStack Start shell there.
-    "not_found_handling": "single-page-application",
+    // Serves the prerendered /about/index.html at /about, the path that the app links to.
+    "html_handling": "drop-trailing-slash",
   },
 }

@@ -44,8 +44,9 @@ Open the local URL printed by Vite.
 ## First run
 
 On a fresh clone, the first push of `pnpm run dev` fails: `convex/http.ts` imports
-`.convex-hosting/version.js`, which only a deploy writes. Keep `pnpm run dev` running, because
-a local backend runs inside it, and run this in a second terminal:
+`.convex-hosting/version.js` and the server build `dist/server/server.js`, which only a deploy
+writes. Keep `pnpm run dev` running, because a local backend runs inside it, and run this in a
+second terminal:
 
 ```sh
 pnpm run deploy:dev
