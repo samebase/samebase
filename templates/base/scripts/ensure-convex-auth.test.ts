@@ -67,6 +67,40 @@ describe("ensure-convex-auth", () => {
     expect(runConvex.mock.calls).toHaveLength(2);
   });
 
+  it("follows a signed-in production deploy without a key", async () => {
+    const calls: string[][] = [];
+    await ensureConvexAuth(
+      {},
+      async (args) => {
+        calls.push(args);
+        return { code: 0, stdout: "configured", stderr: "" };
+      },
+      true,
+    );
+
+    expect(calls).toEqual([
+      ["env", "get", "JWT_PRIVATE_KEY", "--prod"],
+      ["env", "get", "JWKS", "--prod"],
+    ]);
+  });
+
+  it("lets a production deploy key select its deployment", async () => {
+    const calls: string[][] = [];
+    await ensureConvexAuth(
+      { CONVEX_DEPLOY_KEY: "prod:team:project|secret" },
+      async (args) => {
+        calls.push(args);
+        return { code: 0, stdout: "configured", stderr: "" };
+      },
+      true,
+    );
+
+    expect(calls).toEqual([
+      ["env", "get", "JWT_PRIVATE_KEY"],
+      ["env", "get", "JWKS"],
+    ]);
+  });
+
   it("refuses a preview key without its preview name", async () => {
     const runConvex = vi.fn(async () => ({ code: 0, stdout: "", stderr: "" }));
     await expect(

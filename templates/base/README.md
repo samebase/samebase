@@ -35,15 +35,24 @@ create todos, see real-time updates, and scan a QR code to open the same list on
    key=$(npx convex deployment token create "<repository> deploy.yml" --prod) && printf '%s' "$key" | gh secret set CONVEX_DEPLOY_KEY
    ```
 
+   On Windows PowerShell:
+
+   ```powershell
+   $key = npx convex deployment token create "<repository> deploy.yml" --prod; if ($LASTEXITCODE -eq 0) { $key | gh secret set CONVEX_DEPLOY_KEY }
+   ```
+
 5. Push to `main`, or re-run the failed `deploy.yml` run on the Actions tab. The run's summary shows
    the site URL, `https://<deployment>.convex.site`.
 
 Without a terminal, generate the production deploy key in the
-[Convex dashboard](https://dashboard.convex.dev/) (the production deployment, **Settings**, **General**,
-**Deploy keys**) and add it under **Settings**, **Secrets and variables**, **Actions** in the repository.
+[Convex dashboard](https://dashboard.convex.dev/) (the production deployment, **Settings**,
+**General**, **Deploy keys**) and add it as a repository secret under **Settings**, **Secrets and
+variables**, **Actions**.
 
 Optional previews: store the project's preview deploy key (Convex dashboard, project settings,
-**Preview deploy keys**) as `CONVEX_PREVIEW_DEPLOY_KEY`. Each pull request then deploys to a preview
+**Preview deploy keys**) as the repository secret `CONVEX_PREVIEW_DEPLOY_KEY`, not as a secret of
+the `preview` environment, because the cleanup job runs outside that environment. Each pull request
+then deploys to a preview
 named after its branch, and closing the pull request deletes it. Without the key, pull requests
 deploy nothing.
 

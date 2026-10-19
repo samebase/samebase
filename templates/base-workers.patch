@@ -174,7 +174,7 @@ index e93d4015acff1986707814f224fdb5510596acf1..396ff382fb026e44ab5c4e02ee13019e
  
  Use the normal `pnpm run dev` command in a linked Git worktree. Use the explicit
 diff --git a/package.json b/package.json
-index 611ee0ae308f2450876f4ca725f71db470c57ff8..c5171f59c4b6a4afe09febaea0e3de555f4fb07e 100644
+index 6960f45cc1f150e1a364331759b6e40e1d9d3b3f..c5171f59c4b6a4afe09febaea0e3de555f4fb07e 100644
 --- a/package.json
 +++ b/package.json
 @@ -15,9 +15,11 @@
@@ -182,7 +182,7 @@ index 611ee0ae308f2450876f4ca725f71db470c57ff8..c5171f59c4b6a4afe09febaea0e3de55
      "dev:worktree": "node ./scripts/run-worktree-dev.ts",
      "check": "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
 -    "build": "vp run check && vp build",
--    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling none --not-found-handling single-page-application",
+-    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts --prod\" --dist dist/client --html-handling none --not-found-handling single-page-application",
 -    "deploy:dev": "convex-hosting deploy --dev --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling none --not-found-handling single-page-application",
 +    "build": "node ./scripts/build-cloudflare.ts",
 +    "build:app": "vp run check && vp build",
@@ -397,7 +397,7 @@ index 0000000000000000000000000000000000000000..655a7fd98b6db9c0415b0cdb53814d4e
 +  await main();
 +}
 diff --git a/scripts/ensure-convex-auth.test.ts b/scripts/ensure-convex-auth.test.ts
-index f03bd7ba49639f3e0384252c64925e580f2e69d4..e689c545f0d305515dbeb5befc2135ec1b74e663 100644
+index 963a223429d15a827e15447a35a3529ecbca3922..e689c545f0d305515dbeb5befc2135ec1b74e663 100644
 --- a/scripts/ensure-convex-auth.test.ts
 +++ b/scripts/ensure-convex-auth.test.ts
 @@ -1,15 +1,10 @@
@@ -426,7 +426,7 @@ index f03bd7ba49639f3e0384252c64925e580f2e69d4..e689c545f0d305515dbeb5befc2135ec
        calls.push(args);
        return { code: 0, stdout: "", stderr: "" };
      });
-@@ -62,23 +57,15 @@ describe("ensure-convex-auth", () => {
+@@ -62,57 +57,15 @@ describe("ensure-convex-auth", () => {
  
    it("keeps existing preview auth keys on a rebuild", async () => {
      const runConvex = vi.fn(async () => ({ code: 0, stdout: "configured", stderr: "" }));
@@ -436,6 +436,40 @@ index f03bd7ba49639f3e0384252c64925e580f2e69d4..e689c545f0d305515dbeb5befc2135ec
      expect(runConvex.mock.calls).toHaveLength(2);
    });
  
+-  it("follows a signed-in production deploy without a key", async () => {
+-    const calls: string[][] = [];
+-    await ensureConvexAuth(
+-      {},
+-      async (args) => {
+-        calls.push(args);
+-        return { code: 0, stdout: "configured", stderr: "" };
+-      },
+-      true,
+-    );
+-
+-    expect(calls).toEqual([
+-      ["env", "get", "JWT_PRIVATE_KEY", "--prod"],
+-      ["env", "get", "JWKS", "--prod"],
+-    ]);
+-  });
+-
+-  it("lets a production deploy key select its deployment", async () => {
+-    const calls: string[][] = [];
+-    await ensureConvexAuth(
+-      { CONVEX_DEPLOY_KEY: "prod:team:project|secret" },
+-      async (args) => {
+-        calls.push(args);
+-        return { code: 0, stdout: "configured", stderr: "" };
+-      },
+-      true,
+-    );
+-
+-    expect(calls).toEqual([
+-      ["env", "get", "JWT_PRIVATE_KEY"],
+-      ["env", "get", "JWKS"],
+-    ]);
+-  });
+-
 -  it("refuses a preview key without its preview name", async () => {
 -    const runConvex = vi.fn(async () => ({ code: 0, stdout: "", stderr: "" }));
 -    await expect(
@@ -453,7 +487,7 @@ index f03bd7ba49639f3e0384252c64925e580f2e69d4..e689c545f0d305515dbeb5befc2135ec
          return { code: 1, stdout: "", stderr: "Environment read failed" };
        }),
 diff --git a/scripts/ensure-convex-auth.ts b/scripts/ensure-convex-auth.ts
-index 4bb00234095e7630ba15f3780de42d6b1857cb08..f181c9de4ee9207bdf7c7ace2c419f01e700c9f7 100644
+index 08d7021b5ffdd3169bc3ec65d8937f0e7f23f19e..f181c9de4ee9207bdf7c7ace2c419f01e700c9f7 100644
 --- a/scripts/ensure-convex-auth.ts
 +++ b/scripts/ensure-convex-auth.ts
 @@ -1,4 +1,4 @@
@@ -462,25 +496,39 @@ index 4bb00234095e7630ba15f3780de42d6b1857cb08..f181c9de4ee9207bdf7c7ace2c419f01
  /// <reference types="node" />
  import { spawn } from "node:child_process";
  import { generateKeyPairSync } from "node:crypto";
-@@ -118,16 +118,8 @@ export async function ensureConvexAuth(
+@@ -117,23 +117,9 @@ async function setConvexEnv(
+ export async function ensureConvexAuth(
    env: NodeJS.ProcessEnv,
    runConvex: RunConvex = runConvexCli,
+-  production = false,
  ) {
--  // pnpm run deploy runs this inside its build, after Convex creates the deployment. A preview key
--  // needs the preview name, which actions/preview takes from the pull request branch.
+-  // The deploy scripts run this inside their build, after Convex creates the deployment. A deploy
+-  // key selects its own deployment; a preview key also needs the preview name, which
+-  // actions/preview takes from the pull request branch. Without a key, `production` follows a
+-  // signed-in `pnpm run deploy`, and Convex otherwise uses the development deployment.
+-  const deployKey = env["CONVEX_DEPLOY_KEY"];
 -  const selectionArgs: string[] = [];
--  if (env["CONVEX_DEPLOY_KEY"]?.startsWith("preview:")) {
+-  if (deployKey?.startsWith("preview:")) {
 -    const previewName = env["GITHUB_HEAD_REF"];
 -    if (!previewName) {
 -      throw new Error("A preview deploy key needs GITHUB_HEAD_REF, the name of its preview.");
 -    }
 -    selectionArgs.push("--preview-name", previewName);
+-  } else if (!deployKey && production) {
+-    selectionArgs.push("--prod");
 -  }
 +  const branch = env["WORKERS_CI_BRANCH"];
 +  const selectionArgs = branch && branch !== "main" ? ["--preview-name", branch] : [];
    const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
    const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
  
+@@ -153,5 +139,5 @@ export async function ensureConvexAuth(
+ 
+ const entrypoint = process.argv[1];
+ if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+-  await ensureConvexAuth(process.env, runConvexCli, process.argv.includes("--prod"));
++  await ensureConvexAuth(process.env);
+ }
 diff --git a/scripts/verify-current-branch-head.test.ts b/scripts/verify-current-branch-head.test.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..4e9ad9357f47407c3b222524bc98001aad73d823

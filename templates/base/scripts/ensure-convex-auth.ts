@@ -117,16 +117,22 @@ async function setConvexEnv(
 export async function ensureConvexAuth(
   env: NodeJS.ProcessEnv,
   runConvex: RunConvex = runConvexCli,
+  production = false,
 ) {
-  // pnpm run deploy runs this inside its build, after Convex creates the deployment. A preview key
-  // needs the preview name, which actions/preview takes from the pull request branch.
+  // The deploy scripts run this inside their build, after Convex creates the deployment. A deploy
+  // key selects its own deployment; a preview key also needs the preview name, which
+  // actions/preview takes from the pull request branch. Without a key, `production` follows a
+  // signed-in `pnpm run deploy`, and Convex otherwise uses the development deployment.
+  const deployKey = env["CONVEX_DEPLOY_KEY"];
   const selectionArgs: string[] = [];
-  if (env["CONVEX_DEPLOY_KEY"]?.startsWith("preview:")) {
+  if (deployKey?.startsWith("preview:")) {
     const previewName = env["GITHUB_HEAD_REF"];
     if (!previewName) {
       throw new Error("A preview deploy key needs GITHUB_HEAD_REF, the name of its preview.");
     }
     selectionArgs.push("--preview-name", previewName);
+  } else if (!deployKey && production) {
+    selectionArgs.push("--prod");
   }
   const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
   const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
@@ -147,5 +153,5 @@ export async function ensureConvexAuth(
 
 const entrypoint = process.argv[1];
 if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
-  await ensureConvexAuth(process.env);
+  await ensureConvexAuth(process.env, runConvexCli, process.argv.includes("--prod"));
 }

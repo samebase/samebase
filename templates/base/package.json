@@ -16,7 +16,7 @@
     "dev:worktree": "node ./scripts/run-worktree-dev.ts",
     "check": "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
     "build": "vp run check && vp build",
-    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling none --not-found-handling single-page-application",
+    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts --prod\" --dist dist/client --html-handling none --not-found-handling single-page-application",
     "deploy:dev": "convex-hosting deploy --dev --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling none --not-found-handling single-page-application",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
