@@ -122,6 +122,14 @@ describe("repository exports", () => {
     });
   });
 
+  it("publishes the convex-hosting template to samebase/base-hosting", () => {
+    expect(repositoryExports).toContainEqual({
+      sourceRoot: "templates/base-hosting",
+      targetBranch: "main",
+      targetRepository: "base-hosting",
+    });
+  });
+
   it("names each target repository that GitHub cannot find", async () => {
     const fetch = vi.fn((url: string) =>
       Promise.resolve(new Response(null, { status: url.endsWith("/base-actions") ? 404 : 200 })),
@@ -271,7 +279,7 @@ describe("repository exports", () => {
         },
       );
       expect(readFileSync(outputPath, "utf8")).toBe(
-        "repositories=plugin,base,sidebars,sidebars-example,base-actions\n",
+        "repositories=plugin,base,sidebars,sidebars-example,base-actions,base-hosting\n",
       );
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });

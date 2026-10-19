@@ -13,10 +13,11 @@ that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
 uses root tooling and includes a small dependency-free public check. Each starter template must work
-as an independent repository, so `templates/base` and `templates/base-actions` own their
-`package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are
-intentionally outside the root workspace globs. The Sidebars example also owns these files because
-its directory is both a root workspace member and a standalone export boundary.
+as an independent repository, so `templates/base`, `templates/base-actions`, and
+`templates/base-hosting` own their `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and
+public workflows. They are intentionally outside the root workspace globs. The Sidebars example also
+owns these files because its directory is both a root workspace member and a standalone export
+boundary.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -101,11 +102,23 @@ define. A change to the file is a new `version` in both places in the same pull 
 Samebase keeps reading every older version, because apps keep the template copy that they were
 created from.
 
-`pnpm run check:template-sync` keeps the two templates in sync. Every path must exist in both
-templates with the same bytes and mode, except the deploy files that `templateDeployPaths` in
-`scripts/check-template-sync.ts` lists with the reason each one differs. Apply a change to a shared
-file in both templates in the same pull request. A dependency change usually changes both
-`package.json` files and both lockfiles.
+`pnpm run check:template-sync` keeps `templates/base` and `templates/base-actions` in sync. Every
+path must exist in both templates with the same bytes and mode, except the deploy files that
+`templateDeployPaths` in `scripts/check-template-sync.ts` lists with the reason each one differs.
+Apply a change to a shared file in both templates in the same pull request. A dependency change
+usually changes both `package.json` files and both lockfiles.
+
+### convex-hosting variant
+
+`templates/base-hosting` is the same app with its files served by the Convex deployment through
+convex-hosting, deployed by GitHub Actions with one secret, `CONVEX_DEPLOY_KEY`. The publisher sends
+it to `samebase/base-hosting`, a GitHub template repository. Samebase does not create apps from it,
+so it has no seed manifest. Root CI audits and builds it like the other starters.
+`templates/base-hosting.patch` is the difference from `templates/base` to `templates/base-hosting`,
+the host files, without the READMEs and the lockfiles. Apply a change to a shared file in both
+templates, stage both, and run `pnpm run template:diff` to write the patch from the staged trees.
+The required root checks regenerate it and reject a diff, so a host-file change shows up in review
+as a change to the patch.
 
 ### Existing-app sweep
 

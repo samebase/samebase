@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-actions, base-hosting]
 
     defaults:
       run:
@@ -89,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-actions, base-hosting]
 
     defaults:
       run:
@@ -119,6 +119,33 @@ jobs:
         env:
           VITE_CONVEX_URL: http://127.0.0.1:3210
         run: pnpm run build
+
+  # templates/base-hosting is templates/base on convex-hosting. Their difference, the host files, is
+  # committed as templates/base-hosting.patch, without the READMEs and lockfiles. diff-tree is
+  # plumbing, so user diff settings such as diff.algorithm never change the patch.
+  starter_template_diff:
+    name: starter template diff
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.x
+
+      - name: Compare the starter templates with the committed patch
+        run: |
+          node ./scripts/write-template-hosting-patch.ts
+          git diff --exit-code -- templates/base-hosting.patch || {
+            echo "::error::templates/base-hosting.patch is stale. Run pnpm run template:diff and commit the result."
+            exit 1
+          }
 
   sidebars_package_supply_chain:
     name: sidebars package supply-chain
@@ -460,6 +487,7 @@ jobs:
         sidebars_example_check,
         starter_template_supply_chain,
         starter_template_check,
+        starter_template_diff,
         checks,
         playwright,
         windows-smoke,
@@ -506,6 +534,11 @@ jobs:
             exit 1
           fi
 
+          if [ "${{ needs.starter_template_diff.result }}" != "success" ]; then
+            echo "starter template diff: ${{ needs.starter_template_diff.result }}"
+            exit 1
+          fi
+
           if [ "${{ needs.checks.result }}" != "success" ]; then
             echo "checks: ${{ needs.checks.result }}"
             exit 1
@@ -536,6 +569,7 @@ jobs:
         sidebars_example_supply_chain,
         sidebars_example_check,
         starter_template_check,
+        starter_template_diff,
       ]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
