@@ -28,7 +28,6 @@ export default defineConfig({
       "apps/sidebars-example/src/routeTree.gen.ts",
       "templates/base/**",
       "templates/base-actions/**",
-      "templates/base-hosting/**",
     ],
     printWidth: 100,
     proseWrap: "always",
@@ -54,7 +53,6 @@ export default defineConfig({
       "packages/sidebars/fixtures/packed-consumer/**",
       "templates/base/**",
       "templates/base-actions/**",
-      "templates/base-hosting/**",
     ],
     jsPlugins: [
       {
