@@ -115,7 +115,8 @@ the pull request closes. Both actions run the `deploy` package script. Keep its 
 `pnpm run deploy` runs `npx convex deploy` with the checks, the build, and the upload as its
 `--cmd`, so a failed check stops the release before the push switches the site. Inside that build,
 `scripts/ensure-convex-auth.ts` creates the Convex Auth keys on a new deployment or preview and
-keeps existing keys. Deploy with `pnpm run deploy`, never with a plain `npx convex deploy`: a plain
+keeps existing keys; it stops the deploy when the deployment it selects is not the one that the
+deploy targets. Deploy with `pnpm run deploy`, never with a plain `npx convex deploy`: a plain
 push serves the files of the last deploy from this checkout, often another deployment's.
 
 The files follow Cloudflare's static asset rules: `public/_redirects` maps `/` and `/about` to their

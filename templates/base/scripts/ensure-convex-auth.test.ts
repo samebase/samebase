@@ -101,6 +101,46 @@ describe("ensure-convex-auth", () => {
     ]);
   });
 
+  it("checks that the selected deployment is the deploy target", async () => {
+    const calls: string[][] = [];
+    await ensureConvexAuth(
+      { ...previewEnv, VITE_CONVEX_URL: "https://preview-1.convex.cloud" },
+      async (args) => {
+        calls.push(args);
+        return args[0] === "run"
+          ? { code: 0, stdout: '"https://preview-1.convex.cloud"\n', stderr: "" }
+          : { code: 0, stdout: "configured", stderr: "" };
+      },
+    );
+
+    expect(calls).toEqual([
+      [
+        "run",
+        "--inline-query",
+        "process.env.CONVEX_CLOUD_URL",
+        "--preview-name",
+        "nicu-preview-smoke",
+      ],
+      ["env", "get", "JWT_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
+      ["env", "get", "JWKS", "--preview-name", "nicu-preview-smoke"],
+    ]);
+  });
+
+  it("stops before any read when the selection names another deployment", async () => {
+    const calls: string[][] = [];
+    await expect(
+      ensureConvexAuth(
+        { VITE_CONVEX_URL: "https://preview-1.convex.cloud" },
+        async (args) => {
+          calls.push(args);
+          return { code: 0, stdout: '"https://production-1.convex.cloud"\n', stderr: "" };
+        },
+        true,
+      ),
+    ).rejects.toThrow("but the deploy targets https://preview-1.convex.cloud");
+    expect(calls).toEqual([["run", "--inline-query", "process.env.CONVEX_CLOUD_URL", "--prod"]]);
+  });
+
   it("refuses a preview key without its preview name", async () => {
     const runConvex = vi.fn(async () => ({ code: 0, stdout: "", stderr: "" }));
     await expect(

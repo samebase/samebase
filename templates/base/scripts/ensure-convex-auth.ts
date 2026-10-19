@@ -84,6 +84,22 @@ async function readConvexEnv(
   return value.length > 0 ? value : null;
 }
 
+async function readDeploymentUrl(
+  env: NodeJS.ProcessEnv,
+  selectionArgs: string[],
+  runConvex: RunConvex,
+) {
+  const result = await runConvex(
+    ["run", "--inline-query", "process.env.CONVEX_CLOUD_URL", ...selectionArgs],
+    { env, stdio: "pipe" },
+  );
+  const url: unknown = result.code === 0 ? JSON.parse(result.stdout) : null;
+  if (typeof url !== "string") {
+    throw new Error("Could not read the URL of the selected Convex deployment.");
+  }
+  return url;
+}
+
 function normalizePrivateKey(privateKey: string | Buffer) {
   return privateKey.toString().trimEnd().replace(/\n/g, " ");
 }
@@ -133,6 +149,18 @@ export async function ensureConvexAuth(
     selectionArgs.push("--preview-name", previewName);
   } else if (!deployKey && production) {
     selectionArgs.push("--prod");
+  }
+
+  // Inside `npx convex deploy --cmd`, VITE_CONVEX_URL is the deployment that the deploy targets.
+  // A selection above that names another deployment stops here, before any read or write.
+  const targetUrl = env["VITE_CONVEX_URL"];
+  if (targetUrl !== undefined) {
+    const selectedUrl = await readDeploymentUrl(env, selectionArgs, runConvex);
+    if (selectedUrl !== targetUrl) {
+      throw new Error(
+        `Convex Auth setup selected ${selectedUrl}, but the deploy targets ${targetUrl}. Deploy through the GitHub workflows, a signed-in pnpm run deploy, or pnpm run deploy:dev.`,
+      );
+    }
   }
   const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
   const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);

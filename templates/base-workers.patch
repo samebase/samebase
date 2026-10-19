@@ -397,7 +397,7 @@ index 0000000000000000000000000000000000000000..655a7fd98b6db9c0415b0cdb53814d4e
 +  await main();
 +}
 diff --git a/scripts/ensure-convex-auth.test.ts b/scripts/ensure-convex-auth.test.ts
-index 963a223429d15a827e15447a35a3529ecbca3922..e689c545f0d305515dbeb5befc2135ec1b74e663 100644
+index a176aacd287374d24e2b5d7337f01898c6b56b1a..e689c545f0d305515dbeb5befc2135ec1b74e663 100644
 --- a/scripts/ensure-convex-auth.test.ts
 +++ b/scripts/ensure-convex-auth.test.ts
 @@ -1,15 +1,10 @@
@@ -426,7 +426,7 @@ index 963a223429d15a827e15447a35a3529ecbca3922..e689c545f0d305515dbeb5befc2135ec
        calls.push(args);
        return { code: 0, stdout: "", stderr: "" };
      });
-@@ -62,57 +57,15 @@ describe("ensure-convex-auth", () => {
+@@ -62,97 +57,15 @@ describe("ensure-convex-auth", () => {
  
    it("keeps existing preview auth keys on a rebuild", async () => {
      const runConvex = vi.fn(async () => ({ code: 0, stdout: "configured", stderr: "" }));
@@ -470,6 +470,46 @@ index 963a223429d15a827e15447a35a3529ecbca3922..e689c545f0d305515dbeb5befc2135ec
 -    ]);
 -  });
 -
+-  it("checks that the selected deployment is the deploy target", async () => {
+-    const calls: string[][] = [];
+-    await ensureConvexAuth(
+-      { ...previewEnv, VITE_CONVEX_URL: "https://preview-1.convex.cloud" },
+-      async (args) => {
+-        calls.push(args);
+-        return args[0] === "run"
+-          ? { code: 0, stdout: '"https://preview-1.convex.cloud"\n', stderr: "" }
+-          : { code: 0, stdout: "configured", stderr: "" };
+-      },
+-    );
+-
+-    expect(calls).toEqual([
+-      [
+-        "run",
+-        "--inline-query",
+-        "process.env.CONVEX_CLOUD_URL",
+-        "--preview-name",
+-        "nicu-preview-smoke",
+-      ],
+-      ["env", "get", "JWT_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
+-      ["env", "get", "JWKS", "--preview-name", "nicu-preview-smoke"],
+-    ]);
+-  });
+-
+-  it("stops before any read when the selection names another deployment", async () => {
+-    const calls: string[][] = [];
+-    await expect(
+-      ensureConvexAuth(
+-        { VITE_CONVEX_URL: "https://preview-1.convex.cloud" },
+-        async (args) => {
+-          calls.push(args);
+-          return { code: 0, stdout: '"https://production-1.convex.cloud"\n', stderr: "" };
+-        },
+-        true,
+-      ),
+-    ).rejects.toThrow("but the deploy targets https://preview-1.convex.cloud");
+-    expect(calls).toEqual([["run", "--inline-query", "process.env.CONVEX_CLOUD_URL", "--prod"]]);
+-  });
+-
 -  it("refuses a preview key without its preview name", async () => {
 -    const runConvex = vi.fn(async () => ({ code: 0, stdout: "", stderr: "" }));
 -    await expect(
@@ -487,7 +527,7 @@ index 963a223429d15a827e15447a35a3529ecbca3922..e689c545f0d305515dbeb5befc2135ec
          return { code: 1, stdout: "", stderr: "Environment read failed" };
        }),
 diff --git a/scripts/ensure-convex-auth.ts b/scripts/ensure-convex-auth.ts
-index 08d7021b5ffdd3169bc3ec65d8937f0e7f23f19e..f181c9de4ee9207bdf7c7ace2c419f01e700c9f7 100644
+index 3869fa8b2c9f6b01395a9b840fbcd4df921798af..f181c9de4ee9207bdf7c7ace2c419f01e700c9f7 100644
 --- a/scripts/ensure-convex-auth.ts
 +++ b/scripts/ensure-convex-auth.ts
 @@ -1,4 +1,4 @@
@@ -496,7 +536,30 @@ index 08d7021b5ffdd3169bc3ec65d8937f0e7f23f19e..f181c9de4ee9207bdf7c7ace2c419f01
  /// <reference types="node" />
  import { spawn } from "node:child_process";
  import { generateKeyPairSync } from "node:crypto";
-@@ -117,23 +117,9 @@ async function setConvexEnv(
+@@ -84,22 +84,6 @@ async function readConvexEnv(
+   return value.length > 0 ? value : null;
+ }
+ 
+-async function readDeploymentUrl(
+-  env: NodeJS.ProcessEnv,
+-  selectionArgs: string[],
+-  runConvex: RunConvex,
+-) {
+-  const result = await runConvex(
+-    ["run", "--inline-query", "process.env.CONVEX_CLOUD_URL", ...selectionArgs],
+-    { env, stdio: "pipe" },
+-  );
+-  const url: unknown = result.code === 0 ? JSON.parse(result.stdout) : null;
+-  if (typeof url !== "string") {
+-    throw new Error("Could not read the URL of the selected Convex deployment.");
+-  }
+-  return url;
+-}
+-
+ function normalizePrivateKey(privateKey: string | Buffer) {
+   return privateKey.toString().trimEnd().replace(/\n/g, " ");
+ }
+@@ -133,35 +117,9 @@ async function setConvexEnv(
  export async function ensureConvexAuth(
    env: NodeJS.ProcessEnv,
    runConvex: RunConvex = runConvexCli,
@@ -517,12 +580,24 @@ index 08d7021b5ffdd3169bc3ec65d8937f0e7f23f19e..f181c9de4ee9207bdf7c7ace2c419f01
 -  } else if (!deployKey && production) {
 -    selectionArgs.push("--prod");
 -  }
+-
+-  // Inside `npx convex deploy --cmd`, VITE_CONVEX_URL is the deployment that the deploy targets.
+-  // A selection above that names another deployment stops here, before any read or write.
+-  const targetUrl = env["VITE_CONVEX_URL"];
+-  if (targetUrl !== undefined) {
+-    const selectedUrl = await readDeploymentUrl(env, selectionArgs, runConvex);
+-    if (selectedUrl !== targetUrl) {
+-      throw new Error(
+-        `Convex Auth setup selected ${selectedUrl}, but the deploy targets ${targetUrl}. Deploy through the GitHub workflows, a signed-in pnpm run deploy, or pnpm run deploy:dev.`,
+-      );
+-    }
+-  }
 +  const branch = env["WORKERS_CI_BRANCH"];
 +  const selectionArgs = branch && branch !== "main" ? ["--preview-name", branch] : [];
    const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
    const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
  
-@@ -153,5 +139,5 @@ export async function ensureConvexAuth(
+@@ -181,5 +139,5 @@ export async function ensureConvexAuth(
  
  const entrypoint = process.argv[1];
  if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
