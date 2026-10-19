@@ -1,7 +1,7 @@
 # Local setup
 
 Use this when you want to run the app from your own computer instead of only
-through Cloudflare.
+through the GitHub deploy workflow.
 
 ## Install Vite+
 
@@ -40,6 +40,21 @@ if they are missing. In a linked Git worktree, it automatically uses an isolated
 local backend.
 
 Open the local URL printed by Vite.
+
+## First run
+
+On a fresh clone, the first push of `pnpm run dev` fails: `convex/http.ts` imports
+`.convex-hosting/version.js`, which only a deploy writes. Keep `pnpm run dev` running, because
+a local backend runs inside it, and run this in a second terminal:
+
+```sh
+pnpm run deploy:dev
+```
+
+It builds the app, uploads the files to the development deployment, writes the version file, and
+pushes. Then stop `pnpm run dev` and start it again; it works as usual from then on. Run
+`pnpm run deploy:dev` again whenever you want the development deployment's `.convex.site` URL
+to serve the current build.
 
 ## Force worktree mode
 

@@ -1,25 +1,51 @@
 # Samebase app
 
-This repository is the starter app that Samebase copies into a new GitHub repository.
+A small, complete app base: guest sign-in, real-time data, sharing, and deploys, without services
+that a new app might not need.
 
-It is a small, complete app base. It includes working authentication, real-time data, sharing, and
-deployment paths without adding product-specific services that a new app might not need.
-
-For the complete provider setup, use the
-[Samebase do-it-yourself guide](https://samebase.com/docs/do-it-yourself). This README covers work
-inside the repository.
+The Convex deployment runs the backend and also serves the app's files through
+[convex-hosting](https://github.com/samebase/convex-hosting). One Convex project is the whole
+stack: one deployment, one URL, and one deploy key. The same app on Cloudflare Workers is
+[samebase/base-workers](https://github.com/samebase/base-workers).
 
 ## Stack
 
 - React 19 and TanStack Start in SPA mode
 - Convex for the real-time backend, database, and guest authentication
-- Cloudflare Workers Static Assets for delivery
+- convex-hosting for delivery from the Convex deployment, with Cloudflare's rules for the files
 - shadcn/ui primitives for the user interface
 - Vite+ for development, formatting, linting, tests, and builds
 - Node.js 24 for application and automation code
 
 The example app is a public todo list. Guests can sign in without an external identity provider,
 create todos, see real-time updates, and scan a QR code to open the same list on another device.
+
+## Start
+
+1. Select **Use this template** and create your repository.
+2. Clone it, then install Vite+ and the dependencies as described in
+   [Local development](#local-development).
+3. Run `pnpm run dev`. Convex asks you to sign in and creates a project with its development
+   deployment. On a fresh clone, the first push fails until the first deploy; see
+   [First run](#first-run).
+4. Store the project's production deploy key as the repository secret `CONVEX_DEPLOY_KEY`. With the
+   [GitHub CLI](https://cli.github.com/), this keeps the key off the screen:
+
+   ```sh
+   key=$(npx convex deployment token create "<repository> deploy.yml" --prod) && printf '%s' "$key" | gh secret set CONVEX_DEPLOY_KEY
+   ```
+
+5. Push to `main`, or re-run the failed `deploy.yml` run on the Actions tab. The run's summary shows
+   the site URL, `https://<deployment>.convex.site`.
+
+Without a terminal, generate the production deploy key in the
+[Convex dashboard](https://dashboard.convex.dev/) (the production deployment, **Settings**, **General**,
+**Deploy keys**) and add it under **Settings**, **Secrets and variables**, **Actions** in the repository.
+
+Optional previews: store the project's preview deploy key (Convex dashboard, project settings,
+**Preview deploy keys**) as `CONVEX_PREVIEW_DEPLOY_KEY`. Each pull request then deploys to a preview
+named after its branch, and closing the pull request deletes it. Without the key, pull requests
+deploy nothing.
 
 ## Local development
 
@@ -43,47 +69,60 @@ To force the isolated backend outside a linked worktree, use:
 pnpm run dev:worktree
 ```
 
+### First run
+
+On a fresh clone, the first push of `pnpm run dev` fails: `convex/http.ts` imports
+`.convex-hosting/version.js`, which only a deploy writes. Keep `pnpm run dev` running and run this
+in a second terminal:
+
+```sh
+pnpm run deploy:dev
+```
+
+It builds the app, uploads the files to the development deployment, writes the version file, and
+pushes. Then stop `pnpm run dev` and start it again; it works as usual from then on.
+
 The core workflow runs on macOS, Linux, and Windows. See
 [`docs/local-setup.md`](./docs/local-setup.md) for the local Convex setup and troubleshooting steps.
 
-## Checks and builds
+## Checks, builds, and deploys
 
-| Command                                    | Purpose                                                        |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| `pnpm run check`                           | Format, lint, type-check, test, and verify generated redirects |
-| `pnpm run build`                           | Run the complete Cloudflare build path                         |
-| `pnpm run deploy:dry-run --name my-worker` | Build and validate a production upload without publishing it   |
+| Command               | Purpose                                                           |
+| --------------------- | ----------------------------------------------------------------- |
+| `pnpm run check`      | Format, lint, type-check, test, and verify generated redirects    |
+| `pnpm run build`      | Run the checks and build the app into `dist/client`               |
+| `pnpm run deploy:dev` | Build, upload, and push to the development deployment             |
+| `pnpm run deploy`     | Build, upload, and push to production, or to the key's deployment |
 
 ## Deployment contract
 
-Cloudflare Workers Builds runs `pnpm run build` for all branches. It then uses:
+`.github/workflows/deploy.yml` deploys each push to `main` with
+[`samebase/convex-hosting/actions/deploy`](https://github.com/samebase/convex-hosting/blob/main/docs/deploy.md#github-actions)
+and `CONVEX_DEPLOY_KEY`. `.github/workflows/preview.yml` deploys each pull request with
+`actions/preview` and `CONVEX_PREVIEW_DEPLOY_KEY`, and `actions/cleanup` deletes the preview when
+the pull request closes. Both actions run the `deploy` package script. Keep its name, and keep the
+`convex-hosting deploy` command at its end, because `actions/preview` appends `--preview-name`.
 
-| Branch type    | Deploy command            | Builds settings | `CONVEX_DEPLOY_KEY` value  |
-| -------------- | ------------------------- | --------------- | -------------------------- |
-| `main`         | `pnpm run deploy`         | Production      | Production deploy key      |
-| Other branches | `pnpm run deploy:preview` | Previews Base   | Project Preview deploy key |
+`pnpm run deploy` runs `npx convex deploy` with the checks, the build, and the upload as its
+`--cmd`, so a failed check stops the release before the push switches the site. Inside that build,
+`scripts/ensure-convex-auth.ts` creates the Convex Auth keys on a new deployment or preview and
+keeps existing keys. Deploy with `pnpm run deploy`, never with a plain `npx convex deploy`: a plain
+push serves the files of the last deploy from this checkout, often another deployment's.
 
-`build`, `deploy`, and `deploy:preview` are the package-script interface used by Samebase. Keep these
-names when changing their implementation. Cloudflare supplies the appropriate build secrets for each
-environment. Convex rejects a production key on a preview branch.
-
-`scripts/build-cloudflare.ts` deploys Convex only inside Workers Builds and uses `WORKERS_CI_BRANCH`
-as the stable preview name. Local builds only build the frontend.
-`scripts/verify-current-branch-head.ts` prevents an older concurrent
-build from deploying backend code after a newer commit reaches the same branch. `convex deploy
---cmd` supplies `VITE_CONVEX_URL` to the frontend build, so it is not a Cloudflare build variable.
-
-Use the
-[do-it-yourself guide](https://samebase.com/docs/do-it-yourself) for the provider dashboard setup.
+The files follow Cloudflare's static asset rules: `public/_redirects` maps `/` and `/about` to their
+prerendered pages, and every other path gets the SPA shell (`--not-found-handling
+single-page-application`). See the
+[convex-hosting documentation](https://github.com/samebase/convex-hosting#documentation) for custom
+domains, headers, and the deploy options.
 
 ## Important files
 
 - `package.json` defines the supported development, check, build, and deploy commands.
-- `prerender.config.ts` defines the public pages shared by TanStack Start and Cloudflare.
+- `prerender.config.ts` defines the public pages shared by TanStack Start and `public/_redirects`.
 - `vite.config.ts` defines the TanStack Start SPA and prerender behavior.
-- `wrangler.jsonc` defines Cloudflare static assets, SPA fallback, and preview URLs.
-- `scripts/build-cloudflare.ts` owns the Cloudflare build and Convex deployment selection.
-- The `deploy` and `deploy:preview` package scripts run Wrangler directly.
+- `convex/convex.config.ts` mounts the convex-hosting component, and `convex/http.ts` routes every
+  path that the auth routes do not answer to the site.
+- `.github/workflows/deploy.yml` and `.github/workflows/preview.yml` deploy production and previews.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
 
@@ -91,6 +130,7 @@ Use the
 
 - `src/routeTree.gen.ts` is generated by TanStack Router.
 - `convex/_generated/api.*`, `dataModel.d.ts`, and `server.*` are generated by Convex.
+- `.convex-hosting/` is written by each deploy and ignores itself. Do not commit it.
 - `convex/_generated/ai/`, `.agents/skills/`, `skills-lock.json`, and the marked Convex sections in
   `AGENTS.md` and `CLAUDE.md` are managed by `npx convex ai-files install`.
 - The marked Vite+ section in `AGENTS.md` is generated by `vp config`. The package `prepare`

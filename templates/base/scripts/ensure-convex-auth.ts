@@ -1,4 +1,4 @@
-// Samebase source build: v2064
+// Samebase source build: v2132
 /// <reference types="node" />
 import { spawn } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";
@@ -118,8 +118,16 @@ export async function ensureConvexAuth(
   env: NodeJS.ProcessEnv,
   runConvex: RunConvex = runConvexCli,
 ) {
-  const branch = env["WORKERS_CI_BRANCH"];
-  const selectionArgs = branch && branch !== "main" ? ["--preview-name", branch] : [];
+  // pnpm run deploy runs this inside its build, after Convex creates the deployment. A preview key
+  // needs the preview name, which actions/preview takes from the pull request branch.
+  const selectionArgs: string[] = [];
+  if (env["CONVEX_DEPLOY_KEY"]?.startsWith("preview:")) {
+    const previewName = env["GITHUB_HEAD_REF"];
+    if (!previewName) {
+      throw new Error("A preview deploy key needs GITHUB_HEAD_REF, the name of its preview.");
+    }
+    selectionArgs.push("--preview-name", previewName);
+  }
   const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
   const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
 

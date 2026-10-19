@@ -13,10 +13,10 @@ that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
 uses root tooling and includes a small dependency-free public check. Each starter template must work
-as an independent repository, so `templates/base` and `templates/base-actions` own their
-`package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are
-intentionally outside the root workspace globs. The Sidebars example also owns these files because
-its directory is both a root workspace member and a standalone export boundary.
+as an independent repository, so each `templates/*` starter owns its `package.json`,
+`pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are intentionally outside the
+root workspace globs. The Sidebars example also owns these files because its directory is both a
+root workspace member and a standalone export boundary.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -59,12 +59,12 @@ its own subject, even when that commit did not change the source directory.
 
 ## Starter base export
 
-`templates/base` is the maintained starter source. A template change has three outputs in one pull
-request:
+`templates/base-workers` is the maintained starter source: the app that Samebase creates, deployed
+by Cloudflare Workers Builds. A template change has three outputs in one pull request:
 
-1. the standalone base tree and its lockfile under `templates/base`
+1. the standalone base tree and its lockfile under `templates/base-workers`
 2. the committed `starterSeedManifest.generated.ts` used by runtime app creation
-3. the public `samebase/base` tree published after merge
+3. the public `samebase/base-workers` tree published after merge
 
 Stage template changes before running `pnpm run template:export`, then stage the generated manifest.
 The generator reads the staged Git blobs so the seed bytes match the future public export exactly.
@@ -81,12 +81,13 @@ fresh job.
 
 ### GitHub Actions variant
 
-`templates/base-actions` is a second complete starter: `templates/base` plus an Alchemy setup stack
-that GitHub Actions runs. The stack creates the Worker shell, the Workers Builds link, and the
-Convex project and keys; Workers Builds deploys each commit as it deploys the base. It follows the
-same contract as the base: it owns its `package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`,
-`pnpm run template:export` writes it to `starterSeedManifest.actions.generated.ts`, root CI audits
-and builds it, and the publisher sends it to `samebase/base-actions`.
+`templates/base-actions` is a second complete starter: `templates/base-workers` plus an Alchemy
+setup stack that GitHub Actions runs. The stack creates the Worker shell, the Workers Builds link,
+and the Convex project and keys; Workers Builds deploys each commit as it deploys the base. It
+follows the same contract as the base: it owns its `package.json`, `pnpm-workspace.yaml`, and
+`pnpm-lock.yaml`, `pnpm run template:export` writes it to
+`starterSeedManifest.actions.generated.ts`, root CI audits and builds it, and the publisher sends it
+to `samebase/base-actions`.
 
 The variant's `alchemy` workflow uploads the artifact `samebase-setup-output` after each deploy, or
 the failed output after a deploy job with a failed step, and its `Destroy app` workflow uploads a
@@ -101,11 +102,23 @@ define. A change to the file is a new `version` in both places in the same pull 
 Samebase keeps reading every older version, because apps keep the template copy that they were
 created from.
 
-`pnpm run check:template-sync` keeps the two templates in sync. Every path must exist in both
-templates with the same bytes and mode, except the deploy files that `templateDeployPaths` in
-`scripts/check-template-sync.ts` lists with the reason each one differs. Apply a change to a shared
-file in both templates in the same pull request. A dependency change usually changes both
-`package.json` files and both lockfiles.
+`pnpm run check:template-sync` keeps `templates/base-workers` and `templates/base-actions` in sync.
+Every path must exist in both templates with the same bytes and mode, except the deploy files that
+`templateDeployPaths` in `scripts/check-template-sync.ts` lists with the reason each one differs.
+Apply a change to a shared file in both templates in the same pull request. A dependency change
+usually changes both `package.json` files and both lockfiles.
+
+### convex-hosting variant
+
+`templates/base` is the same app with its files served by the Convex deployment through
+convex-hosting, deployed by GitHub Actions with one secret, `CONVEX_DEPLOY_KEY`. The publisher sends
+it to `samebase/base`, a GitHub template repository. Samebase does not create apps from it, so it
+has no seed manifest. Root CI audits and builds it like the other starters.
+`templates/base-workers.patch` is the difference from `templates/base` to `templates/base-workers`,
+the host files, without the READMEs and the lockfiles. Apply a change to a shared file in both
+templates, stage both, and run `pnpm run template:diff` to write the patch from the staged trees;
+the required root checks regenerate it and reject a diff, so a host-file change shows up in review
+as a change to the patch.
 
 ### Existing-app sweep
 

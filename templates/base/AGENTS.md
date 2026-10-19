@@ -50,9 +50,10 @@ remove the line when you edit the file.
   and required shipped browser artifacts can be valid exceptions. Do not add a repository-wide
   extension scanner.
 - Run `pnpm run check`. It checks formatting, lint, browser TypeScript, Node TypeScript, Convex
-  TypeScript, tests, and generated Cloudflare redirects.
-- Run `pnpm run build` before a deploy. The real Cloudflare build path runs the complete check before
-  it builds the app.
+  TypeScript, tests, and the generated `_redirects` rules.
+- Deploy with `pnpm run deploy` or `pnpm run deploy:dev`, never with a plain `npx convex deploy`: a
+  plain push serves the files of the last deploy from this checkout, often another deployment's. The
+  deploy runs the complete check before it builds the app.
 
 <!-- convex-ai-start -->
 

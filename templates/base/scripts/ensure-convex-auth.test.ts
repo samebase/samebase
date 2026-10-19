@@ -1,9 +1,14 @@
-// Samebase source build: v2064
+// Samebase source build: v2132
 import process from "node:process";
 
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { buildConvexCliCommand, ensureConvexAuth } from "./ensure-convex-auth.ts";
+
+const previewEnv = {
+  CONVEX_DEPLOY_KEY: "preview:team:project|secret",
+  GITHUB_HEAD_REF: "nicu-preview-smoke",
+};
 
 describe("ensure-convex-auth", () => {
   it("runs the Convex JavaScript entrypoint through Node without a shell", () => {
@@ -40,7 +45,7 @@ describe("ensure-convex-auth", () => {
 
   it("creates auth keys in the same named preview as the build", async () => {
     const calls: string[][] = [];
-    await ensureConvexAuth({ WORKERS_CI_BRANCH: "nicu-preview-smoke" }, async (args) => {
+    await ensureConvexAuth(previewEnv, async (args) => {
       calls.push(args);
       return { code: 0, stdout: "", stderr: "" };
     });
@@ -57,15 +62,23 @@ describe("ensure-convex-auth", () => {
 
   it("keeps existing preview auth keys on a rebuild", async () => {
     const runConvex = vi.fn(async () => ({ code: 0, stdout: "configured", stderr: "" }));
-    await ensureConvexAuth({ WORKERS_CI_BRANCH: "nicu-preview-smoke" }, runConvex);
+    await ensureConvexAuth(previewEnv, runConvex);
 
     expect(runConvex.mock.calls).toHaveLength(2);
+  });
+
+  it("refuses a preview key without its preview name", async () => {
+    const runConvex = vi.fn(async () => ({ code: 0, stdout: "", stderr: "" }));
+    await expect(
+      ensureConvexAuth({ CONVEX_DEPLOY_KEY: "preview:team:project|secret" }, runConvex),
+    ).rejects.toThrow("GITHUB_HEAD_REF");
+    expect(runConvex).not.toHaveBeenCalled();
   });
 
   it("does not replace auth keys when an environment read fails", async () => {
     const calls: string[][] = [];
     await expect(
-      ensureConvexAuth({ WORKERS_CI_BRANCH: "nicu-preview-smoke" }, async (args) => {
+      ensureConvexAuth(previewEnv, async (args) => {
         calls.push(args);
         return { code: 1, stdout: "", stderr: "Environment read failed" };
       }),
