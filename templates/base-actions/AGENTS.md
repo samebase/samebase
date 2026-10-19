@@ -50,7 +50,7 @@ remove the line when you edit the file.
   and required shipped browser artifacts can be valid exceptions. Do not add a repository-wide
   extension scanner.
 - Run `pnpm run check`. It checks formatting, lint, browser TypeScript, Node TypeScript, Convex
-  TypeScript, and tests.
+  TypeScript, tests, and generated Cloudflare redirects.
 - Run `pnpm run build` before a deploy. The real Cloudflare build path runs the complete check before
   it builds the app.
 

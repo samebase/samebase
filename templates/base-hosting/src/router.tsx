@@ -11,7 +11,10 @@ export function getRouter() {
   }
 
   // The server calls this for each request, so requests never share a client.
-  const convexQueryClient = new ConvexQueryClient(convexUrl);
+  const convexQueryClient = new ConvexQueryClient(convexUrl, {
+    // Holds queries until the session is known; `SessionProvider` releases it without one.
+    expectAuth: true,
+  });
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {

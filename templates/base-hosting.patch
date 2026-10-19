@@ -76,15 +76,17 @@ index 0000000000000000000000000000000000000000..0ccc22b2558ac21e1e8b4830de1787f0
 +      - uses: samebase/convex-hosting/actions/cleanup@v1
 +        with: { deploy-key: "${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}" }
 diff --git a/AGENTS.md b/AGENTS.md
-index 3a38905384f879e7fb4871ff558197ea858c61fb..7585b0805072b534c57dd26b244d8b4822cb7845 100644
+index c5db3685e5635d1b337c1b19b43c8a5ac1c60367..7585b0805072b534c57dd26b244d8b4822cb7845 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
-@@ -51,8 +51,9 @@ remove the line when you edit the file.
+@@ -50,9 +50,10 @@ remove the line when you edit the file.
+   and required shipped browser artifacts can be valid exceptions. Do not add a repository-wide
    extension scanner.
  - Run `pnpm run check`. It checks formatting, lint, browser TypeScript, Node TypeScript, Convex
-   TypeScript, and tests.
+-  TypeScript, tests, and generated Cloudflare redirects.
 -- Run `pnpm run build` before a deploy. The real Cloudflare build path runs the complete check before
 -  it builds the app.
++  TypeScript, and tests.
 +- Deploy with `pnpm run deploy` or `pnpm run deploy:dev`, never with a plain `npx convex deploy`: a
 +  plain push serves the files of the last deploy from this checkout, often another deployment's. The
 +  deploy runs the complete check before it builds the app.
@@ -92,57 +94,309 @@ index 3a38905384f879e7fb4871ff558197ea858c61fb..7585b0805072b534c57dd26b244d8b48
  <!-- convex-ai-start -->
  
 diff --git a/convex/_generated/api.d.ts b/convex/_generated/api.d.ts
-index 773c6d6c4b7e57249d4e4ec798c4f876fc57c320..3df47aeba69b44b4fa893a5dd569b4234ba147d6 100644
+index 773c6d6c4b7e57249d4e4ec798c4f876fc57c320..272a7b0a69612a04cdb2f7ffec9f0ceee72c3c38 100644
 --- a/convex/_generated/api.d.ts
 +++ b/convex/_generated/api.d.ts
-@@ -52,4 +52,6 @@ export declare const internal: FilterApi<
+@@ -52,4 +52,8 @@ export declare const internal: FilterApi<
    FunctionReference<any, "internal">
  >;
  
 -export declare const components: {};
 +export declare const components: {
++  auth: import("@convex-dev/auth/_generated/component.js").ComponentApi<"auth">;
++  authAnonymous: import("@convex-dev/auth/components/anonymous/_generated/component.js").ComponentApi<"authAnonymous">;
 +  hosting: import("@samebase/convex-hosting/_generated/component.js").ComponentApi<"hosting">;
 +};
+diff --git a/convex/_generated/server.d.ts b/convex/_generated/server.d.ts
+index f235db4a112ece75f7698b191532048a98270c21..96819a6a3ea06b9e158de653dfc11b8c47a82a89 100644
+--- a/convex/_generated/server.d.ts
++++ b/convex/_generated/server.d.ts
+@@ -30,6 +30,8 @@ import type { DataModel } from "./dataModel.js";
+ type Env = {
+   readonly CONVEX_CLOUD_URL: string;
+   readonly CONVEX_SITE_URL: string;
++  readonly AUTH_JWKS: string;
++  readonly AUTH_PRIVATE_KEY: string;
+ };
+ 
+ /**
+diff --git a/convex/auth.config.ts b/convex/auth.config.ts
+index 9ded75aa49e24a72899cddfd9c4901ceae3aa5d0..f0c6d8b802ea429873d2eb03918b65006e26625a 100644
+--- a/convex/auth.config.ts
++++ b/convex/auth.config.ts
+@@ -1,10 +1,16 @@
+-/// <reference types="node" />
++import type { AuthConfig } from "convex/server";
++import { env } from "./_generated/server";
+ 
++// The auth component signs tokens for the issuer CONVEX_SITE_URL and the audience "convex", and
++// serves the key set under its /auth mount.
+ export default {
+   providers: [
+     {
+-      domain: process.env["CONVEX_SITE_URL"],
++      type: "customJwt",
+       applicationID: "convex",
++      issuer: env.CONVEX_SITE_URL,
++      jwks: `${env.CONVEX_SITE_URL}/auth/.well-known/jwks.json`,
++      algorithm: "RS256",
+     },
+   ],
+-};
++} satisfies AuthConfig;
+diff --git a/convex/auth.ts b/convex/auth.ts
+index 699105ec84a4a4bbd5fadb4157ccd71b8237dae0..5a2a299ca4f576e4b15bf737008689062aabbab4 100644
+--- a/convex/auth.ts
++++ b/convex/auth.ts
+@@ -1,6 +1,10 @@
+-import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
+-import { convexAuth } from "@convex-dev/auth/server";
++import { setupConvexAuth } from "@convex-dev/auth/server";
++import { setupAnonymous } from "@convex-dev/auth/methods/anonymous/server";
++import { components, internal } from "./_generated/api";
+ 
+-export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+-  providers: [Anonymous],
+-});
++const auth = setupConvexAuth({ component: components.auth });
++export const { signOut, refreshSession } = auth;
++
++export const { signInAnonymously } = setupAnonymous(auth, {
++  component: components.authAnonymous,
++}).attachUserCallbacks({ createUser: internal.guests.createUser });
 diff --git a/convex/convex.config.ts b/convex/convex.config.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..0f6747c74cb9264d6659229873474fef037971b1
+index 0000000000000000000000000000000000000000..6609046e7cefef822b682c4c0ff3786c44625cb9
 --- /dev/null
 +++ b/convex/convex.config.ts
-@@ -0,0 +1,7 @@
+@@ -0,0 +1,19 @@
 +import { defineApp } from "convex/server";
++import { v } from "convex/values";
++import auth from "@convex-dev/auth/convex.config";
++import anonymous from "@convex-dev/auth/components/anonymous/convex.config";
 +import hosting from "@samebase/convex-hosting/convex.config";
 +
-+const app = defineApp();
++// A push fails while either variable is missing on the deployment. scripts/ensure-convex-auth.ts
++// creates them before the first push.
++const app = defineApp({
++  env: { AUTH_PRIVATE_KEY: v.string(), AUTH_JWKS: v.string() },
++});
++app.use(auth, {
++  httpPrefix: "/auth",
++  env: { AUTH_PRIVATE_KEY: app.env.AUTH_PRIVATE_KEY, AUTH_JWKS: app.env.AUTH_JWKS },
++});
++app.use(anonymous);
 +app.use(hosting);
 +
 +export default app;
+diff --git a/convex/guests.ts b/convex/guests.ts
+index 70c7fa7ce2e6cb8bfb42e8850775fe447ad9432a..0bfc7fcfd4fecd910188c15ce4bf6c15f59c0bb1 100644
+--- a/convex/guests.ts
++++ b/convex/guests.ts
+@@ -1,9 +1,8 @@
+ import { getAuthUserId } from "@convex-dev/auth/server";
+-import type { Auth } from "convex/server";
+-import { mutation, query } from "./_generated/server";
++import { internalMutation, query, type MutationCtx } from "./_generated/server";
+ import { v } from "convex/values";
+ 
+-const { object, string, union } = v;
++const { id, literal, object, string } = v;
+ 
+ const GUEST_NAME_POOL = [
+   "Ash",
+@@ -20,9 +19,6 @@ const GUEST_NAME_POOL = [
+ const FALLBACK_GUEST_NAME_SPACE = 36 ** 6;
+ 
+ const viewerResultValidator = object({
+-  name: union(string(), v.null()),
+-});
+-const ensureNameResultValidator = object({
+   name: string(),
+ });
+ 
+@@ -37,91 +33,50 @@ function shuffledGuestNames() {
+   return candidates;
+ }
+ 
+-function fallbackGuestName(userId: string) {
+-  let hash = 0;
+-  for (const character of userId) {
+-    hash = (hash * 31 + character.charCodeAt(0)) % FALLBACK_GUEST_NAME_SPACE;
++async function unusedGuestName(ctx: MutationCtx) {
++  for (const name of shuffledGuestNames()) {
++    const existingUser = await ctx.db
++      .query("users")
++      .withIndex("by_name", (q) => q.eq("name", name))
++      .first();
++    if (!existingUser) {
++      return name;
++    }
+   }
+-  return `Guest ${hash.toString(36).padStart(6, "0")}`;
+-}
+ 
+-async function getRequiredUserId(ctx: { auth: Auth }) {
+-  const userId = await getAuthUserId(ctx);
+-  if (!userId) {
+-    throw new Error("Not authenticated");
+-  }
+-  return userId;
++  // Anonymous sessions can outnumber the friendly pool in public previews.
++  const suffix = Math.floor(Math.random() * FALLBACK_GUEST_NAME_SPACE).toString(36);
++  return `Guest ${suffix.padStart(6, "0")}`;
+ }
+ 
+-export const viewer = query({
+-  args: {},
+-  returns: viewerResultValidator,
++/** Convex Auth calls this once for each anonymous sign-in, which is always a new account. */
++export const createUser = internalMutation({
++  args: {
++    provider: object({
++      name: literal("anonymous"),
++      accountId: string(),
++      profile: object({}),
++    }),
++  },
++  returns: id("users"),
+   handler: async (ctx) => {
+-    const userId = await getRequiredUserId(ctx);
+-    const user = await ctx.db.get(userId);
+-    if (!user) {
+-      throw new Error("User not found");
+-    }
+-
+-    return {
+-      name: user.name ?? null,
+-    };
++    return await ctx.db.insert("users", { name: await unusedGuestName(ctx) });
+   },
+ });
+ 
+-export const ensureName = mutation({
++export const viewer = query({
+   args: {},
+-  returns: ensureNameResultValidator,
++  returns: viewerResultValidator,
+   handler: async (ctx) => {
+-    const userId = await getRequiredUserId(ctx);
++    const userId = await getAuthUserId(ctx);
++    if (!userId) {
++      throw new Error("Not authenticated");
++    }
+     const user = await ctx.db.get(userId);
+     if (!user) {
+       throw new Error("User not found");
+     }
+-    if (user.name) {
+-      return { name: user.name };
+-    }
+-
+-    const existingReservation = await ctx.db
+-      .query("guestNames")
+-      .withIndex("by_user", (q) => q.eq("userId", userId))
+-      .unique();
+-    if (existingReservation) {
+-      await ctx.db.patch(userId, {
+-        name: existingReservation.name,
+-      });
+-      return { name: existingReservation.name };
+-    }
+-
+-    // guestNames is the exact-use ledger; users.name is only the display value.
+-    for (const name of shuffledGuestNames()) {
+-      const existingName = await ctx.db
+-        .query("guestNames")
+-        .withIndex("by_name", (q) => q.eq("name", name))
+-        .unique();
+-      if (!existingName) {
+-        await ctx.db.insert("guestNames", {
+-          name,
+-          userId,
+-          createdAt: Date.now(),
+-        });
+-        await ctx.db.patch(userId, {
+-          name,
+-        });
+-        return { name };
+-      }
+-    }
+ 
+-    // Anonymous sessions can outnumber the friendly pool in public previews.
+-    const name = fallbackGuestName(userId);
+-    await ctx.db.insert("guestNames", {
+-      name,
+-      userId,
+-      createdAt: Date.now(),
+-    });
+-    await ctx.db.patch(userId, {
+-      name,
+-    });
+-    return { name };
++    return { name: user.name };
+   },
+ });
 diff --git a/convex/http.ts b/convex/http.ts
-index 1816e5b26cd42bf82d5116f312b3b51ce8b6498a..0caa6a5062bb6811db1d7cec955d426d4d979223 100644
+index 1816e5b26cd42bf82d5116f312b3b51ce8b6498a..62bfb6998a4a728efc5b2e5cbb8228403043962a 100644
 --- a/convex/http.ts
 +++ b/convex/http.ts
-@@ -1,8 +1,20 @@
+@@ -1,8 +1,21 @@
  import { httpRouter } from "convex/server";
+-import { auth } from "./auth";
 +import { routeAll } from "@samebase/convex-hosting";
 +import { components } from "./_generated/api";
 +import { versionId } from "../.convex-hosting/version.js";
 +// Type only, nothing is bundled: the server build imported below.
 +import type {} from "@samebase/convex-hosting-tanstack-start/server-build";
 +import server from "../dist/server/server.js";
- import { auth } from "./auth";
  
  const http = httpRouter();
  
- auth.addHttpRoutes(http);
+-auth.addHttpRoutes(http);
++// Every method, every path, as a Cloudflare Worker with static assets: a file of the build, else the
++// page that src/server.ts renders. `pnpm run deploy` writes the build and .convex-hosting/version.js.
++const handler = routeAll(http, components.hosting, versionId, server);
++// Exact routes for the three auth paths of src/server.ts: the Convex Auth component holds the /auth
++// prefix, where it serves the key set, and the longest prefix wins, so the catch-all above never
++// sees them.
++for (const path of ["/auth/signin", "/auth/refresh", "/auth/signout"]) {
++  http.route({ path, method: "POST", handler });
++}
  
-+// Every method, every path that the Convex Auth routes above do not answer, as a Cloudflare Worker
-+// with static assets: a file of the build, else the page that src/server.ts renders. Convex Auth
-+// keeps the session in the browser, so the server renders signed out. `pnpm run deploy` writes the
-+// build and .convex-hosting/version.js.
-+routeAll(http, components.hosting, versionId, server);
-+
  export default http;
+diff --git a/convex/schema.ts b/convex/schema.ts
+index 2ee717daf3e8fe366afc72ef03048c39ab741255..95eb14af46ffbd53bf3a0bb522e781e577388e4e 100644
+--- a/convex/schema.ts
++++ b/convex/schema.ts
+@@ -1,9 +1,11 @@
+-import { authTables } from "@convex-dev/auth/server";
+ import { defineSchema, defineTable } from "convex/server";
+ import { v } from "convex/values";
+ 
+ export default defineSchema({
+-  ...authTables,
++  // One document for each guest. The auth components keep the accounts and sessions.
++  users: defineTable({
++    name: v.string(),
++  }).index("by_name", ["name"]),
+   todos: defineTable({
+     userId: v.id("users"),
+     text: v.string(),
+@@ -12,11 +14,4 @@ export default defineSchema({
+   })
+     .index("by_created_at", ["createdAt"])
+     .index("by_user_created_at", ["userId", "createdAt"]),
+-  guestNames: defineTable({
+-    name: v.string(),
+-    userId: v.id("users"),
+-    createdAt: v.number(),
+-  })
+-    .index("by_name", ["name"])
+-    .index("by_user", ["userId"]),
+ });
 diff --git a/docs/local-setup.md b/docs/local-setup.md
-index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..f92a4df095f492439f87fb141b34ee4483e0c831 100644
+index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..988c677c38e15ff9eed7ca9721bde088dbfec9fb 100644
 --- a/docs/local-setup.md
 +++ b/docs/local-setup.md
 @@ -1,7 +1,7 @@
@@ -154,7 +408,14 @@ index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..f92a4df095f492439f87fb141b34ee44
  
  ## Install Vite+
  
-@@ -41,6 +41,22 @@ local backend.
+@@ -35,12 +35,28 @@ pnpm run dev
+ 
+ `pnpm run dev` starts Convex and TanStack Start together. On the first run,
+ Convex may ask you to sign in and choose or create a development deployment.
+-The dev script also creates Convex Auth JWT keys in that development deployment
++The dev script also creates Convex Auth signing keys in that development deployment
+ if they are missing. In a linked Git worktree, it automatically uses an isolated
+ local backend.
  
  Open the local URL printed by Vite.
  
@@ -178,34 +439,47 @@ index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..f92a4df095f492439f87fb141b34ee44
  
  Use the normal `pnpm run dev` command in a linked Git worktree. Use the explicit
 diff --git a/package.json b/package.json
-index 5fef82360b1804d1e690f5703591d235284fee31..26ee9e29ee1b690124670ff905c32dd25ff0fe41 100644
+index c5171f59c4b6a4afe09febaea0e3de555f4fb07e..e51c3a81c713520e612cbc88f02e376a513f3bc2 100644
 --- a/package.json
 +++ b/package.json
-@@ -15,11 +15,9 @@
+@@ -14,15 +14,12 @@
+     "dev:primary": "node ./scripts/run-primary-dev.ts",
      "dev:frontend": "vp dev",
      "dev:worktree": "node ./scripts/run-worktree-dev.ts",
-     "check": "vp check && vp run typecheck && vp test && vp run verify:dev-launcher-version",
+-    "check": "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
 -    "build": "node ./scripts/build-cloudflare.ts",
 -    "build:app": "vp run check && vp build",
 -    "deploy": "wrangler deploy",
 -    "deploy:preview": "wrangler preview",
 -    "deploy:dry-run": "pnpm run build && wrangler deploy --dry-run",
++    "check": "vp check && vp run typecheck && vp test && vp run verify:dev-launcher-version",
 +    "build": "vp run check && vp build",
 +    "deploy": "convex-hosting deploy --build \"vp run build && node ./scripts/ensure-convex-auth.ts --prod\" --dist dist/client --html-handling drop-trailing-slash",
 +    "deploy:dev": "convex-hosting deploy --dev --build \"vp run build && node ./scripts/ensure-convex-auth.ts\" --dist dist/client --html-handling drop-trailing-slash",
      "format": "vp fmt",
      "format:check": "vp fmt --check",
+-    "generate:cloudflare-redirects": "node ./scripts/generate-cloudflare-redirects.ts",
      "generate:dev-launcher-version": "node ./scripts/generate-dev-launcher-version.ts --write",
-@@ -35,6 +33,8 @@
-     "@auth/core": "0.41.3",
-     "@convex-dev/auth": "^0.0.94",
-     "@convex-dev/react-query": "^0.1.0",
+     "lint": "vp lint --report-unused-disable-directives",
+     "preview": "vp preview",
+@@ -30,18 +27,21 @@
+     "test": "vp test",
+     "typecheck": "tsc && vp run typecheck:node && tsc --project convex/tsconfig.json",
+     "typecheck:node": "tsc --project tsconfig.node.json",
+-    "verify:cloudflare-redirects": "vp run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
+     "verify:dev-launcher-version": "node ./scripts/generate-dev-launcher-version.ts"
+   },
+   "dependencies": {
+-    "@auth/core": "0.41.3",
+-    "@convex-dev/auth": "^0.0.94",
++    "@convex-dev/auth": "2.0.0-beta.0",
++    "@convex-dev/react-query": "^0.1.0",
 +    "@samebase/convex-hosting": "^0.13.1",
-+    "@samebase/convex-hosting-tanstack-start": "^0.9.5",
++    "@samebase/convex-hosting-tanstack-start": "^0.10.0",
      "@tailwindcss/vite": "^4.3.0",
-     "@tanstack/react-query": "^5.104.4",
++    "@tanstack/react-query": "^5.104.4",
      "@tanstack/react-router": "^1.170.41",
-@@ -42,7 +42,7 @@
++    "@tanstack/react-router-ssr-query": "1.167.3",
      "@tanstack/react-start": "^1.168.60",
      "class-variance-authority": "^0.7.1",
      "clsx": "^2.1.1",
@@ -214,24 +488,76 @@ index 5fef82360b1804d1e690f5703591d235284fee31..26ee9e29ee1b690124670ff905c32dd2
      "lucide-react": "^1.14.0",
      "qrcode.react": "^4.2.0",
      "radix-ui": "^1.4.3",
-@@ -53,7 +53,6 @@
-     "tw-animate-css": "^1.4.0"
-   },
-   "devDependencies": {
--    "@cloudflare/vite-plugin": "1.63.0",
-     "@tanstack/router-plugin": "^1.168.23",
-     "@types/node": "^24.0.0",
-     "@types/react": "^19.2.14",
-@@ -63,8 +62,7 @@
+@@ -61,8 +61,7 @@
      "typescript": "~6.0.2",
      "vite": "catalog:",
      "vite-plus": "catalog:",
 -    "vitest": "catalog:",
--    "wrangler": "4.148.0"
+-    "wrangler": "4.136.2"
 +    "vitest": "catalog:"
    },
    "packageManager": "pnpm@11.1.1"
  }
+diff --git a/prerender.config.ts b/prerender.config.ts
+deleted file mode 100644
+index aca6df84213b24cd242397e892bb430fdaa5e414..0000000000000000000000000000000000000000
+--- a/prerender.config.ts
++++ /dev/null
+@@ -1,33 +0,0 @@
+-export type PrerenderPage = {
+-  path: `/${string}`;
+-  prerender: {
+-    enabled: true;
+-    outputPath?: `/${string}`;
+-  };
+-};
+-
+-/**
+- * Public pages that TanStack Start prerenders and Cloudflare exposes through
+- * exact _redirects aliases.
+- *
+- * Cloudflare SPA mode always uses /index.html when no asset matches. The real
+- * / route is also prerendered, so keep /index.html as the route-neutral shell
+- * and write / to /_landing.html. public/_redirects exposes that file at exact
+- * /. Revisit this split if Cloudflare supports a configurable SPA fallback
+- * file or if this app moves to request-time SSR.
+- */
+-export const prerenderPages = [
+-  {
+-    path: "/",
+-    prerender: {
+-      enabled: true,
+-      outputPath: "/_landing.html",
+-    },
+-  },
+-  {
+-    path: "/about",
+-    prerender: {
+-      enabled: true,
+-    },
+-  },
+-] as const satisfies readonly PrerenderPage[];
+diff --git a/public/_redirects b/public/_redirects
+deleted file mode 100644
+index cd1b156660f6c11a5419d9da40f083dd6ceede35..0000000000000000000000000000000000000000
+--- a/public/_redirects
++++ /dev/null
+@@ -1,15 +0,0 @@
+-# Cloudflare Workers _redirects apply before asset serving. Keep custom
+-# rules exact; Cloudflare SPA mode owns app-route fallback through /index.html.
+-# @samebase/base-prerender-redirects:start
+-# Generated by vp run generate:cloudflare-redirects.
+-# Cloudflare SPA mode serves /index.html for unknown app routes, so
+-# the SPA shell owns that file. Generated HTML file URLs redirect to
+-# their canonical routes before exact aliases expose prerendered pages.
+-
+-/_landing.html / 301
+-/ /_landing.html 200
+-
+-/about/index.html /about 301
+-/about /about/index.html 200
+-/about/ /about/index.html 200
+-# @samebase/base-prerender-redirects:end
 diff --git a/scripts/build-cloudflare.test.ts b/scripts/build-cloudflare.test.ts
 deleted file mode 100644
 index 0a61ea6e27395f7da1dd8f7bae4ecffa4229d48a..0000000000000000000000000000000000000000
@@ -412,12 +738,12 @@ index 655a7fd98b6db9c0415b0cdb53814d4e1ee38575..00000000000000000000000000000000
 -  await main();
 -}
 diff --git a/scripts/ensure-convex-auth.test.ts b/scripts/ensure-convex-auth.test.ts
-index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898c6b56b1a 100644
+index e689c545f0d305515dbeb5befc2135ec1b74e663..787c3013c5784337aceabe5819ad35514dadf6bc 100644
 --- a/scripts/ensure-convex-auth.test.ts
 +++ b/scripts/ensure-convex-auth.test.ts
-@@ -1,10 +1,15 @@
+@@ -1,20 +1,25 @@
 -// Samebase source build: v2064
-+// Samebase source build: v2132
++// Samebase source build: v2133
  import process from "node:process";
  
  import { describe, expect, it, vi } from "vite-plus/test";
@@ -431,8 +757,37 @@ index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898
 +
  describe("ensure-convex-auth", () => {
    it("runs the Convex JavaScript entrypoint through Node without a shell", () => {
-     const command = buildConvexCliCommand(["env", "get", "JWKS"], {
-@@ -40,7 +45,7 @@ describe("ensure-convex-auth", () => {
+-    const command = buildConvexCliCommand(["env", "get", "JWKS"], {
++    const command = buildConvexCliCommand(["env", "get", "AUTH_JWKS"], {
+       env: {},
+       stdio: "pipe",
+     });
+ 
+     expect(command.command).toBe(process.execPath);
+     expect(command.args[0]).toMatch(/[\\/]node_modules[\\/]convex[\\/]bin[\\/]main\.js$/);
+-    expect(command.args.slice(1)).toEqual(["env", "get", "JWKS"]);
++    expect(command.args.slice(1)).toEqual(["env", "get", "AUTH_JWKS"]);
+     expect(command.spawnOptions).not.toHaveProperty("shell");
+   });
+ 
+@@ -27,12 +32,12 @@ describe("ensure-convex-auth", () => {
+     });
+ 
+     expect(calls.slice(0, 2)).toEqual([
+-      ["env", "get", "JWT_PRIVATE_KEY"],
+-      ["env", "get", "JWKS"],
++      ["env", "get", "AUTH_PRIVATE_KEY"],
++      ["env", "get", "AUTH_JWKS"],
+     ]);
+     expect(calls.slice(2).map((args) => args.slice(0, 4))).toEqual([
+-      ["env", "set", "--", "JWT_PRIVATE_KEY"],
+-      ["env", "set", "--", "JWKS"],
++      ["env", "set", "--", "AUTH_PRIVATE_KEY"],
++      ["env", "set", "--", "AUTH_JWKS"],
+     ]);
+     expect(calls[2]?.[4]).toBeTruthy();
+     expect(calls[3]?.[4]).toBeTruthy();
+@@ -40,38 +45,120 @@ describe("ensure-convex-auth", () => {
  
    it("creates auth keys in the same named preview as the build", async () => {
      const calls: string[][] = [];
@@ -441,7 +796,20 @@ index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898
        calls.push(args);
        return { code: 0, stdout: "", stderr: "" };
      });
-@@ -57,15 +62,97 @@ describe("ensure-convex-auth", () => {
+ 
+     expect(calls.slice(0, 2)).toEqual([
+-      ["env", "get", "JWT_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
+-      ["env", "get", "JWKS", "--preview-name", "nicu-preview-smoke"],
++      ["env", "get", "AUTH_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
++      ["env", "get", "AUTH_JWKS", "--preview-name", "nicu-preview-smoke"],
+     ]);
+     expect(calls.slice(2).map((args) => args.slice(0, 6))).toEqual([
+-      ["env", "set", "--preview-name", "nicu-preview-smoke", "--", "JWT_PRIVATE_KEY"],
+-      ["env", "set", "--preview-name", "nicu-preview-smoke", "--", "JWKS"],
++      ["env", "set", "--preview-name", "nicu-preview-smoke", "--", "AUTH_PRIVATE_KEY"],
++      ["env", "set", "--preview-name", "nicu-preview-smoke", "--", "AUTH_JWKS"],
+     ]);
+   });
  
    it("keeps existing preview auth keys on a rebuild", async () => {
      const runConvex = vi.fn(async () => ({ code: 0, stdout: "configured", stderr: "" }));
@@ -463,8 +831,8 @@ index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898
 +    );
 +
 +    expect(calls).toEqual([
-+      ["env", "get", "JWT_PRIVATE_KEY", "--prod"],
-+      ["env", "get", "JWKS", "--prod"],
++      ["env", "get", "AUTH_PRIVATE_KEY", "--prod"],
++      ["env", "get", "AUTH_JWKS", "--prod"],
 +    ]);
 +  });
 +
@@ -480,8 +848,8 @@ index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898
 +    );
 +
 +    expect(calls).toEqual([
-+      ["env", "get", "JWT_PRIVATE_KEY"],
-+      ["env", "get", "JWKS"],
++      ["env", "get", "AUTH_PRIVATE_KEY"],
++      ["env", "get", "AUTH_JWKS"],
 +    ]);
 +  });
 +
@@ -505,8 +873,8 @@ index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898
 +        "--preview-name",
 +        "nicu-preview-smoke",
 +      ],
-+      ["env", "get", "JWT_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
-+      ["env", "get", "JWKS", "--preview-name", "nicu-preview-smoke"],
++      ["env", "get", "AUTH_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
++      ["env", "get", "AUTH_JWKS", "--preview-name", "nicu-preview-smoke"],
 +    ]);
 +  });
 +
@@ -541,20 +909,34 @@ index e689c545f0d305515dbeb5befc2135ec1b74e663..a176aacd287374d24e2b5d7337f01898
          calls.push(args);
          return { code: 1, stdout: "", stderr: "Environment read failed" };
        }),
+-    ).rejects.toThrow("Could not read Convex environment variable JWT_PRIVATE_KEY.");
++    ).rejects.toThrow("Could not read Convex environment variable AUTH_PRIVATE_KEY.");
+     expect(calls).toEqual([
+-      ["env", "get", "JWT_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
++      ["env", "get", "AUTH_PRIVATE_KEY", "--preview-name", "nicu-preview-smoke"],
+     ]);
+   });
+ });
 diff --git a/scripts/ensure-convex-auth.ts b/scripts/ensure-convex-auth.ts
-index f181c9de4ee9207bdf7c7ace2c419f01e700c9f7..3869fa8b2c9f6b01395a9b840fbcd4df921798af 100644
+index f181c9de4ee9207bdf7c7ace2c419f01e700c9f7..e27b2739081b7895f7c6d50ad4c40df76d2c644d 100644
 --- a/scripts/ensure-convex-auth.ts
 +++ b/scripts/ensure-convex-auth.ts
-@@ -1,4 +1,4 @@
+@@ -1,7 +1,7 @@
 -// Samebase source build: v2064
-+// Samebase source build: v2132
++// Samebase source build: v2133
  /// <reference types="node" />
  import { spawn } from "node:child_process";
- import { generateKeyPairSync } from "node:crypto";
-@@ -84,6 +84,22 @@ async function readConvexEnv(
+-import { generateKeyPairSync } from "node:crypto";
++import { generateKeyPairSync, randomUUID } from "node:crypto";
+ import process from "node:process";
+ import { fileURLToPath, pathToFileURL } from "node:url";
+ 
+@@ -84,10 +84,24 @@ async function readConvexEnv(
    return value.length > 0 ? value : null;
  }
  
+-function normalizePrivateKey(privateKey: string | Buffer) {
+-  return privateKey.toString().trimEnd().replace(/\n/g, " ");
 +async function readDeploymentUrl(
 +  env: NodeJS.ProcessEnv,
 +  selectionArgs: string[],
@@ -569,12 +951,27 @@ index f181c9de4ee9207bdf7c7ace2c419f01e700c9f7..3869fa8b2c9f6b01395a9b840fbcd4df
 +    throw new Error("Could not read the URL of the selected Convex deployment.");
 +  }
 +  return url;
-+}
-+
- function normalizePrivateKey(privateKey: string | Buffer) {
-   return privateKey.toString().trimEnd().replace(/\n/g, " ");
  }
-@@ -117,9 +133,35 @@ async function setConvexEnv(
+ 
++// The format of `npx @convex-dev/auth`: the auth component decodes the base64 PKCS#8 key and signs
++// with the `kid` of the first key in the set.
+ function generateAuthKeys() {
+   const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+     modulusLength: 2048,
+@@ -96,8 +110,10 @@ function generateAuthKeys() {
+   const privatePem = privateKey.export({ format: "pem", type: "pkcs8" });
+   const publicJwk = publicKey.export({ format: "jwk" });
+   return {
+-    JWT_PRIVATE_KEY: normalizePrivateKey(privatePem),
+-    JWKS: JSON.stringify({ keys: [{ use: "sig", ...publicJwk }] }),
++    AUTH_PRIVATE_KEY: Buffer.from(privatePem.toString()).toString("base64"),
++    AUTH_JWKS: JSON.stringify({
++      keys: [{ ...publicJwk, kid: randomUUID(), alg: "RS256", use: "sig" }],
++    }),
+   };
+ }
+ 
+@@ -117,27 +133,53 @@ async function setConvexEnv(
  export async function ensureConvexAuth(
    env: NodeJS.ProcessEnv,
    runConvex: RunConvex = runConvexCli,
@@ -582,6 +979,8 @@ index f181c9de4ee9207bdf7c7ace2c419f01e700c9f7..3869fa8b2c9f6b01395a9b840fbcd4df
  ) {
 -  const branch = env["WORKERS_CI_BRANCH"];
 -  const selectionArgs = branch && branch !== "main" ? ["--preview-name", branch] : [];
+-  const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
+-  const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
 +  // The deploy scripts run this inside their build, after Convex creates the deployment. A deploy
 +  // key selects its own deployment; a preview key also needs the preview name, which
 +  // actions/preview takes from the pull request branch. Without a key, `production` follows a
@@ -609,16 +1008,249 @@ index f181c9de4ee9207bdf7c7ace2c419f01e700c9f7..3869fa8b2c9f6b01395a9b840fbcd4df
 +      );
 +    }
 +  }
-   const existingPrivateKey = await readConvexEnv("JWT_PRIVATE_KEY", env, selectionArgs, runConvex);
-   const existingJwks = await readConvexEnv("JWKS", env, selectionArgs, runConvex);
++  const existingPrivateKey = await readConvexEnv("AUTH_PRIVATE_KEY", env, selectionArgs, runConvex);
++  const existingJwks = await readConvexEnv("AUTH_JWKS", env, selectionArgs, runConvex);
  
-@@ -139,5 +181,5 @@ export async function ensureConvexAuth(
+   if (existingPrivateKey && existingJwks) {
+     console.log("Convex Auth keys already configured.");
+     return;
+   }
+   if (existingPrivateKey || existingJwks) {
+-    throw new Error("JWT_PRIVATE_KEY and JWKS must be configured together.");
++    throw new Error("AUTH_PRIVATE_KEY and AUTH_JWKS must be configured together.");
+   }
+ 
+   const keys = generateAuthKeys();
+-  await setConvexEnv("JWT_PRIVATE_KEY", keys.JWT_PRIVATE_KEY, env, selectionArgs, runConvex);
+-  await setConvexEnv("JWKS", keys.JWKS, env, selectionArgs, runConvex);
++  await setConvexEnv("AUTH_PRIVATE_KEY", keys.AUTH_PRIVATE_KEY, env, selectionArgs, runConvex);
++  await setConvexEnv("AUTH_JWKS", keys.AUTH_JWKS, env, selectionArgs, runConvex);
+   console.log("Convex Auth keys configured.");
+ }
  
  const entrypoint = process.argv[1];
  if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
 -  await ensureConvexAuth(process.env);
 +  await ensureConvexAuth(process.env, runConvexCli, process.argv.includes("--prod"));
  }
+diff --git a/scripts/generate-cloudflare-redirects.test.ts b/scripts/generate-cloudflare-redirects.test.ts
+deleted file mode 100644
+index d0130ddac8161b08eda224b544622566e114e0ea..0000000000000000000000000000000000000000
+--- a/scripts/generate-cloudflare-redirects.test.ts
++++ /dev/null
+@@ -1,82 +0,0 @@
+-// Samebase source build: v1997
+-import { describe, expect, it } from "vite-plus/test";
+-
+-import { prerenderPages } from "../prerender.config.ts";
+-import {
+-  buildGeneratedRedirects,
+-  generatedRedirectsEndTag,
+-  generatedRedirectsStartTag,
+-  replaceGeneratedRedirectsBlock,
+-} from "./generate-cloudflare-redirects.ts";
+-
+-describe("generate-cloudflare-redirects", () => {
+-  it("creates exact aliases from public prerender pages", () => {
+-    expect(buildGeneratedRedirects(prerenderPages)).toBe(
+-      [
+-        "# Generated by vp run generate:cloudflare-redirects.",
+-        "# Cloudflare SPA mode serves /index.html for unknown app routes, so",
+-        "# the SPA shell owns that file. Generated HTML file URLs redirect to",
+-        "# their canonical routes before exact aliases expose prerendered pages.",
+-        "",
+-        "/_landing.html / 301",
+-        "/ /_landing.html 200",
+-        "",
+-        "/about/index.html /about 301",
+-        "/about /about/index.html 200",
+-        "/about/ /about/index.html 200",
+-      ].join("\n"),
+-    );
+-  });
+-
+-  it("replaces only the tagged generated block", () => {
+-    const contents = [
+-      "/legacy /new 301",
+-      generatedRedirectsStartTag,
+-      "/old /old.html 200",
+-      generatedRedirectsEndTag,
+-      "/external https://example.com 302",
+-      "",
+-    ].join("\n");
+-
+-    expect(replaceGeneratedRedirectsBlock(contents, buildGeneratedRedirects(prerenderPages))).toBe(
+-      [
+-        "/legacy /new 301",
+-        generatedRedirectsStartTag,
+-        "# Generated by vp run generate:cloudflare-redirects.",
+-        "# Cloudflare SPA mode serves /index.html for unknown app routes, so",
+-        "# the SPA shell owns that file. Generated HTML file URLs redirect to",
+-        "# their canonical routes before exact aliases expose prerendered pages.",
+-        "",
+-        "/_landing.html / 301",
+-        "/ /_landing.html 200",
+-        "",
+-        "/about/index.html /about 301",
+-        "/about /about/index.html 200",
+-        "/about/ /about/index.html 200",
+-        generatedRedirectsEndTag,
+-        "/external https://example.com 302",
+-        "",
+-      ].join("\n"),
+-    );
+-  });
+-
+-  it("requires the generated block tags", () => {
+-    expect(() => replaceGeneratedRedirectsBlock("/ /_landing.html 200\n", "")).toThrow(
+-      "Missing # @samebase/base-prerender-redirects:start",
+-    );
+-  });
+-
+-  it("keeps Cloudflare SPA shell ownership of /index.html", () => {
+-    expect(() =>
+-      buildGeneratedRedirects([
+-        {
+-          path: "/",
+-          prerender: {
+-            enabled: true,
+-            outputPath: "/index.html",
+-          },
+-        },
+-      ]),
+-    ).toThrow("Cloudflare SPA mode serves that file");
+-  });
+-});
+diff --git a/scripts/generate-cloudflare-redirects.ts b/scripts/generate-cloudflare-redirects.ts
+deleted file mode 100644
+index d12587e0ba8f68ed6e06b0a1ba16df40d2e61f30..0000000000000000000000000000000000000000
+--- a/scripts/generate-cloudflare-redirects.ts
++++ /dev/null
+@@ -1,124 +0,0 @@
+-// Samebase source build: v1997
+-/// <reference types="node" />
+-import { readFileSync, writeFileSync } from "node:fs";
+-import path from "node:path";
+-import process from "node:process";
+-import { pathToFileURL } from "node:url";
+-
+-import { prerenderPages, type PrerenderPage } from "../prerender.config.ts";
+-
+-export const generatedRedirectsStartTag = "# @samebase/base-prerender-redirects:start";
+-export const generatedRedirectsEndTag = "# @samebase/base-prerender-redirects:end";
+-
+-const redirectsFilePath = path.resolve("public/_redirects");
+-
+-function assertRedirectPath(label: string, value: string) {
+-  if (!value.startsWith("/")) {
+-    throw new Error(`${label} must be root-relative: ${value}`);
+-  }
+-}
+-
+-function readHtmlOutputPath(page: PrerenderPage) {
+-  if (page.path === "/" && !page.prerender.outputPath) {
+-    throw new Error(
+-      "The root prerender page must set outputPath because Cloudflare SPA mode owns /index.html.",
+-    );
+-  }
+-
+-  const outputPath = page.prerender.outputPath ?? `${page.path}/index.html`;
+-  const htmlOutputPath = outputPath.endsWith(".html") ? outputPath : `${outputPath}.html`;
+-
+-  assertRedirectPath("Prerender output path", htmlOutputPath);
+-  if (htmlOutputPath === "/index.html") {
+-    throw new Error(
+-      "Prerender pages must not output /index.html because Cloudflare SPA mode serves that file for unknown app routes.",
+-    );
+-  }
+-
+-  return htmlOutputPath;
+-}
+-
+-function createRedirectAliases(routePath: string) {
+-  assertRedirectPath("Prerender route path", routePath);
+-  if (routePath === "/") {
+-    return ["/"];
+-  }
+-
+-  return [routePath, `${routePath}/`];
+-}
+-
+-export function buildGeneratedRedirects(pages: readonly PrerenderPage[]) {
+-  const redirectGroups = pages.map((page) => {
+-    const outputPath = readHtmlOutputPath(page);
+-    return [
+-      `${outputPath} ${page.path} 301`,
+-      ...createRedirectAliases(page.path).map((alias) => `${alias} ${outputPath} 200`),
+-    ].join("\n");
+-  });
+-
+-  return [
+-    "# Generated by vp run generate:cloudflare-redirects.",
+-    "# Cloudflare SPA mode serves /index.html for unknown app routes, so",
+-    "# the SPA shell owns that file. Generated HTML file URLs redirect to",
+-    "# their canonical routes before exact aliases expose prerendered pages.",
+-    "",
+-    redirectGroups.join("\n\n"),
+-  ].join("\n");
+-}
+-
+-function findMarkerLine(args: { lines: readonly string[]; marker: string }) {
+-  let markerLine: number | null = null;
+-
+-  for (const [index, line] of args.lines.entries()) {
+-    if (line.trim() !== args.marker) {
+-      continue;
+-    }
+-    if (markerLine !== null) {
+-      throw new Error(`Expected exactly one ${args.marker} marker in public/_redirects.`);
+-    }
+-
+-    markerLine = index;
+-  }
+-
+-  if (markerLine === null) {
+-    throw new Error(`Missing ${args.marker} marker in public/_redirects.`);
+-  }
+-
+-  return markerLine;
+-}
+-
+-export function replaceGeneratedRedirectsBlock(contents: string, generatedRedirects: string) {
+-  const normalizedContents = contents.replace(/\r\n/g, "\n");
+-  const lines = normalizedContents.split("\n");
+-  const startLine = findMarkerLine({ lines, marker: generatedRedirectsStartTag });
+-  const endLine = findMarkerLine({ lines, marker: generatedRedirectsEndTag });
+-
+-  if (startLine >= endLine) {
+-    throw new Error("The Cloudflare redirects start marker must come before the end marker.");
+-  }
+-
+-  const nextContents = [
+-    ...lines.slice(0, startLine + 1),
+-    ...generatedRedirects.split("\n"),
+-    ...lines.slice(endLine),
+-  ].join("\n");
+-
+-  return nextContents.endsWith("\n") ? nextContents : `${nextContents}\n`;
+-}
+-
+-export function updateRedirectsFile(filePath = redirectsFilePath) {
+-  const contents = readFileSync(filePath, "utf8");
+-  const generatedRedirects = buildGeneratedRedirects(prerenderPages);
+-  const nextContents = replaceGeneratedRedirectsBlock(contents, generatedRedirects);
+-
+-  if (nextContents === contents) {
+-    return;
+-  }
+-
+-  writeFileSync(filePath, nextContents, "utf8");
+-}
+-
+-const entrypoint = process.argv[1];
+-if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+-  updateRedirectsFile();
+-}
 diff --git a/scripts/verify-current-branch-head.test.ts b/scripts/verify-current-branch-head.test.ts
 deleted file mode 100644
 index 4e9ad9357f47407c3b222524bc98001aad73d823..0000000000000000000000000000000000000000
@@ -748,48 +1380,802 @@ index b26cdb53dd6c8c53095e1cd14b397b23bdda5933..00000000000000000000000000000000
 -if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
 -  verifyCurrentBranchHead(process.env);
 -}
+diff --git a/src/components/GuestSignIn.tsx b/src/components/GuestSignIn.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..eb27193dca9b96534513a926e799162e49a1e016
+--- /dev/null
++++ b/src/components/GuestSignIn.tsx
+@@ -0,0 +1,41 @@
++import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react";
++import { useState } from "react";
++import { api } from "../../convex/_generated/api";
++import { Button } from "#components/ui/button";
++
++/** Starts a guest session. With `next`, a document load then opens that page as the guest. */
++export function GuestSignIn({ next }: { next?: string }) {
++  const { signIn } = useSignInAnonymously(api.auth);
++  const [isPending, setIsPending] = useState(false);
++  const [error, setError] = useState("");
++
++  const continueAsGuest = () => {
++    setError("");
++    setIsPending(true);
++    void signIn()
++      .then(() => {
++        // The provider confirms the session after sign-in resolves, so a navigation inside the
++        // app could reach a gate first. The server renders the next page from the new cookie.
++        if (next) {
++          location.assign(next);
++        }
++      })
++      .catch((signInError: unknown) => {
++        setError(signInError instanceof Error ? signInError.message : "Could not start session");
++      })
++      .finally(() => setIsPending(false));
++  };
++
++  return (
++    <>
++      <Button type="button" disabled={isPending} onClick={continueAsGuest}>
++        {isPending ? "Starting" : "Continue as guest"}
++      </Button>
++      {error ? (
++        <p className="text-destructive text-sm" role="alert">
++          {error}
++        </p>
++      ) : null}
++    </>
++  );
++}
+diff --git a/src/lib/convex.tsx b/src/lib/convex.tsx
+deleted file mode 100644
+index d54357100a6d06f4eaef89a93982afcb7bc7cefd..0000000000000000000000000000000000000000
+--- a/src/lib/convex.tsx
++++ /dev/null
+@@ -1,15 +0,0 @@
+-import { ConvexAuthProvider } from "@convex-dev/auth/react";
+-import { ConvexReactClient } from "convex/react";
+-import type { ReactNode } from "react";
+-
+-const convexUrl = import.meta.env["VITE_CONVEX_URL"];
+-let convexClient: ConvexReactClient | undefined;
+-
+-export function ConvexClientProvider({ children }: Readonly<{ children: ReactNode }>) {
+-  if (!convexUrl) {
+-    throw new Error("VITE_CONVEX_URL is required. Run a supported Samebase dev or deploy command.");
+-  }
+-
+-  convexClient ??= new ConvexReactClient(convexUrl);
+-  return <ConvexAuthProvider client={convexClient}>{children}</ConvexAuthProvider>;
+-}
+diff --git a/src/routeTree.gen.ts b/src/routeTree.gen.ts
+index d1c1c14d0bf344e67b93e62972f2fb7c62144656..42c4496e771792940fbea100beb0c2e709b91003 100644
+--- a/src/routeTree.gen.ts
++++ b/src/routeTree.gen.ts
+@@ -10,17 +10,18 @@
+ 
+ import { Route as rootRouteImport } from './routes/__root'
+ import { Route as IndexRouteImport } from './routes/index'
+-import { Route as SplatRouteImport } from './routes/$'
++import { Route as AuthedRouteImport } from './routes/_authed'
+ import { Route as AboutRouteImport } from './routes/about'
++import { Route as SigninRouteImport } from './routes/signin'
++import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
+ 
+ const IndexRoute = IndexRouteImport.update({
+   id: '/',
+   path: '/',
+   getParentRoute: () => rootRouteImport,
+ } as any)
+-const SplatRoute = SplatRouteImport.update({
+-  id: '/$',
+-  path: '/$',
++const AuthedRoute = AuthedRouteImport.update({
++  id: '/_authed',
+   getParentRoute: () => rootRouteImport,
+ } as any)
+ const AboutRoute = AboutRouteImport.update({
+@@ -28,35 +29,50 @@ const AboutRoute = AboutRouteImport.update({
+   path: '/about',
+   getParentRoute: () => rootRouteImport,
+ } as any)
++const SigninRoute = SigninRouteImport.update({
++  id: '/signin',
++  path: '/signin',
++  getParentRoute: () => rootRouteImport,
++} as any)
++const AuthedAccountRoute = AuthedAccountRouteImport.update({
++  id: '/account',
++  path: '/account',
++  getParentRoute: () => AuthedRoute,
++} as any)
+ 
+ export interface FileRoutesByFullPath {
+   '/': typeof IndexRoute
+-  '/$': typeof SplatRoute
+   '/about': typeof AboutRoute
++  '/signin': typeof SigninRoute
++  '/account': typeof AuthedAccountRoute
+ }
+ export interface FileRoutesByTo {
+   '/': typeof IndexRoute
+-  '/$': typeof SplatRoute
+   '/about': typeof AboutRoute
++  '/signin': typeof SigninRoute
++  '/account': typeof AuthedAccountRoute
+ }
+ export interface FileRoutesById {
+   __root__: typeof rootRouteImport
+   '/': typeof IndexRoute
+-  '/$': typeof SplatRoute
++  '/_authed': typeof AuthedRouteWithChildren
+   '/about': typeof AboutRoute
++  '/signin': typeof SigninRoute
++  '/_authed/account': typeof AuthedAccountRoute
+ }
+ export interface FileRouteTypes {
+   fileRoutesByFullPath: FileRoutesByFullPath
+-  fullPaths: '/' | '/$' | '/about'
++  fullPaths: '/' | '/about' | '/signin' | '/account'
+   fileRoutesByTo: FileRoutesByTo
+-  to: '/' | '/$' | '/about'
+-  id: '__root__' | '/' | '/$' | '/about'
++  to: '/' | '/about' | '/signin' | '/account'
++  id: '__root__' | '/' | '/_authed' | '/about' | '/signin' | '/_authed/account'
+   fileRoutesById: FileRoutesById
+ }
+ export interface RootRouteChildren {
+   IndexRoute: typeof IndexRoute
+-  SplatRoute: typeof SplatRoute
++  AuthedRoute: typeof AuthedRouteWithChildren
+   AboutRoute: typeof AboutRoute
++  SigninRoute: typeof SigninRoute
+ }
+ 
+ declare module '@tanstack/react-router' {
+@@ -68,11 +84,11 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof IndexRouteImport
+       parentRoute: typeof rootRouteImport
+     }
+-    '/$': {
+-      id: '/$'
+-      path: '/$'
+-      fullPath: '/$'
+-      preLoaderRoute: typeof SplatRouteImport
++    '/_authed': {
++      id: '/_authed'
++      path: ''
++      fullPath: '/'
++      preLoaderRoute: typeof AuthedRouteImport
+       parentRoute: typeof rootRouteImport
+     }
+     '/about': {
+@@ -82,13 +98,39 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof AboutRouteImport
+       parentRoute: typeof rootRouteImport
+     }
++    '/signin': {
++      id: '/signin'
++      path: '/signin'
++      fullPath: '/signin'
++      preLoaderRoute: typeof SigninRouteImport
++      parentRoute: typeof rootRouteImport
++    }
++    '/_authed/account': {
++      id: '/_authed/account'
++      path: '/account'
++      fullPath: '/account'
++      preLoaderRoute: typeof AuthedAccountRouteImport
++      parentRoute: typeof AuthedRoute
++    }
+   }
+ }
+ 
++interface AuthedRouteChildren {
++  AuthedAccountRoute: typeof AuthedAccountRoute
++}
++
++const AuthedRouteChildren: AuthedRouteChildren = {
++  AuthedAccountRoute: AuthedAccountRoute,
++}
++
++const AuthedRouteWithChildren =
++  AuthedRoute._addFileChildren(AuthedRouteChildren)
++
+ const rootRouteChildren: RootRouteChildren = {
+   IndexRoute: IndexRoute,
+-  SplatRoute: SplatRoute,
++  AuthedRoute: AuthedRouteWithChildren,
+   AboutRoute: AboutRoute,
++  SigninRoute: SigninRoute,
+ }
+ export const routeTree = rootRouteImport
+   ._addFileChildren(rootRouteChildren)
+diff --git a/src/router.test.ts b/src/router.test.ts
+deleted file mode 100644
+index 2f9072089d873f02a45b65b8f10ffbe392ffa5e1..0000000000000000000000000000000000000000
+--- a/src/router.test.ts
++++ /dev/null
+@@ -1,11 +0,0 @@
+-import { describe, expect, it } from "vite-plus/test";
+-
+-import { getRouter } from "./router";
+-
+-describe("router", () => {
+-  it("matches unknown paths with the catch-all route", () => {
+-    const [matchedRoutes] = getRouter().getMatchedRoutes("/definitely-not-a-route");
+-
+-    expect(matchedRoutes.at(-1)?.id).toBe("/$");
+-  });
+-});
+diff --git a/src/router.tsx b/src/router.tsx
+index bee72ae3706795786ecf761749ac7a45e4d25b3d..b577567c1bfecb8855a3c3256ca0782783960d19 100644
+--- a/src/router.tsx
++++ b/src/router.tsx
+@@ -1,12 +1,37 @@
++import { ConvexQueryClient } from "@convex-dev/react-query";
++import { QueryClient } from "@tanstack/react-query";
+ import { createRouter as createTanStackRouter } from "@tanstack/react-router";
++import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+ import { routeTree } from "./routeTree.gen";
+ 
+ export function getRouter() {
++  const convexUrl = import.meta.env["VITE_CONVEX_URL"];
++  if (!convexUrl) {
++    throw new Error("VITE_CONVEX_URL is required. Run a supported Samebase dev or deploy command.");
++  }
++
++  // The server calls this for each request, so requests never share a client.
++  const convexQueryClient = new ConvexQueryClient(convexUrl, {
++    // Holds queries until the session is known; `SessionProvider` releases it without one.
++    expectAuth: true,
++  });
++  const queryClient = new QueryClient({
++    defaultOptions: {
++      queries: {
++        queryKeyHashFn: convexQueryClient.hashFn(),
++        queryFn: convexQueryClient.queryFn(),
++      },
++    },
++  });
++  convexQueryClient.connect(queryClient);
++
+   const router = createTanStackRouter({
+     routeTree,
++    context: { queryClient, convexQueryClient },
+     defaultPreload: "intent",
+     scrollRestoration: true,
+   });
++  setupRouterSsrQueryIntegration({ router, queryClient });
+ 
+   return router;
+ }
+diff --git a/src/routes/$.tsx b/src/routes/$.tsx
+deleted file mode 100644
+index 2f04364e1a412187be042b89d963932fec5743cc..0000000000000000000000000000000000000000
+--- a/src/routes/$.tsx
++++ /dev/null
+@@ -1,10 +0,0 @@
+-import { createFileRoute } from "@tanstack/react-router";
+-
+-/** Keeps Not Found out of the first client render so it matches the empty SPA shell. */
+-export const Route = createFileRoute("/$")({
+-  component: NotFoundPage,
+-});
+-
+-function NotFoundPage() {
+-  return <p>Not Found</p>;
+-}
+diff --git a/src/routes/__root.tsx b/src/routes/__root.tsx
+index 64aaf5541dcfec79136f039153c3a574f3f427e1..4e08ef9514e0c9c76082ef7a6a205b52dba9c920 100644
+--- a/src/routes/__root.tsx
++++ b/src/routes/__root.tsx
+@@ -1,10 +1,29 @@
+-import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
++import type { ConvexQueryClient } from "@convex-dev/react-query";
++import {
++  SessionProvider,
++  SignedIn,
++  SignedOut,
++  sessionBeforeLoad,
++} from "@samebase/convex-hosting-tanstack-start/convex-auth";
++import type { QueryClient } from "@tanstack/react-query";
++import {
++  HeadContent,
++  Link,
++  Outlet,
++  Scripts,
++  createRootRouteWithContext,
++} from "@tanstack/react-router";
+ import type { ReactNode } from "react";
+ import appCss from "../style.css?url";
+ import { SamebaseAttribution } from "#components/SamebaseAttribution";
+ import { Button } from "#components/ui/button";
+ 
+-export const Route = createRootRoute({
++export const Route = createRootRouteWithContext<{
++  queryClient: QueryClient;
++  convexQueryClient: ConvexQueryClient;
++}>()({
++  // @ts-expect-error The adapter types `serverContext?: RequestContext`, and TanStack passes `undefined` in the browser, which exactOptionalPropertyTypes rejects; the function handles `undefined`.
++  beforeLoad: sessionBeforeLoad,
+   head: () => ({
+     meta: [
+       {
+@@ -31,28 +50,44 @@ export const Route = createRootRoute({
+     ],
+   }),
+   component: RootComponent,
++  notFoundComponent: NotFoundPage,
+ });
+ 
+ function RootComponent() {
++  const { convexQueryClient, token } = Route.useRouteContext();
+   return (
+-    <RootDocument>
+-      <nav className="mx-auto flex w-full max-w-2xl pt-2">
+-        <Button asChild variant="link">
+-          <Link to="/" activeOptions={{ exact: true }}>
+-            Home
+-          </Link>
+-        </Button>
+-        <Button asChild variant="link">
+-          <Link to="/about">About</Link>
+-        </Button>
+-      </nav>
+-      <div className="flex-1">
+-        <Outlet />
+-      </div>
+-      <footer className="mx-auto w-full max-w-2xl px-4 py-3 text-right text-muted-foreground">
+-        <SamebaseAttribution />
+-      </footer>
+-    </RootDocument>
++    <SessionProvider client={convexQueryClient.convexClient} token={token}>
++      <RootDocument>
++        <nav className="mx-auto flex w-full max-w-2xl pt-2">
++          <Button asChild variant="link">
++            <Link to="/" activeOptions={{ exact: true }}>
++              Home
++            </Link>
++          </Button>
++          <Button asChild variant="link">
++            <Link to="/about">About</Link>
++          </Button>
++          {/* The server renders as the session of the request's cookies, so the first HTML already
++              has the right link. A prerendered page fills it in once the browser knows. */}
++          <SignedIn>
++            <Button asChild variant="link">
++              <Link to="/account">Account</Link>
++            </Button>
++          </SignedIn>
++          <SignedOut>
++            <Button asChild variant="link">
++              <Link to="/signin">Sign in</Link>
++            </Button>
++          </SignedOut>
++        </nav>
++        <div className="flex-1">
++          <Outlet />
++        </div>
++        <footer className="mx-auto w-full max-w-2xl px-4 py-3 text-right text-muted-foreground">
++          <SamebaseAttribution />
++        </footer>
++      </RootDocument>
++    </SessionProvider>
+   );
+ }
+ 
+@@ -69,3 +104,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+     </html>
+   );
+ }
++
++function NotFoundPage() {
++  return <p>Not Found</p>;
++}
+diff --git a/src/routes/_authed.tsx b/src/routes/_authed.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3b6ab1c9c45542a305e9227a5f24dd0b9d3c468
+--- /dev/null
++++ b/src/routes/_authed.tsx
+@@ -0,0 +1,15 @@
++import {
++  RedirectWithoutSession,
++  redirectWithoutSession,
++} from "@samebase/convex-hosting-tanstack-start/convex-auth";
++import { createFileRoute, Outlet } from "@tanstack/react-router";
++
++/** The pages under `_authed/` need a session: without one, they redirect to /signin. */
++export const Route = createFileRoute("/_authed")({
++  beforeLoad: ({ serverContext }) => redirectWithoutSession(serverContext, { to: "/signin" }),
++  component: () => (
++    <RedirectWithoutSession to="/signin">
++      <Outlet />
++    </RedirectWithoutSession>
++  ),
++});
+diff --git a/src/routes/_authed/account.tsx b/src/routes/_authed/account.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..30f6e6a0623b8ab3308710414cfad7e42f85fc8e
+--- /dev/null
++++ b/src/routes/_authed/account.tsx
+@@ -0,0 +1,50 @@
++import { convexQuery } from "@convex-dev/react-query";
++import { useSignOutSession } from "@samebase/convex-hosting-tanstack-start/convex-auth";
++import { useSuspenseQuery } from "@tanstack/react-query";
++import { createFileRoute } from "@tanstack/react-router";
++import { useState } from "react";
++import { api } from "../../../convex/_generated/api";
++import { Button } from "#components/ui/button";
++
++export const Route = createFileRoute("/_authed/account")({
++  // On the server, the query runs with the token of the session cookie.
++  loader: async ({ context }) => {
++    // @ts-expect-error convexQuery always sets queryFn, but its type allows undefined there, which `query` rejects under exactOptionalPropertyTypes.
++    await context.queryClient.query(convexQuery(api.guests.viewer, {}));
++  },
++  component: AccountPage,
++});
++
++function AccountPage() {
++  const {
++    data: { name },
++  } = useSuspenseQuery(convexQuery(api.guests.viewer, {}));
++  const signOut = useSignOutSession("/auth/signout");
++  const [isSigningOut, setIsSigningOut] = useState(false);
++  const [signOutFailed, setSignOutFailed] = useState(false);
++
++  const onSignOut = async () => {
++    setSignOutFailed(false);
++    setIsSigningOut(true);
++    // A successful sign-out reloads the page, so only a failure comes back here.
++    if (!(await signOut())) {
++      setSignOutFailed(true);
++      setIsSigningOut(false);
++    }
++  };
++
++  return (
++    <main className="mx-auto flex max-w-xl flex-col gap-3 p-4">
++      <h1 className="text-lg">Account</h1>
++      <p>Signed in as {name}</p>
++      <Button type="button" variant="outline" disabled={isSigningOut} onClick={onSignOut}>
++        {isSigningOut ? "Signing out" : "Sign out"}
++      </Button>
++      {signOutFailed ? (
++        <p className="text-destructive text-sm" role="alert">
++          Sign-out failed. Try again.
++        </p>
++      ) : null}
++    </main>
++  );
++}
+diff --git a/src/routes/index.tsx b/src/routes/index.tsx
+index d897feaca1d23222b318fe5c76a400f33911fc44..4bc28c3d52e36fb8b1ae1287d5aa54dc48d8e598 100644
+--- a/src/routes/index.tsx
++++ b/src/routes/index.tsx
+@@ -1,11 +1,13 @@
+-import { useAuthActions } from "@convex-dev/auth/react";
++import { convexQuery } from "@convex-dev/react-query";
++import { SignedIn, SignedOut } from "@samebase/convex-hosting-tanstack-start/convex-auth";
++import { useSuspenseQuery } from "@tanstack/react-query";
+ import { createFileRoute } from "@tanstack/react-router";
+-import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
++import { useMutation } from "convex/react";
+ import { QRCodeSVG } from "qrcode.react";
+ import { type FormEvent, useEffect, useState } from "react";
+ import { api } from "../../convex/_generated/api";
+ import type { Id } from "../../convex/_generated/dataModel";
+-import { ConvexClientProvider } from "../lib/convex";
++import { GuestSignIn } from "#components/GuestSignIn";
+ import { Button } from "#components/ui/button";
+ import { Checkbox } from "#components/ui/checkbox";
+ import { Input } from "#components/ui/input";
+@@ -22,26 +24,24 @@ type VisibleTodo = {
+ };
+ 
+ export const Route = createFileRoute("/")({
+-  component: HomePage,
++  loader: async ({ context }) => {
++    // @ts-expect-error convexQuery always sets queryFn, but its type allows undefined there, which `query` rejects under exactOptionalPropertyTypes.
++    await context.queryClient.query(convexQuery(api.todos.list, {}));
++  },
++  component: TodoPage,
+ });
+ 
+-function HomePage() {
+-  return (
+-    <ConvexClientProvider>
+-      <TodoPage />
+-    </ConvexClientProvider>
+-  );
+-}
+-
+ function TodoPage() {
+   const [shareUrl, setShareUrl] = useState("");
+-  const todoState = useQuery(api.todos.list, {});
+-  const todos = todoState?.todos ?? [];
+-  const viewerTodoCount = todoState?.viewerTodoCount ?? null;
++  // The loader fetched the list as the session of the request, so the server renders it. The
++  // browser keeps it live.
++  const {
++    data: { todos, viewerTodoCount },
++  } = useSuspenseQuery(convexQuery(api.todos.list, {}));
+   const todoLimitReached = viewerTodoCount !== null && viewerTodoCount >= TODO_LIMIT;
+ 
+   useEffect(() => {
+-    // Read the browser URL after mount so prerendered HTML stays stable.
++    // The server has no browser URL, and the first browser render must match the server HTML.
+     setShareUrl(window.location.href);
+   }, []);
+ 
+@@ -60,84 +60,26 @@ function TodoPage() {
+         ) : null}
+       </div>
+ 
+-      <AuthLoading>
+-        <section className="flex flex-col gap-3">
+-          <h1 className="text-lg">Todo list</h1>
+-        </section>
+-      </AuthLoading>
+-      <Unauthenticated>
+-        <GuestSignIn />
+-      </Unauthenticated>
+-      <Authenticated>
+-        <TodoWorkspace todoLimitReached={todoLimitReached} />
+-      </Authenticated>
++      <section className="flex flex-col gap-3">
++        <h1 className="text-lg">Todo list</h1>
++        <SignedOut>
++          <GuestSignIn />
++        </SignedOut>
++        <SignedIn>
++          <TodoForm todoLimitReached={todoLimitReached} />
++        </SignedIn>
++      </section>
+       <TodoList todos={todos} />
+     </main>
+   );
+ }
+ 
+-function GuestSignIn() {
+-  const { signIn } = useAuthActions();
+-  const [isPending, setIsPending] = useState(false);
+-  const [error, setError] = useState("");
+-
+-  const continueAsGuest = () => {
+-    setError("");
+-    setIsPending(true);
+-    void signIn("anonymous")
+-      .catch((signInError: unknown) => {
+-        setError(signInError instanceof Error ? signInError.message : "Could not start session");
+-      })
+-      .finally(() => setIsPending(false));
+-  };
+-
+-  return (
+-    <section className="flex flex-col gap-3">
+-      <h1 className="text-lg">Todo list</h1>
+-      <Button type="button" disabled={isPending} onClick={continueAsGuest}>
+-        {isPending ? "Starting" : "Continue as guest"}
+-      </Button>
+-      {error ? (
+-        <p className="text-destructive text-sm" role="alert">
+-          {error}
+-        </p>
+-      ) : null}
+-    </section>
+-  );
+-}
+-
+-function TodoWorkspace({ todoLimitReached }: { todoLimitReached: boolean }) {
+-  const { signOut } = useAuthActions();
++function TodoForm({ todoLimitReached }: { todoLimitReached: boolean }) {
+   const [draft, setDraft] = useState("");
+   const [isCreating, setIsCreating] = useState(false);
+-  const [isSigningOut, setIsSigningOut] = useState(false);
+-  const [guestNameStatus, setGuestNameStatus] = useState<"idle" | "pending" | "failed">("idle");
+-  const [guestNameError, setGuestNameError] = useState("");
+   const [createError, setCreateError] = useState("");
+   const text = draft.trim();
+-
+-  const viewer = useQuery(api.guests.viewer, {});
+-  const ensureGuestName = useMutation(api.guests.ensureName);
+   const createTodo = useMutation(api.todos.create);
+-  const guestName = viewer?.name ?? "Guest";
+-
+-  useEffect(() => {
+-    if (viewer === undefined || viewer.name || guestNameStatus !== "idle") {
+-      return;
+-    }
+-
+-    // Also covers a saved anonymous session restored before this component mounts.
+-    setGuestNameStatus("pending");
+-    setGuestNameError("");
+-    void ensureGuestName({})
+-      .then(() => {
+-        setGuestNameStatus("idle");
+-      })
+-      .catch((error: unknown) => {
+-        setGuestNameStatus("failed");
+-        setGuestNameError(error instanceof Error ? error.message : "Could not reserve guest name");
+-      });
+-  }, [ensureGuestName, guestNameStatus, viewer]);
+ 
+   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+     event.preventDefault();
+@@ -158,28 +100,8 @@ function TodoWorkspace({ todoLimitReached }: { todoLimitReached: boolean }) {
+     }
+   };
+ 
+-  const onSignOut = () => {
+-    setIsSigningOut(true);
+-    void signOut().finally(() => setIsSigningOut(false));
+-  };
+-
+   return (
+     <>
+-      <div className="flex items-center justify-between gap-3">
+-        <div className="flex min-w-0 flex-col">
+-          <h1 className="text-lg">Todo list</h1>
+-          <p className="text-muted-foreground text-sm">{guestName}</p>
+-        </div>
+-        <Button type="button" variant="outline" disabled={isSigningOut} onClick={onSignOut}>
+-          {isSigningOut ? "Signing out" : "Sign out"}
+-        </Button>
+-      </div>
+-      {guestNameError ? (
+-        <p className="text-destructive text-sm" role="alert">
+-          {guestNameError}
+-        </p>
+-      ) : null}
+-
+       <form className="flex gap-2" onSubmit={onSubmit}>
+         <Input
+           placeholder="New todo"
+diff --git a/src/routes/signin.tsx b/src/routes/signin.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..2b693735dac395576033a340c70854141c4ced44
+--- /dev/null
++++ b/src/routes/signin.tsx
+@@ -0,0 +1,15 @@
++import { createFileRoute } from "@tanstack/react-router";
++import { GuestSignIn } from "#components/GuestSignIn";
++
++export const Route = createFileRoute("/signin")({
++  component: SignInPage,
++});
++
++function SignInPage() {
++  return (
++    <main className="mx-auto flex max-w-xl flex-col gap-3 p-4">
++      <h1 className="text-lg">Sign in</h1>
++      <GuestSignIn next="/account" />
++    </main>
++  );
++}
 diff --git a/src/server.ts b/src/server.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..ebcfaaaacd664392fd5198fdd516cad12a4c4f85
+index 0000000000000000000000000000000000000000..da2e023a3f7dd8d01c1b2f5af66802fa26794711
 --- /dev/null
 +++ b/src/server.ts
-@@ -0,0 +1 @@
-+export { default } from "@samebase/convex-hosting-tanstack-start/server";
+@@ -0,0 +1,50 @@
++import { httpCookies, ServerAuthSession, setupConvexAuthServer } from "@convex-dev/auth/ssr";
++import handler from "@samebase/convex-hosting-tanstack-start/server";
++import { ConvexHttpClient } from "convex/browser";
++import { api } from "../convex/_generated/api";
++
++const convexUrl: string = import.meta.env["VITE_CONVEX_URL"];
++const convex = new ConvexHttpClient(convexUrl);
++
++// Answers every request that no file answers: on Convex, convex/http.ts calls it; in development,
++// Vite's dev server does. TanStack Start renders the page, including the 404 page.
++export default {
++  async fetch(request: Request) {
++    const url = new URL(request.url);
++    // `Secure` when the browser reached the site over HTTPS. A local backend and Vite's dev server
++    // serve plain HTTP, so the request decides, not the build or the backend URL.
++    const cookieOptions = { secure: url.protocol === "https:" };
++    if (request.method === "POST") {
++      // The browser signs in, refreshes, and signs out through these routes, and the refresh token
++      // stays in an httpOnly cookie on this origin.
++      const auth = setupConvexAuthServer({
++        convexUrl,
++        refreshSession: api.auth.refreshSession,
++        signOut: api.auth.signOut,
++        signIn: [api.auth.signInAnonymously],
++        cookieOptions,
++      });
++      switch (url.pathname) {
++        case "/auth/signin":
++          return auth.convexProxyHandler(request);
++        case "/auth/refresh":
++          return auth.refreshHandler(request);
++        case "/auth/signout":
++          return auth.signOutHandler(request);
++      }
++    }
++    const cookies = httpCookies(request);
++    const session = new ServerAuthSession({
++      refreshSession: (refreshToken) => convex.mutation(api.auth.refreshSession, { refreshToken }),
++      cookies,
++      cookieOptions,
++    });
++    // The build's prerender renders without a visitor, so its page, which every visitor gets, must
++    // not say signed out: vite.config.ts marks its requests, and they get no token at all.
++    const token = request.headers.has("x-prerender") ? undefined : await session.getToken();
++    const page = await handler.fetch(request, { context: { token } });
++    const headers = new Headers(page.headers);
++    cookies.applyTo(headers);
++    return new Response(page.body, { status: page.status, headers });
++  },
++};
 diff --git a/vite.config.ts b/vite.config.ts
-index 1ecd90f5f686b05a7fc566a3e14c476b65110afc..1a46adb688f367df6188109f196d891eeb6a68cd 100644
+index b2836ac40ceb1968e65e946a562d997cb4561456..79e3fc992182dafa159974090e969f1d4d11a4bf 100644
 --- a/vite.config.ts
 +++ b/vite.config.ts
-@@ -1,4 +1,4 @@
--import { cloudflare } from "@cloudflare/vite-plugin";
+@@ -1,10 +1,9 @@
 +import { convexSsr } from "@samebase/convex-hosting-tanstack-start/vite";
  import { tanstackStart } from "@tanstack/react-start/plugin/vite";
  import tailwindcss from "@tailwindcss/vite";
  import react from "@vitejs/plugin-react";
-@@ -14,8 +14,7 @@ export default defineConfig({
+ import { defineConfig } from "vite-plus";
+ 
+-import { prerenderPages } from "./prerender.config.ts";
+-
+ export default defineConfig({
+   fmt: {
+     ignorePatterns: [".agents/**", "convex/_generated/**", "src/routeTree.gen.ts"],
+@@ -15,27 +14,13 @@ export default defineConfig({
    },
    plugins: [
      tailwindcss(),
--    // Vitest loads this config for the script tests, and the Cloudflare plugin rejects its setup.
--    !process.env["VITEST"] && cloudflare({ viteEnvironment: { name: "ssr" } }),
 +    convexSsr(),
-     // Prerenders /about only, into a file of the build. `prerender: { enabled: true }` would also
-     // prerender every static route, and crawling would follow /about's links.
++    // Prerenders /about only, into a file of the build. `prerender: { enabled: true }` would also
++    // prerender every static route, and crawling would follow /about's links. The header marks the
++    // prerender's requests for src/server.ts; a prerender renders without a visitor.
      tanstackStart({
+-      pages: prerenderPages.map((page) => ({
+-        path: page.path,
+-        prerender: page.prerender,
+-      })),
+-      prerender: {
+-        autoStaticPathsDiscovery: false,
+-        crawlLinks: false,
+-        enabled: true,
+-      },
+-      spa: {
+-        enabled: true,
+-        // Cloudflare SPA mode serves /index.html for unknown app routes.
+-        // TanStack Start defaults the SPA shell to /_shell.html, so emit it
+-        // here instead. The hash marker keeps the shell request on the public
+-        // root route while staying distinct from the explicit / prerender entry.
+-        maskPath: "/#__spa-shell",
+-        prerender: {
+-          outputPath: "/index.html",
+-        },
+-      },
++      prerender: { headers: { "x-prerender": "1" } },
++      pages: [{ path: "/about", prerender: { enabled: true, crawlLinks: false } }],
+     }),
+     react(),
+   ],
 diff --git a/wrangler.jsonc b/wrangler.jsonc
 deleted file mode 100644
-index 554b8921847710962445f3f662421eefa4b8ba5d..0000000000000000000000000000000000000000
+index 17360dc8ac487eab1d687d906c3723d893fe1b3f..0000000000000000000000000000000000000000
 --- a/wrangler.jsonc
 +++ /dev/null
-@@ -1,12 +0,0 @@
+@@ -1,13 +0,0 @@
 -{
 -  "$schema": "./node_modules/wrangler/config-schema.json",
--  "compatibility_date": "2026-10-01",
--  // TanStack Start's server entry is the Worker. It renders every request that no file answers.
--  "main": "@tanstack/react-start/server-entry",
+-  "compatibility_date": "2026-05-14",
 -  "preview_urls": true,
 -  "previews": {},
 -  "assets": {
--    // Serves the prerendered /about/index.html at /about, the path that the app links to.
--    "html_handling": "drop-trailing-slash",
+-    "directory": "./dist/client",
+-    "html_handling": "none",
+-    // Cloudflare SPA mode serves /index.html for unknown app routes. Keep
+-    // vite.config.ts emitting the TanStack Start shell there.
+-    "not_found_handling": "single-page-application",
 -  },
 -}

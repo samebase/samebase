@@ -1,12 +1,13 @@
-import { useAuthActions } from "@convex-dev/auth/react";
 import { convexQuery } from "@convex-dev/react-query";
+import { SignedIn, SignedOut } from "@samebase/convex-hosting-tanstack-start/convex-auth";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { QRCodeSVG } from "qrcode.react";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { GuestSignIn } from "#components/GuestSignIn";
 import { Button } from "#components/ui/button";
 import { Checkbox } from "#components/ui/checkbox";
 import { Input } from "#components/ui/input";
@@ -32,8 +33,8 @@ export const Route = createFileRoute("/")({
 
 function TodoPage() {
   const [shareUrl, setShareUrl] = useState("");
-  // The loader fetched the list, so the server renders it. The browser keeps it live and queries
-  // it again as the viewer once the session is known.
+  // The loader fetched the list as the session of the request, so the server renders it. The
+  // browser keeps it live.
   const {
     data: { todos, viewerTodoCount },
   } = useSuspenseQuery(convexQuery(api.todos.list, {}));
@@ -59,84 +60,26 @@ function TodoPage() {
         ) : null}
       </div>
 
-      <AuthLoading>
-        <section className="flex flex-col gap-3">
-          <h1 className="text-lg">Todo list</h1>
-        </section>
-      </AuthLoading>
-      <Unauthenticated>
-        <GuestSignIn />
-      </Unauthenticated>
-      <Authenticated>
-        <TodoWorkspace todoLimitReached={todoLimitReached} />
-      </Authenticated>
+      <section className="flex flex-col gap-3">
+        <h1 className="text-lg">Todo list</h1>
+        <SignedOut>
+          <GuestSignIn />
+        </SignedOut>
+        <SignedIn>
+          <TodoForm todoLimitReached={todoLimitReached} />
+        </SignedIn>
+      </section>
       <TodoList todos={todos} />
     </main>
   );
 }
 
-function GuestSignIn() {
-  const { signIn } = useAuthActions();
-  const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState("");
-
-  const continueAsGuest = () => {
-    setError("");
-    setIsPending(true);
-    void signIn("anonymous")
-      .catch((signInError: unknown) => {
-        setError(signInError instanceof Error ? signInError.message : "Could not start session");
-      })
-      .finally(() => setIsPending(false));
-  };
-
-  return (
-    <section className="flex flex-col gap-3">
-      <h1 className="text-lg">Todo list</h1>
-      <Button type="button" disabled={isPending} onClick={continueAsGuest}>
-        {isPending ? "Starting" : "Continue as guest"}
-      </Button>
-      {error ? (
-        <p className="text-destructive text-sm" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function TodoWorkspace({ todoLimitReached }: { todoLimitReached: boolean }) {
-  const { signOut } = useAuthActions();
+function TodoForm({ todoLimitReached }: { todoLimitReached: boolean }) {
   const [draft, setDraft] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [guestNameStatus, setGuestNameStatus] = useState<"idle" | "pending" | "failed">("idle");
-  const [guestNameError, setGuestNameError] = useState("");
   const [createError, setCreateError] = useState("");
   const text = draft.trim();
-
-  const viewer = useQuery(api.guests.viewer, {});
-  const ensureGuestName = useMutation(api.guests.ensureName);
   const createTodo = useMutation(api.todos.create);
-  const guestName = viewer?.name ?? "Guest";
-
-  useEffect(() => {
-    if (viewer === undefined || viewer.name || guestNameStatus !== "idle") {
-      return;
-    }
-
-    // Also covers a saved anonymous session restored before this component mounts.
-    setGuestNameStatus("pending");
-    setGuestNameError("");
-    void ensureGuestName({})
-      .then(() => {
-        setGuestNameStatus("idle");
-      })
-      .catch((error: unknown) => {
-        setGuestNameStatus("failed");
-        setGuestNameError(error instanceof Error ? error.message : "Could not reserve guest name");
-      });
-  }, [ensureGuestName, guestNameStatus, viewer]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -157,28 +100,8 @@ function TodoWorkspace({ todoLimitReached }: { todoLimitReached: boolean }) {
     }
   };
 
-  const onSignOut = () => {
-    setIsSigningOut(true);
-    void signOut().finally(() => setIsSigningOut(false));
-  };
-
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col">
-          <h1 className="text-lg">Todo list</h1>
-          <p className="text-muted-foreground text-sm">{guestName}</p>
-        </div>
-        <Button type="button" variant="outline" disabled={isSigningOut} onClick={onSignOut}>
-          {isSigningOut ? "Signing out" : "Sign out"}
-        </Button>
-      </div>
-      {guestNameError ? (
-        <p className="text-destructive text-sm" role="alert">
-          {guestNameError}
-        </p>
-      ) : null}
-
       <form className="flex gap-2" onSubmit={onSubmit}>
         <Input
           placeholder="New todo"

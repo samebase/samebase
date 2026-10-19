@@ -1,5 +1,10 @@
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
+import {
+  SessionProvider,
+  SignedIn,
+  SignedOut,
+  sessionBeforeLoad,
+} from "@samebase/convex-hosting-tanstack-start/convex-auth";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   HeadContent,
@@ -17,6 +22,8 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
   convexQueryClient: ConvexQueryClient;
 }>()({
+  // @ts-expect-error The adapter types `serverContext?: RequestContext`, and TanStack passes `undefined` in the browser, which exactOptionalPropertyTypes rejects; the function handles `undefined`.
+  beforeLoad: sessionBeforeLoad,
   head: () => ({
     meta: [
       {
@@ -47,12 +54,10 @@ export const Route = createRootRouteWithContext<{
 });
 
 function RootComponent() {
-  const { convexQueryClient } = Route.useRouteContext();
-  // Convex Auth keeps the session in the browser and reads it after hydration, so the server and
-  // the first browser render are both signed out and agree.
+  const { convexQueryClient, token } = Route.useRouteContext();
   return (
-    <RootDocument>
-      <ConvexAuthProvider client={convexQueryClient.convexClient}>
+    <SessionProvider client={convexQueryClient.convexClient} token={token}>
+      <RootDocument>
         <nav className="mx-auto flex w-full max-w-2xl pt-2">
           <Button asChild variant="link">
             <Link to="/" activeOptions={{ exact: true }}>
@@ -62,6 +67,18 @@ function RootComponent() {
           <Button asChild variant="link">
             <Link to="/about">About</Link>
           </Button>
+          {/* The server renders as the session of the request's cookies, so the first HTML already
+              has the right link. A prerendered page fills it in once the browser knows. */}
+          <SignedIn>
+            <Button asChild variant="link">
+              <Link to="/account">Account</Link>
+            </Button>
+          </SignedIn>
+          <SignedOut>
+            <Button asChild variant="link">
+              <Link to="/signin">Sign in</Link>
+            </Button>
+          </SignedOut>
         </nav>
         <div className="flex-1">
           <Outlet />
@@ -69,8 +86,8 @@ function RootComponent() {
         <footer className="mx-auto w-full max-w-2xl px-4 py-3 text-right text-muted-foreground">
           <SamebaseAttribution />
         </footer>
-      </ConvexAuthProvider>
-    </RootDocument>
+      </RootDocument>
+    </SessionProvider>
   );
 }
 

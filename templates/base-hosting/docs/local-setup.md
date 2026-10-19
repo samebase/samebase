@@ -35,7 +35,7 @@ pnpm run dev
 
 `pnpm run dev` starts Convex and TanStack Start together. On the first run,
 Convex may ask you to sign in and choose or create a development deployment.
-The dev script also creates Convex Auth JWT keys in that development deployment
+The dev script also creates Convex Auth signing keys in that development deployment
 if they are missing. In a linked Git worktree, it automatically uses an isolated
 local backend.
 

@@ -16,8 +16,10 @@ export default defineConfig({
     tailwindcss(),
     convexSsr(),
     // Prerenders /about only, into a file of the build. `prerender: { enabled: true }` would also
-    // prerender every static route, and crawling would follow /about's links.
+    // prerender every static route, and crawling would follow /about's links. The header marks the
+    // prerender's requests for src/server.ts; a prerender renders without a visitor.
     tanstackStart({
+      prerender: { headers: { "x-prerender": "1" } },
       pages: [{ path: "/about", prerender: { enabled: true, crawlLinks: false } }],
     }),
     react(),

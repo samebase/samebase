@@ -11,7 +11,8 @@ stack: one deployment, one URL, and one deploy key. The same app on Cloudflare W
 ## Stack
 
 - React 19 and TanStack Start, with pages rendered on the server
-- Convex for the real-time backend, database, and guest authentication
+- Convex for the real-time backend and database, and Convex Auth 2.0.0-beta.0 for guest sign-in
+  with the session in an httpOnly cookie, so the server renders signed-in pages
 - convex-hosting for delivery from the Convex deployment, with Cloudflare's rules for the files
 - shadcn/ui primitives for the user interface
 - Vite+ for development, formatting, linting, tests, and builds
@@ -68,7 +69,7 @@ pnpm run dev
 ```
 
 The development command starts Convex and TanStack Start together. It also creates missing Convex
-Auth JWT keys in the development deployment. In a linked Git worktree, the same command
+Auth signing keys in the development deployment. In a linked Git worktree, the same command
 automatically uses an isolated local backend. Convex writes `VITE_CONVEX_URL` to `.env.local`; do
 not set it manually.
 
@@ -130,9 +131,12 @@ domains, headers, and the deploy options.
 
 - `package.json` defines the supported development, check, build, and deploy commands.
 - `vite.config.ts` builds the server for Convex with `convexSsr()` and prerenders `/about`.
-- `src/server.ts` is the server entry that renders the pages.
-- `convex/convex.config.ts` mounts the convex-hosting component, and `convex/http.ts` routes every
-  path that the auth routes do not answer to the site.
+- `src/server.ts` is the server entry: it answers the `/auth` sign-in, refresh, and sign-out routes
+  and renders each page with the session of the request's cookies.
+- `convex/convex.config.ts` mounts the Convex Auth and convex-hosting components, and
+  `convex/http.ts` routes every path to the site.
+- `src/routes/_authed/` holds the pages that need a session; without one they redirect to
+  `/signin`.
 - `.github/workflows/deploy.yml` and `.github/workflows/preview.yml` deploy production and previews.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
