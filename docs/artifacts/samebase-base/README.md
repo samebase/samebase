@@ -1,8 +1,8 @@
-# samebase/base artifact regeneration
+# samebase/base-workers artifact regeneration
 
-`templates/base` is the maintained source for the public `samebase/base` teaching artifact. Routine
-changes belong in the template and publish through the repository exporter. Keep major edition
-instructions, prompts, and decision notes here.
+`templates/base-workers` is the maintained source for the public `samebase/base-workers` teaching
+artifact. Routine changes belong in the template and publish through the repository exporter. Keep
+major edition instructions, prompts, and decision notes here.
 
 ## Core Idea
 
@@ -16,15 +16,15 @@ artifact should look deliberately built.
 
 - Use a separate edition branch when a major stack change needs a newly curated teaching sequence.
 - Do not rewrite public `main`. It is append-only.
-- Use numbered commit subjects after that, matching the `samebase/base` style: `1. initialize ...`,
-  `2. add ...`, and so on.
+- Use numbered commit subjects after that, matching the `samebase/base-workers` style:
+  `1. initialize ...`, `2. add ...`, and so on.
 - Create or update `REPO_HISTORY.md` inside each numbered commit. It is part of the teaching
   artifact, not a report reconstructed at the end.
-- Treat the current `templates/base` state as the feature-parity source before changing the stack.
-  Inventory small visible details, including the QR share block, shadcn primitives, Convex todo
-  backend, local workflow, Convex AI files, docs, and logos.
-- After the edition is accepted, copy its final tree into `templates/base`. Let the normal publisher
-  append that accepted state to public `main`.
+- Treat the current `templates/base-workers` state as the feature-parity source before changing the
+  stack. Inventory small visible details, including the QR share block, shadcn primitives, Convex
+  todo backend, local workflow, Convex AI files, docs, and logos.
+- After the edition is accepted, copy its final tree into `templates/base-workers`. Let the normal
+  publisher append that accepted state to public `main`.
 - Do not put regeneration prompt files inside generated artifact repos. Put them here, or in another
   durable Samebase repo document.
 
@@ -32,7 +32,7 @@ artifact should look deliberately built.
 
 Prefer CLI commands whenever a clean CLI exists.
 
-For the first step, use Vite+ the same way `samebase/base` does:
+For the first step, use Vite+ the same way `samebase/base-workers` does:
 
 ```sh
 vp create vite:application \
@@ -159,7 +159,8 @@ For a Workers version of the artifact:
   URL preference, and local Wrangler deploy/dry-run behavior. Do not hard-code `name` in the
   reusable artifact template.
 - Set `deploy` to `wrangler deploy` and `deploy:preview` to `wrangler preview`. Use the Wrangler
-  version pinned in `templates/base/package.json`; it reads the Worker name from Workers Builds.
+  version pinned in `templates/base-workers/package.json`; it reads the Worker name from Workers
+  Builds.
 - Keep repository automation in erasable TypeScript runnable by plain `node` in Cloudflare's Workers
   Builds image, and pin Node 24 with `.node-version` or `NODE_VERSION`.
 - Keep the core workflow native on macOS, Linux, and Windows. Do not add Bash scripts, POSIX-only

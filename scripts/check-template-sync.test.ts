@@ -52,7 +52,7 @@ describe("template sync", () => {
 
     expect(problems).toEqual([
       "actions.ts (only in templates/base-actions)",
-      "base.ts (only in templates/base)",
+      "base.ts (only in templates/base-workers)",
     ]);
   });
 

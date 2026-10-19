@@ -13,8 +13,8 @@ export type StarterTemplateManifest = {
 
 export const starterTemplateManifest: StarterTemplateManifest = {
   version: "samebase-base-d0848984bd3d",
-  sourcePath: "templates/base",
-  publishedRepo: "https://github.com/samebase/base.git",
+  sourcePath: "templates/base-workers",
+  publishedRepo: "https://github.com/samebase/base-workers.git",
   contentHash: "d0848984bd3d2efb3c89aa4a1543242476d813d771df4bb62f0300c31809db53",
   commitMessage: "Initialize app from Samebase starter build v2064",
   files: {

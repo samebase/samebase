@@ -1,9 +1,9 @@
-# Prompt: Regenerate samebase/base-style artifact
+# Prompt: Regenerate samebase/base-workers-style artifact
 
 Use this prompt when asking an agent to recreate a clean public artifact history.
 
 ```text
-You are regenerating a samebase/base-style public teaching artifact.
+You are regenerating a samebase/base-workers-style public teaching artifact.
 
 Important: the generated app repository is an artifact. Do not put prompt files,
 research notes, or regeneration instructions inside it. Keep those in the Samebase
@@ -11,7 +11,7 @@ source repo under docs/artifacts/samebase-base/.
 
 Before writing code:
 1. Read docs/artifacts/samebase-base/README.md in the Samebase repo.
-2. Inspect the current samebase/base main branch:
+2. Inspect the current samebase/base-workers main branch:
    - git log --oneline --reverse main
    - REPO_HISTORY.md
    - README.md
@@ -43,7 +43,7 @@ When implementing:
 7. Prefer exact command blocks in REPO_HISTORY.md when a step is created by a
    CLI. The command shown must be the command that actually ran.
 8. Prefer CLI commands over hand-written scaffolding whenever a clean CLI exists.
-9. For step 1, use the Vite+ app command, like samebase/base:
+9. For step 1, use the Vite+ app command, like samebase/base-workers:
 
    vp create vite:application \
      --directory <target-directory> \

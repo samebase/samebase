@@ -27,7 +27,7 @@ describe("starter manifests", () => {
 
     try {
       git(temporaryRoot, ["init"]);
-      writeTemplateFiles(path.join(temporaryRoot, "templates", "base"), {
+      writeTemplateFiles(path.join(temporaryRoot, "templates", "base-workers"), {
         "README.md": "base readme\n",
         "src/app.ts": "export {};\n",
         "wrangler.jsonc": "{}\n",
@@ -44,8 +44,8 @@ describe("starter manifests", () => {
       expect(base.outputPath).toBe("apps/samebase/convex/starterSeedManifest.generated.ts");
       expect(base.manifest).toEqual(
         expect.objectContaining({
-          sourcePath: "templates/base",
-          publishedRepo: "https://github.com/samebase/base.git",
+          sourcePath: "templates/base-workers",
+          publishedRepo: "https://github.com/samebase/base-workers.git",
           files: {
             "README.md": "base readme\n",
             "src/app.ts": "export {};\n",

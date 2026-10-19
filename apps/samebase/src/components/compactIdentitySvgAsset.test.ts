@@ -149,7 +149,7 @@ describe("compactIdentitySvgAsset", () => {
     );
     expect(
       readFileSync(
-        new URL("../../../../templates/base/public/favicon.svg", import.meta.url),
+        new URL("../../../../templates/base-workers/public/favicon.svg", import.meta.url),
         "utf8",
       ).trim(),
     ).toBe(generatedSvg);

@@ -12,6 +12,7 @@ export type RepositoryExport = {
 };
 
 export const baseTemplateSourceRoot = "templates/base";
+export const workersTemplateSourceRoot = "templates/base-workers";
 export const actionsTemplateSourceRoot = "templates/base-actions";
 
 export const repositoryExports = [
@@ -21,9 +22,9 @@ export const repositoryExports = [
     targetRepository: "plugin",
   },
   {
-    sourceRoot: baseTemplateSourceRoot,
+    sourceRoot: workersTemplateSourceRoot,
     targetBranch: "main",
-    targetRepository: "base",
+    targetRepository: "base-workers",
   },
   {
     sourceRoot: "packages/sidebars",
@@ -39,6 +40,11 @@ export const repositoryExports = [
     sourceRoot: actionsTemplateSourceRoot,
     targetBranch: "main",
     targetRepository: "base-actions",
+  },
+  {
+    sourceRoot: baseTemplateSourceRoot,
+    targetBranch: "main",
+    targetRepository: "base",
   },
 ] satisfies readonly RepositoryExport[];
 

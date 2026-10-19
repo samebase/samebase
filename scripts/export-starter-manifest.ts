@@ -6,7 +6,10 @@ import { TextDecoder } from "node:util";
 
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
-import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
+import {
+  actionsTemplateSourceRoot,
+  workersTemplateSourceRoot,
+} from "./publish-repository-exports.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -250,7 +253,7 @@ function compareUtf8PathBytes(left: string, right: string): number {
 function printUsage(): void {
   console.log(`Usage: pnpm run template:export
 
-Exports templates/base into starterSeedManifest.generated.ts and
+Exports templates/base-workers into starterSeedManifest.generated.ts and
 templates/base-actions into starterSeedManifest.actions.generated.ts.`);
 }
 
@@ -292,12 +295,14 @@ function buildManifest(
 }
 
 export async function renderStarterSeedManifests(repoRoot: string) {
-  const baseFiles = await collectTemplateFiles(repoRoot, baseTemplateSourceRoot);
+  const baseFiles = await collectTemplateFiles(repoRoot, workersTemplateSourceRoot);
   const actionsFiles = await collectTemplateFiles(repoRoot, actionsTemplateSourceRoot);
   const baseManifest = buildManifest(baseFiles, {
+    // Seed records store this version. The prefix predates the rename to base-workers, so the
+    // version of an unchanged template stays the same.
     versionPrefix: "samebase-base",
-    sourcePath: baseTemplateSourceRoot,
-    publishedRepo: "https://github.com/samebase/base.git",
+    sourcePath: workersTemplateSourceRoot,
+    publishedRepo: "https://github.com/samebase/base-workers.git",
     commitMessage: "Initialize app from Samebase starter build v2064",
   });
   const actionsManifest = buildManifest(actionsFiles, {

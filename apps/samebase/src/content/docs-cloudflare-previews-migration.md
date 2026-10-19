@@ -8,15 +8,15 @@ the repository before switching Cloudflare. The Cloudflare switch cannot be reve
 Ask your agent to apply the native Worker Previews starter update to your app. It must preserve your
 app's code and check the build before you switch Cloudflare.
 
-Use the files from one commit of [the current starter](https://github.com/samebase/base), so the
-scripts and their tests match. For an app with the standard build, copy these files unchanged,
+Use the files from one commit of [the current starter](https://github.com/samebase/base-workers), so
+the scripts and their tests match. For an app with the standard build, copy these files unchanged,
 including their `Samebase source build` comments:
 
-| File                                                                                                                        | What it does                                                                                                           |
-| --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [`scripts/build-cloudflare.ts`](https://github.com/samebase/base/blob/main/scripts/build-cloudflare.ts)                     | Reads `CONVEX_DEPLOY_KEY` in Workers Builds and reuses the branch's Convex preview. Local builds do not deploy Convex. |
-| [`scripts/ensure-convex-auth.ts`](https://github.com/samebase/base/blob/main/scripts/ensure-convex-auth.ts)                 | Reads and writes auth keys on that same Convex preview. Keeps existing keys and stops if a read fails.                 |
-| [`scripts/verify-current-branch-head.ts`](https://github.com/samebase/base/blob/main/scripts/verify-current-branch-head.ts) | Stops an older build from publishing after a newer commit was pushed. The build script calls this file.                |
+| File                                                                                                                                | What it does                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [`scripts/build-cloudflare.ts`](https://github.com/samebase/base-workers/blob/main/scripts/build-cloudflare.ts)                     | Reads `CONVEX_DEPLOY_KEY` in Workers Builds and reuses the branch's Convex preview. Local builds do not deploy Convex. |
+| [`scripts/ensure-convex-auth.ts`](https://github.com/samebase/base-workers/blob/main/scripts/ensure-convex-auth.ts)                 | Reads and writes auth keys on that same Convex preview. Keeps existing keys and stops if a read fails.                 |
+| [`scripts/verify-current-branch-head.ts`](https://github.com/samebase/base-workers/blob/main/scripts/verify-current-branch-head.ts) | Stops an older build from publishing after a newer commit was pushed. The build script calls this file.                |
 
 Copy each script's matching `.test.ts` file too. Keep the app's own build steps in `build:app`. If
 the app has extra deployment steps, preserve them and explain any script differences in the PR.

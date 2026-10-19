@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { collectTemplateFiles, type CollectedTemplateFile } from "./export-starter-manifest.ts";
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
-import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
+import {
+  actionsTemplateSourceRoot,
+  workersTemplateSourceRoot,
+} from "./publish-repository-exports.ts";
 
 /**
-templates/base-actions is templates/base plus an Alchemy setup stack that GitHub Actions runs to set
+templates/base-actions is templates/base-workers plus an Alchemy setup stack that GitHub Actions runs to set
 up the providers; Workers Builds deploys both templates the same way. These paths belong to the
 stack and may differ between the two templates or exist only in base-actions. Every other path must
 exist in both with the same bytes and mode.
@@ -52,7 +55,7 @@ export function findUnsyncedTemplatePaths(args: {
     }
     const actionsFile = actionsFiles.get(baseFile.relativePath);
     if (actionsFile === undefined) {
-      problems.push(`${baseFile.relativePath} (only in ${baseTemplateSourceRoot})`);
+      problems.push(`${baseFile.relativePath} (only in ${workersTemplateSourceRoot})`);
     } else if (!actionsFile.rawContent.equals(baseFile.rawContent)) {
       problems.push(`${baseFile.relativePath} (content differs)`);
     } else if (actionsFile.mode !== baseFile.mode) {
@@ -72,17 +75,17 @@ export function findUnsyncedTemplatePaths(args: {
 
 async function checkTemplateSync(repoRoot: string): Promise<void> {
   const problems = findUnsyncedTemplatePaths({
-    baseFiles: await collectTemplateFiles(repoRoot, baseTemplateSourceRoot),
+    baseFiles: await collectTemplateFiles(repoRoot, workersTemplateSourceRoot),
     actionsFiles: await collectTemplateFiles(repoRoot, actionsTemplateSourceRoot),
     deployPaths: templateDeployPaths,
   });
   if (problems.length > 0) {
-    throw new Error(`${baseTemplateSourceRoot} and ${actionsTemplateSourceRoot} must share these files:
+    throw new Error(`${workersTemplateSourceRoot} and ${actionsTemplateSourceRoot} must share these files:
 ${problems.map((problem) => `  ${problem}`).join("\n")}
 Apply the change to the other template too.`);
   }
   console.log(
-    `${baseTemplateSourceRoot} and ${actionsTemplateSourceRoot} share every file outside the deploy paths.`,
+    `${workersTemplateSourceRoot} and ${actionsTemplateSourceRoot} share every file outside the deploy paths.`,
   );
 }
 

@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-workers, base-actions]
 
     defaults:
       run:
@@ -89,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-workers, base-actions]
 
     defaults:
       run:
@@ -415,7 +415,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install starter template dependencies
-        working-directory: templates/base
+        working-directory: templates/base-workers
         run: pnpm install --frozen-lockfile
 
       - name: Bootstrap Convex for Windows predev
@@ -436,16 +436,16 @@ jobs:
       # `--help` keeps the process finite while Convex still parses the full
       # `--start` value that launches auth setup and the frontend together.
       - name: Verify starter template launcher on Windows
-        working-directory: templates/base
+        working-directory: templates/base-workers
         run: pnpm run dev --help
 
       - name: Verify starter template worktree detection on Windows
-        working-directory: templates/base
+        working-directory: templates/base-workers
         run: pnpm exec vp test scripts/run-context-dev.test.ts
 
       # Worktree mode sets anonymous Convex mode before it enters the same launcher.
       - name: Verify starter template worktree launcher on Windows
-        working-directory: templates/base
+        working-directory: templates/base-workers
         run: pnpm run dev:worktree --help
 
   ci:

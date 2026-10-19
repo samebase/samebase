@@ -35,10 +35,11 @@ deploy script. Use the starter's Wrangler version, and set `deploy` to `wrangler
 
 Use `scripts/build-cloudflare.ts`, `scripts/ensure-convex-auth.ts`, and
 `scripts/verify-current-branch-head.ts`, with their matching tests, from one commit of
-[samebase/base](https://github.com/samebase/base). Keep standard scripts unchanged, including their
-source build comments. Preserve the app's own `build:app` steps. These scripts use Vite+ and `main`
-as the production branch. Preserve different toolchains, branch names, or extra deployment steps and
-explain each script difference in the PR. Set `build` to `node ./scripts/build-cloudflare.ts`.
+[samebase/base-workers](https://github.com/samebase/base-workers). Keep standard scripts unchanged,
+including their source build comments. Preserve the app's own `build:app` steps. These scripts use
+Vite+ and `main` as the production branch. Preserve different toolchains, branch names, or extra
+deployment steps and explain each script difference in the PR. Set `build` to
+`node ./scripts/build-cloudflare.ts`.
 
 Enable native preview builds in Cloudflare. In **Settings > Builds > Variables and secrets**, set
 Previews Base's `CONVEX_DEPLOY_KEY` to the project's Preview deploy key. Remove the old
@@ -72,7 +73,7 @@ test runner, and lint updates separate.
 Run the app's normal checks and verify its preview deployment.
 
 Source:
-[samebase/base v1996](https://github.com/samebase/base/commit/166e1c9dd2357ceefd74e6311a48f1b30c4c0327)
+[samebase/base-workers v1996](https://github.com/samebase/base-workers/commit/166e1c9dd2357ceefd74e6311a48f1b30c4c0327)
 
 ## v1983: Use one public-page configuration
 
@@ -90,7 +91,7 @@ Verify the generated redirects, build the app, and directly load each public rou
 route.
 
 Source:
-[samebase/base v1983](https://github.com/samebase/base/commit/d22ed3dc279d05ffd91434ed7a5aad01b340df43)
+[samebase/base-workers v1983](https://github.com/samebase/base-workers/commit/d22ed3dc279d05ffd91434ed7a5aad01b340df43)
 
 ## v1982: Make direct SPA routes hydrate correctly
 
@@ -108,4 +109,4 @@ Verify that the router matches an unknown path with `/$`. Directly load the cano
 and one unknown route, and confirm that the browser console has no hydration error.
 
 Source:
-[samebase/base v1982](https://github.com/samebase/base/commit/7969b12686b42a009cfd70ca0e5af9e1a7ff122f)
+[samebase/base-workers v1982](https://github.com/samebase/base-workers/commit/7969b12686b42a009cfd70ca0e5af9e1a7ff122f)

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { SamebaseAttribution } from "../../../../templates/base/src/components/SamebaseAttribution";
+import { SamebaseAttribution } from "../../../../templates/base-workers/src/components/SamebaseAttribution";
 
 const guideScale = 10;
 

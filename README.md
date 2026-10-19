@@ -19,10 +19,11 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 
 - Automatic infrastructure provisioning starts only for newly created Samebase-managed repositories.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter source of truth is `templates/base`, an independent pnpm workspace with its own lockfile.
-  `pnpm run template:export` stores its runtime seed in
+- Starter source of truth is `templates/base-workers`, an independent pnpm workspace with its own
+  lockfile. `pnpm run template:export` stores its runtime seed in
   `apps/samebase/convex/starterSeedManifest.generated.ts`, and successful main builds publish the
-  same template tree to `samebase/base`.
+  same template tree to `samebase/base-workers`. `templates/base` is the same app served by
+  convex-hosting, published to `samebase/base`; Samebase does not create apps from it.
 
 ## Tech Stack
 

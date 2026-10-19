@@ -348,7 +348,7 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
   copyTextAsset(sourceAssetPath, "/install-icon.svg");
   copyFileSync(
     toPublicPath("/brand/icon/compact-v1-landing-inline-80.svg"),
-    path.join(repoRoot, trackedFilePath("templates/base/public/favicon.svg")),
+    path.join(repoRoot, trackedFilePath("templates/base-workers/public/favicon.svg")),
   );
 
   const faviconMarkup = modules.createFaviconCompactIdentitySvgMarkup();

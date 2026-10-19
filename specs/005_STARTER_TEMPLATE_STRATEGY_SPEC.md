@@ -2,14 +2,14 @@
 
 ## Document Control
 
-- Status: Accepted, amended 2026-08-31.
+- Status: Accepted, amended 2026-10-19.
 - Owner: Samebase backend/frontend
 - Date: 2026-02-13
 - Related specs:
 - Related files:
   - `apps/samebase/convex/repository/actions.ts`
   - `apps/samebase/convex/starterSeed.ts` (or replacement)
-  - `templates/base`
+  - `templates/base-workers`
   - `scripts/export-starter-manifest.ts`
   - `scripts/publish-repository-exports.ts`
   - `apps/samebase/convex/starterSeedManifest.generated.ts`
@@ -34,6 +34,11 @@ commit from a stored generated manifest.
 The 2026-08-31 amendment renames the maintained source to `templates/base`, the public repository to
 `samebase/base`, and the private package to `samebase-base`. Product actions and generated user
 repositories continue to use app language.
+
+The 2026-10-19 amendment renames the maintained source to `templates/base-workers` and the public
+repository to `samebase/base-workers`. The package name and the `samebase-base-<hash>` version stay.
+`templates/base` and `samebase/base` now hold the same app served by convex-hosting, a GitHub
+template that Samebase does not seed.
 
 ## Problem Statement
 
@@ -166,20 +171,21 @@ Operational cost:
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
   - regeneration guidance for future updates.
 
-## Current Decision (Amended 2026-08-31)
+## Current Decision (Amended 2026-10-19)
 
-- Use `templates/base` as the starter source of truth.
-- Keep `templates/base` outside the root pnpm workspace. It owns its own `package.json`,
+- Use `templates/base-workers` as the starter source of truth.
+- Keep `templates/base-workers` outside the root pnpm workspace. It owns its own `package.json`,
   `pnpm-workspace.yaml`, and `pnpm-lock.yaml`.
 - Name the private root package `samebase-base`.
-- Publish the committed `templates/base` tree to `samebase/base` after required checks pass.
+- Publish the committed `templates/base-workers` tree to `samebase/base-workers` after required
+  checks pass.
 - Keep the single-commit seeding behavior.
 - Store the generated manifest in the Samebase deployment bundle. Runtime app creation reads this
-  stored manifest and does not read `templates/base` or fetch `samebase/base`.
+  stored manifest and does not read `templates/base-workers` or fetch `samebase/base-workers`.
 - Stage template changes, refresh the generated manifest, and stage the manifest with:
 
 ```bash
-git add templates/base
+git add templates/base-workers
 pnpm run template:export
 git add apps/samebase/convex/starterSeedManifest.generated.ts
 ```
@@ -210,15 +216,15 @@ Behavioral contract for Iteration 1:
 
 ## Technical Contract for Iteration 1
 
-- Authoring source: `templates/base`.
-- Source of seeded content: committed generated manifest exported from `templates/base`.
+- Authoring source: `templates/base-workers`.
+- Source of seeded content: committed generated manifest exported from `templates/base-workers`.
 - Seeding outcome in target repository:
   - one commit containing full runnable starter app content.
 - Reliability-first requirement:
   - no dependency on a live external template fetch during repository creation.
 - Publication requirement:
-  - `samebase/base` receives the exact committed `templates/base` Git tree only after required
-    checks pass.
+  - `samebase/base-workers` receives the exact committed `templates/base-workers` Git tree only
+    after required checks pass.
 
 ## Important Changes / Additions to Interfaces and Types
 
@@ -247,31 +253,33 @@ Out of scope for Iteration 1:
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
 - Spec requires local source and public repository provenance in the generated manifest.
-- Starter manifest includes exactly the Git-visible `templates/base` files.
+- Starter manifest includes exactly the Git-visible `templates/base-workers` files.
 - Required CI rejects a stale manifest, an unsafe standalone lockfile, or a failed standalone build.
-- Repository publication exports the exact committed `templates/base` tree to `samebase/base`.
+- Repository publication exports the exact committed `templates/base-workers` tree to
+  `samebase/base-workers`.
 
 ## Test Cases and Scenarios
 
 1. Creating a new samebase-managed repository yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with the current `templates/base` stack.
+2. Seeded repository builds and runs with the current `templates/base-workers` stack.
 3. Infra provisioning still triggers and reaches ready state.
-4. `pnpm run template:export` refreshes the manifest from staged Git blobs under `templates/base`.
+4. `pnpm run template:export` refreshes the manifest from staged Git blobs under
+   `templates/base-workers`.
 5. Ignored local files do not enter the manifest.
 6. A clean standalone install, supply-chain audit, and build pass with the nested lockfile.
-7. A successful main push publishes the template tree to `samebase/base` without rewriting its
-   existing history.
+7. A successful main push publishes the template tree to `samebase/base-workers` without rewriting
+   its existing history.
 
 ## Assumptions and Defaults
 
 - Reliability is prioritized over runtime freshness for Iteration 1.
 - Manifest freshness is automatic in required CI.
-- `samebase/base` is public generated output and its `main` branch is append-only.
+- `samebase/base-workers` is public generated output and its `main` branch is append-only.
 
 ## Deferred / Future Iterations
 
-- Consider preserving more of `samebase/base` history if generated repos need it after the v1
-  single-commit flow.
+- Consider preserving more of `samebase/base-workers` history if generated repos need it after the
+  v1 single-commit flow.
 - Evaluate preserving staged pedagogical commit history in generated repos.
 - Use manual edition branches only when the public teaching artifact needs major stack re-curation.
   Routine updates use the monorepo export.

@@ -90,11 +90,19 @@ describe("repository exports", () => {
     vi.unstubAllGlobals();
   });
 
-  it("publishes the standalone base to samebase/base", () => {
+  it("publishes the convex-hosting template to samebase/base", () => {
     expect(repositoryExports).toContainEqual({
       sourceRoot: "templates/base",
       targetBranch: "main",
       targetRepository: "base",
+    });
+  });
+
+  it("publishes the Workers template to samebase/base-workers", () => {
+    expect(repositoryExports).toContainEqual({
+      sourceRoot: "templates/base-workers",
+      targetBranch: "main",
+      targetRepository: "base-workers",
     });
   });
 
@@ -271,7 +279,7 @@ describe("repository exports", () => {
         },
       );
       expect(readFileSync(outputPath, "utf8")).toBe(
-        "repositories=plugin,base,sidebars,sidebars-example,base-actions\n",
+        "repositories=plugin,base-workers,sidebars,sidebars-example,base-actions,base\n",
       );
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });

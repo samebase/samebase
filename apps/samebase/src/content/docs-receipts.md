@@ -184,8 +184,8 @@ misconfigure (see the Convex section above).
 samebase.com runs on GitHub, Convex, and Cloudflare Workers, built from the same base as the public
 template. The template is published automatically from the Samebase monorepo, so every improvement
 we make to the base while building Samebase reaches new apps. Check it: each commit in
-[samebase/base](https://github.com/samebase/base/commits/main) names the Samebase build and pull
-request it came from, checked 2026-09-26.
+[samebase/base-workers](https://github.com/samebase/base-workers/commits/main) names the Samebase
+build and pull request it came from, checked 2026-09-26.
 
 ## Ownership: the leaving test
 

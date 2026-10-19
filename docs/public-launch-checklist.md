@@ -28,5 +28,5 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Anytime (not launch-gated)
 
-- [ ] README "Do it faster with Samebase" section in samebase/base, mirroring the old notermd §8
-      funnel
+- [ ] README "Do it faster with Samebase" section in samebase/base-workers, mirroring the old
+      notermd §8 funnel

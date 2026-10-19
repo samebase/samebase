@@ -27,6 +27,7 @@ export default defineConfig({
       "apps/samebase/src/routeTree.gen.ts",
       "apps/sidebars-example/src/routeTree.gen.ts",
       "templates/base/**",
+      "templates/base-workers/**",
       "templates/base-actions/**",
     ],
     printWidth: 100,
@@ -52,6 +53,7 @@ export default defineConfig({
       // This fixture is linted after its packed Sidebars dependency is installed.
       "packages/sidebars/fixtures/packed-consumer/**",
       "templates/base/**",
+      "templates/base-workers/**",
       "templates/base-actions/**",
     ],
     jsPlugins: [

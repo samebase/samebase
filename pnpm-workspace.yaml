@@ -1,4 +1,4 @@
-# templates/base is a separate workspace with its own lockfile.
+# Each starter under templates/ is a separate workspace with its own lockfile.
 packages:
   - "apps/*"
   - "packages/*"

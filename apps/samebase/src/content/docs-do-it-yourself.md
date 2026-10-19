@@ -16,7 +16,7 @@ screen.
 
 ## 2. Copy the starter to your GitHub account
 
-1. Open the [samebase/base starter](https://github.com/samebase/base).
+1. Open the [samebase/base-workers starter](https://github.com/samebase/base-workers).
 2. Select **Use this template**, then **Create a new repository**.
 3. Select your GitHub account or organization.
 4. Enter the repository name. Select public or private visibility.

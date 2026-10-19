@@ -14,8 +14,10 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
     );
-    expect(starterTemplateManifest.sourcePath).toBe("templates/base");
-    expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/base.git");
+    expect(starterTemplateManifest.sourcePath).toBe("templates/base-workers");
+    expect(starterTemplateManifest.publishedRepo).toBe(
+      "https://github.com/samebase/base-workers.git",
+    );
   });
 
   it("includes required runnable starter files", () => {
