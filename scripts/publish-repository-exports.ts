@@ -13,7 +13,6 @@ export type RepositoryExport = {
 
 export const baseTemplateSourceRoot = "templates/base";
 export const actionsTemplateSourceRoot = "templates/base-actions";
-export const hostingTemplateSourceRoot = "templates/base-hosting";
 
 export const repositoryExports = [
   {
@@ -40,11 +39,6 @@ export const repositoryExports = [
     sourceRoot: actionsTemplateSourceRoot,
     targetBranch: "main",
     targetRepository: "base-actions",
-  },
-  {
-    sourceRoot: hostingTemplateSourceRoot,
-    targetBranch: "main",
-    targetRepository: "base-hosting",
   },
 ] satisfies readonly RepositoryExport[];
 
