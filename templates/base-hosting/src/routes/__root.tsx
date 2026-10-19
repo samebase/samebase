@@ -22,7 +22,6 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
   convexQueryClient: ConvexQueryClient;
 }>()({
-  // @ts-expect-error The adapter types `serverContext?: RequestContext`, and TanStack passes `undefined` in the browser, which exactOptionalPropertyTypes rejects; the function handles `undefined`.
   beforeLoad: sessionBeforeLoad,
   head: () => ({
     meta: [

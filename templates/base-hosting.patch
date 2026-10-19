@@ -439,7 +439,7 @@ index 396ff382fb026e44ab5c4e02ee13019ee8ce9d95..988c677c38e15ff9eed7ca9721bde088
  
  Use the normal `pnpm run dev` command in a linked Git worktree. Use the explicit
 diff --git a/package.json b/package.json
-index c5171f59c4b6a4afe09febaea0e3de555f4fb07e..e51c3a81c713520e612cbc88f02e376a513f3bc2 100644
+index c5171f59c4b6a4afe09febaea0e3de555f4fb07e..1345005d2750a5ad020a52bfa0d840ade5d8102e 100644
 --- a/package.json
 +++ b/package.json
 @@ -14,15 +14,12 @@
@@ -475,7 +475,7 @@ index c5171f59c4b6a4afe09febaea0e3de555f4fb07e..e51c3a81c713520e612cbc88f02e376a
 +    "@convex-dev/auth": "2.0.0-beta.0",
 +    "@convex-dev/react-query": "^0.1.0",
 +    "@samebase/convex-hosting": "^0.13.1",
-+    "@samebase/convex-hosting-tanstack-start": "^0.10.0",
++    "@samebase/convex-hosting-tanstack-start": "^0.10.1",
      "@tailwindcss/vite": "^4.3.0",
 +    "@tanstack/react-query": "^5.104.4",
      "@tanstack/react-router": "^1.170.41",
@@ -1667,10 +1667,10 @@ index 2f04364e1a412187be042b89d963932fec5743cc..00000000000000000000000000000000
 -  return <p>Not Found</p>;
 -}
 diff --git a/src/routes/__root.tsx b/src/routes/__root.tsx
-index 64aaf5541dcfec79136f039153c3a574f3f427e1..4e08ef9514e0c9c76082ef7a6a205b52dba9c920 100644
+index 64aaf5541dcfec79136f039153c3a574f3f427e1..1f3f969ff6f6627b871d76399dbdca7014ba4406 100644
 --- a/src/routes/__root.tsx
 +++ b/src/routes/__root.tsx
-@@ -1,10 +1,29 @@
+@@ -1,10 +1,28 @@
 -import { HeadContent, Link, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 +import type { ConvexQueryClient } from "@convex-dev/react-query";
 +import {
@@ -1697,12 +1697,11 @@ index 64aaf5541dcfec79136f039153c3a574f3f427e1..4e08ef9514e0c9c76082ef7a6a205b52
 +  queryClient: QueryClient;
 +  convexQueryClient: ConvexQueryClient;
 +}>()({
-+  // @ts-expect-error The adapter types `serverContext?: RequestContext`, and TanStack passes `undefined` in the browser, which exactOptionalPropertyTypes rejects; the function handles `undefined`.
 +  beforeLoad: sessionBeforeLoad,
    head: () => ({
      meta: [
        {
-@@ -31,28 +50,44 @@ export const Route = createRootRoute({
+@@ -31,28 +49,44 @@ export const Route = createRootRoute({
      ],
    }),
    component: RootComponent,
@@ -1765,7 +1764,7 @@ index 64aaf5541dcfec79136f039153c3a574f3f427e1..4e08ef9514e0c9c76082ef7a6a205b52
    );
  }
  
-@@ -69,3 +104,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+@@ -69,3 +103,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
      </html>
    );
  }
