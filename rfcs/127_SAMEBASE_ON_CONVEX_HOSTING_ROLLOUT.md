@@ -165,8 +165,7 @@ Checked on 2026-10-20 against `origin/main` and the live services.
   (confirm on a preview first).
 - Env: `GITHUB_APP_OAUTH_CALLBACK_URL`, `PROVIDER_CONVEX_OAUTH_REDIRECT_URL`,
   `PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL`, `PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL` to the
-  `https://samebase.com/oauth/<provider>/callback` values; `OPENAI_APPS_CHALLENGE_TOKEN` to the new
-  token for samebase.com. `SITE_URL` does not change.
+  `https://samebase.com/oauth/<provider>/callback` values. `SITE_URL` does not change.
 - Keys: a production deploy key (`prod:`) with `deployment:deploy`, the three `runInternal*`
   actions, `runTestQuery`, and `data:view` (the hosting `deploy.md` list), and a project preview
   key. Store them with `gh secret set CONVEX_DEPLOY_KEY` and
@@ -189,17 +188,25 @@ one in section F.
 - Cloudflare OAuth app: redirect `https://samebase.com/oauth/cloudflare/callback`. The Cloudflare
   MCP redirect is registered per flow from the env var, so no dashboard change.
 - Polar: webhook URL `https://samebase.com/webhooks/polar`.
-- OpenAI plugin portal: domain verification for samebase.com (new challenge token).
+- OpenAI: nothing. OpenAI rejected the plugin submission (Nicu, 2026-10-20), so there is no OpenAI
+  listing to update. The `/.well-known/openai-apps-challenge` route and
+  `OPENAI_APPS_CHALLENGE_TOKEN` stay as they are; a new token is needed only for a new submission.
 
 ### E. Published listings (after PR 2)
 
-- Claude directory connector `samebase`: edit the URL to `https://samebase.com/mcp`. The edit goes
-  through review.
-- Claude Code plugin bundle: the mirror repository `samebase/plugin` takes the new `.mcp.json` from
-  CI. The push webhook in that repository is still an open item.
-- OpenAI plugin: a new package version with the new MCP URL, then rescan or resubmission.
-- MCP Registry: `server.json` is published only on Nicu's word. The DNS TXT for the registry is on
-  samebase.com already.
+- Claude Code plugin. The URL lives once, in `packages/plugin/plugins/samebase/.mcp.json`, which
+  both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` reference. PR 2 changes it,
+  bumps the plugin version (0.3.5 to 0.3.6) because `scripts/check-samebase-agent-plugin.ts`
+  requires a bump and pins the URL, and the CI job `publish-repository-exports` on main pushes
+  `packages/plugin` to `samebase/plugin` on `main`. The directory plugin listing tracks that branch;
+  its push webhook is still an open item, so re-validate in the portal if the listing does not pick
+  the push up. Installed plugins keep working against api.samebase.com until the alias goes
+  (decision 2). An install that receives the new URL sees a new resource and runs the OAuth
+  authorization once more.
+- Claude directory connector `samebase` (the claude.ai connector, separate from the plugin): edit
+  the URL to `https://samebase.com/mcp` in the portal. The edit goes through review.
+- MCP Registry: `server.json` carries the same URL and version and is published only on Nicu's word.
+  The DNS TXT for the registry is on samebase.com already.
 
 ### F. Removals after the listings are live
 
@@ -223,11 +230,11 @@ one in section F.
 3. Disconnect Workers Builds from the `samebase` Worker.
 4. Zone: detach the Worker custom domain and add the proxied apex CNAME. The first request mints the
    certificate (up to one minute; verification up to 30 minutes). A short outage is accepted.
-5. Convex: set the `CONVEX_SITE_URL` override, the four redirect env vars, and the OpenAI token.
+5. Convex: set the `CONVEX_SITE_URL` override and the four redirect env vars.
 6. Checks: the issuer answers `https://samebase.com`; an open session keeps working; Google and
    GitHub sign-in; a GitHub App install; the three provider OAuth popups; an MCP connect from Claude
-   at `https://samebase.com/mcp`; the OpenAI domain check; a Polar webhook delivery; the www
-   redirect; the `_headers` rules; time to first byte of `/` from Europe compared with today.
+   at `https://samebase.com/mcp`; a Polar webhook delivery; the www redirect; the `_headers` rules;
+   time to first byte of `/` from Europe compared with today.
 7. Merge PR 2. CI publishes the plugin mirror. Run the listings round (section E).
 8. After the listings are live: section F.
 
@@ -275,7 +282,8 @@ Samebase case. None of them is worked around in this repo beyond the one-time bu
 
 ## Non-Goals
 
-- Request-time rendering and Convex Auth 2. The site stays a prerendered SPA.
+- Request-time rendering and Convex Auth 2. The site stays a prerendered SPA. Server-side rendering
+  is a later project that starts after this move.
 - The product's provisioning of user apps on Cloudflare Workers and Workers Builds.
 - The PostHog proxy and the domains Worker. They stay on Cloudflare through the stack.
 - A custom domain for the Convex API (`.convex.cloud`).
