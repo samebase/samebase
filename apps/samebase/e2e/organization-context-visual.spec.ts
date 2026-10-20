@@ -613,6 +613,11 @@ test.describe("small screen organization context", () => {
       ).toBeVisible();
       const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
       await expect(rightToggle).toBeVisible();
+      // The server renders the toggle; the layout measures its viewport once the page hydrated.
+      await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+        "data-viewport-measured",
+        "",
+      );
       await rightToggle.click();
       await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
         "data-mobile-pane",
