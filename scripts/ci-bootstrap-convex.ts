@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";
-import { closeSync, openSync } from "node:fs";
+import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -14,6 +14,7 @@ const seedLocalPasswordAccountScriptPath = samebaseAppFilePath(
 );
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "samebase", ".env.local");
+const versionModulePath = path.join(samebaseAppDirectory, ".convex-hosting", "version.js");
 const convexEnvSetMaxAttempts = 4;
 const convexEnvLocalWaitTimeoutMs = 300_000;
 const keepBackendRunning = process.argv.slice(2).includes("--keep-running");
@@ -86,14 +87,22 @@ async function main(): Promise<void> {
       await runConvexEnvSet(key, value);
     }
 
-    await waitFor(
-      async () =>
-        (await readOptionalFile(convexBootstrapLogPath))?.includes("Convex functions ready!") ??
-        false,
-      180_000,
-      "Timed out waiting for Convex functions to become ready.",
-      bootstrapProcess,
-    );
+    // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, so the first
+    // push of a fresh checkout fails. One `deploy --dev` builds the site, uploads it to the running
+    // backend, writes the file, and pushes. The watcher above does not see the new file, so that
+    // push is the one to wait for; a checkout that has the file waits for the watcher's own push.
+    if (existsSync(versionModulePath)) {
+      await waitFor(
+        async () =>
+          (await readOptionalFile(convexBootstrapLogPath))?.includes("Convex functions ready!") ??
+          false,
+        180_000,
+        "Timed out waiting for Convex functions to become ready.",
+        bootstrapProcess,
+      );
+    } else {
+      runLocalSiteDeploy();
+    }
     runLocalPasswordAccountSeed();
   } catch (error) {
     await stopProcess(bootstrapProcess);
@@ -167,6 +176,23 @@ function buildConvexAuthEnvEntries(): readonly [string, string][] {
     ["JWT_PRIVATE_KEY", normalizePrivateKey(privatePem)],
     ["JWKS", JSON.stringify({ keys: [{ use: "sig", ...publicJwk }] })],
   ];
+}
+
+/**
+ * `node --run` puts node_modules/.bin on PATH and appends the arguments to the script's last
+ * command, as the convex-hosting actions call the deploy script.
+ */
+function runLocalSiteDeploy(): void {
+  const result = spawnSync(process.execPath, ["--run", "deploy", "--", "--dev"], {
+    cwd: samebaseAppDirectory,
+    env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `The site deploy to the local backend failed with exit code ${result.status ?? "unknown"}.`,
+    );
+  }
 }
 
 function runLocalPasswordAccountSeed(): void {

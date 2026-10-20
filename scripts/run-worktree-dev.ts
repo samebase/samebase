@@ -24,8 +24,8 @@ import {
 import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
-// Refresh existing worktrees once so they copy the dedicated live-test provider defaults.
-const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v2";
+// Refresh existing worktrees once so they run the first site deploy that the local backend needs.
+const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v3";
 
 const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 
