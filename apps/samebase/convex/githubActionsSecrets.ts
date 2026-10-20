@@ -1,6 +1,6 @@
 import { hsalsa, xsalsa20poly1305 } from "@noble/ciphers/salsa.js";
 import { u32 } from "@noble/ciphers/utils.js";
-import { x25519 } from "@noble/curves/ed25519";
+import { x25519 } from "@noble/curves/ed25519.js";
 import { blake2b } from "@noble/hashes/blake2.js";
 import { RequestError } from "@octokit/request-error";
 import type { Octokit } from "@octokit/rest";

@@ -1,4 +1,4 @@
-import { x25519 } from "@noble/curves/ed25519";
+import { x25519 } from "@noble/curves/ed25519.js";
 import { Octokit } from "@octokit/rest";
 import sodium from "libsodium-wrappers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
