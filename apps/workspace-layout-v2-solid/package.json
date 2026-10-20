@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
-    "@types/node": "^20.14.9",
+    "@types/node": "^24.0.0",
     "tailwindcss": "^4.2.2",
     "typescript": "6.0.3",
     "vite": "catalog:",
