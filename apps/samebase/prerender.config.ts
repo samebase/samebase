@@ -49,66 +49,6 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "What the Samebase template ships and why each piece was chosen.",
     robots: "index,follow",
   },
-  "/logo": {
-    title: "Logo Preview | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/hover/carpet": {
-    title: "Carpet Hover Reveal Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/hover/menger": {
-    title: "Menger Hover Reveal Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/iso": {
-    title: "Logo ISO Preview | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/raster": {
-    title: "Logo Raster Preview | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/raster-seams": {
-    title: "Logo Raster Seam Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/single-cube": {
-    title: "Single Cube Rotation Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/svg": {
-    title: "Static SVG Preview | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/transition": {
-    title: "Logo Transition Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/transition/menger": {
-    title: "Menger Depth Transition Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/logo/transition/transforms": {
-    title: "Single Cube Transform Lab | Samebase",
-    description: "Developer preview for exploring Samebase logo rendering.",
-    robots: "noindex,nofollow",
-  },
-  "/oauth/mcp/consent": {
-    title: "Authorize MCP client | Samebase",
-    description: "Authorization route for a Samebase MCP client.",
-    robots: "noindex,nofollow",
-  },
   "/pricing": {
     title: "Pricing | Samebase",
     description: "The Free and Pro connection limits, member limits, and monthly prices.",
@@ -128,26 +68,13 @@ const expectedPublicPrerenderMetadataByPath = {
   },
 } as const satisfies Record<PublicPrerenderRoutePath, ExpectedPublicPrerenderMetadata>;
 
-type PrerenderPage = {
+export type PrerenderPage = {
   path: RoutePath;
   expectedMetadata: ExpectedPublicPrerenderMetadata;
   prerender: {
     enabled: true;
-    outputPath?: string;
   };
 };
-
-function isConcreteRoutePath(routePath: string): boolean {
-  return !routePath.includes("$");
-}
-
-function isProductionAvailable(availableEnvironments: readonly string[] | undefined): boolean {
-  return availableEnvironments === undefined || availableEnvironments.includes("production");
-}
-
-function isPrerenderEnabled(prerender: false | undefined): boolean {
-  return prerender !== false;
-}
 
 function compareRoutePaths(left: string, right: string): number {
   if (left === right) {
@@ -166,19 +93,7 @@ function compareRoutePaths(left: string, right: string): number {
 // Keep Vite config on metadata-only imports. Importing the router here pulls
 // route components before app aliases are active during config loading.
 const routePaths = entries(ROUTE_ACCESS_METADATA_BY_PATH)
-  .filter(
-    ([routePath, routeAccessMetadata]) =>
-      routeAccessMetadata.access === "access_public" &&
-      isPrerenderEnabled(
-        "prerender" in routeAccessMetadata ? routeAccessMetadata.prerender : undefined,
-      ) &&
-      isConcreteRoutePath(routePath) &&
-      isProductionAvailable(
-        "availableEnvironments" in routeAccessMetadata
-          ? routeAccessMetadata.availableEnvironments
-          : undefined,
-      ),
-  )
+  .filter(([, routeAccessMetadata]) => "prerender" in routeAccessMetadata)
   .map(([routePath]) => routePath)
   .sort(compareRoutePaths);
 const expectedRoutePaths = entries(expectedPublicPrerenderMetadataByPath)
@@ -207,7 +122,6 @@ export const prerenderPages = routePaths.map((routePath) => {
     expectedMetadata,
     prerender: {
       enabled: true,
-      ...(routePath === "/" ? { outputPath: "/_landing.html" } : {}),
     },
   };
 }) satisfies PrerenderPage[];

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { PublicPrerenderPage } from "./generate-cloudflare-redirects.js";
+import type { PrerenderPage } from "../prerender.config.js";
 import {
   stripModulePreloadLinks,
   verifyPublicPrerenderMetadata,
@@ -20,9 +20,8 @@ const rootPage = {
   },
   prerender: {
     enabled: true,
-    outputPath: "/_landing.html",
   },
-} satisfies PublicPrerenderPage;
+} satisfies PrerenderPage;
 
 const landingHead = [
   "<head>",
@@ -104,7 +103,7 @@ describe("strip-public-prerender-modulepreloads", () => {
 
   it("overwrites the configured public prerender output", () => {
     const clientDistDir = mkdtempSync(path.join(tmpdir(), "samebase-public-prerender-"));
-    const landingFilePath = path.join(clientDistDir, "_landing.html");
+    const landingFilePath = path.join(clientDistDir, "index.html");
     writeFileSync(landingFilePath, "original", "utf8");
 
     try {

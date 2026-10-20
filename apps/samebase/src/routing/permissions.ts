@@ -110,7 +110,11 @@ export type RouteStaticData = {
   committing it mid-edit would tear the editor out from under the draft.
   */
   pathSuggestion?: "dev" | "hidden" | "redirect";
-  prerender?: false;
+  /**
+  The build writes the page as a file of `dist/client`, rendered without a visitor, and the server
+  never renders it. Only public pages without data qualify; prerender.config.ts lists their metadata.
+  */
+  prerender?: true;
 
   /**
   Query keys this route's own search schema accepts, beyond the root-owned keys

@@ -108,51 +108,6 @@ export function RepositoryDashboardStaticAccountLoadingSection({
       >
         {label}
       </div>
-      <div data-repository-dashboard-account-section-content className="hidden">
-        <RepositoryDashboardStaticAccountPrehydrationPlaceholders />
-      </div>
-    </div>
-  );
-}
-
-export function RepositoryDashboardStaticAccountPrehydrationPlaceholders() {
-  return (
-    <div data-app-auth-prehydration-signed-out className="hidden">
-      <div
-        data-app-auth-prehydration-signed-out-label
-        className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
-      >
-        {null}
-      </div>
-      <div className="mt-3 flex flex-col items-center">
-        <div className="flex flex-col gap-2">
-          {GOOGLE_AUTH_UI_ENABLED ? (
-            <Button
-              aria-hidden="true"
-              data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-              className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
-              disabled
-              tabIndex={-1}
-              variant="outline"
-              type="button"
-            >
-              <span className="min-w-0">Continue with Google</span>
-            </Button>
-          ) : null}
-          <Button
-            aria-hidden="true"
-            data-testid={PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}
-            className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
-            disabled
-            tabIndex={-1}
-            variant="default"
-            type="button"
-          >
-            <Github className="mr-2 h-4 w-4 @max-[120px]:hidden" />
-            <span className="min-w-0">Continue with GitHub</span>
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

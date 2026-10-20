@@ -84,7 +84,7 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   );
 }
 
-export function RouteUrlEditorNext({ routeAddressOverride }: { routeAddressOverride?: string }) {
+export function RouteUrlEditorNext() {
   const pageHashKeys = useRouteUrlEditorPageHashSuggestions();
   const vm = useRouteEditorVm({ pageHashKeys });
   const { canGoBack, canGoForward } = useNavigationControls();
@@ -249,8 +249,8 @@ export function RouteUrlEditorNext({ routeAddressOverride }: { routeAddressOverr
         inputMode="url"
         spellCheck={false}
         style={inputFocused ? { textIndent: `-${vm.state.prefix.length - 1}ch` } : undefined}
-        title={routeAddressOverride === undefined ? inputProps.title : vm.state.prefix}
-        value={routeAddressOverride ?? inputProps.value}
+        title={inputProps.title}
+        value={inputProps.value}
       />
       {vm.suggestionsVisible ? (
         <div

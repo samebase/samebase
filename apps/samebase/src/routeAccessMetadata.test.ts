@@ -21,7 +21,6 @@ describe("route access metadata", () => {
       access: "access_public",
       appWorkspaceRouteChrome: { leftPane: "none" },
       pathSuggestion: "hidden",
-      prerender: false,
     });
   });
 
@@ -38,24 +37,23 @@ describe("route access metadata", () => {
     for (const path of publicDocsPaths) {
       expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toEqual({
         access: "access_public",
+        prerender: true,
       });
     }
   });
 
-  it("keeps the retired landing preview as a non-prerendered redirect", () => {
+  it("keeps the retired landing preview as a redirect", () => {
     expect(ROUTE_ACCESS_METADATA_BY_PATH["/landing-preview"]).toEqual({
       access: "access_public",
       pathSuggestion: "redirect",
-      prerender: false,
     });
   });
 
-  it("keeps public link redirects out of route suggestions and prerendering", () => {
+  it("keeps public link redirects out of route suggestions", () => {
     for (const path of ["/x.com", "/youtube", "/discord"] as const) {
       expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toEqual({
         access: "access_public",
         pathSuggestion: "redirect",
-        prerender: false,
       });
     }
   });

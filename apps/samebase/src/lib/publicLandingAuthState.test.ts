@@ -1,51 +1,13 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import {
   getPasswordAuthSurface,
   getVisiblePasswordAuthSurface,
-  rememberPublicLandingPasswordAuthMode,
-  resolvePublicLandingPasswordAuthMode,
   shouldRenderOAuthReturnNotice,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
-
-const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
-
-function createMockStorage(): Storage {
-  const entries = new Map<string, string>();
-
-  return {
-    clear() {
-      entries.clear();
-    },
-    getItem(key) {
-      return entries.get(String(key)) ?? null;
-    },
-    key(index) {
-      return Array.from(entries.keys())[index] ?? null;
-    },
-    get length() {
-      return entries.size;
-    },
-    removeItem(key) {
-      entries.delete(String(key));
-    },
-    setItem(key, value) {
-      entries.set(String(key), String(value));
-    },
-  };
-}
-
-afterEach(() => {
-  if (originalLocalStorageDescriptor) {
-    Object.defineProperty(window, "localStorage", originalLocalStorageDescriptor);
-    return;
-  }
-
-  Reflect.deleteProperty(window, "localStorage");
-});
 
 describe("publicLandingAuthState", () => {
   it.each(["/", "/settings"])(
@@ -118,32 +80,5 @@ describe("publicLandingAuthState", () => {
         prodUiModeEnabled: true,
       }),
     ).toBe("sign_in");
-  });
-
-  it("reuses the remembered password auth mode while the public policy reloads", () => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createMockStorage(),
-    });
-
-    rememberPublicLandingPasswordAuthMode("local_worktree_seed");
-
-    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe("local_worktree_seed");
-    expect(
-      getVisiblePasswordAuthSurface({
-        passwordAuthMode: resolvePublicLandingPasswordAuthMode(undefined),
-        prodUiModeEnabled: false,
-      }),
-    ).toBe("local_worktree");
-  });
-
-  it("ignores invalid remembered password auth values", () => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createMockStorage(),
-    });
-    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "nope");
-
-    expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe("off");
   });
 });

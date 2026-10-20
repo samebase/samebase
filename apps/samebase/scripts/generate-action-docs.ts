@@ -65,9 +65,9 @@ type LoadedCatalog = {
 
 /**
 The catalog and schema converter import Convex-convention extensionless modules, so plain Node
-cannot resolve them; a middleware-mode vite server loads the app module graph the same way
-generate-cloudflare-redirects.ts does. Argument tables are rendered here, while the raw validator
-objects are in hand, so the rest of the script works only with sure-validated data.
+cannot resolve them; a middleware-mode vite server loads the app module graph. Argument tables are
+rendered here, while the raw validator objects are in hand, so the rest of the script works only
+with sure-validated data.
 */
 async function loadCatalog(): Promise<LoadedCatalog> {
   const server = await createServer({

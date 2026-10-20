@@ -1,15 +1,12 @@
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import {
-  readPrerenderHtmlOutputPath,
-  type PublicPrerenderPage,
-} from "./generate-cloudflare-redirects.ts";
+import type { PrerenderPage } from "../prerender.config.ts";
 
 const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;
 const modulePreloadTextPattern = /\bmodulepreload\b/i;
 
-export function verifyPublicPrerenderMetadata(page: PublicPrerenderPage, html: string) {
+export function verifyPublicPrerenderMetadata(page: PrerenderPage, html: string) {
   const { expectedMetadata: expected, path: pathname } = page;
   const canonicalUrl = new URL(pathname, "https://samebase.com").toString();
   const headEndIndex = html.indexOf("</head>");
@@ -126,20 +123,19 @@ export function stripModulePreloadLinks(html: string) {
 }
 
 /**
-Overwrites the public prerender that TanStack Start just wrote. The caller owns
-selecting configured public pages so the separate production SPA mask page is
-never passed here.
+Overwrites the public prerender that TanStack Start just wrote at `<path>/index.html`, which
+`--html-handling drop-trailing-slash` serves at `<path>`. The caller passes only the configured
+public pages.
 */
 export function writePublicPrerenderWithoutModulePreloads(args: {
   clientDistDir: string;
   html: string;
-  page: PublicPrerenderPage;
+  page: PrerenderPage;
 }) {
-  const htmlOutputPath = readPrerenderHtmlOutputPath(args.page);
-  const htmlFilePath = path.resolve(args.clientDistDir, htmlOutputPath.slice(1));
+  const htmlFilePath = path.resolve(args.clientDistDir, `.${args.page.path}`, "index.html");
   const relativePath = path.relative(args.clientDistDir, htmlFilePath);
   if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    throw new Error(`Prerender output path escapes dist/client: ${htmlOutputPath}`);
+    throw new Error(`Prerender output path escapes dist/client: ${args.page.path}`);
   }
 
   const result = stripModulePreloadLinks(args.html);

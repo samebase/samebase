@@ -14,12 +14,11 @@ export type RoutePath = keyof FileRoutesByFullPath;
  * should still stay on metadata-only modules instead of the full route tree.
  */
 export const ROUTE_ACCESS_METADATA_BY_PATH = {
-  "/": { access: "access_public" },
+  "/": { access: "access_public", prerender: true },
   "/agents/connect": {
     access: "access_public",
     appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "hidden",
-    prerender: false,
   },
   "/account-deletion": {
     access: "access_account_deletion",
@@ -47,23 +46,21 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_public",
     appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "hidden",
-    prerender: false,
   },
-  "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
-  "/docs": { access: "access_public" },
-  "/docs/cloudflare-setup": { access: "access_public" },
-  "/docs/cloudflare-previews-migration": { access: "access_public" },
-  "/docs/do-it-yourself": { access: "access_public" },
-  "/docs/receipts": { access: "access_public" },
-  "/docs/the-stack": { access: "access_public" },
+  "/landing": { access: "access_public", pathSuggestion: "redirect" },
+  "/docs": { access: "access_public", prerender: true },
+  "/docs/cloudflare-setup": { access: "access_public", prerender: true },
+  "/docs/cloudflare-previews-migration": { access: "access_public", prerender: true },
+  "/docs/do-it-yourself": { access: "access_public", prerender: true },
+  "/docs/receipts": { access: "access_public", prerender: true },
+  "/docs/the-stack": { access: "access_public", prerender: true },
   "/landing-preview": {
     access: "access_public",
     pathSuggestion: "redirect",
-    prerender: false,
   },
-  "/x.com": { access: "access_public", pathSuggestion: "redirect", prerender: false },
-  "/youtube": { access: "access_public", pathSuggestion: "redirect", prerender: false },
-  "/discord": { access: "access_public", pathSuggestion: "redirect", prerender: false },
+  "/x.com": { access: "access_public", pathSuggestion: "redirect" },
+  "/youtube": { access: "access_public", pathSuggestion: "redirect" },
+  "/discord": { access: "access_public", pathSuggestion: "redirect" },
   "/localStorage": { access: "access_admin" },
   "/logo": { access: "access_public", pathSuggestion: "dev" },
   "/logo/hover/carpet": { access: "access_public", pathSuggestion: "dev" },
@@ -143,13 +140,21 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/pricing": { access: "access_public" },
-  "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
+  "/pricing": { access: "access_public", prerender: true },
+  "/privacy": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    prerender: true,
+  },
   "/settings": {
     access: "access_account_settings",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
+  "/terms": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    prerender: true,
+  },
   "/test": {
     availableEnvironments: ["local"],
     access: "access_admin",
@@ -176,19 +181,5 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
 type RouteAccessMetadataByPath = typeof ROUTE_ACCESS_METADATA_BY_PATH;
 
 export type PublicPrerenderRoutePath = {
-  [Path in RoutePath]: RouteAccessMetadataByPath[Path] extends {
-    access: "access_public";
-  }
-    ? RouteAccessMetadataByPath[Path] extends { prerender: false }
-      ? never
-      : Path extends `${string}$${string}`
-        ? never
-        : RouteAccessMetadataByPath[Path] extends {
-              availableEnvironments: readonly string[];
-            }
-          ? "production" extends RouteAccessMetadataByPath[Path]["availableEnvironments"][number]
-            ? Path
-            : never
-          : Path
-    : never;
+  [Path in RoutePath]: RouteAccessMetadataByPath[Path] extends { prerender: true } ? Path : never;
 }[RoutePath];
