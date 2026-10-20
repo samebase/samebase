@@ -14,7 +14,7 @@ const PROVIDER_AUTHORIZATION_SOURCES = [
   "github-user",
 ] as const;
 
-export const Route = createFileRoute("/org/$owner/providers")({
+export const Route = createFileRoute("/_authed/org/$owner/providers")({
   component: OrganizationProvidersRoutePage,
   staticData: ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/providers"],
 });

@@ -26,7 +26,7 @@ function RepositorySchemaRouteComponent() {
 }
 
 export const Route = createFileRoute(
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
+  "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
 )({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: RepositorySchemaRouteComponent,

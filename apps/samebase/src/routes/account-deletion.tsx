@@ -12,7 +12,7 @@ function AccountDeletionRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/account-deletion")({
+export const Route = createFileRoute("/_authed/account-deletion")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[ACCOUNT_DELETION_ROUTE],
   component: AccountDeletionRouteComponent,
 });

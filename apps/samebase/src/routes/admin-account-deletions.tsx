@@ -13,7 +13,7 @@ function AdminAccountDeletionsRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/admin/account-deletions")({
+export const Route = createFileRoute("/_authed/admin/account-deletions")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[ADMIN_ACCOUNT_DELETIONS_ROUTE],
   component: AdminAccountDeletionsRouteComponent,
 });

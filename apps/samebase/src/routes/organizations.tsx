@@ -43,7 +43,7 @@ function OrganizationsRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/org")({
+export const Route = createFileRoute("/_authed/org")({
   component: OrganizationsRouteComponent,
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[ORGANIZATIONS_ROUTE],
 });

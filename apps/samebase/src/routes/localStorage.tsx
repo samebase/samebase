@@ -14,7 +14,7 @@ function LocalStorageRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/localStorage")({
+export const Route = createFileRoute("/_authed/localStorage")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: LocalStorageRouteComponent,
 });

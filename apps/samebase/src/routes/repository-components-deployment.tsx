@@ -24,7 +24,9 @@ function RepositoryComponentsRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/repo/$owner/$repository/components/$deploymentName")({
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-  component: RepositoryComponentsRouteComponent,
-});
+export const Route = createFileRoute("/_authed/repo/$owner/$repository/components/$deploymentName")(
+  {
+    staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    component: RepositoryComponentsRouteComponent,
+  },
+);

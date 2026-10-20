@@ -3,7 +3,7 @@ import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/organization/organizationRout
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/org/$owner")({
+export const Route = createFileRoute("/_authed/org/$owner")({
   component: OrganizationIndexRoutePage,
   staticData: ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner"],
 });

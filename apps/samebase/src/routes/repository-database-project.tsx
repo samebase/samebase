@@ -26,7 +26,7 @@ function RepositoryDatabaseRouteComponent() {
 }
 
 export const Route = createFileRoute(
-  "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
+  "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId",
 )({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: RepositoryDatabaseRouteComponent,

@@ -1,4 +1,4 @@
-import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
+import { index, layout, rootRoute, route } from "@tanstack/virtual-file-routes";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import {
@@ -35,8 +35,6 @@ import { ORGANIZATION_INVITATION_ROUTE } from "./organization/organizationInvita
  */
 export const routes = rootRoute("root.tsx", [
   index("index.tsx"),
-  route(INDEXED_DB_ROUTE, "indexDB.tsx"),
-  route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
   route("/logo", "logo.tsx"),
   route("/logo/hover/carpet", "logo-carpet-hover-research.tsx"),
   route("/logo/hover/menger", "logo-menger-hover-research.tsx"),
@@ -53,14 +51,9 @@ export const routes = rootRoute("root.tsx", [
   route("/x[.]com", "x.tsx"),
   route("/youtube", "youtube.tsx"),
   route("/discord", "discord.tsx"),
-  route("/test", "test.tsx"),
-  route("/pitch", "pitch.tsx"),
-  route("/pitch/print", "pitch-print.tsx"),
-  route("/pitch/print/mobile", "pitch-print-mobile.tsx"),
   route("/visual-fixture", "visual-fixture.tsx"),
   route(AGENT_BROWSER_HANDOFF_ROUTE, "agents-connect.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
-  route(PROVIDER_OAUTH_COMPLETION_ROUTE, "oauth-provider-complete.tsx"),
   route("/landing", "landing.tsx"),
   route(DOCS_INDEX_ROUTE, "docs.tsx"),
   route(DOCS_CLOUDFLARE_SETUP_ROUTE, "docs-cloudflare-setup.tsx"),
@@ -70,36 +63,46 @@ export const routes = rootRoute("root.tsx", [
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
-  route(ORGANIZATIONS_ROUTE, "organizations.tsx"),
-  route(ORGANIZATION_ROUTE, "org.tsx"),
-  route(ORGANIZATION_REPOSITORIES_ROUTE, "org-repositories.tsx"),
-  route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
-  route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
-  route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
-  route(ORGANIZATION_MEMBERS_ROUTE, "org-members.tsx"),
-  route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
   route(ORGANIZATION_INVITATION_ROUTE, "invite.tsx"),
-  route(SETTINGS_ROUTE, "settings.tsx"),
-  route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
-  route("/admin/users", "admin-users.tsx"),
-  route("/admin/account-deletions", "admin-account-deletions.tsx"),
-  route("/admin/emails", "admin-emails.tsx"),
-  route(DASHBOARD_ROUTE, [
-    index("repository-dashboard-root.tsx"),
-    route("$", "repository-file.tsx"),
+  // Pages for a visitor with a session: the layout redirects a server render without one.
+  layout("authed", "authed.tsx", [
+    route(INDEXED_DB_ROUTE, "indexDB.tsx"),
+    route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
+    route("/test", "test.tsx"),
+    route("/pitch", "pitch.tsx"),
+    route("/pitch/print", "pitch-print.tsx"),
+    route("/pitch/print/mobile", "pitch-print-mobile.tsx"),
+    route(PROVIDER_OAUTH_COMPLETION_ROUTE, "oauth-provider-complete.tsx"),
+    route(ORGANIZATIONS_ROUTE, "organizations.tsx"),
+    route(ORGANIZATION_ROUTE, "org.tsx"),
+    route(ORGANIZATION_REPOSITORIES_ROUTE, "org-repositories.tsx"),
+    route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
+    route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
+    route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
+    route(ORGANIZATION_MEMBERS_ROUTE, "org-members.tsx"),
+    route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
+    route(SETTINGS_ROUTE, "settings.tsx"),
+    route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
+    route("/admin/users", "admin-users.tsx"),
+    route("/admin/account-deletions", "admin-account-deletions.tsx"),
+    route("/admin/emails", "admin-emails.tsx"),
+    route(DASHBOARD_ROUTE, [
+      index("repository-dashboard-root.tsx"),
+      route("$", "repository-file.tsx"),
+    ]),
+    route(`${DASHBOARD_ROUTE}/$owner/$repository`, "repository-dashboard.tsx"),
+    route(`${DASHBOARD_ROUTE}/$owner/$repository/settings`, "repository-settings.tsx"),
+    route(
+      `${DASHBOARD_ROUTE}/$owner/$repository/db/$branch/project/$convexProjectId`,
+      "repository-database-project.tsx",
+    ),
+    route(
+      `${DASHBOARD_ROUTE}/$owner/$repository/schema/$branch/project/$convexProjectId`,
+      "repository-schema-project.tsx",
+    ),
+    route(
+      `${DASHBOARD_ROUTE}/$owner/$repository/components/$deploymentName`,
+      "repository-components-deployment.tsx",
+    ),
   ]),
-  route(`${DASHBOARD_ROUTE}/$owner/$repository`, "repository-dashboard.tsx"),
-  route(`${DASHBOARD_ROUTE}/$owner/$repository/settings`, "repository-settings.tsx"),
-  route(
-    `${DASHBOARD_ROUTE}/$owner/$repository/db/$branch/project/$convexProjectId`,
-    "repository-database-project.tsx",
-  ),
-  route(
-    `${DASHBOARD_ROUTE}/$owner/$repository/schema/$branch/project/$convexProjectId`,
-    "repository-schema-project.tsx",
-  ),
-  route(
-    `${DASHBOARD_ROUTE}/$owner/$repository/components/$deploymentName`,
-    "repository-components-deployment.tsx",
-  ),
 ]);

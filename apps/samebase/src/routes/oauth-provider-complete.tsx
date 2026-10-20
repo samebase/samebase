@@ -4,7 +4,7 @@ import { ProviderOAuthCompletionPage } from "@/organization/providers/ProviderOA
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { PROVIDER_OAUTH_COMPLETION_ROUTE } from "../../shared/providerOAuthReturn";
 
-export const Route = createFileRoute("/oauth/provider-complete")({
+export const Route = createFileRoute("/_authed/oauth/provider-complete")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[PROVIDER_OAUTH_COMPLETION_ROUTE],
   component: ProviderOAuthCompletionRoutePage,
 });

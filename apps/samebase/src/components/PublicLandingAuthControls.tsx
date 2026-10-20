@@ -6,42 +6,26 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useOAuthSignInRejection } from "@/lib/oauthSignInRejection";
 import {
   getVisiblePasswordAuthSurface,
-  rememberPublicLandingPasswordAuthMode,
-  resolvePublicLandingPasswordAuthMode,
   shouldRenderOAuthReturnNotice,
   type PasswordAuthSurface,
 } from "@/lib/publicLandingAuthState";
 import {
   buildPathWithoutProdUiQuery,
-  isBrowserProductionPublicOrigin,
+  isProductionPublicOrigin,
   isProdUiModeActive,
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
-import { readRootRouteSearch } from "@/routeSearch/root";
+import { readRootRouteSearch, readSignInNextHref } from "@/routeSearch/root";
+import { rootQueries } from "@/routes/root.queries";
 import { SignInWithOAuth } from "@/SignInWithOAuth";
-import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
+import { useConvexAuth } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useEffect, useState } from "react";
-import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
-
-/**
- * SSG cannot read per-browser auth preferences. Password auth controls that
- * come from localStorage or cached deployment policy therefore wait until
- * hydration has attached to the anonymous static shell.
- */
-function useHasHydrated() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  return hasHydrated;
-}
 
 function readLocalWorktreePasswordCredentials(): {
   email: string;
@@ -61,7 +45,6 @@ function readLocalWorktreePasswordCredentials(): {
 function usePublicLandingPasswordAuthControls(): {
   passwordAuthSurface: PasswordAuthSurface;
 } {
-  const hasHydrated = useHasHydrated();
   const location = useLocation({
     select: (currentLocation) => ({
       searchStr: currentLocation.searchStr,
@@ -69,35 +52,22 @@ function usePublicLandingPasswordAuthControls(): {
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
-  const productionPublicOrigin = isBrowserProductionPublicOrigin();
-  const deploymentAuthPolicy = useQuery(api.deploymentProfile.getPublicDeploymentAuthPolicy);
+  const productionPublicOrigin = isProductionPublicOrigin();
+  // The root loader fetched the policy for a server render without a session.
+  const { data: deploymentAuthPolicy } = useQuery(rootQueries.deploymentAuthPolicy);
   const deploymentProfile = deploymentAuthPolicy?.deploymentProfile;
   const prodUiModeEnabled = isProdUiModeActive({
     deploymentProfile,
     productionPublicOrigin,
     search: rootRouteSearch,
   });
-  const passwordAuthMode = resolvePublicLandingPasswordAuthMode(
+  const passwordAuthMode =
     deploymentAuthPolicy?.passwordAuthMode ??
-      (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : undefined),
-  );
-  const passwordAuthSurface = hasHydrated
-    ? getVisiblePasswordAuthSurface({
-        passwordAuthMode,
-        prodUiModeEnabled,
-      })
-    : "hidden";
-
-  useEffect(() => {
-    const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;
-    if (nextPasswordAuthMode === undefined) {
-      return;
-    }
-
-    // Preserve the last resolved password-auth mode so a manual refresh keeps
-    // the same auth surface while Convex reconnects.
-    rememberPublicLandingPasswordAuthMode(nextPasswordAuthMode);
-  }, [deploymentAuthPolicy?.passwordAuthMode]);
+    (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : "off");
+  const passwordAuthSurface = getVisiblePasswordAuthSurface({
+    passwordAuthMode,
+    prodUiModeEnabled,
+  });
 
   useEffect(() => {
     // Router search state intentionally drives this effect even though the URL
@@ -128,7 +98,6 @@ export function PublicLandingAuthControls({
 }: {
   oauthAuthFlow: "current-route" | "public-signup";
 }) {
-  const navigate = useNavigate();
   const { isAuthenticated } = useConvexAuth();
   const location = useLocation({
     select: (currentLocation) => ({
@@ -171,16 +140,12 @@ export function PublicLandingAuthControls({
         <PasswordAuthForm
           onSignIn={
             publicSignup
-              ? () =>
-                  navigate({
-                    search: (currentSearch) => ({
-                      ...currentSearch,
-                      auth: undefined,
-                      "auth-return": undefined,
-                      signup: undefined,
-                    }),
-                    to: DASHBOARD_ROUTE,
-                  })
+              ? () => {
+                  // A document load: the server renders the private page from the new session
+                  // cookie, where a navigation inside the app could reach the page's gate before
+                  // the provider confirms the session.
+                  window.location.assign(readSignInNextHref(rootRouteSearch) ?? DASHBOARD_ROUTE);
+                }
               : undefined
           }
           surface={passwordAuthSurface}

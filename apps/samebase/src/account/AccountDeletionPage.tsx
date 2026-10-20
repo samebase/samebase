@@ -3,7 +3,6 @@ import type { FunctionReturnType } from "convex/server";
 import { Check, Circle, Loader2, TriangleAlert } from "lucide-react";
 import { entries } from "@samebase/dependent/object";
 import { useState } from "react";
-import { useRouter } from "@tanstack/react-router";
 
 import { api } from "../../convex/_generated/api";
 import { useAppAuthActions } from "@/authClient";
@@ -32,7 +31,6 @@ const ACCOUNT_DELETION_STEPS = entries(ACCOUNT_DELETION_STEP_LABELS).map(([step,
 export function AccountDeletionPage() {
   const status = useQuery(api.accountDeletion.index.status);
   const { signOut } = useAppAuthActions();
-  const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = () => {
@@ -41,16 +39,16 @@ export function AccountDeletionPage() {
     }
 
     setIsSigningOut(true);
+    // A sign-out reloads the page, which then renders without the session.
     void signOut()
-      .then(() => {
-        void router.navigate({ href: "/", replace: true, state: true });
-      })
-      .catch((error: unknown) => {
-        toast({
-          description: error instanceof Error ? error.message : "Please try again.",
-          title: "Could not sign out",
-          variant: "destructive",
-        });
+      .then((signedOut) => {
+        if (!signedOut) {
+          toast({
+            description: "Please try again.",
+            title: "Could not sign out",
+            variant: "destructive",
+          });
+        }
       })
       .finally(() => {
         setIsSigningOut(false);

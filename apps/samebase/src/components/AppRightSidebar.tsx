@@ -16,7 +16,10 @@ import {
   RepositoryDashboardStaticAccountSection,
   RepositoryDashboardStaticAccountStatusSection,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import { useAppAuthPresentation } from "@/lib/appAuthPresentationState";
+import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
+import { SessionPending } from "@/components/SessionPending";
+import { useQuery } from "@tanstack/react-query";
+import { rootQueries } from "@/routes/root.queries";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
@@ -255,7 +258,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   deleting: boolean;
   pending: boolean;
 }) {
-  const user = useConvexQuery(api.users.viewer);
+  const { data: user } = useQuery(rootQueries.viewer);
   const accountPresentation = user?.accountPresentation;
 
   return (
@@ -416,7 +419,7 @@ function AuthenticatedAppRightSidebarContent({
 }: {
   showAdminNavigation: boolean;
 }) {
-  const user = useConvexQuery(api.users.viewer);
+  const { data: user } = useQuery(rootQueries.viewer);
   const repositories = useConvexQuery(api.repository.list);
   const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
   const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
@@ -457,33 +460,43 @@ function AuthenticatedAppRightSidebarContent({
   );
 }
 
-export function AppRightSidebarContent() {
-  const authPresentation = useAppAuthPresentation();
-  const viewerAccess = useConvexQuery(
-    api.users.currentViewerAccess,
-    authPresentation.kind === "confirmedAuthenticated" ? {} : "skip",
-  );
+// The root loader fetched the viewer for a server render with a session, so the signed-in sidebar
+// is in the first HTML; after a sign-in in this tab, the queries load in the browser.
+function SignedInAppRightSidebarContent() {
+  const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
 
-  if (authPresentation.kind === "confirmedAuthenticated") {
-    if (!hasProviderSidebarAccess(viewerAccess)) {
-      if (viewerAccess === undefined) {
-        return <LoadingAuthenticatedAppRightSidebarContent />;
-      }
-
-      return (
-        <AccountOnlyAuthenticatedAppRightSidebarContent
-          deleting={viewerAccess.role === "role_deleting"}
-          pending={viewerAccess.role === "role_pending_access"}
-        />
-      );
+  if (!hasProviderSidebarAccess(viewerAccess)) {
+    if (viewerAccess === undefined) {
+      return <LoadingAuthenticatedAppRightSidebarContent />;
     }
 
     return (
-      <AuthenticatedAppRightSidebarContent
-        showAdminNavigation={viewerAccess?.accessKeys.includes("access_admin") ?? false}
+      <AccountOnlyAuthenticatedAppRightSidebarContent
+        deleting={viewerAccess.role === "role_deleting"}
+        pending={viewerAccess.role === "role_pending_access"}
       />
     );
   }
 
-  return <PublicAppRightSidebarContent accountPending={authPresentation.kind === "unknown"} />;
+  return (
+    <AuthenticatedAppRightSidebarContent
+      showAdminNavigation={viewerAccess?.accessKeys.includes("access_admin") ?? false}
+    />
+  );
+}
+
+export function AppRightSidebarContent() {
+  return (
+    <>
+      <SignedIn>
+        <SignedInAppRightSidebarContent />
+      </SignedIn>
+      <SignedOut>
+        <PublicAppRightSidebarContent accountPending={false} />
+      </SignedOut>
+      <SessionPending>
+        <PublicAppRightSidebarContent accountPending />
+      </SessionPending>
+    </>
+  );
 }

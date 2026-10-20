@@ -17,7 +17,7 @@ function AdminUsersRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/admin/users")({
+export const Route = createFileRoute("/_authed/admin/users")({
   component: AdminUsersRouteComponent,
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[ADMIN_USERS_ROUTE],

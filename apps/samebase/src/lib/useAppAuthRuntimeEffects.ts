@@ -1,29 +1,27 @@
 import { useAutoSignIn } from "@/authClient";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { type RootRouteSearch } from "@/routeSearch/root";
+import { readSignInNextHref, type RootRouteSearch } from "@/routeSearch/root";
 import { useRouter } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 
-export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: RootRouteSearch) {
-  const { isAuthenticated, isLoading } = useConvexAuth();
+export function useAppAuthRuntimeEffects(rootRouteSearch: RootRouteSearch) {
+  const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
   const authReturn = rootRouteSearch["auth-return"];
+  const nextHref = readSignInNextHref(rootRouteSearch);
   const signupReturn = rootRouteSearch.signup;
 
   useAutoSignIn(rootRouteSearch);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && pathname === DASHBOARD_ROUTE) {
-      void router.navigate({
-        href: "/",
-        replace: true,
-        state: true,
-      });
+    if (!isAuthenticated) {
       return;
     }
 
-    if (!isAuthenticated) {
+    // The session is confirmed here, so the private page's gate lets the navigation through.
+    if (nextHref !== null) {
+      void router.navigate({ href: nextHref, replace: true });
       return;
     }
 
@@ -60,5 +58,5 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
     // Preserve TanStack Router bookkeeping while removing the one-shot
     // signup-return flag from the visible URL.
     window.history.replaceState(window.history.state, "", nextPath);
-  }, [authReturn, isAuthenticated, isLoading, pathname, router, signupReturn]);
+  }, [authReturn, isAuthenticated, nextHref, router, signupReturn]);
 }
