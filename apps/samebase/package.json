@@ -26,12 +26,9 @@
     "check:ci": "tsgo --noEmit && pnpm run lint:vp && pnpm run verify:cloudflare-redirects && pnpm run verify:action-docs",
     "typecheck": "convex codegen && tsgo --noEmit",
     "typecheck:watch": "tsgo --watch",
-    "build": "node ./scripts/build-cloudflare.ts",
     "build:app": "convex codegen && pnpm run build:ci",
     "build:ci": "tsgo && pnpm run generate:cloudflare-redirects && vp build",
-    "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler preview",
-    "deploy:dry-run": "pnpm run build && wrangler deploy --dry-run",
+    "deploy": "convex-hosting deploy --dist dist/client --html-handling none --not-found-handling single-page-application --build \"pnpm run build:ci\"",
     "lint": "pnpm run check",
     "lint:ci": "pnpm run check:ci",
     "lint:vp": "NODE_OPTIONS=--max-old-space-size=4096 pnpm --dir ../.. exec vp lint --report-unused-disable-directives apps/samebase",
@@ -78,6 +75,7 @@
     "@prosemark/core": "^0.0.7",
     "@samebase/convex-cloudflare-email-inbox": "0.3.0",
     "@samebase/convex-cloudflare-email-inbox-ui": "0.1.0",
+    "@samebase/convex-hosting": "0.13.1",
     "@samebase/dependent": "workspace:*",
     "@samebase/logo-model": "workspace:*",
     "@samebase/sidebars": "workspace:*",
@@ -124,7 +122,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.37.1",
     "@edge-runtime/vm": "^5.0.0",
     "@effect/platform-node": "4.0.3",
     "@hey-api/openapi-ts": "0.99.0",
@@ -158,8 +155,7 @@
     "typescript": "6.0.3",
     "unplugin-typegpu": "0.12.1",
     "vite": "catalog:",
-    "vite-plus": "catalog:",
-    "wrangler": "4.136.2"
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=24.20.0"

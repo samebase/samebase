@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
@@ -15,6 +16,7 @@ const repoRoot = resolveRepoRoot();
 const appDir = path.join(repoRoot, "apps", "samebase");
 const localEnvPath = path.join(appDir, ".env.local");
 const seedEnvPath = path.join(appDir, ".env.anon-seed.local");
+const versionModulePath = path.join(appDir, ".convex-hosting", "version.js");
 const FUNCTIONS_READY_MARKER = "Convex functions ready!";
 const localConvexEnv: NodeJS.ProcessEnv = {
   ...process.env,
@@ -157,8 +159,32 @@ try {
     }
   }
 
-  if (!(await waitForFunctions())) {
-    exitWithError("Local Convex functions did not become ready after seed environment setup");
+  // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, so the first
+  // push of a fresh worktree fails. One `deploy --dev` builds the site, uploads it to the backend
+  // above, writes the file, and pushes with its own `convex run --push`. On macOS and Linux the
+  // watcher never sees the new file, so that push is the one to wait for. On Windows the watcher
+  // re-pushes as well, the two pushes race, and the deploy's later `convex run` calls then
+  // sometimes abort inside the Convex CLI after the push landed; the worktree needs the push, not
+  // the upload, so a failed deploy is fatal only when the functions never become ready. `node
+  // --run` puts node_modules/.bin on PATH and appends the arguments to the script's last command.
+  if (existsSync(versionModulePath)) {
+    if (!(await waitForFunctions())) {
+      exitWithError("Local Convex functions did not become ready after seed environment setup");
+    }
+  } else {
+    const deployResult = spawnSync(process.execPath, ["--run", "deploy", "--", "--dev"], {
+      cwd: appDir,
+      env: localConvexEnv,
+      stdio: "inherit",
+    });
+    if (deployResult.status !== 0) {
+      console.warn(
+        "The site deploy to the local backend failed; waiting for the watcher's own push.",
+      );
+      if (!(await waitForFunctions())) {
+        exitWithError("Failed to deploy the site to the local backend");
+      }
+    }
   }
 
   const runResult = spawnSync(

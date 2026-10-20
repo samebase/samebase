@@ -1,26 +1,22 @@
-// Setup stack for Samebase. samebase.com itself stays with Workers Builds and
-// apps/samebase/wrangler.jsonc; this stack owns the setup around it: the
-// Worker shell, its Builds link with the deploy keys the builds use, and the
-// Convex project. It also uploads the small Workers next to the app, so their
-// routes and settings are code instead of Workers Builds trigger settings in
-// the Cloudflare dashboard.
+// Setup stack for Samebase. samebase.com itself is served by its production
+// Convex deployment through convex-hosting and deployed by
+// .github/workflows/deploy.yml; this stack owns the setup around it: the
+// Convex project and the small Workers next to the app, so their routes and
+// settings are code instead of settings in the Cloudflare dashboard.
 //
 // .github/workflows/infra.yml runs it: a plan and a drift report on every pull
 // request that touches the files it lists, a deploy on main. Run it from
 // apps/samebase. Locally it needs a Cloudflare login (`npx alchemy login`, or
 // CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in apps/samebase/.env) and
 // the Convex CLI login (`npx convex login`, or CONVEX_ACCESS_TOKEN). The
-// Cloudflare token is user-owned, because Workers Builds accepts no other kind,
-// with Workers Scripts Edit, Workers Builds Configuration Edit, Secrets Store
-// Edit, Account Settings Read, plus Workers Routes Edit and Zone Read on
-// samebase.com, json.md and xml.md:
+// Cloudflare token needs Workers Scripts Edit and Account Settings Read, plus
+// Workers Routes Edit and Zone Read on samebase.com, json.md and xml.md:
 //   npx alchemy plan --stage prod
 import * as WorkersBuilds from "@samebase/alchemy-cloudflare-workers-builds";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Cloudflare from "alchemy/Cloudflare";
-import * as Output from "alchemy/Output";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -32,6 +28,10 @@ const CONVEX_PROJECT = "samebase";
 export default Alchemy.Stack(
   "Samebase",
   {
+    // The Workers Builds provider stays registered until one deploy on main
+    // has forgotten the retained Worker and Builds rows of the old stack:
+    // Alchemy refuses to plan a state row whose provider is gone. Then the
+    // provider and its package go.
     providers: Layer.mergeAll(
       Cloudflare.providers(),
       WorkersBuilds.providers(),
@@ -42,71 +42,14 @@ export default Alchemy.Stack(
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
-    // samebase.com. Workers Builds keeps deploying it; the stack owns the
-    // Worker shell by name, its Builds link, and the Convex project with the
-    // deploy keys the builds use. Commands and paths are the Builds settings
-    // from the dashboard, so the first deploy changes no build. The variables
-    // it writes replace the hand-set CONVEX_DEPLOY_KEY with keys it minted;
-    // the provider keeps variables it did not write, so the hand-set
-    // PROD_POSTHOG_PROJECT_TOKEN stays. Everything here is retained on
-    // destroy: it is the production app.
-    const worker = yield* WorkersBuilds.Worker("Worker", { name: "samebase" }).pipe(
-      adopt(true),
-      Alchemy.RemovalPolicy.retain(),
-    );
-
-    // Found by name when it has no state, then by id; adopt(true) takes over
-    // the project that existed before this stack. Convex.Project retains by
-    // default since alchemy-convex 0.2.0; the explicit retain keeps that
-    // visible here.
-    const project = yield* Convex.Project("Project", {
+    // The Convex project that runs samebase.com. Found by name when it has no
+    // state, then by id; adopt(true) takes over the project that existed
+    // before this stack. Retained on destroy: it is the production app. The
+    // deploy keys that deploy.yml and preview.yml use are repository secrets,
+    // not resources of this stack.
+    yield* Convex.Project("Project", {
       team: CONVEX_TEAM,
       name: CONVEX_PROJECT,
-    }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
-    const deployment = project.prodDeploymentName.as<string>();
-
-    // Exactly the actions scripts/build-cloudflare.ts names for the production
-    // key. Without allowedActions, Convex grants every deployment action,
-    // including data writes and backup deletes. Both keys are retained like
-    // the Builds configuration that holds them: a destroy that revoked them
-    // would leave every later build failing to authenticate.
-    const deployKey = yield* Convex.DeployKey("DeployKey", {
-      deployment,
-      name: "workers-builds",
-      allowedActions: [
-        "deployment:deploy",
-        "deployment:env:view",
-        "deployment:env:write",
-        "deployment:data:view",
-      ],
-    }).pipe(Alchemy.RemovalPolicy.retain());
-    const previewKey = yield* Convex.PreviewDeployKey("PreviewDeployKey", {
-      projectId: project.projectId,
-      name: "workers-builds",
-    }).pipe(Alchemy.RemovalPolicy.retain());
-
-    yield* WorkersBuilds.Repository("Builds", {
-      worker: worker.workerId,
-      rootDirectory: "apps/samebase",
-      buildCommand: "pnpm run build",
-      deployCommand: "pnpm run deploy",
-      previewDeployCommand: "pnpm run deploy:preview",
-      pathIncludes: [
-        "apps/samebase/*",
-        "packages/dependent/*",
-        "pnpm-lock.yaml",
-        "pnpm-workspace.yaml",
-        "package.json",
-        ".nvmrc",
-      ],
-      // scripts/build-cloudflare.ts reads CONVEX_DEPLOY_KEY: the production
-      // key on main, the project preview key on other branches. Samebase reads
-      // SAMEBASE_CONVEX_PROJECT to link the Worker to its Convex project.
-      variables: {
-        CONVEX_DEPLOY_KEY: deployKey.deployKey,
-        SAMEBASE_CONVEX_PROJECT: Output.interpolate`version=1&teamId=${project.teamId}&projectId=${project.projectId}`,
-      },
-      previewVariables: { CONVEX_DEPLOY_KEY: previewKey.previewDeployKey },
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
     // The PostHog reverse proxy on e.samebase.com. The name is the Worker that
@@ -140,6 +83,6 @@ export default Alchemy.Stack(
       ],
     }).pipe(adopt(true));
 
-    return { url: worker.url, posthogProxy: posthogProxy.url, domains: domains.url };
+    return { posthogProxy: posthogProxy.url, domains: domains.url };
   }),
 );

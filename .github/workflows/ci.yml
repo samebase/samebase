@@ -307,6 +307,9 @@ jobs:
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `check:ci`/`build:ci` skip Convex codegen and rely on this step.
+      # The first push needs .convex-hosting/version.js, which only a deploy
+      # writes, so the bootstrap runs one `deploy --dev` (a site build and
+      # upload to the local backend) before it waits for the functions.
       - name: Bootstrap Convex for CI
         run: node ./scripts/ci-bootstrap-convex.ts
 
@@ -360,6 +363,9 @@ jobs:
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `check:ci`/`build:ci` skip Convex codegen and rely on this step.
+      # The first push needs .convex-hosting/version.js, which only a deploy
+      # writes, so the bootstrap runs one `deploy --dev` (a site build and
+      # upload to the local backend) before it waits for the functions.
       - name: Bootstrap Convex for CI
         run: node ./scripts/ci-bootstrap-convex.ts --keep-running
 
