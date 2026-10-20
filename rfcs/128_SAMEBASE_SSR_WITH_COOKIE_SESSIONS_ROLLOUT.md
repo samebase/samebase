@@ -95,7 +95,9 @@
 Isolates the user-visible change (one re-sign-in) from the rendering change.
 
 - `apps/samebase/package.json`: `@convex-dev/auth` 2.0.0-beta.0; delete
-  `patches/@convex-dev__auth@0.0.94.patch` and its `pnpm-workspace.yaml` entry.
+  `patches/@convex-dev__auth@0.0.94.patch` and its `pnpm-workspace.yaml` entry. Add
+  `patches/@convex-dev__auth@2.0.0-beta.0.patch`, which adds `deleteUser` to the core and password
+  components for account deletion, until upstream ships deletion by user id.
 - `convex/convex.config.ts`: `app.use(auth, { httpPrefix: "/auth", env })`,
   `app.use(github, { httpPrefix: "/auth/github", env })`,
   `app.use(google, { httpPrefix: "/auth/google", env })`, the password component. Keep

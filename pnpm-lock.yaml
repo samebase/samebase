@@ -55,6 +55,9 @@ overrides:
   ws: 8.21.0
   vitest: 4.1.11
 
+patchedDependencies:
+  '@convex-dev/auth@2.0.0-beta.0': f19d7eb47b9529f9288b9906a55cce0b04c9d57e6db544000523bd3f9460365b
+
 importers:
 
   .:
@@ -224,7 +227,7 @@ importers:
         version: 6.43.0
       '@convex-dev/auth':
         specifier: 2.0.0-beta.0
-        version: 2.0.0-beta.0(@convex-dev/resend@0.2.9(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6))(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)
+        version: 2.0.0-beta.0(patch_hash=f19d7eb47b9529f9288b9906a55cce0b04c9d57e6db544000523bd3f9460365b)(@convex-dev/resend@0.2.9(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6))(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)
       '@convex-dev/eslint-plugin':
         specifier: 2.0.0
         version: 2.0.0(convex@1.46.0(react@19.2.6))(eslint@9.39.2(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
@@ -8471,7 +8474,7 @@ snapshots:
       style-mod: 4.1.3
       w3c-keyname: 2.2.8
 
-  '@convex-dev/auth@2.0.0-beta.0(@convex-dev/resend@0.2.9(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6))(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)':
+  '@convex-dev/auth@2.0.0-beta.0(patch_hash=f19d7eb47b9529f9288b9906a55cce0b04c9d57e6db544000523bd3f9460365b)(@convex-dev/resend@0.2.9(convex-helpers@0.1.127(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6))(convex@1.46.0(react@19.2.6))(react@19.2.6))(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)':
     dependencies:
       '@babel/code-frame': 7.29.7
       '@convex-dev/batch-worker': 0.3.6(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.2.6))(hono@4.13.7)(react@19.2.6)(typescript@6.0.3)(zod@4.3.6)

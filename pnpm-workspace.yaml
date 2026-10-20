@@ -133,3 +133,7 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+patchedDependencies:
+  # Adds deleteUser to the Convex Auth 2 core and password components, which account deletion
+  # calls. Remove when upstream ships deletion by user id.
+  "@convex-dev/auth@2.0.0-beta.0": patches/@convex-dev__auth@2.0.0-beta.0.patch

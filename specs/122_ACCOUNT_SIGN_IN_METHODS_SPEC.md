@@ -58,9 +58,11 @@ OAuth sign-in resolves the account with these rules, in order:
 
 A provider identity can create a session only for an active account. Deleting and deleted reject the
 sign-in with a message that the landing page shows. A deleted row cannot match an email because
-account deletion removes it and the user's `authAccounts` rows. Convex Auth 2 keeps its own mapping
-of the provider account to the deleted user, so that GitHub or Google account cannot create a new
-Samebase account until the mapping can be removed.
+account deletion removes it and the user's `authAccounts` rows. The final deletion transaction also
+deletes the user's Convex Auth 2 accounts, sessions, refresh tokens, and stored password. A later
+sign-in with the same GitHub or Google account then creates a new Samebase account. Convex Auth
+2.0.0-beta.0 has no deletion by user id, so `patches/@convex-dev__auth@2.0.0-beta.0.patch` adds
+`deleteUser` to the core and password components until upstream ships it.
 
 There is no Connect action. A user adds GitHub or Google to an account by signing out and signing in
 with a provider account whose verified email is the account email (rule 3).

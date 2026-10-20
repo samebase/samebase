@@ -109,7 +109,7 @@ permanent deletion workflow.
 
 The workflow must:
 
-1. Stop the user's other Samebase sessions.
+1. Stop the user's other Convex Auth 0.0.x sessions. Convex Auth 2 sessions stop in step 7.
 2. Revoke the user's GitHub App user authorization.
 3. Clear each current Cloudflare credential slot whose `connectedByUserId` identifies the user. Do
    not revoke the upstream authorization automatically. The completion email tells the user to
@@ -123,10 +123,11 @@ The workflow must:
    and GitHub recipient fields before finalization.
 6. Attempt the confirmation email as account deletion finishes and include the opaque deletion
    operation ID as the support reference.
-7. Repeat every final readiness check, then delete the final auth session. In the same transaction,
-   replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace
-   the live deletion run with its scrubbed successful receipt. Use one completion time for
-   `deletedAt` and the receipt.
+7. Repeat every final readiness check, then delete the final auth session. Also delete the user's
+   accounts, sessions, refresh tokens, and stored password in Convex Auth 2. In the same
+   transaction, replace the matching `deleting` user row with the exact PII-free `deleted` variant
+   and replace the live deletion run with its scrubbed successful receipt. Use one completion time
+   for `deletedAt` and the receipt.
 8. Retain only the scrubbed operation receipt in account-deletion tables. The workflow component can
    retain an identity-free execution journal for operational recovery. The email component retains
    full message and delivery history until a trusted application operator explicitly deletes it, as
