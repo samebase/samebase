@@ -38,6 +38,8 @@ export const Route = createFileRoute("/logo/raster")({
     searchParamAccess: LOGO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("raster"),
   },
+  // The page statically imports three.js scenes, which render only in the browser.
+  ssr: false,
   component: LogoRasterRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("raster"),
 });

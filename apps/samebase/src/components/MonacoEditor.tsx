@@ -1,4 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useConvex, type ConvexReactClient } from "convex/react";
+import { createClientOnlyFn } from "@tanstack/react-start";
 import type { OnMount, Monaco } from "@monaco-editor/react";
 import { ChangeSet, EditorState } from "@codemirror/state";
 import {
@@ -8,12 +10,11 @@ import {
   receiveUpdates,
   Update,
 } from "@codemirror/collab";
-import { client } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GitHubTree } from "../../convex/repository/model";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { setupEditorATA, parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
+import { parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/repository/editor/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/repository/editor/editorCacheKeys";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
@@ -27,17 +28,24 @@ import { flushCollaborativeUpdates } from "@/lib/collaborativeUpdates";
 
 const PUSH_DELAY = 500;
 
+// Type acquisition runs the TypeScript compiler in the browser. The server render never mounts an
+// editor, and the compiler's CommonJS requires of Node modules cannot load in a Convex HTTP action,
+// so the server build leaves the module out.
+const loadEditorATA = createClientOnlyFn(() => import("./monaco/ata"));
+
 function awaitTimeout(timeout: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
 async function pushUpdatesToServer({
+  client,
   version,
   githubRepositoryFullName,
   branch,
   filePath,
   fullUpdates,
 }: {
+  client: ConvexReactClient;
   version: number;
   githubRepositoryFullName: string;
   branch: string;
@@ -150,6 +158,7 @@ export function MonacoEditor({
   treeSHA: string;
   showMobileLineNumbers?: boolean;
 }) {
+  const client = useConvex();
   // ---- Project files for import resolution ----
   const { files: projectFiles, scopePrefix } = useProjectFiles(
     repositoryId,
@@ -221,13 +230,14 @@ export function MonacoEditor({
       const releasePageLeaveGuard = releasePageLeaveGuardRef.current;
       releasePageLeaveGuardRef.current = null;
       void flushCollaborativeUpdates({
+        client,
         state: cmStateRef.current,
         githubRepositoryFullName,
         branch,
         filePath,
       }).then(() => releasePageLeaveGuard?.());
     };
-  }, [githubRepositoryFullName, branch, filePath]);
+  }, [client, githubRepositoryFullName, branch, filePath]);
 
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
@@ -249,6 +259,7 @@ export function MonacoEditor({
     let retryDelayMs = 100;
     try {
       const success = await pushUpdatesToServer({
+        client,
         version: ver,
         githubRepositoryFullName,
         branch,
@@ -278,7 +289,7 @@ export function MonacoEditor({
     if (sendableUpdates(cmStateRef.current).length) {
       setTimeout(() => void pushToServer(), retryDelayMs);
     }
-  }, [githubRepositoryFullName, branch, filePath]);
+  }, [client, githubRepositoryFullName, branch, filePath]);
 
   // ---- Apply incoming remote updates ----
   useEffect(() => {
@@ -388,7 +399,7 @@ export function MonacoEditor({
 
     // Set up ATA only for TypeScript files
     if (isTypeScriptPath(filePath)) {
-      setupEditorATA(editor, monaco);
+      void loadEditorATA().then(({ setupEditorATA }) => setupEditorATA(editor, monaco));
     }
 
     // Bridge local Monaco edits → headless CM → Convex

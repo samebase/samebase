@@ -4,7 +4,7 @@ import { ConvexClient } from "convex/browser";
 import { useConvex, useConvexAuth, useQuery_experimental } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import {
   AUTHENTICATED_ACCOUNT_DELETED,
@@ -107,9 +107,12 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     args: isAuthenticated && !isLoading && viewerAccess?.role === "role_deleting" ? {} : "skip",
   });
   const status = statusQuery.status === "success" ? statusQuery.data : undefined;
-  const [completionCapability, setCompletionCapability] = useState<string | null>(
-    () => readAccountDeletionBrowserMarker()?.completionCapability ?? null,
-  );
+  // The marker lives in this browser's storage, which the server cannot read. The server and
+  // hydration renders start without it, and the layout effect reads it before the browser paints.
+  const [completionCapability, setCompletionCapability] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    setCompletionCapability(readAccountDeletionBrowserMarker()?.completionCapability ?? null);
+  }, []);
   const [publicCompletionState, setPublicCompletionState] = useState<PublicCompletionState>();
   useEffect(() => {
     if (isLoading || completionCapability === null) {

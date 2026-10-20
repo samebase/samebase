@@ -550,7 +550,11 @@ export const isLogoColorToken = guard<string, LogoColorToken>((token) =>
   isHexColorToken(token) || isTailwindColorToken(token) ? token : null,
 );
 
-function getStaticTailwindColorHex(
+/**
+Resolves a token without reading the document: app theme tokens use their fallback for `themeMode`,
+which the server computes too. `getTailwindColorHex` reads the computed CSS variables instead.
+*/
+export function getStaticTailwindColorHex(
   token: LogoColorToken,
   themeMode: LogoColorThemeMode,
 ): HexColorToken {

@@ -1,4 +1,3 @@
-import { ConvexReactClient } from "convex/react";
 import { readBrowserOrigin } from "@/lib/isomorphic";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 
@@ -16,18 +15,15 @@ function readBrowserConvexProxyUrl(proxyPath: string): string | null {
 
 // Prefer the browser proxy when Vite exposes one for public dev origins, then
 // the normal app env var, then the local Vitest fallback for route imports.
-const convexUrl = browserConvexProxyPath
+// The server render has no browser origin, so it talks to the deployment.
+const configuredConvexUrl = browserConvexProxyPath
   ? (readBrowserConvexProxyUrl(browserConvexProxyPath) ??
-    import.meta.env["VITE_CONVEX_URL"] ??
+    import.meta.env.VITE_CONVEX_URL ??
     fallbackConvexUrl)
-  : (import.meta.env["VITE_CONVEX_URL"] ?? fallbackConvexUrl);
+  : (import.meta.env.VITE_CONVEX_URL ?? fallbackConvexUrl);
 
-if (!convexUrl) {
+if (!configuredConvexUrl) {
   throw new Error("Missing VITE_CONVEX_URL in environment");
 }
 
-export const client = new ConvexReactClient(convexUrl, {
-  // Convex mutations sync continuously; a broad pending-request unload prompt
-  // makes ordinary tab closes feel unsafe even when app state is recoverable.
-  unsavedChangesWarning: false,
-});
+export const convexUrl = configuredConvexUrl;

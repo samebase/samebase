@@ -16,6 +16,7 @@ interface Window {
 }
 
 interface ImportMetaEnv {
+  readonly VITE_CONVEX_URL?: string;
   readonly VITE_LOCAL_WORKTREE_PASSWORD_EMAIL?: string;
   readonly VITE_LOCAL_WORKTREE_PASSWORD_VALUE?: string;
   readonly VITE_PUBLIC_POSTHOG_HOST?: string;

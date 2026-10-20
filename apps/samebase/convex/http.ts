@@ -18,6 +18,10 @@ import { handlePolarWebhook } from "./polarWebhooks";
 import { components } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
 import { versionId } from "../.convex-hosting/version.js";
+// Type only, nothing is bundled: the server build imported below. `@samebase/convex-hosting`, imported
+// above, defines `queueMicrotask` before the server build loads.
+import type {} from "@samebase/convex-hosting-tanstack-start/server-build";
+import server from "../dist/server/server.js";
 
 const http = httpRouter();
 
@@ -137,9 +141,15 @@ http.route({
   handler: handlePolarWebhook,
 });
 
-// The built site, every method at every path, as a Cloudflare Worker with static assets: Convex
-// matches an exact path first, then the longest prefix, so every route above keeps winning.
-// `pnpm run deploy` writes dist/client and .convex-hosting/version.js.
-routeAll(http, components.hosting, versionId);
+// The built site, every method at every path, as a Cloudflare Worker with static assets: a file
+// answers its path, and the server build (src/server.ts) renders every other one. Convex matches an
+// exact path first, then the longest prefix, so every route above keeps winning. `pnpm run deploy`
+// writes dist/client, dist/server, and .convex-hosting/version.js.
+const site = routeAll(http, components.hosting, versionId, server);
+// Exact routes for the three session paths: the Convex Auth component holds the /auth prefix, where
+// it serves the key set, and the longest prefix wins, so the catch-all above never sees them.
+for (const path of ["/auth/signin", "/auth/refresh", "/auth/signout"]) {
+  http.route({ path, method: "POST", handler: site });
+}
 
 export default http;

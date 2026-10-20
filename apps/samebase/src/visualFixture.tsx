@@ -78,6 +78,7 @@ import {
 } from "@/account/AccountDeletionStatusVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
+import { useLocation, type ParsedLocation } from "@tanstack/react-router";
 import {
   ConnectRepositoryVisualFixture,
   type ConnectRepositoryVisualMode,
@@ -512,18 +513,24 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   return null;
 }
 
-function buildFixtureModeHref(mode: VisualFixtureMode) {
+function buildFixtureModeHref(location: ParsedLocation, mode: VisualFixtureMode) {
   return buildPathWithTanStackSearch({
-    pathname: window.location.pathname,
+    pathname: location.pathname,
     search: {
-      ...parseTanStackSearch(window.location.search),
+      ...parseTanStackSearch(location.searchStr),
       mode,
     },
-    hash: window.location.hash,
+    hash: location.hash,
   });
 }
 
-function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: string }) {
+function renderVisualFixtureModeDirectory({
+  invalidMode,
+  location,
+}: {
+  invalidMode?: string;
+  location: ParsedLocation;
+}) {
   return (
     <div className="min-h-screen bg-stone-100 p-8 text-stone-950">
       <div className="mx-auto grid max-w-6xl gap-8">
@@ -553,7 +560,7 @@ function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: strin
                   <a
                     key={mode}
                     className="corner-notch-1 border border-stone-300 px-3 py-2 text-sm text-stone-700 transition-colors hover:bg-stone-100"
-                    href={buildFixtureModeHref(mode)}
+                    href={buildFixtureModeHref(location, mode)}
                   >
                     {mode}
                   </a>
@@ -568,15 +575,17 @@ function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: strin
 }
 
 export function VisualFixturePage(props: { mode?: string }) {
+  const location = useLocation();
   const selection = readSelection(props.mode);
 
   return (
     <DialogProvider>
       {selection.status === "missing"
-        ? renderVisualFixtureModeDirectory({})
+        ? renderVisualFixtureModeDirectory({ location })
         : selection.status === "invalid"
           ? renderVisualFixtureModeDirectory({
               invalidMode: selection.value,
+              location,
             })
           : renderVisualFixture(selection.mode)}
     </DialogProvider>

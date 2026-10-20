@@ -1,6 +1,5 @@
 import { COMPACT_IDENTITY_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { agentBrowserHandoffPrehydrationScript } from "@/lib/agentBrowserHandoffPrehydration";
-import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
 import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
 import { SAMEBASE_BRAND_COPY } from "@/lib/samebaseBrandCopy";
 
@@ -28,6 +27,8 @@ window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
 });
 `;
+// A server-rendered page has `<html class="light">` or `<html class="dark">` for `?light` and
+// `?dark` already (routes/root.tsx); a prerendered page reads the query string here.
 const initialThemeScript = `
 (() => {
   const url = new URL(window.location.href);
@@ -221,9 +222,6 @@ export function buildRootHead({
       },
       {
         children: publicLandingLogoPrehydrationScript,
-      },
-      {
-        children: appAuthPresentationPrehydrationScript,
       },
     ],
   };

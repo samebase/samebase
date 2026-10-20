@@ -38,6 +38,8 @@ export const Route = createFileRoute("/logo/iso")({
     searchParamAccess: LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("iso"),
   },
+  // The page statically imports three.js scenes, which render only in the browser.
+  ssr: false,
   component: LogoIsoRouteComponent,
   validateSearch: validateLogoIsoRouteSearch,
 });

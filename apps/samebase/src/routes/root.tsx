@@ -8,12 +8,10 @@ import {
   rootRouteId,
 } from "@tanstack/react-router";
 import { pick } from "@samebase/dependent/object";
+import { SessionProvider, sessionBeforeLoad } from "@samebase/convex-auth-tanstack-start";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { AppRootClient } from "@/components/AppRootClient";
-import {
-  canAccessRouteMatchesAvailability,
-  readRouteEnvironmentForRouteGuard,
-} from "@/routing/availability";
+import { canAccessRouteMatchesAvailability, readRouteEnvironment } from "@/routing/availability";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   clearConflictingRootThemeModeSearch,
@@ -25,7 +23,9 @@ import {
 } from "@/routeSearch/root";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
-import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
+import { isProductionPublicOrigin } from "@/lib/prodUiMode";
+import { readRootThemeMode, type RootThemeMode } from "@/lib/rootThemeModeSearch";
+import { rootQueries } from "@/routes/root.queries";
 import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
 import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode, useEffect } from "react";
@@ -55,25 +55,36 @@ function retainRootSearchParams({ next, search }: RootSearchMiddlewareArgs): Roo
 }
 
 function RootComponent() {
-  const { devtools } = useRootRouteSearch();
+  const { dark, devtools, light } = useRootRouteSearch();
+  const { convexQueryClient, token } = Route.useRouteContext();
 
   return (
-    <RootDocument reactScanEnabled={devtools}>
-      <AppBootErrorBoundary>
-        <AppRootClient />
-      </AppBootErrorBoundary>
-    </RootDocument>
+    <SessionProvider client={convexQueryClient.convexClient} token={token}>
+      <RootDocument reactScanEnabled={devtools} themeMode={readRootThemeMode({ dark, light })}>
+        <AppBootErrorBoundary>
+          <AppRootClient />
+        </AppBootErrorBoundary>
+      </RootDocument>
+    </SessionProvider>
   );
 }
 
 function RootDocument({
   children,
   reactScanEnabled,
-}: Readonly<{ children: ReactNode; reactScanEnabled?: true }>) {
+  themeMode,
+}: Readonly<{ children: ReactNode; reactScanEnabled?: true; themeMode: RootThemeMode }>) {
   const shouldEnableReactScan = import.meta.env.DEV && reactScanEnabled;
 
   return (
-    <html lang="en" suppressHydrationWarning translate="no">
+    // `?light` and `?dark` force the theme in the rendered document; for the system theme, the
+    // head's theme script applies the stored or the system preference before the first paint.
+    <html
+      className={themeMode === "system" ? undefined : themeMode}
+      lang="en"
+      suppressHydrationWarning
+      translate="no"
+    >
       <head>
         {shouldEnableReactScan ? (
           <script
@@ -115,7 +126,8 @@ function ReactScanLoader() {
 
 export const Route = createRootRouteWithContext<AppQueryClients>()({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-  beforeLoad: ({ location, matches }) => {
+  beforeLoad: ({ context, location, matches, serverContext }) => {
+    const session = sessionBeforeLoad({ context, serverContext });
     const rootSearch = readRootRouteSearch(location.searchStr);
     if (rootSearch.reset) {
       clearRotatedLogoViewStates();
@@ -126,7 +138,7 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
       pathname: location.pathname,
       searchStr: location.searchStr,
       hash: location.hash,
-      stripProdUi: isBrowserProductionPublicOrigin(),
+      stripProdUi: isProductionPublicOrigin(),
     });
     if (rootCanonicalRouteAddress !== null) {
       throw redirect({
@@ -135,12 +147,23 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
       });
     }
 
-    const routeEnvironment = readRouteEnvironmentForRouteGuard();
-    if (
-      routeEnvironment !== null &&
-      !canAccessRouteMatchesAvailability(matches, routeEnvironment)
-    ) {
+    if (!canAccessRouteMatchesAvailability(matches, readRouteEnvironment())) {
       throw notFound({ routeId: rootRouteId });
+    }
+
+    return session;
+  },
+  // The server render queries as the user, so the account chrome and the route access checks have
+  // their data in the first HTML; a visitor without a session gets the sign-in methods instead. The
+  // browser's navigations have no token here and read the cache, which the subscriptions keep live.
+  loader: async ({ context: { queryClient, token } }) => {
+    if (token) {
+      await Promise.all([
+        queryClient.query(rootQueries.viewer),
+        queryClient.query(rootQueries.viewerAccess),
+      ]);
+    } else if (token === null) {
+      await queryClient.query(rootQueries.deploymentAuthPolicy);
     }
   },
   component: RootComponent,

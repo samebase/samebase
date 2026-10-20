@@ -5,11 +5,13 @@ import {
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
 } from "@/lib/publicLandingLogo";
+import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 
 export type LogoSnapAnglesVisualMode = "logo-snap-angles";
 
 const PREVIEW_SIZE = 180;
+const visualFixtureRouteApi = getRouteApi("/visual-fixture");
 
 function formatAngleLabel(angleDegrees: number): string {
   const normalizedAngle = angleDegrees % 360;
@@ -17,31 +19,12 @@ function formatAngleLabel(angleDegrees: number): string {
   return `${isWholeNumber ? normalizedAngle.toFixed(0) : normalizedAngle.toFixed(3)}°`;
 }
 
-function readAngleParam(name: string, fallback: number): number {
-  const rawValue = new URLSearchParams(window.location.search).get(name);
-  if (!rawValue) {
-    return fallback;
-  }
-
-  const parsedValue = Number(rawValue);
-  if (!Number.isFinite(parsedValue)) {
-    return fallback;
-  }
-
-  return parsedValue;
-}
-
 export function LogoSnapAnglesVisualFixture() {
   const backgroundColor = getTailwindColorHex("gray-400");
   const [isRenderReady, setIsRenderReady] = useState(false);
-  const rotationDegrees = readAngleParam(
-    "rotation",
-    PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES[0],
-  );
-  const elevationDegrees = readAngleParam(
-    "elevation",
-    PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES[0],
-  );
+  const { elevation, rotation } = visualFixtureRouteApi.useSearch();
+  const rotationDegrees = rotation ?? PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES[0];
+  const elevationDegrees = elevation ?? PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES[0];
 
   return (
     <div

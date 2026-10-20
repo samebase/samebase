@@ -38,6 +38,8 @@ export const Route = createFileRoute("/logo/hover/menger")({
     searchParamAccess: LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: LOGO_MENGER_HOVER_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
+  // The page statically imports three.js scenes, which render only in the browser.
+  ssr: false,
   component: LogoMengerHoverRouteComponent,
   validateSearch: validateLogoMengerHoverRouteSearch,
 });

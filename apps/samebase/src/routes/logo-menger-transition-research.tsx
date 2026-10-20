@@ -37,6 +37,8 @@ export const Route = createFileRoute("/logo/transition/menger")({
     searchParamAccess: LOGO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("three"),
   },
+  // The page statically imports three.js scenes, which render only in the browser.
+  ssr: false,
   component: LogoMengerTransitionRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("three"),
 });

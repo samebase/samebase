@@ -9,8 +9,8 @@ import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { useRootRouteSearch } from "@/routeSearch/root";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
-import { Authenticated, Unauthenticated } from "convex/react";
-import { useState } from "react";
+import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
+import { useLayoutEffect, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 const NOT_FOUND_LOGO_COLOR_FAMILIES = [
@@ -33,13 +33,36 @@ const NOT_FOUND_LOGO_COLOR_FAMILIES = [
   "rose",
 ] as const;
 
+type NotFoundLogoColorFamily = (typeof NOT_FOUND_LOGO_COLOR_FAMILIES)[number];
+
+function buildNotFoundLogoRouteSearch(
+  primaryFamily: NotFoundLogoColorFamily,
+  secondaryFamily: NotFoundLogoColorFamily,
+  topFamily: NotFoundLogoColorFamily,
+) {
+  return {
+    "auto-rotate": true,
+    "auto-shuffle": true,
+    depth: 2,
+    primary: `${primaryFamily}-800`,
+    secondary: `${secondaryFamily}-500`,
+    shuffleMoves: 1,
+    top: `${topFamily}-200`,
+    vox: MENGER_SPONGE_VOXEL_STATE,
+  } as const satisfies LogoRouteSearch;
+}
+
 function NotFoundContent(props: {
   routeLabel: "/landing" | typeof DASHBOARD_ROUTE;
   routeTo: "/" | typeof DASHBOARD_ROUTE;
 }) {
-  // Auth and access gates mount unavailable content only after hydration, so a
-  // random colorway can be selected once per client mount without an SSR mismatch.
-  const [logoRouteSearch] = useState(() => {
+  // The server render and the hydration render share the first three color families; the layout
+  // effect then picks three distinct random families once per mount, before the browser paints.
+  const [logoRouteSearch, setLogoRouteSearch] = useState(() =>
+    buildNotFoundLogoRouteSearch("red", "orange", "amber"),
+  );
+
+  useLayoutEffect(() => {
     const remainingColorFamilies = [...NOT_FOUND_LOGO_COLOR_FAMILIES];
     const takeUnusedRandomColorFamily = () =>
       remainingColorFamilies.splice(
@@ -47,17 +70,14 @@ function NotFoundContent(props: {
         1,
       )[0] ?? NOT_FOUND_LOGO_COLOR_FAMILIES[0];
 
-    return {
-      "auto-rotate": true,
-      "auto-shuffle": true,
-      depth: 2,
-      primary: `${takeUnusedRandomColorFamily()}-800`,
-      secondary: `${takeUnusedRandomColorFamily()}-500`,
-      shuffleMoves: 1,
-      top: `${takeUnusedRandomColorFamily()}-200`,
-      vox: MENGER_SPONGE_VOXEL_STATE,
-    } as const satisfies LogoRouteSearch;
-  });
+    setLogoRouteSearch(
+      buildNotFoundLogoRouteSearch(
+        takeUnusedRandomColorFamily(),
+        takeUnusedRandomColorFamily(),
+        takeUnusedRandomColorFamily(),
+      ),
+    );
+  }, []);
 
   return (
     <div className="container my-auto">
@@ -85,19 +105,19 @@ export function NotFoundRoutePage() {
   });
   const rootRouteSearch = useRootRouteSearch();
 
-  useAppAuthRuntimeEffects(pathname, rootRouteSearch);
+  useAppAuthRuntimeEffects(rootRouteSearch);
   usePageMetadata(resolveNotFoundPageMetadata(pathname));
 
   return (
     <>
-      <Authenticated>
+      <SignedIn>
         <ApprovalGate>
           <NotFoundContent routeLabel={DASHBOARD_ROUTE} routeTo={DASHBOARD_ROUTE} />
         </ApprovalGate>
-      </Authenticated>
-      <Unauthenticated>
+      </SignedIn>
+      <SignedOut>
         <NotFoundContent routeLabel="/landing" routeTo="/" />
-      </Unauthenticated>
+      </SignedOut>
     </>
   );
 }
