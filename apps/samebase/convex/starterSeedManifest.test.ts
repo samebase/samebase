@@ -8,7 +8,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "d0848984bd3d2efb3c89aa4a1543242476d813d771df4bb62f0300c31809db53",
+      contentHash: "dffdc3027dccd66fd22251b21df08f25a44b3c76f68030bd721b606d768dda84",
       commitMessage: "Initialize app from Samebase starter build v2064",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -90,9 +90,9 @@ describe("starterSeedManifest", () => {
         packageManager: "pnpm@11.1.1",
       }),
     );
-    expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@0.3.0");
-    expect(pnpmWorkspace).toContain("vitest: 4.1.11");
-    expect(pnpmWorkspace).toContain("vite-plus: 0.3.0");
+    expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@1.1.0");
+    expect(pnpmWorkspace).toContain("vitest: 5.0.3");
+    expect(pnpmWorkspace).toContain("vite-plus: 1.1.0");
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
     expect(buildCloudflareScript).toContain(
