@@ -265,11 +265,15 @@ function ensureATAListener(monaco: Monaco) {
 export const setupEditorATA: NonNullable<EditorProps["onMount"]> = (editor, monaco) => {
   const defaults = monaco.languages.typescript.typescriptDefaults;
 
+  // The editor loads this module after it mounts, so the project's tsconfig, which MonacoEditor
+  // applies to the same global defaults, may already be there: these options fill only what is
+  // unset.
   defaults.setCompilerOptions({
     jsx: monaco.languages.typescript.JsxEmit.React,
     esModuleInterop: true,
     strict: true,
     exactOptionalPropertyTypes: true,
+    ...defaults.getCompilerOptions(),
   });
 
   // Register the global ATA listener (idempotent, only runs once)

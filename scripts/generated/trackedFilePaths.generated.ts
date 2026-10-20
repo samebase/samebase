@@ -1173,6 +1173,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/logo/mengerSceneCoordinates.ts",
   "apps/samebase/src/components/logo/mengerTypeGpuSettings.ts",
   "apps/samebase/src/components/logo/useLogoViewDrag.ts",
+  "apps/samebase/src/components/monaco/ata.test.ts",
   "apps/samebase/src/components/monaco/ata.ts",
   "apps/samebase/src/components/monaco/setupEditor.ts",
   "apps/samebase/src/components/prosemarkSurface.ts",
