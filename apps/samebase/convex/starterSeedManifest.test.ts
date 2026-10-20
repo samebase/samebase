@@ -8,7 +8,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "8cd9441ae2f057f50807cb95ef3b63820f9e4765926231f6ec1ce2b44846856f",
+      contentHash: "72000d0ec1ecc963aef42b4f639dd4469139134f7ca606b2e66fa04e5bf69eae",
       commitMessage: "Initialize app from Samebase starter build v2064",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -248,7 +248,7 @@ describe("actionsStarterTemplateManifest", () => {
       starterTemplateManifest.files["wrangler.jsonc"],
     );
     expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
-      '"alchemy": "2.0.0-beta.83"',
+      '"alchemy": "2.0.0-beta.80"',
     );
   });
 });

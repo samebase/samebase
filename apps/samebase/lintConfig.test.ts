@@ -285,7 +285,7 @@ describe("lint config", () => {
     const appPackage = readPackageSurface("apps/samebase/package.json");
 
     expect(rootPackage.devDependencies).toMatchObject({
-      "@convex-dev/eslint-plugin": "2.0.0",
+      "@convex-dev/eslint-plugin": "5.0.0",
       "@remotion/eslint-plugin": "4.0.535",
       "eslint-plugin-react-refresh": "^0.4.7",
     });

@@ -86,7 +86,7 @@
     "typecheck:scripts": "pnpm run generate:tracked-file-paths && tsgo -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
-    "@convex-dev/eslint-plugin": "2.0.0",
+    "@convex-dev/eslint-plugin": "5.0.0",
     "@edge-runtime/vm": "^5.0.0",
     "@oxlint/plugins": "1.88.0",
     "@playwright/test": "1.58.2",
@@ -95,7 +95,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
     "convex-test": "^0.0.61",
     "eslint-plugin-react-refresh": "^0.4.7",
-    "execa": "9.6.1",
+    "execa": "10.1.1",
     "typescript": "6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:",
