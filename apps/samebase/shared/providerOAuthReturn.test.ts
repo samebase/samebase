@@ -84,7 +84,7 @@ describe("readProviderOAuthAppOrigin", () => {
     expect(
       readProviderOAuthAppOrigin({
         configuredAppUrl: "https://samebase.com",
-        requestUrl: "https://api.samebase.com/oauth/cloudflare/callback?code=abc",
+        requestUrl: "https://samebase.com/oauth/cloudflare/callback?code=abc",
       }).href,
     ).toBe("https://samebase.com/");
   });
@@ -102,7 +102,7 @@ describe("readProviderOAuthAppOrigin", () => {
     expect(() =>
       readProviderOAuthAppOrigin({
         configuredAppUrl: "http://attacker.example/app",
-        requestUrl: "https://api.samebase.com/oauth/cloudflare/callback?code=abc",
+        requestUrl: "https://samebase.com/oauth/cloudflare/callback?code=abc",
       }),
     ).toThrow("SITE_URL must use https");
   });

@@ -56,7 +56,7 @@ check(
     codexManifest.description === registryServer.description,
   "Shared plugin descriptions must match.",
 );
-check(mcp.mcpServers.samebase.url === "https://api.samebase.com/mcp", "Unexpected MCP endpoint.");
+check(mcp.mcpServers.samebase.url === "https://samebase.com/mcp", "Unexpected MCP endpoint.");
 
 // server.json is what `mcp-publisher publish` sends to the official MCP Registry.
 check(registryServer.name === "com.samebase/samebase", "Unexpected MCP Registry server name.");

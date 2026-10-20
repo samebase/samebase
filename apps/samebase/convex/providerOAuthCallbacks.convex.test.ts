@@ -288,20 +288,17 @@ function stubProviderOAuthEnv(provider: OAuthProvider) {
     case "convex":
       vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
       vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET", "convex-secret");
-      vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://api.samebase.com/oauth/convex");
+      vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://samebase.com/oauth/convex");
       return;
     case "cloudflare":
       vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
       vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
-      vi.stubEnv(
-        "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-        "https://api.samebase.com/oauth/cloudflare",
-      );
+      vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL", "https://samebase.com/oauth/cloudflare");
       return;
     case "cloudflare_mcp":
       vi.stubEnv(
         "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-        "https://api.samebase.com/oauth/cloudflare-mcp",
+        "https://samebase.com/oauth/cloudflare-mcp",
       );
       return;
     default:
@@ -576,10 +573,7 @@ describe("provider OAuth callback organization returns", () => {
     vi.stubEnv("SITE_URL", "https://samebase.com");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
-    vi.stubEnv(
-      "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-      "https://api.samebase.com/oauth/cloudflare",
-    );
+    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL", "https://samebase.com/oauth/cloudflare");
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -687,7 +681,7 @@ describe("provider OAuth callback organization returns", () => {
           });
           vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
           vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET", "convex-secret");
-          vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://api.samebase.com/oauth/convex");
+          vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://samebase.com/oauth/convex");
           break;
         case "cloudflare":
           await t.mutation(internal.oauthState.createOauthState, {
@@ -698,7 +692,7 @@ describe("provider OAuth callback organization returns", () => {
           vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
           vi.stubEnv(
             "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-            "https://api.samebase.com/oauth/cloudflare",
+            "https://samebase.com/oauth/cloudflare",
           );
           break;
         case "cloudflare_mcp":
@@ -709,7 +703,7 @@ describe("provider OAuth callback organization returns", () => {
           });
           vi.stubEnv(
             "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-            "https://api.samebase.com/oauth/cloudflare-mcp",
+            "https://samebase.com/oauth/cloudflare-mcp",
           );
           break;
         default:
@@ -788,7 +782,7 @@ describe("provider OAuth callback organization returns", () => {
           });
           vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
           vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET", "convex-secret");
-          vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://api.samebase.com/oauth/convex");
+          vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://samebase.com/oauth/convex");
           break;
         case "cloudflare":
           await t.mutation(internal.oauthState.createOauthState, {
@@ -799,7 +793,7 @@ describe("provider OAuth callback organization returns", () => {
           vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
           vi.stubEnv(
             "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-            "https://api.samebase.com/oauth/cloudflare",
+            "https://samebase.com/oauth/cloudflare",
           );
           break;
         case "cloudflare_mcp":
@@ -810,7 +804,7 @@ describe("provider OAuth callback organization returns", () => {
           });
           vi.stubEnv(
             "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-            "https://api.samebase.com/oauth/cloudflare-mcp",
+            "https://samebase.com/oauth/cloudflare-mcp",
           );
           break;
         default:
@@ -914,7 +908,7 @@ describe("provider OAuth callback organization returns", () => {
         vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
         vi.stubEnv(
           "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-          "https://api.samebase.com/oauth/cloudflare",
+          "https://samebase.com/oauth/cloudflare",
         );
       } else {
         await createCloudflareMcpCallbackState(t, {
@@ -924,7 +918,7 @@ describe("provider OAuth callback organization returns", () => {
         });
         vi.stubEnv(
           "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-          "https://api.samebase.com/oauth/cloudflare-mcp",
+          "https://samebase.com/oauth/cloudflare-mcp",
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
@@ -1050,7 +1044,7 @@ describe("provider OAuth callback organization returns", () => {
         vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
         vi.stubEnv(
           "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-          "https://api.samebase.com/oauth/cloudflare",
+          "https://samebase.com/oauth/cloudflare",
         );
       } else {
         await createCloudflareMcpCallbackState(t, {
@@ -1064,7 +1058,7 @@ describe("provider OAuth callback organization returns", () => {
         });
         vi.stubEnv(
           "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-          "https://api.samebase.com/oauth/cloudflare-mcp",
+          "https://samebase.com/oauth/cloudflare-mcp",
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
@@ -1182,7 +1176,7 @@ describe("provider OAuth callback organization returns", () => {
     vi.stubEnv("SITE_URL", "https://samebase.com");
     vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
     vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET", "convex-secret");
-    vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://api.samebase.com/oauth/convex");
+    vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://samebase.com/oauth/convex");
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -1285,7 +1279,7 @@ describe("provider OAuth callback organization returns", () => {
         vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
         vi.stubEnv(
           "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
-          "https://api.samebase.com/oauth/cloudflare",
+          "https://samebase.com/oauth/cloudflare",
         );
       } else {
         await createCloudflareMcpCallbackState(t, {
@@ -1295,7 +1289,7 @@ describe("provider OAuth callback organization returns", () => {
         });
         vi.stubEnv(
           "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-          "https://api.samebase.com/oauth/cloudflare-mcp",
+          "https://samebase.com/oauth/cloudflare-mcp",
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");

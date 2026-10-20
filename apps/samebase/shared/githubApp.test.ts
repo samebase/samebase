@@ -18,7 +18,7 @@ describe("GitHub App return URLs", () => {
     expect(
       buildGitHubAppSetupReturnUrl({
         configuredAppUrl: "https://samebase.com",
-        requestUrl: "https://api.samebase.com/oauth/github/callback",
+        requestUrl: "https://samebase.com/oauth/github/callback",
         returnToPath: "/\\evil.example/settings",
       }),
     ).toBe("https://samebase.com/");

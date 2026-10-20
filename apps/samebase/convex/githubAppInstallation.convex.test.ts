@@ -106,7 +106,7 @@ beforeEach(() => {
   vi.stubEnv("GITHUB_APP_CLIENT_ID", "github-client-id");
   vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "github-client-secret");
   vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-  vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://api.samebase.com/oauth/github/callback");
+  vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.com/oauth/github/callback");
   vi.stubEnv("SITE_URL", "https://samebase.com");
   githubAppMocks.revokeGitHubAppUserToken.mockResolvedValue(undefined);
 });
