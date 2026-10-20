@@ -95,7 +95,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
     "convex-test": "^0.0.61",
     "eslint-plugin-react-refresh": "^0.4.7",
-    "execa": "9.6.1",
+    "execa": "10.1.1",
     "typescript": "6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:",
