@@ -143,7 +143,7 @@
     "alchemy": "2.0.0-beta.80",
     "concurrently": "^9.2.1",
     "convex-test": "^0.0.61",
-    "dotenv": "^16.4.5",
+    "dotenv": "^18.0.0",
     "effect": "4.0.3",
     "jsdom": "^29.0.1",
     "json-schema-traverse": "1.0.0",
