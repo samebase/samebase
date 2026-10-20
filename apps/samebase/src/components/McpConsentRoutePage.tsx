@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { getRouteApi } from "@tanstack/react-router";
-import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
+import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
+import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { ACCESS_BROWSER_LOGIN_HANDOFF, ACCESS_FEEDBACK_SUBMIT } from "../../shared/accessModel";
@@ -180,14 +181,14 @@ export function McpConsentRoutePage() {
 
   return (
     <>
-      <Authenticated>
+      <SignedIn>
         <ApprovalGate>
           {requestId === null ? null : <McpConsentView key={requestId} requestId={requestId} />}
         </ApprovalGate>
-      </Authenticated>
-      <Unauthenticated>
+      </SignedIn>
+      <SignedOut>
         <McpConsentSignInView />
-      </Unauthenticated>
+      </SignedOut>
     </>
   );
 }
