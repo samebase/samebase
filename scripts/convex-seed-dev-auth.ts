@@ -161,9 +161,12 @@ try {
 
   // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, so the first
   // push of a fresh worktree fails. One `deploy --dev` builds the site, uploads it to the backend
-  // above, writes the file, and pushes. The watcher does not see the new file, so that push is the
-  // one to wait for; a worktree that has the file waits for the watcher's own push. `node --run`
-  // puts node_modules/.bin on PATH and appends the arguments to the script's last command.
+  // above, writes the file, and pushes with its own `convex run --push`. On macOS and Linux the
+  // watcher never sees the new file, so that push is the one to wait for. On Windows the watcher
+  // re-pushes as well, the two pushes race, and the deploy's later `convex run` calls then
+  // sometimes abort inside the Convex CLI after the push landed; the worktree needs the push, not
+  // the upload, so a failed deploy is fatal only when the functions never become ready. `node
+  // --run` puts node_modules/.bin on PATH and appends the arguments to the script's last command.
   if (existsSync(versionModulePath)) {
     if (!(await waitForFunctions())) {
       exitWithError("Local Convex functions did not become ready after seed environment setup");
@@ -175,7 +178,12 @@ try {
       stdio: "inherit",
     });
     if (deployResult.status !== 0) {
-      exitWithError("Failed to deploy the site to the local backend");
+      console.warn(
+        "The site deploy to the local backend failed; waiting for the watcher's own push.",
+      );
+      if (!(await waitForFunctions())) {
+        exitWithError("Failed to deploy the site to the local backend");
+      }
     }
   }
 

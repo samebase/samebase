@@ -89,19 +89,12 @@ async function main(): Promise<void> {
 
     // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, so the first
     // push of a fresh checkout fails. One `deploy --dev` builds the site, uploads it to the running
-    // backend, writes the file, and pushes. The watcher above does not see the new file, so that
-    // push is the one to wait for; a checkout that has the file waits for the watcher's own push.
+    // backend, writes the file, and pushes. A checkout that has the file waits for the watcher's
+    // own push.
     if (existsSync(versionModulePath)) {
-      await waitFor(
-        async () =>
-          (await readOptionalFile(convexBootstrapLogPath))?.includes("Convex functions ready!") ??
-          false,
-        180_000,
-        "Timed out waiting for Convex functions to become ready.",
-        bootstrapProcess,
-      );
+      await waitForFunctionsReady(bootstrapProcess);
     } else {
-      runLocalSiteDeploy();
+      await deployLocalSite(bootstrapProcess);
     }
     runLocalPasswordAccountSeed();
   } catch (error) {
@@ -178,20 +171,42 @@ function buildConvexAuthEnvEntries(): readonly [string, string][] {
   ];
 }
 
+async function waitForFunctionsReady(bootstrapProcess: ReturnType<typeof spawn>): Promise<void> {
+  await waitFor(
+    async () =>
+      (await readOptionalFile(convexBootstrapLogPath))?.includes("Convex functions ready!") ??
+      false,
+    180_000,
+    "Timed out waiting for Convex functions to become ready.",
+    bootstrapProcess,
+  );
+}
+
 /**
  * `node --run` puts node_modules/.bin on PATH and appends the arguments to the script's last
- * command, as the convex-hosting actions call the deploy script.
+ * command, as the convex-hosting actions call the deploy script. The deploy pushes with its own
+ * `convex run --push`. On Linux the watcher never sees the new version file, so that push is the
+ * one CI waits for. On Windows the watcher re-pushes as well, the two pushes race, and the deploy's
+ * later `convex run` calls then sometimes abort inside the Convex CLI after the push landed. CI
+ * needs the push, not the upload, so a failed deploy is fatal only when the functions never become
+ * ready.
  */
-function runLocalSiteDeploy(): void {
+async function deployLocalSite(bootstrapProcess: ReturnType<typeof spawn>): Promise<void> {
   const result = spawnSync(process.execPath, ["--run", "deploy", "--", "--dev"], {
     cwd: samebaseAppDirectory,
     env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
     stdio: "inherit",
   });
-  if (result.status !== 0) {
-    throw new Error(
-      `The site deploy to the local backend failed with exit code ${result.status ?? "unknown"}.`,
-    );
+  if (result.status === 0) {
+    return;
+  }
+  const failure = `The site deploy to the local backend failed with exit code ${result.status ?? "unknown"}`;
+  console.warn(`${failure}; waiting for the watcher's own push.`);
+  try {
+    await waitForFunctionsReady(bootstrapProcess);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`${failure} and the functions never became ready: ${reason}`);
   }
 }
 

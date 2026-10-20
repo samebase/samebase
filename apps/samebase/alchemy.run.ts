@@ -12,6 +12,7 @@
 // Cloudflare token needs Workers Scripts Edit and Account Settings Read, plus
 // Workers Routes Edit and Zone Read on samebase.com, json.md and xml.md:
 //   npx alchemy plan --stage prod
+import * as WorkersBuilds from "@samebase/alchemy-cloudflare-workers-builds";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
@@ -27,7 +28,15 @@ const CONVEX_PROJECT = "samebase";
 export default Alchemy.Stack(
   "Samebase",
   {
-    providers: Layer.mergeAll(Cloudflare.providers(), Convex.providers()),
+    // The Workers Builds provider stays registered until one deploy on main
+    // has forgotten the retained Worker and Builds rows of the old stack:
+    // Alchemy refuses to plan a state row whose provider is gone. Then the
+    // provider and its package go.
+    providers: Layer.mergeAll(
+      Cloudflare.providers(),
+      WorkersBuilds.providers(),
+      Convex.providers(),
+    ),
     // State lives in the Cloudflare state store of the account, so a laptop
     // and infra.yml share it.
     state: Cloudflare.state(),
