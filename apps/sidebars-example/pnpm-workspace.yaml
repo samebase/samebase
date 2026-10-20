@@ -22,13 +22,13 @@ audit:
     - GHSA-vfj7-8cjw-p6xm
 overrides:
   esbuild: 0.28.2
-  js-yaml: 4.3.2
+  js-yaml: 5.4.3
   "semver@6": 7.8.5
   seroval: 1.6.9
   sharp: 0.35.5
   source-map-js: 1.2.2
   tinypool: 2.2.0
-  undici: 7.30.0
+  undici: 8.11.2
 allowBuilds:
   esbuild: true
   msw: false
