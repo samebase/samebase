@@ -1,7 +1,8 @@
 # Runs the setup stack in apps/samebase/alchemy.run.ts, from apps/samebase.
-# Workers Builds keeps deploying samebase.com on every push; this workflow
-# deploys the Workers around it that the stack declares: the PostHog proxy on
-# e.samebase.com and the domain router on json.md and xml.md.
+# .github/workflows/deploy.yml deploys samebase.com itself, to its Convex
+# deployment through convex-hosting; this workflow deploys the Workers around
+# it that the stack declares: the PostHog proxy on e.samebase.com and the
+# domain router on json.md and xml.md.
 #
 # Pull request: a plan, read-only, as a check. Push to main: a deploy. Both
 # compare against the live account (--detect-drift), so a changed route or

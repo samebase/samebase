@@ -151,24 +151,31 @@ development seed credentials exist. Each worktree keeps its own local Convex dat
 pnpm build
 ```
 
-For Cloudflare Workers Builds, point the project root directory at `apps/samebase` and use:
+### Deploy
 
-- Build command: `pnpm run build`
-- Production deploy command: `pnpm run deploy`
-- Preview command: `pnpm run deploy:preview`
+samebase.com is served by its production Convex deployment through
+[convex-hosting](https://github.com/samebase/convex-hosting). The `deploy` script of
+`apps/samebase/package.json` builds the site, uploads `dist/client`, and pushes the functions; the
+push switches the site. Three workflows run it:
 
-`wrangler.jsonc` owns the static asset directory and SPA fallback. Workers Builds supplies
-`CONVEX_DEPLOY_KEY` from separate production and Previews Base build settings. The production key
-must be a Convex production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
-`deployment:env:write`, and `deployment:data:view`; the preview key is Convex's project-level
-Preview deploy key. The build script reuses the branch's Convex preview before `wrangler preview`
-uploads the assets. See the
-[migration steps](https://samebase.com/docs/cloudflare-previews-migration) for dashboard setup.
+- `.github/workflows/deploy.yml` deploys every push to `main` to production. It needs the
+  `CONVEX_DEPLOY_KEY` repository secret, a production deploy key with `deployment:deploy`, the three
+  `deployment:functions:runInternal*` actions, `deployment:functions:runTestQuery`, and
+  `deployment:data:view`, and the `PROD_POSTHOG_PROJECT_TOKEN` repository variable, the PostHog
+  project token of the production build.
+- `.github/workflows/preview.yml` deploys every pull request to the Convex preview deployment named
+  after its branch, then sets its `SITE_URL` and seeds its password account. It needs the
+  `CONVEX_PREVIEW_DEPLOY_KEY` repository secret, the project's preview deploy key. Without it, the
+  workflow deploys nothing.
+- `.github/workflows/preview-cleanup.yml` deletes that preview when the pull request closes.
 
-Local builds never deploy Convex. To build assets and validate the Worker package without a deploy:
+A local build never deploys production. `convex/http.ts` imports `.convex-hosting/version.js`, which
+only a deploy writes, so the first push of a fresh checkout fails until one deploy to its
+development deployment has run. `pnpm run dev` runs that deploy in a linked worktree; a primary
+checkout runs it once by hand:
 
 ```bash
-pnpm --filter samebase deploy:dry-run --name samebase
+pnpm --filter samebase run deploy --dev
 ```
 
 ### Testing
@@ -203,8 +210,8 @@ Convex-generated client files under `apps/samebase/convex/_generated/` are inten
 Building against an already-existing dev deployment can hide this requirement, because
 `convex codegen` has a deployment to talk to. Creating a fresh preview deployment is different:
 `convex deploy --cmd ...` runs the app build before Convex finishes the preview deploy's
-push/codegen phase, so a fresh Cloudflare clone cannot generate `_generated` on the fly and must get
-those files from git.
+push/codegen phase, so a fresh CI clone cannot generate `_generated` on the fly and must get those
+files from git.
 
 ## License
 

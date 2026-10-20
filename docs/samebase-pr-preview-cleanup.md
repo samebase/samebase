@@ -3,58 +3,50 @@
 Use this during `clean` for a branch whose PR is merged or closed, after `clean repositories` and
 before deleting the remote branch. This is a Codex/operator workflow, not a repo script.
 
-Any GitHub PR for the branch, including a draft PR, is enough evidence that Samebase preview
-resources exist. Treat both the Cloudflare Worker preview and the Convex preview deployment as
-mandatory cleanup targets once the PR is terminal. Missing local environment files or inherited
-credentials do not change that assumption; they only block cleanup until the credentials are
-available.
+`.github/workflows/preview-cleanup.yml` deletes the branch's Convex preview deployment when its PR
+closes and notes the delete in the preview comment on the PR. This runbook confirms that delete, and
+performs it by hand when the workflow did not run: a PR closed while it had a merge conflict, a head
+commit whose message skips CI, or a missing `CONVEX_PREVIEW_DEPLOY_KEY` secret.
 
-The scope is only preview resources created for the `samebase.com` app build:
+Any GitHub PR for the branch, including a draft PR, is enough evidence that a Convex preview
+deployment existed. Missing local environment files or inherited credentials do not change that
+assumption; they only block cleanup until the credentials are available.
 
-- native Cloudflare Worker Previews, or legacy preview versions created before the migration
-- the Convex preview deployment for the exact branch
-
-Do not change Cloudflare deploy behavior, add preview tags, add cleanup scripts, or touch temporary
-Samebase-managed repository infrastructure as part of this workflow.
+The scope is only the Convex preview deployment for the exact branch. Do not change deploy behavior,
+add cleanup scripts, or touch temporary Samebase-managed repository infrastructure as part of this
+workflow.
 
 ## Safety Rules
 
 1. Continue only after the branch's GitHub PR is no longer open: `state` is `MERGED` or `CLOSED`.
-2. Delete nothing from Cloudflare unless each exact Preview or Worker version is tied to the branch
-   or PR by provider or GitHub metadata.
-3. Delete no active production Worker version and never delete the parent Worker itself.
-4. Delete no Convex deployment unless it is a `preview` deployment for the exact branch.
-5. Load cleanup credentials from the repo seed env before using inherited shell values. Missing
+2. Delete no Convex deployment unless it is a `preview` deployment for the exact branch.
+3. Load cleanup credentials from the repo seed env before using inherited shell values. Missing
    values in the inherited shell environment alone are not a reason to stop.
-6. If the repo seed env is missing or incomplete, locate the correct cleanup credentials from the
+4. If the repo seed env is missing or incomplete, locate the correct cleanup credentials from the
    primary checkout, the operator-provided environment, or the configured secret source before
-   continuing. Do not treat missing local env as evidence that previews do not exist.
-7. If credentials or resource identity still cannot be resolved, stop with `clean` blocked. Do not
-   delete the local branch, remote branch, or worktree while Cloudflare or Convex preview cleanup is
-   incomplete.
+   continuing. Do not treat missing local env as evidence that the preview does not exist.
+5. If credentials or resource identity still cannot be resolved, stop with `clean` blocked. Do not
+   delete the local branch, remote branch, or worktree while Convex preview cleanup is incomplete.
 
 ## 0. Load Cleanup Credentials
 
 Run cleanup commands from the repo root. The cleanup credentials normally live in
 `apps/samebase/.env.anon-seed.local`, not in the inherited shell environment. Load that file before
-checking Cloudflare or Convex, and do not print the values:
+checking Convex, and do not print the values:
 
 ```bash
 test -f apps/samebase/.env.anon-seed.local
 set -a
 . apps/samebase/.env.anon-seed.local
 set +a
-export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-samebase}"
 
-: "${DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID:?missing DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID}"
-: "${DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY:?missing DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY}"
 : "${DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY:?missing DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY}"
 : "${DEV_SEED_SAMEBASE_CONVEX_TEAM_ID:?missing DEV_SEED_SAMEBASE_CONVEX_TEAM_ID}"
 ```
 
 If this preflight fails because the file or a value is missing, cleanup is blocked until the correct
-credentials are available from another trusted source. Do not skip Cloudflare or Convex preview
-cleanup for a branch that has a PR.
+credentials are available from another trusted source. Do not skip Convex preview cleanup for a
+branch that has a PR.
 
 ## 1. Confirm The PR Is Terminal
 
@@ -73,75 +65,17 @@ branch="<headRefName from the PR JSON>"
 ```
 
 Continue only when `headRefName` equals `$branch` and `state` is `MERGED` or `CLOSED`. Keep the PR
-number, URL, state, branch, and head SHA visible while inspecting provider resources.
+number, URL, state, branch, and head SHA visible while inspecting the deployments.
 
-## 2. Inspect Cloudflare Worker Previews
-
-### Native previews
-
-Open the Samebase Worker's Previews list in the Cloudflare dashboard. Match the Preview's branch or
-PR metadata to the terminal PR. Then delete only that Preview:
+## 2. Check The Cleanup Workflow
 
 ```bash
-CLOUDFLARE_API_TOKEN="$DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler preview delete --worker-name "$CLOUDFLARE_WORKER_NAME" --name "$branch" --skip-confirmation
+gh run list --workflow preview-cleanup.yml --branch "$branch" --json status,conclusion,url,createdAt
 ```
 
-Refresh the dashboard to confirm removal. This deletes the Preview and its deployments, not the
-parent Worker. It does not reset saved branch build variables. Continue with Convex cleanup below.
-
-### Legacy preview versions
-
-Use this section for previews created before the native Worker Previews migration.
-
-List recent Worker versions and active deployments:
-
-```bash
-CLOUDFLARE_API_TOKEN="$DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler versions list --name "$CLOUDFLARE_WORKER_NAME" --json
-CLOUDFLARE_API_TOKEN="$DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler deployments list --name "$CLOUDFLARE_WORKER_NAME" --json
-```
-
-Also inspect GitHub checks and PR comments for Cloudflare preview metadata:
-
-```bash
-pr_number="<pr-number>"
-gh pr checks "$pr_number"
-gh pr view "$pr_number" --json comments,statusCheckRollup
-```
-
-Cloudflare may create multiple preview Worker versions for the same branch. Treat each matching
-inactive version as its own candidate. In current Workers preview metadata, branch previews can
-appear as `workers/alias` with slashes replaced by dashes, such as `codex-logo-striped-face` for
-`codex/logo-striped-face`.
-
-Delete Cloudflare Worker versions only when all of these are true for each version:
-
-1. the exact version ID is known
-2. the version alias, version metadata, preview URL, or GitHub metadata is tied to the PR, branch,
-   or head SHA
-3. the version ID is not present in the active deployments output
-
-If Wrangler output is not enough, or the matching branch is absent from the Wrangler list, inspect
-the paginated Worker versions API before deciding which version to delete:
-
-```bash
-curl --fail-with-body --request GET \
-  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions?per_page=100" \
-  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY"
-```
-
-Follow pagination until every Worker version has been inspected.
-
-Delete only proven inactive versions:
-
-```bash
-version_id="<matching-worker-version-id>"
-curl --fail-with-body --request DELETE \
-  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions/$version_id" \
-  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY"
-```
-
-If there is still no exact version match, stop with `clean` blocked and report the lookup evidence.
-Do not treat a missing first-pass match as permission to skip Cloudflare preview cleanup.
+A run with conclusion `success` after the PR closed deleted the preview, and the preview comment on
+the PR ends with "Preview deleted when the pull request closed." Confirm it in the next section
+anyway, and delete by hand only when a preview for the branch remains.
 
 ## 3. Inspect Convex Preview Deployments
 
@@ -165,7 +99,7 @@ curl --fail-with-body --request GET \
 Delete a Convex deployment only when all of these are true:
 
 1. `deploymentType` is `preview`
-2. the deployment reference is `preview/<branch>` or equivalent metadata names the exact branch
+2. `previewIdentifier` is the exact branch name
 3. the deployment belongs to the `samebase` project resolved above
 
 Delete only the matching preview deployment:
@@ -177,15 +111,15 @@ curl --fail-with-body --request POST \
   --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
 ```
 
-Never delete a `prod`, `dev`, or local Convex deployment during Samebase PR preview cleanup. If the
-preview deployment for the exact branch cannot be identified, stop with `clean` blocked and report
-the lookup evidence.
+Never delete a `prod`, `dev`, or local Convex deployment during Samebase PR preview cleanup. If a
+listed preview for the exact branch cannot be identified with certainty, stop with `clean` blocked
+and report the lookup evidence.
 
 ## 4. Report The Result
 
 In the final `clean` response, include:
 
 - the PR URL and terminal state
-- any Cloudflare Preview names or legacy version IDs deleted, or the blocker that prevented deletion
-- any Convex deployment name deleted, or the blocker that prevented deletion
-- the remaining local cleanup actions, only after provider preview cleanup completed
+- the Convex deployment name deleted, by the workflow or by hand, or the blocker that prevented
+  deletion
+- the remaining local cleanup actions, only after the preview cleanup completed

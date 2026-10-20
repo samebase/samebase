@@ -26,18 +26,18 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 When the user says one of these commands, execute it directly:
 
-| Command              | Action                                                                                                                 |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `commit`             | Stage changes and create a concise commit                                                                              |
-| `push`               | Commit if needed, then push                                                                                            |
-| `create pr`          | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                     |
-| `create draft`       | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                     |
-| `ready`              | Mark the current PR ready                                                                                              |
-| `wait`               | Watch CI and report status                                                                                             |
-| `squash`             | Squash-merge the current PR                                                                                            |
-| `clean repositories` | Remove temporary Samebase-managed repositories for the current worktree                                                |
-| `clean`              | Run `clean repositories`, clean samebase.com PR preview resources, then remove the merged or closed-PR worktree/branch |
-| `status`             | Report branch, local changes, and PR state                                                                             |
+| Command              | Action                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `commit`             | Stage changes and create a concise commit                                                                                     |
+| `push`               | Commit if needed, then push                                                                                                   |
+| `create pr`          | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                            |
+| `create draft`       | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                            |
+| `ready`              | Mark the current PR ready                                                                                                     |
+| `wait`               | Watch CI and report status                                                                                                    |
+| `squash`             | Squash-merge the current PR                                                                                                   |
+| `clean repositories` | Remove temporary Samebase-managed repositories for the current worktree                                                       |
+| `clean`              | Run `clean repositories`, confirm the branch's Convex preview is deleted, then remove the merged or closed-PR worktree/branch |
+| `status`             | Report branch, local changes, and PR state                                                                                    |
 
 ## Workflow Rules
 
@@ -105,8 +105,9 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
   decorative borders unless requested or already established.
 - Prefer spacing at section endings; empty states and section endings do not get bottom borders.
 - Use Tailwind motion and timing defaults unless the product requires otherwise.
-- Assume Cloudflare is the default front door and observability layer for `samebase.com`, and keep
-  application logic in Convex by default unless there is a clear reason not to.
+- The Cloudflare zone stays in front of `samebase.com`, which its production Convex deployment
+  serves through convex-hosting; read its logs with `npx convex logs --prod`. Keep application logic
+  in Convex by default unless there is a clear reason not to.
 - In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
   non-Cloudflare provider example is needed. The product is provider-agnostic; Samebase itself runs
   on and recommends Cloudflare.
