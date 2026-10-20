@@ -90,7 +90,7 @@ async function seedBillingOrganization(args: {
     ...ids,
     t,
     asOwner: t.withIdentity({
-      subject: `${ids.userId}|billing-session`,
+      subject: ids.userId,
       tokenIdentifier: `test:${ids.userId}`,
     }),
   };
@@ -532,11 +532,11 @@ describe("Polar billing changes", () => {
       return { memberUserId, otherOwnerUserId };
     });
     const asMember = seed.t.withIdentity({
-      subject: `${identities.memberUserId}|member-session`,
+      subject: identities.memberUserId,
       tokenIdentifier: `test:${identities.memberUserId}`,
     });
     const asOtherOwner = seed.t.withIdentity({
-      subject: `${identities.otherOwnerUserId}|other-owner-session`,
+      subject: identities.otherOwnerUserId,
       tokenIdentifier: `test:${identities.otherOwnerUserId}`,
     });
 

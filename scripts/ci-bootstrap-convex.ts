@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { generateKeyPairSync } from "node:crypto";
 import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { generateConvexAuthKeys } from "./lib/convexAuthKeys.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const samebaseAppDirectory = path.join("apps", "samebase");
@@ -75,7 +75,11 @@ async function main(): Promise<void> {
     );
 
     for (const [key, value] of [
-      ...buildConvexAuthEnvEntries(),
+      ...Object.entries(generateConvexAuthKeys()),
+      ["AUTH_GITHUB_CLIENT_ID", "ci-placeholder"],
+      ["AUTH_GITHUB_CLIENT_SECRET", "ci-placeholder"],
+      ["AUTH_GOOGLE_CLIENT_ID", "ci-placeholder"],
+      ["AUTH_GOOGLE_CLIENT_SECRET", "ci-placeholder"],
       ["CONVEX_AGENT_MODE", "anonymous"],
       ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],
       ["GITHUB_APP_CLIENT_SECRET", "ci-placeholder"],
@@ -151,24 +155,6 @@ async function runConvexEnvSet(key: string, value: string): Promise<void> {
   }
 
   throw new Error(`convex env set ${key} retry loop ended unexpectedly.`);
-}
-
-function normalizePrivateKey(privateKey: string | Buffer): string {
-  return privateKey.toString().trimEnd().replace(/\n/g, " ");
-}
-
-function buildConvexAuthEnvEntries(): readonly [string, string][] {
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    publicExponent: 0x10001,
-  });
-  const privatePem = privateKey.export({ format: "pem", type: "pkcs8" });
-  const publicJwk = publicKey.export({ format: "jwk" });
-
-  return [
-    ["JWT_PRIVATE_KEY", normalizePrivateKey(privatePem)],
-    ["JWKS", JSON.stringify({ keys: [{ use: "sig", ...publicJwk }] })],
-  ];
 }
 
 async function waitForFunctionsReady(bootstrapProcess: ReturnType<typeof spawn>): Promise<void> {

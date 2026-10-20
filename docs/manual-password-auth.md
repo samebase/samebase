@@ -23,21 +23,20 @@ can run it from the Dashboard or the Convex CLI.
 The function:
 
 - normalizes and validates the email
-- requires a password with at least eight characters
+- requires a password that the Convex Auth password component accepts: 10 to 100 characters, no
+  surrounding whitespace, and not on its list of common passwords
 - creates a password account, or rotates the password for an existing account
 - links to one existing verified user with the same email when available
 - rejects existing account links that conflict with the verified user for that email
 - marks a newly created user's email as verified
 - approves the user for Samebase access
-- stores only the password hash
+- stores only the password hash, in the Convex Auth password component
 - does not send an account email
 
-A password rotation prevents the linked user's existing sessions from refreshing. An access token
-that was already issued can remain valid for up to one hour.
+A password rotation does not end the linked user's existing sessions: Convex Auth 2 has no function
+that removes the sessions of a user.
 
 Share the password through an approved secret channel. Do not put it in the repository or logs.
-Password operations fail while `AUTH_LOG_LEVEL=DEBUG` because Convex Auth debug output can contain
-credential fragments.
 
 ## Enable sign-in
 

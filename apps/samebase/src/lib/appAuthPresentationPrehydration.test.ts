@@ -7,14 +7,10 @@ import {
   clearAppAuthPresentationPrehydration,
   type AppAuthPresentationPrehydrationArgs,
 } from "@/lib/appAuthPresentationPrehydration";
-import {
-  convexAuthJwtStorageKey,
-  convexAuthRefreshTokenStorageKey,
-} from "@/lib/appAuthPresentationState";
+import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "@/lib/publicLanding";
 import {
   AUTHORIZATION_ERROR_CODES,
@@ -34,22 +30,13 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
-  landingPrimaryActionTestId: PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
   mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
   staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
 
-function createJwt(payload: object) {
-  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
-    ".",
-  );
-}
-
-function createJwtFromPayloadJson(payloadJson: string) {
-  return ["header", Buffer.from(payloadJson).toString("base64url"), "signature"].join(".");
-}
+const { convexAuthRefreshTokenStorageKey } = Inlineable_createAppAuthPresentationRuntime();
 
 function runAppAuthPresentationPrehydrationScript(
   args: AppAuthPresentationPrehydrationArgs = TEST_ARGS,
@@ -115,14 +102,6 @@ function createTestStorage(): Storage {
   };
 }
 
-function writeLocalAuthSession(jwt: string) {
-  window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), jwt);
-  window.localStorage.setItem(
-    convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
-    "refresh-token",
-  );
-}
-
 describe("appAuthPresentationPrehydration", () => {
   beforeEach(() => {
     Object.defineProperty(window, "atob", {
@@ -139,227 +118,6 @@ describe("appAuthPresentationPrehydration", () => {
   afterEach(() => {
     clearAppAuthPresentationPrehydration();
     window.localStorage.clear();
-  });
-
-  it("visually replaces the checking login account label with the JWT account presentation", () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    expect(readPrehydrationTestError()).toBeUndefined();
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
-    );
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(styleText).toContain(
-      `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-repository-dashboard-account-section-label]::after`,
-    );
-    expect(styleText).toContain('content: "Nicu";');
-  });
-
-  it("rejects a legacy profile JWT before hydration", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwt({
-        email: "legacy@example.com",
-        name: "Provider name",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      "signed-out",
-    );
-    expect(styleText).toContain('content: "Sign in or create an account";');
-    expect(styleText).not.toContain("legacy@example.com");
-    expect(styleText).not.toContain("Provider name");
-  });
-
-  it.each(["NICU@SAMEBASE.COM", " nicu@samebase.com "])(
-    "rejects a noncanonical typed email claim %j before hydration",
-    (accountLabel) => {
-      window.localStorage.setItem(
-        convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-        createJwt({
-          accountLabelKind: "email",
-          accountLabel,
-          exp: 4100000000,
-        }),
-      );
-
-      runAppAuthPresentationPrehydrationScript();
-
-      expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-        "signed-out",
-      );
-      const styleText = document.getElementById(
-        "samebase-app-auth-presentation-prehydration",
-      )?.textContent;
-      expect(styleText).toContain('content: "Sign in or create an account";');
-      expect(styleText).not.toContain(accountLabel.trim());
-    },
-  );
-
-  it("visually fills the signed-in account row and ignores a legacy provider claim", () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "email",
-        accountLabel: "nicu@samebase.com",
-        authProvider: "password",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      "signed-in",
-    );
-    expect(styleText).toContain(`[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"]`);
-    expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
-    expect(styleText).toContain("[data-app-auth-prehydration-account-label]::after");
-    expect(styleText).toContain(
-      `[data-testid="${PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}"] [data-public-landing-primary-action-signed-out]`,
-    );
-    expect(styleText).toContain(
-      `[data-testid="${PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}"] [data-public-landing-primary-action-signed-in]`,
-    );
-    expect(styleText).toContain('content: "nicu@samebase.com";');
-    expect(styleText).not.toContain("data-app-auth-prehydration-provider");
-    expect(styleText).not.toContain("Signed in with");
-  });
-
-  it("does not use public landing password auth mode as session provider evidence", () => {
-    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "email",
-        accountLabel: "nicu@samebase.com",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).not.toContain('content: "Signed in with Password";');
-  });
-
-  it("does not invent a provider label without a JWT provider claim", () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "email",
-        accountLabel: "nicu@samebase.com",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).not.toContain('content: "Signed in with Password";');
-  });
-
-  it("ignores a legacy GitHub provider claim before hydration", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        authProvider: "github",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      "signed-in",
-    );
-    expect(styleText).toContain('content: "Nicu";');
-    expect(styleText).not.toContain("GitHub");
-  });
-
-  it("escapes hostile JWT profile labels inside CSS content", () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: 'a"b\\c</style>',
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styles = document.querySelectorAll("style");
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(styles).toHaveLength(1);
-    expect(styleText).toContain('content: "a\\"b\\\\c</style>";');
-  });
-
-  it("visually replaces the checking login account label from a valid JWT without a refresh token", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
-    );
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "Nicu";');
-  });
-
-  it("uses signed-out presentation for a JWT without profile claims", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwt({
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
-    );
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "Sign in or create an account";');
   });
 
   it("visually replaces the checking login account label with signed-out presentation without local auth material", () => {
@@ -396,11 +154,11 @@ describe("appAuthPresentationPrehydration", () => {
     },
   );
 
-  it("uses signed-out presentation for an account-linking error return", () => {
+  it("uses signed-out presentation for an authorization error return", () => {
     window.history.replaceState(
       {},
       "",
-      "/?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
+      "/?signup=github&authorization-provider=github-app&authorization-error=failed",
     );
 
     runAppAuthPresentationPrehydrationScript();
@@ -461,15 +219,8 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
-  it("uses signed-out presentation for an expired JWT without a refresh token", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        exp: 1,
-      }),
-    );
+  it("uses signed-out presentation for an access token without a refresh token", () => {
+    window.localStorage.setItem("__convexAuthJWT_httpsexampleconvexcloud", "access-token");
 
     runAppAuthPresentationPrehydrationScript();
 
@@ -478,72 +229,22 @@ describe("appAuthPresentationPrehydration", () => {
     ).toContain('content: "Sign in or create an account";');
   });
 
-  it("uses signed-out presentation for malformed JWTs without a refresh token", () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), "not-a-jwt");
+  it.each(["/?auth=google", "/?convexAuthCode=oauth-code", "/?convexAuthError=expired"])(
+    "keeps checking login during an active browser auth flow on %s",
+    (route) => {
+      window.history.replaceState({}, "", route);
 
-    runAppAuthPresentationPrehydrationScript();
+      runAppAuthPresentationPrehydrationScript();
 
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "Sign in or create an account";');
-  });
-
-  it("does not paint an account label from a JWT with non-finite exp", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      createJwtFromPayloadJson(
-        '{"accountLabelKind":"displayName","accountLabel":"Nicu","exp":1e999}',
-      ),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "Sign in or create an account";');
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).not.toContain('content: "Nicu";');
-  });
-
-  it("keeps checking login when a refresh token may recover an expired JWT", () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        exp: 1,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      false,
-    );
-    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
-  });
-
-  it("keeps checking login during an active browser auth flow", () => {
-    window.history.replaceState({}, "", "/?auth=google");
-
-    runAppAuthPresentationPrehydrationScript();
-
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      false,
-    );
-    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
-  });
+      expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
+        false,
+      );
+      expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
+    },
+  );
 
   it("uses the browser proxy URL as the Convex Auth storage namespace when configured", () => {
     const proxyNamespace = new URL("/__samebase_convex_proxy", window.location.origin).toString();
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(proxyNamespace),
-      createJwt({
-        accountLabelKind: "email",
-        accountLabel: "proxy@samebase.com",
-        exp: 4100000000,
-      }),
-    );
     window.localStorage.setItem(convexAuthRefreshTokenStorageKey(proxyNamespace), "refresh-token");
 
     runAppAuthPresentationPrehydrationScript({
@@ -554,21 +255,11 @@ describe("appAuthPresentationPrehydration", () => {
 
     expect(readPrehydrationTestError()).toBeUndefined();
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
+      false,
     );
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "proxy@samebase.com";');
   });
 
   it("removes the temporary style when hydration removes the root marker", async () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        exp: 4100000000,
-      }),
-    );
     runAppAuthPresentationPrehydrationScript();
 
     document.documentElement.removeAttribute("data-app-auth-presentation-prehydrated");
@@ -578,13 +269,6 @@ describe("appAuthPresentationPrehydration", () => {
   });
 
   it("clears the temporary prehydration marker and style", () => {
-    writeLocalAuthSession(
-      createJwt({
-        accountLabelKind: "displayName",
-        accountLabel: "Nicu",
-        exp: 4100000000,
-      }),
-    );
     runAppAuthPresentationPrehydrationScript();
 
     clearAppAuthPresentationPrehydration();

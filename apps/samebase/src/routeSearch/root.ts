@@ -79,9 +79,17 @@ const RouteSearchSchema_root = defineRouteSearchParams({
       valueType: "options",
     },
   ),
-  code: routeSearchValueParam(routeSearchNonEmptyString, {
+  // Convex Auth returns an OAuth sign-in to the app with one of these, and its client reads and
+  // removes it after the router has loaded the page.
+  convexAuthCode: routeSearchValueParam(routeSearchNonEmptyString, {
     access: "access_public",
     sampleValue: "oauth-code",
+    suggestion: "hidden",
+    valueType: "freeform",
+  }),
+  convexAuthError: routeSearchValueParam(routeSearchNonEmptyString, {
+    access: "access_public",
+    sampleValue: "access_denied",
     suggestion: "hidden",
     valueType: "freeform",
   }),
@@ -174,7 +182,8 @@ const rootRouteSearchParamMetadata = {
     rootRouteSearchOwnParamMetadata[AUTHORIZATION_ERROR_QUERY_PARAM],
   [AUTHORIZATION_PROVIDER_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[AUTHORIZATION_PROVIDER_QUERY_PARAM],
-  code: rootRouteSearchOwnParamMetadata.code,
+  convexAuthCode: rootRouteSearchOwnParamMetadata.convexAuthCode,
+  convexAuthError: rootRouteSearchOwnParamMetadata.convexAuthError,
   delete: rootRouteSearchOwnParamMetadata.delete,
   devtools: rootRouteSearchOwnParamMetadata.devtools,
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:

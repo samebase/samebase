@@ -5,9 +5,10 @@
  * Runs automatically as part of `predev` before the dev server starts.
  *
  * WHY THIS EXISTS:
- * Convex Auth uses the SITE_URL env var to know where to redirect the browser
- * after GitHub OAuth completes. In development, this URL changes depending on
- * the environment:
+ * Convex Auth lets a GitHub or Google sign-in return only to the SITE_URL origin
+ * (or the deployment's own site), and the MCP consent and provider OAuth flows
+ * redirect to SITE_URL. In development, this URL changes depending on the
+ * environment:
  *
  *   - Cloud dev containers (e.g. sandboxes): Each container gets a unique,
  *     ephemeral URL. When a container is destroyed and a new one is created,

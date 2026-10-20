@@ -14,7 +14,7 @@ describe("GitHub-backed organizations", () => {
       });
     });
     const asPendingUser = t.withIdentity({
-      subject: `${userId}|pending-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -283,7 +283,7 @@ describe("GitHub-backed organizations", () => {
 
     const organizations = await t
       .withIdentity({
-        subject: `${userId}|sorted-owner`,
+        subject: userId,
         tokenIdentifier: `test:${userId}`,
       })
       .query(api.organizations.listForViewer, {});
@@ -334,7 +334,7 @@ describe("GitHub-backed organizations", () => {
       githubInstallationId: "personal-installation",
     });
     const asUser = t.withIdentity({
-      subject: `${userId}|personal-capability`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const readCapabilities = async () => {

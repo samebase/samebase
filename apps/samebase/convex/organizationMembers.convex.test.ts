@@ -127,15 +127,15 @@ async function seedMembers() {
     t,
     ids,
     asOwner: t.withIdentity({
-      subject: `${ids.ownerUserId}|owner-session`,
+      subject: ids.ownerUserId,
       tokenIdentifier: `test:${ids.ownerUserId}`,
     }),
     asInvitee: t.withIdentity({
-      subject: `${ids.inviteeUserId}|invitee-session`,
+      subject: ids.inviteeUserId,
       tokenIdentifier: `test:${ids.inviteeUserId}`,
     }),
     asMember: t.withIdentity({
-      subject: `${ids.memberUserId}|member-session`,
+      subject: ids.memberUserId,
       tokenIdentifier: `test:${ids.memberUserId}`,
     }),
   };
@@ -770,7 +770,7 @@ describe("organization member lifecycle", () => {
       return userId;
     });
     const asSecondInvitee = t.withIdentity({
-      subject: `${secondInviteeUserId}|second-invitee-session`,
+      subject: secondInviteeUserId,
       tokenIdentifier: `test:${secondInviteeUserId}`,
     });
 

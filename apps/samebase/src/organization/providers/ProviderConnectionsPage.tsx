@@ -483,9 +483,7 @@ function PersonalRepositoryCreationDetails({
   );
   const status =
     authorization?.status === "sign_in_required" ? (
-      <>
-        Connect GitHub as @{ownerLogin} in {accountSettingsLink} first.
-      </>
+      `Sign out and sign in with GitHub as @${ownerLogin} first.`
     ) : authorization === undefined ? (
       "Loading..."
     ) : authorization.status === "sign_in_mismatch" ? (

@@ -19,35 +19,17 @@ export function AppAuthPresentationProvider({
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [localAuthHint, setLocalAuthHint] = useState<LocalAuthHintState>({ kind: "unread" });
 
-  // The local JWT hint has to land before paint so hydration preserves the head prehydration label.
+  // The local session hint has to land before paint so hydration keeps the head prehydration state.
   useLayoutEffect(() => {
     setLocalAuthHint(readLocalAppAuthPresentationHint(storageNamespace));
   }, [storageNamespace]);
 
   const presentationState = useMemo((): AppAuthPresentationState => {
     if (isAuthenticated) {
-      if (localAuthHint.kind === "unread") {
-        return { kind: "unknown" };
-      }
-
-      return {
-        kind: "confirmedAuthenticated",
-        profile: localAuthHint.kind === "present" ? localAuthHint.profile : null,
-      };
+      return { kind: "confirmedAuthenticated" };
     }
 
-    if (!isLoading) {
-      return { kind: "signedOut" };
-    }
-
-    if (localAuthHint.kind === "present") {
-      return {
-        kind: "temporaryAuthenticated",
-        profile: localAuthHint.profile,
-      };
-    }
-
-    if (localAuthHint.kind === "signedOut") {
+    if (!isLoading || localAuthHint.kind === "signedOut") {
       return { kind: "signedOut" };
     }
 

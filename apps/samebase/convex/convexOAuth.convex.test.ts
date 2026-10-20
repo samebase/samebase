@@ -50,7 +50,7 @@ describe("Convex organization OAuth", () => {
 
     const authorizeUrl = await t
       .withIdentity({
-        subject: `${userId}|session`,
+        subject: userId,
         tokenIdentifier: `test:${userId}`,
       })
       .mutation(api.convexOAuth.getConvexOAuthUrl, { organizationId });

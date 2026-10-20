@@ -67,7 +67,7 @@ async function seedRepository(
 
 function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
   return t.withIdentity({
-    subject: `${userId}|test-session`,
+    subject: userId,
     tokenIdentifier: `test:${userId}`,
   });
 }

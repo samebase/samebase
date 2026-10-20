@@ -33,20 +33,22 @@ describe("devAuth password account seed", () => {
     const t = makeConvexTest();
 
     await expect(
-      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+      t.mutation(internal.devAuth.writeSeedPasswordAccount, {
         email: maximumEmail,
+        password: "seed-account-password",
       }),
-    ).resolves.toEqual({ kind: "missing" });
+    ).resolves.toMatchObject({ created: true });
     await expect(
-      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+      t.mutation(internal.devAuth.writeSeedPasswordAccount, {
         email: tooLongEmail,
+        password: "seed-account-password",
       }),
     ).rejects.toThrowError(
       `Email address must be ${ACCOUNT_EMAIL_MAX_LENGTH} characters or fewer.`,
     );
   });
 
-  it("resolves an existing seed password account", async () => {
+  it("sets the password of an existing seed password account", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
@@ -64,13 +66,14 @@ describe("devAuth password account seed", () => {
     });
 
     await expect(
-      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+      t.mutation(internal.devAuth.writeSeedPasswordAccount, {
         email: "seed@example.com",
+        password: "seed-account-password",
       }),
-    ).resolves.toEqual({
-      kind: "existing",
-      userId,
-    });
+    ).resolves.toEqual({ created: false, userId });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("authAccounts").collect()),
+    ).resolves.toHaveLength(1);
   });
 
   it("approves the explicit seed user and accepts the current Terms", async () => {
@@ -303,14 +306,18 @@ describe("devAuth password account seed", () => {
         .sort((left, right) => left.localeCompare(right)),
     ).toEqual(["101", "202", "303"]);
 
-    const seedUser = await t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
-      email: "preview@example.com",
+    const seedUserId = await t.run(async (ctx) => {
+      const seedUser = await ctx.db
+        .query("users")
+        .withIndex("email", (query) => query.eq("email", "preview@example.com"))
+        .unique();
+      if (seedUser === null) {
+        throw new Error("The preview seed user was not created.");
+      }
+      return seedUser._id;
     });
-    if (seedUser.kind === "missing") {
-      throw new Error("The preview seed user was not created.");
-    }
     await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
-      userId: seedUser.userId,
+      userId: seedUserId,
       githubInstallationId: "1004",
       githubOwnerId: "404",
       githubOwnerType: "organization",
@@ -370,12 +377,12 @@ describe("devAuth password account seed", () => {
       convex: {
         accessToken: "samebase-convex-credential",
         teamId: "samebase-convex-team-id",
-        connectedByUserId: seedUser.userId,
+        connectedByUserId: seedUserId,
       },
       cloudflare: {
         apiToken: "samebase-cloudflare-credential",
         accountId: "samebase-cloudflare-account-id",
-        connectedByUserId: seedUser.userId,
+        connectedByUserId: seedUserId,
       },
     });
 

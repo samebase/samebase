@@ -1,11 +1,13 @@
+import { createFunctionHandle } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
-import { api, internal } from "../_generated/api";
-import { makeConvexTest } from "../test.setup";
+import { api, components, internal } from "../_generated/api";
+import { makeConvexTest, stubConvexAuthEnv } from "../test.setup";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.useRealTimers();
 });
 
 async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: string) {
@@ -27,7 +29,7 @@ async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: str
     sessionId,
     userId,
     viewer: t.withIdentity({
-      subject: `${userId}|${sessionId}`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     }),
   };
@@ -46,7 +48,7 @@ async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
   return {
     userId,
     viewer: t.withIdentity({
-      subject: `${userId}|staff-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     }),
   };
@@ -81,7 +83,7 @@ describe("account deletion request and status", () => {
     expect(after).toEqual(before);
   });
 
-  it("queues one run for seven days, preserves the session, and starts from the callback", async () => {
+  it("queues one run for seven days without a session id and starts from the callback", async () => {
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "requester@example.invalid");
     const initiatingSession = await t.run(async (ctx) => await ctx.db.get(sessionId));
@@ -128,10 +130,10 @@ describe("account deletion request and status", () => {
       expect(snapshot.run).toMatchObject({
         _id: first.status.runId,
         deletionStartsAt: 604_801_000,
-        initiatingSessionId: sessionId,
         state: "queued",
         workflow: { state: "not_started" },
       });
+      expect(snapshot.run).not.toHaveProperty("initiatingSessionId");
       expect(snapshot.user).toMatchObject({
         _id: userId,
         runId: first.status.runId,
@@ -641,5 +643,99 @@ describe("account deletion request and status", () => {
         deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
+  });
+});
+
+describe("account deletion with Convex Auth 2", () => {
+  it("ends the sessions and frees the GitHub account for a new Samebase account", async () => {
+    await stubConvexAuthEnv();
+    vi.stubEnv("AUTO_APPROVE_NEW_USERS", "true");
+    // A local deployment skips the new-user and completion emails.
+    vi.stubEnv("CONVEX_DEPLOYMENT", "local:test");
+    vi.useFakeTimers();
+    const t = makeConvexTest();
+    const issuer = "https://samebase-test.convex.site";
+    const email = "deleted-github-user@example.invalid";
+    const password = "deleted-user-password-1234";
+    // The arguments that the GitHub component passes to the core for a first sign-in.
+    const githubSignUp = {
+      claims: {
+        providerName: "github",
+        providerAccountId: "github-deleted-account",
+        profile: {
+          id: "github-deleted-account",
+          login: "deleted-user",
+          name: "Deleted User",
+          email,
+          emailVerified: true,
+          avatarUrl: "https://example.com/avatar.png",
+        },
+      },
+      ...(await t.run(async () => ({
+        createUserHandle: await createFunctionHandle(internal.identity.signIn.createUser),
+        onSignInHandle: await createFunctionHandle(internal.identity.signIn.onSignIn),
+      }))),
+      issuer,
+    };
+
+    const session = await t.mutation(components.auth.public.signUp, githubSignUp);
+    const userId = await t.run(async (ctx) => {
+      const id = ctx.db.normalizeId("users", session.userId);
+      if (id === null) {
+        throw new Error("The core returned a user id that is not a users id.");
+      }
+      await ctx.db.patch(id, { termsVersion: "2026-08-12", termsAcceptedAt: 1 });
+      return id;
+    });
+    await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, { email, password });
+    await expect(
+      t.query(components.auth.public.getUserIdByAccount, {
+        provider: "github",
+        providerAccountId: "github-deleted-account",
+      }),
+    ).resolves.toBe(userId);
+
+    const viewer = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const requested = await viewer.mutation(api.accountDeletion.index.request, {
+      completionCapability: "f".repeat(64),
+      deletionStartMode: "seven_days",
+      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+    });
+    if (requested.state !== "accepted") {
+      throw new Error("Account deletion request was not accepted.");
+    }
+    await t.mutation(internal.accountDeletion.index.startScheduled, {
+      runId: requested.status.runId,
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
+
+    await expect(
+      t.run(async (ctx) => ({
+        run: await ctx.db.get(requested.status.runId),
+        user: await ctx.db.get(userId),
+      })),
+    ).resolves.toMatchObject({ run: { state: "succeeded" }, user: { state: "deleted" } });
+    await expect(
+      t.mutation(components.auth.public.refresh, { refreshToken: session.refreshToken, issuer }),
+    ).resolves.toEqual({ kind: "noSession" });
+    await expect(
+      t.mutation(components.authPassword.public.verifyPassword, { userId, password }),
+    ).rejects.toThrow(`No password stored for userId ${userId}.`);
+
+    // The GitHub component signs up an identity that the core does not know.
+    await expect(
+      t.query(components.auth.public.getUserIdByAccount, {
+        provider: "github",
+        providerAccountId: "github-deleted-account",
+      }),
+    ).resolves.toBeNull();
+    const nextSession = await t.mutation(components.auth.public.signUp, githubSignUp);
+    expect(nextSession.userId).not.toBe(userId);
+    await expect(
+      t.run(async (ctx) => {
+        const nextUserId = ctx.db.normalizeId("users", nextSession.userId);
+        return nextUserId === null ? null : await ctx.db.get(nextUserId);
+      }),
+    ).resolves.toMatchObject({ state: "active", email, isApproved: true });
   });
 });

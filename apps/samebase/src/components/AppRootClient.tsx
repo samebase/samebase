@@ -126,7 +126,7 @@ export function AppRootClient() {
   const convexClient = router.options.context.convexQueryClient.convexClient;
 
   return (
-    <ConvexAuthProvider client={convexClient}>
+    <ConvexAuthProvider client={convexClient} api={api.auth}>
       <AppAuthPresentationProvider storageNamespace={convexClient.url}>
         <AppRouterRoot />
         <QueryDevtools />

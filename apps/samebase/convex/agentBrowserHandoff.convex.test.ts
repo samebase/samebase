@@ -1,16 +1,55 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
 import { ACCESS_BROWSER_LOGIN_HANDOFF } from "../shared/accessModel";
 import { sha256Hex } from "./mcp/tokens";
 
 const now = 1_000;
 const clientId = "mcpc_test";
 const grantId = "mcpg_test";
-const token = "agbh_test";
+const token = `agbh_${"a".repeat(43)}`;
 const resource = "https://samebase.test/mcp";
+const rejected = { status: "error", userError: { error: "HANDOFF_REJECTED" } };
+
+type ConvexTest = ReturnType<typeof makeConvexTest>;
+
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  await stubConvexAuthEnv();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
+
+/** Redeems the handoff in a browser that is signed out, or signed in as `browserUserId`. */
+async function signInWithHandoff(
+  t: ConvexTest,
+  args: { at: number; browserUserId?: Id<"users">; handoffToken?: string },
+) {
+  vi.setSystemTime(args.at);
+  const browser =
+    args.browserUserId === undefined ? t : t.withIdentity({ subject: args.browserUserId });
+  return await browser.mutation(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, {
+    token: args.handoffToken ?? token,
+  });
+}
+
+async function readRejectionReasons(t: ConvexTest) {
+  const audits = await t.run(
+    async (ctx) =>
+      await ctx.db
+        .query("audit_mcpAccess_events")
+        .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
+        .collect(),
+  );
+  return audits
+    .filter((audit) => audit.action === "agent_browser_handoff_rejected")
+    .map((audit) => audit.detailsJson);
+}
 
 async function seedGrant(args?: { approved?: boolean; scope?: string }) {
   const t = makeConvexTest();
@@ -72,25 +111,11 @@ describe("agent browser handoff lifecycle", () => {
       ok: true,
     });
 
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: now + 1,
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      userId: ids.userId,
+    await expect(signInWithHandoff(t, { at: now + 1 })).resolves.toMatchObject({
+      status: "complete",
+      tokens: { userId: ids.userId },
     });
-
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: now + 2,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      reason: "consumed",
-    });
+    await expect(signInWithHandoff(t, { at: now + 2 })).resolves.toEqual(rejected);
 
     const snapshot = await t.run(async (ctx) => {
       const handoff = await ctx.db
@@ -140,12 +165,10 @@ describe("agent browser handoff lifecycle", () => {
       await ctx.db.replace(ids.userId, { state: "deleted", deletedAt: now + 1 });
     });
 
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: now + 2,
-      }),
-    ).resolves.toEqual({ ok: false, reason: "access_missing" });
+    await expect(signInWithHandoff(t, { at: now + 2 })).resolves.toEqual(rejected);
+    await expect(readRejectionReasons(t)).resolves.toEqual([
+      JSON.stringify({ reason: "access_missing" }),
+    ]);
     await expect(
       t.mutation(internal.agentBrowserHandoff.createForMcp, {
         ...createArgs,
@@ -188,18 +211,13 @@ describe("agent browser handoff lifecycle", () => {
     ).resolves.toEqual({ ok: true });
   });
 
-  it("rejects an unknown handoff token", async () => {
+  it("rejects an unknown or malformed handoff token", async () => {
     const t = makeConvexTest();
 
+    await expect(signInWithHandoff(t, { at: now + 1 })).resolves.toEqual(rejected);
     await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: await sha256Hex("agbh_missing"),
-        now: now + 1,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      reason: "not_found",
-    });
+      signInWithHandoff(t, { at: now + 1, handoffToken: "not-a-handoff" }),
+    ).resolves.toEqual(rejected);
 
     await expect(
       t.run(async (ctx) => await ctx.db.query("audit_mcpAccess_events").collect()),
@@ -215,35 +233,9 @@ describe("agent browser handoff lifecycle", () => {
     ).resolves.toEqual({
       ok: true,
     });
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: createArgs.expiresAt,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      reason: "expired",
-    });
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: createArgs.expiresAt + 1,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      reason: "consumed",
-    });
-
-    const audits = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("audit_mcpAccess_events")
-          .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
-          .collect(),
-    );
-    expect(
-      audits.filter((audit) => audit.action === "agent_browser_handoff_rejected"),
-    ).toHaveLength(1);
+    await expect(signInWithHandoff(t, { at: createArgs.expiresAt })).resolves.toEqual(rejected);
+    await expect(signInWithHandoff(t, { at: createArgs.expiresAt + 1 })).resolves.toEqual(rejected);
+    await expect(readRejectionReasons(t)).resolves.toEqual([JSON.stringify({ reason: "expired" })]);
   });
 
   it("deletes an expired handoff when its cleanup job runs", async () => {
@@ -300,34 +292,16 @@ describe("agent browser handoff lifecycle", () => {
       ok: true,
     });
     await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: now + 1,
-        currentUserId: otherUserId,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      reason: "browser_user_mismatch",
-    });
-    await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: now + 2,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      reason: "consumed",
-    });
+      signInWithHandoff(t, { at: now + 1, browserUserId: otherUserId }),
+    ).resolves.toEqual(rejected);
+    await expect(signInWithHandoff(t, { at: now + 2 })).resolves.toEqual(rejected);
+    await expect(readRejectionReasons(t)).resolves.toEqual([
+      JSON.stringify({ reason: "browser_user_mismatch" }),
+    ]);
   });
 
-  it("reuses the current auth session for the same signed-in user", async () => {
+  it("signs the same signed-in user in again with a new session", async () => {
     const { ids, t } = await seedGrant();
-    const sessionId = await t.run(async (ctx) => {
-      return await ctx.db.insert("authSessions", {
-        userId: ids.userId,
-        expirationTime: now + 60_000,
-      });
-    });
     const createArgs = await createHandoff(ids.userId);
 
     await expect(
@@ -336,16 +310,7 @@ describe("agent browser handoff lifecycle", () => {
       ok: true,
     });
     await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        tokenHash: createArgs.tokenHash,
-        now: now + 1,
-        currentUserId: ids.userId,
-        currentSessionId: sessionId,
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      userId: ids.userId,
-      sessionId,
-    });
+      signInWithHandoff(t, { at: now + 1, browserUserId: ids.userId }),
+    ).resolves.toMatchObject({ status: "complete", tokens: { userId: ids.userId } });
   });
 });

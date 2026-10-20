@@ -1,12 +1,8 @@
 // @vitest-environment jsdom
 
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
-import {
-  convexAuthJwtStorageKey,
-  convexAuthRefreshTokenStorageKey,
-} from "@/lib/appAuthPresentationState";
 import { act } from "react";
-import { createRoot, hydrateRoot } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AuthenticatedAppRoutePage, AuthenticatedUserRoutePage } from "./AuthenticatedAppRoutePage";
@@ -56,12 +52,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 vi.mock("@/SignInForm", () => ({
-  SignInForm: ({ topNotice }: { topNotice: React.ReactNode }) => (
-    <div data-testid="sign-in-form">
-      {topNotice}
-      Sign in
-    </div>
-  ),
+  SignInForm: () => <div data-testid="sign-in-form">Sign in</div>,
 }));
 
 vi.mock("@/components/ApprovalGate", () => ({
@@ -87,17 +78,7 @@ vi.mock("@/lib/usePageMetadata", () => ({
 }));
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const PROFILE_JWT = [
-  "header",
-  Buffer.from(
-    JSON.stringify({
-      accountLabelKind: "displayName",
-      accountLabel: "Nicu",
-      exp: 4100000000,
-    }),
-  ).toString("base64url"),
-  "signature",
-].join(".");
+const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -177,20 +158,6 @@ describe("AuthenticatedAppRoutePage", () => {
     toastState.toast.mockClear();
   });
 
-  it("renders the temporary auth shell after hydration instead of route children or the sign-in form", async () => {
-    authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    const markup = renderAuthenticatedRoutePage();
-    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
-
-    expect(markup).not.toContain("temporary-auth-route-shell");
-    expect(hydratedMarkup).toContain("temporary-auth-route-shell");
-    expect(markup).not.toContain("Route child");
-    expect(markup).not.toContain("Sign in");
-    expect(markup).not.toContain("approval-gate");
-  });
-
   it("shows and consumes a GitHub App setup error on a non-settings route", async () => {
     rootSearchState.search = {
       "authorization-provider": "github-app",
@@ -212,56 +179,6 @@ describe("AuthenticatedAppRoutePage", () => {
     );
   });
 
-  it("keeps one route-owned Settings notice when temporary auth resolves signed out", async () => {
-    authState.isLoading = true;
-    locationState.pathname = "/settings";
-    rootSearchState.search = {
-      "authorization-provider": "github-sign-in",
-      "authorization-error": "account-link-required",
-    };
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-    const createRoutePage = () => (
-      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
-        <AuthenticatedUserRoutePage
-          signInTopNotice={
-            <div data-testid="settings-authorization-notice">Account link failed</div>
-          }
-        >
-          <ProtectedRouteChild />
-        </AuthenticatedUserRoutePage>
-      </AppAuthPresentationProvider>
-    );
-
-    try {
-      await act(async () => {
-        root.render(createRoutePage());
-      });
-      expect(rootElement.innerHTML).toContain("temporary-auth-route-shell");
-      expect(rootElement.innerHTML).not.toContain("Account link failed");
-
-      authState.isLoading = false;
-      await act(async () => {
-        root.render(createRoutePage());
-      });
-
-      expect(rootElement.textContent).toContain("Sign in");
-      expect(rootElement.textContent).toContain("Account link failed");
-      expect(
-        rootElement.querySelectorAll('[data-testid="settings-authorization-notice"]'),
-      ).toHaveLength(1);
-      expect(toastState.toast).not.toHaveBeenCalled();
-      expect(routerState.navigate).not.toHaveBeenCalled();
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      rootElement.remove();
-    }
-  });
-
   it("leaves a personal repository authorization error for the Providers route", async () => {
     locationState.pathname = "/org/nicubunu/providers";
     rootSearchState.search = {
@@ -281,49 +198,19 @@ describe("AuthenticatedAppRoutePage", () => {
     const markup = renderAuthenticatedRoutePage();
     const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
 
-    expect(markup).not.toContain("temporary-auth-route-shell");
     expect(hydratedMarkup).toContain("Sign in");
-    expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
     expect(markup).not.toContain("Route child");
     expect(markup).not.toContain("Sign in");
   });
 
   it("keeps the route pending while a refresh token may restore the session", async () => {
     authState.isLoading = true;
-    window.localStorage.setItem(
-      convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
-      "refresh-token",
-    );
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
 
     const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
 
-    expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
     expect(hydratedMarkup).not.toContain("Route child");
     expect(hydratedMarkup).not.toContain("Sign in");
-  });
-
-  it("hydrates temporary auth without a React mismatch", async () => {
-    authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderAuthenticatedRoutePage();
-    document.body.append(rootElement);
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const root = await act(() => hydrateRoot(rootElement, createAuthenticatedRoutePageElement()));
-
-    try {
-      const hydrationErrors = consoleErrorSpy.mock.calls
-        .map((call) => call.map((value) => String(value)).join(" "))
-        .filter((message) => /hydrat|did not match|#418/i.test(message));
-      expect(hydrationErrors).toEqual([]);
-      expect(rootElement.innerHTML).toContain("temporary-auth-route-shell");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      consoleErrorSpy.mockRestore();
-      rootElement.remove();
-    }
   });
 
   it("keeps the normal signed-out form when Convex is signed out and there is no hint", () => {

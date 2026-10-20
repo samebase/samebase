@@ -94,7 +94,7 @@ async function insertAuthorizedUser(
 
 function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
   return t.withIdentity({
-    subject: `${userId}|github-app-installation-test-session`,
+    subject: userId,
     tokenIdentifier: `test:${userId}`,
   });
 }

@@ -2,10 +2,7 @@ import { devices, expect, test, type Page } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import {
-  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-} from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
@@ -256,22 +253,7 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
       "right",
     );
     await blockHydrationScripts(page);
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.locator("html")).toHaveAttribute(
-      "data-app-auth-presentation-prehydrated",
-      "signed-in",
-    );
-    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
-      "data-mobile-pane",
-      "right",
-    );
-
-    const prehydratedSettingsLink = page
-      .getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("link", { exact: true, name: "Account settings" });
-    await expect(prehydratedSettingsLink).toBeVisible();
-    await prehydratedSettingsLink.click();
-    await expect(page).toHaveURL(/\/settings$/u);
+    await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",

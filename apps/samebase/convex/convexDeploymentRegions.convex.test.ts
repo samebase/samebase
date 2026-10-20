@@ -45,11 +45,11 @@ async function createRegionDefaultFixture() {
     ...ids,
     t,
     asMember: t.withIdentity({
-      subject: `${ids.memberUserId}|test-session`,
+      subject: ids.memberUserId,
       tokenIdentifier: `test:${ids.memberUserId}`,
     }),
     asOwner: t.withIdentity({
-      subject: `${ids.ownerUserId}|test-session`,
+      subject: ids.ownerUserId,
       tokenIdentifier: `test:${ids.ownerUserId}`,
     }),
   };

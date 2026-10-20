@@ -1,5 +1,4 @@
 import { devices, expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import {
@@ -151,7 +150,6 @@ async function readAccountTextEvidence(accountSection: Locator) {
     };
 
     return {
-      accountLabelAfterContent: readAfterContent("[data-app-auth-prehydration-account-label]"),
       signedOutAfterContent: readAfterContent("[data-app-auth-prehydration-signed-out-label]"),
       textContent: element.textContent ?? "",
     };
@@ -329,9 +327,9 @@ test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ pa
   });
 });
 
-test("signed-in app right sidebar prehydration matches the account row", async ({
+test("signed-in app right sidebar renders the account row and dashboard actions", async ({
   page,
-}, testInfo: TestInfo) => {
+}) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openSignedInApp(page);
   await waitForFonts(page);
@@ -361,34 +359,6 @@ test("signed-in app right sidebar prehydration matches the account row", async (
       maskColor: "#d1d5db",
     },
   );
-  const hydratedScreenshot = await hydratedAccountSection.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    mask: [getPrivateAccountMask(hydratedAccountSection)],
-    maskColor: "#d1d5db",
-    scale: "css",
-  });
-
-  await blockHydrationScripts(page);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  await waitForFonts(page);
-
-  const prehydratedLandingActions = page.getByTestId(PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID);
-  await expect(prehydratedLandingActions).toHaveCount(2);
-  await expect(
-    prehydratedLandingActions.getByRole("link", { name: "Go to dashboard" }),
-  ).toHaveCount(2);
-  await expect(
-    prehydratedLandingActions.getByRole("button", { name: "Continue with GitHub" }),
-  ).toHaveCount(0);
-
-  await expectPrehydratedAccountSectionToMatchHydrated({
-    artifactPrefix: "app-right-sidebar-signed-in-account-prehydration",
-    hydratedScreenshot,
-    page,
-    testInfo,
-  });
 });
 
 test("signed-out app right sidebar prehydration matches the hydrated account row", async ({
@@ -467,58 +437,3 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
     testInfo,
   });
 });
-
-async function expectPrehydratedAccountSectionToMatchHydrated({
-  artifactPrefix,
-  hydratedScreenshot,
-  page,
-  testInfo,
-}: {
-  artifactPrefix: string;
-  hydratedScreenshot: Buffer;
-  page: Page;
-  testInfo: TestInfo;
-}) {
-  const prehydratedAccountSection = getSignedInAccountSection(page);
-  await expect(prehydratedAccountSection).toBeVisible();
-  await expect(
-    prehydratedAccountSection.getByRole("link", { name: "Account settings" }),
-  ).toBeVisible();
-  await expect(prehydratedAccountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
-  await expect(prehydratedAccountSection.locator("[aria-expanded]:visible")).toHaveCount(0);
-  const prehydratedTextEvidence = await readAccountTextEvidence(prehydratedAccountSection);
-  expect(
-    accountTextEvidenceIncludes(
-      prehydratedTextEvidence,
-      LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
-      prehydratedTextEvidence.accountLabelAfterContent,
-    ),
-  ).toBe(true);
-  expect(prehydratedTextEvidence.textContent).not.toContain("Signed in with");
-
-  const prehydratedScreenshot = await prehydratedAccountSection.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    mask: [getPrivateAccountMask(prehydratedAccountSection)],
-    maskColor: "#d1d5db",
-    scale: "css",
-  });
-
-  await expectScreenshotsToMatch({
-    actual: prehydratedScreenshot,
-    artifactPrefix,
-    artifactWritePaths: {
-      actual: testInfo.outputPath(`${artifactPrefix}-prehydrated.png`),
-      diff: testInfo.outputPath(`${artifactPrefix}-diff.png`),
-      diffMask: testInfo.outputPath(`${artifactPrefix}-diff-mask.png`),
-      expected: testInfo.outputPath(`${artifactPrefix}-hydrated.png`),
-    },
-    expected: hydratedScreenshot,
-    maxDiffPixelRatio: 0.0001,
-    pixelmatchOptions: {
-      includeAA: true,
-      threshold: 0,
-    },
-    testInfo,
-  });
-}

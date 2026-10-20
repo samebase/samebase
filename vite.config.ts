@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import remotionEslintPlugin from "@remotion/eslint-plugin";
-import { defaultClientConditions } from "vite";
+import { defaultClientConditions, type Plugin } from "vite";
 import { defineConfig } from "vite-plus";
 import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
 
@@ -13,6 +14,26 @@ const testAppBuildConfig = {
   browserConvexProxyPath: null,
   landingPageSlogan: "test landing slogan",
 } satisfies AppBuildConfig;
+
+/**
+The Convex CLI bundles the argon2 WASM module of the Convex Auth password component as a
+`WebAssembly.Module`. The Convex tests load the same component source, so Vitest loads the module
+the same way.
+*/
+function wasmModulePlugin(): Plugin {
+  return {
+    name: "wasm-as-webassembly-module",
+    enforce: "pre",
+    load(id) {
+      if (!id.endsWith(".wasm")) {
+        return null;
+      }
+      const base64 = readFileSync(id).toString("base64");
+      return `const bytes = Uint8Array.from(atob(${JSON.stringify(base64)}), (c) => c.charCodeAt(0));
+export default new WebAssembly.Module(bytes);`;
+    },
+  };
+}
 
 export default defineConfig({
   define: {
@@ -237,10 +258,14 @@ export default defineConfig({
       },
       {
         extends: true,
+        plugins: [wasmModulePlugin()],
         test: {
           name: "convex",
           environment: "edge-runtime",
           include: ["apps/samebase/convex/**/*.convex.test.ts"],
+          // Vitest runs external packages in Node, which cannot import a .wasm file. Inlining this
+          // one sends its WASM import through the plugin above.
+          server: { deps: { inline: ["argon2id-wasm"] } },
           exclude: ["**/node_modules/**", "dist", "dev-dist"],
         },
       },

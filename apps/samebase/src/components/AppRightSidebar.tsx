@@ -16,10 +16,7 @@ import {
   RepositoryDashboardStaticAccountSection,
   RepositoryDashboardStaticAccountStatusSection,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import {
-  useAppAuthPresentation,
-  type AppAuthPresentationProfile,
-} from "@/lib/appAuthPresentationState";
+import { useAppAuthPresentation } from "@/lib/appAuthPresentationState";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
@@ -225,34 +222,26 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
 }
 
 function AppRightSidebarSignedInAccountSection({
-  profile,
   user,
 }: {
-  profile: AppAuthPresentationProfile | null;
-  user?: AppRightSidebarViewer | null;
+  user: AppRightSidebarViewer | null | undefined;
 }) {
-  const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
-
-  if (accountPresentation === undefined) {
+  if (!user) {
     return <AppRightSidebarAccountLoadingSection />;
   }
 
   return (
     <RepositoryDashboardStaticAccountSection
-      accountPresentation={accountPresentation}
+      accountPresentation={user.accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
     />
   );
 }
 
-function TemporaryAuthenticatedAppRightSidebarContent({
-  profile,
-}: {
-  profile: AppAuthPresentationProfile | null;
-}) {
+function LoadingAuthenticatedAppRightSidebarContent() {
   return (
     <RepositoryDashboardSidebarContent>
-      <AppRightSidebarSignedInAccountSection profile={profile} />
+      <AppRightSidebarSignedInAccountSection user={undefined} />
       <GlobalAppRightSidebarLinks />
       <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
     </RepositoryDashboardSidebarContent>
@@ -262,14 +251,12 @@ function TemporaryAuthenticatedAppRightSidebarContent({
 function AccountOnlyAuthenticatedAppRightSidebarContent({
   deleting,
   pending,
-  profile,
 }: {
   deleting: boolean;
   pending: boolean;
-  profile: AppAuthPresentationProfile | null;
 }) {
   const user = useConvexQuery(api.users.viewer);
-  const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
+  const accountPresentation = user?.accountPresentation;
 
   return (
     <RepositoryDashboardSidebarContent>
@@ -280,7 +267,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           statusLabel="Deleting account"
         />
       ) : (
-        <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
+        <AppRightSidebarSignedInAccountSection user={user} />
       )}
       <GlobalAppRightSidebarLinks />
       {pending && accountPresentation !== undefined ? (
@@ -425,10 +412,8 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
 }
 
 function AuthenticatedAppRightSidebarContent({
-  profile,
   showAdminNavigation,
 }: {
-  profile: AppAuthPresentationProfile | null;
   showAdminNavigation: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
@@ -457,7 +442,7 @@ function AuthenticatedAppRightSidebarContent({
 
   return (
     <RepositoryDashboardSidebarContent>
-      <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
+      <AppRightSidebarSignedInAccountSection user={user} />
       <GlobalAppRightSidebarLinks showOrganizations />
       <OrganizationContextControl />
       {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
@@ -482,28 +467,22 @@ export function AppRightSidebarContent() {
   if (authPresentation.kind === "confirmedAuthenticated") {
     if (!hasProviderSidebarAccess(viewerAccess)) {
       if (viewerAccess === undefined) {
-        return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+        return <LoadingAuthenticatedAppRightSidebarContent />;
       }
 
       return (
         <AccountOnlyAuthenticatedAppRightSidebarContent
           deleting={viewerAccess.role === "role_deleting"}
           pending={viewerAccess.role === "role_pending_access"}
-          profile={authPresentation.profile}
         />
       );
     }
 
     return (
       <AuthenticatedAppRightSidebarContent
-        profile={authPresentation.profile}
         showAdminNavigation={viewerAccess?.accessKeys.includes("access_admin") ?? false}
       />
     );
-  }
-
-  if (authPresentation.kind === "temporaryAuthenticated") {
-    return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
   return <PublicAppRightSidebarContent accountPending={authPresentation.kind === "unknown"} />;

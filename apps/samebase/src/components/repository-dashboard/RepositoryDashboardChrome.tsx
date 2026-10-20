@@ -117,69 +117,43 @@ export function RepositoryDashboardStaticAccountLoadingSection({
 
 export function RepositoryDashboardStaticAccountPrehydrationPlaceholders() {
   return (
-    <>
-      <div data-app-auth-prehydration-signed-out className="hidden">
-        <div
-          data-app-auth-prehydration-signed-out-label
-          className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
-        >
-          {null}
-        </div>
-        <div className="mt-3 flex flex-col items-center">
-          <div className="flex flex-col gap-2">
-            {GOOGLE_AUTH_UI_ENABLED ? (
-              <Button
-                aria-hidden="true"
-                data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-                className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
-                disabled
-                tabIndex={-1}
-                variant="outline"
-                type="button"
-              >
-                <span className="min-w-0">Continue with Google</span>
-              </Button>
-            ) : null}
+    <div data-app-auth-prehydration-signed-out className="hidden">
+      <div
+        data-app-auth-prehydration-signed-out-label
+        className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
+      >
+        {null}
+      </div>
+      <div className="mt-3 flex flex-col items-center">
+        <div className="flex flex-col gap-2">
+          {GOOGLE_AUTH_UI_ENABLED ? (
             <Button
               aria-hidden="true"
-              data-testid={PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}
+              data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
               className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
               disabled
               tabIndex={-1}
-              variant="default"
+              variant="outline"
               type="button"
             >
-              <Github className="mr-2 h-4 w-4 @max-[120px]:hidden" />
-              <span className="min-w-0">Continue with GitHub</span>
+              <span className="min-w-0">Continue with Google</span>
             </Button>
-          </div>
+          ) : null}
+          <Button
+            aria-hidden="true"
+            data-testid={PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}
+            className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
+            disabled
+            tabIndex={-1}
+            variant="default"
+            type="button"
+          >
+            <Github className="mr-2 h-4 w-4 @max-[120px]:hidden" />
+            <span className="min-w-0">Continue with GitHub</span>
+          </Button>
         </div>
       </div>
-      <div data-app-auth-prehydration-signed-in className="hidden">
-        <div className="flex flex-wrap items-start gap-3">
-          <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
-            <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
-              <PersonIcon className="h-4 w-4" />
-            </div>
-            <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-              <div
-                data-app-auth-prehydration-account-label
-                className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
-              />
-            </div>
-          </div>
-          <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-            <Link
-              {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
-              className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-              to={SETTINGS_ROUTE}
-            >
-              Account settings
-            </Link>
-          </div>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
 

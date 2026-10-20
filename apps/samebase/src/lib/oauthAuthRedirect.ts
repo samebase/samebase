@@ -20,16 +20,3 @@ export function buildOAuthRedirectSearch<TSearch extends RootRouteSearch>(
     signup: options.markPublicSignupReturn ? provider : undefined,
   };
 }
-
-export function buildOAuthAuthPopupSearch<TSearch extends RootRouteSearch>(
-  search: TSearch,
-  provider: OAuthAuthProvider,
-  options: OAuthRedirectOptions = {},
-) {
-  return {
-    ...search,
-    auth: provider,
-    "auth-return": options.authReturn,
-    signup: options.markPublicSignupReturn ? provider : undefined,
-  };
-}

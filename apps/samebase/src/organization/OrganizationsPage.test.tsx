@@ -98,7 +98,9 @@ describe("OrganizationsPageView", () => {
     expect(loadingMarkup).not.toContain("Authorize GitHub");
 
     const signInMarkup = renderPage(readyState({ status: "github_sign_in_required" }));
-    expect(signInMarkup).toContain('href="/settings#sign-in-methods"');
+    expect(signInMarkup).toContain(
+      "Sign out and sign in with GitHub before you add an organization.",
+    );
     expect(signInMarkup).not.toContain("Authorize GitHub");
 
     const authorizationMarkup = renderPage(readyState({ status: "authorization_required" }));

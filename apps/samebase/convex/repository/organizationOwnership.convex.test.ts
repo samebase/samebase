@@ -179,7 +179,7 @@ describe("organization-owned repositories", () => {
       });
     });
     const asMember = t.withIdentity({
-      subject: `${memberUserId}|test-session`,
+      subject: memberUserId,
       tokenIdentifier: `test:${memberUserId}`,
     });
 
@@ -326,15 +326,15 @@ describe("organization-owned repositories", () => {
     ).toEqual(["alpha/app-a", "zeta/app-z"]);
 
     const asMember = t.withIdentity({
-      subject: `${memberUserId}|test-session`,
+      subject: memberUserId,
       tokenIdentifier: `test:${memberUserId}`,
     });
     const asOtherMember = t.withIdentity({
-      subject: `${otherMemberUserId}|test-session`,
+      subject: otherMemberUserId,
       tokenIdentifier: `test:${otherMemberUserId}`,
     });
     const asOutsider = t.withIdentity({
-      subject: `${outsiderUserId}|test-session`,
+      subject: outsiderUserId,
       tokenIdentifier: `test:${outsiderUserId}`,
     });
 
@@ -461,7 +461,7 @@ describe("organization-owned repositories", () => {
       githubRepositoryDatabaseId: "failed-stable-repository-id",
     });
     const asUser = t.withIdentity({
-      subject: `${userId}|failed-repository-identity`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     await expect(asUser.query(api.repository.list, {})).resolves.toEqual(
@@ -572,7 +572,7 @@ describe("organization-owned repositories", () => {
     ).rejects.toThrow("Repository already exists for this repository name.");
 
     const asUser = t.withIdentity({
-      subject: `${userId}|repository-rename`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     await expect(asUser.query(api.repository.list, {})).resolves.toEqual(
@@ -611,7 +611,7 @@ describe("organization-owned repositories", () => {
     });
 
     const asUser = t.withIdentity({
-      subject: `${userId}|test-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     await expect(

@@ -1,7 +1,6 @@
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
@@ -26,7 +25,6 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
-  landingPrimaryActionTestId: string;
   mcpConsentPathname: string;
   rootAttribute: string;
   styleElementId: string;
@@ -42,7 +40,6 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env["VITE_CONVEX_URL"] ?? null,
   ignoredPathnames: ["/visual-fixture"],
-  landingPrimaryActionTestId: PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
   mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
@@ -83,10 +80,7 @@ function InlineScript_prehydrateAppAuthPresentation(
     return '"' + escaped + '"';
   }
 
-  function installPrehydrationStyle(presentation: {
-    kind: "signed-in" | "signed-out";
-    label: string;
-  }) {
+  function installSignedOutPrehydrationStyle(label: string) {
     if (document.getElementById(args.styleElementId) !== null) return;
 
     const accountSectionSelector =
@@ -103,16 +97,6 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-out]";
     const signedOutLabelSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-out-label]";
-    const signedInSelector =
-      staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
-    const signedInAccountLabelSelector =
-      staticAccountSectionSelector + " [data-app-auth-prehydration-account-label]";
-    const landingPrimaryActionSelector =
-      "[data-testid=" + cssStringLiteral(args.landingPrimaryActionTestId) + "]";
-    const landingPrimaryActionSignedOutSelector =
-      landingPrimaryActionSelector + " [data-public-landing-primary-action-signed-out]";
-    const landingPrimaryActionSignedInSelector =
-      landingPrimaryActionSelector + " [data-public-landing-primary-action-signed-in]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
@@ -123,7 +107,7 @@ html[${args.rootAttribute}="signed-out"] ${accountLabelSelector} {
 
 html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
   color: hsl(var(--foreground));
-  content: ${cssStringLiteral(presentation.label)};
+  content: ${cssStringLiteral(label)};
   display: block;
   font-size: 0.875rem;
   inset-block-start: 0;
@@ -152,56 +136,14 @@ html[${args.rootAttribute}="signed-out"] ${signedOutSelector} {
 }
 
 html[${args.rootAttribute}="signed-out"] ${signedOutLabelSelector}::after {
-  content: ${cssStringLiteral(presentation.label)};
+  content: ${cssStringLiteral(label)};
   display: block;
   overflow-wrap: anywhere;
 }
 
-html[${args.rootAttribute}="signed-in"] ${accountLabelSelector} {
-  color: transparent !important;
-  position: relative !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${accountLabelSelector}::after {
-  color: hsl(var(--foreground));
-  content: ${cssStringLiteral(presentation.label)};
-  display: block;
-  font-size: 0.875rem;
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  inset-inline-start: 0;
-  line-height: 1.25rem;
-  overflow-wrap: anywhere;
-  position: absolute;
-}
-
-html[${args.rootAttribute}="signed-in"] ${staticAccountLabelSelector} {
-  display: none !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${staticAccountContentSelector} {
-  display: block !important;
-  margin-top: 0 !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
-  display: block !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
-  content: ${cssStringLiteral(presentation.label)};
-}
-
-html[${args.rootAttribute}="signed-in"] ${landingPrimaryActionSignedOutSelector} {
-  display: none !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${landingPrimaryActionSignedInSelector} {
-  display: block !important;
-}
     `;
     document.head.append(styleElement);
-    document.documentElement.setAttribute(args.rootAttribute, presentation.kind);
+    document.documentElement.setAttribute(args.rootAttribute, "signed-out");
     if (typeof window.MutationObserver !== "function") return;
 
     const observer = new window.MutationObserver(() => {
@@ -228,12 +170,7 @@ html[${args.rootAttribute}="signed-in"] ${landingPrimaryActionSignedInSelector} 
       storageNamespace: convexUrl,
     });
 
-    if (authPresentationHint.kind === "present") {
-      installPrehydrationStyle({
-        kind: "signed-in",
-        label: authPresentationHint.label,
-      });
-    } else if (authPresentationHint.kind === "signedOut") {
+    if (authPresentationHint.kind === "signedOut") {
       const searchParams = new URL(window.location.href).searchParams;
       const signup = searchParams.get("signup");
       const authorizationError = searchParams.get(args.authorizationErrorQueryParam);
@@ -250,10 +187,7 @@ html[${args.rootAttribute}="signed-in"] ${landingPrimaryActionSignedInSelector} 
       ) {
         return;
       }
-      installPrehydrationStyle({
-        kind: "signed-out",
-        label: "Sign in or create an account",
-      });
+      installSignedOutPrehydrationStyle("Sign in or create an account");
     }
   } catch {}
 }

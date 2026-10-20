@@ -1,4 +1,3 @@
-import { getAuthSessionId } from "@convex-dev/auth/server";
 import type { ActionCtx, DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -10,10 +9,6 @@ import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
-import {
-  AUTH_ACCOUNT_LINK_INTENT_DURATION_MS,
-  vAuthAccountProvider,
-} from "./identity/accountModel";
 import {
   getOrganizationCiCredentials,
   getOrganizationProviderConfiguration,
@@ -399,45 +394,6 @@ export const getProductUpdateEmailConsent = query({
     }
 
     return { state: consent.decision } as const;
-  },
-});
-
-export const beginAuthAccountLink = mutation({
-  access: "access_user_preferences",
-  args: {
-    provider: vAuthAccountProvider,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const sessionId = await getAuthSessionId(ctx);
-    if (sessionId === null) {
-      throw new Error("A current sign-in session is required.");
-    }
-    const [session, account] = await Promise.all([
-      ctx.db.get(sessionId),
-      ctx.db
-        .query("authAccounts")
-        .withIndex("userIdAndProvider", (query) =>
-          query.eq("userId", ctx.viewer.userId).eq("provider", args.provider),
-        )
-        .unique(),
-    ]);
-    if (session === null || session.userId !== ctx.viewer.userId) {
-      throw new Error("The current sign-in session changed.");
-    }
-    if (session.expirationTime <= Date.now()) {
-      throw new Error("The current sign-in session expired.");
-    }
-    if (account !== null) {
-      throw new ConvexError("This sign-in method is already connected.");
-    }
-    await ctx.db.patch(session._id, {
-      accountLinkIntent: {
-        provider: args.provider,
-        expiresAt: Date.now() + AUTH_ACCOUNT_LINK_INTENT_DURATION_MS,
-      },
-    });
-    return null;
   },
 });
 

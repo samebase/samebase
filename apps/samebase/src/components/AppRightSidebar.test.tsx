@@ -1,10 +1,6 @@
 // @vitest-environment jsdom
 
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
-import {
-  convexAuthJwtStorageKey,
-  convexAuthRefreshTokenStorageKey,
-} from "@/lib/appAuthPresentationState";
 import { getFunctionName } from "convex/server";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -47,18 +43,7 @@ const organizationContextState = vi.hoisted<{
   surface: { kind: "allRepositories" },
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
-const PROFILE_JWT = createJwt({
-  accountLabelKind: "displayName",
-  accountLabel: "Nicu",
-  exp: 4100000000,
-});
-const PROFILE_PROVIDER_JWT = createJwt({
-  accountLabelKind: "displayName",
-  accountLabel: "Nicu",
-  authProvider: "password",
-  exp: 4100000000,
-});
+const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
 const PROVIDER_STATUS_QUERY_NAMES = new Set([
   getFunctionName(api.users.getConvexConnectionStatus),
   getFunctionName(api.users.getCloudflareConnectionStatus),
@@ -68,12 +53,6 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
   // a stable value for the organization context.
   return value;
-}
-
-function createJwt(payload: object) {
-  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
-    ".",
-  );
 }
 
 function createTestStorage(): Storage {
@@ -143,9 +122,11 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/oauthSignInRejection", () => ({
+  useOAuthSignInRejection: () => null,
+}));
+
 vi.mock("@/authClient", () => ({
-  isInIframe: () => false,
-  openAuthPopup: vi.fn(),
   useAppAuthActions: () => ({
     signOut: vi.fn(),
   }),
@@ -299,21 +280,6 @@ describe("AppRightSidebarContent", () => {
     organizationContextState.surface = { kind: "allRepositories" };
   });
 
-  it("does not treat a profileless JWT as temporary auth", async () => {
-    authState.isAuthenticated = false;
-    authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
-
-    const markup = renderRightSidebar([]);
-    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-
-    expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Sign in or create an account");
-    expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("/providers");
-    expect(hydratedMarkup).not.toContain("Account settings");
-  });
-
   it("shows the single signed-out auth surface in the protected-route sidebar", () => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
@@ -380,81 +346,13 @@ describe("AppRightSidebarContent", () => {
   it("keeps checking login while a refresh token may restore the session", async () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
-    window.localStorage.setItem(
-      convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
-      "refresh-token",
-    );
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
 
     const markup = renderRightSidebar([]);
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("/providers");
-  });
-
-  it("uses local JWT profile claims after hydration for the temporary signed-in account row", async () => {
-    authState.isAuthenticated = false;
-    authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    const markup = renderRightSidebar([]);
-    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-
-    expect(markup).toContain("checking login");
-    expect(markup).toContain("data-app-auth-prehydration-signed-in");
-    expect(markup).toContain("dashboard-sidebar-account-icon");
-    expect(markup).not.toContain("data-app-auth-prehydration-provider");
-    expect(markup).toContain("Account settings");
-    expect(markup).not.toContain("Sign out");
-    expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).toContain("Account settings");
-    expect(hydratedMarkup).toContain('href="/repo"');
-    expect(hydratedMarkup).not.toContain("Sign out");
-    expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("/providers");
-  });
-
-  it("renders the temporary signed-in account row without an accordion trigger", async () => {
-    authState.isAuthenticated = false;
-    authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    const mounted = await mountRightSidebarAfterEffects([]);
-    try {
-      expect(mounted.rootElement.textContent).toContain("Nicu");
-      expect(mounted.rootElement.textContent).toContain("Account settings");
-      expect(mounted.rootElement.textContent).not.toContain("Sign out");
-      expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
-    } finally {
-      await mounted.unmount();
-    }
-  });
-
-  it("uses the JWT auth provider while authenticated app access loads", async () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      PROFILE_PROVIDER_JWT,
-    );
-
-    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-
-    expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).not.toContain("Signed in with");
-    expect(hydratedMarkup).not.toContain("checking login");
-  });
-
-  it("keeps local JWT profile claims after hydration while authenticated app access loads", async () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    const markup = renderRightSidebar([]);
-    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-    const accountIndex = hydratedMarkup.indexOf("Nicu");
-
-    expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(markup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("/providers");
   });
 
@@ -464,7 +362,6 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("/providers");
     expectProviderStatusQueriesNotSeen();
@@ -580,7 +477,6 @@ describe("AppRightSidebarContent", () => {
   });
 
   it("renders global account navigation after the authenticated viewer loads", async () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
     blockProviderStatusQueries();
 
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
@@ -829,7 +725,6 @@ describe("AppRightSidebarContent", () => {
       },
     ];
     organizationContextState.surface = readAppOrganizationSurface(initialEntry.split("?")[0]);
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     const markup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
@@ -907,7 +802,6 @@ describe("AppRightSidebarContent", () => {
       } satisfies ViewerOrganization;
       organizationContextState.organizations = [organization];
       organizationContextState.surface = surface;
-      window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
       blockProviderStatusQueries();
 
       const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
@@ -974,7 +868,6 @@ describe("AppRightSidebarContent", () => {
         },
       ];
       organizationContextState.surface = surface;
-      window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
       const markup = await renderRightSidebarAfterEffectsWithNamedQueries(
         new Map([
@@ -1006,7 +899,6 @@ describe("AppRightSidebarContent", () => {
       section: "providers",
       source: "organization",
     };
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([

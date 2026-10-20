@@ -277,7 +277,7 @@ async function insertApprovedUser(t: TestBackend, email: string): Promise<Id<"us
 
 function signedInAs(t: TestBackend, userId: Id<"users">) {
   return t.withIdentity({
-    subject: `${userId}|session`,
+    subject: userId,
     tokenIdentifier: `test:${userId}`,
   });
 }

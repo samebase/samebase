@@ -1,4 +1,3 @@
-import { createAccount, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
@@ -21,6 +20,7 @@ import { getOrganizationProviderConfiguration } from "./organizationProviderCred
 import { PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./identity/lifecycle";
+import { readPasswordAccount, writePasswordAccount } from "./identity/passwordAccounts";
 import { CURRENT_TERMS_VERSION } from "./users";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
@@ -641,17 +641,12 @@ export const applyOrganizationContextAcceptanceFixture = internalMutation({
     }
 
     const email = normalizeAccountEmail(args.email);
-    const accounts = await ctx.db
-      .query("authAccounts")
-      .withIndex("providerAndAccountId", (query) =>
-        query.eq("provider", "password").eq("providerAccountId", email),
-      )
-      .take(2);
-    if (accounts.length !== 1) {
+    const account = await readPasswordAccount(ctx.db, email);
+    if (account === null) {
       throw new Error(`Expected one password account for ${email}.`);
     }
 
-    const userId = accounts[0].userId;
+    const userId = account.userId;
     const user = await ctx.db.get(userId);
     if (user === null) {
       throw new Error("An active acceptance user is required.");
@@ -700,37 +695,38 @@ export const applyOrganizationContextAcceptanceFixture = internalMutation({
   },
 });
 
-const seedPasswordAccountUserResolution = union(
-  object({
-    kind: literal("existing"),
-    userId: id("users"),
-  }),
-  object({
-    kind: literal("missing"),
-  }),
-);
-type SeedPasswordAccountUserResolution = Infer<typeof seedPasswordAccountUserResolution>;
-
-export const resolveSeedPasswordAccountUser = internalMutation({
+/**
+Sets the seed account's password, creating its password identity, and its user when no user has the
+email yet.
+*/
+export const writeSeedPasswordAccount = internalMutation({
   args: {
     email: string(),
+    password: string(),
   },
-  returns: seedPasswordAccountUserResolution,
-  handler: async (ctx, args): Promise<SeedPasswordAccountUserResolution> => {
+  returns: object({ created: boolean(), userId: id("users") }),
+  handler: async (ctx, args) => {
     const email = normalizeAccountEmail(args.email);
-    const accounts = await ctx.db
-      .query("authAccounts")
-      .withIndex("providerAndAccountId", (q) =>
-        q.eq("provider", "password").eq("providerAccountId", email),
-      )
-      .take(2);
-    if (accounts.length > 1) {
-      throw new Error(`Multiple password auth accounts exist for ${email}`);
-    }
-    if (accounts.length === 0) {
-      return { kind: "missing" };
-    }
-    return { kind: "existing", userId: accounts[0].userId };
+    const account = await readPasswordAccount(ctx.db, email);
+    const emailOwner =
+      account === null
+        ? await ctx.db
+            .query("users")
+            .withIndex("email", (q) => q.eq("email", email))
+            .first()
+        : null;
+    const userId =
+      account?.userId ??
+      (emailOwner === null
+        ? await ctx.db.insert("users", {
+            state: "active",
+            email,
+            emailVerificationTime: Date.now(),
+          })
+        : emailOwner._id);
+
+    await writePasswordAccount(ctx, { email, password: args.password, userId });
+    return { created: account === null && emailOwner === null, userId };
   },
 });
 
@@ -762,41 +758,10 @@ export const seedPasswordAccount = internalAction({
       });
     }
 
-    let created = false;
-    let userId: Id<"users">;
-    const resolution: SeedPasswordAccountUserResolution = await ctx.runMutation(
-      internal.devAuth.resolveSeedPasswordAccountUser,
-      {
-        email,
-      },
+    const { created, userId }: { created: boolean; userId: Id<"users"> } = await ctx.runMutation(
+      internal.devAuth.writeSeedPasswordAccount,
+      { email, password },
     );
-    if (resolution.kind === "existing") {
-      await modifyAccountCredentials(ctx, {
-        provider: "password",
-        account: {
-          id: email,
-          secret: password,
-        },
-      });
-      userId = resolution.userId;
-    } else {
-      const createdAccount = await createAccount(ctx, {
-        provider: "password",
-        account: {
-          id: email,
-          secret: password,
-        },
-        profile: {
-          state: "active",
-          email,
-          emailVerificationTime: Date.now(),
-        },
-        shouldLinkViaEmail: false,
-        shouldLinkViaPhone: false,
-      });
-      userId = createdAccount.user._id;
-      created = true;
-    }
 
     await ctx.runMutation(internal.devAuth.approveSeedPasswordAccount, { userId });
     if (worktreeOrganizationConfig !== null) {

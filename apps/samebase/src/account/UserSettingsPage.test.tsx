@@ -12,7 +12,6 @@ import { UserSettingsPage } from "./UserSettingsPage";
 const { act } = React;
 
 const testState = vi.hoisted(() => ({
-  fetchAccessToken: vi.fn(),
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
   route: {
@@ -24,17 +23,11 @@ const testState = vi.hoisted(() => ({
     canGoBack: vi.fn(() => true),
     navigate: vi.fn(async () => undefined),
   },
-  signInWithOAuth: vi.fn(),
   signOut: vi.fn(),
-}));
-
-vi.mock("@convex-dev/auth/react", () => ({
-  useConvexAuth: () => ({ fetchAccessToken: testState.fetchAccessToken }),
 }));
 
 vi.mock("@/authClient", () => ({
   useAppAuthActions: () => ({ signOut: testState.signOut }),
-  useAppSignInActions: () => ({ signInWithOAuth: testState.signInWithOAuth }),
 }));
 
 vi.mock("@/account/AccountDeletionDialog", () => ({
@@ -89,20 +82,6 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-function createJwt(accountPresentation: AccountPresentation) {
-  return [
-    "header",
-    Buffer.from(
-      JSON.stringify({
-        accountLabelKind: accountPresentation.kind,
-        accountLabel: accountPresentation.label,
-        exp: 4_100_000_000,
-      }),
-    ).toString("base64url"),
-    "signature",
-  ].join(".");
-}
-
 function setDefaultQueries() {
   testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
     accessKeys: [
@@ -135,7 +114,6 @@ let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
 async function mountSettingsPage(
-  authorizationNotice: React.ReactNode = null,
   termsAccepted = true,
   role: "role_member" | "role_pending_access" | "role_terms_pending" = "role_member",
 ) {
@@ -155,9 +133,7 @@ async function mountSettingsPage(
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
-  await act(async () =>
-    root?.render(<UserSettingsPage authorizationNotice={authorizationNotice} />),
-  );
+  await act(async () => root?.render(<UserSettingsPage />));
   return rootElement;
 }
 
@@ -167,7 +143,6 @@ function findButton(container: HTMLElement, label: string) {
 
 describe("UserSettingsPage", () => {
   beforeEach(() => {
-    testState.fetchAccessToken.mockReset();
     testState.mutations.clear();
     testState.queries.clear();
     testState.route.search = {};
@@ -177,8 +152,6 @@ describe("UserSettingsPage", () => {
     testState.router.canGoBack.mockReturnValue(true);
     testState.router.navigate.mockReset();
     testState.router.navigate.mockResolvedValue(undefined);
-    testState.signInWithOAuth.mockReset();
-    testState.signInWithOAuth.mockResolvedValue(undefined);
     testState.signOut.mockReset();
     window.history.replaceState({}, "", "/settings");
     setDefaultQueries();
@@ -193,8 +166,7 @@ describe("UserSettingsPage", () => {
     rootElement = null;
   });
 
-  it("starts an explicit GitHub sign-in connection and hides Google connection", async () => {
-    window.history.replaceState({}, "", "/settings?prod-ui&source=account#sign-in-methods");
+  it("lists the sign-in methods without a Connect action", async () => {
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",
       displayName: "Current name",
@@ -204,67 +176,15 @@ describe("UserSettingsPage", () => {
         password: null,
       },
     });
-    const beginAuthAccountLink = vi.fn(async () => null);
-    testState.mutations.set(getFunctionName(api.users.beginAuthAccountLink), beginAuthAccountLink);
     const container = await mountSettingsPage();
 
-    await act(async () => {
-      findButton(container, "Connect GitHub")?.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
+    expect(container.textContent).toContain("Not connected");
+    expect(findButton(container, "Connect GitHub")).toBeUndefined();
     expect(findButton(container, "Connect Google")).toBeUndefined();
-    expect(beginAuthAccountLink).toHaveBeenCalledWith({ provider: "github" });
-    expect(testState.signInWithOAuth).toHaveBeenCalledWith(
-      "github",
-      "/settings?prod-ui&source=account#sign-in-methods",
-    );
-  });
-
-  it("resets a pending sign-in connection only after a persisted page restore", async () => {
-    testState.queries.set(getFunctionName(api.users.getUserSettings), {
-      accountEmail: "account@samebase.com",
-      displayName: "Current name",
-      signInMethods: {
-        github: null,
-        google: null,
-        password: null,
-      },
-    });
-    testState.mutations.set(
-      getFunctionName(api.users.beginAuthAccountLink),
-      vi.fn(async () => null),
-    );
-    const container = await mountSettingsPage();
-
-    await act(async () => {
-      findButton(container, "Connect GitHub")?.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(findButton(container, "Connecting...")).not.toBeUndefined();
-
-    const ordinaryPageShow = new Event("pageshow");
-    Object.defineProperty(ordinaryPageShow, "persisted", { value: false });
-    await act(async () => window.dispatchEvent(ordinaryPageShow));
-    expect(findButton(container, "Connecting...")).not.toBeUndefined();
-
-    const restoredPageShow = new Event("pageshow");
-    Object.defineProperty(restoredPageShow, "persisted", { value: true });
-    await act(async () => window.dispatchEvent(restoredPageShow));
-    expect(findButton(container, "Connect GitHub")).not.toBeUndefined();
-  });
-
-  it("places the route-owned authorization notice in authenticated settings", async () => {
-    const container = await mountSettingsPage(<div role="alert">Account link failed</div>);
-
-    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
-    expect(container.textContent).toContain("Account link failed");
   });
 
   it("shows only account exit actions before Terms acceptance", async () => {
-    const container = await mountSettingsPage(null, false, "role_terms_pending");
+    const container = await mountSettingsPage(false, "role_terms_pending");
 
     expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
       "Sign out",
@@ -276,7 +196,7 @@ describe("UserSettingsPage", () => {
   });
 
   it("shows only account exit actions before account approval", async () => {
-    const container = await mountSettingsPage(null, true, "role_pending_access");
+    const container = await mountSettingsPage(true, "role_pending_access");
 
     expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
       "Sign out",
@@ -388,14 +308,13 @@ describe("UserSettingsPage", () => {
     });
   });
 
-  it("saves the profile and refreshes the session", async () => {
+  it("saves the profile", async () => {
     const committedPresentation = {
       kind: "displayName",
       label: "Nicu",
     } satisfies AccountPresentation;
     const setDisplayName = vi.fn(async () => committedPresentation);
     testState.mutations.set(getFunctionName(api.users.setDisplayName), setDisplayName);
-    testState.fetchAccessToken.mockResolvedValue(createJwt(committedPresentation));
     const container = await mountSettingsPage();
     const form = container.querySelector("form");
     const input = container.querySelector<HTMLInputElement>('[name="displayName"]');
@@ -416,7 +335,6 @@ describe("UserSettingsPage", () => {
     });
 
     expect(setDisplayName).toHaveBeenCalledWith({ displayName: "Nicu" });
-    expect(testState.fetchAccessToken).toHaveBeenCalledWith({ forceRefreshToken: true });
     expect(container.textContent).toContain("Saved");
   });
 });

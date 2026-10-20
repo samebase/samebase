@@ -11,13 +11,12 @@ import {
 } from "@/lib/publicLanding";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 
 type SignInFormProps = {
   authPlacement: "inline" | "sidebar";
   landingPageMarkdown: string;
   logo: "classic" | "menger";
-  topNotice: ReactNode;
 };
 
 const [LANDING_LOGO_STARTING_VIEW] = LOGO_IDENTITY_VIEW_CONTRACTS;
@@ -68,12 +67,7 @@ function LandingPageLogo({
   );
 }
 
-export function SignInForm({
-  authPlacement,
-  landingPageMarkdown,
-  logo,
-  topNotice,
-}: SignInFormProps) {
+export function SignInForm({ authPlacement, landingPageMarkdown, logo }: SignInFormProps) {
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
@@ -89,7 +83,6 @@ export function SignInForm({
               : "mx-auto my-auto flex max-w-[384px] flex-col gap-4"
           }
         >
-          {topNotice}
           {logo === "menger" ? (
             <LandingHeroMenger placement="root" />
           ) : (

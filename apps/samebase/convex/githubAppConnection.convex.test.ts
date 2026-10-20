@@ -220,7 +220,7 @@ describe("GitHub App connection", () => {
       },
     ]);
     const asSeedUser = t.withIdentity({
-      subject: `${userId}|preview-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 

@@ -1,22 +1,16 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   buildPathWithTanStackSearch,
   parseTanStackSearch,
   stringifyTanStackSearch,
 } from "./lib/tanstackSearchParams";
 
-const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithOAuthMock } = vi.hoisted(
-  () => ({
-    buildLocationMock: vi.fn(),
-    isInIframeMock: vi.fn(() => false),
-    openAuthPopupMock: vi.fn(),
-    signInWithOAuthMock: vi.fn(),
-  }),
-);
+const { buildLocationMock, signInWithOAuthMock } = vi.hoisted(() => ({
+  buildLocationMock: vi.fn(),
+  signInWithOAuthMock: vi.fn(),
+}));
 
 vi.mock("@/authClient", () => ({
-  isInIframe: isInIframeMock,
-  openAuthPopup: openAuthPopupMock,
   useAppSignInActions: () => ({
     signInWithOAuth: signInWithOAuthMock,
   }),
@@ -32,12 +26,13 @@ import { SignInWithOAuth } from "./SignInWithOAuth";
 import type { OAuthAuthProvider } from "./lib/oauthAuthRedirect";
 
 describe("SignInWithOAuth", () => {
+  beforeEach(() => {
+    signInWithOAuthMock.mockResolvedValue(undefined);
+  });
+
   afterEach(() => {
     buildLocationMock.mockReset();
     signInWithOAuthMock.mockReset();
-    openAuthPopupMock.mockReset();
-    isInIframeMock.mockReset();
-    isInIframeMock.mockReturnValue(false);
     vi.unstubAllGlobals();
   });
 
@@ -109,7 +104,6 @@ describe("SignInWithOAuth", () => {
 
       expect(signInWithOAuthMock).toHaveBeenCalledWith(provider, expectedRedirectTo);
       expect(expectedRedirectTo).not.toContain("auth=");
-      expect(openAuthPopupMock).not.toHaveBeenCalled();
     },
   );
 
@@ -145,36 +139,7 @@ describe("SignInWithOAuth", () => {
     },
   );
 
-  it.each(["google", "github"] as const)(
-    "propagates the public signup marker through iframe %s auth",
-    (provider) => {
-      isInIframeMock.mockReturnValue(true);
-      vi.stubGlobal("window", {
-        location: {
-          origin: "https://samebase.com",
-          pathname: "/",
-          search: "",
-          hash: "",
-        },
-      });
-      mockCurrentRouteLocationBuilder();
-
-      const element = renderOAuthButton(provider, {
-        authReturn: "dashboard",
-        markPublicSignupReturn: true,
-      });
-
-      element.props.onClick();
-
-      expect(openAuthPopupMock).toHaveBeenCalledWith(provider, {
-        popupPath: `/?auth=${provider}&auth-return=dashboard&signup=${provider}`,
-      });
-      expect(signInWithOAuthMock).not.toHaveBeenCalled();
-    },
-  );
-
-  it("keeps iframe GitHub auth on the requested private route", () => {
-    isInIframeMock.mockReturnValue(true);
+  it("starts GitHub auth on the requested private route", () => {
     vi.stubGlobal("window", {
       location: {
         origin: "https://samebase.com",
@@ -189,9 +154,9 @@ describe("SignInWithOAuth", () => {
 
     element.props.onClick();
 
-    expect(openAuthPopupMock).toHaveBeenCalledWith("github", {
-      popupPath: "/repo/samebase/samebase/fs/main/README.md?auth=github",
-    });
-    expect(signInWithOAuthMock).not.toHaveBeenCalled();
+    expect(signInWithOAuthMock).toHaveBeenCalledWith(
+      "github",
+      "/repo/samebase/samebase/fs/main/README.md",
+    );
   });
 });

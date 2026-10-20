@@ -57,8 +57,8 @@ declaring one.
   types the code cannot earn.
 
   A local annotation can launder the same gap when the expression is already `any`. For example,
-  Convex Auth currently types the `jwt.customClaims` callback with `GenericQueryCtx<AnyDataModel>`,
-  so `ctx.db.get("users", userId)` does not carry Samebase's generated `Doc<"users">` type. Do not
+  Convex Auth 0.0.x typed its `jwt.customClaims` callback with `GenericQueryCtx<AnyDataModel>`, so
+  `ctx.db.get("users", userId)` did not carry Samebase's generated `Doc<"users">` type. Do not
   write:
 
   ```ts
@@ -70,7 +70,7 @@ declaring one.
 
   ```ts
   const user: unknown = await ctx.db.get("users", userId);
-  return buildAuthTokenProfileCustomClaims(user); // validates before reading fields
+  return readProfileClaims(user); // validates before reading fields
   ```
 
   If the boundary can be wrapped in a truly typed API, do that once with a concrete runtime proof.

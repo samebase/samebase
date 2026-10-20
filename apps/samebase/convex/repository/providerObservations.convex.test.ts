@@ -309,7 +309,7 @@ describe("repository provider observations", () => {
       region: "aws-eu-west-1",
     });
     const viewer = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
+      subject: ids.userId,
       tokenIdentifier: `test:${ids.userId}`,
     });
 

@@ -61,7 +61,7 @@ describe("getCloudflareMcpOAuthUrl", () => {
 
     const authorizeUrl = await t
       .withIdentity({
-        subject: `${userId}|test-session`,
+        subject: userId,
         tokenIdentifier: `test:${userId}`,
       })
       .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, { organizationId });

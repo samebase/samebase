@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase auth/backend
-- Last updated: 2026-08-08
+- Last updated: 2026-10-20
 - Related:
   - `docs/manual-password-auth.md`
   - `specs/018_AUTH_APPROVAL_BOUNDARY_SPEC.md`
@@ -23,24 +23,28 @@ Samebase supports four password authentication modes:
 The server checks the current mode for every password request. Hiding the password form is not the
 security boundary.
 
-An operator creates or rotates a manual account with the internal
-`authAdmin:createOrUpdatePasswordAccount` action. Application clients cannot call this action. The
-action:
+Password sign-in is a Samebase method on the Convex Auth 2 component API. The public mutations
+`auth:signInWithPassword` and `auth:signUpWithPassword` find the `authAccounts` password identity of
+the email, check the password with the Convex Auth password component, and mint the session through
+the core component. A wrong password returns an error result, so the password component's per-user
+rate limit keeps the attempt. Only server functions create password accounts, so a password account
+always belongs to an existing user.
 
-- stores only the password hash
+An operator creates or rotates a manual account with the internal
+`authAdmin:createOrUpdatePasswordAccount` mutation. Application clients cannot call this mutation.
+The mutation:
+
+- stores only the password hash, in the Convex Auth password component
 - links to one existing verified user with the same email when available
 - rejects duplicate verified users and conflicting account links
 - marks a new user's email as verified
 - approves the linked user
-- deletes the user's stored sessions and refresh tokens after a password rotation
 
-Manual account creation does not send a new-user notification. Password operations fail while
-`AUTH_LOG_LEVEL=DEBUG` because Convex Auth debug output can contain credential fragments.
+A password rotation does not end the user's existing sessions: Convex Auth 2 has no function that
+removes the sessions of a user. Manual account creation does not send a new-user notification.
 
 Disabling manual password authentication blocks new password sign-ins. It does not end sessions that
 already exist.
-
-An access token that was issued before a password rotation can remain valid for up to one hour.
 
 ## Non-Goals
 
@@ -52,8 +56,7 @@ An access token that was issued before a password rotation can remain valid for 
 ## Validation
 
 - `deploymentProfile.test.ts` covers mode selection and allowed flows.
-- `authPassword.convex.test.ts` covers the public sign-in boundary.
-- `authAdmin.convex.test.ts` covers creation, linking, conflict rejection, rotation, approval, and
-  session invalidation.
+- `authPassword.convex.test.ts` covers the public sign-in and sign-up boundary.
+- `authAdmin.convex.test.ts` covers creation, linking, conflict rejection, rotation, and approval.
 - `SignInForm.passwordAuth.test.tsx` and `publicLandingAuthState.test.ts` cover the visible sign-in
   surface.

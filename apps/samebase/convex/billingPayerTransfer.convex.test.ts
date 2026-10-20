@@ -83,11 +83,11 @@ async function seedPayerTransfer() {
   return {
     ...ids,
     asCurrentPayer: t.withIdentity({
-      subject: `${ids.currentPayerUserId}|payer-transfer-session`,
+      subject: ids.currentPayerUserId,
       tokenIdentifier: `test:${ids.currentPayerUserId}`,
     }),
     asTarget: t.withIdentity({
-      subject: `${ids.targetUserId}|target-session`,
+      subject: ids.targetUserId,
       tokenIdentifier: `test:${ids.targetUserId}`,
     }),
     t,

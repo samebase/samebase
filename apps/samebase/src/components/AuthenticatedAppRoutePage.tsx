@@ -21,14 +21,7 @@ import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage
 import { toast } from "@/components/ui/use-toast";
 import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";
 
-const ALL_AUTHORIZATION_SOURCES = [
-  "convex",
-  "cloudflare",
-  "github-app",
-  "github-user",
-  "google-sign-in",
-  "github-sign-in",
-] as const;
+const ALL_AUTHORIZATION_SOURCES = ["convex", "cloudflare", "github-app", "github-user"] as const;
 const NO_AUTHORIZATION_SOURCES = [] as const;
 
 function isAuthorizationErrorHandledByRoute(
@@ -46,9 +39,6 @@ function isAuthorizationErrorHandledByRoute(
         pathname === `${ORGANIZATIONS_ROUTE}/` ||
         /^\/org\/[^/]+\/providers\/?$/.test(pathname)
       );
-    case "google-sign-in":
-    case "github-sign-in":
-      return pathname === "/settings";
     default:
       provider satisfies never;
       return false;
@@ -99,15 +89,10 @@ function FallbackAuthorizationErrorNotice({
   return null;
 }
 
-function AuthenticatedRouteSignInForm({ topNotice }: { topNotice: ReactNode }) {
+function AuthenticatedRouteSignInForm() {
   return (
     <Suspense fallback={null}>
-      <SignInForm
-        authPlacement="inline"
-        landingPageMarkdown={landingPageMarkdown}
-        logo="classic"
-        topNotice={topNotice}
-      />
+      <SignInForm authPlacement="inline" landingPageMarkdown={landingPageMarkdown} logo="classic" />
     </Suspense>
   );
 }
@@ -115,11 +100,9 @@ function AuthenticatedRouteSignInForm({ topNotice }: { topNotice: ReactNode }) {
 function AuthenticatedRoutePage({
   approvalRequired,
   children,
-  signInTopNotice,
 }: {
   approvalRequired: boolean;
   children: ReactNode;
-  signInTopNotice: ReactNode;
 }) {
   const pathname = useLocation({
     select: (location) => location.pathname,
@@ -143,20 +126,11 @@ function AuthenticatedRoutePage({
     <FallbackAuthorizationErrorNotice pathname={pathname} rootRouteSearch={rootRouteSearch} />
   );
 
-  if (authPresentation.kind === "temporaryAuthenticated") {
-    return (
-      <>
-        {fallbackAuthorizationErrorNotice}
-        <div data-testid="temporary-auth-route-shell" />
-      </>
-    );
-  }
-
   if (authPresentation.kind === "signedOut") {
     return (
       <>
         {fallbackAuthorizationErrorNotice}
-        <AuthenticatedRouteSignInForm topNotice={signInTopNotice} />
+        <AuthenticatedRouteSignInForm />
       </>
     );
   }
@@ -174,30 +148,16 @@ function AuthenticatedRoutePage({
         )}
       </Authenticated>
       <Unauthenticated>
-        <AuthenticatedRouteSignInForm topNotice={signInTopNotice} />
+        <AuthenticatedRouteSignInForm />
       </Unauthenticated>
     </>
   );
 }
 
 export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
-  return (
-    <AuthenticatedRoutePage approvalRequired signInTopNotice={null}>
-      {children}
-    </AuthenticatedRoutePage>
-  );
+  return <AuthenticatedRoutePage approvalRequired>{children}</AuthenticatedRoutePage>;
 }
 
-export function AuthenticatedUserRoutePage({
-  children,
-  signInTopNotice = null,
-}: {
-  children: ReactNode;
-  signInTopNotice?: ReactNode;
-}) {
-  return (
-    <AuthenticatedRoutePage approvalRequired={false} signInTopNotice={signInTopNotice}>
-      {children}
-    </AuthenticatedRoutePage>
-  );
+export function AuthenticatedUserRoutePage({ children }: { children: ReactNode }) {
+  return <AuthenticatedRoutePage approvalRequired={false}>{children}</AuthenticatedRoutePage>;
 }

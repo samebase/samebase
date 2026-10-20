@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { cleanupAccountDataBatchForUser } from "./cleanup";
@@ -116,10 +117,6 @@ export const deleteAuthAccountBatch = internalMutation({
 
     if (account.emailVerified !== undefined) {
       await deleteRateLimit(ctx, account.emailVerified);
-    }
-
-    if (account.phoneVerified !== undefined) {
-      await deleteRateLimit(ctx, account.phoneVerified);
     }
 
     await ctx.db.delete(account._id);
@@ -341,6 +338,14 @@ export const finishIdentityDeletion = internalMutation({
     }
 
     await assertIdentityDeletionReady(ctx, run);
+
+    // Convex Auth 2 keeps its own accounts, sessions, refresh tokens, and password hash by user id.
+    // Deleting them in the transaction that marks the user deleted ends every session of the user,
+    // and a later sign-in with the same provider account creates a new user.
+    await ctx.runMutation(components.auth.public.deleteUser, { userId: run.identity.userId });
+    await ctx.runMutation(components.authPassword.public.deleteUser, {
+      userId: run.identity.userId,
+    });
 
     const initiatingSession =
       run.initiatingSessionId === undefined ? null : await ctx.db.get(run.initiatingSessionId);

@@ -72,7 +72,7 @@ describe("organization billing access", () => {
       return { organizationId, userId };
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|personal-pro-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -145,7 +145,7 @@ describe("organization billing access", () => {
       return { organizationId, userId };
     });
     const asPendingUser = t.withIdentity({
-      subject: `${userId}|pending-billing-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -189,7 +189,7 @@ describe("organization billing access", () => {
     ).rejects.toThrow("This organization needs more paid member seats.");
 
     const asPayer = seed.t.withIdentity({
-      subject: `${seed.userId}|billing-payer-session`,
+      subject: seed.userId,
       tokenIdentifier: `test:${seed.userId}`,
     });
     await expect(

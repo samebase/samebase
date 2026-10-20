@@ -1,15 +1,11 @@
-import { isInIframe, openAuthPopup, useAppSignInActions } from "@/authClient";
+import { useAppSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
   PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
 } from "@/lib/publicLanding";
-import {
-  buildOAuthAuthPopupSearch,
-  buildOAuthRedirectSearch,
-  type OAuthAuthProvider,
-} from "@/lib/oauthAuthRedirect";
+import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
 import { useRouter } from "@tanstack/react-router";
 import { Github } from "lucide-react";
 
@@ -36,15 +32,6 @@ export function SignInWithOAuth({
           markPublicSignupReturn,
         }),
       state: true,
-      to: authReturn === "dashboard" ? "/" : ".",
-    }).href;
-  const buildPopupPath = () =>
-    router.buildLocation({
-      search: (currentSearch) =>
-        buildOAuthAuthPopupSearch(currentSearch, provider, {
-          authReturn,
-          markPublicSignupReturn,
-        }),
       to: authReturn === "dashboard" ? "/" : ".",
     }).href;
 
@@ -74,17 +61,13 @@ export function SignInWithOAuth({
       variant={provider === "github" ? "default" : "outline"}
       type="button"
       onClick={() => {
-        if (isInIframe()) {
-          openAuthPopup(provider, { popupPath: buildPopupPath() });
-        } else {
-          void Promise.resolve(signInWithOAuth(provider, buildRedirectTo())).catch(() => {
-            toast({
-              description: "Try again.",
-              title: `Could not start ${provider === "github" ? "GitHub" : "Google"} sign-in`,
-              variant: "destructive",
-            });
+        void signInWithOAuth(provider, buildRedirectTo()).catch(() => {
+          toast({
+            description: "Try again.",
+            title: `Could not start ${provider === "github" ? "GitHub" : "Google"} sign-in`,
+            variant: "destructive",
           });
-        }
+        });
       }}
     >
       {icon}

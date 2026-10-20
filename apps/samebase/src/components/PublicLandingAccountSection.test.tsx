@@ -5,10 +5,6 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
-import {
-  convexAuthJwtStorageKey,
-  convexAuthRefreshTokenStorageKey,
-} from "@/lib/appAuthPresentationState";
 import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
 import { PublicLandingAccountSection } from "./PublicLandingAccountSection";
 
@@ -32,18 +28,9 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
 const buildLocationMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const signInWithOAuthMock = vi.hoisted(() => vi.fn());
+const rejectionState = vi.hoisted<{ message: string | null }>(() => ({ message: null }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const PROFILE_JWT = [
-  "header",
-  Buffer.from(
-    JSON.stringify({
-      accountLabelKind: "displayName",
-      accountLabel: "Nicu",
-      exp: 4100000000,
-    }),
-  ).toString("base64url"),
-  "signature",
-].join(".");
+const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -88,9 +75,11 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/oauthSignInRejection", () => ({
+  useOAuthSignInRejection: () => rejectionState.message,
+}));
+
 vi.mock("@/authClient", () => ({
-  isInIframe: () => false,
-  openAuthPopup: vi.fn(),
   useAppAuthActions: () => ({
     signOut: vi.fn(),
   }),
@@ -218,7 +207,9 @@ describe("PublicLandingAccountSection", () => {
     buildLocationMock.mockReset();
     buildLocationMock.mockReturnValue({ href: "/" });
     navigateMock.mockReset();
+    rejectionState.message = null;
     signInWithOAuthMock.mockReset();
+    signInWithOAuthMock.mockResolvedValue(undefined);
   });
 
   it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {
@@ -238,27 +229,9 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("checking login");
   });
 
-  it("uses local JWT profile claims after hydration while auth state loads", async () => {
-    authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    const markup = renderLandingAccountSection("/");
-    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
-
-    expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).not.toContain("Sign out");
-    expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Sign in or create an account");
-    expect(queryState.index).toBe(0);
-  });
-
   it("keeps checking login while a refresh token may restore the session", async () => {
     authState.isLoading = true;
-    window.localStorage.setItem(
-      convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
-      "refresh-token",
-    );
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
 
     const markup = renderLandingAccountSection("/");
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
@@ -282,36 +255,16 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
-  it("keeps local JWT profile claims after hydration while the signed-in viewer loads", async () => {
-    authState.isAuthenticated = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-    queryState.results = [undefined];
-
-    const markup = renderLandingAccountSection("/");
-    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
-
-    expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Account");
-    expect(hydratedMarkup).not.toContain("Sign in or create an account");
-  });
-
   it("shows the signed-in account name after the viewer loads", async () => {
     authState.isAuthenticated = true;
-    queryState.results = [
-      {
-        _id: "user_123",
-        accountPresentation: {
-          kind: "displayName",
-          label: "Nicu",
-        },
+    const viewer = {
+      _id: "user_123",
+      accountPresentation: {
+        kind: "displayName",
+        label: "Nicu",
       },
-      {
-        providers: ["google"],
-        primaryProvider: "google",
-      },
-    ];
+    };
+    queryState.results = [viewer, viewer];
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
@@ -483,22 +436,17 @@ describe("PublicLandingAccountSection", () => {
     expect(renderedDocument.querySelectorAll("input")).toHaveLength(0);
   });
 
-  it("explains how to link GitHub and keeps GitHub sign-in available", async () => {
-    const markup = await renderLandingAccountSectionAfterEffects(
-      "/?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
-    );
+  it("shows why Samebase rejected the sign-in and keeps GitHub sign-in available", async () => {
+    rejectionState.message =
+      "This Samebase account already uses a different GitHub account. Sign in with that account.";
+
+    const markup = await renderLandingAccountSectionAfterEffects("/?signup=github");
 
     expect(markup).toContain(
-      "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
+      "This Samebase account already uses a different GitHub account. Sign in with that account.",
     );
     expect(markup).toContain("Continue with GitHub");
     expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("Sign-in was not completed.");
-    expect(navigateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        replace: true,
-        to: ".",
-      }),
-    );
   });
 });

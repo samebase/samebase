@@ -129,7 +129,7 @@ async function seedComponentsRepository(t: ReturnType<typeof makeConvexTest>) {
   return {
     ids,
     user: t.withIdentity({
-      subject: `${ids.userId}|test-session`,
+      subject: ids.userId,
       tokenIdentifier: `test:${ids.userId}`,
     }),
   };

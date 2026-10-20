@@ -2,7 +2,6 @@ import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { Button } from "@/components/ui/button";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
-import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { getRouteApi } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
@@ -177,7 +176,6 @@ export function McpConsentRoutePage() {
     [isAuthenticated],
   );
 
-  useCloseOAuthPopup(MCP_CONSENT_APP_PATH, undefined, requestId === null);
   usePageMetadata(pageMetadata);
 
   return (

@@ -5,14 +5,12 @@ import {
   RepositoryDashboardAccountSection,
   RepositoryDashboardAccountSectionFrame,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import {
-  useAppAuthPresentation,
-  type AppAuthPresentationProfile,
-} from "@/lib/appAuthPresentationState";
+import { useAppAuthPresentation } from "@/lib/appAuthPresentationState";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderOAuthReturnNotice } from "@/lib/publicLandingAuthState";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
+import { useOAuthSignInRejection } from "@/lib/oauthSignInRejection";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { readRootRouteSearch } from "@/routeSearch/root";
@@ -55,7 +53,12 @@ function PublicLandingLoggedOutAccountSection() {
     search: rootRouteSearch,
     scopeKey: location.pathname,
   });
-  const showOAuthReturnNotice = shouldRenderOAuthReturnNotice(location.pathname, rootRouteSearch);
+  const signInRejection = useOAuthSignInRejection();
+  const showOAuthReturnNotice = shouldRenderOAuthReturnNotice(
+    location.pathname,
+    rootRouteSearch,
+    signInRejection !== null,
+  );
 
   return (
     <div
@@ -73,6 +76,9 @@ function PublicLandingLoggedOutAccountSection() {
           <AuthorizationErrorNotice>
             {formatAuthorizationErrorMessage(authorizationError)}
           </AuthorizationErrorNotice>
+        ) : null}
+        {signInRejection !== null ? (
+          <AuthorizationErrorNotice>{signInRejection}</AuthorizationErrorNotice>
         ) : null}
         {showOAuthReturnNotice ? (
           <PublicOAuthReturnNotice />
@@ -121,37 +127,11 @@ function PublicLandingResolvedSignedInAccountSection({
   );
 }
 
-function PublicLandingPresentedSignedInAccountSection({
-  profile,
-}: {
-  profile: AppAuthPresentationProfile;
-}) {
-  const [accountOpen, setAccountOpen] = useState(false);
-  return (
-    <RepositoryDashboardAccountSection
-      accountPresentation={profile.accountPresentation}
-      dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      onOpenChange={setAccountOpen}
-      open={accountOpen}
-    />
-  );
-}
-
-function PublicLandingSignedInAccountSection({
-  loadViewer,
-  profile,
-}: {
-  loadViewer: boolean;
-  profile: AppAuthPresentationProfile | null;
-}) {
-  const viewer = useQuery(api.users.viewer, loadViewer ? {} : "skip");
+function PublicLandingSignedInAccountSection() {
+  const viewer = useQuery(api.users.viewer, {});
 
   if (viewer === undefined || viewer === null) {
-    return profile === null ? (
-      <PublicLandingAccountLoadingSection />
-    ) : (
-      <PublicLandingPresentedSignedInAccountSection profile={profile} />
-    );
+    return <PublicLandingAccountLoadingSection />;
   }
 
   return <PublicLandingResolvedSignedInAccountSection viewer={viewer} />;
@@ -164,14 +144,8 @@ export function PublicLandingAccountSection() {
     return <PublicLandingAccountLoadingSection />;
   }
 
-  if (authPresentation.kind === "temporaryAuthenticated") {
-    return (
-      <PublicLandingSignedInAccountSection loadViewer={false} profile={authPresentation.profile} />
-    );
-  }
-
   if (authPresentation.kind === "confirmedAuthenticated") {
-    return <PublicLandingSignedInAccountSection loadViewer profile={authPresentation.profile} />;
+    return <PublicLandingSignedInAccountSection />;
   }
 
   return <PublicLandingLoggedOutAccountSection />;

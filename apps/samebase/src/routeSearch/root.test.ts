@@ -211,9 +211,10 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("parses the Convex Auth callback code as hidden root search", () => {
-    expect(readRootRouteSearch("?code= oauth-code ")).toEqual({
-      code: "oauth-code",
+  it("parses the Convex Auth OAuth return values as hidden root search", () => {
+    expect(readRootRouteSearch("?convexAuthCode= oauth-code &convexAuthError=expired")).toEqual({
+      convexAuthCode: "oauth-code",
+      convexAuthError: "expired",
     });
   });
 
@@ -397,16 +398,16 @@ describe("rootRouteSearch", () => {
     ).toBe("/repo");
   });
 
-  it("preserves the Convex Auth callback code for the auth provider", () => {
+  it("preserves the Convex Auth OAuth return code for the auth client", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
         pathname: "/repo",
-        searchStr: "?code=oauth-code&unknownKey=1",
+        searchStr: "?convexAuthCode=oauth-code&unknownKey=1",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/repo?code=oauth-code");
+    ).toBe("/repo?convexAuthCode=oauth-code");
   });
 
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {
