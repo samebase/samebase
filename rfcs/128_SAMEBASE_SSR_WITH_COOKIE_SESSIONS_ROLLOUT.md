@@ -26,7 +26,7 @@
 2. Sessions move from localStorage tokens to HttpOnly cookies on Convex Auth 2.0.0-beta.0: the first
    HTML already knows the user. The 34 production users sign in once more; the 17 GitHub and the 1
    Google account attach to their existing `users` rows through the `createUser` hook; the 1
-   password account resets its password.
+   password account gets a new password from `authAdmin` and keeps its `users` row.
 3. Three PRs in order: the Convex Auth 2 cutover on the current SPA, the adapter gap in
    convex-hosting (OAuth under the cookie entry), then SSR with cookie sessions and the deletions.
 
@@ -94,37 +94,38 @@
 
 Isolates the user-visible change (one re-sign-in) from the rendering change.
 
-- `apps/samebase/package.json`: `@convex-dev/auth` 2.0.0-beta.0, `@convex-dev/resend`; delete
+- `apps/samebase/package.json`: `@convex-dev/auth` 2.0.0-beta.0; delete
   `patches/@convex-dev__auth@0.0.94.patch` and its `pnpm-workspace.yaml` entry.
 - `convex/convex.config.ts`: `app.use(auth, { httpPrefix: "/auth", env })`,
   `app.use(github, { httpPrefix: "/auth/github", env })`,
-  `app.use(google, { httpPrefix: "/auth/google", env })`, the password and email components. Keep
+  `app.use(google, { httpPrefix: "/auth/google", env })`, the password component. Keep
   `app.use(hosting)`.
-- `convex/auth.ts`: `setupConvexAuth`, `setupGithub(...).attachUserCallbacks({ createUser })`,
-  `setupGoogle(...)`, email+password with `SITE_URL` urls. `createUser` returns the existing `users`
-  row when the v1 `authAccounts` table holds the same provider account id, or the same verified
-  email, and creates a row with `approved` per `AUTO_APPROVE_NEW_USERS` otherwise. `onSignIn`
-  refreshes the profile labels that `customClaims` carried. The v1 `auth*` tables leave the schema
-  after the cutover; their documents stay until deleted from the dashboard.
+- `convex/auth.ts`: `setupConvexAuth`,
+  `setupGithub(...).attachUserCallbacks({ createUser, onSignIn })`, `setupGoogle(...)`, and the
+  password method of Decision 1. `createUser` returns the existing `users` row when `authAccounts`
+  holds the same provider account id, or the same verified email, and creates a row with `approved`
+  per `AUTO_APPROVE_NEW_USERS` otherwise. `onSignIn` rejects users that cannot sign in and records
+  the identity in `authAccounts`, which stays as Samebase's own sign-in identity table: GitHub App
+  checks, invitations, Settings, and account deletion read a user's GitHub identity there, and the
+  core has no lookup by user. The other v1 `auth*` tables leave the schema after the cutover; their
+  documents stay until deleted from the dashboard.
 - `convex/http.ts`: delete `auth.addHttpRoutes(http)`; the components serve their routes.
 - `/agents/connect`: the `agent-browser-handoff` credentials provider has no v2 counterpart. The
-  handoff mints a session for an existing user from a server-issued token. Build it as a custom
-  method on the v2 core, modeled on the anonymous method (a mutation that validates the handoff
-  token and creates the session). This needs a spike against `packages/core` of the `reboot` branch
-  before PR 1 starts; if the core offers no such API, the handoff keeps a one-time code exchanged
-  through `/auth/signin` with a dedicated password-free method.
+  handoff mints a session for an existing user from a server-issued token: a public mutation
+  `signInWithAgentBrowserHandoff` validates and consumes the token, then calls the core's public
+  `signUp` or `signIn` with the core account `agentBrowserHandoff` of that user.
 - Client: `ConvexAuthProvider` from v2 with `api.auth`; sign-in buttons through
-  `useSignInWithGithub`, `useSignInWithGoogle`, the email+password hooks; `SignInForm`,
-  `authClient.ts`, `useCloseOAuthPopup.ts` (the popup token relay) are rewritten or deleted: v2
-  OAuth is a redirect flow on the same origin, so the popup and the postMessage relay go.
-- Env on production, dev and previews: `AUTH_PRIVATE_KEY`, `AUTH_JWKS` (the v2 CLI generates them),
-  `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`,
-  `AUTH_GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `SENDER_EMAIL`, `SENDER_NAME`; delete
+  `useSignInWithGithub`, `useSignInWithGoogle`, the password mutations and `setSession`;
+  `SignInForm`, `authClient.ts`, `useCloseOAuthPopup.ts` (the popup token relay) are rewritten or
+  deleted: v2 OAuth is a redirect flow on the same origin, so the popup and the postMessage relay
+  go.
+- Env on production, dev and previews: `AUTH_PRIVATE_KEY`, `AUTH_JWKS`, `AUTH_GITHUB_CLIENT_ID`,
+  `AUTH_GITHUB_CLIENT_SECRET`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`; delete
   `JWT_PRIVATE_KEY`, `JWKS`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`,
-  `AUTH_GOOGLE_SECRET`, `PASSWORD_AUTH_ENABLED`. `devAuth:seedPasswordAccount` creates the seed
-  account through the password component.
+  `AUTH_GOOGLE_SECRET`. `PASSWORD_AUTH_ENABLED` keeps the manual password switch.
+  `devAuth:seedPasswordAccount` creates the seed account through the password component.
 - Dashboards: the GitHub OAuth App callback becomes `https://samebase.com/auth/github/callback`, the
-  Google redirect URI `https://samebase.com/auth/google/callback`; a Resend sending domain.
+  Google redirect URI `https://samebase.com/auth/google/callback`.
 - Tests: `SignInForm`, `authClient`, `useCloseOAuthPopup`, `githubAppSetupFlow` and the Playwright
   `storageState` seeding change with the client; the `convex-test` suites for auth move to the v2
   component API.
@@ -199,26 +200,24 @@ package first:
 
 Each item is the recommendation. Say "no" to change it.
 
-1. Email for auth goes through Resend (`@convex-dev/resend`), the only sender v2 supports; the app's
-   own Cloudflare Email sending stays for everything else.
+1. Password sign-in is a Samebase method on the v2 component API: `signInWithPassword` checks the
+   password with the password component and mints the session through the core, and only server
+   functions (`authAdmin`, the dev and preview seeds, local worktree sign-up) create password
+   accounts. The v2 email+password method cannot serve Samebase: its `createUser` never sees the
+   email, and a verified email exists only after the emailed challenge, so seed and operator-created
+   accounts cannot exist.
 2. Nothing is prerendered in PR 3. Prerender of the docs and legal pages comes back only if the
    measured first byte of those pages matters.
 3. Existing users attach by provider account id first, verified email second. The one password user
-   resets through the emailed link.
+   gets a new password from `authAdmin:createOrUpdatePasswordAccount`.
 4. The GitHub and Google components mount under `/auth/github` and `/auth/google`; the GitHub App
    installation route keeps `/oauth/github/callback`.
-
-## Open Question
-
-The agent browser handoff (`/agents/connect`, `signIn("agent-browser-handoff")`) has no v2 method. A
-spike on the `reboot` branch's `packages/core` decides between a custom method built on the core
-session API and a one-time code through a dedicated method. PR 1 starts after that spike.
 
 ## Validation
 
 - PR 2: the hosting example signs in with GitHub under cookie sessions on a preview deployment.
-- PR 1 on a preview: GitHub, Google and email+password sign-in; an existing GitHub user lands on
-  their old `users` row; approval gating; the agent handoff; MCP consent; password reset mail.
+- PR 1 on a preview: GitHub, Google and password sign-in; an existing GitHub user lands on their old
+  `users` row; approval gating; the agent handoff; MCP consent.
 - PR 3 on a preview: the first HTML of `/repo/...` for a signed-in cookie holds the page, not a
   placeholder; signed-out `/repo/...` answers a 307 to sign-in; `/` with `?dark` renders the dark
   class on the server; `/discord` answers 307 from the server; unknown paths answer 404; the SEO

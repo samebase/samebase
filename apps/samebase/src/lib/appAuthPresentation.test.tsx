@@ -6,8 +6,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import {
-  convexAuthRefreshTokenStorageKey,
-  convexAuthJwtStorageKey,
   readLocalAppAuthPresentationHint,
   useAppAuthPresentation,
 } from "@/lib/appAuthPresentationState";
@@ -23,31 +21,7 @@ vi.mock("convex/react", () => ({
 }));
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
-const PROFILE_JWT = createJwt({
-  accountLabelKind: "displayName",
-  accountLabel: "Nicu",
-  exp: 4100000000,
-});
-const LEGACY_PROFILE_JWT = createJwt({
-  email: "legacy@example.com",
-  name: "Provider name",
-  exp: 4100000000,
-});
-const NON_ASCII_PROFILE_JWT = createJwt({
-  accountLabelKind: "displayName",
-  accountLabel: "José 中村",
-  exp: 4100000000,
-});
-const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
-const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
-const NO_EXP_JWT = "header.e30.signature";
-
-function createJwt(payload: object) {
-  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
-    ".",
-  );
-}
+const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -151,72 +125,14 @@ describe("app auth presentation", () => {
     clearAppAuthPresentationPrehydration();
   });
 
-  it("uses the same namespaced JWT key shape as Convex Auth", () => {
-    expect(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE)).toBe(
-      "__convexAuthJWT_httpsexampleconvexcloud",
-    );
-    expect(convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE)).toBe(
-      "__convexAuthRefreshToken_httpsexampleconvexcloud",
-    );
-  });
-
   it("uses signed-out presentation after hydration when there is no local auth material", async () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
     expect(renderPresentationProvider()).toBe("<span>unknown</span>");
     expect(await renderPresentationProviderAfterEffects()).toBe("<span>signedOut</span>");
   });
 
-  it("treats a profiled future local JWT as a temporary auth hint after hydration while Convex loads", async () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
-      kind: "present",
-      profile: {
-        accountPresentation: { kind: "displayName", label: "Nicu" },
-      },
-    });
-    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
-    expect(await renderPresentationProviderAfterEffects()).toBe(
-      "<span>temporaryAuthenticated</span>",
-    );
-  });
-
-  it("hydrates the local JWT presentation without a React mismatch", async () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    const result = await hydratePresentationProviderAfterServerRender();
-
-    expect(result.hydrationErrors).toEqual([]);
-    expect(result.markup).toBe("<span>temporaryAuthenticated</span>");
-  });
-
-  it("clears the head prehydration marker and style after the auth hint resolves", async () => {
-    document.documentElement.setAttribute("data-app-auth-presentation-prehydrated", "");
-    const styleElement = document.createElement("style");
-    styleElement.id = "samebase-app-auth-presentation-prehydration";
-    document.head.append(styleElement);
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
-
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
-    );
-    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
-
-    expect(await renderPresentationProviderAfterEffects()).toBe(
-      "<span>temporaryAuthenticated</span>",
-    );
-
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      false,
-    );
-    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
-  });
-
-  it("keeps auth presentation pending while only the refresh token can restore the session", async () => {
-    window.localStorage.setItem(
-      convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
-      "refresh-token",
-    );
+  it("keeps auth presentation pending while a refresh token can restore the session", async () => {
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "pending" });
     const markup = renderPresentationProvider();
@@ -225,76 +141,27 @@ describe("app auth presentation", () => {
     expect(await renderPresentationProviderAfterEffects()).toBe(markup);
   });
 
-  it("reads presentation profile claims from the local JWT", () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+  it("hydrates the pending presentation without a React mismatch", async () => {
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
 
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
-      kind: "present",
-      profile: {
-        accountPresentation: { kind: "displayName", label: "Nicu" },
-      },
-    });
+    const result = await hydratePresentationProviderAfterServerRender();
+
+    expect(result.hydrationErrors).toEqual([]);
+    expect(result.markup).toBe("<span>unknown</span>");
   });
 
-  it("rejects legacy profile claims from the local JWT during hydration", async () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      LEGACY_PROFILE_JWT,
-    );
+  it("clears the head prehydration marker and style after the auth hint resolves", async () => {
+    document.documentElement.setAttribute("data-app-auth-presentation-prehydrated", "");
+    const styleElement = document.createElement("style");
+    styleElement.id = "samebase-app-auth-presentation-prehydration";
+    document.head.append(styleElement);
 
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
     expect(await renderPresentationProviderAfterEffects()).toBe("<span>signedOut</span>");
-  });
 
-  it("reads non-ASCII profile claims from the local JWT", () => {
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      NON_ASCII_PROFILE_JWT,
+    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      false,
     );
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
-      kind: "present",
-      profile: {
-        accountPresentation: { kind: "displayName", label: "José 中村" },
-      },
-    });
-  });
-
-  it("rejects decodable local JWTs without profile claims", () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
-
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), NO_EXP_JWT);
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
-  });
-
-  it("rejects expired and malformed local JWTs without a refresh token", () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), EXPIRED_JWT);
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
-
-    window.localStorage.setItem(
-      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
-      NON_FINITE_EXP_JWT,
-    );
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
-
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), "not-a-jwt");
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
-  });
-
-  it("keeps auth presentation pending when a refresh token may recover an expired JWT", () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), EXPIRED_JWT);
-    window.localStorage.setItem(
-      convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
-      "refresh-token",
-    );
-
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "pending" });
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("keeps auth presentation pending during an active browser auth flow", () => {
@@ -302,17 +169,15 @@ describe("app auth presentation", () => {
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "pending" });
 
-    window.history.replaceState({}, "", "/?code=oauth-code");
+    window.history.replaceState({}, "", "/?convexAuthCode=oauth-code");
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "pending" });
   });
 
-  it("waits for the local hint before rendering confirmed Convex auth", async () => {
+  it("renders confirmed Convex auth", async () => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
     expect(await renderPresentationProviderAfterEffects()).toBe(
       "<span>confirmedAuthenticated</span>",
     );
@@ -321,7 +186,7 @@ describe("app auth presentation", () => {
   it("lets confirmed Convex sign-out override the local hint", () => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
+    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
 
     expect(renderPresentationProvider()).toBe("<span>signedOut</span>");
   });

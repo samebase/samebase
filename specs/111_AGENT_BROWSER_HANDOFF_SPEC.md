@@ -42,8 +42,10 @@ The backend stores only a SHA-256 token hash. A handoff expires after five minut
 single use:
 
 1. Successful redemption consumes the row and signs the browser into Convex Auth as the grant user.
-2. If the browser is already signed in as the same user, redemption may reuse that existing auth
-   session.
+   The public mutation `agentBrowserHandoff:signInWithAgentBrowserHandoff` mints the session through
+   the Convex Auth core component, with the core account `agentBrowserHandoff` of that user.
+2. If the browser is already signed in as the same user, redemption creates a new session. Convex
+   Auth 2 gives the app no session id, so the current session is not reused.
 3. If the browser is already signed in as a different user, redemption consumes the row and rejects
    the login.
 4. If the grant, client, scope, or user access is no longer valid, redemption consumes the row and
@@ -51,9 +53,10 @@ single use:
 5. Missing, expired, or already consumed tokens do not create a browser session.
 
 The browser route waits for Convex Auth to finish loading the existing session before it consumes
-the one-time handoff. A rejected handoff must reject the Convex Auth action instead of returning an
-empty credential result, because an empty result can clear a valid browser session. A different-user
-failure leaves that browser account signed in and displays the account-mismatch recovery message.
+the one-time handoff. A rejected handoff returns an error result from the same transaction that
+consumes the row and writes the audit row, so the rejection is kept, and the browser's current
+session stays. A different-user failure leaves that browser account signed in and displays the
+account-mismatch recovery message.
 
 Creation, consumption, and terminal rejection events write `audit_mcpAccess_events` events without
 raw tokens, provider credentials, emails, file paths, or the browser return path. The return path

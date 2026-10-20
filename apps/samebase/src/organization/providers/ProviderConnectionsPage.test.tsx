@@ -627,12 +627,13 @@ describe("ProviderConnectionsPage", () => {
   });
 
   it.each([
-    ["sign_in_required", "Connect GitHub as @nicubunu in Account settings first."],
+    ["sign_in_required", "Sign out and sign in with GitHub as @nicubunu first.", null],
     [
       "sign_in_mismatch",
       "Use the Samebase account connected to GitHub as @nicubunu. Check Account settings.",
+      "Account settings",
     ],
-  ] as const)("does not offer personal authorization for %s", (status, message) => {
+  ] as const)("does not offer personal authorization for %s", (status, message, settingsLink) => {
     setProviderQueries();
     testState.queries.set(
       getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
@@ -644,7 +645,7 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).toContain(message);
     expect(findButton(container, "Authorize")).toBeUndefined();
     expect(findButton(container, "Revoke")).toBeUndefined();
-    expect(container.querySelector('a[href="/settings"]')?.textContent).toBe("Account settings");
+    expect(container.querySelector('a[href="/settings"]')?.textContent ?? null).toBe(settingsLink);
   });
 
   it.each(["sign_in_required", "sign_in_mismatch"] as const)(

@@ -1,21 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "./tanstackSearchParams";
 
-const {
-  buildLocationMock,
-  navigateMock,
-  replaceStateMock,
-  useAutoSignInMock,
-  useCloseOAuthPopupMock,
-  useConvexAuthMock,
-} = vi.hoisted(() => ({
-  buildLocationMock: vi.fn(),
-  navigateMock: vi.fn(),
-  replaceStateMock: vi.fn(),
-  useAutoSignInMock: vi.fn(),
-  useCloseOAuthPopupMock: vi.fn(),
-  useConvexAuthMock: vi.fn(),
-}));
+const { buildLocationMock, navigateMock, replaceStateMock, useAutoSignInMock, useConvexAuthMock } =
+  vi.hoisted(() => ({
+    buildLocationMock: vi.fn(),
+    navigateMock: vi.fn(),
+    replaceStateMock: vi.fn(),
+    useAutoSignInMock: vi.fn(),
+    useConvexAuthMock: vi.fn(),
+  }));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -38,10 +31,6 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-vi.mock("./useCloseOAuthPopup", () => ({
-  useCloseOAuthPopup: useCloseOAuthPopupMock,
-}));
-
 vi.mock("convex/react", () => ({
   useConvexAuth: useConvexAuthMock,
 }));
@@ -54,7 +43,6 @@ describe("useAppAuthRuntimeEffects", () => {
     navigateMock.mockReset();
     replaceStateMock.mockReset();
     useAutoSignInMock.mockReset();
-    useCloseOAuthPopupMock.mockReset();
     useConvexAuthMock.mockReset();
     vi.unstubAllGlobals();
   });
@@ -103,7 +91,6 @@ describe("useAppAuthRuntimeEffects", () => {
       "prod-ui": true,
       signup: "google",
     });
-    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/settings", undefined, true);
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 4, __TSR_key: "landing" },
       "",

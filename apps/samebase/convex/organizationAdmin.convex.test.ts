@@ -83,7 +83,7 @@ async function seedDeletableOrganization(t: ReturnType<typeof makeConvexTest>, s
   return {
     ...seed,
     asOwner: t.withIdentity({
-      subject: `${seed.ownerId}|organization-owner`,
+      subject: seed.ownerId,
       tokenIdentifier: `test:${seed.ownerId}`,
     }),
   };
@@ -372,7 +372,7 @@ describe("organization deletion", () => {
     });
 
     const asMember = t.withIdentity({
-      subject: `${memberId}|organization-member`,
+      subject: memberId,
       tokenIdentifier: `test:${memberId}`,
     });
     await expect(

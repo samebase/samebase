@@ -1,13 +1,17 @@
-import { describe, expect, it } from "vite-plus/test";
-import { internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { api, internal } from "./_generated/api";
+import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("authAdmin password accounts", () => {
-  it("creates and approves a password account without storing the plaintext password", async () => {
+  it("creates and approves a password account without storing the password in the app", async () => {
     const t = makeConvexTest();
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: " Manual@Example.com ",
         password: "first-password",
       }),
@@ -29,7 +33,7 @@ describe("authAdmin password accounts", () => {
       };
     });
 
-    expect(snapshot.account?.secret).not.toBe("first-password");
+    expect(snapshot.account).not.toHaveProperty("secret");
     expect(snapshot.user).toMatchObject({
       email: "manual@example.com",
       isApproved: true,
@@ -48,7 +52,7 @@ describe("authAdmin password accounts", () => {
     });
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "linked@example.com",
         password: "linked-password",
       }),
@@ -74,34 +78,19 @@ describe("authAdmin password accounts", () => {
     expect(snapshot.user).toMatchObject({ isApproved: true });
   });
 
-  it("rotates the stored password and ends existing sessions", async () => {
+  it("rotates the password of an existing account", async () => {
+    vi.stubEnv("CONVEX_AGENT_MODE", "");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:test");
+    vi.stubEnv("PASSWORD_AUTH_ENABLED", "true");
+    await stubConvexAuthEnv();
     const t = makeConvexTest();
-    await t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+    await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
       email: "rotate@example.com",
       password: "first-password",
     });
-    const initial = await t.run(async (ctx) => {
-      const account = await ctx.db
-        .query("authAccounts")
-        .withIndex("providerAndAccountId", (q) =>
-          q.eq("provider", "password").eq("providerAccountId", "rotate@example.com"),
-        )
-        .unique();
-      if (account === null) {
-        throw new Error("Expected the password account to exist");
-      }
-      const sessionId = await ctx.db.insert("authSessions", {
-        userId: account.userId,
-        expirationTime: Date.now() + 60_000,
-      });
-      return {
-        secret: account.secret,
-        sessionId,
-      };
-    });
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "rotate@example.com",
         password: "second-password",
       }),
@@ -110,22 +99,18 @@ describe("authAdmin password accounts", () => {
       email: "rotate@example.com",
     });
 
-    const rotated = await t.run(async (ctx) => {
-      const account = await ctx.db
-        .query("authAccounts")
-        .withIndex("providerAndAccountId", (q) =>
-          q.eq("provider", "password").eq("providerAccountId", "rotate@example.com"),
-        )
-        .unique();
-      return {
-        secret: account?.secret,
-        session: await ctx.db.get(initial.sessionId),
-      };
-    });
-
-    expect(rotated.secret).not.toBe("second-password");
-    expect(rotated.secret).not.toBe(initial.secret);
-    expect(rotated.session).toBeNull();
+    await expect(
+      t.mutation(api.auth.signInWithPassword, {
+        email: "rotate@example.com",
+        password: "first-password",
+      }),
+    ).resolves.toEqual({ status: "error", userError: { error: "INVALID_CREDENTIALS" } });
+    await expect(
+      t.mutation(api.auth.signInWithPassword, {
+        email: "rotate@example.com",
+        password: "second-password",
+      }),
+    ).resolves.toMatchObject({ status: "complete" });
   });
 
   it("fails instead of creating another user for a duplicate verified email", async () => {
@@ -144,7 +129,7 @@ describe("authAdmin password accounts", () => {
     });
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "duplicate@example.com",
         password: "valid-password",
       }),
@@ -176,7 +161,7 @@ describe("authAdmin password accounts", () => {
     });
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "mismatch@example.com",
         password: "replacement-password",
       }),
@@ -211,7 +196,7 @@ describe("authAdmin password accounts", () => {
     });
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "missing-user@example.com",
         password: "replacement-password",
       }),
@@ -234,7 +219,7 @@ describe("authAdmin password accounts", () => {
     });
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "mismatched-email@example.com",
         password: "replacement-password",
       }),
@@ -247,16 +232,17 @@ describe("authAdmin password accounts", () => {
     const t = makeConvexTest();
 
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "not-an-email",
         password: "valid-password",
       }),
     ).rejects.toThrowError("A valid email address is required.");
     await expect(
-      t.action(internal.authAdmin.createOrUpdatePasswordAccount, {
+      t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
         email: "manual@example.com",
         password: "short",
       }),
-    ).rejects.toThrowError("Password must contain at least 8 characters");
+    ).rejects.toMatchObject({ data: "Password must have at least 10 characters." });
+    await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toEqual([]);
   });
 });

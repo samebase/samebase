@@ -78,7 +78,7 @@ async function seedLifecycleUser(args: {
 
 function asUser(t: TestBackend, userId: Id<"users">) {
   return t.withIdentity({
-    subject: `${userId}|stale-session`,
+    subject: userId,
     tokenIdentifier: `test:${userId}`,
   });
 }
@@ -209,14 +209,8 @@ describe("user lifecycle authorization", () => {
     });
     const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
     await insertProviderConfiguration(t, { organizationId, userId });
-    const sessionId = await t.run(async (ctx) => {
-      return await ctx.db.insert("authSessions", {
-        userId,
-        expirationTime: Date.now() + 60_000,
-      });
-    });
     const viewer = t.withIdentity({
-      subject: `${userId}|${sessionId}`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 

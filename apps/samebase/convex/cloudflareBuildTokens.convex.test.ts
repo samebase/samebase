@@ -99,7 +99,7 @@ describe("Cloudflare Workers Builds token list", () => {
     });
     vi.stubGlobal("fetch", fetch);
     const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
+      subject: memberId,
       tokenIdentifier: `test:${memberId}`,
     });
 
@@ -135,7 +135,7 @@ describe("Cloudflare Workers Builds token list", () => {
       ),
     );
     const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
+      subject: memberId,
       tokenIdentifier: `test:${memberId}`,
     });
 
@@ -153,7 +153,7 @@ describe("Cloudflare Workers Builds token list", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     const asOutsider = t.withIdentity({
-      subject: `${outsiderId}|session`,
+      subject: outsiderId,
       tokenIdentifier: `test:${outsiderId}`,
     });
 
@@ -177,7 +177,7 @@ describe("Cloudflare Workers Builds token list", () => {
       ),
     );
     const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
+      subject: memberId,
       tokenIdentifier: `test:${memberId}`,
     });
 

@@ -76,9 +76,8 @@ describe("run-worktree-dev", () => {
       {},
     );
 
-    expect(plan.at(-1)?.label).toBe("refresh anonymous auth keys");
+    expect(plan.at(-1)?.label).toBe("bootstrap and seed the anonymous local backend");
     expect(plan.at(-1)?.phase).toBe("once-bootstrap");
-    expect(plan.at(-1)?.args).toContain("--once");
   });
 
   it("adds the long-running primary dev step for worktree dev", () => {
@@ -148,7 +147,6 @@ describe("run-worktree-dev", () => {
       ["bootstrap the current worktree", "always"],
       ["generate tracked file path types", "always"],
       ["bootstrap and seed the anonymous local backend", "once-bootstrap"],
-      ["refresh anonymous auth keys", "once-bootstrap"],
       ["launch the long-running worktree dev server", "long-running"],
     ]);
   });

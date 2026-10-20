@@ -1149,7 +1149,7 @@ describe("repository_actions provisioning workflow", () => {
       return { runId, userId };
     });
     const viewer = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
+      subject: ids.userId,
       tokenIdentifier: `test:${ids.userId}`,
     });
     const listSetup = async () => {
@@ -1188,7 +1188,7 @@ describe("repository_actions provisioning workflow", () => {
     expect(failed.plan).toMatchObject({ seed: { state: "seeded" } });
     // The dashboard reports the failure as provider setup, which offers the retry.
     const viewer = t.withIdentity({
-      subject: `${userId}|test-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const listed = (await viewer.query(api.repository.list, {})).find(

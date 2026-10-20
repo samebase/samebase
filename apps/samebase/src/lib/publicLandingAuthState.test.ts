@@ -53,30 +53,34 @@ describe("publicLandingAuthState", () => {
     (pathname) => {
       const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-      expect(shouldRenderOAuthReturnNotice(pathname, routeSearch)).toBe(true);
+      expect(shouldRenderOAuthReturnNotice(pathname, routeSearch, false)).toBe(true);
     },
   );
 
   it("keeps MCP consent available when a stale signup marker is present", () => {
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-    expect(shouldRenderOAuthReturnNotice(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice(MCP_CONSENT_APP_PATH, routeSearch, false)).toBe(false);
   });
 
   it("keeps an invitation available when a stale signup marker is present", () => {
     const routeSearch = validateRootRouteSearch({ signup: "github" });
 
-    expect(shouldRenderOAuthReturnNotice("/invite/invitation-code", routeSearch)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice("/invite/invitation-code", routeSearch, false)).toBe(
+      false,
+    );
   });
 
-  it("keeps sign-in methods available after an account-linking error", () => {
-    const routeSearch = validateRootRouteSearch({
+  it("keeps sign-in methods available after an authorization error or a rejected sign-in", () => {
+    const routeSearch = validateRootRouteSearch({ signup: "github" });
+    const authorizationErrorSearch = validateRootRouteSearch({
       signup: "github",
-      "authorization-provider": "github-sign-in",
-      "authorization-error": "account-link-required",
+      "authorization-provider": "github-app",
+      "authorization-error": "failed",
     });
 
-    expect(shouldRenderOAuthReturnNotice("/", routeSearch)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice("/", authorizationErrorSearch, false)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice("/", routeSearch, true)).toBe(false);
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {

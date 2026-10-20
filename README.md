@@ -29,8 +29,8 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 - Frontend: React, TypeScript, Vite, TanStack Start, TanStack Router
 - Backend: Convex (queries, mutations, actions, scheduler)
 - Editor: CodeMirror 6
-- Auth: Convex Auth (Google plus deployment-gated password sign-in) + provider OAuth/API key
-  connections
+- Auth: Convex Auth 2 (GitHub and Google sign-in plus deployment-gated password sign-in) + provider
+  OAuth/API key connections
 - UI: Tailwind CSS + Radix UI + shadcn/ui patterns
 - Workspace tooling: PNPM + Vite+
 
@@ -187,14 +187,42 @@ pnpm test
 ## Environment Setup
 
 1. Configure Convex deployment env vars.
-2. Configure app-login providers. Google is the default. Local worktrees use their seeded password
-   account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD`. Other
-   deployments can use the [manual password account runbook](docs/manual-password-auth.md).
+2. Configure sign-in. See [Sign-in](#sign-in).
 3. Configure the GitHub App deployment settings and the Convex and Cloudflare connection OAuth/API
    keys.
 
 Set `ACCOUNT_DELETION_GRACE_PERIOD_MS=0` on a Convex deployment to start account deletion
 immediately. An unset value keeps the seven-day wait.
+
+## Sign-in
+
+Samebase signs in with Convex Auth 2. Its components serve their own HTTP routes on the deployment's
+site: the key set under `/auth`, the GitHub callback under `/auth/github`, and the Google callback
+under `/auth/google`. The GitHub App installation callback keeps `/oauth/github/callback` in
+`convex/http.ts`.
+
+Every deployment needs these Convex environment variables:
+
+- `AUTH_PRIVATE_KEY` and `AUTH_JWKS`: the signing keys of the auth component. A linked worktree gets
+  them from `pnpm run dev --once`, and CI from its bootstrap. For another deployment, run this from
+  `apps/samebase` with the deployment selected (for example `--prod` or `--preview-name <name>`
+  after `set`):
+
+  ```bash
+  node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateConvexAuthKeys }) => { for (const [name, value] of Object.entries(generateConvexAuthKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
+  ```
+
+- `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`: the GitHub OAuth App. Its callback URL is
+  `<site>/auth/github/callback`, for example `https://samebase.com/auth/github/callback`.
+- `AUTH_GOOGLE_CLIENT_ID` and `AUTH_GOOGLE_CLIENT_SECRET`: the Google OAuth client. Its redirect URI
+  is `<site>/auth/google/callback`.
+- `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
+  own `CONVEX_SITE_URL`.
+
+Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
+password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at
+least 10 characters). Other deployments can use the
+[manual password account runbook](docs/manual-password-auth.md).
 
 ## Contributing
 

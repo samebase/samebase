@@ -479,7 +479,7 @@ describe("deletePendingUploadBlob", () => {
       });
     });
     const asUser = t.withIdentity({
-      subject: `${userId}|staging-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 

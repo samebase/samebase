@@ -211,7 +211,7 @@ type Fixture = Awaited<ReturnType<typeof createFixture>>;
 
 function asOwner(fixture: Fixture) {
   return fixture.t.withIdentity({
-    subject: `${fixture.ids.ownerId}|test-session`,
+    subject: fixture.ids.ownerId,
     tokenIdentifier: `test:${fixture.ids.ownerId}`,
   });
 }

@@ -282,7 +282,7 @@ describe("repository GitHub token scope", () => {
       await ctx.db.patch(ownerUserId, { email: "nicu@samebase.com" });
     });
     const asOwner = t.withIdentity({
-      subject: `${ownerUserId}|github-repository-scope`,
+      subject: ownerUserId,
       tokenIdentifier: `test:${ownerUserId}`,
     });
     const listForRef = vi.fn().mockResolvedValue({ data: { check_runs: [] } });
@@ -359,7 +359,7 @@ describe("viewer GitHub installation health", () => {
       }
     });
     const asUser = t.withIdentity({
-      subject: `${userId}|github-installation`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -502,11 +502,11 @@ describe("GitHub identity observation and approval", () => {
       runId: collision.runId,
     });
     const asOwner = t.withIdentity({
-      subject: `${ownerUserId}|github-identity-owner`,
+      subject: ownerUserId,
       tokenIdentifier: `test:${ownerUserId}`,
     });
     const asMember = t.withIdentity({
-      subject: `${memberUserId}|github-identity-member`,
+      subject: memberUserId,
       tokenIdentifier: `test:${memberUserId}`,
     });
     githubMocks.request.mockImplementation(async (route: string) => {
@@ -609,7 +609,7 @@ describe("GitHub identity observation and approval", () => {
     const t = makeConvexTest();
     const { organizationId, ownerUserId, repositoryId } = await createIdentityRepository(t);
     const asOwner = t.withIdentity({
-      subject: `${ownerUserId}|github-identity-states`,
+      subject: ownerUserId,
       tokenIdentifier: `test:${ownerUserId}`,
     });
     const observe = async () =>

@@ -27,7 +27,7 @@ async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: str
     sessionId,
     userId,
     viewer: t.withIdentity({
-      subject: `${userId}|${sessionId}`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     }),
   };
@@ -46,7 +46,7 @@ async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
   return {
     userId,
     viewer: t.withIdentity({
-      subject: `${userId}|staff-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     }),
   };
@@ -81,7 +81,7 @@ describe("account deletion request and status", () => {
     expect(after).toEqual(before);
   });
 
-  it("queues one run for seven days, preserves the session, and starts from the callback", async () => {
+  it("queues one run for seven days without a session id and starts from the callback", async () => {
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "requester@example.invalid");
     const initiatingSession = await t.run(async (ctx) => await ctx.db.get(sessionId));
@@ -128,10 +128,10 @@ describe("account deletion request and status", () => {
       expect(snapshot.run).toMatchObject({
         _id: first.status.runId,
         deletionStartsAt: 604_801_000,
-        initiatingSessionId: sessionId,
         state: "queued",
         workflow: { state: "not_started" },
       });
+      expect(snapshot.run).not.toHaveProperty("initiatingSessionId");
       expect(snapshot.user).toMatchObject({
         _id: userId,
         runId: first.status.runId,

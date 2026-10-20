@@ -30,9 +30,11 @@ const componentState = vi.hoisted<{
   pathname: "/",
   search: {},
 }));
+vi.mock("@/lib/oauthSignInRejection", () => ({
+  useOAuthSignInRejection: () => null,
+}));
+
 vi.mock("@/authClient", () => ({
-  isInIframe: () => false,
-  openAuthPopup: vi.fn(),
   useAppSignInActions: () => ({
     signInWithOAuth: signInWithOAuthMock,
     signInWithPassword: signInWithPasswordMock,
@@ -158,6 +160,7 @@ describe("PasswordAuthForm", () => {
   });
 
   it("marks every root GitHub sign-in as a public signup return", async () => {
+    signInWithOAuthMock.mockResolvedValue(undefined);
     buildLocationMock.mockImplementation(
       (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
         expect(options.to).toBe("/");

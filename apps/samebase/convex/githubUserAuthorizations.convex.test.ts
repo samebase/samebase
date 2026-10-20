@@ -180,7 +180,7 @@ describe("viewer GitHub user authorization", () => {
       return { organizationId, otherOrganizationId, userId };
     });
     const asUser = t.withIdentity({
-      subject: `${userId}|github-status`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -297,7 +297,7 @@ describe("viewer GitHub user authorization", () => {
     vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
     const result = await t
       .withIdentity({
-        subject: `${userId}|github-revoke`,
+        subject: userId,
         tokenIdentifier: `test:${userId}`,
       })
       .action(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization, {});

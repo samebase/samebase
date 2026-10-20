@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   assertPasswordAuthFlowAllowed,
-  assertPasswordAuthLogLevelAllowed,
   resolveDeploymentProfileFromEnv,
   resolvePasswordAuthMode,
   resolvePasswordAuthModeFromEnv,
@@ -147,14 +146,6 @@ describe("deploymentProfile", () => {
     expect(() => assertPasswordAuthFlowAllowed("off", "signUp")).toThrowError(
       "Password authentication is disabled",
     );
-  });
-
-  it("rejects password operations while Convex Auth debug logging is active", () => {
-    expect(() => assertPasswordAuthLogLevelAllowed("DEBUG")).toThrowError(
-      "Password authentication is unavailable while AUTH_LOG_LEVEL is DEBUG",
-    );
-    expect(() => assertPasswordAuthLogLevelAllowed("INFO")).not.toThrow();
-    expect(() => assertPasswordAuthLogLevelAllowed(null)).not.toThrow();
   });
 
   it("keeps local worktree password flows limited to sign-in and sign-up", () => {

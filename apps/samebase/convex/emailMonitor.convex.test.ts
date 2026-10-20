@@ -53,7 +53,7 @@ describe("staff email monitor", () => {
         return userId;
       });
       const viewer = userId
-        ? t.withIdentity({ subject: `${userId}|session`, tokenIdentifier: `test:${userId}` })
+        ? t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` })
         : t;
 
       await expect(viewer.query(api.emailMonitor.listInboxes, {})).rejects.toThrow("Access denied");
@@ -87,7 +87,7 @@ describe("staff email monitor", () => {
         }),
     );
     const staff = t.withIdentity({
-      subject: `${userId}|staff-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 

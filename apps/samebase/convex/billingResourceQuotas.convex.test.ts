@@ -228,7 +228,7 @@ describe("pooled organization connection quotas", () => {
         total: limit,
       });
       const asUser = t.withIdentity({
-        subject: `${ids.userId}|quota-session`,
+        subject: ids.userId,
         tokenIdentifier: `test:${ids.userId}`,
       });
       await expect(

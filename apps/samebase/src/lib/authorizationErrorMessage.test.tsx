@@ -47,20 +47,6 @@ describe("formatAuthorizationErrorMessage", () => {
       expected:
         "The GitHub account or organization you selected is already connected to a Samebase organization. Ask one of its owners to add you as an owner.",
     },
-    {
-      authorizationError: { code: "account-link-required", provider: "github-sign-in" },
-      expected:
-        "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
-    },
-    {
-      authorizationError: { code: "account-link-required", provider: "google-sign-in" },
-      expected:
-        "The email on this Google account is already used by another Samebase account. Sign in to that account with an existing method.",
-    },
-    {
-      authorizationError: { code: "target-mismatch", provider: "github-sign-in" },
-      expected: "Select the provider account that is connected to this Samebase account.",
-    },
   ] satisfies readonly {
     authorizationError: AuthorizationError;
     expected: string;
@@ -109,14 +95,16 @@ describe("formatAuthorizationErrorMessage", () => {
         { githubOwnerLogin: "octocat" },
       ),
     ).toBe(
-      "Personal GitHub access requires @octocat as the GitHub sign-in method for this Samebase account. Connect it in Account settings, then try again.",
+      "Personal GitHub access requires @octocat as the GitHub sign-in method for this Samebase account. Sign out, sign in with GitHub as @octocat, then try again.",
     );
   });
 
   it("uses a safe personal GitHub sign-in fallback when the owner is unavailable", () => {
     expect(
       renderAuthorizationError({ code: "github-sign-in-required", provider: "github-app" }),
-    ).toBe("Connect GitHub in Account settings before you authorize GitHub.");
+    ).toBe(
+      "Sign out and sign in with GitHub before you authorize GitHub. Use the GitHub account whose verified email is the email of this Samebase account.",
+    );
   });
 
   it("explains a personal GitHub sign-in mismatch without exposing another account", () => {

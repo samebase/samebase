@@ -72,7 +72,7 @@ async function createConnectRepositoryFixture() {
     ...ids,
     t,
     viewer: t.withIdentity({
-      subject: `${ids.userId}|test-session`,
+      subject: ids.userId,
       tokenIdentifier: `test:${ids.userId}`,
     }),
   };

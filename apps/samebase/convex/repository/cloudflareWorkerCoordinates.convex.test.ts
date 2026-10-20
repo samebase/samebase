@@ -217,11 +217,11 @@ async function createFixture() {
   return {
     ids,
     member: t.withIdentity({
-      subject: `${ids.memberId}|test-session`,
+      subject: ids.memberId,
       tokenIdentifier: `test:${ids.memberId}`,
     }),
     owner: t.withIdentity({
-      subject: `${ids.ownerId}|test-session`,
+      subject: ids.ownerId,
       tokenIdentifier: `test:${ids.ownerId}`,
     }),
     t,

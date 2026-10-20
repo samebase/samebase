@@ -1,17 +1,19 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { sha256Hex } from "./tokens";
 
 const now = 10_000;
 const resource = "https://api.samebase.test/mcp";
+const handoffToken = `agbh_${"a".repeat(43)}`;
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 function asUser(t: ConvexTest, userId: Id<"users">) {
   return t.withIdentity({
-    subject: `${userId}|test-session`,
+    subject: userId,
     tokenIdentifier: `test:${userId}`,
   });
 }
@@ -211,7 +213,7 @@ describe("MCP grant management", () => {
         createdAt: now,
         expiresAt: now + 60_000,
         grantId: "mcpg_older",
-        tokenHash: "handoff_hash",
+        tokenHash: await sha256Hex(handoffToken),
         userId: ids.ownerId,
       });
     });
@@ -246,11 +248,16 @@ describe("MCP grant management", () => {
       ok: false,
       status: 400,
     });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now + 1);
     await expect(
-      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
-        now: now + 1,
-        tokenHash: "handoff_hash",
-      }),
-    ).resolves.toEqual({ ok: false, reason: "grant_inactive" });
+      t.mutation(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, { token: handoffToken }),
+    ).resolves.toEqual({ status: "error", userError: { error: "HANDOFF_REJECTED" } });
+    vi.useRealTimers();
+    await expect(
+      t.run(async (ctx) =>
+        (await ctx.db.query("audit_mcpAccess_events").collect()).map((audit) => audit.detailsJson),
+      ),
+    ).resolves.toContain(JSON.stringify({ reason: "grant_inactive" }));
   });
 });

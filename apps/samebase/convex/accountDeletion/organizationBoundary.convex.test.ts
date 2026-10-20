@@ -8,29 +8,6 @@ import { cleanupAccountDataBatchForUser } from "./cleanup";
 
 const workflowId = "account-deletion-organization-boundary";
 
-async function generateTestJwtPrivateKey(): Promise<string> {
-  const keyPair = await crypto.subtle.generateKey(
-    {
-      name: "RSASSA-PKCS1-v1_5",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-256",
-    },
-    true,
-    ["sign", "verify"],
-  );
-  const privateKey = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
-  let binary = "";
-  for (const byte of privateKey) {
-    binary += String.fromCharCode(byte);
-  }
-  const lines = btoa(binary).match(/.{1,64}/g);
-  if (lines === null) {
-    throw new Error("Test JWT private key encoding failed.");
-  }
-  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----`;
-}
-
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
@@ -1110,83 +1087,6 @@ describe("account deletion organization boundary", () => {
     expect(snapshot.refreshToken).not.toBeNull();
   });
 
-  it("refreshes the deleting session before cleanup and rejects it after completion", async () => {
-    vi.stubEnv("JWT_PRIVATE_KEY", await generateTestJwtPrivateKey());
-    vi.stubEnv("CONVEX_SITE_URL", "https://convex.test");
-    const { ids, t } = await seedRunningDeletion();
-    const refreshTokenId = await t.run(async (ctx) => {
-      return await ctx.db.insert("authRefreshTokens", {
-        sessionId: ids.initiatingSessionId,
-        expirationTime: 2_000_000_000_000,
-      });
-    });
-    const refreshToken = `${refreshTokenId}|${ids.initiatingSessionId}`;
-
-    const refreshed = await t.action(api.auth.signIn, { refreshToken });
-    if (refreshed.tokens === undefined || refreshed.tokens === null) {
-      throw new Error("Deleting session refresh did not return tokens.");
-    }
-    expect(refreshed.tokens.token).toEqual(expect.any(String));
-    expect(refreshed.tokens.refreshToken).not.toBe(refreshToken);
-    const rotatedRefreshToken = refreshed.tokens.refreshToken;
-    await expect(
-      t.run(async (ctx) => ({
-        refreshTokens: await ctx.db
-          .query("authRefreshTokens")
-          .withIndex("sessionId", (query) => query.eq("sessionId", ids.initiatingSessionId))
-          .collect(),
-        user: await ctx.db.get(ids.deletingUserId),
-      })),
-    ).resolves.toMatchObject({
-      refreshTokens: [{ _id: refreshTokenId }, { parentRefreshTokenId: refreshTokenId }],
-      user: { state: "deleting", runId: ids.runId },
-    });
-
-    await prepareIdentityDeletionData(t, ids.runId);
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toBe(false);
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toBe(true);
-    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
-      runId: ids.runId,
-      workflowId,
-    });
-    await t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
-      runId: ids.runId,
-      workflowId,
-    });
-
-    await expect(t.action(api.auth.signIn, { refreshToken: rotatedRefreshToken })).resolves.toEqual(
-      {
-        tokens: null,
-      },
-    );
-    await expect(
-      t.run(async (ctx) => ({
-        refreshTokens: await ctx.db
-          .query("authRefreshTokens")
-          .withIndex("sessionId", (query) => query.eq("sessionId", ids.initiatingSessionId))
-          .collect(),
-        run: await ctx.db.get(ids.runId),
-        session: await ctx.db.get(ids.initiatingSessionId),
-        user: await ctx.db.get(ids.deletingUserId),
-      })),
-    ).resolves.toMatchObject({
-      refreshTokens: [],
-      run: { state: "succeeded", identity: { state: "scrubbed" } },
-      session: null,
-      user: { state: "deleted" },
-    });
-  });
-
   it("keeps the user deleting after failure and retries the same run", async () => {
     const { ids, t } = await seedRunningDeletion();
 
@@ -1228,7 +1128,7 @@ describe("account deletion organization boundary", () => {
       });
     });
     const asStaff = t.withIdentity({
-      subject: `${staffUserId}|staff-session`,
+      subject: staffUserId,
       tokenIdentifier: `test:${staffUserId}`,
     });
     await expect(

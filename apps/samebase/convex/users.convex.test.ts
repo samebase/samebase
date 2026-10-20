@@ -247,11 +247,11 @@ describe("organization provider status", () => {
   it("shows the configured destinations and hides credentials", async () => {
     const { organizationId, outsiderId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const asOutsider = t.withIdentity({
-      subject: `${outsiderId}|session`,
+      subject: outsiderId,
       tokenIdentifier: `test:${outsiderId}`,
     });
 
@@ -280,7 +280,7 @@ describe("organization provider status", () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     await makeSeedProviderOrganizationBillingLimited(t, organizationId);
     const asOwner = t.withIdentity({
-      subject: `${userId}|billing-limited-provider-status`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -309,11 +309,11 @@ describe("organization provider status", () => {
       await ctx.db.patch(userId, { displayName: "Provider Owner" });
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
+      subject: memberId,
       tokenIdentifier: `test:${memberId}`,
     });
 
@@ -426,7 +426,7 @@ describe("organization provider status", () => {
   it("disconnects credentials but preserves both destinations", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -455,7 +455,7 @@ describe("organization provider status", () => {
   it("returns a public error for an invalid Convex team token", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const credentialBefore = await t.run(
@@ -482,7 +482,7 @@ describe("organization provider status", () => {
   it("keeps the configured Convex team when a token belongs to another team", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const credentialBefore = await t.run(
@@ -518,7 +518,7 @@ describe("organization provider status", () => {
         cloudflareAuthMethod,
       });
       const asOwner = t.withIdentity({
-        subject: `${userId}|session`,
+        subject: userId,
         tokenIdentifier: `test:${userId}`,
       });
       const fetch = vi.fn();
@@ -543,7 +543,7 @@ describe("organization provider status", () => {
       cloudflareState: "not_configured",
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const fetch = stubCloudflareApiTokenAccounts("direct-token", [
@@ -595,7 +595,7 @@ describe("organization provider status", () => {
       cloudflareState: "not_configured",
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     stubCloudflareApiTokenAccounts("direct-token", testCase.accounts);
@@ -624,7 +624,7 @@ describe("organization provider status", () => {
       cloudflareAuthMethod: "oauth",
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -691,7 +691,7 @@ describe("organization provider status", () => {
   it("rejects a token that Cloudflare does not verify as a user API token", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const credentialBefore = await t.run(
@@ -728,7 +728,7 @@ describe("organization provider status", () => {
   it("rejects an inactive Cloudflare user API token before account discovery", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const credentialBefore = await t.run(
@@ -756,7 +756,7 @@ describe("organization provider status", () => {
   it("requires an organization owner before checking a Cloudflare API token", async () => {
     const { memberId, organizationId, providerCredentialsId, t } = await seedProviderOrganization();
     const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
+      subject: memberId,
       tokenIdentifier: `test:${memberId}`,
     });
     const credentialBefore = await t.run(
@@ -795,7 +795,7 @@ describe("organization provider status", () => {
     );
     const fetch = stubConvexProviderAccess([convexProjectResponse()]);
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
@@ -829,7 +829,7 @@ describe("organization provider status", () => {
   it("logs the original Convex provider error", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     vi.stubGlobal(
@@ -859,7 +859,7 @@ describe("organization provider status", () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     await makeSeedProviderOrganizationBillingLimited(t, organizationId);
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const fetch = vi.fn(async (input: string | URL | Request) => {
@@ -901,7 +901,7 @@ describe("organization provider status", () => {
   it("logs the original Cloudflare provider error", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const providerError = {
@@ -942,7 +942,7 @@ describe("organization provider status", () => {
       cloudflareAuthMethod: "oauth",
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "client-id");
@@ -1006,7 +1006,7 @@ describe("organization provider status", () => {
       });
     });
     const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
     const fetch = vi.fn(async (input: string | URL | Request) => {

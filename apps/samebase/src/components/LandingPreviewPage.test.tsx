@@ -254,22 +254,17 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
-    expect(
-      markup.split('class="hidden" data-public-landing-primary-action-signed-in="true"').length - 1,
-    ).toBe(2);
+    expect(markup.split('<div class="hidden"><a').length - 1).toBe(2);
   });
 
   it("links both signed-in landing CTA positions to the dashboard", () => {
-    authPresentation.kind = "temporaryAuthenticated";
+    authPresentation.kind = "confirmedAuthenticated";
 
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup.split('href="/repo"').length - 1).toBe(2);
     expect(markup.split(">Go to dashboard</a>").length - 1).toBe(2);
-    expect(
-      markup.split('class="hidden" data-public-landing-primary-action-signed-out="true"').length -
-        1,
-    ).toBe(2);
+    expect(markup.split('<div class="hidden"><button').length - 1).toBe(2);
   });
 
   it("renders the landing page with the docs sidebar", () => {

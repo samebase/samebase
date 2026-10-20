@@ -48,7 +48,7 @@ describe("workspace sidebar state Convex contract", () => {
       });
     });
     const asPendingAccess = t.withIdentity({
-      subject: `${userId}|pending-access-session`,
+      subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
 
