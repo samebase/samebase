@@ -45,7 +45,7 @@ export function useRepositoryWorkspaceModel(
   );
   const selectedOrganization = useMemo(
     () =>
-      selectedRepository && organizations
+      selectedRepository
         ? (organizations.find(
             (organization) => organization.organizationId === selectedRepository.organizationId,
           ) ?? null)

@@ -6,17 +6,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
-import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
-import {
-  PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
-  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
-} from "@/lib/publicLanding";
 import { clsx } from "clsx";
-import { Github } from "lucide-react";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/account/settingsRoute";
-import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME } from "@/SignInWithOAuth";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 // pointer-fine, not a width variant: touch devices keep the stacked full-row
