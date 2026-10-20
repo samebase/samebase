@@ -2,6 +2,7 @@ import { defineApp } from "convex/server";
 import { v } from "convex/values";
 import workflow from "@convex-dev/workflow/convex.config";
 import mail from "@samebase/convex-cloudflare-email-inbox/convex.config.js";
+import hosting from "@samebase/convex-hosting/convex.config";
 
 const app = defineApp({
   env: {
@@ -38,5 +39,6 @@ app.use(mail, {
     CLOUDFLARE_EMAIL_API_TOKEN: app.env.CLOUDFLARE_EMAIL_API_TOKEN,
   },
 });
+app.use(hosting);
 
 export default app;

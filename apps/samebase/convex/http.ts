@@ -1,4 +1,5 @@
 import { httpRouter } from "convex/server";
+import { routeAll } from "@samebase/convex-hosting";
 import { auth } from "./auth";
 import { finishCloudflareOAuth } from "./cloudflareOAuth";
 import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
@@ -15,7 +16,9 @@ import {
   rejectMcpUnsupportedTransportMethod,
 } from "./mcp/http";
 import { handlePolarWebhook } from "./polarWebhooks";
+import { components } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
+import { versionId } from "../.convex-hosting/version.js";
 
 const http = httpRouter();
 
@@ -136,5 +139,10 @@ http.route({
   method: "POST",
   handler: handlePolarWebhook,
 });
+
+// The built site, every method at every path, as a Cloudflare Worker with static assets: Convex
+// matches an exact path first, then the longest prefix, so every route above keeps winning.
+// `pnpm run deploy` writes dist/client and .convex-hosting/version.js.
+routeAll(http, components.hosting, versionId);
 
 export default http;
