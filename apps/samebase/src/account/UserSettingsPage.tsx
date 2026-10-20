@@ -1,11 +1,9 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
-import { type AccountPresentation } from "../../shared/accountPresentation";
-import { useAppAuthActions, useAppSignInActions } from "@/authClient";
+import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/account/AccountDeletionDialog";
 import { McpClientsSettingsSection } from "@/account/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
@@ -13,11 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
-import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
 import { getRouteApi, Link, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
-import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 
 const settingsRouteApi = getRouteApi("/settings");
@@ -28,13 +24,6 @@ type ProfileSaveState =
   | { kind: "saved" }
   | { kind: "saveFailed"; message: string };
 
-type SessionRefreshState =
-  | { kind: "current" }
-  | { kind: "refreshing" }
-  | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
-
-type AuthAccountLinkRequestState = "idle" | "google" | "github";
-
 function readErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ConvexError && typeof error.data === "string") {
     return error.data;
@@ -42,7 +31,7 @@ function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function UserSettingsPage({ authorizationNotice }: { authorizationNotice: ReactNode }) {
+export function UserSettingsPage() {
   const viewerAccess = useQuery(api.users.currentViewerAccess, {});
   const exitActionsOnly =
     viewerAccess?.role === "role_pending_access" || viewerAccess?.role === "role_terms_pending";
@@ -67,17 +56,9 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   const setDisplayName = useMutation(api.users.setDisplayName);
   const setProductUpdateEmailConsent = useMutation(api.users.setProductUpdateEmailConsent);
   const setSessionRecordingConsent = useMutation(api.users.setSessionRecordingConsent);
-  const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
   const { signOut } = useAppAuthActions();
-  const { signInWithOAuth } = useAppSignInActions();
-  const { fetchAccessToken } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [saveState, setSaveState] = useState<ProfileSaveState>({ kind: "idle" });
-  const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
-    kind: "current",
-  });
-  const [authAccountLinkRequestState, setAuthAccountLinkRequestState] =
-    useState<AuthAccountLinkRequestState>("idle");
   const [isSavingSessionRecordingConsent, setIsSavingSessionRecordingConsent] = useState(false);
   const [sessionRecordingConsentError, setSessionRecordingConsentError] = useState<string | null>(
     null,
@@ -88,49 +69,14 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   >(null);
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
 
-  useEffect(() => {
-    if (exitActionsOnly) {
-      return;
-    }
-
-    const resetRestoredAccountLinkRequest = (event: PageTransitionEvent) => {
-      if (event.persisted) {
-        setAuthAccountLinkRequestState("idle");
-      }
-    };
-
-    window.addEventListener("pageshow", resetRestoredAccountLinkRequest);
-    return () => {
-      window.removeEventListener("pageshow", resetRestoredAccountLinkRequest);
-    };
-  }, [exitActionsOnly]);
-
   if (viewerAccess === undefined) {
     return null;
   }
 
-  const refreshSession = async (expectedPresentation: AccountPresentation) => {
-    const token = await fetchAccessToken({ forceRefreshToken: true });
-
-    if (token === null) {
-      throw new Error("The session refresh did not return a token.");
-    }
-
-    const profile = readCurrentAuthTokenProfileClaims(token);
-
-    if (
-      profile === null ||
-      profile.accountPresentation.kind !== expectedPresentation.kind ||
-      profile.accountPresentation.label !== expectedPresentation.label
-    ) {
-      throw new Error("The refreshed session does not include the saved account label.");
-    }
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (saveState.kind === "saving" || sessionRefreshState.kind === "refreshing") {
+    if (saveState.kind === "saving") {
       return;
     }
 
@@ -143,71 +89,16 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     }
 
     setSaveState({ kind: "saving" });
-    let committedPresentation: AccountPresentation;
     try {
-      committedPresentation = await setDisplayName({
+      await setDisplayName({
         displayName: displayNameEntry.trim() ? displayNameEntry : null,
       });
+      setSaveState({ kind: "saved" });
     } catch (error) {
       setSaveState({
         kind: "saveFailed",
         message: readErrorMessage(error, "Could not save the display name."),
       });
-      return;
-    }
-
-    try {
-      setSessionRefreshState({ kind: "refreshing" });
-      await refreshSession(committedPresentation);
-      setSessionRefreshState({ kind: "current" });
-      setSaveState({ kind: "saved" });
-    } catch (error) {
-      setSaveState({ kind: "saved" });
-      setSessionRefreshState({
-        kind: "stale",
-        expectedPresentation: committedPresentation,
-        message: readErrorMessage(
-          error,
-          "The display name was saved, but the session refresh failed.",
-        ),
-      });
-    }
-  };
-
-  const handleRetryRefresh = async () => {
-    if (saveState.kind === "saving" || sessionRefreshState.kind !== "stale") {
-      return;
-    }
-    const expectedPresentation = sessionRefreshState.expectedPresentation;
-    setSessionRefreshState({ kind: "refreshing" });
-    try {
-      await refreshSession(expectedPresentation);
-      setSessionRefreshState({ kind: "current" });
-    } catch (error) {
-      setSessionRefreshState({
-        kind: "stale",
-        expectedPresentation,
-        message: readErrorMessage(error, "The session refresh failed."),
-      });
-    }
-  };
-
-  const connectAuthAccount = async (provider: "google" | "github") => {
-    if (authAccountLinkRequestState !== "idle") {
-      return;
-    }
-    const returnToPath = getCurrentRootRelativeUrl();
-    setAuthAccountLinkRequestState(provider);
-    try {
-      await beginAuthAccountLink({ provider });
-      await signInWithOAuth(provider, returnToPath);
-    } catch (error) {
-      toast({
-        description: readErrorMessage(error, `Could not connect ${provider}.`),
-        title: `Could not connect ${provider === "github" ? "GitHub" : "Google"}`,
-        variant: "destructive",
-      });
-      setAuthAccountLinkRequestState("idle");
     }
   };
 
@@ -330,12 +221,11 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     return null;
   }
 
-  const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
+  const pending = saveState.kind === "saving";
 
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
       {accountSettingsHeader}
-      {authorizationNotice ? <div className="mt-4">{authorizationNotice}</div> : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
         <h2 id="settings-profile-heading" className="text-base font-semibold">
@@ -364,7 +254,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             <Button type="submit" disabled={pending}>
               {saveState.kind === "saving" ? "Saving..." : "Save"}
             </Button>
-            {saveState.kind === "saved" && sessionRefreshState.kind === "current" ? (
+            {saveState.kind === "saved" ? (
               <p className="text-sm text-muted-foreground" role="status">
                 Saved
               </p>
@@ -374,24 +264,6 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             <p className="text-sm text-destructive" role="alert">
               {saveState.message}
             </p>
-          ) : null}
-          {sessionRefreshState.kind === "stale" || sessionRefreshState.kind === "refreshing" ? (
-            <div className="flex flex-wrap items-center gap-3" role="alert">
-              <p className="text-sm text-destructive">
-                {sessionRefreshState.kind === "stale"
-                  ? sessionRefreshState.message
-                  : "Refreshing this session..."}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={pending}
-                onClick={() => void handleRetryRefresh()}
-              >
-                {sessionRefreshState.kind === "refreshing" ? "Refreshing..." : "Retry"}
-              </Button>
-            </div>
           ) : null}
         </form>
       </section>
@@ -406,50 +278,20 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
         </h2>
         <dl className="mt-4 space-y-4">
           {GOOGLE_AUTH_UI_ENABLED ? (
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <dt className="text-sm font-medium">Google</dt>
-                <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                  {settings.signInMethods.google?.email ?? "Not connected"}
-                </dd>
-              </div>
-              {settings.signInMethods.google === null ? (
-                <Button
-                  disabled={authAccountLinkRequestState !== "idle"}
-                  onClick={() => void connectAuthAccount("google")}
-                  type="button"
-                  variant="outline"
-                >
-                  {authAccountLinkRequestState === "google" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : null}
-                  {authAccountLinkRequestState === "google" ? "Connecting..." : "Connect Google"}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <dt className="text-sm font-medium">GitHub</dt>
+            <div>
+              <dt className="text-sm font-medium">Google</dt>
               <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                {settings.signInMethods.github
-                  ? `@${settings.signInMethods.github.login}`
-                  : "Not connected"}
+                {settings.signInMethods.google?.email ?? "Not connected"}
               </dd>
             </div>
-            {settings.signInMethods.github === null ? (
-              <Button
-                disabled={authAccountLinkRequestState !== "idle"}
-                onClick={() => void connectAuthAccount("github")}
-                type="button"
-                variant="outline"
-              >
-                {authAccountLinkRequestState === "github" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : null}
-                {authAccountLinkRequestState === "github" ? "Connecting..." : "Connect GitHub"}
-              </Button>
-            ) : null}
+          ) : null}
+          <div>
+            <dt className="text-sm font-medium">GitHub</dt>
+            <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+              {settings.signInMethods.github
+                ? `@${settings.signInMethods.github.login}`
+                : "Not connected"}
+            </dd>
           </div>
           {settings.signInMethods.password ? (
             <div>

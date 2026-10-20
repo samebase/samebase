@@ -1,18 +1,19 @@
-import { signInWithAgentBrowserHandoffAction } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { consumeStoredAgentBrowserHandoff } from "@/lib/agentBrowserHandoffPrehydration";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../convex/_generated/api";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../../shared/agentBrowserHandoff";
 
 type HandoffState = "connecting" | "missing" | "failed";
 
 export function AgentsConnectRoutePage() {
-  const { signIn } = useAuthActions();
+  const { setSession } = useAuthActions();
+  const signInWithHandoff = useMutation(api.agentBrowserHandoff.signInWithAgentBrowserHandoff);
   const { isLoading: isAuthLoading } = useConvexAuth();
   const [handoffState, setHandoffState] = useState<HandoffState>("connecting");
   const startedRef = useRef(false);
@@ -39,14 +40,19 @@ export function AgentsConnectRoutePage() {
       return;
     }
 
-    void signInWithAgentBrowserHandoffAction({ signIn, token: handoff.token })
-      .then(() => {
+    void signInWithHandoff({ token: handoff.token })
+      .then(async (result) => {
+        if (result.status === "error") {
+          setHandoffState("failed");
+          return;
+        }
+        await setSession(result.tokens);
         window.location.replace(handoff.returnToPath);
       })
       .catch(() => {
         setHandoffState("failed");
       });
-  }, [isAuthLoading, signIn]);
+  }, [isAuthLoading, setSession, signInWithHandoff]);
 
   const message =
     handoffState === "connecting"

@@ -16,7 +16,6 @@ import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/organization/providers/githubAppSetupFlow";
 import { useOrganizationContext, type ViewerOrganization } from "@/organization/context";
 import { buildOrganizationRoutePath } from "@/organization/organizationRoutes";
-import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 
 type ListResult = (typeof api.githubAppConnection.listOptions)["_returnType"];
 export type OrganizationConnectionOption = Extract<
@@ -125,13 +124,9 @@ function OrganizationsDiscoveryView({
       return (
         <section className={hasEntries ? "mt-4 max-w-3xl" : "max-w-3xl"}>
           <p className="text-sm text-muted-foreground">
-            Connect GitHub in Account settings before you add an organization.
+            Sign out and sign in with GitHub before you add an organization. Use the GitHub account
+            whose verified email is the email of this Samebase account.
           </p>
-          <Button asChild className="mt-4 w-fit" variant="outline">
-            <Link hash="sign-in-methods" to={SETTINGS_ROUTE}>
-              Account settings
-            </Link>
-          </Button>
         </section>
       );
     case "load_failed":

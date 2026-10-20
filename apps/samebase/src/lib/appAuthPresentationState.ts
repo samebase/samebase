@@ -1,56 +1,30 @@
 import { createContext, useContext } from "react";
-import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
-import { type AuthTokenProfileClaims } from "../../shared/authTokenClaims";
-
-export type AppAuthPresentationProfile = AuthTokenProfileClaims;
-type LocalAppAuthPresentationHint =
-  | { kind: "pending" }
-  | {
-      kind: "present";
-      profile: AppAuthPresentationProfile;
-    }
-  | { kind: "signedOut" };
+import {
+  Inlineable_createAppAuthPresentationRuntime,
+  type AppAuthPresentationRuntimeLocalHint,
+} from "@/lib/appAuthPresentationRuntime";
 
 export type AppAuthPresentationState =
   | { kind: "unknown" }
-  | {
-      kind: "temporaryAuthenticated";
-      profile: AppAuthPresentationProfile;
-    }
-  | { kind: "confirmedAuthenticated"; profile: AppAuthPresentationProfile | null }
+  | { kind: "confirmedAuthenticated" }
   | { kind: "signedOut" };
 
 export const AppAuthPresentationContext = createContext<AppAuthPresentationState | null>(null);
 const appAuthPresentationRuntime = Inlineable_createAppAuthPresentationRuntime();
 
-export function convexAuthJwtStorageKey(storageNamespace: string) {
-  return appAuthPresentationRuntime.convexAuthJwtStorageKey(storageNamespace);
-}
-
-export function convexAuthRefreshTokenStorageKey(storageNamespace: string) {
-  return appAuthPresentationRuntime.convexAuthRefreshTokenStorageKey(storageNamespace);
-}
-
 export function readLocalAppAuthPresentationHint(
   storageNamespace: string,
-): LocalAppAuthPresentationHint {
+): AppAuthPresentationRuntimeLocalHint {
   if (typeof window === "undefined") {
     return { kind: "pending" };
   }
 
   try {
-    const authPresentationHint = appAuthPresentationRuntime.readLocalAppAuthPresentationHint({
+    return appAuthPresentationRuntime.readLocalAppAuthPresentationHint({
       search: window.location.search,
       storage: window.localStorage,
       storageNamespace,
     });
-    if (authPresentationHint.kind === "present") {
-      return {
-        kind: "present",
-        profile: authPresentationHint.profile,
-      };
-    }
-    return authPresentationHint;
   } catch {
     return { kind: "pending" };
   }
@@ -66,5 +40,5 @@ export function useAppAuthPresentation() {
 }
 
 export function isAppPresentationAuthenticated(state: AppAuthPresentationState) {
-  return state.kind === "confirmedAuthenticated" || state.kind === "temporaryAuthenticated";
+  return state.kind === "confirmedAuthenticated";
 }

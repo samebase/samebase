@@ -1,17 +1,16 @@
-import { guard } from "@samebase/dependent";
+import { useSignInWithGithub } from "@convex-dev/auth/methods/github/react";
+import { useSignInWithGoogle } from "@convex-dev/auth/methods/google/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useMutation } from "convex/react";
+import { useCallback, useEffect } from "react";
+import { api } from "../convex/_generated/api";
 import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 import { toast } from "@/components/ui/use-toast";
 
-const POPUP_WATCH_INTERVAL_MS = 500;
-const POPUP_WATCH_TIMEOUT_MS = 120_000;
-type AuthActions = ReturnType<typeof useAuthActions>;
-type SignInAction = AuthActions["signIn"];
-type SignOutAction = AuthActions["signOut"];
+type SignOutAction = ReturnType<typeof useAuthActions>["signOut"];
 type PostHogResetClient = {
   reset: () => void;
 };
@@ -20,52 +19,6 @@ type PasswordSignInArgs = {
   email: string;
   password: string;
 };
-
-type AuthPopupMessage = {
-  redirectTo?: unknown;
-  type?: unknown;
-  tokens?: unknown;
-};
-
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  for (const entryValue of Object.values(value)) {
-    if (typeof entryValue !== "string") {
-      return false;
-    }
-  }
-  return true;
-}
-
-const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
-  if (typeof value !== "string" || !value.startsWith("/")) {
-    return null;
-  }
-
-  try {
-    const redirectUrl = new URL(value, window.location.origin);
-    return redirectUrl.origin === window.location.origin &&
-      redirectUrl.pathname === "/" &&
-      redirectUrl.searchParams.get("auth-return") === "dashboard"
-      ? value
-      : null;
-  } catch {
-    return null;
-  }
-});
-
-export async function signInWithAgentBrowserHandoffAction(args: {
-  signIn: SignInAction;
-  token: string;
-}): Promise<void> {
-  const result = await args.signIn("agent-browser-handoff", { token: args.token });
-  if (!result.signingIn) {
-    throw new Error("Browser handoff is invalid or no longer available.");
-  }
-}
 
 /**
  * Sign-out should always continue even if PostHog cleanup fails, otherwise a
@@ -94,13 +47,51 @@ const deferredPostHogResetClient: PostHogResetClient = {
   },
 };
 
+/**
+ * Starts the provider redirect. The browser leaves the page when the start succeeds, and the
+ * Convex Auth client finishes the sign-in when the provider returns to `redirectTo`, a path on
+ * this origin.
+ */
+function useOAuthSignIn() {
+  const { signIn: signInWithGithub } = useSignInWithGithub(api.auth);
+  const { signIn: signInWithGoogle } = useSignInWithGoogle(api.auth);
+
+  return useCallback(
+    async (provider: OAuthAuthProvider, redirectTo: string) => {
+      const result = await (provider === "github" ? signInWithGithub : signInWithGoogle)({
+        redirectTo: new URL(redirectTo, window.location.origin).href,
+      });
+      if (result.status === "error") {
+        throw new Error(`Could not start ${provider} sign-in.`);
+      }
+    },
+    [signInWithGithub, signInWithGoogle],
+  );
+}
+
 export function useAppSignInActions() {
-  const { signIn } = useAuthActions();
+  const { setSession } = useAuthActions();
+  const signInWithOAuth = useOAuthSignIn();
+  const signInWithPassword = useMutation(api.auth.signInWithPassword);
+  const signUpWithPassword = useMutation(api.auth.signUpWithPassword);
 
   return {
-    signInWithOAuth: (provider: OAuthAuthProvider, redirectTo: string) =>
-      signIn(provider, { redirectTo }),
-    signInWithPassword: (args: PasswordSignInArgs) => signIn("password", args),
+    signInWithOAuth,
+    signInWithPassword: async (args: PasswordSignInArgs) => {
+      const credentials = { email: args.email, password: args.password };
+      const result =
+        args.flow === "signUp"
+          ? await signUpWithPassword(credentials)
+          : await signInWithPassword(credentials);
+      if (result.status === "error") {
+        throw new Error(
+          result.userError.error === "RATE_LIMITED"
+            ? `Too many attempts. Try again in ${Math.ceil(result.userError.retryAfterMs / 1000)} seconds.`
+            : "Incorrect email or password.",
+        );
+      }
+      await setSession(result.tokens);
+    },
   };
 }
 
@@ -124,99 +115,12 @@ export function isInIframe() {
   }
 }
 
-export function openAuthPopup(
-  provider: OAuthAuthProvider,
-  options: {
-    popupPath: string;
-  },
-) {
-  // Don't call signIn directly; the library would try window.location.href
-  // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
-  // Listen for auth tokens sent from the popup via postMessage.
-  let popup: Window | null = null;
-  let popupPollIntervalId: number | null = null;
-  let popupTimeoutId: number | null = null;
-  const expectedOrigin = window.location.origin;
-  const cleanup = () => {
-    window.removeEventListener("message", handler);
-    if (popupPollIntervalId !== null) {
-      window.clearInterval(popupPollIntervalId);
-      popupPollIntervalId = null;
-    }
-    if (popupTimeoutId !== null) {
-      window.clearTimeout(popupTimeoutId);
-      popupTimeoutId = null;
-    }
-  };
-  const handler = (event: MessageEvent) => {
-    if (event.origin !== expectedOrigin) return;
-    if (popup && event.source !== popup) return;
-    const messageData: AuthPopupMessage =
-      typeof event.data === "object" && event.data !== null ? event.data : {};
-    if (messageData.type !== "convex-auth-tokens") return;
-    if (!isStringRecord(messageData.tokens)) {
-      console.warn("authClient:ignored popup message with invalid token payload");
-      return;
-    }
-    const previousTokenValues = new Map<string, string | null>();
-    try {
-      for (const [key, value] of Object.entries(messageData.tokens)) {
-        previousTokenValues.set(key, localStorage.getItem(key));
-        localStorage.setItem(key, value);
-      }
-    } catch {
-      for (const [key, previousValue] of previousTokenValues) {
-        try {
-          if (previousValue === null) {
-            localStorage.removeItem(key);
-          } else {
-            localStorage.setItem(key, previousValue);
-          }
-        } catch {
-          // Auth fallback rollback is best-effort when browser storage is failing.
-        }
-      }
-      console.warn("authClient:failed to persist popup auth tokens");
-      cleanup();
-      return;
-    }
-    cleanup();
-    if (isAuthPopupRedirectTo(messageData.redirectTo)) {
-      window.location.href = messageData.redirectTo;
-      return;
-    }
-    window.location.reload();
-  };
-  window.addEventListener("message", handler);
-
-  popup = window.open(
-    `${window.location.origin}${options.popupPath}`,
-    `${provider}-oauth`,
-    "width=600,height=700,popup=true",
-  );
-  if (!popup) {
-    cleanup();
-    return;
-  }
-  popupPollIntervalId = window.setInterval(() => {
-    if (popup.closed) {
-      cleanup();
-    }
-  }, POPUP_WATCH_INTERVAL_MS);
-  popupTimeoutId = window.setTimeout(() => {
-    cleanup();
-  }, POPUP_WATCH_TIMEOUT_MS);
-}
-
 /**
- * Auto-trigger provider sign-in when an OAuth popup or top-level route sets
- * its one-use `auth` search value.
- * The popup handles the full OAuth redirect flow (not blocked by CSP
- * since it's a top-level window). After auth completes, the popup
- * auto-closes and the token syncs to the parent via localStorage.
+ * Starts provider sign-in when a route sets its one-use `auth` search value, for links that begin
+ * a GitHub or Google sign-in directly.
  */
 export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
-  const { signIn } = useAuthActions();
+  const signInWithOAuth = useOAuthSignIn();
   const router = useRouter();
   const authProvider = rootRouteSearch.auth;
   const authReturn = rootRouteSearch["auth-return"];
@@ -233,10 +137,10 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
         state: true,
         to: authReturn === "dashboard" ? "/" : ".",
       }).href;
-      // Preserve TanStack Router history metadata while stripping auth params
-      // from the popup/bootstrap URL before the provider redirect begins.
+      // Preserve TanStack Router history metadata while stripping the auth param from the URL
+      // before the provider redirect begins.
       window.history.replaceState(window.history.state, "", redirectTo);
-      void Promise.resolve(signIn(authProvider, { redirectTo })).catch(() => {
+      void signInWithOAuth(authProvider, redirectTo).catch(() => {
         toast({
           description: "Try again.",
           title: `Could not start ${authProvider === "github" ? "GitHub" : "Google"} sign-in`,
@@ -244,5 +148,5 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
         });
       });
     }
-  }, [authProvider, authReturn, router, signIn, signupReturn]);
+  }, [authProvider, authReturn, router, signInWithOAuth, signupReturn]);
 }

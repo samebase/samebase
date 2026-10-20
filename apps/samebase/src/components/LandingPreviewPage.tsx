@@ -750,16 +750,10 @@ function PublicLandingPrimaryAction() {
 
   return (
     <div className="w-fit max-w-full" data-testid={PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}>
-      <div
-        className={isAuthenticated ? "hidden" : undefined}
-        data-public-landing-primary-action-signed-out
-      >
+      <div className={isAuthenticated ? "hidden" : undefined}>
         <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
       </div>
-      <div
-        className={isAuthenticated ? undefined : "hidden"}
-        data-public-landing-primary-action-signed-in
-      >
+      <div className={isAuthenticated ? undefined : "hidden"}>
         <Link
           className={cn(buttonVariants(), SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME)}
           to={DASHBOARD_ROUTE}

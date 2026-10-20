@@ -1,6 +1,5 @@
 import { useAutoSignIn } from "@/authClient";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { useRouter } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
@@ -13,7 +12,6 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
   const signupReturn = rootRouteSearch.signup;
 
   useAutoSignIn(rootRouteSearch);
-  useCloseOAuthPopup(pathname, authReturn, true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && pathname === DASHBOARD_ROUTE) {

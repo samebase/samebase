@@ -23,10 +23,6 @@ function readProviderCopy(provider: AuthorizationProvider): {
         authorizationLabel: "GitHub authorization",
         connectionLabel: "GitHub",
       };
-    case "google-sign-in":
-      return { authorizationLabel: "Google sign-in", connectionLabel: "Google sign-in" };
-    case "github-sign-in":
-      return { authorizationLabel: "GitHub sign-in", connectionLabel: "GitHub sign-in" };
     default:
       provider satisfies never;
       return { authorizationLabel: "Authorization", connectionLabel: "Provider" };
@@ -41,25 +37,10 @@ export function formatAuthorizationErrorMessage(
   switch (authorizationError.code) {
     case "canceled":
       return `${authorizationLabel} was canceled. No changes were saved.`;
-    case "account-link-required":
-      switch (authorizationError.provider) {
-        case "google-sign-in":
-          return "The email on this Google account is already used by another Samebase account. Sign in to that account with an existing method.";
-        case "github-sign-in":
-          return "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.";
-        case "convex":
-        case "cloudflare":
-        case "github-app":
-        case "github-user":
-          return `${authorizationLabel} could not use this account. Sign in with an existing method and try again.`;
-        default:
-          authorizationError.provider satisfies never;
-          return "Sign in with an existing method and try again.";
-      }
     case "github-sign-in-required":
       return targets.githubOwnerLogin
-        ? `Personal GitHub access requires @${targets.githubOwnerLogin} as the GitHub sign-in method for this Samebase account. Connect it in Account settings, then try again.`
-        : "Connect GitHub in Account settings before you authorize GitHub.";
+        ? `Personal GitHub access requires @${targets.githubOwnerLogin} as the GitHub sign-in method for this Samebase account. Sign out, sign in with GitHub as @${targets.githubOwnerLogin}, then try again.`
+        : "Sign out and sign in with GitHub before you authorize GitHub. Use the GitHub account whose verified email is the email of this Samebase account.";
     case "github-sign-in-mismatch":
       return targets.githubOwnerLogin
         ? `Use the Samebase account connected to GitHub as @${targets.githubOwnerLogin}, then try again.`
@@ -106,9 +87,6 @@ export function formatAuthorizationErrorMessage(
           return targets.githubOwnerLogin
             ? `Sign in to GitHub as @${targets.githubOwnerLogin} to authorize personal repository creation.`
             : "Authorize GitHub with the account connected to this Samebase account.";
-        case "google-sign-in":
-        case "github-sign-in":
-          return "Select the provider account that is connected to this Samebase account.";
         default:
           authorizationError.provider satisfies never;
           return "Select the configured authorization target.";

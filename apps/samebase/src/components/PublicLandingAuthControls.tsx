@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { useOAuthSignInRejection } from "@/lib/oauthSignInRejection";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -21,6 +22,7 @@ import { readRootRouteSearch } from "@/routeSearch/root";
 import { SignInWithOAuth } from "@/SignInWithOAuth";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
@@ -135,7 +137,12 @@ export function PublicLandingAuthControls({
     }),
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const showOAuthReturnNotice = shouldRenderOAuthReturnNotice(location.pathname, rootRouteSearch);
+  const signInRejection = useOAuthSignInRejection();
+  const showOAuthReturnNotice = shouldRenderOAuthReturnNotice(
+    location.pathname,
+    rootRouteSearch,
+    signInRejection !== null,
+  );
   const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
 
   if (isAuthenticated || showOAuthReturnNotice) {
@@ -225,7 +232,13 @@ export function PasswordAuthForm({
     })
       .then(() => onSignIn?.())
       .catch((signInError: unknown) => {
-        setError(signInError instanceof Error ? signInError.message : "Password sign-in failed");
+        setError(
+          signInError instanceof ConvexError && typeof signInError.data === "string"
+            ? signInError.data
+            : signInError instanceof Error
+              ? signInError.message
+              : "Password sign-in failed",
+        );
       })
       .finally(() => {
         setPending(false);
@@ -275,7 +288,7 @@ export function PasswordAuthForm({
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
-          minLength={8}
+          minLength={10}
           disabled={pending}
         />
         <div className="flex items-center gap-2">

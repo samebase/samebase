@@ -52,15 +52,21 @@ export function resolvePublicLandingPasswordAuthMode(
   return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
 }
 
+/**
+The generic notice covers a marked OAuth return without a session. A recognized authorization error
+in the URL, or a sign-in that Samebase rejected with a message, shows its own guidance instead.
+*/
 export function shouldRenderOAuthReturnNotice(
   pathname: string,
   routeSearch: RootRouteSearch,
+  signInRejected: boolean,
 ): boolean {
   return (
     pathname !== MCP_CONSENT_APP_PATH &&
     !isOrganizationInvitationPath(pathname) &&
     routeSearch.signup !== undefined &&
-    readAuthorizationError(routeSearch) === null
+    readAuthorizationError(routeSearch) === null &&
+    !signInRejected
   );
 }
 
