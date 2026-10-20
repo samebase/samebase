@@ -168,7 +168,7 @@ function mountProviderConnectionsPage(selectedOrganization: TestOrganization = o
 }
 
 function providerPopupConfig(popup: Window | null = window) {
-  const popupOriginRef = { current: "https://api.samebase.com" };
+  const popupOriginRef = { current: "https://samebase.com" };
   return {
     convex: {
       completionEventTypes: ["convex-oauth-complete"],
@@ -515,7 +515,7 @@ describe("ProviderConnectionsPage", () => {
       { status: "not_connected" },
     );
     const getAuthorizationUrl = vi.fn(async () => ({
-      callbackOrigin: "https://api.samebase.com",
+      callbackOrigin: "https://samebase.com",
       setupUrl: "https://github.com/login/oauth/authorize",
     }));
     testState.mutations.set(
@@ -692,7 +692,7 @@ describe("ProviderConnectionsPage", () => {
   });
 
   it("updates a connected Cloudflare API token without starting OAuth", async () => {
-    const startCloudflareOAuth = vi.fn(async () => "https://api.samebase.com/oauth/cloudflare");
+    const startCloudflareOAuth = vi.fn(async () => "https://samebase.com/oauth/cloudflare");
     testState.actions.set(
       getFunctionName(api.cloudflareOAuth.getCloudflareOAuthUrl),
       startCloudflareOAuth,
@@ -945,7 +945,7 @@ describe("ProviderConnectionsPage", () => {
       handleProviderOAuthPopupCompletionMessage({
         event: new MessageEvent("message", {
           data: { type, returnTo },
-          origin: "https://api.samebase.com",
+          origin: "https://samebase.com",
           source: window,
         }),
         expectedOrigin: window.location.origin,
@@ -965,7 +965,7 @@ describe("ProviderConnectionsPage", () => {
     handleProviderOAuthPopupCompletionMessage({
       event: new MessageEvent("message", {
         data: { type: "convex-oauth-complete", returnTo },
-        origin: "https://api.samebase.com",
+        origin: "https://samebase.com",
         source: window,
       }),
       expectedOrigin: window.location.origin,
@@ -981,19 +981,19 @@ describe("ProviderConnectionsPage", () => {
     {
       data: { type: "convex-oauth-complete" },
       label: "missing return URL",
-      origin: "https://api.samebase.com",
+      origin: "https://samebase.com",
       source: window,
     },
     {
       data: { returnTo: 42, type: "convex-oauth-complete" },
       label: "non-string return URL",
-      origin: "https://api.samebase.com",
+      origin: "https://samebase.com",
       source: window,
     },
     {
       data: { returnTo: "not-an-absolute-url", type: "convex-oauth-complete" },
       label: "invalid return URL",
-      origin: "https://api.samebase.com",
+      origin: "https://samebase.com",
       source: window,
     },
     {
@@ -1002,7 +1002,7 @@ describe("ProviderConnectionsPage", () => {
         type: "convex-oauth-complete",
       },
       label: "cross-origin return URL",
-      origin: "https://api.samebase.com",
+      origin: "https://samebase.com",
       source: window,
     },
     {
@@ -1011,7 +1011,7 @@ describe("ProviderConnectionsPage", () => {
         type: "convex-oauth-complete",
       },
       label: "wrong popup source",
-      origin: "https://api.samebase.com",
+      origin: "https://samebase.com",
       source: null,
     },
     {

@@ -28,7 +28,7 @@ vi.mock("convex/react", async (importOriginal) => {
             clientName: "Codex",
             createdAt: Date.now() - 60_000,
             grantId: "grant_123",
-            resource: "https://api.samebase.com/mcp",
+            resource: "https://samebase.com/mcp",
             scopes: ["repositories:read"],
           },
         ],

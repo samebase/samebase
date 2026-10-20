@@ -49,7 +49,7 @@ describe("GitHub App popup completion", () => {
     vi.stubGlobal("window", fakeWindow);
 
     await openGitHubAppSetupPopup("github-app", async () => ({
-      callbackOrigin: "https://api.samebase.com",
+      callbackOrigin: "https://samebase.com",
       setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
     }));
     expect(popupAssign).toHaveBeenCalledWith(
@@ -68,7 +68,7 @@ describe("GitHub App popup completion", () => {
           type: "github-app-setup-complete",
           returnTo: "https://samebase.com/org/acme/providers?prod-ui#github",
         },
-        origin: "https://api.samebase.com",
+        origin: "https://samebase.com",
         // @ts-expect-error The fake popup implements the fields used by this boundary.
         source: popup,
       }),
@@ -120,7 +120,7 @@ describe("GitHub App popup completion", () => {
     vi.stubGlobal("window", fakeWindow);
 
     await openGitHubAppSetupPopup("github-app", async () => ({
-      callbackOrigin: "https://api.samebase.com",
+      callbackOrigin: "https://samebase.com",
       setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
     }));
     popup.closed = true;
@@ -149,7 +149,7 @@ describe("GitHub App popup completion", () => {
     vi.stubGlobal("window", fakeWindow);
 
     await openGitHubAppSetupPopup("github-app", async () => ({
-      callbackOrigin: "https://api.samebase.com",
+      callbackOrigin: "https://samebase.com",
       setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
     }));
 

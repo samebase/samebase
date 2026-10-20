@@ -88,7 +88,7 @@ Production App:
 - Owner: `samebase`
 - App ID: `4489215`
 - Client ID: `Iv23lidFhcIUMzBjZUdN`
-- Callback: `https://api.samebase.com/oauth/github/callback`
+- Callback: `https://samebase.com/oauth/github/callback`
 - Public page: https://github.com/apps/samebase
 - Production Convex settings and credentials: Configured and validated
 - User authorization during installation: Enabled
