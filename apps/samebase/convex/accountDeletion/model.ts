@@ -66,7 +66,10 @@ const activeAccountDeletionRunFields = {
   /** Legacy runs without this field keep their original seven-day start time. */
   deletionStartsAt: optional(number()),
   updatedAt: number(),
-  /** Present for self-service requests. Staff requests delete every target session. */
+  /**
+  The Convex Auth 0.0.x session of a self-service request made before the Convex Auth 2 cutover.
+  Convex Auth 2 gives the app no session id, so later requests leave it out.
+  */
   initiatingSessionId: optional(id("authSessions")),
   retryCount: number(),
   outcomes: vAccountDeletionOutcomeSummary,

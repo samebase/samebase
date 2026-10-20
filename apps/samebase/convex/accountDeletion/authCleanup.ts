@@ -118,10 +118,6 @@ export const deleteAuthAccountBatch = internalMutation({
       await deleteRateLimit(ctx, account.emailVerified);
     }
 
-    if (account.phoneVerified !== undefined) {
-      await deleteRateLimit(ctx, account.phoneVerified);
-    }
-
     await ctx.db.delete(account._id);
 
     return false;

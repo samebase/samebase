@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { generateConvexAuthKeys } from "./lib/convexAuthKeys.ts";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
@@ -147,15 +148,13 @@ try {
   );
 
   for (const [name, value] of seedEntries) {
-    const result = spawnSync("npx", ["convex", "env", "set", name, "--env-file", localEnvPath], {
-      cwd: appDir,
-      env: localConvexEnv,
-      input: value,
-      encoding: "utf8",
-      stdio: ["pipe", "inherit", "inherit"],
-    });
-    if (result.status !== 0) {
-      exitWithError(`Failed to set ${name} in local Convex env`);
+    setLocalConvexEnv(name, value);
+  }
+  // convex/convex.config.ts requires the signing keys of the Convex Auth component, so they exist
+  // before the deploy below pushes. A worktree backend keeps the keys it already has.
+  if (readLocalConvexEnv("AUTH_PRIVATE_KEY") === null || readLocalConvexEnv("AUTH_JWKS") === null) {
+    for (const [name, value] of Object.entries(generateConvexAuthKeys())) {
+      setLocalConvexEnv(name, value);
     }
   }
 
@@ -207,6 +206,30 @@ try {
 }
 
 process.exitCode = exitCode;
+
+function readLocalConvexEnv(name: string): string | null {
+  const result = spawnSync("npx", ["convex", "env", "get", name, "--env-file", localEnvPath], {
+    cwd: appDir,
+    env: localConvexEnv,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const value = result.status === 0 ? result.stdout.trim() : "";
+  return value.length > 0 ? value : null;
+}
+
+function setLocalConvexEnv(name: string, value: string): void {
+  const result = spawnSync("npx", ["convex", "env", "set", name, "--env-file", localEnvPath], {
+    cwd: appDir,
+    env: localConvexEnv,
+    input: value,
+    encoding: "utf8",
+    stdio: ["pipe", "inherit", "inherit"],
+  });
+  if (result.status !== 0) {
+    exitWithError(`Failed to set ${name} in local Convex env`);
+  }
+}
 
 function resolveBackendPort(vars: Record<string, string | undefined>): number | null {
   for (const key of ["CONVEX_URL", "VITE_CONVEX_URL"]) {

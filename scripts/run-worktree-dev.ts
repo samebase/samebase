@@ -16,7 +16,7 @@ import {
   readPositiveIntegerEnvValue,
 } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
-import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
+import { trackedFilePath } from "./lib/trackedFilePath.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -25,7 +25,7 @@ import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primar
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
 // Refresh existing worktrees once so they run the first site deploy that the local backend needs.
-const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v3";
+const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v4";
 
 const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 
@@ -174,7 +174,6 @@ export function buildWorktreeDevCommandPlan(
   repoRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): CommandSpec[] {
-  const appDir = path.join(repoRoot, "apps", "samebase");
   const seedEnv = { ...env };
   const sourceDeployKey =
     options.sourceDeployKey ?? readOptionalEnvValue(seedEnv.CONVEX_DEPLOY_KEY);
@@ -240,21 +239,6 @@ export function buildWorktreeDevCommandPlan(
       // Convex uses TTY stdin as the condition to refresh tracked AI files during
       // first-time local deployment setup. Backend bootstrap needs no input.
       stdio: ["ignore", "inherit", "inherit"],
-    },
-    {
-      label: "refresh anonymous auth keys",
-      cwd: appDir,
-      command: process.execPath,
-      args: [
-        path.join(appDir, samebaseAppFilePath("scripts/convex-dev.ts")),
-        "--refresh-anon-auth",
-        "--once",
-        "--codegen=disable",
-        "--tail-logs=disable",
-        "--typecheck=disable",
-      ],
-      env: anonymousEnv,
-      phase: "once-bootstrap",
     },
   ];
 

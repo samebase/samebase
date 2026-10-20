@@ -1,9 +1,8 @@
-import { getAuthSessionId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { type Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import { env, internalMutation, type MutationCtx } from "../_generated/server";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
@@ -136,7 +135,6 @@ async function queueAccountDeletion(
     completionCapability: string;
     deletionStartMode: AccountDeletionStartMode;
     eventMessage: string;
-    initiatingSessionId?: Id<"authSessions">;
     user: Extract<Doc<"users">, { state: "active" }>;
   },
 ) {
@@ -160,9 +158,6 @@ async function queueAccountDeletion(
     requestedAt: now,
     deletionStartsAt,
     updatedAt: now,
-    ...(args.initiatingSessionId === undefined
-      ? {}
-      : { initiatingSessionId: args.initiatingSessionId }),
     retryCount: 0,
     outcomes: {
       providerRevocation: { state: "not_started" },
@@ -257,10 +252,6 @@ export const request = mutation({
       return { state: "organization_membership_exists" as const };
     }
 
-    const initiatingSessionId = await getAuthSessionId(ctx);
-    if (initiatingSessionId === null) {
-      throw new Error("Authentication session is required to delete an account.");
-    }
     if (!/^[0-9a-f]{64}$/.test(args.completionCapability)) {
       throw new Error("Account deletion completion capability is invalid.");
     }
@@ -279,7 +270,6 @@ export const request = mutation({
       completionCapability: args.completionCapability,
       deletionStartMode: args.deletionStartMode,
       eventMessage: "Account deletion was requested.",
-      initiatingSessionId,
       user: ctx.viewer.user,
     });
     return { state: "accepted" as const, status: projectStatus(run) };

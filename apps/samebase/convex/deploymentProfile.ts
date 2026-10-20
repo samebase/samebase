@@ -203,12 +203,6 @@ export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAut
   });
 }
 
-export function assertPasswordAuthLogLevelAllowed(authLogLevel: string | null): void {
-  if (authLogLevel === "DEBUG") {
-    throw new Error("Password authentication is unavailable while AUTH_LOG_LEVEL is DEBUG");
-  }
-}
-
 /**
  * Preview and manual-account deployments keep password auth to sign-in only.
  * Local worktrees may still use the full sign-up path because they are

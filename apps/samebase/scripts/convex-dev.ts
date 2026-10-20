@@ -10,7 +10,6 @@ import {
   usesLocalConvexDeployment,
 } from "./convex-local-utils.ts";
 import { guard } from "@samebase/dependent/main";
-import { normalizeEnvValue } from "./normalizeEnvValue.ts";
 import { pickAvailableAnonymousLocalPorts } from "../../../runtime/anonymousLocalPorts.ts";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
@@ -133,17 +132,7 @@ const pickAnonymousLocalPorts = () => {
   return null;
 };
 
-const normalizePortList = (ports: number[]) =>
-  ports.filter(
-    (port, index, all) => Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
-  );
-
-const readLocalBackendPorts = (preferredPorts: number[] = []) => {
-  const strictPreferred = normalizePortList([...preferredPorts]);
-  if (strictPreferred.length > 0) {
-    return strictPreferred;
-  }
-
+const readLocalBackendPorts = () => {
   const ports = [3214, 3210];
   const envFile = path.join(process.cwd(), ".env.local");
   if (!fs.existsSync(envFile)) {
@@ -193,10 +182,10 @@ const isLocalBackendReady = async (port: number) => {
   }
 };
 
-const waitForLocalBackend = async (timeoutMs: number, preferredPorts: number[] = []) => {
+const waitForLocalBackend = async (timeoutMs: number) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    for (const port of readLocalBackendPorts(preferredPorts)) {
+    for (const port of readLocalBackendPorts()) {
       if (await isLocalBackendReady(port)) {
         return true;
       }
@@ -218,79 +207,6 @@ const waitForRecentLocalDevOrigin = async (timeoutMs: number, sinceMs: number) =
   return null;
 };
 
-const removeEnvVar = (name: string, env: NodeJS.ProcessEnv) => {
-  spawnSync("npx", ["convex", "env", "remove", name], {
-    stdio: "ignore",
-    env,
-  });
-};
-
-const readEnvVar = (name: string, env: NodeJS.ProcessEnv) => {
-  const result = spawnSync("npx", ["convex", "env", "get", name], {
-    stdio: "pipe",
-    encoding: "utf8",
-    env,
-  });
-  if (result.status !== 0) {
-    return null;
-  }
-  return normalizeEnvValue(result.stdout) ?? null;
-};
-
-const hasValidPrivateKey = (value: string) =>
-  value.includes("-----BEGIN PRIVATE KEY-----") && value.includes("-----END PRIVATE KEY-----");
-
-const hasValidJwks = (value: string) => {
-  try {
-    const parsed = JSON.parse(value);
-    return (
-      parsed !== null &&
-      typeof parsed === "object" &&
-      Array.isArray(parsed.keys) &&
-      parsed.keys.length > 0
-    );
-  } catch {
-    return false;
-  }
-};
-
-const ensureAnonymousAuthKeys = async (env: NodeJS.ProcessEnv, preferredPorts: number[] = []) => {
-  const backendReady = await waitForLocalBackend(20000, preferredPorts);
-  if (!backendReady) {
-    console.warn("Skipping anonymous auth key setup: local Convex backend is not ready.");
-    return false;
-  }
-
-  const existingPrivateKey = readEnvVar("JWT_PRIVATE_KEY", env);
-  const existingJwks = readEnvVar("JWKS", env);
-  if (
-    existingPrivateKey !== null &&
-    existingJwks !== null &&
-    hasValidPrivateKey(existingPrivateKey) &&
-    hasValidJwks(existingJwks)
-  ) {
-    return true;
-  }
-
-  removeEnvVar("JWT_PRIVATE_KEY", env);
-  removeEnvVar("JWKS", env);
-
-  const setupResult = spawnSync("npx", ["@convex-dev/auth", "--skip-git-check"], {
-    stdio: "pipe",
-    encoding: "utf8",
-    env,
-  });
-
-  if (setupResult.status !== 0) {
-    const output = `${setupResult.stdout}\n${setupResult.stderr}`.trim();
-    console.warn(`Anonymous auth key setup failed${output ? `:\n${output}` : "."}`);
-    return false;
-  }
-
-  console.log("Anonymous auth keys refreshed.");
-  return true;
-};
-
 const env = { ...process.env };
 const supportedNodeBin = pickSupportedNodeBin();
 if (!supportedNodeBin) {
@@ -306,15 +222,7 @@ const supportedNodeCommand = path.join(
   process.platform === "win32" ? "node.exe" : "node",
 );
 
-const rawExtraArgs = process.argv.slice(2);
-const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
-if (refreshAnonAuth && process.env.CONVEX_AGENT_MODE !== "anonymous") {
-  console.error("--refresh-anon-auth requires CONVEX_AGENT_MODE=anonymous");
-  process.exit(1);
-}
-const extraArgs = rawExtraArgs.filter((arg) => arg !== "--refresh-anon-auth");
-const args = ["dev", ...extraArgs];
-let anonymousLocalPorts = null;
+const args = ["dev", ...process.argv.slice(2)];
 if (
   process.env.CONVEX_AGENT_MODE === "anonymous" &&
   !args.some((arg) => arg.startsWith("--codegen"))
@@ -325,7 +233,7 @@ if (process.env.CONVEX_AGENT_MODE === "anonymous") {
   // Convex selects anonymous local mode from CONVEX_AGENT_MODE and the
   // deployment env value; passing the old --local flag now makes dev fail.
   if (!hasCliOption(args, "--local-cloud-port") && !hasCliOption(args, "--local-site-port")) {
-    anonymousLocalPorts = pickAnonymousLocalPorts();
+    const anonymousLocalPorts = pickAnonymousLocalPorts();
     if (anonymousLocalPorts) {
       args.push(
         `--local-cloud-port=${anonymousLocalPorts.cloud}`,
@@ -376,25 +284,11 @@ const child = spawn(convexInvocation.command, convexInvocation.args, {
   env,
 });
 let childExited = false;
-let childExitCode = 1;
-let refreshDone = !refreshAnonAuth;
-let refreshFailed = false;
 let terminateRequested = false;
 const hasChildExited = () => childExited;
 const shouldRetrySiteUrlSync =
-  !refreshAnonAuth &&
   !args.some((arg) => arg === "--until-success" || arg.startsWith("--until-success=")) &&
   usesLocalConvexDeployment();
-
-const maybeExit = () => {
-  if (!childExited || !refreshDone) {
-    return;
-  }
-  if (refreshAnonAuth) {
-    process.exit(refreshFailed ? 1 : 0);
-  }
-  process.exit(childExitCode);
-};
 
 child.on("error", (error) => {
   console.error(error.message);
@@ -402,8 +296,7 @@ child.on("error", (error) => {
 });
 child.on("exit", (code) => {
   childExited = true;
-  childExitCode = code ?? 1;
-  maybeExit();
+  process.exit(code ?? 1);
 });
 
 const requestTermination = (signal: NodeJS.Signals) => {
@@ -432,7 +325,7 @@ const requestTermination = (signal: NodeJS.Signals) => {
   }, 5000);
 
   setTimeout(() => {
-    if (!childExited || !refreshDone) {
+    if (!childExited) {
       process.exit(1);
     }
   }, 6500);
@@ -479,24 +372,4 @@ if (shouldRetrySiteUrlSync) {
       );
     }
   })();
-}
-
-if (refreshAnonAuth) {
-  void ensureAnonymousAuthKeys(env, anonymousLocalPorts ? [anonymousLocalPorts.cloud] : [])
-    .then((ok) => {
-      if (!ok) {
-        refreshFailed = true;
-      }
-    })
-    .catch((error) => {
-      refreshFailed = true;
-      console.error(error instanceof Error ? error.message : String(error));
-    })
-    .finally(() => {
-      refreshDone = true;
-      if (!childExited) {
-        child.kill("SIGTERM");
-      }
-      maybeExit();
-    });
 }

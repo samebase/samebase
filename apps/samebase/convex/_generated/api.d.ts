@@ -76,12 +76,12 @@ import type * as githubUserAuthorizations from "../githubUserAuthorizations.js";
 import type * as http from "../http.js";
 import type * as identity_access from "../identity/access.js";
 import type * as identity_accessValidators from "../identity/accessValidators.js";
-import type * as identity_accountLinking from "../identity/accountLinking.js";
 import type * as identity_accountModel from "../identity/accountModel.js";
-import type * as identity_githubSignIn from "../identity/githubSignIn.js";
 import type * as identity_lifecycle from "../identity/lifecycle.js";
 import type * as identity_model from "../identity/model.js";
 import type * as identity_newUserNotification from "../identity/newUserNotification.js";
+import type * as identity_passwordAccounts from "../identity/passwordAccounts.js";
+import type * as identity_signIn from "../identity/signIn.js";
 import type * as identity_viewerRole from "../identity/viewerRole.js";
 import type * as infraProvisioning from "../infraProvisioning.js";
 import type * as jsonUtils from "../jsonUtils.js";
@@ -291,12 +291,12 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "identity/access": typeof identity_access;
   "identity/accessValidators": typeof identity_accessValidators;
-  "identity/accountLinking": typeof identity_accountLinking;
   "identity/accountModel": typeof identity_accountModel;
-  "identity/githubSignIn": typeof identity_githubSignIn;
   "identity/lifecycle": typeof identity_lifecycle;
   "identity/model": typeof identity_model;
   "identity/newUserNotification": typeof identity_newUserNotification;
+  "identity/passwordAccounts": typeof identity_passwordAccounts;
+  "identity/signIn": typeof identity_signIn;
   "identity/viewerRole": typeof identity_viewerRole;
   infraProvisioning: typeof infraProvisioning;
   jsonUtils: typeof jsonUtils;
@@ -459,6 +459,10 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
+  auth: import("@convex-dev/auth/_generated/component.js").ComponentApi<"auth">;
+  authGithub: import("@convex-dev/auth/components/github/_generated/component.js").ComponentApi<"authGithub">;
+  authGoogle: import("@convex-dev/auth/components/google/_generated/component.js").ComponentApi<"authGoogle">;
+  authPassword: import("@convex-dev/auth/components/password/_generated/component.js").ComponentApi<"authPassword">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   mail: import("@samebase/convex-cloudflare-email-inbox/_generated/component.js").ComponentApi<"mail">;
   hosting: import("@samebase/convex-hosting/_generated/component.js").ComponentApi<"hosting">;

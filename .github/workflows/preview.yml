@@ -65,7 +65,8 @@ jobs:
         env:
           VITE_SAMEBASE_ROUTE_ENVIRONMENT: preview
 
-      # Convex Auth builds its redirects from SITE_URL, so the preview signs in on its own origin.
+      # OAuth sign-ins may return only to SITE_URL and CONVEX_SITE_URL, so the preview signs in on
+      # its own origin.
       - name: Set SITE_URL to the preview URL
         if: steps.deploy.outputs.preview-name
         working-directory: apps/samebase

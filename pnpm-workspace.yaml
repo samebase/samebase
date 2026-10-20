@@ -30,6 +30,9 @@ minimumReleaseAgeExclude:
   # Reviewed first-party release (apps/samebase serves samebase.com with it),
   # published 2026-10-18. Remove after 2026-10-25.
   - "@samebase/convex-hosting@0.13.1"
+  # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
+  # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
+  - "@convex-dev/auth@2.0.0-beta.0"
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
   # 7-day cooling period.
   - "@voidzero-dev/vite-plus-core@0.3.0"
@@ -119,8 +122,6 @@ allowBuilds:
   protobufjs: false
   sharp: false
   workerd: true
-patchedDependencies:
-  "@convex-dev/auth@0.0.94": patches/@convex-dev__auth@0.0.94.patch
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vitest: 4.1.11

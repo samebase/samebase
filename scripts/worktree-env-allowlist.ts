@@ -1,4 +1,10 @@
 export const WORKTREE_REQUIRED_SOURCE_ENV_NAMES = [
+  // convex/convex.config.ts requires the OAuth credentials of the Convex Auth GitHub and Google
+  // components, so a worktree push fails without them.
+  "AUTH_GITHUB_CLIENT_ID",
+  "AUTH_GITHUB_CLIENT_SECRET",
+  "AUTH_GOOGLE_CLIENT_ID",
+  "AUTH_GOOGLE_CLIENT_SECRET",
   "DEV_SEED_GITHUB_INSTALLATION_ID",
   "DEV_SEED_GITHUB_OWNER_ID",
   "DEV_SEED_GITHUB_OWNER_LOGIN",
@@ -12,10 +18,6 @@ export const WORKTREE_REQUIRED_SOURCE_ENV_NAMES = [
 ] as const;
 
 export const WORKTREE_ENV_ALLOWLIST = new Set([
-  "AUTH_GITHUB_ID",
-  "AUTH_GITHUB_SECRET",
-  "AUTH_GOOGLE_ID",
-  "AUTH_GOOGLE_SECRET",
   "CONVEX_DEPLOYMENT",
   ...WORKTREE_REQUIRED_SOURCE_ENV_NAMES,
   "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",
