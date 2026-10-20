@@ -15,6 +15,7 @@ const seedLocalPasswordAccountScriptPath = samebaseAppFilePath(
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "samebase", ".env.local");
 const versionModulePath = path.join(samebaseAppDirectory, ".convex-hosting", "version.js");
+const serverBuildPath = path.join(samebaseAppDirectory, "dist", "server", "server.js");
 const convexEnvSetMaxAttempts = 4;
 const convexEnvLocalWaitTimeoutMs = 300_000;
 const keepBackendRunning = process.argv.slice(2).includes("--keep-running");
@@ -91,11 +92,11 @@ async function main(): Promise<void> {
       await runConvexEnvSet(key, value);
     }
 
-    // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, so the first
-    // push of a fresh checkout fails. One `deploy --dev` builds the site, uploads it to the running
-    // backend, writes the file, and pushes. A checkout that has the file waits for the watcher's
-    // own push.
-    if (existsSync(versionModulePath)) {
+    // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, and the server
+    // build dist/server/server.js, so the first push of a fresh checkout fails. One `deploy --dev`
+    // builds the site, uploads it to the running backend, writes both files, and pushes. A checkout
+    // that has both files waits for the watcher's own push.
+    if (existsSync(versionModulePath) && existsSync(serverBuildPath)) {
       await waitForFunctionsReady(bootstrapProcess);
     } else {
       await deployLocalSite(bootstrapProcess);
