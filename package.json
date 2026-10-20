@@ -88,9 +88,9 @@
   "devDependencies": {
     "@convex-dev/eslint-plugin": "2.0.0",
     "@edge-runtime/vm": "^5.0.0",
-    "@oxlint/plugins": "1.61.0",
+    "@oxlint/plugins": "1.88.0",
     "@playwright/test": "1.58.2",
-    "@remotion/eslint-plugin": "4.0.489",
+    "@remotion/eslint-plugin": "4.0.535",
     "@samebase/dependent": "workspace:*",
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
     "convex-test": "^0.0.61",
@@ -105,5 +105,5 @@
     "node": ">=24.11.0",
     "pnpm": ">=11.18.0"
   },
-  "packageManager": "pnpm@11.18.0"
+  "packageManager": "pnpm@11.28.5"
 }

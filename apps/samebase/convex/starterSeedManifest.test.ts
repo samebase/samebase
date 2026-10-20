@@ -8,7 +8,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "dffdc3027dccd66fd22251b21df08f25a44b3c76f68030bd721b606d768dda84",
+      contentHash: "8cd9441ae2f057f50807cb95ef3b63820f9e4765926231f6ec1ce2b44846856f",
       commitMessage: "Initialize app from Samebase starter build v2064",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -87,7 +87,7 @@ describe("starterSeedManifest", () => {
           "vite-plus": "catalog:",
           vitest: "catalog:",
         }),
-        packageManager: "pnpm@11.1.1",
+        packageManager: "pnpm@11.28.5",
       }),
     );
     expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@1.1.0");
@@ -248,7 +248,7 @@ describe("actionsStarterTemplateManifest", () => {
       starterTemplateManifest.files["wrangler.jsonc"],
     );
     expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
-      '"alchemy": "2.0.0-beta.80"',
+      '"alchemy": "2.0.0-beta.83"',
     );
   });
 });

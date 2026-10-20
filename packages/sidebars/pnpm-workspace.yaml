@@ -16,7 +16,7 @@ trustPolicyExclude:
   - "undici-types@6.21.0"
 overrides:
   source-map-js: 1.2.2
-  tinypool: 2.1.2
-  undici: 7.29.1
+  tinypool: 2.2.0
+  undici: 7.30.0
 allowBuilds:
   esbuild: true
