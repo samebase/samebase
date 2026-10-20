@@ -22,7 +22,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -60,7 +60,7 @@ jobs:
         uses: pnpm/action-setup@v6
         with:
           package_json_file: templates/${{ matrix.template }}/package.json
-          version: 11.1.1
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -103,7 +103,7 @@ jobs:
         uses: pnpm/action-setup@v6
         with:
           package_json_file: templates/${{ matrix.template }}/package.json
-          version: 11.1.1
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -137,7 +137,7 @@ jobs:
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           package_json_file: packages/sidebars/package.json
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -176,7 +176,7 @@ jobs:
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           package_json_file: packages/sidebars/package.json
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -208,7 +208,7 @@ jobs:
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           package_json_file: apps/sidebars-example/package.json
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -247,7 +247,7 @@ jobs:
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           package_json_file: apps/sidebars-example/package.json
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -281,7 +281,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -350,7 +350,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -411,7 +411,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.18.0
+          version: 11.28.5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
