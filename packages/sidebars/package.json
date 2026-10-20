@@ -100,7 +100,7 @@
     "publint": "0.3.24",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "vite-plus": "0.3.0"
+    "vite-plus": "1.1.0"
   },
   "peerDependencies": {
     "react": ">=19.2.0 <20",
