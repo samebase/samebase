@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import { createRoot, hydrateRoot, type Root } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -9,16 +9,13 @@ import {
   PublicLandingAuthControls,
 } from "@/components/PublicLandingAuthControls";
 import { type RootRouteSearch } from "@/routeSearch/root";
-import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
+import { type PublicDeploymentAuthPolicy } from "../../convex/deploymentProfile";
 
-const { buildLocationMock, navigateMock, signInWithOAuthMock, signInWithPasswordMock } = vi.hoisted(
-  () => ({
-    buildLocationMock: vi.fn(),
-    navigateMock: vi.fn(),
-    signInWithOAuthMock: vi.fn(),
-    signInWithPasswordMock: vi.fn(),
-  }),
-);
+const { buildLocationMock, signInWithOAuthMock, signInWithPasswordMock } = vi.hoisted(() => ({
+  buildLocationMock: vi.fn(),
+  signInWithOAuthMock: vi.fn(),
+  signInWithPasswordMock: vi.fn(),
+}));
 const componentState = vi.hoisted<{
   deploymentAuthPolicy: PublicDeploymentAuthPolicy | undefined;
   isAuthenticated: boolean;
@@ -41,9 +38,9 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
-vi.mock("@/routeSearch/root", () => ({
+vi.mock("@/routeSearch/root", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/routeSearch/root")>()),
   readRootRouteSearch: () => componentState.search,
-  useRootRouteSearch: () => componentState.search,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -52,7 +49,6 @@ vi.mock("@tanstack/react-router", () => ({
   }: {
     select: (location: { pathname: string; searchStr: string }) => unknown;
   }) => select({ pathname: componentState.pathname, searchStr: "" }),
-  useNavigate: () => navigateMock,
   useRouter: () => ({
     buildLocation: buildLocationMock,
   }),
@@ -63,17 +59,34 @@ vi.mock("convex/react", () => ({
     isAuthenticated: componentState.isAuthenticated,
     isLoading: false,
   }),
-  useQuery: () => componentState.deploymentAuthPolicy,
+}));
+
+// The controls read one query: the root loader's deployment auth policy.
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => ({ data: componentState.deploymentAuthPolicy }),
+}));
+
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
 }));
 
 function renderPasswordAuthForm(surface: "local_worktree" | "sign_in"): string {
   return renderToStaticMarkup(<PasswordAuthForm surface={surface} />);
 }
 
-async function settleHydrationUpdate() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await new Promise((resolve) => window.setTimeout(resolve, 0));
+async function clickAutofillAndSignIn(rootElement: HTMLElement) {
+  const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
+    (button) => button.textContent === "Autofill & sign in",
+  );
+  if (!(autofillButton instanceof HTMLButtonElement)) {
+    throw new Error("Password auth autofill button not found.");
+  }
+
+  await act(async () => {
+    autofillButton.click();
+  });
 }
 
 describe("PasswordAuthForm", () => {
@@ -85,7 +98,6 @@ describe("PasswordAuthForm", () => {
     componentState.pathname = "/";
     componentState.search = {};
     buildLocationMock.mockReset();
-    navigateMock.mockReset();
     signInWithOAuthMock.mockReset();
     signInWithPasswordMock.mockReset();
     const mountedRoot = root;
@@ -96,8 +108,8 @@ describe("PasswordAuthForm", () => {
       root = null;
     }
     document.body.replaceChildren();
-    window.localStorage.clear();
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("renders the seeded sign-in-only surface without local shortcuts", () => {
@@ -121,12 +133,7 @@ describe("PasswordAuthForm", () => {
     expect(markup).toContain(">Sign in</button>");
   });
 
-  it("omits the landing sidebar password auth from prerendered markup", () => {
-    componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
-    };
-
+  it("omits the landing sidebar password auth until the deployment policy loads", () => {
     const markup = renderToStaticMarkup(
       <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
@@ -137,26 +144,21 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
-  it("renders the landing sidebar password auth after hydration", async () => {
+  it("renders the landing sidebar password auth from the deployment policy", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
     };
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const localRoot = createRoot(rootElement);
-    root = localRoot;
 
-    await act(async () => {
-      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
-      await settleHydrationUpdate();
-    });
+    const markup = renderToStaticMarkup(
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
+    );
 
-    expect(rootElement.innerHTML).toContain("GitHub");
-    expect(rootElement.innerHTML).toContain("Password sign in");
-    expect(rootElement.innerHTML).toContain('placeholder="you@example.com"');
-    expect(rootElement.innerHTML).toContain('autocomplete="current-password"');
-    expect(rootElement.innerHTML).not.toContain("Need an account?");
+    expect(markup).toContain("GitHub");
+    expect(markup).toContain("Password sign in");
+    expect(markup).toContain('placeholder="you@example.com"');
+    expect(markup).toContain('autoComplete="current-password"');
+    expect(markup).not.toContain("Need an account?");
   });
 
   it("marks every root GitHub sign-in as a public signup return", async () => {
@@ -212,36 +214,12 @@ describe("PasswordAuthForm", () => {
 
     await act(async () => {
       localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
-      await settleHydrationUpdate();
     });
 
     expect(rootElement.innerHTML).not.toContain("GitHub");
     expect(rootElement.innerHTML).not.toContain("Password sign in");
     expect(rootElement.querySelector('input[type="email"]')).toBeNull();
     expect(rootElement.querySelector('input[type="password"]')).toBeNull();
-  });
-
-  it("hydrates without inserting remembered password auth before hydration completes", async () => {
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(
-      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
-    );
-    document.body.append(rootElement);
-    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
-    const recoverableErrors: Array<unknown> = [];
-
-    await act(async () => {
-      root = hydrateRoot(rootElement, <PublicLandingAuthControls oauthAuthFlow="public-signup" />, {
-        onRecoverableError(error: unknown) {
-          recoverableErrors.push(error);
-        },
-      });
-      await settleHydrationUpdate();
-    });
-
-    expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toContain("GitHub");
-    expect(rootElement.innerHTML).toContain("Password sign in");
   });
 
   it("hides the landing sidebar password auth in prod-ui mode", () => {
@@ -260,7 +238,7 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
-  it("renders manual password auth even in prod-ui mode after hydration", async () => {
+  it("renders manual password auth even in prod-ui mode", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "production" },
       passwordAuthMode: "manual",
@@ -273,7 +251,6 @@ describe("PasswordAuthForm", () => {
 
     await act(async () => {
       localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
-      await settleHydrationUpdate();
     });
 
     expect(rootElement.innerHTML).toContain("GitHub");
@@ -370,7 +347,7 @@ describe("PasswordAuthForm", () => {
     expect(onSignIn).toHaveBeenCalledTimes(1);
   });
 
-  it("navigates to the dashboard after password success when the auth controls leave the tree", async () => {
+  it("loads the dashboard after password success when the auth controls leave the tree", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "local_worktree_seed",
@@ -392,23 +369,16 @@ describe("PasswordAuthForm", () => {
       localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
     });
 
-    const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent === "Autofill & sign in",
-    );
-    if (!(autofillButton instanceof HTMLButtonElement)) {
-      throw new Error("Password auth autofill button not found.");
-    }
-
-    await act(async () => {
-      autofillButton.click();
-    });
+    const assignMock = vi.fn();
+    vi.stubGlobal("location", { assign: assignMock, origin: window.location.origin });
+    await clickAutofillAndSignIn(rootElement);
 
     expect(signInWithPasswordMock).toHaveBeenCalledWith({
       email: "nicu@samebase.com",
       flow: "signIn",
       password: "pass1234",
     });
-    expect(navigateMock).not.toHaveBeenCalled();
+    expect(assignMock).not.toHaveBeenCalled();
 
     await act(async () => {
       localRoot.render(<div>Signed-in owner branch</div>);
@@ -423,32 +393,7 @@ describe("PasswordAuthForm", () => {
       completePasswordSignIn();
       await Promise.resolve();
     });
-    expect(navigateMock).toHaveBeenCalledWith({
-      search: expect.any(Function),
-      to: "/repo",
-    });
-    const navigateOptions = navigateMock.mock.calls[0]?.[0];
-    if (
-      typeof navigateOptions !== "object" ||
-      navigateOptions === null ||
-      !("search" in navigateOptions) ||
-      typeof navigateOptions.search !== "function"
-    ) {
-      throw new Error("Expected dashboard navigation to include a search updater.");
-    }
-    expect(
-      navigateOptions.search({
-        auth: "google",
-        "auth-return": "dashboard",
-        "prod-ui": true,
-        signup: "google",
-      }),
-    ).toEqual({
-      auth: undefined,
-      "auth-return": undefined,
-      "prod-ui": true,
-      signup: undefined,
-    });
+    expect(assignMock).toHaveBeenCalledWith("/repo");
   });
 
   it("stays on the MCP consent route after password sign-in", async () => {
@@ -469,16 +414,9 @@ describe("PasswordAuthForm", () => {
       localRoot.render(<PublicLandingAuthControls oauthAuthFlow="current-route" />);
     });
 
-    const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent === "Autofill & sign in",
-    );
-    if (!(autofillButton instanceof HTMLButtonElement)) {
-      throw new Error("Password auth autofill button not found.");
-    }
-
-    await act(async () => {
-      autofillButton.click();
-    });
+    const assignMock = vi.fn();
+    vi.stubGlobal("location", { assign: assignMock, origin: window.location.origin });
+    await clickAutofillAndSignIn(rootElement);
 
     componentState.isAuthenticated = true;
     await act(async () => {
@@ -490,6 +428,6 @@ describe("PasswordAuthForm", () => {
       flow: "signIn",
       password: "pass1234",
     });
-    expect(navigateMock).not.toHaveBeenCalled();
+    expect(assignMock).not.toHaveBeenCalled();
   });
 });

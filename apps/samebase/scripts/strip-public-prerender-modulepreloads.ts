@@ -1,9 +1,14 @@
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import {
-  readPrerenderHtmlOutputPath,
-  type PublicPrerenderPage,
-} from "./generate-cloudflare-redirects.ts";
+
+/**
+The part of a page of prerender.config.ts that this script reads. The script typechecks with the
+Node scripts, which cannot resolve the app modules that prerender.config.ts imports.
+*/
+export type PublicPrerenderPage = {
+  path: string;
+  expectedMetadata: { title: string; description: string; robots: string };
+};
 
 const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;
@@ -126,20 +131,19 @@ export function stripModulePreloadLinks(html: string) {
 }
 
 /**
-Overwrites the public prerender that TanStack Start just wrote. The caller owns
-selecting configured public pages so the separate production SPA mask page is
-never passed here.
+Overwrites the public prerender that TanStack Start just wrote at `<path>/index.html`, which
+`--html-handling drop-trailing-slash` serves at `<path>`. The caller passes only the configured
+public pages.
 */
 export function writePublicPrerenderWithoutModulePreloads(args: {
   clientDistDir: string;
   html: string;
   page: PublicPrerenderPage;
 }) {
-  const htmlOutputPath = readPrerenderHtmlOutputPath(args.page);
-  const htmlFilePath = path.resolve(args.clientDistDir, htmlOutputPath.slice(1));
+  const htmlFilePath = path.resolve(args.clientDistDir, `.${args.page.path}`, "index.html");
   const relativePath = path.relative(args.clientDistDir, htmlFilePath);
   if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    throw new Error(`Prerender output path escapes dist/client: ${htmlOutputPath}`);
+    throw new Error(`Prerender output path escapes dist/client: ${args.page.path}`);
   }
 
   const result = stripModulePreloadLinks(args.html);

@@ -1,37 +1,9 @@
+# Rules for the files of the build: the prerendered pages and the assets. A page that the server
+# renders gets its headers from src/start.ts.
 /*
   Content-Security-Policy: frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
-
-/agents/connect
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-  X-Robots-Tag: noindex, nofollow
-
-/agents/connect/
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-  X-Robots-Tag: noindex, nofollow
-
-/oauth/mcp/consent
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-  X-Robots-Tag: noindex, nofollow
-
-/oauth/mcp/consent/
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-  X-Robots-Tag: noindex, nofollow
-
-/oauth/provider-complete
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-  X-Robots-Tag: noindex, nofollow
-
-/oauth/provider-complete/
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-  X-Robots-Tag: noindex, nofollow
 
 /docs/*.md
   X-Robots-Tag: noindex, follow

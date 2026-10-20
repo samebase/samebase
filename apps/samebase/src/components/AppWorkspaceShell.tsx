@@ -7,7 +7,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -289,12 +288,10 @@ function useAppWorkspaceSidebarState() {
 function AppWorkspaceShellFrame({
   children,
   chrome,
-  routeAddressOverride,
   staticRouteChrome,
 }: {
   children?: ReactNode;
   chrome: AppWorkspaceRouteChromeSnapshot | null;
-  routeAddressOverride?: string;
   staticRouteChrome: AppWorkspaceRouteChromeStaticData | null;
 }) {
   const sidebarState = useAppWorkspaceSidebarState();
@@ -329,7 +326,7 @@ function AppWorkspaceShellFrame({
     <SidebarRuntimeProvider controller={sidebarState}>
       <AppWorkspacePaneShortcut side={chrome?.shortcutPaneSide ?? "right"} />
       <AppSidebarLayout
-        addressChrome={<RouteUrlEditorNext routeAddressOverride={routeAddressOverride} />}
+        addressChrome={<RouteUrlEditorNext />}
         left={leftPane}
         leftToggleVisibility={leftToggleVisibility}
         main={mainPane}
@@ -349,30 +346,8 @@ function AppWorkspaceShellFrame({
   );
 }
 
-/**
-Cloudflare can serve the `/`-based `index.html` for another route. TanStack marks the build render
-with `isShell()` and the browser fallback render with `ssr === false` or `_notFound`. Keep both
-renders on `/`. The effect enables the requested route after hydration.
-*/
-function useAppWorkspaceSpaShellFirstRender() {
-  const router = useRouter();
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  return (
-    !hasHydrated &&
-    (router.isShell() ||
-      router.state.matches.some((match) => match.ssr === false || match._notFound))
-  );
-}
-
 export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   const routePathname = useLocation({ select: (location) => location.pathname });
-  const isSpaShellFirstRender = useAppWorkspaceSpaShellFirstRender();
-  const workspacePathname = isSpaShellFirstRender ? "/" : routePathname;
 
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
@@ -383,18 +358,14 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
     [chromeStore],
   );
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
-  const staticRouteChrome = useAppWorkspaceRouteChromeStaticData(workspacePathname);
+  const staticRouteChrome = useAppWorkspaceRouteChromeStaticData(routePathname);
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
-      <OrganizationContextProvider pathnameOverride={workspacePathname}>
+      <OrganizationContextProvider>
         <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-          <AppWorkspaceShellFrame
-            chrome={chrome}
-            routeAddressOverride={isSpaShellFirstRender ? "/" : undefined}
-            staticRouteChrome={staticRouteChrome}
-          >
-            {isSpaShellFirstRender ? null : children}
+          <AppWorkspaceShellFrame chrome={chrome} staticRouteChrome={staticRouteChrome}>
+            {children}
           </AppWorkspaceShellFrame>
         </div>
       </OrganizationContextProvider>

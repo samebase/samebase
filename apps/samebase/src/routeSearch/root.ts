@@ -115,6 +115,14 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     access: "access_public",
     suggestion: "global",
   }),
+  // The page that a signed-out visitor asked for: a private page's server render redirects to the
+  // landing page with it, and the landing page returns there after the sign-in.
+  next: routeSearchValueParam(routeSearchNonEmptyString, {
+    access: "access_public",
+    sampleValue: "/repo/",
+    suggestion: "hidden",
+    valueType: "freeform",
+  }),
   signup: routeSearchValueParam(routeSearchStringValue(["google", "github"]), {
     access: "access_public",
     // signup is an auth-return marker, not a route option to preview.
@@ -188,6 +196,7 @@ const rootRouteSearchParamMetadata = {
   devtools: rootRouteSearchOwnParamMetadata.devtools,
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
+  next: rootRouteSearchOwnParamMetadata.next,
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
   signup: rootRouteSearchOwnParamMetadata.signup,
@@ -388,6 +397,12 @@ export function replaceRootLogoRouteSearch(
   }
 
   return applySearchPatch(currentSearch, logoSearchPatch);
+}
+
+/** The `next` page of a sign-in when it is a path on this site, else `null`. */
+export function readSignInNextHref(search: RootRouteSearch): string | null {
+  const { next } = search;
+  return next !== undefined && next.startsWith("/") && !/^\/[/\\]/.test(next) ? next : null;
 }
 
 /**

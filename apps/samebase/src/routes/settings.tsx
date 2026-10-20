@@ -16,7 +16,7 @@ function SettingsRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/settings")({
+export const Route = createFileRoute("/_authed/settings")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[SETTINGS_ROUTE],
     ...SETTINGS_ROUTE_SEARCH_STATIC_DATA,

@@ -96,7 +96,7 @@ export function buildFileViewSearchHref(args: {
   });
 }
 
-const repositoryFileRouteApi = getRouteApi("/repo/$");
+const repositoryFileRouteApi = getRouteApi("/_authed/repo/$");
 
 export function useFileViewRouteSearch() {
   return repositoryFileRouteApi.useSearch();

@@ -1,8 +1,9 @@
 import { useSignInWithGithub } from "@convex-dev/auth/methods/github/react";
 import { useSignInWithGoogle } from "@convex-dev/auth/methods/google/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
+import { useSignOutSession } from "@samebase/convex-auth-tanstack-start";
 import { useRouter } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { ConvexHttpClient } from "convex/browser";
 import { useCallback, useEffect } from "react";
 import { api } from "../convex/_generated/api";
 import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
@@ -10,7 +11,7 @@ import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 import { toast } from "@/components/ui/use-toast";
 
-type SignOutAction = ReturnType<typeof useAuthActions>["signOut"];
+type SignOutAction = () => Promise<boolean>;
 type PostHogResetClient = {
   reset: () => void;
 };
@@ -22,7 +23,8 @@ type PasswordSignInArgs = {
 
 /**
  * Sign-out should always continue even if PostHog cleanup fails, otherwise a
- * telemetry issue can block the user from leaving the current session.
+ * telemetry issue can block the user from leaving the current session. It
+ * resolves to `false` when the sign-out route failed and the session stays.
  */
 export function signOutWithAnalytics(args: {
   signOut: SignOutAction;
@@ -69,11 +71,31 @@ function useOAuthSignIn() {
   );
 }
 
+/**
+A client for the sign-in mutations of Samebase's own methods (password, agent browser handoff). It
+calls them through the app's `/auth/signin` route, which mints the session, keeps the refresh token
+in its httpOnly cookie, and returns only the access token for `setSession`. The trailing `?path=`
+puts the endpoint that the client appends into the query string. The current access token goes
+along, so a mutation can read the browser's identity.
+*/
+export function useSessionRouteClient() {
+  const accessToken = useAuthToken();
+
+  return useCallback(() => {
+    const client = new ConvexHttpClient("/auth/signin?path=", {
+      skipConvexDeploymentUrlCheck: true,
+    });
+    if (accessToken !== null) {
+      client.setAuth(accessToken);
+    }
+    return client;
+  }, [accessToken]);
+}
+
 export function useAppSignInActions() {
   const { setSession } = useAuthActions();
   const signInWithOAuth = useOAuthSignIn();
-  const signInWithPassword = useMutation(api.auth.signInWithPassword);
-  const signUpWithPassword = useMutation(api.auth.signUpWithPassword);
+  const sessionRouteClient = useSessionRouteClient();
 
   return {
     signInWithOAuth,
@@ -81,8 +103,8 @@ export function useAppSignInActions() {
       const credentials = { email: args.email, password: args.password };
       const result =
         args.flow === "signUp"
-          ? await signUpWithPassword(credentials)
-          : await signInWithPassword(credentials);
+          ? await sessionRouteClient().mutation(api.auth.signUpWithPassword, credentials)
+          : await sessionRouteClient().mutation(api.auth.signInWithPassword, credentials);
       if (result.status === "error") {
         throw new Error(
           result.userError.error === "RATE_LIMITED"
@@ -96,7 +118,8 @@ export function useAppSignInActions() {
 }
 
 export function useAppAuthActions() {
-  const { signOut } = useAuthActions();
+  // Posts to the sign-out route, which clears the session cookies, then reloads the page.
+  const signOut = useSignOutSession("/auth/signout");
 
   return {
     signOut: () =>

@@ -13,7 +13,7 @@ function PitchPrintRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/pitch/print")({
+export const Route = createFileRoute("/_authed/pitch/print")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: PitchPrintRouteComponent,
 });

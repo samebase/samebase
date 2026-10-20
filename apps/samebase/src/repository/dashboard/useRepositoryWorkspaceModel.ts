@@ -2,7 +2,9 @@ import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { useRepositoryPullRequests } from "@/repository/dashboard/useRepositoryPullRequests";
 import { useRepositorySidebarSummaries } from "@/repository/dashboard/useRepositorySidebarSummaries";
-import { useCacheQuery } from "@/lib/convexQueryCache";
+import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
+import { rootQueries } from "@/routes/root.queries";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
 import { buildProductionEnvironmentRoots } from "./repositoryEnvironmentRoots";
@@ -28,11 +30,13 @@ export function useRepositoryWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
   organizationOwner?: string,
 ): RepositoryWorkspaceModel {
-  const repositories = useCacheQuery(api.repository.list);
-  const folderState = useCacheQuery(api.repository.folders.getRepositoryFolderState);
-  const organizations = useConvexQuery(api.organizations.listForViewer);
-  const organizationTreeSettings = useConvexQuery(
-    api.repository.organizationTree.getRepositoryOrganizationTreeSettings,
+  // The loaders of the routes that render this model fetch these before the page renders, on the
+  // server and on a navigation in the browser.
+  const { data: repositories } = useSuspenseQuery(repositoryDashboardQueries.repositories);
+  const { data: folderState } = useSuspenseQuery(repositoryDashboardQueries.folderState);
+  const { data: organizations } = useSuspenseQuery(repositoryDashboardQueries.organizations);
+  const { data: organizationTreeSettings } = useSuspenseQuery(
+    repositoryDashboardQueries.organizationTreeSettings,
   );
   const sidebarSummaries = useRepositorySidebarSummaries();
   const selectedRepository = useMemo(
@@ -41,7 +45,7 @@ export function useRepositoryWorkspaceModel(
   );
   const selectedOrganization = useMemo(
     () =>
-      selectedRepository && organizations
+      selectedRepository
         ? (organizations.find(
             (organization) => organization.organizationId === selectedRepository.organizationId,
           ) ?? null)
@@ -57,7 +61,7 @@ export function useRepositoryWorkspaceModel(
         ? accessibleSelectedRepository
         : null,
   });
-  const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
+  const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
   const cloudflareConnection = useConvexQuery(
     api.users.getCloudflareConnectionStatus,
     accessibleSelectedRepository
@@ -66,9 +70,6 @@ export function useRepositoryWorkspaceModel(
   );
 
   const model = useMemo<RepositoryWorkspaceModel>(() => {
-    if (!repositories || !folderState || !organizations || !organizationTreeSettings) {
-      return { state: "loading" };
-    }
     const requestedOrganization = organizationOwner
       ? (organizations.find(
           (organization) =>

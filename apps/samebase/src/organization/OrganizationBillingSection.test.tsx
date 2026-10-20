@@ -44,7 +44,7 @@ const testState = vi.hoisted(() => ({
 
 vi.mock("@/routing/availability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/routing/availability")>();
-  return { ...actual, readBrowserRouteEnvironment: () => "production" };
+  return { ...actual, readRouteEnvironment: () => "production" };
 });
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {

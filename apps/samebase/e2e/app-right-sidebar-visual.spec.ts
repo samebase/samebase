@@ -1,10 +1,8 @@
-import { devices, expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
-  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
@@ -12,7 +10,6 @@ import {
   applyOrganizationContextAcceptanceFixture,
   createOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
-import { expectScreenshotsToMatch } from "./visualDiff";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 const APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE = {
@@ -45,21 +42,6 @@ async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarS
       version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
     },
   );
-}
-
-async function blockHydrationScripts(page: Page) {
-  await page.route("**/*", async (route) => {
-    if (route.request().resourceType() !== "script") {
-      await route.continue();
-      return;
-    }
-
-    await route.fulfill({
-      body: "",
-      contentType: "text/javascript",
-      status: 200,
-    });
-  });
 }
 
 async function waitForFonts(page: Page) {
@@ -136,32 +118,6 @@ async function expectSidebarTextOwnsWrappedLine({
       ),
     )
     .toBe(true);
-}
-
-async function readAccountTextEvidence(accountSection: Locator) {
-  return accountSection.evaluate((element) => {
-    const readAfterContent = (selector: string) => {
-      const target = element.querySelector(selector);
-      if (!target) {
-        return null;
-      }
-
-      return window.getComputedStyle(target, "::after").content;
-    };
-
-    return {
-      signedOutAfterContent: readAfterContent("[data-app-auth-prehydration-signed-out-label]"),
-      textContent: element.textContent ?? "",
-    };
-  });
-}
-
-function accountTextEvidenceIncludes(
-  evidence: Awaited<ReturnType<typeof readAccountTextEvidence>>,
-  text: string,
-  pseudoContent: string | null,
-) {
-  return evidence.textContent.includes(text) || pseudoContent === JSON.stringify(text);
 }
 
 test("signed-in app right sidebar keeps the account row inside a narrow desktop rail", async ({
@@ -359,81 +315,4 @@ test("signed-in app right sidebar renders the account row and dashboard actions"
       maskColor: "#d1d5db",
     },
   );
-});
-
-test("signed-out app right sidebar prehydration matches the hydrated account row", async ({
-  page,
-}, testInfo: TestInfo) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  await waitForFonts(page);
-
-  const hydratedAccountSection = getAccountSection(page);
-  await expect(
-    hydratedAccountSection.getByText("Sign in or create an account", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    hydratedAccountSection.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID),
-  ).toHaveCount(0);
-  await expect(
-    hydratedAccountSection.getByRole("button", { name: "Continue with GitHub" }),
-  ).toBeVisible();
-  const hydratedScreenshot = await hydratedAccountSection.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-  });
-
-  await blockHydrationScripts(page);
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  await waitForFonts(page);
-
-  const prehydratedAccountSection = getAccountSection(page);
-  await expect(prehydratedAccountSection).toBeVisible();
-  await expect(
-    prehydratedAccountSection.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID),
-  ).toHaveCount(0);
-  await expect(
-    prehydratedAccountSection.getByTestId(PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID),
-  ).toHaveCount(1);
-  const prehydratedTextEvidence = await readAccountTextEvidence(prehydratedAccountSection);
-  expect(
-    accountTextEvidenceIncludes(
-      prehydratedTextEvidence,
-      "Sign in or create an account",
-      prehydratedTextEvidence.signedOutAfterContent,
-    ),
-  ).toBe(true);
-
-  const prehydratedScreenshot = await prehydratedAccountSection.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-  });
-
-  await expectScreenshotsToMatch({
-    actual: prehydratedScreenshot,
-    artifactPrefix: "app-right-sidebar-signed-out-account-prehydration",
-    artifactWritePaths: {
-      actual: testInfo.outputPath(
-        "app-right-sidebar-signed-out-account-prehydration-prehydrated.png",
-      ),
-      diff: testInfo.outputPath("app-right-sidebar-signed-out-account-prehydration-diff.png"),
-      diffMask: testInfo.outputPath(
-        "app-right-sidebar-signed-out-account-prehydration-diff-mask.png",
-      ),
-      expected: testInfo.outputPath(
-        "app-right-sidebar-signed-out-account-prehydration-hydrated.png",
-      ),
-    },
-    expected: hydratedScreenshot,
-    maxDiffPixelRatio: 0.0001,
-    pixelmatchOptions: {
-      includeAA: true,
-      threshold: 0,
-    },
-    testInfo,
-  });
 });

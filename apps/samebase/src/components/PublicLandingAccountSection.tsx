@@ -5,7 +5,10 @@ import {
   RepositoryDashboardAccountSection,
   RepositoryDashboardAccountSectionFrame,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import { useAppAuthPresentation } from "@/lib/appAuthPresentationState";
+import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
+import { SessionPending } from "@/components/SessionPending";
+import { useQuery } from "@tanstack/react-query";
+import { rootQueries } from "@/routes/root.queries";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderOAuthReturnNotice } from "@/lib/publicLandingAuthState";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
@@ -15,7 +18,6 @@ import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { readRootRouteSearch } from "@/routeSearch/root";
 import { useLocation, useMatches, useRouter } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import { useCallback, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AUTHORIZATION_PROVIDERS } from "../../shared/authorizationError";
@@ -128,7 +130,7 @@ function PublicLandingResolvedSignedInAccountSection({
 }
 
 function PublicLandingSignedInAccountSection() {
-  const viewer = useQuery(api.users.viewer, {});
+  const { data: viewer } = useQuery(rootQueries.viewer);
 
   if (viewer === undefined || viewer === null) {
     return <PublicLandingAccountLoadingSection />;
@@ -138,15 +140,17 @@ function PublicLandingSignedInAccountSection() {
 }
 
 export function PublicLandingAccountSection() {
-  const authPresentation = useAppAuthPresentation();
-
-  if (authPresentation.kind === "unknown") {
-    return <PublicLandingAccountLoadingSection />;
-  }
-
-  if (authPresentation.kind === "confirmedAuthenticated") {
-    return <PublicLandingSignedInAccountSection />;
-  }
-
-  return <PublicLandingLoggedOutAccountSection />;
+  return (
+    <>
+      <SignedIn>
+        <PublicLandingSignedInAccountSection />
+      </SignedIn>
+      <SignedOut>
+        <PublicLandingLoggedOutAccountSection />
+      </SignedOut>
+      <SessionPending>
+        <PublicLandingAccountLoadingSection />
+      </SessionPending>
+    </>
+  );
 }

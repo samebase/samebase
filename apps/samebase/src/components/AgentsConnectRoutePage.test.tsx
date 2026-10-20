@@ -18,9 +18,13 @@ vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({ setSession: setSessionMock }),
 }));
 
+vi.mock("@/authClient", () => {
+  const sessionRouteClient = () => ({ mutation: signInMock });
+  return { useSessionRouteClient: () => sessionRouteClient };
+});
+
 vi.mock("convex/react", () => ({
   useConvexAuth: () => authState,
-  useMutation: () => signInMock,
 }));
 
 vi.mock("@/lib/agentBrowserHandoffPrehydration", () => ({
@@ -31,6 +35,7 @@ vi.mock("@/lib/usePageMetadata", () => ({
   usePageMetadata: vi.fn(),
 }));
 
+import { api } from "../../convex/_generated/api";
 import { AgentsConnectRoutePage } from "./AgentsConnectRoutePage";
 
 describe("AgentsConnectRoutePage", () => {
@@ -69,7 +74,9 @@ describe("AgentsConnectRoutePage", () => {
     await act(async () => root.render(<AgentsConnectRoutePage />));
 
     expect(consumeHandoffMock).toHaveBeenCalledTimes(1);
-    expect(signInMock).toHaveBeenCalledWith({ token: `agbh_${"a".repeat(43)}` });
+    expect(signInMock).toHaveBeenCalledWith(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, {
+      token: `agbh_${"a".repeat(43)}`,
+    });
   });
 
   it("adopts the minted session and opens the return path", async () => {

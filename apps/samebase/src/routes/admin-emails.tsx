@@ -60,7 +60,7 @@ function AdminEmailsRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/admin/emails")({
+export const Route = createFileRoute("/_authed/admin/emails")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH["/admin/emails"],
   component: AdminEmailsRouteComponent,
 });

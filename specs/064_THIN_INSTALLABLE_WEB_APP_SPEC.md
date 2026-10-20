@@ -7,7 +7,7 @@
 - Last updated: 2026-07-30
 - Related files: `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
   `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/samebase/index.html`,
-  `apps/samebase/public/_redirects`, `apps/samebase/public/favicon.png`,
+  `apps/samebase/src/server.ts`, `apps/samebase/public/favicon.png`,
   `apps/samebase/public/favicon-32.png`, `apps/samebase/public/samebase-icon.svg`,
   `apps/samebase/public/install-icon.svg`, `apps/samebase/public/logo-static.svg`,
   `apps/samebase/scripts/generate-install-icon-assets.ts`, `apps/samebase/src/entry.tsx`,
@@ -176,8 +176,8 @@ Requirements:
 
 - `/manifest.webmanifest` returns `application/manifest+json` or another JSON content type, not
   `text/html`
-- explicit manifest/icon asset routes win over Cloudflare's SPA fallback, and
-  `apps/samebase/public/_redirects` stays limited to exact prerender aliases
+- the manifest and icon files win over the server render, which answers only paths without a file,
+  and `apps/samebase/src/server.ts` keeps its redirects limited to exact old addresses
 - install icon URLs return the committed image assets
 - Apple touch icon URLs return the committed image asset
 - the install path works without changing the normal browser refresh behavior

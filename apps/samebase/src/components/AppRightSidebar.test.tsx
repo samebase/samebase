@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import { getFunctionName } from "convex/server";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -42,8 +41,6 @@ const organizationContextState = vi.hoisted<{
   organizations: undefined,
   surface: { kind: "allRepositories" },
 }));
-const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
 const PROVIDER_STATUS_QUERY_NAMES = new Set([
   getFunctionName(api.users.getConvexConnectionStatus),
   getFunctionName(api.users.getCloudflareConnectionStatus),
@@ -55,29 +52,22 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
   return value;
 }
 
-function createTestStorage(): Storage {
-  const entries = new Map<string, string>();
+/** Answers the Convex and TanStack Query hooks of this test by the query's function name. */
+function readQueryResult(queryName: string) {
+  queryState.seenQueryNames.push(queryName);
+  if (queryState.blockedQueryNames.has(queryName)) {
+    throw new Error(`Unexpected provider status query: ${queryName}`);
+  }
+  if (queryState.resultsByQueryName.has(queryName)) {
+    return queryState.resultsByQueryName.get(queryName);
+  }
 
-  return {
-    clear() {
-      entries.clear();
-    },
-    getItem(key) {
-      return entries.get(String(key)) ?? null;
-    },
-    key(index) {
-      return Array.from(entries.keys())[index] ?? null;
-    },
-    get length() {
-      return entries.size;
-    },
-    removeItem(key) {
-      entries.delete(String(key));
-    },
-    setItem(key, value) {
-      entries.set(String(key), String(value));
-    },
-  };
+  const result =
+    queryState.results.length === 0
+      ? undefined
+      : queryState.results[queryState.index % queryState.results.length];
+  queryState.index += 1;
+  return result;
 }
 
 function createAsyncHandler() {
@@ -98,29 +88,34 @@ vi.mock("convex/react", async (importOriginal) => {
     useConvexAuth: () => authState,
     useMutation: (mutation: Parameters<typeof actual.useMutation>[0]) =>
       mutationState.get(getFunctionName(mutation)) ?? createAsyncHandler(),
-    useQuery: (query: Parameters<typeof actual.useQuery>[0], args: unknown) => {
-      if (args === "skip") {
-        return undefined;
-      }
-
-      const queryName = getFunctionName(query);
-      queryState.seenQueryNames.push(queryName);
-      if (queryState.blockedQueryNames.has(queryName)) {
-        throw new Error(`Unexpected provider status query: ${queryName}`);
-      }
-      if (queryState.resultsByQueryName.has(queryName)) {
-        return queryState.resultsByQueryName.get(queryName);
-      }
-
-      const result =
-        queryState.results.length === 0
-          ? undefined
-          : queryState.results[queryState.index % queryState.results.length];
-      queryState.index += 1;
-      return result;
-    },
+    useQuery: (query: Parameters<typeof actual.useQuery>[0], args: unknown) =>
+      args === "skip" ? undefined : readQueryResult(getFunctionName(query)),
   };
 });
+
+// `convexQuery` options carry the Convex function name second in the query key.
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+
+  return {
+    ...actual,
+    useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => ({
+      data: readQueryResult(String(queryKey[1])),
+    }),
+  };
+});
+
+// A prerendered page: its render knows no session token, so the provider's loading state decides.
+vi.mock("@/components/SessionPending", () => ({
+  SessionPending: ({ children }: { children: ReactNode }) =>
+    authState.isLoading ? children : null,
+}));
+
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
+}));
 
 vi.mock("@/lib/oauthSignInRejection", () => ({
   useOAuthSignInRejection: () => null,
@@ -197,9 +192,7 @@ function expectProviderStatusQueriesNotSeen() {
 function createRightSidebarElement(initialEntry = "/repo") {
   return (
     <TestRouterProvider initialEntries={[initialEntry]}>
-      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
-        <AppRightSidebarContent />
-      </AppAuthPresentationProvider>
+      <AppRightSidebarContent />
     </TestRouterProvider>
   );
 }
@@ -265,10 +258,6 @@ describe("AppRightSidebarContent", () => {
   beforeEach(() => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createTestStorage(),
-    });
     window.history.replaceState({}, "", "/repo");
     queryState.index = 0;
     queryState.results = [];
@@ -296,41 +285,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("Watch the complete onboarding");
   });
 
-  it("matches the signed-out GitHub geometry while keeping the placeholder non-interactive", () => {
-    authState.isAuthenticated = false;
-    authState.isLoading = true;
-
-    const markup = renderRightSidebar([]);
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = markup;
-    const githubPlaceholder = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Continue with GitHub",
-    );
-
-    if (!(githubPlaceholder instanceof HTMLButtonElement)) {
-      throw new Error("Prehydration GitHub placeholder not found.");
-    }
-    const signedOutLabel = rootElement.querySelector(
-      "[data-app-auth-prehydration-signed-out-label]",
-    );
-    if (!(signedOutLabel instanceof HTMLElement)) {
-      throw new Error("Prehydration signed-out label not found.");
-    }
-
-    expect(rootElement.textContent).not.toContain("Continue with Google");
-    expect(githubPlaceholder.disabled).toBe(true);
-    expect(githubPlaceholder.getAttribute("aria-hidden")).toBe("true");
-    expect(githubPlaceholder.tabIndex).toBe(-1);
-    expect(githubPlaceholder.classList).toContain("w-fit");
-    expect(githubPlaceholder.classList).toContain("max-w-full");
-    expect(githubPlaceholder.classList).toContain("px-6");
-    expect(githubPlaceholder.classList).toContain("bg-primary");
-    expect(githubPlaceholder.classList).not.toContain("flex-1");
-    expect(githubPlaceholder.parentElement?.parentElement?.classList).toContain("items-center");
-    expect(signedOutLabel.classList).toContain("text-center");
-  });
-
-  it("uses the public signed-out account row after hydration when loading without local auth material", async () => {
+  it("shows checking login while a prerendered page waits for the session", async () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
 
@@ -338,21 +293,9 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Sign in or create an account");
-    expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("/providers");
-  });
-
-  it("keeps checking login while a refresh token may restore the session", async () => {
-    authState.isAuthenticated = false;
-    authState.isLoading = true;
-    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
-
-    const markup = renderRightSidebar([]);
-    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-
-    expect(markup).toContain("checking login");
+    expect(markup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("/providers");
   });
 

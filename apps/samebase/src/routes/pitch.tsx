@@ -13,7 +13,7 @@ function PitchRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/pitch")({
+export const Route = createFileRoute("/_authed/pitch")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: PitchRouteComponent,
 });

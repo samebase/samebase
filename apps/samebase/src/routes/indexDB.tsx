@@ -14,7 +14,7 @@ function IndexedDbRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/indexDB")({
+export const Route = createFileRoute("/_authed/indexDB")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: IndexedDbRouteComponent,
 });

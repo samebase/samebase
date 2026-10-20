@@ -84,6 +84,8 @@ export const Route = createFileRoute("/visual-fixture")({
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...visualFixtureRouteSearchStaticData,
   },
+  // Logo fixtures statically import three.js scenes, which render only in the browser.
+  ssr: false,
   component: VisualFixtureRouteComponent,
   pendingComponent: VisualFixturePendingComponent,
   pendingMs: 0,

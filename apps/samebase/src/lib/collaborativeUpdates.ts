@@ -1,6 +1,6 @@
 import { ChangeSet, type EditorState } from "@codemirror/state";
 import { getSyncedVersion, receiveUpdates, sendableUpdates } from "@codemirror/collab";
-import { client } from "@/lib/convexClient";
+import type { ConvexReactClient } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 /** Enough to absorb the unmounted editor's own in-flight push plus one concurrent remote edit. */
@@ -13,11 +13,13 @@ An unmounted editor no longer receives `pullUpdates` results, so this catches
 rejects any push that races the editor's own in-flight push.
 */
 export async function flushCollaborativeUpdates({
+  client,
   state,
   githubRepositoryFullName,
   branch,
   filePath,
 }: {
+  client: ConvexReactClient;
   state: EditorState;
   githubRepositoryFullName: string;
   branch: string;

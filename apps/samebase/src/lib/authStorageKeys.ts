@@ -1,2 +1,0 @@
-export const PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY =
-  "samebase_public_landing_password_auth_mode";

@@ -12,7 +12,7 @@ function RootTestRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/test")({
+export const Route = createFileRoute("/_authed/test")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: RootTestRouteComponent,
 });

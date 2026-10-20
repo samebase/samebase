@@ -10,7 +10,7 @@ export function RootIndexRoutePage() {
   const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
 
-  useAppAuthRuntimeEffects(location.pathname, rootRouteSearch);
+  useAppAuthRuntimeEffects(rootRouteSearch);
   usePageMetadata(
     useMemo(
       () =>

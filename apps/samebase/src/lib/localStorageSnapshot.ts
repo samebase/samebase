@@ -1,5 +1,4 @@
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
-import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 
 export type LocalStorageEntry = {
   key: string;
@@ -20,10 +19,7 @@ type ReadableLocalStorage = Pick<Storage, "getItem" | "key" | "length">;
 
 const BROWSER_LOCAL_STORAGE_CHANGE_EVENT = "samebase:local-storage-change";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
-const INTERNAL_LOCAL_STORAGE_KEYS = new Set([
-  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-]);
+const INTERNAL_LOCAL_STORAGE_KEYS = new Set([APP_WORKSPACE_SIDEBAR_STORAGE_KEY]);
 
 function compareStorageKeys(left: string, right: string): number {
   if (left < right) {

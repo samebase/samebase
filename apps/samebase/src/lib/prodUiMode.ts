@@ -1,4 +1,5 @@
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "./tanstackSearchParams";
+import { readIsomorphicOrigin } from "./isomorphic";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
@@ -22,8 +23,9 @@ export function isProductionPublicHostname(hostname: string): boolean {
   );
 }
 
-export function isBrowserProductionPublicOrigin(): boolean {
-  return typeof window !== "undefined" && isProductionPublicHostname(window.location.hostname);
+/** Whether this render serves samebase.com: the request's host on the server, the page's in the browser. */
+export function isProductionPublicOrigin(): boolean {
+  return isProductionPublicHostname(new URL(readIsomorphicOrigin()).hostname);
 }
 
 export function isProductionDeploymentProfile(

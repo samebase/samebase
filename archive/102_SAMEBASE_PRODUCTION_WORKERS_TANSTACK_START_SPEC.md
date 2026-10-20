@@ -2,7 +2,10 @@
 
 ## Document Control
 
-- Status: Accepted implementation plan
+- Status: Superseded. RFC 127 (`rfcs/127_SAMEBASE_ON_CONVEX_HOSTING_ROLLOUT.md`) moved samebase.com
+  from the Cloudflare Worker to its Convex deployment, and RFC 128
+  (`rfcs/128_SAMEBASE_SSR_WITH_COOKIE_SESSIONS_ROLLOUT.md`) replaced the SPA shell and the generated
+  `_redirects` with request-time server rendering and cookie sessions. Kept for history only.
 - Owner: Samebase production hosting
 - Created: 2026-05-16
 - Last updated: 2026-09-30

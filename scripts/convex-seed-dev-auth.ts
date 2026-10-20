@@ -18,6 +18,7 @@ const appDir = path.join(repoRoot, "apps", "samebase");
 const localEnvPath = path.join(appDir, ".env.local");
 const seedEnvPath = path.join(appDir, ".env.anon-seed.local");
 const versionModulePath = path.join(appDir, ".convex-hosting", "version.js");
+const serverBuildPath = path.join(appDir, "dist", "server", "server.js");
 const FUNCTIONS_READY_MARKER = "Convex functions ready!";
 const localConvexEnv: NodeJS.ProcessEnv = {
   ...process.env,
@@ -158,15 +159,16 @@ try {
     }
   }
 
-  // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, so the first
-  // push of a fresh worktree fails. One `deploy --dev` builds the site, uploads it to the backend
-  // above, writes the file, and pushes with its own `convex run --push`. On macOS and Linux the
+  // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, and the server
+  // build dist/server/server.js, which only a build writes, so the first push of a fresh worktree
+  // fails. One `deploy --dev` builds the site, uploads it to the backend above, writes both files,
+  // and pushes with its own `convex run --push`. On macOS and Linux the
   // watcher never sees the new file, so that push is the one to wait for. On Windows the watcher
   // re-pushes as well, the two pushes race, and the deploy's later `convex run` calls then
   // sometimes abort inside the Convex CLI after the push landed; the worktree needs the push, not
   // the upload, so a failed deploy is fatal only when the functions never become ready. `node
   // --run` puts node_modules/.bin on PATH and appends the arguments to the script's last command.
-  if (existsSync(versionModulePath)) {
+  if (existsSync(versionModulePath) && existsSync(serverBuildPath)) {
     if (!(await waitForFunctions())) {
       exitWithError("Local Convex functions did not become ready after seed environment setup");
     }

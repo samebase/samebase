@@ -26,7 +26,7 @@ function FileViewRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/repo/$")({
+export const Route = createFileRoute("/_authed/repo/$")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,

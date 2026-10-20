@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { PublicPrerenderPage } from "./generate-cloudflare-redirects.js";
 import {
+  type PublicPrerenderPage,
   stripModulePreloadLinks,
   verifyPublicPrerenderMetadata,
   writePublicPrerenderWithoutModulePreloads,
@@ -17,10 +17,6 @@ const rootPage = {
     description:
       "One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account.",
     robots: "index,follow",
-  },
-  prerender: {
-    enabled: true,
-    outputPath: "/_landing.html",
   },
 } satisfies PublicPrerenderPage;
 
@@ -104,7 +100,7 @@ describe("strip-public-prerender-modulepreloads", () => {
 
   it("overwrites the configured public prerender output", () => {
     const clientDistDir = mkdtempSync(path.join(tmpdir(), "samebase-public-prerender-"));
-    const landingFilePath = path.join(clientDistDir, "_landing.html");
+    const landingFilePath = path.join(clientDistDir, "index.html");
     writeFileSync(landingFilePath, "original", "utf8");
 
     try {

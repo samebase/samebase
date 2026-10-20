@@ -16,7 +16,7 @@ import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 
-const settingsRouteApi = getRouteApi("/settings");
+const settingsRouteApi = getRouteApi("/_authed/settings");
 
 type ProfileSaveState =
   | { kind: "idle" }
@@ -107,16 +107,16 @@ export function UserSettingsPage() {
       return;
     }
     setIsSigningOut(true);
+    // A sign-out reloads the page, which then renders without the session.
     void signOut()
-      .then(() => {
-        void router.navigate({ href: "/", replace: true, state: true });
-      })
-      .catch((error: unknown) => {
-        toast({
-          description: readErrorMessage(error, "Please try again."),
-          title: "Could not sign out",
-          variant: "destructive",
-        });
+      .then((signedOut) => {
+        if (!signedOut) {
+          toast({
+            description: "Please try again.",
+            title: "Could not sign out",
+            variant: "destructive",
+          });
+        }
       })
       .finally(() => {
         setIsSigningOut(false);

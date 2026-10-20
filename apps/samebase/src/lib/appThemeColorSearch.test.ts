@@ -87,6 +87,7 @@ describe("appThemeColorSearch", () => {
   it("resolves final app theme colors from route search in one place", () => {
     expect(
       resolveAppThemeColorState({
+        colorSource: "computed-style",
         search: {
           background: "#112233",
           border: "#334455",
@@ -119,6 +120,19 @@ describe("appThemeColorSearch", () => {
         top: "#abcdef",
       },
       themeMode: "light",
+    });
+  });
+
+  it("resolves static app theme colors from the theme mode fallbacks", () => {
+    expect(
+      resolveAppThemeColorState({ colorSource: "static", search: {}, themeMode: "dark" })
+        .resolvedThemeColors,
+    ).toEqual({
+      background: "#394447",
+      border: "#292524",
+      primary: "#ffffff",
+      secondary: "#00b8db",
+      top: "#394447",
     });
   });
 

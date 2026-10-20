@@ -8,10 +8,10 @@ import {
   readRouteSearchAccessCanonicalRouteAddress,
   routeSearchNeedsViewerAccess,
 } from "@/routing/searchAccess";
+import { rootQueries } from "@/routes/root.queries";
+import { useQuery } from "@tanstack/react-query";
 import { Outlet, useLocation, useMatches, useRouter } from "@tanstack/react-router";
-import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect } from "react";
-import { api } from "../../convex/_generated/api";
 
 const publicRouteAccessViewer = {
   accessKeys: ["access_public"],
@@ -28,8 +28,9 @@ function AuthenticatedRouteAccessOutlet({
   };
   matches: ReturnType<typeof useMatches>;
 }) {
-  const { isLoading: authIsLoading } = useConvexAuth();
-  const viewerAccess = useQuery(api.users.currentViewerAccess, authIsLoading ? "skip" : {});
+  // The root loader fetched the viewer's access for a server render with a session, so the page
+  // renders in the first HTML. In the browser, the query waits for the session (`expectAuth`).
+  const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
   const router = useRouter();
   const routeAccessAllowed =
     viewerAccess !== undefined && canAccessRouteMatchesAccess(matches, viewerAccess);
@@ -40,7 +41,6 @@ function AuthenticatedRouteAccessOutlet({
   // a denied-route 404 while its navigation to /account-deletion is pending.
   const deletionRedirectPending = viewerAccess?.role === "role_deleting" && !routeAccessAllowed;
   const canonicalRouteAddress =
-    authIsLoading ||
     viewerAccess === undefined ||
     deletionRedirectPending ||
     (termsAcceptancePending && !termsAcceptanceRouteAllowed)
@@ -65,12 +65,7 @@ function AuthenticatedRouteAccessOutlet({
     });
   }, [canonicalRouteAddress, router]);
 
-  if (
-    authIsLoading ||
-    viewerAccess === undefined ||
-    deletionRedirectPending ||
-    canonicalRouteAddress !== null
-  ) {
+  if (viewerAccess === undefined || deletionRedirectPending || canonicalRouteAddress !== null) {
     return null;
   }
 

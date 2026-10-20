@@ -16,7 +16,7 @@ import {
   POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
   type OrganizationBillingSearch,
 } from "@/routeSearch/organizationBilling";
-import { readBrowserRouteEnvironment } from "@/routing/availability";
+import { readRouteEnvironment } from "@/routing/availability";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import type { FunctionArgs } from "convex/server";
@@ -27,7 +27,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 
-const organizationSettingsRouteApi = getRouteApi(ORGANIZATION_SETTINGS_ROUTE);
+const organizationSettingsRouteApi = getRouteApi(`/_authed${ORGANIZATION_SETTINGS_ROUTE}`);
 
 type BillingRequestState = "idle" | "upgrade" | "downgrade" | "seat_add" | "seat_remove" | "portal";
 type BillingChange = FunctionArgs<typeof api.billing.requestPolarBillingChange>["change"];
@@ -71,7 +71,7 @@ export function OrganizationBillingSection({
     null,
   );
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
-  const isPreview = readBrowserRouteEnvironment() === "preview";
+  const isPreview = readRouteEnvironment() === "preview";
   const isOrganizationOwner = organization.role === "owner";
   const canManageBilling = billingStatus?.canManageBilling ?? false;
   const billingActionsAvailable = canManageBilling && !isPreview;

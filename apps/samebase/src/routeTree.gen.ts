@@ -10,27 +10,25 @@
 
 import { Route as rootRouteImport } from "./routes/root";
 import { Route as indexRouteImport } from "./routes/index";
-import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
+import { Route as authedRouteImport } from "./routes/authed";
 import { Route as discordRouteImport } from "./routes/discord";
 import { Route as docsRouteImport } from "./routes/docs";
-import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
-import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as logoRouteImport } from "./routes/logo";
-import { Route as organizationsRouteImport } from "./routes/organizations";
-import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as privacyRouteImport } from "./routes/privacy";
-import { Route as settingsRouteImport } from "./routes/settings";
 import { Route as termsRouteImport } from "./routes/terms";
-import { Route as testRouteImport } from "./routes/test";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as xRouteImport } from "./routes/x";
 import { Route as youtubeRouteImport } from "./routes/youtube";
-import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
-import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
-import { Route as adminUsersRouteImport } from "./routes/admin-users";
+import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
+import { Route as indexDBRouteImport } from "./routes/indexDB";
+import { Route as localStorageRouteImport } from "./routes/localStorage";
+import { Route as organizationsRouteImport } from "./routes/organizations";
+import { Route as pitchRouteImport } from "./routes/pitch";
+import { Route as settingsRouteImport } from "./routes/settings";
+import { Route as testRouteImport } from "./routes/test";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/docs-cloudflare-previews-migration";
 import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
@@ -44,6 +42,9 @@ import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams"
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
+import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
+import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
+import { Route as adminUsersRouteImport } from "./routes/admin-users";
 import { Route as oauthProviderCompleteRouteImport } from "./routes/oauth-provider-complete";
 import { Route as orgRouteImport } from "./routes/org";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
@@ -72,9 +73,8 @@ const indexRoute = indexRouteImport.update({
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
-const accountDeletionRoute = accountDeletionRouteImport.update({
-  id: "/account-deletion",
-  path: "/account-deletion",
+const authedRoute = authedRouteImport.update({
+  id: "/_authed",
   getParentRoute: () => rootRouteImport,
 } as any);
 const discordRoute = discordRouteImport.update({
@@ -87,11 +87,6 @@ const docsRoute = docsRouteImport.update({
   path: "/docs",
   getParentRoute: () => rootRouteImport,
 } as any);
-const indexDBRoute = indexDBRouteImport.update({
-  id: "/indexDB",
-  path: "/indexDB",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const landingRoute = landingRouteImport.update({
   id: "/landing",
   path: "/landing",
@@ -102,24 +97,9 @@ const landingPreviewRoute = landingPreviewRouteImport.update({
   path: "/landing-preview",
   getParentRoute: () => rootRouteImport,
 } as any);
-const localStorageRoute = localStorageRouteImport.update({
-  id: "/localStorage",
-  path: "/localStorage",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const logoRoute = logoRouteImport.update({
   id: "/logo",
   path: "/logo",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const organizationsRoute = organizationsRouteImport.update({
-  id: "/org",
-  path: "/org",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const pitchRoute = pitchRouteImport.update({
-  id: "/pitch",
-  path: "/pitch",
   getParentRoute: () => rootRouteImport,
 } as any);
 const pricingRoute = pricingRouteImport.update({
@@ -132,19 +112,9 @@ const privacyRoute = privacyRouteImport.update({
   path: "/privacy",
   getParentRoute: () => rootRouteImport,
 } as any);
-const settingsRoute = settingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const termsRoute = termsRouteImport.update({
   id: "/terms",
   path: "/terms",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const testRoute = testRouteImport.update({
-  id: "/test",
-  path: "/test",
   getParentRoute: () => rootRouteImport,
 } as any);
 const visualFixtureRoute = visualFixtureRouteImport.update({
@@ -162,20 +132,40 @@ const youtubeRoute = youtubeRouteImport.update({
   path: "/youtube",
   getParentRoute: () => rootRouteImport,
 } as any);
-const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
-  id: "/admin/account-deletions",
-  path: "/admin/account-deletions",
-  getParentRoute: () => rootRouteImport,
+const accountDeletionRoute = accountDeletionRouteImport.update({
+  id: "/account-deletion",
+  path: "/account-deletion",
+  getParentRoute: () => authedRoute,
 } as any);
-const adminEmailsRoute = adminEmailsRouteImport.update({
-  id: "/admin/emails",
-  path: "/admin/emails",
-  getParentRoute: () => rootRouteImport,
+const indexDBRoute = indexDBRouteImport.update({
+  id: "/indexDB",
+  path: "/indexDB",
+  getParentRoute: () => authedRoute,
 } as any);
-const adminUsersRoute = adminUsersRouteImport.update({
-  id: "/admin/users",
-  path: "/admin/users",
-  getParentRoute: () => rootRouteImport,
+const localStorageRoute = localStorageRouteImport.update({
+  id: "/localStorage",
+  path: "/localStorage",
+  getParentRoute: () => authedRoute,
+} as any);
+const organizationsRoute = organizationsRouteImport.update({
+  id: "/org",
+  path: "/org",
+  getParentRoute: () => authedRoute,
+} as any);
+const pitchRoute = pitchRouteImport.update({
+  id: "/pitch",
+  path: "/pitch",
+  getParentRoute: () => authedRoute,
+} as any);
+const settingsRoute = settingsRouteImport.update({
+  id: "/settings",
+  path: "/settings",
+  getParentRoute: () => authedRoute,
+} as any);
+const testRoute = testRouteImport.update({
+  id: "/test",
+  path: "/test",
+  getParentRoute: () => authedRoute,
 } as any);
 const agentsConnectRoute = agentsConnectRouteImport.update({
   id: "/agents/connect",
@@ -243,30 +233,45 @@ const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
   path: "/logo/transition",
   getParentRoute: () => rootRouteImport,
 } as any);
+const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
+  id: "/admin/account-deletions",
+  path: "/admin/account-deletions",
+  getParentRoute: () => authedRoute,
+} as any);
+const adminEmailsRoute = adminEmailsRouteImport.update({
+  id: "/admin/emails",
+  path: "/admin/emails",
+  getParentRoute: () => authedRoute,
+} as any);
+const adminUsersRoute = adminUsersRouteImport.update({
+  id: "/admin/users",
+  path: "/admin/users",
+  getParentRoute: () => authedRoute,
+} as any);
 const oauthProviderCompleteRoute = oauthProviderCompleteRouteImport.update({
   id: "/oauth/provider-complete",
   path: "/oauth/provider-complete",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const orgRoute = orgRouteImport.update({
   id: "/org/$owner",
   path: "/org/$owner",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const pitchPrintRoute = pitchPrintRouteImport.update({
   id: "/pitch/print",
   path: "/pitch/print",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const repositoryDashboardRootRoute = repositoryDashboardRootRouteImport.update({
   id: "/repo/",
   path: "/repo/",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const repositoryFileRoute = repositoryFileRouteImport.update({
   id: "/repo/$",
   path: "/repo/$",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const logoCarpetHoverResearchRoute = logoCarpetHoverResearchRouteImport.update({
   id: "/logo/hover/carpet",
@@ -298,90 +303,86 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
 const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
   id: "/org/$owner/connect-repo",
   path: "/org/$owner/connect-repo",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const orgNewAppRoute = orgNewAppRouteImport.update({
   id: "/org/$owner/new-app",
   path: "/org/$owner/new-app",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const orgProvidersRoute = orgProvidersRouteImport.update({
   id: "/org/$owner/providers",
   path: "/org/$owner/providers",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const orgRepositoriesRoute = orgRepositoriesRouteImport.update({
   id: "/org/$owner/repositories",
   path: "/org/$owner/repositories",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const orgSettingsRoute = orgSettingsRouteImport.update({
   id: "/org/$owner/settings",
   path: "/org/$owner/settings",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const repositoryDashboardRoute = repositoryDashboardRouteImport.update({
   id: "/repo/$owner/$repository",
   path: "/repo/$owner/$repository",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const orgMembersRoute = orgMembersRouteImport.update({
   id: "/org/$owner/settings/members",
   path: "/org/$owner/settings/members",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const repositorySettingsRoute = repositorySettingsRouteImport.update({
   id: "/repo/$owner/$repository/settings",
   path: "/repo/$owner/$repository/settings",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 const repositoryComponentsDeploymentRoute =
   repositoryComponentsDeploymentRouteImport.update({
     id: "/repo/$owner/$repository/components/$deploymentName",
     path: "/repo/$owner/$repository/components/$deploymentName",
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => authedRoute,
   } as any);
 const repositoryDatabaseProjectRoute =
   repositoryDatabaseProjectRouteImport.update({
     id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
     path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => authedRoute,
   } as any);
 const repositorySchemaProjectRoute = repositorySchemaProjectRouteImport.update({
   id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
   path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => authedRoute,
 } as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
-  "/account-deletion": typeof accountDeletionRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
-  "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
-  "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/org": typeof organizationsRoute;
-  "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
-  "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
-  "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
   "/youtube": typeof youtubeRoute;
-  "/repo/": typeof repositoryDashboardRootRoute;
-  "/admin/account-deletions": typeof adminAccountDeletionsRoute;
-  "/admin/emails": typeof adminEmailsRoute;
-  "/admin/users": typeof adminUsersRoute;
+  "/account-deletion": typeof accountDeletionRoute;
+  "/indexDB": typeof indexDBRoute;
+  "/localStorage": typeof localStorageRoute;
+  "/org": typeof organizationsRoute;
+  "/pitch": typeof pitchRoute;
+  "/settings": typeof settingsRoute;
+  "/test": typeof testRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
@@ -395,6 +396,10 @@ export interface FileRoutesByFullPath {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/repo/": typeof repositoryDashboardRootRoute;
+  "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/emails": typeof adminEmailsRoute;
+  "/admin/users": typeof adminUsersRoute;
   "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
@@ -419,28 +424,24 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
-  "/account-deletion": typeof accountDeletionRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
-  "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
-  "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/org": typeof organizationsRoute;
-  "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
-  "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
-  "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
   "/youtube": typeof youtubeRoute;
-  "/repo": typeof repositoryDashboardRootRoute;
-  "/admin/account-deletions": typeof adminAccountDeletionsRoute;
-  "/admin/emails": typeof adminEmailsRoute;
-  "/admin/users": typeof adminUsersRoute;
+  "/account-deletion": typeof accountDeletionRoute;
+  "/indexDB": typeof indexDBRoute;
+  "/localStorage": typeof localStorageRoute;
+  "/org": typeof organizationsRoute;
+  "/pitch": typeof pitchRoute;
+  "/settings": typeof settingsRoute;
+  "/test": typeof testRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
@@ -454,6 +455,10 @@ export interface FileRoutesByTo {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/repo": typeof repositoryDashboardRootRoute;
+  "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/emails": typeof adminEmailsRoute;
+  "/admin/users": typeof adminUsersRoute;
   "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
@@ -479,28 +484,25 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
-  "/account-deletion": typeof accountDeletionRoute;
+  "/_authed": typeof authedRouteWithChildren;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
-  "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
-  "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/org": typeof organizationsRoute;
-  "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
-  "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
-  "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
   "/youtube": typeof youtubeRoute;
-  "/repo/": typeof repositoryDashboardRootRoute;
-  "/admin/account-deletions": typeof adminAccountDeletionsRoute;
-  "/admin/emails": typeof adminEmailsRoute;
-  "/admin/users": typeof adminUsersRoute;
+  "/_authed/account-deletion": typeof accountDeletionRoute;
+  "/_authed/indexDB": typeof indexDBRoute;
+  "/_authed/localStorage": typeof localStorageRoute;
+  "/_authed/org": typeof organizationsRoute;
+  "/_authed/pitch": typeof pitchRoute;
+  "/_authed/settings": typeof settingsRoute;
+  "/_authed/test": typeof testRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
@@ -514,54 +516,54 @@ export interface FileRoutesById {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
-  "/org/$owner": typeof orgRoute;
-  "/pitch/print": typeof pitchPrintRoute;
-  "/repo/$": typeof repositoryFileRoute;
+  "/_authed/repo/": typeof repositoryDashboardRootRoute;
+  "/_authed/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/_authed/admin/emails": typeof adminEmailsRoute;
+  "/_authed/admin/users": typeof adminUsersRoute;
+  "/_authed/oauth/provider-complete": typeof oauthProviderCompleteRoute;
+  "/_authed/org/$owner": typeof orgRoute;
+  "/_authed/pitch/print": typeof pitchPrintRoute;
+  "/_authed/repo/$": typeof repositoryFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
-  "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
-  "/org/$owner/new-app": typeof orgNewAppRoute;
-  "/org/$owner/providers": typeof orgProvidersRoute;
-  "/org/$owner/repositories": typeof orgRepositoriesRoute;
-  "/org/$owner/settings": typeof orgSettingsRoute;
-  "/pitch/print/mobile": typeof pitchPrintMobileRoute;
-  "/repo/$owner/$repository": typeof repositoryDashboardRoute;
-  "/org/$owner/settings/members": typeof orgMembersRoute;
-  "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
-  "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
-  "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
+  "/_authed/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/_authed/org/$owner/new-app": typeof orgNewAppRoute;
+  "/_authed/org/$owner/providers": typeof orgProvidersRoute;
+  "/_authed/org/$owner/repositories": typeof orgRepositoriesRoute;
+  "/_authed/org/$owner/settings": typeof orgSettingsRoute;
+  "/_authed/pitch/print/mobile": typeof pitchPrintMobileRoute;
+  "/_authed/repo/$owner/$repository": typeof repositoryDashboardRoute;
+  "/_authed/org/$owner/settings/members": typeof orgMembersRoute;
+  "/_authed/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
+  "/_authed/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
+  "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
+  "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
-    | "/account-deletion"
     | "/discord"
     | "/docs"
-    | "/indexDB"
     | "/landing"
     | "/landing-preview"
-    | "/localStorage"
     | "/logo"
-    | "/org"
-    | "/pitch"
     | "/pricing"
     | "/privacy"
-    | "/settings"
     | "/terms"
-    | "/test"
     | "/visual-fixture"
     | "/x.com"
     | "/youtube"
-    | "/repo/"
-    | "/admin/account-deletions"
-    | "/admin/emails"
-    | "/admin/users"
+    | "/account-deletion"
+    | "/indexDB"
+    | "/localStorage"
+    | "/org"
+    | "/pitch"
+    | "/settings"
+    | "/test"
     | "/agents/connect"
     | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
@@ -575,6 +577,10 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/repo/"
+    | "/admin/account-deletions"
+    | "/admin/emails"
+    | "/admin/users"
     | "/oauth/provider-complete"
     | "/org/$owner"
     | "/pitch/print"
@@ -599,28 +605,24 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
-    | "/account-deletion"
     | "/discord"
     | "/docs"
-    | "/indexDB"
     | "/landing"
     | "/landing-preview"
-    | "/localStorage"
     | "/logo"
-    | "/org"
-    | "/pitch"
     | "/pricing"
     | "/privacy"
-    | "/settings"
     | "/terms"
-    | "/test"
     | "/visual-fixture"
     | "/x.com"
     | "/youtube"
-    | "/repo"
-    | "/admin/account-deletions"
-    | "/admin/emails"
-    | "/admin/users"
+    | "/account-deletion"
+    | "/indexDB"
+    | "/localStorage"
+    | "/org"
+    | "/pitch"
+    | "/settings"
+    | "/test"
     | "/agents/connect"
     | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
@@ -634,6 +636,10 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/repo"
+    | "/admin/account-deletions"
+    | "/admin/emails"
+    | "/admin/users"
     | "/oauth/provider-complete"
     | "/org/$owner"
     | "/pitch/print"
@@ -658,28 +664,25 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/"
-    | "/account-deletion"
+    | "/_authed"
     | "/discord"
     | "/docs"
-    | "/indexDB"
     | "/landing"
     | "/landing-preview"
-    | "/localStorage"
     | "/logo"
-    | "/org"
-    | "/pitch"
     | "/pricing"
     | "/privacy"
-    | "/settings"
     | "/terms"
-    | "/test"
     | "/visual-fixture"
     | "/x.com"
     | "/youtube"
-    | "/repo/"
-    | "/admin/account-deletions"
-    | "/admin/emails"
-    | "/admin/users"
+    | "/_authed/account-deletion"
+    | "/_authed/indexDB"
+    | "/_authed/localStorage"
+    | "/_authed/org"
+    | "/_authed/pitch"
+    | "/_authed/settings"
+    | "/_authed/test"
     | "/agents/connect"
     | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
@@ -693,53 +696,47 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/oauth/provider-complete"
-    | "/org/$owner"
-    | "/pitch/print"
-    | "/repo/$"
+    | "/_authed/repo/"
+    | "/_authed/admin/account-deletions"
+    | "/_authed/admin/emails"
+    | "/_authed/admin/users"
+    | "/_authed/oauth/provider-complete"
+    | "/_authed/org/$owner"
+    | "/_authed/pitch/print"
+    | "/_authed/repo/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
-    | "/org/$owner/connect-repo"
-    | "/org/$owner/new-app"
-    | "/org/$owner/providers"
-    | "/org/$owner/repositories"
-    | "/org/$owner/settings"
-    | "/pitch/print/mobile"
-    | "/repo/$owner/$repository"
-    | "/org/$owner/settings/members"
-    | "/repo/$owner/$repository/settings"
-    | "/repo/$owner/$repository/components/$deploymentName"
-    | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
-    | "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+    | "/_authed/org/$owner/connect-repo"
+    | "/_authed/org/$owner/new-app"
+    | "/_authed/org/$owner/providers"
+    | "/_authed/org/$owner/repositories"
+    | "/_authed/org/$owner/settings"
+    | "/_authed/pitch/print/mobile"
+    | "/_authed/repo/$owner/$repository"
+    | "/_authed/org/$owner/settings/members"
+    | "/_authed/repo/$owner/$repository/settings"
+    | "/_authed/repo/$owner/$repository/components/$deploymentName"
+    | "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId"
+    | "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
-  accountDeletionRoute: typeof accountDeletionRoute;
+  authedRoute: typeof authedRouteWithChildren;
   discordRoute: typeof discordRoute;
   docsRoute: typeof docsRoute;
-  indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
-  localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
-  organizationsRoute: typeof organizationsRoute;
-  pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
-  settingsRoute: typeof settingsRoute;
   termsRoute: typeof termsRoute;
-  testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   xRoute: typeof xRoute;
   youtubeRoute: typeof youtubeRoute;
-  repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
-  adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
-  adminEmailsRoute: typeof adminEmailsRoute;
-  adminUsersRoute: typeof adminUsersRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
   docsCloudflarePreviewsMigrationRoute: typeof docsCloudflarePreviewsMigrationRoute;
   docsCloudflareSetupRoute: typeof docsCloudflareSetupRoute;
@@ -753,27 +750,11 @@ export interface RootRouteChildren {
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
-  oauthProviderCompleteRoute: typeof oauthProviderCompleteRoute;
-  orgRoute: typeof orgRoute;
-  pitchPrintRoute: typeof pitchPrintRoute;
-  repositoryFileRoute: typeof repositoryFileRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
-  orgConnectRepoRoute: typeof orgConnectRepoRoute;
-  orgNewAppRoute: typeof orgNewAppRoute;
-  orgProvidersRoute: typeof orgProvidersRoute;
-  orgRepositoriesRoute: typeof orgRepositoriesRoute;
-  orgSettingsRoute: typeof orgSettingsRoute;
-  pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
-  repositoryDashboardRoute: typeof repositoryDashboardRoute;
-  orgMembersRoute: typeof orgMembersRoute;
-  repositorySettingsRoute: typeof repositorySettingsRoute;
-  repositoryComponentsDeploymentRoute: typeof repositoryComponentsDeploymentRoute;
-  repositoryDatabaseProjectRoute: typeof repositoryDatabaseProjectRoute;
-  repositorySchemaProjectRoute: typeof repositorySchemaProjectRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -785,11 +766,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof indexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/account-deletion": {
-      id: "/account-deletion";
-      path: "/account-deletion";
-      fullPath: "/account-deletion";
-      preLoaderRoute: typeof accountDeletionRouteImport;
+    "/_authed": {
+      id: "/_authed";
+      path: "";
+      fullPath: "/";
+      preLoaderRoute: typeof authedRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/discord": {
@@ -806,13 +787,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/indexDB": {
-      id: "/indexDB";
-      path: "/indexDB";
-      fullPath: "/indexDB";
-      preLoaderRoute: typeof indexDBRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/landing": {
       id: "/landing";
       path: "/landing";
@@ -827,32 +801,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof landingPreviewRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/localStorage": {
-      id: "/localStorage";
-      path: "/localStorage";
-      fullPath: "/localStorage";
-      preLoaderRoute: typeof localStorageRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/logo": {
       id: "/logo";
       path: "/logo";
       fullPath: "/logo";
       preLoaderRoute: typeof logoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/org": {
-      id: "/org";
-      path: "/org";
-      fullPath: "/org";
-      preLoaderRoute: typeof organizationsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pitch": {
-      id: "/pitch";
-      path: "/pitch";
-      fullPath: "/pitch";
-      preLoaderRoute: typeof pitchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pricing": {
@@ -869,25 +822,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof privacyRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/settings": {
-      id: "/settings";
-      path: "/settings";
-      fullPath: "/settings";
-      preLoaderRoute: typeof settingsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/terms": {
       id: "/terms";
       path: "/terms";
       fullPath: "/terms";
       preLoaderRoute: typeof termsRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/test": {
-      id: "/test";
-      path: "/test";
-      fullPath: "/test";
-      preLoaderRoute: typeof testRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/visual-fixture": {
@@ -911,26 +850,54 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof youtubeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/admin/account-deletions": {
-      id: "/admin/account-deletions";
-      path: "/admin/account-deletions";
-      fullPath: "/admin/account-deletions";
-      preLoaderRoute: typeof adminAccountDeletionsRouteImport;
-      parentRoute: typeof rootRouteImport;
+    "/_authed/account-deletion": {
+      id: "/_authed/account-deletion";
+      path: "/account-deletion";
+      fullPath: "/account-deletion";
+      preLoaderRoute: typeof accountDeletionRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/admin/emails": {
-      id: "/admin/emails";
-      path: "/admin/emails";
-      fullPath: "/admin/emails";
-      preLoaderRoute: typeof adminEmailsRouteImport;
-      parentRoute: typeof rootRouteImport;
+    "/_authed/indexDB": {
+      id: "/_authed/indexDB";
+      path: "/indexDB";
+      fullPath: "/indexDB";
+      preLoaderRoute: typeof indexDBRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/admin/users": {
-      id: "/admin/users";
-      path: "/admin/users";
-      fullPath: "/admin/users";
-      preLoaderRoute: typeof adminUsersRouteImport;
-      parentRoute: typeof rootRouteImport;
+    "/_authed/localStorage": {
+      id: "/_authed/localStorage";
+      path: "/localStorage";
+      fullPath: "/localStorage";
+      preLoaderRoute: typeof localStorageRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/org": {
+      id: "/_authed/org";
+      path: "/org";
+      fullPath: "/org";
+      preLoaderRoute: typeof organizationsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/pitch": {
+      id: "/_authed/pitch";
+      path: "/pitch";
+      fullPath: "/pitch";
+      preLoaderRoute: typeof pitchRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/settings": {
+      id: "/_authed/settings";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof settingsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/test": {
+      id: "/_authed/test";
+      path: "/test";
+      fullPath: "/test";
+      preLoaderRoute: typeof testRouteImport;
+      parentRoute: typeof authedRoute;
     };
     "/agents/connect": {
       id: "/agents/connect";
@@ -1023,40 +990,61 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoTransitionLabRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/oauth/provider-complete": {
-      id: "/oauth/provider-complete";
+    "/_authed/admin/account-deletions": {
+      id: "/_authed/admin/account-deletions";
+      path: "/admin/account-deletions";
+      fullPath: "/admin/account-deletions";
+      preLoaderRoute: typeof adminAccountDeletionsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/admin/emails": {
+      id: "/_authed/admin/emails";
+      path: "/admin/emails";
+      fullPath: "/admin/emails";
+      preLoaderRoute: typeof adminEmailsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/admin/users": {
+      id: "/_authed/admin/users";
+      path: "/admin/users";
+      fullPath: "/admin/users";
+      preLoaderRoute: typeof adminUsersRouteImport;
+      parentRoute: typeof authedRoute;
+    };
+    "/_authed/oauth/provider-complete": {
+      id: "/_authed/oauth/provider-complete";
       path: "/oauth/provider-complete";
       fullPath: "/oauth/provider-complete";
       preLoaderRoute: typeof oauthProviderCompleteRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/org/$owner": {
-      id: "/org/$owner";
+    "/_authed/org/$owner": {
+      id: "/_authed/org/$owner";
       path: "/org/$owner";
       fullPath: "/org/$owner";
       preLoaderRoute: typeof orgRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/pitch/print": {
-      id: "/pitch/print";
+    "/_authed/pitch/print": {
+      id: "/_authed/pitch/print";
       path: "/pitch/print";
       fullPath: "/pitch/print";
       preLoaderRoute: typeof pitchPrintRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/": {
-      id: "/repo/";
+    "/_authed/repo/": {
+      id: "/_authed/repo/";
       path: "/repo";
       fullPath: "/repo/";
       preLoaderRoute: typeof repositoryDashboardRootRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/$": {
-      id: "/repo/$";
+    "/_authed/repo/$": {
+      id: "/_authed/repo/$";
       path: "/repo/$";
       fullPath: "/repo/$";
       preLoaderRoute: typeof repositoryFileRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
     "/logo/hover/carpet": {
       id: "/logo/hover/carpet";
@@ -1093,139 +1081,139 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof mcpConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/org/$owner/connect-repo": {
-      id: "/org/$owner/connect-repo";
+    "/_authed/org/$owner/connect-repo": {
+      id: "/_authed/org/$owner/connect-repo";
       path: "/org/$owner/connect-repo";
       fullPath: "/org/$owner/connect-repo";
       preLoaderRoute: typeof orgConnectRepoRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/org/$owner/new-app": {
-      id: "/org/$owner/new-app";
+    "/_authed/org/$owner/new-app": {
+      id: "/_authed/org/$owner/new-app";
       path: "/org/$owner/new-app";
       fullPath: "/org/$owner/new-app";
       preLoaderRoute: typeof orgNewAppRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/org/$owner/providers": {
-      id: "/org/$owner/providers";
+    "/_authed/org/$owner/providers": {
+      id: "/_authed/org/$owner/providers";
       path: "/org/$owner/providers";
       fullPath: "/org/$owner/providers";
       preLoaderRoute: typeof orgProvidersRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/org/$owner/repositories": {
-      id: "/org/$owner/repositories";
+    "/_authed/org/$owner/repositories": {
+      id: "/_authed/org/$owner/repositories";
       path: "/org/$owner/repositories";
       fullPath: "/org/$owner/repositories";
       preLoaderRoute: typeof orgRepositoriesRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/org/$owner/settings": {
-      id: "/org/$owner/settings";
+    "/_authed/org/$owner/settings": {
+      id: "/_authed/org/$owner/settings";
       path: "/org/$owner/settings";
       fullPath: "/org/$owner/settings";
       preLoaderRoute: typeof orgSettingsRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/pitch/print/mobile": {
-      id: "/pitch/print/mobile";
+    "/_authed/pitch/print/mobile": {
+      id: "/_authed/pitch/print/mobile";
       path: "/pitch/print/mobile";
       fullPath: "/pitch/print/mobile";
       preLoaderRoute: typeof pitchPrintMobileRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/$owner/$repository": {
-      id: "/repo/$owner/$repository";
+    "/_authed/repo/$owner/$repository": {
+      id: "/_authed/repo/$owner/$repository";
       path: "/repo/$owner/$repository";
       fullPath: "/repo/$owner/$repository";
       preLoaderRoute: typeof repositoryDashboardRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/org/$owner/settings/members": {
-      id: "/org/$owner/settings/members";
+    "/_authed/org/$owner/settings/members": {
+      id: "/_authed/org/$owner/settings/members";
       path: "/org/$owner/settings/members";
       fullPath: "/org/$owner/settings/members";
       preLoaderRoute: typeof orgMembersRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/$owner/$repository/settings": {
-      id: "/repo/$owner/$repository/settings";
+    "/_authed/repo/$owner/$repository/settings": {
+      id: "/_authed/repo/$owner/$repository/settings";
       path: "/repo/$owner/$repository/settings";
       fullPath: "/repo/$owner/$repository/settings";
       preLoaderRoute: typeof repositorySettingsRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/$owner/$repository/components/$deploymentName": {
-      id: "/repo/$owner/$repository/components/$deploymentName";
+    "/_authed/repo/$owner/$repository/components/$deploymentName": {
+      id: "/_authed/repo/$owner/$repository/components/$deploymentName";
       path: "/repo/$owner/$repository/components/$deploymentName";
       fullPath: "/repo/$owner/$repository/components/$deploymentName";
       preLoaderRoute: typeof repositoryComponentsDeploymentRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/$owner/$repository/db/$branch/project/$convexProjectId": {
-      id: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
+    "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId": {
+      id: "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       fullPath: "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
       preLoaderRoute: typeof repositoryDatabaseProjectRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
-    "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
-      id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+    "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
+      id: "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
       path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
       fullPath: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
       preLoaderRoute: typeof repositorySchemaProjectRouteImport;
-      parentRoute: typeof rootRouteImport;
+      parentRoute: typeof authedRoute;
     };
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  indexRoute: indexRoute,
+interface authedRouteChildren {
+  accountDeletionRoute: typeof accountDeletionRoute;
+  indexDBRoute: typeof indexDBRoute;
+  localStorageRoute: typeof localStorageRoute;
+  organizationsRoute: typeof organizationsRoute;
+  pitchRoute: typeof pitchRoute;
+  settingsRoute: typeof settingsRoute;
+  testRoute: typeof testRoute;
+  repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
+  adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
+  adminEmailsRoute: typeof adminEmailsRoute;
+  adminUsersRoute: typeof adminUsersRoute;
+  oauthProviderCompleteRoute: typeof oauthProviderCompleteRoute;
+  orgRoute: typeof orgRoute;
+  pitchPrintRoute: typeof pitchPrintRoute;
+  repositoryFileRoute: typeof repositoryFileRoute;
+  orgConnectRepoRoute: typeof orgConnectRepoRoute;
+  orgNewAppRoute: typeof orgNewAppRoute;
+  orgProvidersRoute: typeof orgProvidersRoute;
+  orgRepositoriesRoute: typeof orgRepositoriesRoute;
+  orgSettingsRoute: typeof orgSettingsRoute;
+  pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
+  repositoryDashboardRoute: typeof repositoryDashboardRoute;
+  orgMembersRoute: typeof orgMembersRoute;
+  repositorySettingsRoute: typeof repositorySettingsRoute;
+  repositoryComponentsDeploymentRoute: typeof repositoryComponentsDeploymentRoute;
+  repositoryDatabaseProjectRoute: typeof repositoryDatabaseProjectRoute;
+  repositorySchemaProjectRoute: typeof repositorySchemaProjectRoute;
+}
+
+const authedRouteChildren: authedRouteChildren = {
   accountDeletionRoute: accountDeletionRoute,
-  discordRoute: discordRoute,
-  docsRoute: docsRoute,
   indexDBRoute: indexDBRoute,
-  landingRoute: landingRoute,
-  landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
-  logoRoute: logoRoute,
   organizationsRoute: organizationsRoute,
   pitchRoute: pitchRoute,
-  pricingRoute: pricingRoute,
-  privacyRoute: privacyRoute,
   settingsRoute: settingsRoute,
-  termsRoute: termsRoute,
   testRoute: testRoute,
-  visualFixtureRoute: visualFixtureRoute,
-  xRoute: xRoute,
-  youtubeRoute: youtubeRoute,
   repositoryDashboardRootRoute: repositoryDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   adminEmailsRoute: adminEmailsRoute,
   adminUsersRoute: adminUsersRoute,
-  agentsConnectRoute: agentsConnectRoute,
-  docsCloudflarePreviewsMigrationRoute: docsCloudflarePreviewsMigrationRoute,
-  docsCloudflareSetupRoute: docsCloudflareSetupRoute,
-  docsDoItYourselfRoute: docsDoItYourselfRoute,
-  docsReceiptsRoute: docsReceiptsRoute,
-  docsTheStackRoute: docsTheStackRoute,
-  inviteRoute: inviteRoute,
-  logoIsoRoute: logoIsoRoute,
-  logoRasterRoute: logoRasterRoute,
-  logoRasterSeamsRoute: logoRasterSeamsRoute,
-  logoIsoStudyRoute: logoIsoStudyRoute,
-  logoSvgRoute: logoSvgRoute,
-  logoTransitionLabRoute: logoTransitionLabRoute,
   oauthProviderCompleteRoute: oauthProviderCompleteRoute,
   orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
   repositoryFileRoute: repositoryFileRoute,
-  logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
-  logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
-  logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
-  logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
-  mcpConsentRoute: mcpConsentRoute,
   orgConnectRepoRoute: orgConnectRepoRoute,
   orgNewAppRoute: orgNewAppRoute,
   orgProvidersRoute: orgProvidersRoute,
@@ -1239,15 +1227,53 @@ const rootRouteChildren: RootRouteChildren = {
   repositoryDatabaseProjectRoute: repositoryDatabaseProjectRoute,
   repositorySchemaProjectRoute: repositorySchemaProjectRoute,
 };
+
+const authedRouteWithChildren =
+  authedRoute._addFileChildren(authedRouteChildren);
+
+const rootRouteChildren: RootRouteChildren = {
+  indexRoute: indexRoute,
+  authedRoute: authedRouteWithChildren,
+  discordRoute: discordRoute,
+  docsRoute: docsRoute,
+  landingRoute: landingRoute,
+  landingPreviewRoute: landingPreviewRoute,
+  logoRoute: logoRoute,
+  pricingRoute: pricingRoute,
+  privacyRoute: privacyRoute,
+  termsRoute: termsRoute,
+  visualFixtureRoute: visualFixtureRoute,
+  xRoute: xRoute,
+  youtubeRoute: youtubeRoute,
+  agentsConnectRoute: agentsConnectRoute,
+  docsCloudflarePreviewsMigrationRoute: docsCloudflarePreviewsMigrationRoute,
+  docsCloudflareSetupRoute: docsCloudflareSetupRoute,
+  docsDoItYourselfRoute: docsDoItYourselfRoute,
+  docsReceiptsRoute: docsReceiptsRoute,
+  docsTheStackRoute: docsTheStackRoute,
+  inviteRoute: inviteRoute,
+  logoIsoRoute: logoIsoRoute,
+  logoRasterRoute: logoRasterRoute,
+  logoRasterSeamsRoute: logoRasterSeamsRoute,
+  logoIsoStudyRoute: logoIsoStudyRoute,
+  logoSvgRoute: logoSvgRoute,
+  logoTransitionLabRoute: logoTransitionLabRoute,
+  logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
+  logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
+  logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
+  logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
+  mcpConsentRoute: mcpConsentRoute,
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>();
 
 import type { getRouter } from "./router.tsx";
-import type { createStart } from "@tanstack/react-start";
+import type { startInstance } from "./start.ts";
 declare module "@tanstack/react-start" {
   interface Register {
     ssr: true;
     router: Awaited<ReturnType<typeof getRouter>>;
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>;
   }
 }

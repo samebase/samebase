@@ -12,11 +12,11 @@ import {
 } from "@/components/LandingPreviewPage";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 
-const authPresentation = vi.hoisted(() => ({ kind: "signedOut" }));
+const authState = vi.hoisted(() => ({ isAuthenticated: false, isLoading: false }));
 
-vi.mock("@/lib/appAuthPresentationState", async (importOriginal) => ({
-  ...(await importOriginal()),
-  useAppAuthPresentation: () => authPresentation,
+vi.mock("convex/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("convex/react")>()),
+  useConvexAuth: () => authState,
 }));
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
@@ -106,7 +106,7 @@ vi.mock("@samebase/sidebars/SidebarRuntime", () => ({
 
 describe("LandingPage", () => {
   afterEach(() => {
-    authPresentation.kind = "signedOut";
+    authState.isAuthenticated = false;
   });
 
   it("renders the agent-first landing overview by default", () => {
@@ -258,7 +258,7 @@ describe("LandingPage", () => {
   });
 
   it("links both signed-in landing CTA positions to the dashboard", () => {
-    authPresentation.kind = "confirmedAuthenticated";
+    authState.isAuthenticated = true;
 
     const markup = renderToStaticMarkup(<LandingPage />);
 

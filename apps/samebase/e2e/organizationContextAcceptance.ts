@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 
 import { internal } from "../convex/_generated/api";
@@ -24,15 +24,34 @@ async function waitForAuthenticatedAccount(page: Page) {
   ).toBeVisible({ timeout: 30_000 });
 }
 
+/**
+Opens the sign-up form of the landing page. The landing page is a prerendered file whose form shows
+before hydration, when the toggle does nothing yet and the first render after hydration empties a
+filled field, so the click repeats until the sign-up form shows.
+*/
+async function openHydratedSignUpForm(accountSection: Locator) {
+  const createAccountButton = accountSection.getByRole("button", {
+    exact: true,
+    name: "Create account",
+  });
+  await expect(async () => {
+    await accountSection.getByRole("button", { name: "Need an account?" }).click();
+    await expect(createAccountButton).toBeVisible({ timeout: 1_000 });
+  }).toPass();
+  return createAccountButton;
+}
+
 export async function createOrganizationContextAcceptanceAccount(page: Page, email: string) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   const emailInput = accountSection.getByPlaceholder("you@example.com");
   await emailInput.waitFor({ state: "visible" });
-  await accountSection.getByRole("button", { name: "Need an account?" }).click();
+  const createAccountButton = await openHydratedSignUpForm(accountSection);
   await emailInput.fill(email);
   await accountSection.getByPlaceholder("Password").fill(ACCEPTANCE_PASSWORD);
-  await accountSection.getByRole("button", { exact: true, name: "Create account" }).click();
+  await createAccountButton.click();
+  // A sign-up on the landing page opens the dashboard with a document load.
+  await page.waitForURL((url) => url.pathname === "/repo");
   await waitForAuthenticatedAccount(page);
 }
 
@@ -40,6 +59,8 @@ export async function signInOrganizationContextAcceptanceAccount(page: Page, ema
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   const emailInput = accountSection.getByPlaceholder("you@example.com");
   await emailInput.waitFor({ state: "visible" });
+  await openHydratedSignUpForm(accountSection);
+  await accountSection.getByRole("button", { name: "Have an account?" }).click();
   await emailInput.fill(email);
   await accountSection.getByPlaceholder("Password").fill(ACCEPTANCE_PASSWORD);
   await accountSection.getByRole("button", { exact: true, name: "Sign in" }).click();

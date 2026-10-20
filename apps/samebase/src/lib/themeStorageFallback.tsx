@@ -2,19 +2,6 @@ import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import type { RootThemeMode } from "@/lib/rootThemeModeSearch";
 
-function canUseThemeStorage(): boolean {
-  if (typeof window === "undefined") {
-    return true;
-  }
-
-  try {
-    void window.localStorage;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function OptionalThemeProvider({
   children,
   forcedTheme,
@@ -22,13 +9,8 @@ export function OptionalThemeProvider({
   children: ReactNode;
   forcedTheme?: RootThemeMode;
 }) {
-  // localStorage access can be denied in browser privacy modes. Keep the app
-  // bootable on those paths by dropping theme persistence instead of crashing
-  // before the landing route can render.
-  if (!canUseThemeStorage()) {
-    return children;
-  }
-
+  // next-themes wraps each localStorage access in try/catch, so it renders the same tree on the
+  // server and in browsers that deny storage.
   return (
     <ThemeProvider
       attribute="class"

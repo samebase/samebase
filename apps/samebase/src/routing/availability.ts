@@ -1,3 +1,4 @@
+import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { isProductionPublicHostname } from "@/lib/prodUiMode";
 
 export type RouteEnvironment = "local" | "preview" | "production";
@@ -55,21 +56,12 @@ export function resolveRouteEnvironment(args: { hostname: string }): RouteEnviro
   return "preview";
 }
 
-export function readBrowserRouteEnvironment(): RouteEnvironment {
-  return readRouteEnvironmentForRouteGuard() ?? "production";
-}
-
-export function readRouteEnvironmentForRouteGuard(): RouteEnvironment | null {
-  const envEnvironment = readEnvRouteEnvironment();
-  if (envEnvironment !== null) {
-    return envEnvironment;
-  }
-
-  if (typeof window !== "undefined") {
-    return resolveRouteEnvironment({ hostname: window.location.hostname });
-  }
-
-  return null;
+/**
+The environment of this render: the build's `VITE_SAMEBASE_ROUTE_ENVIRONMENT`, else the host of the
+request on the server and of the page in the browser, so both renders agree.
+*/
+export function readRouteEnvironment(): RouteEnvironment {
+  return readEnvRouteEnvironment() ?? readRouteEnvironmentForOrigin(readIsomorphicOrigin());
 }
 
 export function readRouteEnvironmentForOrigin(origin: string): RouteEnvironment {

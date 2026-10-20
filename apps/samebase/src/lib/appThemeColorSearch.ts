@@ -9,6 +9,7 @@ import {
   getFaceColorsFromLogoThemeColors,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
+  getStaticTailwindColorHex,
   getTailwindColorHex,
   isLogoColorToken,
   type AppThemeColorKey,
@@ -37,8 +38,12 @@ export type LogoThemeColorSearch = Partial<
 export type LogoThemeColorSearchInput = LogoThemeColorSearch;
 type CssVariableName = `--${string}`;
 type ThemeColorRuleSet = Record<CssVariableName, string>;
-export type ResolvedAppThemeColors = Record<AppThemeColorKey, HexColorToken>;
 export type ResolvedLogoThemeColors = Record<LogoThemeColorKey, HexColorToken>;
+/**
+`static` resolves app theme tokens from the fallbacks for the theme mode, which the server computes
+too. `computed-style` reads the document's computed CSS variables, which only the browser has.
+*/
+type AppThemeColorSource = "computed-style" | "static";
 export type ResolvedAppThemeColorState = {
   backgroundColor: HexColorToken;
   cacheKey: string;
@@ -184,31 +189,34 @@ export function readLogoThemeColors(search: LogoThemeColorSearchInput): LogoThem
   };
 }
 
-function resolveAppThemeColorHexes(themeColors: AppThemeColors): ResolvedAppThemeColors {
+function resolveLogoThemeColorHexes(
+  themeColors: LogoThemeColors,
+  resolveColorHex: (token: LogoColorToken) => HexColorToken,
+): ResolvedLogoThemeColors {
   return {
-    background: getTailwindColorHex(themeColors.background),
-    border: getTailwindColorHex(themeColors.border),
-    primary: getTailwindColorHex(themeColors.primary),
-    secondary: getTailwindColorHex(themeColors.secondary),
-  };
-}
-
-function resolveLogoThemeColorHexes(themeColors: LogoThemeColors): ResolvedLogoThemeColors {
-  return {
-    ...resolveAppThemeColorHexes(themeColors),
-    top: getTailwindColorHex(themeColors.top),
+    background: resolveColorHex(themeColors.background),
+    border: resolveColorHex(themeColors.border),
+    primary: resolveColorHex(themeColors.primary),
+    secondary: resolveColorHex(themeColors.secondary),
+    top: resolveColorHex(themeColors.top),
   };
 }
 
 export function resolveAppThemeColorState({
+  colorSource,
   search,
   themeMode,
 }: {
+  colorSource: AppThemeColorSource;
   search: LogoThemeColorSearchInput;
   themeMode: DocumentThemeMode;
 }): ResolvedAppThemeColorState {
   const themeColors = readLogoThemeColors(search);
-  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors);
+  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors, (token) =>
+    colorSource === "computed-style"
+      ? getTailwindColorHex(token)
+      : getStaticTailwindColorHex(token, themeMode),
+  );
   const faceColors = getFaceColorsFromLogoThemeColors(resolvedThemeColors);
 
   return {
@@ -236,7 +244,9 @@ export function useResolvedAppThemeColorState(
   search: LogoThemeColorSearchInput,
 ): ResolvedAppThemeColorState {
   const themeMode = useDocumentThemeMode();
-  const [, setThemeColorSearchRevision] = useState(0);
+  // Revision 0 is the server render and the hydration render, which resolve static colors so both
+  // agree. The mount effect and each sync event bump it to reread the computed CSS variables.
+  const [themeColorSearchRevision, setThemeColorSearchRevision] = useState(0);
 
   useEffect(() => {
     const handleThemeColorSearchSync = () => {
@@ -244,8 +254,6 @@ export function useResolvedAppThemeColorState(
     };
 
     window.addEventListener(APP_THEME_COLOR_SEARCH_SYNC_EVENT, handleThemeColorSearchSync);
-    // SSR cannot read computed theme CSS variables; reread them once hydration
-    // has loaded the stylesheet and applied the root theme class.
     handleThemeColorSearchSync();
     return () => {
       window.removeEventListener(APP_THEME_COLOR_SEARCH_SYNC_EVENT, handleThemeColorSearchSync);
@@ -253,6 +261,7 @@ export function useResolvedAppThemeColorState(
   }, []);
 
   return resolveAppThemeColorState({
+    colorSource: themeColorSearchRevision === 0 ? "static" : "computed-style",
     search,
     themeMode,
   });

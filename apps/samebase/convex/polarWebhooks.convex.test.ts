@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { makeConvexTest } from "./test.setup";
 
+// t.fetch loads convex/http.ts, which imports these modules that only a build and a deploy write.
+vi.mock("../dist/server/server.js", () => ({ default: { fetch: async () => new Response() } }));
+vi.mock("../.convex-hosting/version.js", () => ({ versionId: "test" }));
+
 const webhookSecret = "whsec_c2FtZWJhc2UtcG9sYXItd2ViaG9vay10ZXN0LXNlY3JldA==";
 const standardSigner = new Webhook(webhookSecret);
 

@@ -7,10 +7,7 @@ import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import {
-  isAppPresentationAuthenticated,
-  useAppAuthPresentation,
-} from "@/lib/appAuthPresentationState";
+import { useConvexAuth } from "convex/react";
 import { PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID } from "@/lib/publicLanding";
 import { cn } from "@/lib/utils";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
@@ -745,8 +742,9 @@ function LandingPreviewOverview() {
 }
 
 function PublicLandingPrimaryAction() {
-  const authPresentation = useAppAuthPresentation();
-  const isAuthenticated = isAppPresentationAuthenticated(authPresentation);
+  // The landing is prerendered without a session, so it shows the sign-in until the browser's
+  // provider confirms one.
+  const { isAuthenticated } = useConvexAuth();
 
   return (
     <div className="w-fit max-w-full" data-testid={PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}>

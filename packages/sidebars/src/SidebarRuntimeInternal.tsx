@@ -2,9 +2,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
@@ -74,25 +73,32 @@ const SIDEBAR_LAYOUT_LOCAL_STORE_INITIAL_STATE: SidebarLayoutLocalStoreState = {
   },
 };
 
+function subscribeToSidebarLayoutMode(onLayoutModeChange: () => void) {
+  const mediaQuery = window.matchMedia(`(max-width: ${SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX - 1}px)`);
+  mediaQuery.addEventListener("change", onLayoutModeChange);
+
+  return () => mediaQuery.removeEventListener("change", onLayoutModeChange);
+}
+
+function readIsMobileSidebarLayout() {
+  return window.innerWidth < SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX;
+}
+
+function readServerIsMobileSidebarLayout() {
+  return false;
+}
+
+/**
+The server cannot measure the viewport, so the server and hydration renders use the desktop layout,
+and React rerenders with the measured layout right after hydration. Until then, the mobile
+prehydration script positions the server markup. Client-only mounts read the viewport directly.
+*/
 function useIsMobileSidebarLayout() {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window === "undefined" ? false : window.innerWidth < SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX,
+  return useSyncExternalStore(
+    subscribeToSidebarLayoutMode,
+    readIsMobileSidebarLayout,
+    readServerIsMobileSidebarLayout,
   );
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(
-      `(max-width: ${SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX - 1}px)`,
-    );
-    const syncLayoutMode = () => {
-      setIsMobile(window.innerWidth < SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX);
-    };
-    mediaQuery.addEventListener("change", syncLayoutMode);
-    syncLayoutMode();
-
-    return () => mediaQuery.removeEventListener("change", syncLayoutMode);
-  }, []);
-
-  return isMobile;
 }
 
 function useCreateSidebarLayoutStore() {

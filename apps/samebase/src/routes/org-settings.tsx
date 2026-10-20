@@ -9,7 +9,7 @@ import {
 import { applySearchPatch } from "@/routing/searchFlags";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/org/$owner/settings")({
+export const Route = createFileRoute("/_authed/org/$owner/settings")({
   beforeLoad: ({ search }) => {
     if (search[POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM] !== true) {
       return;

@@ -1,5 +1,3 @@
-import { guard } from "@samebase/dependent";
-import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
@@ -7,50 +5,6 @@ import { isOrganizationInvitationPath } from "@/organization/organizationInvitat
 import { readAuthorizationError } from "@/routeSearch/authorizationError";
 
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "sign_in";
-
-function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
-  try {
-    return reader(window.localStorage);
-  } catch {
-    return fallback;
-  }
-}
-
-const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((value) =>
-  value === "off" ||
-  value === "local_worktree_seed" ||
-  value === "preview_seed" ||
-  value === "manual"
-    ? value
-    : null,
-);
-
-function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
-  const storedValue = withLocalStorage(
-    (storage) => storage.getItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY),
-    null,
-  );
-  return isStoredPasswordAuthMode(storedValue) ? storedValue : null;
-}
-
-export function rememberPublicLandingPasswordAuthMode(
-  passwordAuthMode: PublicPasswordAuthMode,
-): void {
-  withLocalStorage((storage) => {
-    storage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, passwordAuthMode);
-  }, undefined);
-}
-
-/**
- * Manual refreshes should preserve the same password-auth slot while the
- * public deployment-profile query reconnects, instead of re-centering the
- * landing card and then expanding it a frame later.
- */
-export function resolvePublicLandingPasswordAuthMode(
-  passwordAuthMode: PublicPasswordAuthMode | undefined,
-): PublicPasswordAuthMode {
-  return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
-}
 
 /**
 The generic notice covers a marked OAuth return without a session. A recognized authorization error

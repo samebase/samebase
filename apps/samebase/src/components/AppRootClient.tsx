@@ -1,5 +1,4 @@
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { useLocation, useRouter } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import "@xyflow/react/dist/style.css";
@@ -13,7 +12,6 @@ import { QueryDevtools } from "@/lib/providers/query-devtools";
 import { useRootRouteSearch } from "@/routeSearch/root";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
-import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import {
   captureSamebasePostHogPageview,
   identifySamebasePostHogUser,
@@ -122,15 +120,10 @@ function AppRouterRoot() {
 }
 
 export function AppRootClient() {
-  const router = useRouter();
-  const convexClient = router.options.context.convexQueryClient.convexClient;
-
   return (
-    <ConvexAuthProvider client={convexClient} api={api.auth}>
-      <AppAuthPresentationProvider storageNamespace={convexClient.url}>
-        <AppRouterRoot />
-        <QueryDevtools />
-      </AppAuthPresentationProvider>
-    </ConvexAuthProvider>
+    <>
+      <AppRouterRoot />
+      <QueryDevtools />
+    </>
   );
 }

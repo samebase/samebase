@@ -30,6 +30,10 @@ minimumReleaseAgeExclude:
   # Reviewed first-party release (apps/samebase serves samebase.com with it),
   # published 2026-10-18. Remove after 2026-10-25.
   - "@samebase/convex-hosting@0.13.1"
+  # Reviewed first-party releases (apps/samebase renders its pages and keeps its sessions in
+  # cookies with them, RFC 128), published 2026-10-20 10:48 UTC. Remove after 2026-10-27 10:49 UTC.
+  - "@samebase/convex-hosting-tanstack-start@0.11.0"
+  - "@samebase/convex-auth-tanstack-start@0.1.0"
   # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
@@ -60,6 +64,9 @@ trustPolicyExclude:
   # these trust-downgraded transitive versions.
   - reselect@5.1.1
   - undici-types@6.21.0
+  # First-party: convex-hosting moved from staged approval to trusted publishing with provenance on
+  # merge (samebase/convex-hosting#125), which pnpm ranks below the staged releases before it.
+  - "@samebase/convex-hosting-tanstack-start@0.11.0"
 audit:
   ignore:
     # TODO(2026-10-17): Remove once braces publishes a fix. No patched release

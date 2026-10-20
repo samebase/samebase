@@ -19,7 +19,7 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-const adminUsersRouteApi = getRouteApi("/admin/users");
+const adminUsersRouteApi = getRouteApi("/_authed/admin/users");
 const INCLUDE_SCRUBBED_CHECKBOX_ID = "admin-users-include-scrubbed";
 
 type DeleteTarget = {

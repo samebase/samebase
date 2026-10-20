@@ -1,39 +1,34 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export type DocumentThemeMode = "dark" | "light";
 
 function readDocumentThemeMode(): DocumentThemeMode {
-  if (typeof document === "undefined") {
-    return "light";
-  }
-
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
+function readServerDocumentThemeMode(): DocumentThemeMode {
+  return "light";
+}
+
+function subscribeToDocumentThemeMode(onThemeModeChange: () => void) {
+  const observer = new MutationObserver(onThemeModeChange);
+  observer.observe(document.documentElement, {
+    attributeFilter: ["class"],
+    attributes: true,
+  });
+
+  return () => {
+    observer.disconnect();
+  };
+}
+
 export function useDocumentThemeMode(): DocumentThemeMode {
-  const [themeMode, setThemeMode] = useState<DocumentThemeMode>(() => readDocumentThemeMode());
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const syncThemeMode = () => {
-      setThemeMode(readDocumentThemeMode());
-    };
-
-    syncThemeMode();
-
-    const observer = new MutationObserver(syncThemeMode);
-    observer.observe(document.documentElement, {
-      attributeFilter: ["class"],
-      attributes: true,
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  return themeMode;
+  // The server cannot see the theme the head script applies before hydration (the stored or system
+  // theme, and `?light` or `?dark` on prerendered pages), so the server and hydration renders use
+  // "light" and later renders read the `<html>` class.
+  return useSyncExternalStore(
+    subscribeToDocumentThemeMode,
+    readDocumentThemeMode,
+    readServerDocumentThemeMode,
+  );
 }

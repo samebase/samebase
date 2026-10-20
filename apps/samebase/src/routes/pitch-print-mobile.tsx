@@ -13,7 +13,7 @@ function PitchPrintMobileRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/pitch/print/mobile")({
+export const Route = createFileRoute("/_authed/pitch/print/mobile")({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: PitchPrintMobileRouteComponent,
 });

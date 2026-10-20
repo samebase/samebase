@@ -40,7 +40,7 @@ export function OrganizationInvitationPageView({
 }: {
   invitation: OrganizationInvitationResult;
   onJoin: () => Promise<unknown>;
-  onSignOut: () => Promise<unknown>;
+  onSignOut: () => Promise<boolean>;
 }) {
   const [pendingAction, setPendingAction] = useState<"join" | "sign-out" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,9 +99,12 @@ export function OrganizationInvitationPageView({
     }
     setPendingAction("sign-out");
     setError(null);
-    void onSignOut().catch(() => {
-      setError("Could not sign out. Try again.");
-      setPendingAction(null);
+    // A sign-out reloads the page; `false` means the session stays.
+    void onSignOut().then((signedOut) => {
+      if (!signedOut) {
+        setError("Could not sign out. Try again.");
+        setPendingAction(null);
+      }
     });
   };
 

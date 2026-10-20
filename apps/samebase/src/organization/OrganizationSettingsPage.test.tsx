@@ -37,6 +37,12 @@ vi.mock("@/organization/useOrganizationGitHubIdentity", async (importOriginal) =
   };
 });
 
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
+}));
+
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
   // a stable value for component arguments.

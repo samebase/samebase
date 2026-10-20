@@ -23,7 +23,7 @@ function renderInvitation(
       <OrganizationInvitationPageView
         invitation={invitation}
         onJoin={async () => undefined}
-        onSignOut={async () => undefined}
+        onSignOut={async () => true}
       />
     </TestRouterProvider>,
   );
@@ -44,7 +44,7 @@ describe("OrganizationInvitationPageView", () => {
           <OrganizationInvitationPageView
             invitation={availableInvitation}
             onJoin={onJoin}
-            onSignOut={async () => undefined}
+            onSignOut={async () => true}
           />
         </TestRouterProvider>,
       );

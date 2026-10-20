@@ -82,7 +82,7 @@ describe("useAppAuthRuntimeEffects", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    useAppAuthRuntimeEffects("/settings", {
+    useAppAuthRuntimeEffects({
       "prod-ui": true,
       signup: "google",
     });
@@ -112,7 +112,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/settings", {
+    useAppAuthRuntimeEffects({
       signup: "google",
     });
 
@@ -120,31 +120,6 @@ describe("useAppAuthRuntimeEffects", () => {
       signup: "google",
     });
     expect(navigateMock).not.toHaveBeenCalled();
-    expect(replaceStateMock).not.toHaveBeenCalled();
-  });
-
-  it("redirects signed-out dashboard loads to the public root route", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
-    vi.stubGlobal("window", {
-      location: {
-        pathname: "/repo",
-        search: "?delete",
-        hash: "#repositories",
-      },
-      history: {
-        replaceState: replaceStateMock,
-      },
-    });
-
-    useAppAuthRuntimeEffects("/repo", {
-      delete: true,
-    });
-
-    expect(navigateMock).toHaveBeenCalledWith({
-      href: "/",
-      replace: true,
-      state: true,
-    });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
@@ -161,7 +136,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/", {});
+    useAppAuthRuntimeEffects({});
 
     expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
@@ -180,7 +155,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/", {
+    useAppAuthRuntimeEffects({
       "auth-return": "dashboard",
     });
 
@@ -209,22 +184,35 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("waits for auth loading before redirecting dashboard loads", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
-    vi.stubGlobal("window", {
-      location: {
-        pathname: "/repo",
-        search: "",
-        hash: "",
-      },
-      history: {
-        replaceState: replaceStateMock,
-      },
+  it("returns to the gated page in next once the session is confirmed", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+
+    useAppAuthRuntimeEffects({
+      "auth-return": "dashboard",
+      next: "/settings?checkout=success",
     });
 
-    useAppAuthRuntimeEffects("/repo", {});
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith({
+      href: "/settings?checkout=success",
+      replace: true,
+    });
+  });
+
+  it("keeps next until the session is confirmed", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
+
+    useAppAuthRuntimeEffects({ next: "/settings" });
 
     expect(navigateMock).not.toHaveBeenCalled();
-    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores a next that leaves the origin", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+
+    useAppAuthRuntimeEffects({ next: "//example.com/settings" });
+    useAppAuthRuntimeEffects({ next: "https://example.com/settings" });
+
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

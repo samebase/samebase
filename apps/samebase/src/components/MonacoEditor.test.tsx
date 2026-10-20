@@ -26,9 +26,11 @@ const testState = vi.hoisted(() => ({
   pulledUpdatesByVersion: new Map<number, PulledUpdate[]>(),
 }));
 
-vi.mock("@/lib/convexClient", () => ({
-  client: { mutation: testState.mutation, query: testState.query },
-}));
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+  const client = { mutation: testState.mutation, query: testState.query };
+  return { ...actual, useConvex: () => client };
+});
 
 vi.mock("@/lib/convexQueryCache", () => ({
   useCacheQuery: (_reference: unknown, args: { version: number }) =>
@@ -42,6 +44,9 @@ vi.mock("@/repository/editor/useProjectFiles", () => ({
 vi.mock("./monaco/setupEditor", () => ({
   applyTsConfigToMonaco: () => {},
   parseTsConfig: () => ({}),
+}));
+
+vi.mock("./monaco/ata", () => ({
   setupEditorATA: () => {},
 }));
 

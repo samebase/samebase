@@ -497,8 +497,10 @@ async function signInFromDirectRoute(args: {
   });
   const page = await context.newPage();
   try {
+    // A private page answers a request without a session with a redirect to the landing page,
+    // which returns to the page after the sign-in.
     await openRoute(page, args.route);
-    await expect(page).toHaveURL(args.route);
+    await expect(page).toHaveURL(`/?next=${encodeURIComponent(args.route)}`);
     await signInOrganizationContextAcceptanceAccount(page, args.email);
     await expect(page).toHaveURL(args.route);
     await expect(
@@ -611,6 +613,11 @@ test.describe("small screen organization context", () => {
       ).toBeVisible();
       const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
       await expect(rightToggle).toBeVisible();
+      // The server renders the toggle; the layout measures its viewport once the page hydrated.
+      await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+        "data-viewport-measured",
+        "",
+      );
       await rightToggle.click();
       await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
         "data-mobile-pane",

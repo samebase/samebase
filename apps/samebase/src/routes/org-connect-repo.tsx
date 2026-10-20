@@ -3,7 +3,7 @@ import { ConnectRepository } from "@/repository/setup/ConnectRepository";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/org/$owner/connect-repo")({
+export const Route = createFileRoute("/_authed/org/$owner/connect-repo")({
   component: OrganizationConnectRepositoryRoutePage,
   staticData: ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/connect-repo"],
 });

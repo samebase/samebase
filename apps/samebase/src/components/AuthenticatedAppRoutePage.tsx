@@ -1,16 +1,9 @@
-import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { useLocation } from "@tanstack/react-router";
-import { landingPageMarkdown } from "@/lib/landingCopy";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { type RootRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
-import {
-  isAppPresentationAuthenticated,
-  useAppAuthPresentation,
-} from "@/lib/appAuthPresentationState";
-import { Authenticated, Unauthenticated } from "convex/react";
 import { Suspense, useMemo, type ReactNode } from "react";
 import { useCallback, useEffect } from "react";
 import { useRouter } from "@tanstack/react-router";
@@ -89,14 +82,6 @@ function FallbackAuthorizationErrorNotice({
   return null;
 }
 
-function AuthenticatedRouteSignInForm() {
-  return (
-    <Suspense fallback={null}>
-      <SignInForm authPlacement="inline" landingPageMarkdown={landingPageMarkdown} logo="classic" />
-    </Suspense>
-  );
-}
-
 function AuthenticatedRoutePage({
   approvalRequired,
   children,
@@ -108,48 +93,29 @@ function AuthenticatedRoutePage({
     select: (location) => location.pathname,
   });
   const rootRouteSearch = useRootRouteSearch();
-  const authPresentation = useAppAuthPresentation();
-  const isPresentedAuthenticated = isAppPresentationAuthenticated(authPresentation);
+  // The `_authed` layout lets only a visitor with a session reach this page.
   const pageMetadata = useMemo(
     () =>
       resolvePageMetadata({
         pathname,
-        isAuthenticated: isPresentedAuthenticated,
+        isAuthenticated: true,
       }),
-    [isPresentedAuthenticated, pathname],
+    [pathname],
   );
 
-  useAppAuthRuntimeEffects(pathname, rootRouteSearch);
+  useAppAuthRuntimeEffects(rootRouteSearch);
   usePageMetadata(pageMetadata);
-
-  const fallbackAuthorizationErrorNotice = (
-    <FallbackAuthorizationErrorNotice pathname={pathname} rootRouteSearch={rootRouteSearch} />
-  );
-
-  if (authPresentation.kind === "signedOut") {
-    return (
-      <>
-        {fallbackAuthorizationErrorNotice}
-        <AuthenticatedRouteSignInForm />
-      </>
-    );
-  }
 
   return (
     <>
-      {fallbackAuthorizationErrorNotice}
-      <Authenticated>
-        {approvalRequired ? (
-          <ApprovalGate>
-            <Suspense fallback={null}>{children}</Suspense>
-          </ApprovalGate>
-        ) : (
+      <FallbackAuthorizationErrorNotice pathname={pathname} rootRouteSearch={rootRouteSearch} />
+      {approvalRequired ? (
+        <ApprovalGate>
           <Suspense fallback={null}>{children}</Suspense>
-        )}
-      </Authenticated>
-      <Unauthenticated>
-        <AuthenticatedRouteSignInForm />
-      </Unauthenticated>
+        </ApprovalGate>
+      ) : (
+        <Suspense fallback={null}>{children}</Suspense>
+      )}
     </>
   );
 }

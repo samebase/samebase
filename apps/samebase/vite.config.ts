@@ -3,6 +3,8 @@ import { defineConfig } from "vite-plus";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { convexAuth } from "@samebase/convex-auth-tanstack-start/vite";
+import { convexSsr } from "@samebase/convex-hosting-tanstack-start/vite";
 import typegpu from "unplugin-typegpu/vite";
 import path from "path";
 import { execSync } from "node:child_process";
@@ -119,14 +121,12 @@ const staticCompactIdentitySvgAssetPaths = [
   path.resolve(currentDir, "public/samebase-icon.svg"),
   path.resolve(currentDir, "public/install-icon.svg"),
 ];
-const spaShellOutputPath = "/index";
-const spaShellMaskPath = "/#__samebase-spa-shell";
-const prerenderHeaders = readPrerenderHeaders(process.env["SAMEBASE_PRERENDER_ORIGIN"]);
+const prerenderOriginHeaders = readPrerenderOriginHeaders(process.env["SAMEBASE_PRERENDER_ORIGIN"]);
 
-function readPrerenderHeaders(originValue: string | undefined) {
+function readPrerenderOriginHeaders(originValue: string | undefined): Record<string, string> {
   const origin = originValue?.trim();
   if (!origin) {
-    return undefined;
+    return {};
   }
 
   const url = new URL(origin);
@@ -141,7 +141,6 @@ function readPrerenderHeaders(originValue: string | undefined) {
     "x-forwarded-proto": url.protocol.replace(/:$/, ""),
   };
 }
-
 function syncStaticLogoSvgAsset() {
   const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
   const currentStaticLogoSvgMarkup = (() => {
@@ -401,7 +400,7 @@ const browserConvexProxyServerConfig = (() => {
 })();
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   define: {
     __APP_BUILD_CONFIG__: JSON.stringify(appBuildConfig),
   },
@@ -410,18 +409,25 @@ export default defineConfig({
     syncStaticCompactIdentitySvgAssetsPlugin(),
     serveContentDocsMarkdownPlugin(),
     tailwindcss(),
+    // The server build runs in a Convex HTTP action: convex/http.ts imports dist/server/server.js
+    // and gives it every request that no file answers.
+    convexSsr(),
+    convexAuth(),
     tanstackStart({
       router: {
         quoteStyle: "double",
         semicolons: true,
         virtualRouteConfig: "./src/routes.ts",
       },
+      // The public pages without data are files of the build, at `<path>/index.html`, which
+      // `--html-handling drop-trailing-slash` serves at `<path>`. `x-prerender` marks the
+      // prerender's requests for src/server.ts: a prerender renders without a visitor.
       pages: prerenderPages,
       prerender: {
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
         enabled: true,
-        ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
+        headers: { "x-prerender": "1", ...prerenderOriginHeaders },
         onSuccess({ page, html }) {
           const publicPrerenderPage = prerenderPages.find(
             (candidate) => candidate.path === page.path,
@@ -435,19 +441,6 @@ export default defineConfig({
             html,
             page: publicPrerenderPage,
           });
-        },
-      },
-      spa: {
-        enabled: true,
-        // `pnpm run deploy` serves dist/client in Cloudflare's
-        // single-page-application asset mode, which serves /index.html for
-        // unknown app routes. TanStack Start defaults the SPA shell to
-        // /_shell.html, so emit it here instead. The hash marker keeps the
-        // shell request on the public root route while staying distinct from
-        // the explicit / prerender entry.
-        maskPath: spaShellMaskPath,
-        prerender: {
-          outputPath: spaShellOutputPath,
         },
       },
     }),
@@ -469,7 +462,10 @@ export default defineConfig({
   environments: {
     ssr: {
       resolve: {
-        conditions: ["samebase-source", ...defaultServerConditions],
+        // The built server bundle runs in a Convex HTTP action, which has no Node built-ins, so the
+        // build takes `convexSsr()`'s worker and browser conditions and not Node's. The dev
+        // server renders in Node.
+        conditions: ["samebase-source", ...(command === "build" ? [] : defaultServerConditions)],
       },
       build: {
         rolldownOptions: {
@@ -495,4 +491,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

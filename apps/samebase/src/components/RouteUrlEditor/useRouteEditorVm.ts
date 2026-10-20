@@ -24,7 +24,7 @@ import {
   readCanonicalRouteAddressForRootSearch,
   validateRootRouteSearch,
 } from "@/routeSearch/root";
-import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
+import { isProductionPublicOrigin } from "@/lib/prodUiMode";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { api } from "../../../convex/_generated/api";
 import {
@@ -1232,7 +1232,7 @@ reload, so an unapplied suggestion preview does not become durable.
             hash: builtLocation.hash,
             pathname: builtLocation.pathname,
             searchStr: builtLocation.searchStr,
-            stripProdUi: isBrowserProductionPublicOrigin(),
+            stripProdUi: isProductionPublicOrigin(),
           });
 
           return canonicalRouteAddress ?? builtLocation.href;

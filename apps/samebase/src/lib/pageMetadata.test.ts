@@ -510,11 +510,6 @@ describe("page metadata", () => {
         script.children.includes("data-public-landing-logo-static-fallback-hidden"),
       ),
     ).toBe(true);
-    expect(
-      rootHead.scripts.some((script) =>
-        script.children.includes("data-app-auth-presentation-prehydrated"),
-      ),
-    ).toBe(true);
     expect(rootHead.links).toContainEqual({
       rel: "apple-touch-icon",
       href: "/apple-touch-icon.png",

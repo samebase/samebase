@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 import { useRef, useEffect, useMemo, useState } from "react";
+import { useConvex, type ConvexReactClient } from "convex/react";
 import { ChangeSet } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { ViewPlugin, ViewUpdate } from "@codemirror/view";
@@ -10,7 +11,6 @@ import {
   sendableUpdates,
   Update,
 } from "@codemirror/collab";
-import { client } from "@/lib/convexClient";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
@@ -36,12 +36,14 @@ function awaitTimeout(timeout: number): Promise<void> {
 const delay = 500;
 
 async function pushUpdates({
+  client,
   version,
   githubRepositoryFullName,
   branch,
   filePath,
   fullUpdates,
 }: {
+  client: ConvexReactClient;
   version: number;
   githubRepositoryFullName: string;
   branch: string;
@@ -68,6 +70,7 @@ async function pushUpdates({
 
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
 function peerExtension({
+  client,
   startVersion,
   githubRepositoryFullName,
   branch,
@@ -76,6 +79,7 @@ function peerExtension({
   setPull,
   setSyncError,
 }: {
+  client: ConvexReactClient;
   startVersion: number;
   githubRepositoryFullName: string;
   branch: string;
@@ -138,6 +142,7 @@ function peerExtension({
         let retryDelayMs = 100;
         try {
           const success = await pushUpdates({
+            client,
             version,
             githubRepositoryFullName,
             branch,
@@ -213,6 +218,7 @@ function peerExtension({
         const releasePageLeaveGuard = this.releasePageLeaveGuard;
         this.releasePageLeaveGuard = null;
         void flushCollaborativeUpdates({
+          client,
           state: this.view.state,
           githubRepositoryFullName,
           branch,
@@ -297,6 +303,7 @@ export function CodeEditor({
   branch: string;
   filePath: string;
 }) {
+  const client = useConvex();
   const pullRef = useRef<((updates: readonly Update[], version: number) => void) | null>(null);
   // CodeEditor is keyed by repo/branch/file path, so this captures the mount
   // version for the currently opened file without forcing the editor surface to
@@ -337,6 +344,7 @@ export function CodeEditor({
   const collaborationExtensions = useMemo(
     () =>
       peerExtension({
+        client,
         startVersion: mountedFileVersionRef.current,
         githubRepositoryFullName,
         branch,
@@ -347,7 +355,7 @@ export function CodeEditor({
           pullRef.current = pull;
         },
       }),
-    [branch, filePath, githubRepositoryFullName],
+    [branch, client, filePath, githubRepositoryFullName],
   );
 
   return (
