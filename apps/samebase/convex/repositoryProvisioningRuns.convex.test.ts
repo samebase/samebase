@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
@@ -187,6 +187,15 @@ async function readConfirmationRows({ t }: RetryFixture) {
 }
 
 describe("app provisioning retry admission", () => {
+  // These tests check retry admission only. Fake timers hold the Workflow runs that an admitted
+  // retry schedules, so no run continues and logs after its test or after the file ends.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it.each([
     [
       "an active managed lock",
