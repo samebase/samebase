@@ -23,6 +23,7 @@ import {
 } from "@/routeSearch/root";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
+import { NOT_FOUND_PAGE_METADATA } from "@/lib/pageMetadata";
 import { isProductionPublicOrigin } from "@/lib/prodUiMode";
 import { readRootThemeMode, type RootThemeMode } from "@/lib/rootThemeModeSearch";
 import { rootQueries } from "@/routes/root.queries";
@@ -167,10 +168,25 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
     }
   },
   component: RootComponent,
-  head: ({ matches }) =>
-    buildRootHead({
+  head: ({ matches }) => {
+    // A path without a route renders the root's not-found page, which the server answers with a
+    // 404: its head names the missing page, without a canonical link, and asks for no index.
+    if (matches.some((match) => match._notFound)) {
+      const rootHead = buildRootHead({ includeHomeCanonical: false });
+      return {
+        ...rootHead,
+        meta: [
+          ...rootHead.meta,
+          { title: NOT_FOUND_PAGE_METADATA.title },
+          { name: "description", content: NOT_FOUND_PAGE_METADATA.description },
+          { name: "robots", content: NOT_FOUND_PAGE_METADATA.robots },
+        ],
+      };
+    }
+    return buildRootHead({
       includeHomeCanonical: matches.at(-1)?.pathname === "/",
-    }),
+    });
+  },
   notFoundComponent: lazyRouteComponent(
     () => import("@/components/NotFoundRoutePage"),
     "NotFoundRoutePage",
