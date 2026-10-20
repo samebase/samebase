@@ -156,7 +156,11 @@ pnpm build
 samebase.com is served by its production Convex deployment through
 [convex-hosting](https://github.com/samebase/convex-hosting). The `deploy` script of
 `apps/samebase/package.json` builds the site, uploads `dist/client`, and pushes the functions; the
-push switches the site. Three workflows run it:
+push switches the site. A file of `dist/client` answers its path: the assets, and the public pages
+without data (`/`, `/pricing`, `/docs` and its pages, `/privacy`, `/terms`), which the build
+prerenders to `<path>/index.html`. Every other request goes to the server build
+`dist/server/server.js` (from `src/server.ts`), which `convex/http.ts` imports and which renders the
+page with the visitor's session in a Convex HTTP action. Three workflows run the deploy:
 
 - `.github/workflows/deploy.yml` deploys every push to `main` to production. It needs the
   `CONVEX_DEPLOY_KEY` repository secret, a production deploy key with `deployment:deploy`, the three
@@ -170,9 +174,9 @@ push switches the site. Three workflows run it:
 - `.github/workflows/preview-cleanup.yml` deletes that preview when the pull request closes.
 
 A local build never deploys production. `convex/http.ts` imports `.convex-hosting/version.js`, which
-only a deploy writes, so the first push of a fresh checkout fails until one deploy to its
-development deployment has run. `pnpm run dev` runs that deploy in a linked worktree; a primary
-checkout runs it once by hand:
+only a deploy writes, and `dist/server/server.js`, which only a build writes, so the first push of a
+fresh checkout fails until one deploy to its development deployment has run. `pnpm run dev` runs
+that deploy in a linked worktree; a primary checkout runs it once by hand:
 
 ```bash
 pnpm --filter samebase run deploy --dev
@@ -200,6 +204,16 @@ Samebase signs in with Convex Auth 2. Its components serve their own HTTP routes
 site: the key set under `/auth`, the GitHub callback under `/auth/github`, and the Google callback
 under `/auth/google`. The GitHub App installation callback keeps `/oauth/github/callback` in
 `convex/http.ts`.
+
+The session lives in two httpOnly cookies, `__convexAuthJWT` and `__convexAuthRefreshToken`, through
+[`@samebase/convex-auth-tanstack-start`](https://github.com/samebase/convex-hosting/tree/main/packages/convex-auth-tanstack-start).
+`src/server.ts` answers `POST /auth/signin`, `/auth/refresh`, and `/auth/signout`, and
+`convex/http.ts` routes these three exact paths to it. Every mutation that mints a session (the
+`completeSignIn*` functions of GitHub and Google, the password sign-in and sign-up, and the agent
+browser handoff) is in the `signIn` list of `src/server.ts`, and the browser calls it through
+`/auth/signin`, so the refresh token lands in the cookie and the browser keeps only the access
+token. The server renders a page with the session of the request; a private page under the `_authed`
+layout answers a request without a session with a 307 to `/?next=<page>`.
 
 Every deployment needs these Convex environment variables:
 

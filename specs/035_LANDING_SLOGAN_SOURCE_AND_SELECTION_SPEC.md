@@ -11,7 +11,7 @@
   - `apps/samebase/vite.config.ts`
   - `apps/samebase/src/lib/noterBuildConfig.ts`
   - `apps/samebase/src/lib/landingCopy.ts`
-  - `specs/102_SAMEBASE_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
+  - `archive/102_SAMEBASE_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
 
 ## Summary
 

@@ -58,5 +58,5 @@ already exist.
 - `deploymentProfile.test.ts` covers mode selection and allowed flows.
 - `authPassword.convex.test.ts` covers the public sign-in and sign-up boundary.
 - `authAdmin.convex.test.ts` covers creation, linking, conflict rejection, rotation, and approval.
-- `SignInForm.passwordAuth.test.tsx` and `publicLandingAuthState.test.ts` cover the visible sign-in
-  surface.
+- `PublicLandingAuthControls.test.tsx` and `publicLandingAuthState.test.ts` cover the visible
+  sign-in surface.

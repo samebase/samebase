@@ -154,8 +154,9 @@ check after acceptance. GitHub login, email, and organization role are not accep
   Connect or removal action.
 - `ProviderConnectionsPage.test.tsx` covers the personal-owner authorization control and proves that
   it is absent for a GitHub organization owner.
-- `SignInForm.test.tsx`, `authClient.test.ts`, and `PublicLandingAccountSection.test.tsx` cover the
-  OAuth starts, direct `auth=` starts, the return markers, and the message of a rejected sign-in.
+- `SignInWithOAuth.test.tsx`, `authClient.test.ts`, and `PublicLandingAccountSection.test.tsx` cover
+  the OAuth starts, direct `auth=` starts, the return markers, and the message of a rejected
+  sign-in.
 
 ## Rollout
 
