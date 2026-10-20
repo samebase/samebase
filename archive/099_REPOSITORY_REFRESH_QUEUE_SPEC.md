@@ -148,7 +148,10 @@ type RepositoryRefreshFailure =
     };
 
 type RepositoryRefreshCancelReason =
-  "superseded" | "worker_canceled" | "vault_deleting" | "vault_deleted";
+  | "superseded"
+  | "worker_canceled"
+  | "vault_deleting"
+  | "vault_deleted";
 ```
 
 Schema rules:
@@ -186,7 +189,10 @@ Demand may later expand into internal steps:
 
 ```ts
 type RepositoryRefreshStep =
-  "discover_branches" | "sync_pull_requests" | "sync_branch_tree" | "sync_provider_links";
+  | "discover_branches"
+  | "sync_pull_requests"
+  | "sync_branch_tree"
+  | "sync_provider_links";
 ```
 
 Steps are not persisted request state in this target.

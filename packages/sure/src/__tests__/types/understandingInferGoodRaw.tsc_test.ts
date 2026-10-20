@@ -86,9 +86,7 @@ type SimpleOutputType = [true, number] | [false, "not a number"];
 // When conditional types act on a generic type, they become distributive when given a union type.
 
 {
-  type ExtractSimple<
-    T,
-  > = //
+  type ExtractSimple<T> = //
     T extends [true, infer CGood] //
       ? CGood
       : never;
@@ -102,9 +100,7 @@ type SimpleOutputType = [true, number] | [false, "not a number"];
   //
 }
 
-type ExtractComplex<
-  T,
-> = //
+type ExtractComplex<T> = //
   T extends readonly [true, infer CGood] //
     ? CGood
     : never;
@@ -121,9 +117,7 @@ type ExtractComplex<
 type afdf = ReturnType<typeof rawNumber>;
 
 // # Important: This is the solution
-type ExtractDirectly<
-  T,
-> = //
+type ExtractDirectly<T> = //
   T extends (...args: any) => infer COutput //
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
@@ -139,9 +133,7 @@ type ExtractDirectly<
 }
 
 // Try to simplify but doesn't work
-type ExtractDirectly01<
-  T extends (...args: any) => any,
-> = //
+type ExtractDirectly01<T extends (...args: any) => any> = //
   ReturnType<T> extends readonly [true, infer CGood] //
     ? CGood
     : never;

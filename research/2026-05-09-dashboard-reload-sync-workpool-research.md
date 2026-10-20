@@ -200,7 +200,10 @@ Demand can later expand into internal steps:
 
 ```ts
 type RepositoryRefreshStep =
-  "discover_branches" | "sync_pull_requests" | "sync_branch_tree" | "sync_provider_links";
+  | "discover_branches"
+  | "sync_pull_requests"
+  | "sync_branch_tree"
+  | "sync_provider_links";
 ```
 
 Steps are not caller choices and are not request-row fields.

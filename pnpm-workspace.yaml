@@ -37,18 +37,6 @@ minimumReleaseAgeExclude:
   # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
-  # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
-  # 7-day cooling period.
-  - "@voidzero-dev/vite-plus-core@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-arm64@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-x64@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
-  - vite-plus@0.3.0
   # TODO(2026-09-06): Remove after qs 6.16.0 completes the normal
   # 7-day cooling period.
   - qs@6.16.0
@@ -79,7 +67,7 @@ overrides:
   "@samebase/sidebars": "workspace:*"
   "@babel/core": 7.29.7
   "@hono/node-server": 2.0.10
-  "@modelcontextprotocol/sdk": 1.31.0
+  "@modelcontextprotocol/sdk": 1.32.1
   "@protobufjs/utf8": 1.1.2
   "ajv@6": 6.15.0
   "ajv@8": 8.18.0
@@ -130,9 +118,9 @@ allowBuilds:
   sharp: false
   workerd: true
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.3.0
-  vitest: 4.1.11
-  vite-plus: 0.3.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vitest: 5.0.3
+  vite-plus: 1.1.0
 peerDependencyRules:
   allowAny:
     - vite
