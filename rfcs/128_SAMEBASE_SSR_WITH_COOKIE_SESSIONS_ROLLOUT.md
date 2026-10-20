@@ -27,8 +27,8 @@
    HTML already knows the user. The 34 production users sign in once more; the 17 GitHub and the 1
    Google account attach to their existing `users` rows through the `createUser` hook; the 1
    password account resets its password.
-3. Three PRs in order: the adapter gap in convex-hosting (OAuth under the cookie entry), the Convex
-   Auth 2 cutover on the current SPA, then SSR with cookie sessions and the deletions.
+3. Three PRs in order: the Convex Auth 2 cutover on the current SPA, the adapter gap in
+   convex-hosting (OAuth under the cookie entry), then SSR with cookie sessions and the deletions.
 
 ## Facts
 
@@ -90,19 +90,6 @@
 
 ## Changes
 
-### PR 0. convex-hosting: OAuth under the cookie entry
-
-Samebase is the first consumer of the `convex-auth` entry with OAuth, so the gap is closed in the
-package first:
-
-- A TanStack-safe ambient sign-in for the OAuth code exchange: finish the exchange without the
-  `history.replaceState` cleanup, or clean the URL through the router. Record the flow error codes
-  (`ACCESS_DENIED`, `EXPIRED`, `INVALID_FLOW`, `REJECTED`) as the replacement for the 0.0.94 patch's
-  OAuth error redirect.
-- README: the component prefixes for GitHub and Google callbacks, and the order in `http.ts`.
-- Optional: a documented way for an app to add fields to `Register.server.requestContext` (today
-  only the token), needed if the handoff token (below) travels through the server.
-
 ### PR 1. Convex Auth 2 cutover on the current SPA
 
 Isolates the user-visible change (one re-sign-in) from the rendering change.
@@ -143,7 +130,20 @@ Isolates the user-visible change (one re-sign-in) from the rendering change.
   component API.
 - Cutover: deploy, everyone signs in again, delete the v1 tables' documents after a week.
 
-### PR 2. SSR with cookie sessions, and the deletions
+### PR 2. convex-hosting: OAuth under the cookie entry
+
+Samebase is the first consumer of the `convex-auth` entry with OAuth, so the gap is closed in the
+package first:
+
+- A TanStack-safe ambient sign-in for the OAuth code exchange: finish the exchange without the
+  `history.replaceState` cleanup, or clean the URL through the router. Record the flow error codes
+  (`ACCESS_DENIED`, `EXPIRED`, `INVALID_FLOW`, `REJECTED`) as the replacement for the 0.0.94 patch's
+  OAuth error redirect.
+- README: the component prefixes for GitHub and Google callbacks, and the order in `http.ts`.
+- Optional: a documented way for an app to add fields to `Register.server.requestContext` (today
+  only the token), needed if the handoff token (below) travels through the server.
+
+### PR 3. SSR with cookie sessions, and the deletions
 
 - `apps/samebase/package.json`: `@samebase/convex-hosting-tanstack-start`; the `deploy` script drops
   `--html-handling none --not-found-handling single-page-application` and uses
@@ -201,7 +201,7 @@ Each item is the recommendation. Say "no" to change it.
 
 1. Email for auth goes through Resend (`@convex-dev/resend`), the only sender v2 supports; the app's
    own Cloudflare Email sending stays for everything else.
-2. Nothing is prerendered in PR 2. Prerender of the docs and legal pages comes back only if the
+2. Nothing is prerendered in PR 3. Prerender of the docs and legal pages comes back only if the
    measured first byte of those pages matters.
 3. Existing users attach by provider account id first, verified email second. The one password user
    resets through the emailed link.
@@ -216,10 +216,10 @@ session API and a one-time code through a dedicated method. PR 1 starts after th
 
 ## Validation
 
-- PR 0: the hosting example signs in with GitHub under cookie sessions on a preview deployment.
+- PR 2: the hosting example signs in with GitHub under cookie sessions on a preview deployment.
 - PR 1 on a preview: GitHub, Google and email+password sign-in; an existing GitHub user lands on
   their old `users` row; approval gating; the agent handoff; MCP consent; password reset mail.
-- PR 2 on a preview: the first HTML of `/repo/...` for a signed-in cookie holds the page, not a
+- PR 3 on a preview: the first HTML of `/repo/...` for a signed-in cookie holds the page, not a
   placeholder; signed-out `/repo/...` answers a 307 to sign-in; `/` with `?dark` renders the dark
   class on the server; `/discord` answers 307 from the server; unknown paths answer 404; the SEO
   spec passes; `vp test` and the Playwright suites pass with cookie `storageState`.
