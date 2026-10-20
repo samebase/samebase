@@ -1605,6 +1605,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/routes/repository-file.tsx",
   "apps/samebase/src/routes/repository-schema-project.tsx",
   "apps/samebase/src/routes/repository-settings.tsx",
+  "apps/samebase/src/routes/root.queries.test.ts",
   "apps/samebase/src/routes/root.queries.ts",
   "apps/samebase/src/routes/root.tsx",
   "apps/samebase/src/routes/settings.tsx",

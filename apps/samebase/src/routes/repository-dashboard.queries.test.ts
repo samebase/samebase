@@ -1,15 +1,27 @@
 import { QueryClient } from "@tanstack/react-query";
+import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
+import { AUTHENTICATED_ACCOUNT_DELETED } from "../../shared/authenticatedAccountAvailability";
 import { loadRepositoryDashboard } from "./repository-dashboard.queries";
 
-function loadAs(viewerAccess: { role: string; accessKeys: string[]; termsAccepted: boolean }) {
+function loadAs(
+  viewerAccess:
+    | { role: string; accessKeys: string[]; termsAccepted: boolean }
+    | ConvexError<string>,
+) {
   const queried: unknown[] = [];
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
         queryFn: ({ queryKey }) => {
           queried.push(queryKey[1]);
-          return queryKey[1] === "users:currentViewerAccess" ? viewerAccess : [];
+          if (queryKey[1] !== "users:currentViewerAccess") {
+            return [];
+          }
+          if (viewerAccess instanceof ConvexError) {
+            throw viewerAccess;
+          }
+          return viewerAccess;
         },
       },
     },
@@ -24,6 +36,14 @@ describe("loadRepositoryDashboard", () => {
       accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
       termsAccepted: false,
     });
+
+    await load;
+
+    expect(queried).toEqual(["users:currentViewerAccess"]);
+  });
+
+  it("queries nothing more for a session whose account was deleted", async () => {
+    const { queried, load } = loadAs(new ConvexError(AUTHENTICATED_ACCOUNT_DELETED));
 
     await load;
 

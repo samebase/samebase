@@ -26,7 +26,7 @@ import { buildRootHead } from "@/lib/rootHead";
 import { NOT_FOUND_PAGE_METADATA } from "@/lib/pageMetadata";
 import { isProductionPublicOrigin } from "@/lib/prodUiMode";
 import { readRootThemeMode, type RootThemeMode } from "@/lib/rootThemeModeSearch";
-import { rootQueries } from "@/routes/root.queries";
+import { loadRoot } from "@/routes/root.queries";
 import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
 import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode, useEffect } from "react";
@@ -154,19 +154,7 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
 
     return session;
   },
-  // The server render queries as the user, so the account chrome and the route access checks have
-  // their data in the first HTML; a visitor without a session gets the sign-in methods instead. The
-  // browser's navigations have no token here and read the cache, which the subscriptions keep live.
-  loader: async ({ context: { queryClient, token } }) => {
-    if (token) {
-      await Promise.all([
-        queryClient.query(rootQueries.viewer),
-        queryClient.query(rootQueries.viewerAccess),
-      ]);
-    } else if (token === null) {
-      await queryClient.query(rootQueries.deploymentAuthPolicy);
-    }
-  },
+  loader: ({ context: { queryClient, token } }) => loadRoot({ queryClient, token }),
   component: RootComponent,
   head: ({ matches }) => {
     // A path without a route renders the root's not-found page, which the server answers with a
