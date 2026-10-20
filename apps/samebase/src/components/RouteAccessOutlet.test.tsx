@@ -46,8 +46,6 @@ const viewerAccessState = vi.hoisted(
   }),
 );
 
-const authState = vi.hoisted(() => ({ isLoading: false }));
-
 const locationState = vi.hoisted(
   (): {
     hash: string;
@@ -86,11 +84,11 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-vi.mock("convex/react", () => ({
-  useConvexAuth: () => authState,
-  useQuery: (_reference: unknown, args?: unknown) => {
+// The outlet reads one query: the root loader's viewer access.
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => {
     viewerAccessState.queryCalls += 1;
-    return args === "skip" ? undefined : viewerAccessState.result;
+    return { data: viewerAccessState.result };
   },
 }));
 
@@ -126,7 +124,6 @@ describe("RouteAccessOutlet", () => {
     locationState.pathname = "/";
     locationState.searchStr = "";
     routerState.navigateCalls = [];
-    authState.isLoading = false;
     viewerAccessState.queryCalls = 0;
     viewerAccessState.result = { accessKeys: ["access_public"] };
   });
@@ -306,7 +303,7 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
-  it("keeps the Settings checkout return while persisted auth restores", async () => {
+  it("keeps the Settings checkout return while viewer access loads", async () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
       {
@@ -318,18 +315,13 @@ describe("RouteAccessOutlet", () => {
     ];
     locationState.pathname = "/settings";
     locationState.searchStr = "?checkout=success";
-    authState.isLoading = true;
-    viewerAccessState.result = {
-      accessKeys: ["access_public"],
-      role: "role_anonymous",
-    };
+    viewerAccessState.result = undefined;
 
     const loadingMarkup = await renderRouteAccessOutletAfterEffects();
 
     expect(loadingMarkup).toBe("");
     expect(routerState.navigateCalls).toEqual([]);
 
-    authState.isLoading = false;
     viewerAccessState.result = {
       accessKeys: ["access_public", "access_user_preferences"],
       role: "role_member",
@@ -341,7 +333,7 @@ describe("RouteAccessOutlet", () => {
     expect(routerState.navigateCalls).toEqual([]);
   });
 
-  it("removes the Settings checkout return after auth restores an anonymous viewer", async () => {
+  it("removes the Settings checkout return after viewer access loads as anonymous", async () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
       {
@@ -353,14 +345,13 @@ describe("RouteAccessOutlet", () => {
     ];
     locationState.pathname = "/settings";
     locationState.searchStr = "?checkout=success";
-    authState.isLoading = true;
+    viewerAccessState.result = undefined;
 
     const loadingMarkup = await renderRouteAccessOutletAfterEffects();
 
     expect(loadingMarkup).toBe("");
     expect(routerState.navigateCalls).toEqual([]);
 
-    authState.isLoading = false;
     viewerAccessState.result = {
       accessKeys: ["access_public"],
       role: "role_anonymous",

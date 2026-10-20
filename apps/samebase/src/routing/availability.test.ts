@@ -3,9 +3,8 @@ import {
   canAccessRouteAvailability,
   canAccessRouteMatchesAvailability,
   isLocalRouteHostname,
-  readBrowserRouteEnvironment,
+  readRouteEnvironment,
   readRouteEnvironmentForOrigin,
-  readRouteEnvironmentForRouteGuard,
   resolveRouteEnvironment,
 } from "./availability";
 
@@ -59,18 +58,11 @@ describe("resolveRouteEnvironment", () => {
   });
 });
 
-describe("readBrowserRouteEnvironment", () => {
-  it("uses the build route environment before browser host fallback", () => {
+describe("readRouteEnvironment", () => {
+  it("uses the build route environment before the host", () => {
     vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "production");
 
-    expect(readBrowserRouteEnvironment()).toBe("production");
-  });
-
-  it("fails closed when no browser host or build environment is available", () => {
-    vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "");
-
-    expect(readRouteEnvironmentForRouteGuard()).toBeNull();
-    expect(readBrowserRouteEnvironment()).toBe("production");
+    expect(readRouteEnvironment()).toBe("production");
   });
 });
 

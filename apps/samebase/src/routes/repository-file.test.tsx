@@ -47,6 +47,6 @@ describe("repository file route", () => {
 
     await router.load({ sync: true });
 
-    expect(router.state.matches.map((match) => match.routeId)).toContain("/repo/$");
+    expect(router.state.matches.map((match) => match.routeId)).toContain("/_authed/repo/$");
   });
 });

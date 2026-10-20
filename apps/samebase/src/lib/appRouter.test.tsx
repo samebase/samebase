@@ -98,6 +98,25 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+// The root renders the session provider around the document; these route tests drive the session
+// through `useConvexAuth` alone.
+vi.mock("@samebase/convex-auth-tanstack-start", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@samebase/convex-auth-tanstack-start")>()),
+  SessionProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// The dashboard loaders fetch Convex data for the real pages; these tests render mocked pages.
+vi.mock("@/routes/repository-dashboard.queries", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/routes/repository-dashboard.queries")>()),
+  loadRepositoryDashboard: async () => {},
+}));
+
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
+}));
+
 vi.mock("@/lib/usePageMetadata", () => ({
   usePageMetadata: vi.fn(),
 }));
@@ -394,8 +413,9 @@ describe("appRouter", () => {
     appWorkspaceMountMock.mockClear();
     appWorkspaceUnmountMock.mockClear();
     scrollToMock.mockClear();
+    // The `_authed` layout renders its private pages only with a session.
     useConvexAuthMock.mockReturnValue({
-      isAuthenticated: false,
+      isAuthenticated: true,
       isLoading: false,
     });
     routeErrorState.providerError = null;

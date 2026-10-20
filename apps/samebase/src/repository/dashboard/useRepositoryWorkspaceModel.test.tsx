@@ -1,27 +1,24 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName } from "convex/server";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import type { ViewerOrganization } from "@/organization/context";
+import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
 import { useRepositoryWorkspaceModel } from "./useRepositoryWorkspaceModel";
 
 const testState = vi.hoisted(
   (): {
-    cachedQueries: Map<string, unknown>;
-    cacheQueryCalls: string[];
-    liveQueries: Map<string, unknown>;
     providerRepositories: unknown[];
     pullRequestArgs: unknown[];
     queryCalls: { args: unknown; name: string }[];
   } => ({
-    cachedQueries: new Map(),
-    cacheQueryCalls: [],
-    liveQueries: new Map(),
     providerRepositories: [],
     pullRequestArgs: [],
     queryCalls: [],
@@ -29,14 +26,6 @@ const testState = vi.hoisted(
 );
 
 const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
-
-vi.mock("@/lib/convexQueryCache", () => ({
-  useCacheQuery: (reference: Parameters<typeof getFunctionName>[0]) => {
-    const name = getFunctionName(reference);
-    testState.cacheQueryCalls.push(name);
-    return testState.cachedQueries.get(name);
-  },
-}));
 
 vi.mock("@/repository/dashboard/useRepositoryPullRequests", () => ({
   useRepositoryPullRequests: (args: unknown) => {
@@ -65,11 +54,39 @@ vi.mock("./useRepositoryProviderObservations", () => ({
 
 vi.mock("convex/react", () => ({
   useQuery: (reference: Parameters<typeof getFunctionName>[0], args: unknown) => {
-    const name = getFunctionName(reference);
-    testState.queryCalls.push({ args, name });
-    return testState.liveQueries.get(name);
+    testState.queryCalls.push({ args, name: getFunctionName(reference) });
+    return undefined;
   },
 }));
+
+/**
+Renders the probe against the cache after the route loader fetched the dashboard queries. The
+viewer's access stays unloaded, and without retries its query settles at once without data.
+*/
+async function renderWithDashboardQueries(
+  probe: ReactNode,
+  loaded: { organizations: ViewerOrganization[]; repositories: UserRepositoryResult[] },
+) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queryClient.setQueryData(repositoryDashboardQueries.folderState.queryKey, EMPTY_FOLDER_STATE);
+  queryClient.setQueryData(repositoryDashboardQueries.organizationTreeSettings.queryKey, []);
+  queryClient.setQueryData(repositoryDashboardQueries.organizations.queryKey, loaded.organizations);
+  queryClient.setQueryData(repositoryDashboardQueries.repositories.queryKey, loaded.repositories);
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const root = createRoot(rootElement);
+
+  await act(async () =>
+    root.render(<QueryClientProvider client={queryClient}>{probe}</QueryClientProvider>),
+  );
+
+  return {
+    async unmount() {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    },
+  };
+}
 
 function fakeRepositoryId(value = "repository-lost-access"): Id<"repositories"> {
   // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
@@ -110,17 +127,6 @@ function lostAccessRepository(): UserRepositoryResult {
 
 describe("useRepositoryWorkspaceModel", () => {
   beforeEach(() => {
-    testState.cachedQueries.clear();
-    testState.cachedQueries.set(
-      getFunctionName(api.repository.folders.getRepositoryFolderState),
-      EMPTY_FOLDER_STATE,
-    );
-    testState.cacheQueryCalls.length = 0;
-    testState.liveQueries.clear();
-    testState.liveQueries.set(
-      getFunctionName(api.repository.organizationTree.getRepositoryOrganizationTreeSettings),
-      [],
-    );
     testState.providerRepositories.length = 0;
     testState.pullRequestArgs.length = 0;
     testState.queryCalls.length = 0;
@@ -128,11 +134,6 @@ describe("useRepositoryWorkspaceModel", () => {
 
   it("treats a cached repository as unavailable after organization access is lost", async () => {
     const repository = lostAccessRepository();
-    testState.cachedQueries.set(getFunctionName(api.repository.list), [repository]);
-    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), []);
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
     let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
 
     function Probe() {
@@ -140,9 +141,12 @@ describe("useRepositoryWorkspaceModel", () => {
       return null;
     }
 
-    try {
-      await act(async () => root.render(<Probe />));
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [],
+      repositories: [repository],
+    });
 
+    try {
       expect(latest).toEqual({
         folderState: EMPTY_FOLDER_STATE,
         organizationTreeSettings: [],
@@ -159,12 +163,11 @@ describe("useRepositoryWorkspaceModel", () => {
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
       });
     } finally {
-      await act(async () => root.unmount());
-      rootElement.remove();
+      await mounted.unmount();
     }
   });
 
-  it("waits for live organization access before starting provider queries", async () => {
+  it("starts provider queries for a repository of an accessible organization", async () => {
     const repository = lostAccessRepository();
     const organization = {
       canCreateRepository: true,
@@ -174,50 +177,37 @@ describe("useRepositoryWorkspaceModel", () => {
       organizationId: repository.organizationId,
       role: "owner",
     } as const;
-    testState.cachedQueries.set(getFunctionName(api.repository.list), [repository]);
-    testState.cachedQueries.set(getFunctionName(api.organizations.listForViewer), [organization]);
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
     let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
 
-    function Probe({ accessVersion }: { accessVersion: number }) {
+    function Probe() {
       latest = useRepositoryWorkspaceModel(repository.githubRepositoryFullName);
-      return <span>{accessVersion}</span>;
+      return null;
     }
 
-    try {
-      await act(async () => root.render(<Probe accessVersion={0} />));
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [organization],
+      repositories: [repository],
+    });
 
-      expect(latest).toEqual({ state: "loading" });
-      expect(testState.cacheQueryCalls).toEqual([
-        getFunctionName(api.repository.list),
-        getFunctionName(api.repository.folders.getRepositoryFolderState),
-      ]);
-      expect(testState.providerRepositories).toEqual([null]);
-      expect(testState.pullRequestArgs).toEqual([{ repository: null }]);
-      expect(testState.queryCalls).toContainEqual({
+    try {
+      expect(latest?.state).toBe("ready");
+      if (latest?.state !== "ready") {
+        throw new Error("Expected the workspace model to be ready.");
+      }
+      expect(latest.selection.state).toBe("selected");
+      expect(testState.providerRepositories).not.toContain(null);
+      expect(testState.providerRepositories.at(-1)).toBe(repository);
+      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository });
+      expect(testState.queryCalls).not.toContainEqual({
         args: "skip",
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
       });
-
-      testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [organization]);
-      await act(async () => root.render(<Probe accessVersion={1} />));
-
-      expect(latest?.state).toBe("ready");
-      if (latest?.state !== "ready") {
-        throw new Error("Expected the workspace model to be ready after live access resolved.");
-      }
-      expect(latest.selection.state).toBe("selected");
-      expect(testState.providerRepositories.at(-1)).toBe(repository);
-      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository });
       expect(testState.queryCalls).toContainEqual({
         args: { organizationId: organization.organizationId },
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
       });
     } finally {
-      await act(async () => root.unmount());
-      rootElement.remove();
+      await mounted.unmount();
     }
   });
 
@@ -262,18 +252,6 @@ describe("useRepositoryWorkspaceModel", () => {
       organizationId: otherRepository.organizationId,
       role: "owner",
     } as const;
-    testState.cachedQueries.set(getFunctionName(api.repository.list), [
-      otherRepository,
-      staleRepository,
-      selectedRepository,
-    ]);
-    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [
-      noterOrganization,
-      samebaseOrganization,
-    ]);
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
     let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
 
     function Probe() {
@@ -281,9 +259,12 @@ describe("useRepositoryWorkspaceModel", () => {
       return null;
     }
 
-    try {
-      await act(async () => root.render(<Probe />));
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [noterOrganization, samebaseOrganization],
+      repositories: [otherRepository, staleRepository, selectedRepository],
+    });
 
+    try {
       expect(latest?.state).toBe("ready");
       if (latest?.state !== "ready") {
         throw new Error("Expected the selected repository workspace model to be ready.");
@@ -296,8 +277,7 @@ describe("useRepositoryWorkspaceModel", () => {
       }
       expect(latest.selection.workspace.repository).toBe(selectedRepository);
     } finally {
-      await act(async () => root.unmount());
-      rootElement.remove();
+      await mounted.unmount();
     }
   });
 
@@ -340,18 +320,6 @@ describe("useRepositoryWorkspaceModel", () => {
       organizationId: otherRepository.organizationId,
       role: "owner",
     } as const;
-    testState.cachedQueries.set(getFunctionName(api.repository.list), [
-      secondRepository,
-      otherRepository,
-      firstRepository,
-    ]);
-    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [
-      otherOrganization,
-      samebaseOrganization,
-    ]);
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
     let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
 
     function Probe() {
@@ -359,9 +327,12 @@ describe("useRepositoryWorkspaceModel", () => {
       return null;
     }
 
-    try {
-      await act(async () => root.render(<Probe />));
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [otherOrganization, samebaseOrganization],
+      repositories: [secondRepository, otherRepository, firstRepository],
+    });
 
+    try {
       expect(latest).toEqual({
         folderState: EMPTY_FOLDER_STATE,
         organizationTreeSettings: [],
@@ -372,8 +343,7 @@ describe("useRepositoryWorkspaceModel", () => {
         repositories: [secondRepository, firstRepository],
       });
     } finally {
-      await act(async () => root.unmount());
-      rootElement.remove();
+      await mounted.unmount();
     }
   });
 });

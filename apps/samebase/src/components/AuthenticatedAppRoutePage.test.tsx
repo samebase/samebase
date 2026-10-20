@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -8,10 +7,6 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AuthenticatedAppRoutePage, AuthenticatedUserRoutePage } from "./AuthenticatedAppRoutePage";
 import type { RootRouteSearch } from "@/routeSearch/root";
 
-const authState = vi.hoisted(() => ({
-  isAuthenticated: false,
-  isLoading: false,
-}));
 const routeChildState = vi.hoisted(() => ({
   renders: 0,
 }));
@@ -28,19 +23,6 @@ const locationState = vi.hoisted(() => ({
   pathname: "/repo",
 }));
 
-vi.mock("convex/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("convex/react")>();
-
-  return {
-    ...actual,
-    Authenticated: ({ children }: { children: React.ReactNode }) =>
-      authState.isAuthenticated ? <>{children}</> : null,
-    Unauthenticated: ({ children }: { children: React.ReactNode }) =>
-      !authState.isAuthenticated && !authState.isLoading ? <>{children}</> : null,
-    useConvexAuth: () => authState,
-  };
-});
-
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   return {
@@ -50,10 +32,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     useRouter: () => routerState,
   };
 });
-
-vi.mock("@/SignInForm", () => ({
-  SignInForm: () => <div data-testid="sign-in-form">Sign in</div>,
-}));
 
 vi.mock("@/components/ApprovalGate", () => ({
   ApprovalGate: ({ children }: { children: React.ReactNode }) => (
@@ -77,34 +55,6 @@ vi.mock("@/lib/usePageMetadata", () => ({
   usePageMetadata: vi.fn(),
 }));
 
-const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
-
-function createTestStorage(): Storage {
-  const entries = new Map<string, string>();
-
-  return {
-    clear() {
-      entries.clear();
-    },
-    getItem(key) {
-      return entries.get(String(key)) ?? null;
-    },
-    key(index) {
-      return Array.from(entries.keys())[index] ?? null;
-    },
-    get length() {
-      return entries.size;
-    },
-    removeItem(key) {
-      entries.delete(String(key));
-    },
-    setItem(key, value) {
-      entries.set(String(key), String(value));
-    },
-  };
-}
-
 function ProtectedRouteChild() {
   routeChildState.renders += 1;
 
@@ -113,11 +63,9 @@ function ProtectedRouteChild() {
 
 function createAuthenticatedRoutePageElement() {
   return (
-    <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
-      <AuthenticatedAppRoutePage>
-        <ProtectedRouteChild />
-      </AuthenticatedAppRoutePage>
-    </AppAuthPresentationProvider>
+    <AuthenticatedAppRoutePage>
+      <ProtectedRouteChild />
+    </AuthenticatedAppRoutePage>
   );
 }
 
@@ -144,12 +92,6 @@ async function renderAuthenticatedRoutePageAfterEffects() {
 
 describe("AuthenticatedAppRoutePage", () => {
   beforeEach(() => {
-    authState.isAuthenticated = false;
-    authState.isLoading = false;
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createTestStorage(),
-    });
     window.history.replaceState({}, "", "/repo");
     locationState.pathname = "/repo";
     routeChildState.renders = 0;
@@ -192,54 +134,19 @@ describe("AuthenticatedAppRoutePage", () => {
     expect(routerState.navigate).not.toHaveBeenCalled();
   });
 
-  it("renders the sign-in form after hydration when loading without local auth material", async () => {
-    authState.isLoading = true;
-
-    const markup = renderAuthenticatedRoutePage();
-    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
-
-    expect(hydratedMarkup).toContain("Sign in");
-    expect(markup).not.toContain("Route child");
-    expect(markup).not.toContain("Sign in");
-  });
-
-  it("keeps the route pending while a refresh token may restore the session", async () => {
-    authState.isLoading = true;
-    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
-
-    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
-
-    expect(hydratedMarkup).not.toContain("Route child");
-    expect(hydratedMarkup).not.toContain("Sign in");
-  });
-
-  it("keeps the normal signed-out form when Convex is signed out and there is no hint", () => {
-    const markup = renderAuthenticatedRoutePage();
-
-    expect(markup).toContain("Sign in");
-    expect(markup).not.toContain("Route child");
-  });
-
-  it("keeps the approval gate on confirmed authenticated renders", () => {
-    authState.isAuthenticated = true;
-
+  it("keeps the approval gate on app routes", () => {
     const markup = renderAuthenticatedRoutePage();
 
     expect(markup).toContain("approval-gate");
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("Sign in");
     expect(routeChildState.renders).toBe(1);
   });
 
   it("lets authenticated user routes bypass the approval gate", () => {
-    authState.isAuthenticated = true;
-
     const markup = renderToStaticMarkup(
-      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
-        <AuthenticatedUserRoutePage>
-          <ProtectedRouteChild />
-        </AuthenticatedUserRoutePage>
-      </AppAuthPresentationProvider>,
+      <AuthenticatedUserRoutePage>
+        <ProtectedRouteChild />
+      </AuthenticatedUserRoutePage>,
     );
 
     expect(markup).toContain("Route child");

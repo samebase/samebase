@@ -5,6 +5,8 @@ import remotionEslintPlugin from "@remotion/eslint-plugin";
 import { defaultClientConditions, type Plugin } from "vite";
 import { defineConfig } from "vite-plus";
 import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
+// The app's dependency, which the root does not install.
+import { convexAuth } from "./apps/samebase/node_modules/@samebase/convex-auth-tanstack-start/dist/vite.js";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -233,6 +235,9 @@ export default defineConfig({
     projects: [
       {
         extends: true,
+        // `@samebase/convex-auth-tanstack-start` imports `@convex-dev/auth/ssr/nextjs/client`, which
+        // only its `convexAuth()` plugin resolves, so Vitest runs that package through Vite.
+        plugins: [convexAuth()],
         test: {
           name: "unit",
           environment: "node",
@@ -248,6 +253,7 @@ export default defineConfig({
             "packages/**/*.test.tsx",
           ],
           setupFiles: ["./apps/samebase/src/test/reactActEnvironment.ts"],
+          server: { deps: { inline: ["@samebase/convex-auth-tanstack-start"] } },
           exclude: [
             "**/node_modules/**",
             "dist",

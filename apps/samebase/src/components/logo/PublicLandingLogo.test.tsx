@@ -547,6 +547,7 @@ describe("PublicLandingLogo", () => {
 
     const logoImage = getLogoImage(rootElement);
     const defaultLogoTheme = resolveAppThemeColorState({
+      colorSource: "computed-style",
       search: {},
       themeMode: "light",
     });
@@ -975,6 +976,7 @@ describe("PublicLandingLogo", () => {
       gridSize: LOGO_GRID_SIZE_2,
     });
     const defaultLogoTheme = resolveAppThemeColorState({
+      colorSource: "computed-style",
       search: {},
       themeMode: "light",
     });
@@ -1009,6 +1011,7 @@ describe("PublicLandingLogo", () => {
       gridSize: STATIC_LOGO_GRID_SIZE,
     });
     const defaultLogoTheme = resolveAppThemeColorState({
+      colorSource: "computed-style",
       search: {},
       themeMode: "light",
     });
@@ -1041,6 +1044,7 @@ describe("PublicLandingLogo", () => {
       gridSize: STATIC_LOGO_GRID_SIZE,
     });
     const defaultLogoTheme = resolveAppThemeColorState({
+      colorSource: "computed-style",
       search: {},
       themeMode: "light",
     });

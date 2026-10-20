@@ -13,9 +13,11 @@ const testState = vi.hoisted(() => ({
   query: vi.fn(),
 }));
 
-vi.mock("@/lib/convexClient", () => ({
-  client: { mutation: testState.mutation, query: testState.query },
-}));
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+  const client = { mutation: testState.mutation, query: testState.query };
+  return { ...actual, useConvex: () => client };
+});
 
 vi.mock("@/lib/convexQueryCache", () => ({
   useCacheQuery: () => undefined,

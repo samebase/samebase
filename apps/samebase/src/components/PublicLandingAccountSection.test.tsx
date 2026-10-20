@@ -4,8 +4,8 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
+import { rootQueries } from "@/routes/root.queries";
 import { PublicLandingAccountSection } from "./PublicLandingAccountSection";
 
 const routeState = vi.hoisted<{
@@ -21,59 +21,39 @@ const authState = vi.hoisted(() => ({
   isAuthenticated: false,
   isLoading: false,
 }));
-const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
-  index: 0,
-  results: [],
-}));
+const viewerState = vi.hoisted<{ viewer: unknown }>(() => ({ viewer: undefined }));
 const buildLocationMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const signInWithOAuthMock = vi.hoisted(() => vi.fn());
 const rejectionState = vi.hoisted<{ message: string | null }>(() => ({ message: null }));
-const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const REFRESH_TOKEN_STORAGE_KEY = "__convexAuthRefreshToken_httpsexampleconvexcloud";
-
-function createTestStorage(): Storage {
-  const entries = new Map<string, string>();
-
-  return {
-    clear() {
-      entries.clear();
-    },
-    getItem(key) {
-      return entries.get(String(key)) ?? null;
-    },
-    key(index) {
-      return Array.from(entries.keys())[index] ?? null;
-    },
-    get length() {
-      return entries.size;
-    },
-    removeItem(key) {
-      entries.delete(String(key));
-    },
-    setItem(key, value) {
-      entries.set(String(key), String(value));
-    },
-  };
-}
-
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
 
   return {
     ...actual,
     useConvexAuth: () => authState,
-    useQuery: (_query: unknown, args: unknown) => {
-      if (args === "skip") {
-        return undefined;
-      }
-
-      const result = queryState.results[queryState.index];
-      queryState.index += 1;
-      return result;
-    },
   };
 });
+
+// The section reads the root loader's viewer; the other root queries have no data here.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
+  useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => ({
+    data: queryKey[1] === rootQueries.viewer.queryKey[1] ? viewerState.viewer : undefined,
+  }),
+}));
+
+// A prerendered page: its render knows no session token, so the provider's loading state decides.
+vi.mock("@/components/SessionPending", () => ({
+  SessionPending: ({ children }: { children: ReactNode }) =>
+    authState.isLoading ? children : null,
+}));
+
+// This jsdom mount has no Start server request or client compilation.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => window.location.origin,
+}));
 
 vi.mock("@/lib/oauthSignInRejection", () => ({
   useOAuthSignInRejection: () => rejectionState.message,
@@ -158,15 +138,10 @@ function prepareLandingAccountSection(initialEntry: string) {
   const [pathname, search = ""] = initialEntry.split("?");
   routeState.pathname = pathname || "/";
   routeState.search = readRootRouteSearch(search.length > 0 ? `?${search}` : "");
-  queryState.index = 0;
 }
 
 function createLandingAccountSectionElement() {
-  return (
-    <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
-      <PublicLandingAccountSection />
-    </AppAuthPresentationProvider>
-  );
+  return <PublicLandingAccountSection />;
 }
 
 function renderLandingAccountSection(initialEntry: string) {
@@ -198,12 +173,7 @@ describe("PublicLandingAccountSection", () => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
     routeState.access = "access_public";
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      value: createTestStorage(),
-    });
-    queryState.index = 0;
-    queryState.results = [];
+    viewerState.viewer = undefined;
     buildLocationMock.mockReset();
     buildLocationMock.mockReturnValue({ href: "/" });
     navigateMock.mockReset();
@@ -212,7 +182,7 @@ describe("PublicLandingAccountSection", () => {
     signInWithOAuthMock.mockResolvedValue(undefined);
   });
 
-  it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {
+  it("shows checking login while a prerendered page waits for the session", async () => {
     authState.isLoading = true;
 
     const markup = renderLandingAccountSection("/");
@@ -223,28 +193,13 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("dashboard-sidebar-account-row");
     expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");
-    expect(hydratedMarkup).toContain("Sign in or create an account");
-    expect(hydratedMarkup).toContain("Continue with GitHub");
-    expect(hydratedMarkup).not.toContain("Continue with Google");
-    expect(hydratedMarkup).not.toContain("checking login");
-  });
-
-  it("keeps checking login while a refresh token may restore the session", async () => {
-    authState.isLoading = true;
-    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, "refresh-token");
-
-    const markup = renderLandingAccountSection("/");
-    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
-
-    expect(markup).toContain("checking login");
+    expect(markup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
-    expect(queryState.index).toBe(0);
   });
 
-  it("keeps checking login while the signed-in viewer loads without a local profile", async () => {
+  it("keeps checking login while the signed-in viewer loads", async () => {
     authState.isAuthenticated = true;
-    queryState.results = [undefined];
 
     const markup = renderLandingAccountSection("/");
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
@@ -264,7 +219,7 @@ describe("PublicLandingAccountSection", () => {
         label: "Nicu",
       },
     };
-    queryState.results = [viewer, viewer];
+    viewerState.viewer = viewer;
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
@@ -276,7 +231,7 @@ describe("PublicLandingAccountSection", () => {
 
   it("keeps checking login after an empty signed-in viewer loads", async () => {
     authState.isAuthenticated = true;
-    queryState.results = [null];
+    viewerState.viewer = null;
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 

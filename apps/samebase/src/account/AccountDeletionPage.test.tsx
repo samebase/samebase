@@ -5,8 +5,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AccountDeletionPage } from "./AccountDeletionPage";
 
-const authActionState = vi.hoisted(() => ({ signOut: vi.fn() }));
-const routerState = vi.hoisted(() => ({ navigate: vi.fn() }));
+const authActionState = vi.hoisted(() => ({ signOut: vi.fn<() => Promise<boolean>>() }));
 const toastState = vi.hoisted(() => ({ toast: vi.fn() }));
 const queryState = vi.hoisted<{
   status:
@@ -30,11 +29,6 @@ vi.mock("@/authClient", () => ({
   useAppAuthActions: () => ({ signOut: authActionState.signOut }),
 }));
 
-vi.mock("@tanstack/react-router", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@tanstack/react-router")>();
-  return { ...actual, useRouter: () => routerState };
-});
-
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
@@ -46,16 +40,12 @@ vi.mock("convex/react", async (importOriginal) => {
 vi.mock("@/components/ui/use-toast", () => ({ toast: toastState.toast }));
 
 function createDeferred() {
-  const control: { reject: (reason: unknown) => void; resolve: () => void } = {
-    reject: () => {
-      throw new Error("Deferred promise was not initialized.");
-    },
+  const control: { resolve: (signedOut: boolean) => void } = {
     resolve: () => {
       throw new Error("Deferred promise was not initialized.");
     },
   };
-  const promise = new Promise<void>((resolve, reject) => {
-    control.reject = reject;
+  const promise = new Promise<boolean>((resolve) => {
     control.resolve = resolve;
   });
   return { ...control, promise };
@@ -82,8 +72,6 @@ async function mountPage() {
 describe("AccountDeletionPage", () => {
   beforeEach(() => {
     authActionState.signOut.mockReset();
-    routerState.navigate.mockReset();
-    routerState.navigate.mockResolvedValue(undefined);
     toastState.toast.mockReset();
     queryState.status = {
       currentStep: "request_accepted",
@@ -105,7 +93,7 @@ describe("AccountDeletionPage", () => {
     }
   });
 
-  it("disables sign-out while pending and opens the public landing page after success", async () => {
+  it("disables sign-out while pending and shows no error after success", async () => {
     const deferred = createDeferred();
     authActionState.signOut.mockReturnValue(deferred.promise);
     const mounted = await mountPage();
@@ -118,15 +106,10 @@ describe("AccountDeletionPage", () => {
       expect(signOut?.textContent).toContain("Signing out...");
 
       await act(async () => {
-        deferred.resolve();
+        deferred.resolve(true);
         await deferred.promise;
       });
 
-      expect(routerState.navigate).toHaveBeenCalledWith({
-        href: "/",
-        replace: true,
-        state: true,
-      });
       expect(toastState.toast).not.toHaveBeenCalled();
     } finally {
       await mounted.unmount();
@@ -134,16 +117,15 @@ describe("AccountDeletionPage", () => {
   });
 
   it("shows an error and enables sign-out again after failure", async () => {
-    authActionState.signOut.mockRejectedValue(new Error("Session service unavailable."));
+    authActionState.signOut.mockResolvedValue(false);
     const mounted = await mountPage();
 
     try {
       const signOut = mounted.rootElement.querySelector("button");
       await act(async () => signOut?.click());
 
-      expect(routerState.navigate).not.toHaveBeenCalled();
       expect(toastState.toast).toHaveBeenCalledWith({
-        description: "Session service unavailable.",
+        description: "Please try again.",
         title: "Could not sign out",
         variant: "destructive",
       });

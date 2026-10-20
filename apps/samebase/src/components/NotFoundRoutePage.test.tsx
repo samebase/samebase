@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
 import { type LogoRouteSearch } from "@/routeSearch/logo";
-import { type ReactNode } from "react";
+import { act, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { NotFoundRoutePage } from "./NotFoundRoutePage";
@@ -21,11 +24,11 @@ vi.mock("@tanstack/react-router", () => ({
     select(locationState),
 }));
 
-vi.mock("convex/react", () => ({
-  Authenticated: ({ children }: { children: ReactNode }) =>
-    authState.isAuthenticated ? <>{children}</> : null,
-  Unauthenticated: ({ children }: { children: ReactNode }) =>
-    authState.isAuthenticated ? null : <>{children}</>,
+vi.mock("@samebase/convex-auth-tanstack-start", () => ({
+  SignedIn: ({ children }: { children: ReactNode }) =>
+    authState.isAuthenticated ? children : null,
+  SignedOut: ({ children }: { children: ReactNode }) =>
+    authState.isAuthenticated ? null : children,
 }));
 
 vi.mock("@/components/ApprovalGate", () => ({
@@ -78,18 +81,25 @@ describe("NotFoundRoutePage", () => {
     vi.restoreAllMocks();
   });
 
-  it("selects three distinct logo color families on each mount", () => {
-    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+  it("renders the first colorway on the server and picks three distinct families on mount", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
     const firstMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
-    random.mockReturnValue(0.999);
-    const lastMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<NotFoundRoutePage />);
+    });
+    const mountedMarkup = container.innerHTML;
+    act(() => {
+      root.unmount();
+    });
 
     expect(firstMarkup).toContain('data-primary="red-800"');
     expect(firstMarkup).toContain('data-secondary="orange-500"');
     expect(firstMarkup).toContain('data-top="amber-200"');
-    expect(lastMarkup).toContain('data-primary="rose-800"');
-    expect(lastMarkup).toContain('data-secondary="pink-500"');
-    expect(lastMarkup).toContain('data-top="fuchsia-200"');
+    expect(mountedMarkup).toContain('data-primary="rose-800"');
+    expect(mountedMarkup).toContain('data-secondary="pink-500"');
+    expect(mountedMarkup).toContain('data-top="fuchsia-200"');
     expect(firstMarkup).toContain('data-auto-rotate="true"');
     expect(firstMarkup).toContain('data-auto-shuffle="true"');
     expect(firstMarkup).toContain('data-shuffle-moves="1"');
