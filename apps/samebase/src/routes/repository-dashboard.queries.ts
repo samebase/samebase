@@ -1,6 +1,7 @@
 import { convexQuery } from "@convex-dev/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { api } from "../../convex/_generated/api";
+import { rootQueries } from "@/routes/root.queries";
 
 /**
 The pages of `DashboardRoutePage` read these through `useRepositoryWorkspaceModel`. Their route
@@ -22,6 +23,14 @@ export async function loadRepositoryDashboard({
 }: {
   context: { queryClient: QueryClient };
 }) {
+  // A viewer without dashboard access (terms or approval pending, account deletion) gets the access
+  // page of RouteAccessOutlet, which reads none of these. The queries deny that viewer, and a
+  // rejected loader answers the server render with a 500 and leaves the route in its error state.
+  const viewerAccess = await queryClient.query(rootQueries.viewerAccess);
+  if (!viewerAccess.accessKeys.includes("access_dashboard")) {
+    return;
+  }
+
   await Promise.all([
     queryClient.query(repositoryDashboardQueries.folderState),
     queryClient.query(repositoryDashboardQueries.organizations),
