@@ -1,12 +1,20 @@
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import type { PrerenderPage } from "../prerender.config.ts";
+
+/**
+The part of a page of prerender.config.ts that this script reads. The script typechecks with the
+Node scripts, which cannot resolve the app modules that prerender.config.ts imports.
+*/
+export type PublicPrerenderPage = {
+  path: string;
+  expectedMetadata: { title: string; description: string; robots: string };
+};
 
 const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;
 const modulePreloadTextPattern = /\bmodulepreload\b/i;
 
-export function verifyPublicPrerenderMetadata(page: PrerenderPage, html: string) {
+export function verifyPublicPrerenderMetadata(page: PublicPrerenderPage, html: string) {
   const { expectedMetadata: expected, path: pathname } = page;
   const canonicalUrl = new URL(pathname, "https://samebase.com").toString();
   const headEndIndex = html.indexOf("</head>");
@@ -130,7 +138,7 @@ public pages.
 export function writePublicPrerenderWithoutModulePreloads(args: {
   clientDistDir: string;
   html: string;
-  page: PrerenderPage;
+  page: PublicPrerenderPage;
 }) {
   const htmlFilePath = path.resolve(args.clientDistDir, `.${args.page.path}`, "index.html");
   const relativePath = path.relative(args.clientDistDir, htmlFilePath);

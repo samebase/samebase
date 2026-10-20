@@ -68,7 +68,7 @@ const expectedPublicPrerenderMetadataByPath = {
   },
 } as const satisfies Record<PublicPrerenderRoutePath, ExpectedPublicPrerenderMetadata>;
 
-export type PrerenderPage = {
+type PrerenderPage = {
   path: RoutePath;
   expectedMetadata: ExpectedPublicPrerenderMetadata;
   prerender: {

@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { PrerenderPage } from "../prerender.config.js";
 import {
+  type PublicPrerenderPage,
   stripModulePreloadLinks,
   verifyPublicPrerenderMetadata,
   writePublicPrerenderWithoutModulePreloads,
@@ -18,10 +18,7 @@ const rootPage = {
       "One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account.",
     robots: "index,follow",
   },
-  prerender: {
-    enabled: true,
-  },
-} satisfies PrerenderPage;
+} satisfies PublicPrerenderPage;
 
 const landingHead = [
   "<head>",
