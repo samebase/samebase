@@ -100,16 +100,25 @@ vi.mock("convex/react", async (importOriginal) => {
       if (args === "skip") {
         return { status: "pending" };
       }
-      const functionName = getFunctionName(query);
-      if (functionName === "users:currentViewerAccess") {
-        if (queryState.viewerError !== null) {
-          return { status: "error", error: queryState.viewerError };
-        }
-        return queryState.viewer === undefined
-          ? { status: "pending" }
-          : { status: "success", data: queryState.viewer };
+      return getFunctionName(query) === "accountDeletion/index:status"
+        ? { status: "success", data: queryState.status }
+        : { status: "pending" };
+    },
+  };
+});
+
+// The boundary reads the viewer's access from the TanStack Query cache of the root loader.
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+  return {
+    ...actual,
+    useQuery: ({ enabled }: { enabled: boolean }) => {
+      if (!enabled || (queryState.viewer === undefined && queryState.viewerError === null)) {
+        return { status: "pending", data: undefined, error: null };
       }
-      return { status: "success", data: queryState.status };
+      return queryState.viewerError !== null
+        ? { status: "error", data: undefined, error: queryState.viewerError }
+        : { status: "success", data: queryState.viewer, error: null };
     },
   };
 });

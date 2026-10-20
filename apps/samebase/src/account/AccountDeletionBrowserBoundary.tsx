@@ -1,6 +1,7 @@
 import { useLocation, useMatches, useRouter } from "@tanstack/react-router";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { ConvexClient } from "convex/browser";
+import { useQuery } from "@tanstack/react-query";
 import { useConvex, useConvexAuth, useQuery_experimental } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -18,6 +19,7 @@ import {
 import { ACCOUNT_DELETION_ROUTE } from "@/account/accountDeletionRoute";
 import { resetLocalAppData } from "@/lib/appBootRecovery";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
+import { rootQueries } from "@/routes/root.queries";
 import { Button } from "@/components/ui/button";
 
 type CleanupState = "idle" | "clearing" | "complete" | "cleanup_failed";
@@ -89,9 +91,13 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     select: (matches) => matches.every((match) => match.staticData.access === "access_public"),
   });
   const router = useRouter();
-  const viewerAccessQuery = useQuery_experimental({
-    query: api.users.currentViewerAccess,
-    args: isAuthenticated && !isLoading ? {} : "skip",
+  // The root loader of a server render with a session put the viewer's access in this cache, so
+  // the hydrated page keeps its tree while the browser's session settles. A query that starts
+  // empty in the browser would render nothing until its first answer, and the page under this
+  // boundary would mount again and lose its state.
+  const viewerAccessQuery = useQuery({
+    ...rootQueries.viewerAccess,
+    enabled: isAuthenticated && !isLoading,
   });
   const viewerAccess = viewerAccessQuery.status === "success" ? viewerAccessQuery.data : undefined;
   const authenticatedAccountDeleted =
