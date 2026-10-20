@@ -139,12 +139,13 @@ export function PublicLandingAuthControls({
       {passwordAuthSurface !== "hidden" ? (
         <PasswordAuthForm
           onSignIn={
-            publicSignup
+            // With `next`, useAppAuthRuntimeEffects returns there once the provider confirms the
+            // session. Without it, a document load renders the dashboard from the new session
+            // cookie, where a navigation inside the app could reach the dashboard's gate before
+            // the provider confirms the session.
+            publicSignup && readSignInNextHref(rootRouteSearch) === null
               ? () => {
-                  // A document load: the server renders the private page from the new session
-                  // cookie, where a navigation inside the app could reach the page's gate before
-                  // the provider confirms the session.
-                  window.location.assign(readSignInNextHref(rootRouteSearch) ?? DASHBOARD_ROUTE);
+                  window.location.assign(DASHBOARD_ROUTE);
                 }
               : undefined
           }
