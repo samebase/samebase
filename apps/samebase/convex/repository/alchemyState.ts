@@ -1,12 +1,5 @@
-import {
-  array as sureArray,
-  literal as sureLiteral,
-  nil as sureNil,
-  object as sureObject,
-  string as sureString,
-  union as sureUnion,
-} from "@samebase/sure";
 import { Infer, v } from "convex/values";
+import { z } from "zod";
 import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
 import { internal } from "../_generated/api";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
@@ -55,10 +48,13 @@ error fails the request, which `fetchConvexDeploymentJson` throws.
 
 @see https://github.com/samebase/alchemy-convex
 */
-const sureNamesReply = sureObject({ status: sureLiteral("success"), value: sureArray(sureString) });
-const sureTextReply = sureObject({
-  status: sureLiteral("success"),
-  value: sureUnion(sureString, sureNil),
+const storeNamesReplySchema = z.object({
+  status: z.literal("success"),
+  value: z.array(z.string()),
+});
+const storeTextReplySchema = z.object({
+  status: z.literal("success"),
+  value: z.string().nullable(),
 });
 
 /**
@@ -114,18 +110,22 @@ export const observe = action({
             body: { path, args: functionArgs, format: "json" },
           });
         const names = async (path: string, functionArgs: Record<string, string>) => {
-          const [valid, reply] = sureNamesReply(await run(path, functionArgs));
-          if (!valid) {
-            throw new Error(`Convex returned an unexpected reply to ${path}.`);
+          const result = storeNamesReplySchema.safeParse(await run(path, functionArgs));
+          if (!result.success) {
+            throw new Error(
+              `Convex returned an unexpected reply to ${path}: ${z.prettifyError(result.error)}`,
+            );
           }
-          return reply.value;
+          return result.data.value;
         };
         const text = async (path: string, functionArgs: Record<string, string>) => {
-          const [valid, reply] = sureTextReply(await run(path, functionArgs));
-          if (!valid) {
-            throw new Error(`Convex returned an unexpected reply to ${path}.`);
+          const result = storeTextReplySchema.safeParse(await run(path, functionArgs));
+          if (!result.success) {
+            throw new Error(
+              `Convex returned an unexpected reply to ${path}: ${z.prettifyError(result.error)}`,
+            );
           }
-          return reply.value === null ? null : withoutSecretValues(reply.value);
+          return result.data.value === null ? null : withoutSecretValues(result.data.value);
         };
 
         return await Promise.all(

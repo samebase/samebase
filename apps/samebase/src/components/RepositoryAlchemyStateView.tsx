@@ -1,8 +1,8 @@
-import { object as sureObject, string as sureString } from "@samebase/sure";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { ChevronRight, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { z } from "zod";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
@@ -15,7 +15,7 @@ export type AlchemyStateObservation = (typeof api.repository.alchemyState.observ
 type AlchemyStage = Extract<AlchemyStateObservation, { store: "found" }>["stages"][number];
 
 /** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
-const sureResourceState = sureObject({ status: sureString, resourceType: sureString });
+const resourceStateSchema = z.object({ status: z.string(), resourceType: z.string() });
 
 /**
 One entry for each value of the stage output, named by its dotted path. A secret keeps only its
@@ -69,12 +69,14 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
       {stage.resources.length === 0 ? null : (
         <AlchemyStateDetailRow label="Resources">
           {stage.resources.map((resource) => {
-            const [valid, state] = sureResourceState(JSON.parse(resource.value));
+            const state = resourceStateSchema.safeParse(JSON.parse(resource.value));
             return (
               <AlchemyStateDetailItem
                 key={resource.fqn}
                 name={resource.fqn}
-                detail={valid ? `${state.status}, ${state.resourceType}` : "unknown"}
+                detail={
+                  state.success ? `${state.data.status}, ${state.data.resourceType}` : "unknown"
+                }
               />
             );
           })}
