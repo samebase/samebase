@@ -71,6 +71,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
+          check-latest: true
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: npx alchemy plan --stage prod --adopt --no-input --detailed
@@ -91,6 +92,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
+          check-latest: true
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: npx alchemy deploy --stage prod --yes --no-input --detect-drift $ADOPT
