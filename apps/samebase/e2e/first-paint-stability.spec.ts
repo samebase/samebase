@@ -30,6 +30,9 @@ const LOCAL_ENV_PATH = fileURLToPath(new URL("../.env.local", import.meta.url));
 const DOCUMENT_CHUNK_BYTES = 16_384;
 const DOCUMENT_CHUNK_PAUSE_MS = 100;
 const SETTLE_MS = 3_000;
+// Around hydration, the browser on macOS can raster a few glyphs differently for a single frame,
+// which moves nothing. A later frame counts when it stays on screen this long (three frames at 60 Hz).
+const MIN_FRAME_ON_SCREEN_MS = 50;
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 const PHONE_VIEWPORT = { width: 375, height: 812 };
 // The landing hero's 3D logo replaces its static image once WebGL renders.
@@ -146,12 +149,21 @@ async function captureLoad(page: Page, path: string) {
     firstPaintMs: performance.getEntriesByName("first-paint")[0]?.startTime ?? 0,
     timeOriginMs: performance.timeOrigin,
   }));
-  const painted: Frame[] = frames
-    .map((frame) => ({ pageTimeMs: frame.timestampMs - timing.timeOriginMs, png: frame.png }))
-    .filter((frame) => frame.pageTimeMs >= timing.firstPaintMs - 1);
+  const pageFrames: Frame[] = frames.map((frame) => ({
+    pageTimeMs: frame.timestampMs - timing.timeOriginMs,
+    png: frame.png,
+  }));
+  // The frame of the first paint can carry a timestamp a little before the first-paint entry, so the
+  // frames start at the last one at or before that entry: the first paint, or a blank frame.
+  const painted = pageFrames.slice(
+    Math.max(
+      0,
+      pageFrames.findLastIndex((frame) => frame.pageTimeMs <= timing.firstPaintMs),
+    ),
+  );
   const settled = painted.at(-1);
   if (!settled) {
-    throw new Error(`No painted frames after first paint at ${timing.firstPaintMs} ms.`);
+    throw new Error(`No frames after the navigation; first paint at ${timing.firstPaintMs} ms.`);
   }
 
   const layout = await page.evaluate((maskedSelectors) => {
@@ -246,20 +258,22 @@ function findMovedPixels({
 
 /**
 Fails with one line for each painted frame whose moved pixels differ from the previous frame's, and
-attaches the first such frame with its diff.
+attaches the first such frame with its diff. The first painted frame always counts.
 */
 async function expectNoJump(page: Page, path: string) {
   const { layout, painted, settled } = await captureLoad(page, path);
   const settledPng = PNG.sync.read(settled.png);
   const background = parseRgb(layout.background);
   const failures: string[] = [];
-  let previousFrame: Buffer | null = null;
+  const distinct = painted.filter(
+    (frame, index) => index === 0 || !frame.png.equals(painted[index - 1].png),
+  );
   let previousReport = "";
-  for (const frame of painted) {
-    if (previousFrame?.equals(frame.png)) {
+  for (const [index, frame] of distinct.entries()) {
+    const replacedAtMs = (distinct[index + 1] ?? settled).pageTimeMs;
+    if (index > 0 && replacedAtMs - frame.pageTimeMs < MIN_FRAME_ON_SCREEN_MS) {
       continue;
     }
-    previousFrame = frame.png;
     const framePng = PNG.sync.read(frame.png);
     expect([framePng.width, framePng.height]).toEqual([settledPng.width, settledPng.height]);
     const { changes, diff } = findMovedPixels({

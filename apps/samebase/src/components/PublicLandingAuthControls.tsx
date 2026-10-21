@@ -125,7 +125,7 @@ export function PublicLandingAuthControls({
   // The OAuth buttons stay centered whether or not the password form renders: a prerendered page
   // does not know the deployment's password policy, and the form appears below them once it loads.
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 self-stretch">
       {GOOGLE_AUTH_UI_ENABLED ? (
         <SignInWithOAuth
           provider="google"
