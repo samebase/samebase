@@ -10,8 +10,8 @@ import {
 /**
 The queries of the root loader: the signed-in viewer for the account chrome and the route gates,
 the saved workspace sidebar state for the pane geometry, the right sidebar's organizations, consent
-prompts, and onboarding condition, and, for a render without a session (a visitor without one, or
-the build's prerender), the sign-in methods of the deployment.
+prompts, and onboarding condition, and, for a visitor without a session, the sign-in methods of the
+deployment.
 */
 export const rootQueries = {
   deploymentAuthPolicy: convexQuery(api.deploymentProfile.getPublicDeploymentAuthPolicy, {}),
@@ -51,9 +51,8 @@ export async function unlessAccountGone<Result>(query: Promise<Result>) {
 The root loader. The server render queries as the user, so the account chrome, the pane widths, the
 right sidebar, and the route access checks have their data in the first HTML; a visitor without a
 session gets the sign-in methods instead. The right sidebar's queries need the access that its
-signed-in content needs, so they wait for the viewer's access. The build's prerender has no token,
-renders the signed-out page, and reads the sign-in methods at build time. The browser's navigations
-have no token here and read the cache, which the subscriptions keep live.
+signed-in content needs, so they wait for the viewer's access. The browser's navigations have no
+token here and read the cache, which the subscriptions keep live.
 */
 export async function loadRoot({
   queryClient,
@@ -88,8 +87,9 @@ export async function loadRoot({
           ])
         : null,
     ]);
-  } else if (import.meta.env.SSR) {
-    // A server render without a session token: a visitor without one, or the build's prerender.
+  } else if (token === null) {
+    // Not in the build's prerender, where `token` is undefined: a new deployment's first build runs
+    // before its first push, so the deployment has no functions to answer the query yet.
     await queryClient.query(rootQueries.deploymentAuthPolicy);
   }
 }

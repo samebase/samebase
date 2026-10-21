@@ -122,8 +122,10 @@ export function PublicLandingAuthControls({
   const markPublicSignupReturn =
     location.pathname !== MCP_CONSENT_APP_PATH && !isOrganizationInvitationPath(location.pathname);
 
+  // The OAuth buttons stay centered whether or not the password form renders: a prerendered page
+  // does not know the deployment's password policy, and the form appears below them once it loads.
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col items-center gap-2">
       {GOOGLE_AUTH_UI_ENABLED ? (
         <SignInWithOAuth
           provider="google"
@@ -212,7 +214,7 @@ export function PasswordAuthForm({
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
+    <div className="flex flex-col gap-2 self-stretch rounded-md border p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-medium">{title}</div>
         {surface === "local_worktree" ? (
