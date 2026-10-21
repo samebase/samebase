@@ -1334,15 +1334,22 @@ export async function getPullRequestResourcesForUser(
   });
   const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
   const alchemyStack = await alchemyStackRead;
-  // With a stack in the team store, the stage `pr-<number>` holds the preview of each pull request,
-  // and the attached Workers and Convex projects are not read.
-  const attachedWorkers = alchemyStack.state === "found" ? [] : context.cloudflareWorkers;
-  const attachedConvexProjects = alchemyStack.state === "found" ? [] : context.convexProjects;
+  // A pull request whose stage `pr-<number>` is in the team store takes its preview from that stage.
+  // Every other pull request reads the attached Workers and Convex projects, also when the stack
+  // holds stages of other pull requests only.
+  const headPreviews = heads.map((head) => ({
+    head,
+    alchemyPreview: buildPullRequestAlchemyPreview({ stack: alchemyStack, head }),
+  }));
+  const attachmentHeads = headPreviews.flatMap(({ head, alchemyPreview }) =>
+    alchemyPreview.state === "available" ? [] : [head],
+  );
+  const attachedConvexProjects = attachmentHeads.length > 0 ? context.convexProjects : [];
   const nativePreviewUrlsByWorker = new Map<StableWorker["workerId"], Map<string, string>>();
   if (
     context.cloudflareAccountId !== undefined &&
-    attachedWorkers.length > 0 &&
-    heads.some(
+    context.cloudflareWorkers.length > 0 &&
+    attachmentHeads.some(
       (head) =>
         !head.isCrossRepository &&
         head.headRepositoryId !== null &&
@@ -1360,8 +1367,8 @@ export async function getPullRequestResourcesForUser(
     });
     if (input.state === "available") {
       await Promise.all(
-        attachedWorkers.map(async (worker) => {
-          const branches = heads.flatMap((head) =>
+        context.cloudflareWorkers.map(async (worker) => {
+          const branches = attachmentHeads.flatMap((head) =>
             !head.isCrossRepository &&
             head.headRepositoryId !== null &&
             head.cloudflareWorkerProof.state === "available" &&
@@ -1393,14 +1400,14 @@ export async function getPullRequestResourcesForUser(
     }
   }
   const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
-  for (const head of heads) {
+  for (const { head, alchemyPreview } of headPreviews) {
     const hostingPreviews = buildPullRequestHostingPreviews({
       head,
       configuredWorkers: context.cloudflareWorkers,
     });
     const cloudflareWorkers = buildPullRequestCloudflareWorkerResources({
       head,
-      workers: attachedWorkers,
+      workers: alchemyPreview.state === "available" ? [] : context.cloudflareWorkers,
       nativePreviewUrlsByWorker,
     });
     resourcesByPullRequest.set(head.id, {
@@ -1408,7 +1415,7 @@ export async function getPullRequestResourcesForUser(
       workers: cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [],
       convexProjects: [],
       hostingPreviews,
-      alchemyPreview: buildPullRequestAlchemyPreview({ stack: alchemyStack, head }),
+      alchemyPreview,
     });
   }
 
@@ -1424,23 +1431,23 @@ export async function getPullRequestResourcesForUser(
       );
       const credential = connection?.credential;
       if (!connection || !credential) {
-        return unavailableConvexProjectResources({ heads, project });
+        return unavailableConvexProjectResources({ heads: attachmentHeads, project });
       }
       const token = credential.auth.credential.trim();
       if (!token) {
-        return unavailableConvexProjectResources({ heads, project });
+        return unavailableConvexProjectResources({ heads: attachmentHeads, project });
       }
 
       return await readConvexProjectResourcesForHeads({
         project,
-        heads,
+        heads: attachmentHeads,
         token,
         teamId: connection.teamId,
       });
     }),
   );
   attachedConvexProjects.forEach((project, projectIndex) => {
-    heads.forEach((head, headIndex) => {
+    attachmentHeads.forEach((head, headIndex) => {
       const resource = projectResources[projectIndex][headIndex];
       if (resource.convexProjectId !== project.convexProjectId) {
         throw new Error("Pull request resources lost stable Convex project identity.");

@@ -99,7 +99,7 @@ async function seedBaseAlchemy(t: ReturnType<typeof makeConvexTest>) {
       connectedAt: 20,
     });
 
-    return { repositoryId, userId };
+    return { organizationId, repositoryId, userId };
   });
 
   return {
@@ -132,7 +132,47 @@ const pullRequest24 = {
   },
 };
 
-function installStoreFetchStub(storeReply: unknown) {
+/** A pull request of samebase/base-alchemy whose number has no stage in the captured stack. */
+const pullRequest26 = {
+  ...pullRequest24,
+  id: "PR_26",
+  number: 26,
+  headRefOid: "5d0c3a1f6b7e8d9c0a1b2c3d4e5f60718293a4b5",
+  headRefName: "attached-preview",
+  commits: {
+    totalCount: 1,
+    pageInfo: { hasPreviousPage: false, startCursor: null },
+    nodes: [{ commit: { id: "C_26", oid: "5d0c3a1f6b7e8d9c0a1b2c3d4e5f60718293a4b5" } }],
+  },
+};
+
+/** A Convex preview deployment of the attached project 3245938 for the branch `previewIdentifier`. */
+function attachedPreviewDeployment(args: { id: number; name: string; previewIdentifier: string }) {
+  const { id, name, previewIdentifier } = args;
+  return {
+    class: "s16",
+    createTime: 1710000000000,
+    deploymentType: "preview",
+    deploymentUrl: `https://${name}.convex.cloud`,
+    id,
+    isDefault: false,
+    kind: "cloud",
+    name,
+    previewIdentifier,
+    projectId: 3245938,
+    reference: `preview/${previewIdentifier}`,
+    region: "aws-us-east-1",
+  };
+}
+
+/**
+Answers the reads of the team store with `storeReply`, and the reads of the attached Convex project
+3245938 with `attachedPreviewDeployments` as its preview deployments.
+*/
+function installStoreFetchStub(
+  storeReply: unknown,
+  attachedPreviewDeployments: readonly unknown[],
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -175,6 +215,19 @@ function installStoreFetchStub(storeReply: unknown) {
       ) {
         return jsonResponse(storeReply);
       }
+      if (url === "https://api.convex.dev/v1/projects/3245938") {
+        return jsonResponse({
+          createTime: 1710000000000,
+          id: 3245938,
+          name: "base-alchemy",
+          slug: "base-alchemy",
+          teamId: 38516,
+          teamSlug: "nicu",
+        });
+      }
+      if (url.startsWith("https://api.convex.dev/v1/projects/3245938/list_deployments?")) {
+        return jsonResponse(attachedPreviewDeployments);
+      }
 
       throw new Error(`Unexpected request: ${url}`);
     }),
@@ -197,7 +250,7 @@ describe("pull request resources from the Alchemy state of the team", () => {
       }
       throw new Error("Only the heads query is answered in this test.");
     });
-    installStoreFetchStub(observedAlchemyStackReply);
+    installStoreFetchStub(observedAlchemyStackReply, []);
 
     const [resources] = await user.action(
       api.repository.pullRequestResources.getPullRequestResources,
@@ -218,6 +271,58 @@ describe("pull request resources from the Alchemy state of the team", () => {
         workers: [],
         headCommit: null,
       },
+    });
+  });
+
+  it("reads the attached Convex project for a pull request without a stage in the stack", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedBaseAlchemy(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: ids.repositoryId,
+        organizationId: ids.organizationId,
+        teamId: "38516",
+        projectId: "3245938",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+    });
+    githubMocks.graphql.mockImplementation(async (query: string) => {
+      if (query.includes("query PullRequestResourceHeads")) {
+        return { nodes: [pullRequest24, pullRequest26] };
+      }
+      throw new Error("Only the heads query is answered in this test.");
+    });
+    installStoreFetchStub(observedAlchemyStackReply, [
+      attachedPreviewDeployment({
+        id: 3001,
+        name: "brave-heron-301",
+        previewIdentifier: pullRequest24.headRefName,
+      }),
+      attachedPreviewDeployment({
+        id: 3002,
+        name: "quiet-falcon-302",
+        previewIdentifier: pullRequest26.headRefName,
+      }),
+    ]);
+
+    const [resources24, resources26] = await user.action(
+      api.repository.pullRequestResources.getPullRequestResources,
+      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24", "PR_26"] },
+    );
+
+    // The stage pr-24 holds the preview of #24, so its branch-named deployment is not read.
+    expect(resources24).toMatchObject({
+      state: "available",
+      pullRequestId: "PR_24",
+      convexProjects: [],
+      alchemyPreview: { state: "available" },
+    });
+    expect(resources26).toMatchObject({
+      state: "available",
+      pullRequestId: "PR_26",
+      convexProjects: [{ state: "branch", deploymentName: "quiet-falcon-302" }],
+      alchemyPreview: { state: "absent" },
     });
   });
 });
