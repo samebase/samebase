@@ -6827,12 +6827,10 @@
                           "configuration": {
                             "type": "object",
                             "properties": {
-                              "destination_conf": {
-                                "type": "string"
-                              },
                               "headers": {
                                 "type": "object",
                                 "additionalProperties": {
+                                  "nullable": true,
                                   "type": "string"
                                 }
                               },
@@ -6875,14 +6873,7 @@
                                 "type": "string"
                               }
                             },
-                            "required": [
-                              "type",
-                              "logpushDataset",
-                              "destination_conf",
-                              "url",
-                              "headers",
-                              "jobStatus"
-                            ]
+                            "required": ["type", "logpushDataset", "url", "headers", "jobStatus"]
                           },
                           "enabled": {
                             "type": "boolean"
@@ -7174,8 +7165,27 @@
                         "configuration": {
                           "type": "object",
                           "properties": {
-                            "destination_conf": {
-                              "type": "string"
+                            "headers": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "jobStatus": {
+                              "type": "object",
+                              "properties": {
+                                "error_message": {
+                                  "type": "string"
+                                },
+                                "last_complete": {
+                                  "type": "string"
+                                },
+                                "last_error": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["last_complete", "last_error", "error_message"]
                             },
                             "logpushDataset": {
                               "anyOf": [
@@ -7193,9 +7203,6 @@
                                 }
                               ]
                             },
-                            "logpushJob": {
-                              "type": "number"
-                            },
                             "type": {
                               "type": "string",
                               "enum": ["logpush"]
@@ -7204,13 +7211,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "type",
-                            "logpushDataset",
-                            "logpushJob",
-                            "destination_conf",
-                            "url"
-                          ]
+                          "required": ["type", "logpushDataset", "url", "headers", "jobStatus"]
                         },
                         "enabled": {
                           "type": "boolean"
@@ -7489,8 +7490,27 @@
                         "configuration": {
                           "type": "object",
                           "properties": {
-                            "destination_conf": {
-                              "type": "string"
+                            "headers": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "jobStatus": {
+                              "type": "object",
+                              "properties": {
+                                "error_message": {
+                                  "type": "string"
+                                },
+                                "last_complete": {
+                                  "type": "string"
+                                },
+                                "last_error": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["last_complete", "last_error", "error_message"]
                             },
                             "logpushDataset": {
                               "anyOf": [
@@ -7508,9 +7528,6 @@
                                 }
                               ]
                             },
-                            "logpushJob": {
-                              "type": "number"
-                            },
                             "type": {
                               "type": "string",
                               "enum": ["logpush"]
@@ -7519,13 +7536,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "type",
-                            "logpushDataset",
-                            "logpushJob",
-                            "destination_conf",
-                            "url"
-                          ]
+                          "required": ["type", "logpushDataset", "url", "headers", "jobStatus"]
                         },
                         "enabled": {
                           "type": "boolean"
@@ -7787,8 +7798,12 @@
                       "headers": {
                         "type": "object",
                         "additionalProperties": {
+                          "nullable": true,
                           "type": "string"
                         }
+                      },
+                      "replaceHeaders": {
+                        "type": "boolean"
                       },
                       "type": {
                         "type": "string",
@@ -7804,7 +7819,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["enabled", "configuration"]
+                "required": ["enabled"]
               }
             }
           }
@@ -7848,8 +7863,27 @@
                         "configuration": {
                           "type": "object",
                           "properties": {
-                            "destination_conf": {
-                              "type": "string"
+                            "headers": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "jobStatus": {
+                              "type": "object",
+                              "properties": {
+                                "error_message": {
+                                  "type": "string"
+                                },
+                                "last_complete": {
+                                  "type": "string"
+                                },
+                                "last_error": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["last_complete", "last_error", "error_message"]
                             },
                             "logpushDataset": {
                               "anyOf": [
@@ -7867,9 +7901,6 @@
                                 }
                               ]
                             },
-                            "logpushJob": {
-                              "type": "number"
-                            },
                             "type": {
                               "type": "string",
                               "enum": ["logpush"]
@@ -7878,13 +7909,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "type",
-                            "logpushDataset",
-                            "logpushJob",
-                            "destination_conf",
-                            "url"
-                          ]
+                          "required": ["type", "logpushDataset", "url", "headers", "jobStatus"]
                         },
                         "enabled": {
                           "type": "boolean"
@@ -8022,6 +8047,51 @@
                           "message": {
                             "type": "string",
                             "enum": ["Not found"]
+                          }
+                        },
+                        "required": ["message"],
+                        "type": "object"
+                      }
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["message"],
+                        "type": "object"
+                      }
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    }
+                  },
+                  "required": ["errors", "success", "messages"]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "detail": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string",
+                            "enum": ["Conflict"]
                           }
                         },
                         "required": ["message"],
