@@ -26,12 +26,15 @@ import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
 } from "@samebase/sidebars/SidebarLayoutState";
+import { useLocalWorkspaceSidebarState } from "@/hooks/useLocalWorkspaceSidebarState";
+import { DocumentRenderedWithSessionContext } from "@/lib/documentSession";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import { useVisualFixtureWorkspaceSidebarState } from "@/hooks/useVisualFixtureWorkspaceSidebarState";
 import {
   APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
   APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
 } from "@/lib/appWorkspaceSidebarPreferences";
+import prehydrateAppWorkspaceSidebarSource from "@/lib/appWorkspaceSidebarPrehydrationScript?inline-script";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -71,6 +74,7 @@ type AppWorkspaceRouteChromeContextValue = {
 };
 
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCRIPT = `(${prehydrateAppWorkspaceSidebarSource})();`;
 
 /**
  * A first visit starts with the left sidebar closed. The right sidebar starts open because it holds
@@ -243,6 +247,25 @@ function PersistedAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
   return <AppWorkspaceShellFrame {...props} sidebarState={sidebarState} />;
 }
 
+/**
+A page that renders without a session (a prerendered public page, or a server render for a visitor
+without one) keeps its sidebar state in local storage. The inline script after the layout shows the
+stored state before the first paint; a page rendered as the user never renders it.
+*/
+function LocalAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
+  const sidebarState = useLocalWorkspaceSidebarState(APP_WORKSPACE_SIDEBAR_DEFAULT_STATE);
+
+  return (
+    <>
+      <AppWorkspaceShellFrame {...props} sidebarState={sidebarState} />
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCRIPT }}
+      />
+    </>
+  );
+}
+
 function VisualFixtureAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
   const sidebarState = useVisualFixtureWorkspaceSidebarState(APP_WORKSPACE_SIDEBAR_DEFAULT_STATE);
 
@@ -298,6 +321,7 @@ function AppWorkspaceShellFrame({
 
 export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   const routePathname = useLocation({ select: (location) => location.pathname });
+  const renderedWithSession = useContext(DocumentRenderedWithSessionContext);
 
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
@@ -312,7 +336,9 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   const ShellFrame =
     routePathname === VISUAL_FIXTURE_PATHNAME
       ? VisualFixtureAppWorkspaceShellFrame
-      : PersistedAppWorkspaceShellFrame;
+      : renderedWithSession
+        ? PersistedAppWorkspaceShellFrame
+        : LocalAppWorkspaceShellFrame;
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>

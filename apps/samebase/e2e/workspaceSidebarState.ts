@@ -5,6 +5,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { api } from "../convex/_generated/api";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import {
+  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+} from "../src/lib/appWorkspaceSidebarPreferences";
 
 const LOCAL_CONFIG_PATH = fileURLToPath(
   new URL("../.convex/local/default/config.json", import.meta.url),
@@ -36,4 +40,21 @@ export async function saveWorkspaceSidebarState(page: Page, state: WorkspaceSide
     state,
     workspaceKey: "app",
   });
+}
+
+/**
+Stores the sidebar state of a visitor without a session before the page loads, where the app keeps
+it for pages that render without a session.
+*/
+export async function seedLocalWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
+  await page.addInitScript(
+    ({ state, storageKey, version }) => {
+      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
+    },
+    {
+      state,
+      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      version: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+    },
+  );
 }

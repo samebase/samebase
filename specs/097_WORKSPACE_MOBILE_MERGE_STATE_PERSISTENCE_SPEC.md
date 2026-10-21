@@ -57,8 +57,8 @@ If the current route does not provide the saved side pane, the layout must displ
 without a merge. It must keep the saved pane and merge state unchanged. When the user returns to a
 route that provides the side pane, the saved merge must be available again.
 
-The server markup and React rendering must use the same fallback. The fallback must not write a
-state repair to Convex.
+The server markup, prehydration, and React rendering must use the same fallback. The fallback must
+not write a state repair to Convex or local storage.
 
 ### Viewport fallback is display-only
 
@@ -84,10 +84,12 @@ and viewport can display it.
 
 ### Persistence uses one state model
 
-Convex must persist `mobileSurface` as part of the complete workspace sidebar state. State
-comparison and delayed write logic must detect a change to `mobileSurface` even when the selected
-pane and pane widths do not change. The app must not infer missing merge state from a saved pane
-width.
+Convex and local storage must persist `mobileSurface` as part of the complete workspace sidebar
+state. State comparison and delayed write logic must detect a change to `mobileSurface` even when
+the selected pane and pane widths do not change.
+
+The local storage parser must reject payloads from an old version or payloads with an invalid mobile
+surface. The app must not infer missing merge state from a saved pane width.
 
 Committed merge state belongs to the pane state controller. In-progress drag state and local
 viewport measurements remain transient layout state.

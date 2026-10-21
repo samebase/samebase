@@ -29,7 +29,8 @@ import { readRootThemeMode, type RootThemeMode } from "@/lib/rootThemeModeSearch
 import { loadRoot } from "@/routes/root.queries";
 import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
 import { type AppQueryClients } from "@/lib/appQueryClient";
-import { type ReactNode, useEffect } from "react";
+import { DocumentRenderedWithSessionContext } from "@/lib/documentSession";
+import { type ReactNode, useEffect, useState } from "react";
 
 const pathname = "/";
 const REACT_SCAN_HOOK_INTEGRITY =
@@ -58,14 +59,17 @@ function retainRootSearchParams({ next, search }: RootSearchMiddlewareArgs): Roo
 function RootComponent() {
   const { dark, devtools, light } = useRootRouteSearch();
   const { convexQueryClient, token } = Route.useRouteContext();
+  const [renderedWithSession] = useState(() => typeof token === "string");
 
   return (
     <SessionProvider client={convexQueryClient.convexClient} token={token}>
-      <RootDocument reactScanEnabled={devtools} themeMode={readRootThemeMode({ dark, light })}>
-        <AppBootErrorBoundary>
-          <AppRootClient />
-        </AppBootErrorBoundary>
-      </RootDocument>
+      <DocumentRenderedWithSessionContext value={renderedWithSession}>
+        <RootDocument reactScanEnabled={devtools} themeMode={readRootThemeMode({ dark, light })}>
+          <AppBootErrorBoundary>
+            <AppRootClient />
+          </AppBootErrorBoundary>
+        </RootDocument>
+      </DocumentRenderedWithSessionContext>
     </SessionProvider>
   );
 }

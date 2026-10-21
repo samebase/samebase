@@ -1,4 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
@@ -139,6 +140,13 @@ async function expectMobileMergedSide(page: Page, side: "left" | "right" | null)
       getFileViewLayoutShell(page).getAttribute("data-sidebar-layout-mobile-merged-side"),
     )
     .toBe(side);
+}
+
+async function readAppWorkspaceSidebarStorage(page: Page) {
+  return page.evaluate(
+    (storageKey) => window.localStorage.getItem(storageKey),
+    APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  );
 }
 
 async function getMobileMainPaneWidthPx(page: Page) {
@@ -557,6 +565,45 @@ test("logo mobile merge resize keeps main width while opening the right sidebar 
 
   await scrollMobileCarouselByPx(page, -14);
   await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "right");
+  await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
+});
+
+test("logo mobile right merge survives reload from localStorage", async ({ page }) => {
+  // Keep page.setViewportSize at 320px so this test covers the narrow merge contract.
+  await page.setViewportSize({ width: 320, height: 844 });
+  await gotoLogoPage(page);
+  await page.evaluate(() => {
+    window.localStorage.clear();
+  });
+  await gotoLogoPage(page);
+
+  await scrollFileViewCarouselToPane(page, "right");
+
+  const viewportWidthPx = await page
+    .locator('[data-sidebar-layout-part="carousel"]')
+    .evaluate((element) => element.clientWidth);
+  const minWidthPx = await getMobileSidebarMinWidthPx(page);
+  const rightPaneWidthBefore = (await getBox(getSidebarLayoutPane(page, "right"))).width;
+
+  await touchDragHandleByPx(page, "right", rightPaneWidthBefore - minWidthPx + minWidthPx);
+
+  await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "right");
+  await expectMobileMergedSide(page, "right");
+  await expect
+    .poll(async () => Math.round((await getBox(getSidebarLayoutPane(page, "right"))).width))
+    .toBe(minWidthPx);
+  await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
+  await expect
+    .poll(async () => readAppWorkspaceSidebarStorage(page))
+    .toContain('"mobilePane":"right"');
+  await expect.poll(async () => readAppWorkspaceSidebarStorage(page)).toContain('"side":"right"');
+
+  await page.reload({ waitUntil: "networkidle" });
+
+  await expectMobileMergedSide(page, "right");
+  await expect
+    .poll(async () => Math.round((await getBox(getSidebarLayoutPane(page, "right"))).width))
+    .toBe(minWidthPx);
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
 });
 

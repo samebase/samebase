@@ -10,6 +10,8 @@ import { getFunctionName } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import { RouterContextProvider, createMemoryHistory } from "@tanstack/react-router";
 import { createAppRouter } from "@/router";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import { DocumentRenderedWithSessionContext } from "@/lib/documentSession";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act, useState } = React;
@@ -273,7 +275,11 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('data-pane-side="right"');
     expect(markup).toContain("workspace route content");
-    expect(markup).not.toContain('data-pane-side="left"');
+    const markupContainer = document.createElement("div");
+    markupContainer.innerHTML = markup;
+    expect(
+      markupContainer.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
+    ).toBeNull();
   });
 
   it("does not inherit no-left metadata into ordinary child routes", () => {
@@ -508,11 +514,13 @@ describe("AppWorkspaceShell", () => {
   it("server-renders the root loader's saved sidebar state", () => {
     savedSidebarState.current = SERVER_SIDEBAR_STATE;
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/logo"]}>
-        <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">workspace route content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
+      <DocumentRenderedWithSessionContext value>
+        <TestRouterProvider initialEntries={["/logo"]}>
+          <AppWorkspaceShell>
+            <div data-testid="workspace-route-content">workspace route content</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>
+      </DocumentRenderedWithSessionContext>,
     );
     const markupContainer = document.createElement("div");
     markupContainer.innerHTML = markup;
@@ -535,5 +543,21 @@ describe("AppWorkspaceShell", () => {
       `--sidebar-layout-main-mobile-width:calc(100% - ${rightMobileWidth} + clamp(0px, (214px - (100% - ${rightMobileWidth})) * 1000, ${rightMobileWidth}))`,
     );
     expect(viewport?.getAttribute("style")).toContain("--sidebar-layout-left-mobile-width:0px");
+  });
+
+  it("renders the local prehydration script only for a render without a session", () => {
+    const renderShell = (renderedWithSession: boolean) =>
+      renderToStaticMarkup(
+        <DocumentRenderedWithSessionContext value={renderedWithSession}>
+          <TestRouterProvider initialEntries={["/logo"]}>
+            <AppWorkspaceShell>
+              <div data-testid="workspace-route-content">workspace route content</div>
+            </AppWorkspaceShell>
+          </TestRouterProvider>
+        </DocumentRenderedWithSessionContext>,
+      );
+
+    expect(renderShell(false)).toContain(APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
+    expect(renderShell(true)).not.toContain(APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
   });
 });

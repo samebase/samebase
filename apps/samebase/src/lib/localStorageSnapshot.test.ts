@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "./appWorkspaceSidebarPreferences";
 import {
   readLocalStorageSnapshot,
   subscribeBrowserLocalStorageSnapshot,
@@ -70,9 +71,10 @@ describe("readLocalStorageSnapshot", () => {
     });
   });
 
-  it("omits Convex Auth storage keys", () => {
+  it("omits app runtime storage keys", () => {
     storage.setItem("__convexAuthJWT_http12700114134", "jwt");
     storage.setItem("__convexAuthRefreshToken_http12700114134", "refresh");
+    storage.setItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY, "{}");
     storage.setItem("noter.visible", "kept");
 
     expect(readLocalStorageSnapshot(storage)).toEqual({

@@ -9,7 +9,7 @@ import {
   applyOrganizationContextAcceptanceFixture,
   createOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
-import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
+import { saveWorkspaceSidebarState, seedLocalWorkspaceSidebarState } from "./workspaceSidebarState";
 
 const APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE = {
   leftDesktopOpen: true,
@@ -266,24 +266,12 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
 
 test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
-
-  // A visitor without a session has no saved sidebar state, so the test swipes to the right pane
-  // and narrows it to its minimum with the keyboard.
-  await page.locator('[data-sidebar-layout-part="carousel"]').evaluate((element) => {
-    element.scrollLeft = element.scrollWidth;
-    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  await seedLocalWorkspaceSidebarState(page, {
+    ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
+    mobilePane: "right",
+    rightMobileWidthPx: 130,
   });
-  await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
-    "data-mobile-pane",
-    "right",
-  );
-  const rightResizeHandle = page.locator(
-    '[data-sidebar-layout-part="resize-handle"][data-resize-side="right"]',
-  );
-  await rightResizeHandle.focus();
-  await rightResizeHandle.press("Shift+ArrowRight");
-  await rightResizeHandle.press("Shift+ArrowRight");
+  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   const rightPane = getRightPane(page);
   const githubButton = rightPane.getByRole("button", { name: "Continue with GitHub" });

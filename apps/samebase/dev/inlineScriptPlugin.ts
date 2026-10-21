@@ -28,6 +28,9 @@ export function inlineScriptPlugin(): Plugin {
       const { output } = await build({
         input: sourcePath,
         logLevel: "warn",
+        platform: "browser",
+        // Workspace packages export their sources under this condition, as in the app build.
+        resolve: { conditionNames: ["samebase-source", "browser", "import", "default"] },
         output: {
           exports: "default",
           format: "iife",

@@ -16,6 +16,8 @@
   - `apps/samebase/src/components/AppWorkspaceShell.tsx`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/useVisualFixtureWorkspaceSidebarState.ts`
+  - `apps/samebase/src/hooks/useLocalWorkspaceSidebarState.ts`
+  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydrationScript.ts`
   - `apps/samebase/src/routes/root.queries.ts`
   - `packages/sidebars/src/SidebarLayoutState.ts`
   - `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
@@ -62,10 +64,14 @@ system.
 
 Samebase uses:
 
-- a Convex-backed controller for app routes, which starts from the saved state that the root loader
-  read for the server render; a visitor without a session gets the default state and keeps changes
-  in the page
+- a Convex-backed controller for a document that the server rendered as the user, which starts from
+  the saved state that the root loader read for that render
+- a local-storage controller for a document rendered without a session (a prerendered public page,
+  or a server render for a visitor without one), which writes every change to local storage
 - an in-memory controller for the `/visual-fixture` route, tests, and fixtures
+
+A document keeps the controller of its render until the next document load, so the Convex state and
+the local copy never meet on one page.
 
 The package must not import Convex, Samebase storage hooks, or Samebase schema modules. Samebase may
 keep the historical `WorkspaceSidebarState` name at its persistence boundary. The package runtime
@@ -107,10 +113,14 @@ main pane gives the left pane no width until React measures and scrolls past it,
 right pane aligns the carousel content to its end. `@samebase/sidebars/structure.css` must load
 before the first layout paint. After measurement, the normal runtime owns the layout.
 
-Samebase renders no inline sidebar script: the root loader reads the saved state as the user, and
-the controller starts from it. A consumer whose state is only in the browser may render the
-package's prehydration scripts after the layout markup. Prehydration must not write state or act as
-a second pane runtime.
+A page rendered as the user needs no inline sidebar script: the root loader reads the saved state,
+and the controller starts from it. A page rendered without a session renders one inline script after
+the layout markup. It calls the package's `prehydrateSidebarLayoutDesktop` and
+`prehydrateSidebarLayoutMobilePane` with the local-storage state, and the app build compiles it into
+a string (`?inline-script`), never with `Function#toString` at run time. The local controller
+installs the stored state in its layout effect at hydration and removes the temporary stylesheet
+once a commit has rendered that state. Prehydration must not write state or act as a second pane
+runtime.
 
 ### Pane Presence And Display Fallbacks
 

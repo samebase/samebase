@@ -88,10 +88,10 @@ hydrated route. The structural stylesheet must be available for the first paint.
 The server markup and React must use the same package attributes, CSS variables, responsive
 boundary, and geometry rules. Before React measures the viewport, `SidebarLayout` renders the
 controller state as markup: the desktop widths on the panes, the mobile pane and merged side on the
-viewport, and the mobile widths as CSS expressions of the carousel width. Samebase gives the
-controller the saved state that the root loader read for the server render, so the first paint needs
-no inline script. A consumer whose state is only in the browser may use the package prehydration
-contract instead.
+viewport, and the mobile widths as CSS expressions of the carousel width. For a page rendered as the
+user, Samebase gives the controller the saved state that the root loader read, so the first paint
+needs no inline script. A page rendered without a session keeps its state in the browser and applies
+it through the package prehydration contract, from a script that the build compiles.
 
 The prerender must not:
 

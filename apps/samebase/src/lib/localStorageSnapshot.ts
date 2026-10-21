@@ -1,3 +1,5 @@
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+
 export type LocalStorageEntry = {
   key: string;
   value: string;
@@ -16,6 +18,7 @@ export type LocalStorageSnapshot =
 type ReadableLocalStorage = Pick<Storage, "getItem" | "key" | "length">;
 
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
+const INTERNAL_LOCAL_STORAGE_KEYS = new Set([APP_WORKSPACE_SIDEBAR_STORAGE_KEY]);
 
 function compareStorageKeys(left: string, right: string): number {
   if (left < right) {
@@ -34,7 +37,7 @@ function readStorageErrorMessage(error: unknown): string {
 }
 
 function isVisibleLocalStorageKey(key: string): boolean {
-  return !key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX);
+  return !key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX) && !INTERNAL_LOCAL_STORAGE_KEYS.has(key);
 }
 
 /**

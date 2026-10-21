@@ -1,5 +1,3 @@
-import { guard, isRecord } from "@samebase/dependent";
-import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
@@ -7,75 +5,7 @@ import type {
 } from "@samebase/sidebars/SidebarLayoutState";
 import * as React from "react";
 import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
-
-const isFiniteNumber = guard<unknown, number>((value) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null,
-);
-
-function parseMobilePane(value: unknown): SidebarLayoutState["mobilePane"] | null {
-  if (value === "left" || value === "main" || value === "right") {
-    return value;
-  }
-
-  return null;
-}
-
-function parseMobileSurface(value: unknown): SidebarLayoutState["mobileSurface"] | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (value["kind"] === "unmerged") {
-    return { kind: "unmerged" };
-  }
-
-  if (
-    value["kind"] === "merged" &&
-    (value["side"] === "left" || value["side"] === "right") &&
-    isFiniteNumber(value["mainWidthPx"]) &&
-    value["mainWidthPx"] >= SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX
-  ) {
-    return {
-      kind: "merged",
-      mainWidthPx: value["mainWidthPx"],
-      side: value["side"],
-    };
-  }
-
-  return null;
-}
-
-function parseWorkspaceSidebarState(value: unknown): SidebarLayoutState | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const mobilePane = parseMobilePane(value["mobilePane"]);
-  const mobileSurface = parseMobileSurface(value["mobileSurface"]);
-  if (
-    typeof value["leftDesktopOpen"] !== "boolean" ||
-    !isFiniteNumber(value["leftDesktopWidthPx"]) ||
-    !isFiniteNumber(value["leftMobileWidthPx"]) ||
-    mobilePane === null ||
-    mobileSurface === null ||
-    typeof value["rightDesktopOpen"] !== "boolean" ||
-    !isFiniteNumber(value["rightDesktopWidthPx"]) ||
-    !isFiniteNumber(value["rightMobileWidthPx"])
-  ) {
-    return null;
-  }
-
-  return {
-    leftDesktopOpen: value["leftDesktopOpen"],
-    leftDesktopWidthPx: value["leftDesktopWidthPx"],
-    leftMobileWidthPx: value["leftMobileWidthPx"],
-    mobilePane,
-    mobileSurface,
-    rightDesktopOpen: value["rightDesktopOpen"],
-    rightDesktopWidthPx: value["rightDesktopWidthPx"],
-    rightMobileWidthPx: value["rightMobileWidthPx"],
-  };
-}
+import { parseWorkspaceSidebarState } from "@/lib/localWorkspaceSidebarState";
 
 let seededState: { serialized: string | null; state: SidebarLayoutState | null } = {
   serialized: null,
