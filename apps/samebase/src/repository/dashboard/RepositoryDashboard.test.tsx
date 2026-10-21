@@ -1032,6 +1032,7 @@ describe("repository environment roots", () => {
                 { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
               ],
               workers: [],
+              headCommit: null,
             },
           },
         }}
@@ -1046,6 +1047,49 @@ describe("repository environment roots", () => {
       "https://nautical-eagle-647.convex.site",
     );
     expect(deployment?.textContent).toBe("nautical-eagle-647May be from an earlier commit");
+  });
+
+  it("shows the head commit in place of the note when the run record names the head", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(
+      <PullRequestResources
+        resource={{
+          state: "current",
+          resources: {
+            pullRequestId: "pull-request-23",
+            cloudflareBuilds: { state: "available" },
+            workers: [],
+            convexProjects: [],
+            hostingPreviews: {
+              cloudflare: { state: "available", previews: [] },
+              netlify: { state: "available", previews: [] },
+            },
+            alchemyPreview: {
+              state: "available",
+              url: "https://nautical-eagle-647.convex.site",
+              convexDeployments: [
+                { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
+              ],
+              workers: [
+                { name: "tmp-k7m2-rows-pr-1", url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev" },
+              ],
+              headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2",
+            },
+          },
+        }}
+        settingsHref="/repo/samebase/base-alchemy/settings"
+      />,
+    );
+
+    expect(
+      container.querySelector('[role="group"][aria-label="Convex deployment nautical-eagle-647"]')
+        ?.textContent,
+    ).toBe("nautical-eagle-647e63be55");
+    expect(
+      container.querySelector('[role="group"][aria-label="Cloudflare Worker tmp-k7m2-rows-pr-1"]')
+        ?.textContent,
+    ).toBe("tmp-k7m2-rows-pr-1Branch previewe63be55");
+    expect(container.textContent).not.toContain("May be from an earlier commit");
   });
 
   it("shows a Worker preview of a pull request from the Alchemy state of the team", () => {
@@ -1067,6 +1111,7 @@ describe("repository environment roots", () => {
           workers: [
             { name: "tmp-k7m2-rows-pr-1", url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev" },
           ],
+          headCommit: null,
         },
       },
     });

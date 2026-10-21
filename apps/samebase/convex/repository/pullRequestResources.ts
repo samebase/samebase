@@ -666,14 +666,14 @@ const vStageOutputUrl = object({ url: string() });
 /** The preview of a pull request: the stage `pr-<number>` of the stack, the upstream Alchemy name. */
 export function buildPullRequestAlchemyPreview(args: {
   stack: PullRequestAlchemyStackRead;
-  pullRequestNumber: number;
+  head: Pick<PullRequestResourceHead, "headRefOid" | "number">;
 }): PullRequestAlchemyPreview {
   if (args.stack.state === "failed") {
     return { state: "unavailable" };
   }
   const stage =
     args.stack.state === "found"
-      ? args.stack.stages.find((candidate) => candidate.name === `pr-${args.pullRequestNumber}`)
+      ? args.stack.stages.find((candidate) => candidate.name === `pr-${args.head.number}`)
       : undefined;
   if (!stage) {
     return { state: "absent" };
@@ -694,6 +694,10 @@ export function buildPullRequestAlchemyPreview(args: {
         ? [{ name: state.attr.workerName, url: state.attr.url ?? null }]
         : [],
     ),
+    headCommit:
+      stage.run.state === "recorded" && stage.run.record.headCommit === args.head.headRefOid
+        ? args.head.headRefOid
+        : null,
   };
 }
 
@@ -1405,10 +1409,7 @@ export async function getPullRequestResourcesForUser(
       workers: cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [],
       convexProjects: [],
       hostingPreviews,
-      alchemyPreview: buildPullRequestAlchemyPreview({
-        stack: alchemyStack,
-        pullRequestNumber: head.number,
-      }),
+      alchemyPreview: buildPullRequestAlchemyPreview({ stack: alchemyStack, head }),
     });
   }
 

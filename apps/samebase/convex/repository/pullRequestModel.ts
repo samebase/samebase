@@ -318,6 +318,11 @@ const vPullRequestAlchemyPreview = union(
     convexDeployments: array(object({ name: string(), url: string() })),
     /** The name and URL of each `Cloudflare.Worker` resource of the stage, in fqn order. */
     workers: array(object({ name: string(), url: union(string(), v.null()) })),
+    /**
+    The head commit of the pull request when the run record of the stage names it, so the stage
+    is current. Null when the stage has no run record or the record names another commit.
+    */
+    headCommit: union(string(), v.null()),
   }),
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),

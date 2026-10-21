@@ -35,14 +35,17 @@ export type RepositoryEnvironmentAction =
   | { destination: "external"; href: string; label: string }
   | { destination: "samebase"; href: string; label: string };
 
+/**
+pull_request_head = a preview of the Alchemy state store whose run record names the head commit of
+the pull request, `headCommit`.
+*/
+type RepositoryEnvironmentPullRequestHead = { provenance: "pull_request_head"; headCommit: string };
+
 type RepositoryEnvironmentWorkerDestination =
-  | {
-      state: "available";
-      href: string;
-      label: string;
-      provenance: "production" | "selected_result" | "earlier_check";
-      title: string;
-    }
+  | ({ state: "available"; href: string; label: string; title: string } & (
+      | { provenance: "production" | "selected_result" | "earlier_check" }
+      | RepositoryEnvironmentPullRequestHead
+    ))
   | { state: "absent" };
 
 /**
@@ -71,17 +74,19 @@ type RepositoryProductionBuildState = Extract<
 >["buildState"];
 
 export type RepositoryEnvironmentResource =
-  | {
+  | ({
       kind: "destination";
       id: string;
       actions: readonly RepositoryEnvironmentAction[];
       href: string;
       label: string;
       provider: "convex";
-      provenance: "production" | "pull_request_branch";
       region?: ConvexDeploymentRegion;
       title: string;
-    }
+    } & (
+      | { provenance: "production" | "pull_request_branch" }
+      | RepositoryEnvironmentPullRequestHead
+    ))
   | {
       kind: "convex_loading";
       id: Id<"repositoryConvexProjects">;
@@ -597,6 +602,9 @@ export function buildPullRequestEnvironmentRoots({
     ];
   });
   const alchemyPreview = resources.alchemyPreview;
+  // A stage whose run record names the head of the pull request is current; any other stage may
+  // be from an earlier commit.
+  const headCommit = alchemyPreview.state === "available" ? alchemyPreview.headCommit : null;
   const alchemyWorkers =
     alchemyPreview.state === "available"
       ? alchemyPreview.workers.map((worker) => ({
@@ -608,7 +616,6 @@ export function buildPullRequestEnvironmentRoots({
             worker: {
               workerName: worker.name,
               build: { state: "unrecorded" as const },
-              // A stage may be from an earlier commit than the head of the pull request.
               destination:
                 worker.url === null
                   ? { state: "absent" as const }
@@ -616,8 +623,10 @@ export function buildPullRequestEnvironmentRoots({
                       state: "available" as const,
                       href: worker.url,
                       label: "Branch preview",
-                      provenance: "earlier_check" as const,
                       title: buildProductionUrlLabel(worker.url),
+                      ...(headCommit === null
+                        ? { provenance: "earlier_check" as const }
+                        : { provenance: "pull_request_head" as const, headCommit }),
                     },
               actions: [],
             },
@@ -638,8 +647,10 @@ export function buildPullRequestEnvironmentRoots({
             href: alchemyPreview.url ?? deployment.url,
             label: deployment.name,
             provider: "convex" as const,
-            provenance: "pull_request_branch" as const,
             title: `Open the preview of Convex deployment ${deployment.name}`,
+            ...(headCommit === null
+              ? { provenance: "pull_request_branch" as const }
+              : { provenance: "pull_request_head" as const, headCommit }),
           },
         }))
       : [];
