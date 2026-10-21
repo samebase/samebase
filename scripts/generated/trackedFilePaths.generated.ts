@@ -2084,6 +2084,7 @@ export const trackedFilePaths = [
   "research/2026-10-05-workers-builds-and-iac-split.md",
   "research/2026-10-06-cf-cli-gaps-for-vite-plus-apps.md",
   "research/2026-10-07-alchemy-as-samebase-source-of-truth.md",
+  "research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",

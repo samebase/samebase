@@ -24,7 +24,7 @@ import { isLiveConnectedRepository } from "./state";
 
 const { array, id, literal, object, string, union } = v;
 
-type ConvexInspectionTarget = {
+export type ConvexInspectionTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
   /** `owner/name` on GitHub. */
   githubRepositoryFullName: string;
@@ -113,7 +113,7 @@ export async function withConvexInspectionDeployKey<Result>(
   args: {
     deployment: ConvexCloudDeployment;
     purpose: keyof typeof CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS;
-    target: ConvexInspectionTarget;
+    target: Pick<ConvexInspectionTarget, "authMethod" | "token">;
   },
   inspect: (deployKey: string) => Promise<Result>,
 ): Promise<Result> {
