@@ -113,9 +113,9 @@ A deployment of the PR is one where all of these are true:
 
 ## 4. Destroy By Hand
 
-For a preview named `$stage`, run the destroy of its stage from `apps/samebase` of a checkout of the
-PR head or of `main`. It deletes the preview deployment and the state of the stage, so the
-repository pages of Samebase no longer list the stage:
+For a preview named `$stage`, run the destroy of its stage from `apps/samebase` of a checkout of
+`main`. It deletes the preview deployment and the state of the stage, so the repository pages of
+Samebase no longer list the stage:
 
 ```bash
 cd apps/samebase

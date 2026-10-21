@@ -16,6 +16,11 @@
   `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`, `rfcs/125_INTENT_BASED_ACTION_CATALOG_PLAN.md`,
   `docs/samebase-pr-preview-cleanup.md`, `apps/samebase/alchemy.run.ts`,
   [PR #1712](https://github.com/samebase/samebase/pull/1712) (production audit of an older package)
+- Deploy path since [PR #1763](https://github.com/samebase/samebase/pull/1763):
+  `.github/workflows/alchemy.yml` runs the Alchemy stack `apps/samebase/alchemy.run.ts`, with its
+  state in the Convex team store. It replaces the `deploy`, `preview`, and `cleanup` workflows and
+  the two deploy-key secrets of change A and decision 4. Previews are named `pr-<number>`, not after
+  the branch.
 
 ## Summary
 
