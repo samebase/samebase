@@ -172,6 +172,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_schema_graph",
   },
   "/repo/$owner/$repository/components/$deploymentName": { access: "access_dashboard" },
+  "/repo/$owner/$repository/alchemy/$deploymentName": { access: "access_dashboard" },
   "/visual-fixture": {
     access: "access_public",
     availableEnvironments: ["local"],
