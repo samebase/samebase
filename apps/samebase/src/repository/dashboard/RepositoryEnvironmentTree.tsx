@@ -27,6 +27,7 @@ import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import { applyRepositoryDashboardProviderAddSearch } from "@/routeSearch/root";
 import { Link } from "@tanstack/react-router";
+import { findProductionStage } from "../../../shared/alchemyState";
 import { formatConvexDeploymentRegionLabel } from "../../../shared/convexDeploymentRegions";
 import {
   CircleCheck,
@@ -259,13 +260,15 @@ export function RepositoryOverviewLoadingLines({ rows = 3 }: { rows?: number }) 
 
 /**
 The reads behind the default-branch block. The stack in the team store builds the block while it
-is read and when it exists; the live reads of the attachment rows build it when the store holds no
-stack or its first read failed, and that failure stays visible with its Retry.
+is read and when it has a production stage (`prod` or `main`); the live reads of the attachment
+rows build it when the store holds no stack, a stack with only `pr-<number>` stages, or its first
+read failed, and that failure stays visible with its Retry.
 */
 function readProductionObservationStates(workspace: RepositoryWorkspaceSelected) {
   const alchemyObservations = workspace.alchemyObservations;
   return alchemyObservations.state === "loading" ||
-    (alchemyObservations.state === "loaded" && alchemyObservations.observations.length > 0)
+    (alchemyObservations.state === "loaded" &&
+      alchemyObservations.observations.some((stack) => findProductionStage(stack.stages)))
     ? [alchemyObservations]
     : [
         workspace.cloudflareObservations.workers,

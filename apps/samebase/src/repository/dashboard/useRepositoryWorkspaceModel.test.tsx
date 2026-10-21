@@ -106,6 +106,16 @@ function fakeOrganizationId(value = "organization-lost-access"): Id<"organizatio
   return value;
 }
 
+function fakeCloudflareWorkerId(value: string): Id<"repositoryCloudflareWorkers"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
+  return value;
+}
+
+function fakeConvexProjectId(value: string): Id<"repositoryConvexProjects"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
+  return value;
+}
+
 function lostAccessRepository(): UserRepositoryResult {
   return {
     repositoryId: fakeRepositoryId(),
@@ -296,6 +306,103 @@ describe("useRepositoryWorkspaceModel", () => {
               "ideal-dolphin-15",
               "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
             ],
+          ],
+        },
+      ]);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("builds the default-branch block from the attachment rows for a stack with only pull request stages", async () => {
+    // Like samebase/samebase while the stack of an open pull request is its only stage.
+    const repository = {
+      ...lostAccessRepository(),
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "base-alchemy",
+      githubRepositoryFullName: "samebase/base-alchemy",
+      convexTeamId: "38516",
+      cloudflareWorkers: [
+        {
+          workerId: fakeCloudflareWorkerId("worker-base-alchemy"),
+          accountId: "cloudflare-account",
+          workerName: "base-alchemy",
+          workerTag: "base-alchemy-tag",
+          rootDirectory: "/",
+        },
+      ],
+      convexProjects: [
+        {
+          convexProjectId: fakeConvexProjectId("convex-project-base-alchemy"),
+          teamId: "38516",
+          projectId: "3245938",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+        },
+      ],
+    } satisfies UserRepositoryResult;
+    const organization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-samebase",
+      githubOwnerLogin: "samebase",
+      githubOwnerType: "organization",
+      organizationId: repository.organizationId,
+      role: "owner",
+    } as const;
+    const [pr24, pr25] = observedAlchemyStackReply.value.stages;
+    testState.alchemy = {
+      state: "loaded",
+      refreshFailed: false,
+      reload: () => {},
+      observations: [
+        {
+          store: "found",
+          stack: "samebase/base-alchemy",
+          liveDeployments: [],
+          stages: [
+            {
+              name: pr24.stage,
+              run: { state: "none" },
+              resources: pr24.resources,
+              output: pr24.output,
+            },
+            {
+              name: pr25.stage,
+              run: { state: "none" },
+              resources: pr25.resources,
+              output: pr25.output,
+            },
+          ],
+        },
+      ],
+    };
+    let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useRepositoryWorkspaceModel(repository.githubRepositoryFullName);
+      return null;
+    }
+
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [organization],
+      repositories: [repository],
+    });
+
+    try {
+      if (latest?.state !== "ready" || latest.selection.state !== "selected") {
+        throw new Error("Expected the selected repository workspace.");
+      }
+      // The live reads of the attachment rows are still loading in this test.
+      expect(
+        latest.selection.workspace.environmentRoots.map((root) => ({
+          rootDirectory: root.rootDirectory,
+          resources: root.resources.map((resource) => [resource.kind, resource.id]),
+        })),
+      ).toEqual([
+        {
+          rootDirectory: "/",
+          resources: [
+            ["cloudflare_worker", "worker-base-alchemy"],
+            ["convex_loading", "convex-project-base-alchemy"],
           ],
         },
       ]);

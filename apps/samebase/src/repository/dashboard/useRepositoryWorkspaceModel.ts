@@ -7,6 +7,7 @@ import { rootQueries } from "@/routes/root.queries";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
+import { findProductionStage } from "../../../shared/alchemyState";
 import {
   buildAlchemyEnvironmentRoots,
   buildProductionEnvironmentRoots,
@@ -118,22 +119,25 @@ export function useRepositoryWorkspaceModel(
       };
     }
     const alchemyObservations = providerObservations.alchemy;
-    const alchemyStack =
-      alchemyObservations.state === "loaded" ? alchemyObservations.observations.at(0) : undefined;
+    const productionStack =
+      alchemyObservations.state === "loaded"
+        ? alchemyObservations.observations.find((stack) => findProductionStage(stack.stages))
+        : undefined;
     const schemaGraphEnabled = viewerAccess?.accessKeys.includes("access_schema_graph") === true;
     const defaultBranch = accessibleSelectedRepository.defaultBranch;
-    // By presence: a stack in the team store builds the default-branch block, and the attachment
-    // rows with their live reads build it otherwise. Neither builds it while the store read runs.
+    // By presence: a stack in the team store with a production stage (`prod` or `main`) builds the
+    // default-branch block, and the attachment rows with their live reads build it otherwise, also
+    // for a stack with only `pr-<number>` stages. Neither builds it while the store read runs.
     const environmentRoots = !defaultBranch
       ? []
-      : alchemyStack
+      : productionStack
         ? buildAlchemyEnvironmentRoots({
             branch: defaultBranch,
             owner: accessibleSelectedRepository.githubOwnerLogin,
             repoName: accessibleSelectedRepository.githubRepositoryName,
             schemaGraphEnabled,
             repository: accessibleSelectedRepository,
-            stack: alchemyStack,
+            stack: productionStack,
           })
         : alchemyObservations.state === "loading"
           ? []
