@@ -40,9 +40,15 @@ type ConvexSystemQueryResponse = {
 
 const CONVEX_INSPECTION_REQUEST_TIMEOUT_MS = 10_000;
 const CONVEX_INSPECTION_KEY_TTL_MS = 31 * 60 * 1000;
-const CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS = [
-  "deployment:data:view",
-] satisfies ConvexDeployKeyAllowedAction[];
+/**
+The components and schema reads call system queries, which need `deployment:data:view`. Every
+function of the Alchemy state store is internal, and `deployment:data:view` cannot run it.
+*/
+const CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS = {
+  alchemyState: ["deployment:functions:runInternalQueries"],
+  components: ["deployment:data:view"],
+  schema: ["deployment:data:view"],
+} satisfies Record<string, ConvexDeployKeyAllowedAction[]>;
 
 const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
 const vConvexInspectionTarget = object({
@@ -97,8 +103,8 @@ export const readTarget = internalQuery({
 });
 
 /**
-Mints a short-lived `deployment:data:view` deploy key for `deployment`, passes it to `inspect`, and
-revokes it afterwards. Under an OAuth connection the key is the team-wide OAuth token, so `inspect`
+Mints a short-lived read-only deploy key for `deployment` with the allowed actions of `purpose`,
+passes it to `inspect`, and revokes it afterwards. Under an OAuth connection the key is the team-wide OAuth token, so `inspect`
 must keep it on the server.
 
 `purpose` names the key in the Convex dashboard, such as `samebase-schema-<deployment>-<time>`.
@@ -106,7 +112,7 @@ must keep it on the server.
 export async function withConvexInspectionDeployKey<Result>(
   args: {
     deployment: ConvexCloudDeployment;
-    purpose: "alchemyState" | "components" | "schema";
+    purpose: keyof typeof CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS;
     target: ConvexInspectionTarget;
   },
   inspect: (deployKey: string) => Promise<Result>,
@@ -116,7 +122,7 @@ export async function withConvexInspectionDeployKey<Result>(
     .slice(0, 40);
   const name = `samebase-${args.purpose}-${normalizedDeploymentName}-${Date.now().toString(36)}`;
   const deployKey = await createConvexDeploymentDeployKey({
-    allowedActions: CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS,
+    allowedActions: CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS[args.purpose],
     authMethod: args.target.authMethod,
     deploymentName: args.deployment.name,
     expiresAt: Date.now() + CONVEX_INSPECTION_KEY_TTL_MS,

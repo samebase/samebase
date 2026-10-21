@@ -2,6 +2,8 @@
 // 2026-10-21 with `npx convex run` (Convex CLI 1.46.0) for samebase/base-alchemy, whose stack was
 // then named `BaseAlchemy`. Values are real; the stages are trimmed to `main` and
 // `renovate-hono-4-x-73ca1d1d` (the reply listed 6 stages).
+// The store serves the same functions as internal queries through `POST /api/function`
+// (https://github.com/samebase/alchemy-convex/pull/18).
 
 /** `state:stages` for the stack, trimmed to two stages. */
 export const observedAlchemyStages = ["main", "renovate-hono-4-x-73ca1d1d"];

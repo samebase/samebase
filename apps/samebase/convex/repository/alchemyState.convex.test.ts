@@ -33,7 +33,10 @@ type RecordedRequest = {
   url: string;
 };
 
-/** The captured replies answer for the stack `samebase/base-alchemy`, the key of its stack in the store. */
+/**
+Answers the internal store queries that `POST /api/function` runs with the captured replies, for
+the stack `samebase/base-alchemy`: the key of the repository stack in the store.
+*/
 function answerStateFunction(
   path: unknown,
   args: Record<string, unknown>,
@@ -194,7 +197,7 @@ function installAlchemyStateFetchStub(args: {
         return new Response(null, { status: 200 });
       }
       if (
-        url === "https://brave-heron-201.convex.cloud/api/query" &&
+        url === "https://brave-heron-201.convex.cloud/api/function" &&
         isRecord(body) &&
         isRecord(body["args"])
       ) {
@@ -260,7 +263,7 @@ describe("repository Alchemy state", () => {
       ],
     });
 
-    const storeRequests = requests.filter((request) => request.url.endsWith("/api/query"));
+    const storeRequests = requests.filter((request) => request.url.endsWith("/api/function"));
     expect(storeRequests).toHaveLength(8);
     expect(
       new Set(
@@ -274,6 +277,11 @@ describe("repository Alchemy state", () => {
     expect(new Set(storeRequests.map((request) => request.authorization))).toEqual(
       new Set(["Convex prod:brave-heron-201|alchemy-state-secret"]),
     );
+    expect(requests.find((request) => request.url.endsWith("/create_deploy_key"))?.body).toEqual({
+      allowedActions: ["deployment:functions:runInternalQueries"],
+      expiresAt: 1_710_000_000_000 + 31 * 60 * 1000,
+      name: "samebase-alchemyState-brave-heron-201-ltk9ukg0",
+    });
     expect(requests.find((request) => request.url.endsWith("/delete_deploy_key"))?.body).toEqual({
       id: "samebase-alchemyState-brave-heron-201-ltk9ukg0",
     });

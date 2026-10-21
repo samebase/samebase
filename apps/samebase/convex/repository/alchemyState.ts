@@ -44,9 +44,9 @@ type AlchemyStateObservation = Infer<typeof vAlchemyStateObservation>;
 
 /**
 The function names of the store are a wire contract of samebase/alchemy-convex: a name is never
-renamed or removed. Each one is a query of the root app, and a query needs a deploy key with
-`deployment:data:view`. A function error fails the request, which `fetchConvexDeploymentJson`
-throws.
+renamed or removed. Each one is an internal query of the root app: only `POST /api/function`
+reaches it, with a deploy key that allows `deployment:functions:runInternalQueries`. A function
+error fails the request, which `fetchConvexDeploymentJson` throws.
 
 - `state:stages` `{ stack }`: the stage names of the stack, in index order.
 - `state:list` `{ stack, stage }`: the resource fqns of the stage, in index order.
@@ -110,7 +110,7 @@ export const observe = action({
           await fetchConvexDeploymentJson({
             deployKey,
             deploymentUrl: deployment.deploymentUrl,
-            path: "/api/query",
+            path: "/api/function",
             body: { path, args: functionArgs, format: "json" },
           });
         const names = async (path: string, functionArgs: Record<string, string>) => {
