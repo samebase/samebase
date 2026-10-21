@@ -10,12 +10,12 @@ inside the app keeps the current page on screen until they are there.
 */
 export const repositoryDashboardQueries = {
   folderState: convexQuery(api.repository.folders.getRepositoryFolderState, {}),
-  organizations: convexQuery(api.organizations.listForViewer, {}),
+  organizations: rootQueries.organizations,
   organizationTreeSettings: convexQuery(
     api.repository.organizationTree.getRepositoryOrganizationTreeSettings,
     {},
   ),
-  repositories: convexQuery(api.repository.list, {}),
+  repositories: rootQueries.repositories,
 };
 
 export async function loadRepositoryDashboard({

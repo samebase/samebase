@@ -1,38 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
-import {
-  APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-  APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-} from "../src/lib/appWorkspaceSidebarPreferences";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 
-/**
- * These tests exercise the file-view sidebars, so the first load starts with both sidebars open.
- * The seed skips an existing saved state because the persistence checks reload after a drag.
- */
+/** These tests exercise the file-view sidebars, so they start with both sidebars open. */
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(
-    ({ state, storageKey, version }) => {
-      if (window.localStorage.getItem(storageKey) === null) {
-        window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
-      }
-    },
-    {
-      state: {
-        leftDesktopOpen: true,
-        leftDesktopWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-        leftMobileWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-        mobilePane: "main",
-        mobileSurface: { kind: "unmerged" },
-        rightDesktopOpen: true,
-        rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-        rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-      } satisfies WorkspaceSidebarState,
-      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      version: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-    },
-  );
+  await seedVisualFixtureWorkspaceSidebarState(page, {
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
 });
 
 function getSidebarLayoutPane(page: Page, side: "left" | "main" | "right") {
@@ -180,8 +154,6 @@ for (const side of ["left", "right"] as const) {
       )
       .toEqual([580, 160, 160]);
     await page.setViewportSize({ width: 1280, height: 760 });
-    await expect.poll(async () => (await getBox(sidebar)).width).toBe(960);
-    await page.reload({ waitUntil: "networkidle" });
     await expect
       .poll(async () =>
         Promise.all(

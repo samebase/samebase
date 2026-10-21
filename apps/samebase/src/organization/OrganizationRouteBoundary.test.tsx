@@ -24,22 +24,19 @@ const organization = {
 } satisfies ViewerOrganization;
 
 const testState = vi.hoisted<{
-  queryCalls: Array<{ args: unknown; name: string }>;
+  queryCalls: Array<{ enabled: boolean; name: string }>;
   queryResults: Map<string, unknown>;
 }>(() => ({ queryCalls: [], queryResults: new Map() }));
 
-vi.mock("convex/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("convex/react")>();
-  return {
-    ...actual,
-    useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
-    useQuery: (reference: Parameters<typeof actual.useQuery>[0], args: unknown) => {
-      const name = getFunctionName(reference);
-      testState.queryCalls.push({ args, name });
-      return args === "skip" ? undefined : testState.queryResults.get(name);
-    },
-  };
-});
+// `convexQuery` options carry the Convex function name second in the query key.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
+  useQuery: ({ enabled = true, queryKey }: { enabled?: boolean; queryKey: readonly unknown[] }) => {
+    const name = String(queryKey[1]);
+    testState.queryCalls.push({ enabled, name });
+    return { data: enabled ? testState.queryResults.get(name) : undefined };
+  },
+}));
 
 function renderBoundary(owner: string) {
   return renderToStaticMarkup(
@@ -93,8 +90,8 @@ describe("OrganizationRouteBoundary", () => {
 
     expect(renderBoundary("samebase")).toBe("");
     expect(testState.queryCalls).toEqual([
-      { args: {}, name: getFunctionName(api.users.currentViewerAccess) },
-      { args: "skip", name: getFunctionName(api.organizations.listForViewer) },
+      { enabled: true, name: getFunctionName(api.users.currentViewerAccess) },
+      { enabled: false, name: getFunctionName(api.organizations.listForViewer) },
     ]);
   });
 
@@ -107,7 +104,7 @@ describe("OrganizationRouteBoundary", () => {
 
     expect(renderOrganizationDirectoryContext()).toContain(">1<");
     expect(testState.queryCalls).toContainEqual({
-      args: {},
+      enabled: true,
       name: getFunctionName(api.organizations.listForViewer),
     });
   });

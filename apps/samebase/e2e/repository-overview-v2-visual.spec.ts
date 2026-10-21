@@ -1,9 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { RepositoryOverviewVisualMode } from "../src/repository/dashboard/RepositoryOverviewVisualFixture";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 
-const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 const MOBILE_MINIMUM_SIDEBAR_WIDTH_PX = 130;
 const REPOSITORY_OVERVIEW_V2_SIDEBAR_STATE = {
   leftDesktopOpen: true,
@@ -29,16 +28,7 @@ async function openRepositoryOverviewV2(
       contentType: "image/svg+xml",
     });
   });
-  await page.addInitScript(
-    ({ state, storageKey, version }) => {
-      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
-    },
-    {
-      state: sidebarState,
-      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
-    },
-  );
+  await seedVisualFixtureWorkspaceSidebarState(page, sidebarState);
   await page.goto(`/visual-fixture?mode=${mode}`, {
     waitUntil: "domcontentloaded",
   });

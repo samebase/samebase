@@ -1,30 +1,31 @@
 // @vitest-environment jsdom
 
-import { createContext, Script } from "node:vm";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as React from "react";
-import { createRoot, hydrateRoot, type Root } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/SidebarLayoutGeometry";
 import type { SidebarLayoutState } from "@samebase/sidebars/SidebarLayoutState";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
-import {
-  appWorkspaceMobilePanePrehydrationScript,
-  appWorkspaceSidebarPrehydrationScript,
-  clearAppWorkspaceSidebarDesktopPrehydrationStyle,
-} from "@/lib/appWorkspaceSidebarPrehydration";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import { getFunctionName } from "convex/server";
+import { api } from "../../convex/_generated/api";
+import { RouterContextProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createAppRouter } from "@/router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act, useState } = React;
-const { toggleLeftPaneMock, toggleRightPaneMock, useConvexAuthMock, useQueryMock } = vi.hoisted(
-  () => ({
-    toggleLeftPaneMock: vi.fn(),
-    toggleRightPaneMock: vi.fn(),
-    useConvexAuthMock: vi.fn(),
-    useQueryMock: vi.fn(),
-  }),
-);
+const {
+  savedSidebarState,
+  toggleLeftPaneMock,
+  toggleRightPaneMock,
+  useConvexAuthMock,
+  useQueryMock,
+} = vi.hoisted(() => ({
+  savedSidebarState: { current: null as SidebarLayoutState | null },
+  toggleLeftPaneMock: vi.fn(),
+  toggleRightPaneMock: vi.fn(),
+  useConvexAuthMock: vi.fn(),
+  useQueryMock: vi.fn(),
+}));
 
 // This jsdom mount has no Start server request or client compilation.
 vi.mock("@/lib/isomorphic", async (importOriginal) => ({
@@ -45,6 +46,24 @@ vi.mock("@samebase/sidebars/SidebarRuntime", async (importOriginal) => {
   };
 });
 
+// The root loader's saved sidebar state, or none, as for a visitor without a session. Other queries of
+// the TanStack cache have no data.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
+  useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => ({
+    data:
+      queryKey[1] === getFunctionName(api.workspaceSidebarState.getWorkspaceSidebarState)
+        ? savedSidebarState.current
+        : undefined,
+  }),
+}));
+
+// The repository routes' loader would query Convex over a socket that jsdom cannot open.
+vi.mock("@/routes/repository-dashboard.queries", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/routes/repository-dashboard.queries")>()),
+  loadRepositoryDashboard: async () => {},
+}));
+
 vi.mock("@/components/useAppRightSidebarPane", () => ({
   useAppRightSidebarPane: () => ({
     content: null,
@@ -61,22 +80,6 @@ vi.mock("convex/react", async (importOriginal) => {
     useQuery: useQueryMock,
   };
 });
-
-const LOCAL_SIDEBAR_STATE = {
-  leftDesktopOpen: false,
-  leftDesktopWidthPx: 260,
-  leftMobileWidthPx: 260,
-  mobilePane: "left",
-  mobileSurface: { kind: "unmerged" },
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: 340,
-  rightMobileWidthPx: 340,
-} satisfies SidebarLayoutState;
-
-const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR =
-  "style#samebase-app-workspace-sidebar-prehydration";
-const APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE =
-  "data-sidebar-layout-desktop-prehydration-scope";
 
 const SERVER_SIDEBAR_STATE = {
   leftDesktopOpen: true,
@@ -105,7 +108,7 @@ describe("AppWorkspaceShell", () => {
       isLoading: false,
     });
     useQueryMock.mockReturnValue(undefined);
-    window.localStorage.clear();
+    savedSidebarState.current = null;
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn((query: string) => ({
@@ -124,8 +127,6 @@ describe("AppWorkspaceShell", () => {
   afterEach(() => {
     useConvexAuthMock.mockReset();
     useQueryMock.mockReset();
-    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
-    window.localStorage.clear();
     const mountedRoot = root;
     if (mountedRoot) {
       act(() => {
@@ -210,157 +211,6 @@ describe("AppWorkspaceShell", () => {
     });
   }
 
-  function runAppWorkspaceSidebarPrehydrationScript(scriptElement: HTMLScriptElement) {
-    const currentScriptSpy = vi
-      .spyOn(document, "currentScript", "get")
-      .mockReturnValue(scriptElement);
-    try {
-      new Script(appWorkspaceSidebarPrehydrationScript).runInContext(
-        createContext({
-          document,
-          encodeURIComponent,
-          JSON,
-          Math,
-          Number,
-          window,
-        }),
-      );
-    } finally {
-      currentScriptSpy.mockRestore();
-    }
-  }
-
-  function runAppMobilePanePrehydrationScript(scriptElement: HTMLScriptElement) {
-    const currentScriptSpy = vi
-      .spyOn(document, "currentScript", "get")
-      .mockReturnValue(scriptElement);
-    try {
-      new Script(appWorkspaceMobilePanePrehydrationScript).runInContext(
-        createContext({
-          document,
-          JSON,
-          Math,
-          Number,
-          window,
-        }),
-      );
-    } finally {
-      currentScriptSpy.mockRestore();
-    }
-  }
-
-  function withMobileViewportWidth<T>(widthPx: number, callback: () => T) {
-    const originalInnerWidthDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
-    Object.defineProperty(window, "innerWidth", {
-      configurable: true,
-      get: () => widthPx,
-    });
-    try {
-      return callback();
-    } finally {
-      if (originalInnerWidthDescriptor !== undefined) {
-        Object.defineProperty(window, "innerWidth", originalInnerWidthDescriptor);
-      }
-    }
-  }
-
-  function appendPrehydrationCarousel({
-    includeLeftPane = true,
-    includeRightPane = true,
-    mobileMinResizeBehavior = "min_resize_to_merge",
-  }: {
-    includeLeftPane?: boolean;
-    includeRightPane?: boolean;
-    mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
-  }) {
-    const container = document.createElement("div");
-    rootElement = container;
-    const layoutRoot = document.createElement("div");
-    const carousel = document.createElement("div");
-    const frameworkScriptElement = document.createElement("script");
-    const scriptElement = document.createElement("script");
-    carousel.setAttribute("data-sidebar-layout-part", "carousel");
-    layoutRoot.setAttribute("data-mobile-pane", "main");
-    layoutRoot.setAttribute("data-mobile-min-resize-behavior", mobileMinResizeBehavior);
-    layoutRoot.setAttribute("data-sidebar-layout-part", "viewport");
-
-    if (includeLeftPane) {
-      const leftPane = document.createElement("div");
-      leftPane.setAttribute("data-pane-side", "left");
-      leftPane.setAttribute("data-sidebar-layout-part", "pane");
-      carousel.append(leftPane);
-    }
-
-    const mainPane = document.createElement("div");
-    const mainPaneSurface = document.createElement("div");
-    mainPane.setAttribute("data-pane-side", "main");
-    mainPane.setAttribute("data-sidebar-layout-part", "pane");
-    mainPaneSurface.setAttribute("data-sidebar-layout-part", "pane-surface");
-    mainPane.append(mainPaneSurface);
-    carousel.append(mainPane);
-
-    if (includeRightPane) {
-      const rightPane = document.createElement("div");
-      rightPane.setAttribute("data-pane-side", "right");
-      rightPane.setAttribute("data-sidebar-layout-part", "pane");
-      carousel.append(rightPane);
-    }
-
-    layoutRoot.append(carousel);
-    container.append(layoutRoot, frameworkScriptElement, scriptElement);
-    document.body.append(container);
-
-    return {
-      carousel,
-      container,
-      layoutRoot,
-      scriptElement,
-    };
-  }
-
-  async function hydrateClientShellFromServerMarkup({
-    initialEntry = "/logo",
-    inspectPrehydratedMarkup,
-  }: {
-    initialEntry?: string;
-    inspectPrehydratedMarkup?: (carousel: HTMLElement) => void;
-  } = {}) {
-    const recoverableErrors: unknown[] = [];
-    const container = document.createElement("div");
-    rootElement = container;
-    document.body.append(container);
-    container.innerHTML = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={[initialEntry]}>
-        <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">workspace route content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
-    );
-    const carousel = getRequiredElement('[data-sidebar-layout-part="carousel"]');
-    runAppWorkspaceSidebarPrehydrationScript(
-      getRequiredInlineScriptElement(appWorkspaceSidebarPrehydrationScript),
-    );
-    inspectPrehydratedMarkup?.(carousel);
-
-    await act(async () => {
-      root = hydrateRoot(
-        container,
-        <TestRouterProvider initialEntries={[initialEntry]}>
-          <AppWorkspaceShell>
-            <div data-testid="workspace-route-content">workspace route content</div>
-          </AppWorkspaceShell>
-        </TestRouterProvider>,
-        {
-          onRecoverableError: (error: unknown) => {
-            recoverableErrors.push(error);
-          },
-        },
-      );
-    });
-
-    return recoverableErrors;
-  }
-
   function getRequiredElement(selector: string) {
     const element = rootElement?.querySelector(selector);
     if (!(element instanceof HTMLElement)) {
@@ -368,90 +218,6 @@ describe("AppWorkspaceShell", () => {
     }
 
     return element;
-  }
-
-  function getRequiredDocumentElement(selector: string) {
-    const element = document.querySelector(selector);
-    if (!(element instanceof HTMLElement)) {
-      throw new Error(`Expected document element matching ${selector}.`);
-    }
-
-    return element;
-  }
-
-  function getRequiredInlineScriptElement(source: string) {
-    for (const scriptElement of rootElement?.querySelectorAll("script") ?? []) {
-      if (scriptElement.textContent === source) return scriptElement;
-    }
-
-    throw new Error("Expected the inline workspace prehydration script.");
-  }
-
-  function getRequiredPrehydrationStyleText() {
-    return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)
-      .textContent;
-  }
-
-  function getPrehydrationViewportSelector(carousel: HTMLElement) {
-    const scopeValue = carousel.getAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE);
-    if (scopeValue === null) {
-      throw new Error("Expected the desktop prehydration scope.");
-    }
-
-    return `[data-sidebar-layout-part="carousel"][${APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE}="${scopeValue}"]:not([data-viewport-measured])`;
-  }
-
-  type ExpectedPrehydrationGeometry = {
-    leftDesktopOpen: boolean;
-    leftDesktopWidth: string;
-    rightDesktopOpen: boolean;
-    rightDesktopWidth: string;
-  };
-
-  function expectPrehydrationStyleText({
-    carousel,
-    leftDesktopOpen,
-    leftDesktopWidth,
-    rightDesktopOpen,
-    rightDesktopWidth,
-    styleText,
-  }: ExpectedPrehydrationGeometry & { carousel: HTMLElement; styleText: string }) {
-    const viewportSelector = getPrehydrationViewportSelector(carousel);
-    expect(styleText).toContain("@media (min-width: 768px)");
-    expect(styleText).toContain(
-      `${viewportSelector} [data-sidebar-layout-part="pane"][data-pane-side="left"]`,
-    );
-    expect(styleText).toContain(
-      `border-inline-end-width: ${leftDesktopOpen ? 1 : 0}px !important;`,
-    );
-    expect(styleText).toContain(`width: ${leftDesktopWidth} !important;`);
-    expect(styleText).toContain(
-      `${viewportSelector} [data-sidebar-layout-part="pane"][data-pane-side="right"]`,
-    );
-    expect(styleText).toContain(
-      `border-inline-start-width: ${rightDesktopOpen ? 1 : 0}px !important;`,
-    );
-    expect(styleText).toContain(`width: ${rightDesktopWidth} !important;`);
-  }
-
-  function expectPrehydrationStyle(
-    expectedGeometry: ExpectedPrehydrationGeometry,
-    carousel: HTMLElement,
-  ) {
-    expectPrehydrationStyleText({
-      ...expectedGeometry,
-      carousel,
-      styleText: getRequiredPrehydrationStyleText(),
-    });
-  }
-
-  function readStoredAppWorkspaceSidebarState() {
-    const storedValue = window.localStorage.getItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
-    if (storedValue === null) {
-      throw new Error("Expected app workspace sidebar state in localStorage.");
-    }
-
-    return JSON.parse(storedValue);
   }
 
   it("server-renders route content inside the workspace layout", () => {
@@ -491,52 +257,24 @@ describe("AppWorkspaceShell", () => {
     expect(markup).not.toContain("min-h-dvh");
   });
 
-  it("server-renders static no-left routes without the default left pane", () => {
-    for (const route of [
-      "/account-deletion",
-      "/admin/account-deletions",
-      "/admin/users",
-      "/logo/raster-seams",
-      "/logo/single-cube",
-      "/logo/svg",
-      "/logo/transition",
-      "/logo/transition/transforms",
-      "/org/samebase",
-      "/org/samebase/connect-repo",
-      "/org/samebase/new-app",
-      "/org/samebase/providers",
-      "/org/samebase/settings",
-      "/org/samebase/repositories",
-      "/oauth/mcp/consent?mcp_consent_request=mcpar_test",
-      "/pitch",
-      "/pitch/print",
-      "/pitch/print/mobile",
-      "/settings",
-      "/terms",
-      "/privacy",
-      "/test",
-      "/repo/",
-      "/repo/ada/demo/db/main/project/convex-attachment",
-    ]) {
-      const markup = renderToStaticMarkup(
-        <TestRouterProvider initialEntries={[route]}>
-          <AppWorkspaceShell>
-            <div data-testid="workspace-route-content">workspace route content</div>
-          </AppWorkspaceShell>
-        </TestRouterProvider>,
-      );
+  it("server-renders static no-left routes without the default left pane", async () => {
+    // The shell reads the rendered route matches, which a server render has after its loaders.
+    const router = createAppRouter(createMemoryHistory({ initialEntries: ["/terms"] }));
+    await router.load();
+    const markup = renderToStaticMarkup(
+      <RouterContextProvider router={router}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">workspace route content</div>
+        </AppWorkspaceShell>
+      </RouterContextProvider>,
+    );
 
-      expect(markup).toContain('data-sidebar-layout-part="root"');
-      expect(markup).toContain('data-sidebar-layout-part="address-chrome"');
-      expect(markup).toContain('data-testid="route-url-editor"');
-      expect(markup).toContain('data-pane-side="right"');
-      expect(markup).toContain("workspace route content");
-      const markupContainer = document.createElement("div");
-      markupContainer.innerHTML = markup;
-      expect(
-        markupContainer.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
-      ).toBeNull();
-    }
+    expect(markup).toContain('data-sidebar-layout-part="root"');
+    expect(markup).toContain('data-sidebar-layout-part="address-chrome"');
+    expect(markup).toContain('data-testid="route-url-editor"');
+    expect(markup).toContain('data-pane-side="right"');
+    expect(markup).toContain("workspace route content");
+    expect(markup).not.toContain('data-pane-side="left"');
   });
 
   it("does not inherit no-left metadata into ordinary child routes", () => {
@@ -559,18 +297,20 @@ describe("AppWorkspaceShell", () => {
     }
   });
 
-  it("keeps static no-left route metadata authoritative over route chrome", () => {
+  it("keeps static no-left route metadata authoritative over route chrome", async () => {
+    const router = createAppRouter(createMemoryHistory({ initialEntries: ["/terms"] }));
+    await router.load();
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
 
     act(() => {
       root?.render(
-        <TestRouterProvider initialEntries={["/terms"]}>
+        <RouterContextProvider router={router}>
           <AppWorkspaceShell>
             <LeftPaneRouteChromeProbe />
           </AppWorkspaceShell>
-        </TestRouterProvider>,
+        </RouterContextProvider>,
       );
     });
 
@@ -753,358 +493,6 @@ describe("AppWorkspaceShell", () => {
     expect(rightToggle.classList.contains("hidden")).toBe(false);
   });
 
-  it("mirrors hydrated Convex sidebar state into localStorage", () => {
-    useConvexAuthMock.mockReturnValue({
-      isAuthenticated: true,
-      isLoading: false,
-    });
-    useQueryMock.mockReturnValue(SERVER_SIDEBAR_STATE);
-
-    renderClientShell();
-
-    expect(readStoredAppWorkspaceSidebarState()).toMatchObject({
-      state: SERVER_SIDEBAR_STATE,
-      version: 2,
-    });
-  });
-
-  it("keeps the local sidebar cache when Convex has no row", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: LOCAL_SIDEBAR_STATE,
-        version: 2,
-      }),
-    );
-    useConvexAuthMock.mockReturnValue({
-      isAuthenticated: true,
-      isLoading: false,
-    });
-    useQueryMock.mockReturnValue(null);
-
-    renderClientShell();
-
-    expect(readStoredAppWorkspaceSidebarState()).toMatchObject({
-      state: LOCAL_SIDEBAR_STATE,
-      version: 2,
-    });
-  });
-
-  it("prehydrates local sidebar widths before the client hydration update", async () => {
-    const localWidthState = {
-      ...LOCAL_SIDEBAR_STATE,
-      leftDesktopOpen: true,
-      leftDesktopWidthPx: 360,
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 420,
-    } satisfies SidebarLayoutState;
-
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: localWidthState,
-        version: 2,
-      }),
-    );
-
-    const recoverableErrors = await hydrateClientShellFromServerMarkup({
-      inspectPrehydratedMarkup: (carousel) => {
-        expectPrehydrationStyle(
-          {
-            leftDesktopOpen: true,
-            leftDesktopWidth: "360px",
-            rightDesktopOpen: true,
-            rightDesktopWidth: "420px",
-          },
-          carousel,
-        );
-      },
-    });
-
-    const viewport = getRequiredElement('[data-sidebar-layout-part="carousel"]');
-    expect(viewport.getAttribute("style")).toContain("--sidebar-layout-left-desktop-width: 360px");
-    expect(viewport.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width: 420px");
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(recoverableErrors).toEqual([]);
-  });
-
-  it("hydrates no-left routes against stored left sidebar state without adding a left pane", async () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftDesktopOpen: true,
-          leftDesktopWidthPx: 360,
-          mobilePane: "left",
-        },
-        version: 2,
-      }),
-    );
-
-    const recoverableErrors = await hydrateClientShellFromServerMarkup({
-      initialEntry: "/terms",
-    });
-
-    expect(
-      rootElement?.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
-    ).toBeNull();
-    expect(getRequiredElement('[data-sidebar-layout-part="carousel"]')).toBeInstanceOf(HTMLElement);
-    expect(getRequiredElement('[data-sidebar-layout-part="address-chrome"]')).toBeInstanceOf(
-      HTMLElement,
-    );
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(recoverableErrors).toEqual([]);
-  });
-
-  it("clears the temporary prehydration style element", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: LOCAL_SIDEBAR_STATE,
-        version: 2,
-      }),
-    );
-
-    const { carousel, scriptElement } = appendPrehydrationCarousel({});
-    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
-
-    expectPrehydrationStyle(
-      {
-        leftDesktopOpen: false,
-        leftDesktopWidth: "0px",
-        rightDesktopOpen: true,
-        rightDesktopWidth: "340px",
-      },
-      carousel,
-    );
-
-    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
-
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
-  });
-
-  it("does not prehydrate invalid local sidebar widths", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftDesktopOpen: true,
-          leftDesktopWidthPx: "360",
-        },
-        version: 2,
-      }),
-    );
-
-    const { carousel, scriptElement } = appendPrehydrationCarousel({});
-    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
-
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
-  });
-
-  it("does not prehydrate a merged surface below the runtime main-width minimum", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          mobilePane: "right",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: 0,
-            side: "right",
-          },
-        },
-        version: 2,
-      }),
-    );
-
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
-    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
-
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
-
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
-    expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
-    expect(layoutRoot.style.length).toBe(0);
-    expect(carousel.scrollLeft).toBe(0);
-  });
-
-  it("prehydrates closed local sidebars as zero width", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftDesktopOpen: false,
-          rightDesktopOpen: false,
-        },
-        version: 2,
-      }),
-    );
-
-    const { carousel, scriptElement } = appendPrehydrationCarousel({});
-    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
-
-    expectPrehydrationStyle(
-      {
-        leftDesktopOpen: false,
-        leftDesktopWidth: "0px",
-        rightDesktopOpen: false,
-        rightDesktopWidth: "0px",
-      },
-      carousel,
-    );
-  });
-
-  it("prehydrates the unmerged mobile pane before hydration", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftMobileWidthPx: 260,
-          mobilePane: "right",
-          mobileSurface: { kind: "unmerged" },
-          rightMobileWidthPx: 340,
-        },
-        version: 2,
-      }),
-    );
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
-
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
-
-    expect(
-      document.querySelector("style#samebase-app-workspace-sidebar-mobile-prehydration"),
-    ).toBeNull();
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-left-mobile-width")).toBe("260px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("390px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-right-mobile-width")).toBe("340px");
-    expect(carousel.scrollLeft).toBe(600);
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
-    expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
-    expect(
-      carousel
-        .querySelector('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
-        ?.getAttribute("data-sidebar-layout-part"),
-    ).toBe("pane");
-  });
-
-  it("fits a persisted merged mobile pane to the current viewport before hydration", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftMobileWidthPx: 260,
-          mobilePane: "right",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: 302,
-            side: "right",
-          },
-          rightMobileWidthPx: 1,
-        },
-        version: 2,
-      }),
-    );
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
-
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
-
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-left-mobile-width")).toBe("260px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("260px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-right-mobile-width")).toBe("130px");
-    expect(carousel.scrollLeft).toBe(260);
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
-    expect(layoutRoot.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
-    expect(
-      carousel
-        .querySelector('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
-        ?.getAttribute("data-sidebar-layout-part"),
-    ).toBe("pane");
-  });
-
-  it("prehydrates a persisted merge as unmerged geometry for slide behavior", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftMobileWidthPx: 260,
-          mobilePane: "right",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: 260,
-            side: "right",
-          },
-          rightMobileWidthPx: 130,
-        },
-        version: 2,
-      }),
-    );
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({
-      mobileMinResizeBehavior: "min_resize_to_slide",
-    });
-
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
-
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("390px");
-    expect(carousel.scrollLeft).toBe(390);
-    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
-    expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
-  });
-
-  it("prehydrates invalid merged mobile pane state as unmerged geometry", () => {
-    window.localStorage.setItem(
-      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      JSON.stringify({
-        state: {
-          ...LOCAL_SIDEBAR_STATE,
-          leftMobileWidthPx: 260,
-          mobilePane: "right",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: 294,
-            side: "right",
-          },
-          rightMobileWidthPx: 340,
-        },
-        version: 2,
-      }),
-    );
-    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
-
-    withMobileViewportWidth(390, () => {
-      runAppMobilePanePrehydrationScript(scriptElement);
-    });
-
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-left-mobile-width")).toBe("260px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-main-mobile-width")).toBe("390px");
-    expect(layoutRoot.style.getPropertyValue("--sidebar-layout-right-mobile-width")).toBe("340px");
-    expect(carousel.scrollLeft).toBe(600);
-    expect(layoutRoot.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
-    expect(
-      carousel
-        .querySelector('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
-        ?.getAttribute("data-sidebar-layout-part"),
-    ).toBe("pane");
-  });
-
   it("starts with the left sidebar closed and the right sidebar open in server markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/logo"]}>
@@ -1116,5 +504,32 @@ describe("AppWorkspaceShell", () => {
 
     expect(markup).toContain("--sidebar-layout-left-desktop-width:0px");
     expect(markup).toContain("--sidebar-layout-right-desktop-width:288px");
+  });
+
+  it("server-renders the root loader's saved sidebar state", () => {
+    savedSidebarState.current = SERVER_SIDEBAR_STATE;
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/logo"]}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">workspace route content</div>
+        </AppWorkspaceShell>
+      </TestRouterProvider>,
+    );
+    const markupContainer = document.createElement("div");
+    markupContainer.innerHTML = markup;
+    const viewport = markupContainer.querySelector('[data-sidebar-layout-part="viewport"]');
+    const carousel = markupContainer.querySelector('[data-sidebar-layout-part="carousel"]');
+
+    expect(carousel?.getAttribute("style")).toContain("--sidebar-layout-left-desktop-width:300px");
+    expect(carousel?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
+    expect(viewport?.getAttribute("data-mobile-pane")).toBe("right");
+    expect(viewport?.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
+    expect(viewport?.getAttribute("style")).toContain(
+      "--sidebar-layout-right-mobile-width:clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px))",
+    );
+    expect(viewport?.getAttribute("style")).toContain(
+      "--sidebar-layout-main-mobile-width:calc(100% - clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px)))",
+    );
+    expect(viewport?.getAttribute("style")).toContain("--sidebar-layout-left-mobile-width:0px");
   });
 });

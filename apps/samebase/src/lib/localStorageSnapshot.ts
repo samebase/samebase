@@ -1,5 +1,3 @@
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
-
 export type LocalStorageEntry = {
   key: string;
   value: string;
@@ -17,9 +15,7 @@ export type LocalStorageSnapshot =
 
 type ReadableLocalStorage = Pick<Storage, "getItem" | "key" | "length">;
 
-const BROWSER_LOCAL_STORAGE_CHANGE_EVENT = "samebase:local-storage-change";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
-const INTERNAL_LOCAL_STORAGE_KEYS = new Set([APP_WORKSPACE_SIDEBAR_STORAGE_KEY]);
 
 function compareStorageKeys(left: string, right: string): number {
   if (left < right) {
@@ -38,7 +34,7 @@ function readStorageErrorMessage(error: unknown): string {
 }
 
 function isVisibleLocalStorageKey(key: string): boolean {
-  return !key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX) && !INTERNAL_LOCAL_STORAGE_KEYS.has(key);
+  return !key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX);
 }
 
 /**
@@ -93,23 +89,13 @@ export function readBrowserLocalStorageSnapshot(): LocalStorageSnapshot {
   }
 }
 
-export function notifyBrowserLocalStorageChanged(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.dispatchEvent(new Event(BROWSER_LOCAL_STORAGE_CHANGE_EVENT));
-}
-
 export function subscribeBrowserLocalStorageSnapshot(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") {
     return () => {};
   }
 
   window.addEventListener("storage", onStoreChange);
-  window.addEventListener(BROWSER_LOCAL_STORAGE_CHANGE_EVENT, onStoreChange);
   return () => {
     window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(BROWSER_LOCAL_STORAGE_CHANGE_EVENT, onStoreChange);
   };
 }

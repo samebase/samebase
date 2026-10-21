@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { RouterContextProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createAppRouter } from "@/router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { type ReactNode } from "react";
 import { act } from "react";
@@ -68,6 +70,13 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+// The shell reads the root loader's saved sidebar state from the TanStack cache; a visitor without
+// a session has none, and the query would open a Convex socket that jsdom cannot open.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
+  useQuery: () => ({ data: undefined }),
+}));
+
 vi.mock("@/components/useAppRightSidebarPane", () => ({
   useAppRightSidebarPane: () => ({
     content: <div data-testid="default-right-sidebar">Default right sidebar</div>,
@@ -86,7 +95,8 @@ vi.mock("@/lib/usePageMetadata", () => ({
   usePageMetadata: vi.fn(),
 }));
 
-vi.mock("@/lib/pageMetadata", () => ({
+vi.mock("@/lib/pageMetadata", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pageMetadata")>()),
   resolvePageMetadata: () => ({}),
 }));
 
@@ -132,17 +142,24 @@ describe("McpConsentRoutePage workspace shell", () => {
   });
 
   it("keeps the workspace right sidebar while rendering instruction-only main content", async () => {
+    // The shell reads the rendered route matches, which the app has after the route's loaders.
+    const router = createAppRouter(
+      createMemoryHistory({
+        initialEntries: ["/oauth/mcp/consent?mcp_consent_request=mcpar_test"],
+      }),
+    );
+    await router.load();
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
 
     await act(async () => {
       root?.render(
-        <TestRouterProvider initialEntries={["/oauth/mcp/consent?mcp_consent_request=mcpar_test"]}>
+        <RouterContextProvider router={router}>
           <AppWorkspaceShell>
             <McpConsentRoutePage />
           </AppWorkspaceShell>
-        </TestRouterProvider>,
+        </RouterContextProvider>,
       );
     });
 

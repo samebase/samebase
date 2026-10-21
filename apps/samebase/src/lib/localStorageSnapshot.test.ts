@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "./appWorkspaceSidebarPreferences";
 import {
-  notifyBrowserLocalStorageChanged,
   readLocalStorageSnapshot,
   subscribeBrowserLocalStorageSnapshot,
 } from "./localStorageSnapshot";
@@ -72,10 +70,9 @@ describe("readLocalStorageSnapshot", () => {
     });
   });
 
-  it("omits app runtime storage keys", () => {
+  it("omits Convex Auth storage keys", () => {
     storage.setItem("__convexAuthJWT_http12700114134", "jwt");
     storage.setItem("__convexAuthRefreshToken_http12700114134", "refresh");
-    storage.setItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY, "{}");
     storage.setItem("noter.visible", "kept");
 
     expect(readLocalStorageSnapshot(storage)).toEqual({
@@ -89,15 +86,14 @@ describe("readLocalStorageSnapshot", () => {
     });
   });
 
-  it("subscribes to native and app-owned browser localStorage changes", () => {
+  it("subscribes to browser localStorage changes", () => {
     const onStoreChange = vi.fn();
     const unsubscribe = subscribeBrowserLocalStorageSnapshot(onStoreChange);
 
     window.dispatchEvent(new Event("storage"));
-    notifyBrowserLocalStorageChanged();
     unsubscribe();
-    notifyBrowserLocalStorageChanged();
+    window.dispatchEvent(new Event("storage"));
 
-    expect(onStoreChange).toHaveBeenCalledTimes(2);
+    expect(onStoreChange).toHaveBeenCalledTimes(1);
   });
 });

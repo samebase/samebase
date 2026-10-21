@@ -32,7 +32,7 @@ import {
 } from "@/organization/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -419,10 +419,12 @@ function AuthenticatedAppRightSidebarContent({
 }: {
   showAdminNavigation: boolean;
 }) {
+  // The root loader fetched these for a server render with this access, so the links, the consent
+  // prompt, and the onboarding video are in the first HTML; the subscriptions keep them live.
   const { data: user } = useQuery(rootQueries.viewer);
-  const repositories = useConvexQuery(api.repository.list);
-  const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
-  const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
+  const { data: repositories } = useQuery(rootQueries.repositories);
+  const { data: productUpdateEmailConsent } = useQuery(rootQueries.productUpdateEmailConsent);
+  const { data: sessionRecordingConsent } = useQuery(rootQueries.sessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
   const navigationOrganization =
     surface.kind === "organization" && organizations
