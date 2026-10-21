@@ -90,8 +90,10 @@ function readServerIsMobileSidebarLayout() {
 
 /**
 The server cannot measure the viewport, so the server and hydration renders use the desktop layout,
-and React rerenders with the measured layout right after hydration. Until then, the mobile
-prehydration script positions the server markup. Client-only mounts read the viewport directly.
+and React rerenders with the measured layout right after hydration. Until then, the structure CSS
+lays out the server markup from the consumer state: the desktop widths on wide viewports and the
+unmeasured mobile geometry of `SidebarLayout` on narrow ones. Client-only mounts read the viewport
+directly.
 */
 function useIsMobileSidebarLayout() {
   return useSyncExternalStore(

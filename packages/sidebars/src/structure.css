@@ -177,6 +177,15 @@
     scroll-snap-stop: normal;
   }
 
+  /* The server HTML cannot scroll the carousel to a saved right pane, so the content aligns to the
+     end until React measures the viewport and scrolls to the same position. */
+  :where(
+    [data-sidebar-layout-part="viewport"][data-mobile-pane="right"]
+      > [data-sidebar-layout-part="carousel"]:not([data-viewport-measured])
+  ) {
+    justify-content: flex-end;
+  }
+
   :where([data-sidebar-layout-part="pane"])::before,
   :where([data-sidebar-layout-part="pane"])::after {
     pointer-events: none;
