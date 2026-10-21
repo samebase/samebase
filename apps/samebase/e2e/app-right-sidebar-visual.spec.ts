@@ -11,10 +11,6 @@ import {
 } from "./organizationContextAcceptance";
 import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
-// The signed-in tests save the sidebar state of the shared seeded account in Convex, so they run one
-// after another in one worker.
-test.describe.configure({ mode: "default" });
-
 const APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: 240,
@@ -60,15 +56,22 @@ function getPrivateAccountMask(accountSection: Locator) {
   return accountSection.getByTestId("dashboard-sidebar-account-text");
 }
 
-/**
-Signs in, saves the workspace sidebar state in Convex, and loads the landing page again, so its
-server render has the saved pane geometry.
-*/
-async function openSignedInApp(page: Page, sidebarState: WorkspaceSidebarState) {
+async function openSignedInApp(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/");
+}
+
+/**
+Signs up an approved account of its own, saves its workspace sidebar state in Convex, and opens the
+landing page, so its server render has the saved pane geometry. The email has the length of the
+seeded account's email, so the account row wraps the same way.
+*/
+async function openAccountWithSidebarState(page: Page, sidebarState: WorkspaceSidebarState) {
+  const email = `nr${String(Date.now()).slice(-8)}@s.test`;
+  await createOrganizationContextAcceptanceAccount(page, email);
+  await applyOrganizationContextAcceptanceFixture({ email, organizations: [] });
   await saveWorkspaceSidebarState(page, sidebarState);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
 }
 
 async function expectNoHorizontalOverflow(locator: Locator) {
@@ -120,7 +123,7 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   page,
 }) => {
   await page.setViewportSize({ width: 960, height: 760 });
-  await openSignedInApp(page, {
+  await openAccountWithSidebarState(page, {
     ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
     rightDesktopWidthPx: 160,
   });
@@ -156,7 +159,7 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
 
 test("signed-in app right sidebar shows the product-update email choice", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openSignedInApp(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
+  await openAccountWithSidebarState(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
 
   const rightPane = getRightPane(page);
   const consentSection = rightPane.getByRole("heading", { name: "Product updates" }).locator("..");
@@ -224,7 +227,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
   const page = await context.newPage();
 
   try {
-    await openSignedInApp(page, {
+    await openAccountWithSidebarState(page, {
       ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
       mobilePane: "right",
       rightMobileWidthPx: 130,
@@ -292,7 +295,7 @@ test("signed-in app right sidebar renders the account row and dashboard actions"
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openSignedInApp(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
+  await openSignedInApp(page);
   await waitForFonts(page);
 
   const rightSidebar = getRightSidebar(page);
