@@ -44,9 +44,9 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
 }));
 
 // A prerendered page: its render knows no session token, so the provider's loading state decides.
-vi.mock("@/components/SessionPending", () => ({
-  SessionPending: ({ children }: { children: ReactNode }) =>
-    authState.isLoading ? children : null,
+vi.mock("@/components/NotSignedIn", () => ({
+  NotSignedIn: ({ children }: { children: ReactNode }) =>
+    authState.isLoading || !authState.isAuthenticated ? children : null,
 }));
 
 // This jsdom mount has no Start server request or client compilation.
@@ -182,20 +182,19 @@ describe("PublicLandingAccountSection", () => {
     signInWithOAuthMock.mockResolvedValue(undefined);
   });
 
-  it("shows checking login while a prerendered page waits for the session", async () => {
+  it("shows the sign-in while a prerendered page waits for the session", async () => {
     authState.isLoading = true;
 
     const markup = renderLandingAccountSection("/");
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("checking login");
-    expect(markup).toContain("data-repository-dashboard-account-section-label");
+    expect(markup).toContain("Sign in or create an account");
+    expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("dashboard-sidebar-account-row");
     expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");
-    expect(markup).not.toContain("Sign in or create an account");
-    expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Sign in or create an account");
+    expect(hydratedMarkup).toContain("Sign in or create an account");
+    expect(hydratedMarkup).not.toContain("checking login");
   });
 
   it("keeps checking login while the signed-in viewer loads", async () => {

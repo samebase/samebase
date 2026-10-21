@@ -48,6 +48,9 @@ function renderLayoutMarkup({
 describe("SidebarLayout server markup", () => {
   it("renders one responsive pane tree", () => {
     const markup = renderLayoutMarkup({});
+    // Two open sidebars keep their saved widths while the main pane keeps its minimum, and share
+    // the free width in proportion to their width above the minimum when they do not fit.
+    const leftDesktopWidth = `min(${TEST_SIDEBAR_WIDTH_PX}px, round(160px + (100% - 480px) * 0.5, 1px))`;
 
     expect(markup).toContain('data-sidebar-layout-part="viewport"');
     expect(markup).toContain('data-mobile-min-resize-behavior="min_resize_to_merge"');
@@ -55,9 +58,27 @@ describe("SidebarLayout server markup", () => {
     expect((markup.match(/data-pane-side="main"/g) ?? []).length).toBe(1);
     expect((markup.match(/data-pane-side="right"/g) ?? []).length).toBe(1);
     expect(markup).toContain('data-sidebar-layout-part="carousel"');
-    expect(markup).toContain('style="width:var(--sidebar-layout-left-mobile-width, 0px)"');
+    expect(markup).toContain("data-has-right-pane");
+    expect(markup).toContain(
+      `style="--sidebar-layout-left-desktop-width:${leftDesktopWidth};width:var(--sidebar-layout-left-mobile-width, 0px)"`,
+    );
     expect(markup).toContain('style="width:var(--sidebar-layout-main-mobile-width, 100%)"');
-    expect(markup).toContain('style="width:var(--sidebar-layout-right-mobile-width, 0px)"');
+    expect(markup).toContain(
+      `style="--sidebar-layout-right-desktop-width:min(${TEST_SIDEBAR_WIDTH_PX}px, calc(100% - 160px - ${leftDesktopWidth}));width:var(--sidebar-layout-right-mobile-width, 0px)"`,
+    );
+  });
+
+  it("sizes the unmeasured mobile panes from the saved state", () => {
+    const viewportStyle = /data-sidebar-layout-part="viewport" style="([^"]*)"/.exec(
+      renderLayoutMarkup({}),
+    )?.[1];
+    const savedWidth = `clamp(min(175px, round(down, 100% / 3, 1px)), ${TEST_SIDEBAR_WIDTH_PX}px, calc(100% - 40px))`;
+
+    // The main pane is the saved mobile pane: structure.css pulls the left pane out of view until
+    // React measures the viewport and scrolls past it.
+    expect(viewportStyle).toBe(
+      `--sidebar-layout-left-mobile-width:${savedWidth};--sidebar-layout-main-mobile-width:100%;--sidebar-layout-right-mobile-width:${savedWidth}`,
+    );
   });
 
   it("omits absent side panes and their resize handles", () => {

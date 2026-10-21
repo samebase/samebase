@@ -449,6 +449,33 @@ function InlineScript_prehydrateSidebarLayoutMobilePane(
   } catch {}
 }
 
+/**
+Applies the consumer state to the server markup before hydration, from a script that a consumer
+compiles at build time and renders after the layout markup. Call it from that script, where
+`document.currentScript` is the script element.
+*/
+export function prehydrateSidebarLayoutDesktop(
+  args: SidebarLayoutPrehydrationArgs,
+  readState: SidebarLayoutPrehydrationStateReader,
+) {
+  InlineScript_prehydrateSidebarLayoutDesktopSidebar(
+    getSidebarLayoutPrehydrationInlineArgs(args),
+    readState,
+    getDesktopPaneWidths,
+  );
+}
+
+/** The mobile counterpart of `prehydrateSidebarLayoutDesktop`, for the same compiled script. */
+export function prehydrateSidebarLayoutMobilePane(
+  args: SidebarLayoutPrehydrationArgs,
+  readState: SidebarLayoutPrehydrationStateReader,
+) {
+  InlineScript_prehydrateSidebarLayoutMobilePane(
+    getSidebarLayoutPrehydrationInlineArgs(args),
+    readState,
+  );
+}
+
 export function buildSidebarLayoutDesktopPrehydrationScript(
   args: SidebarLayoutPrehydrationArgs,
   readState: SidebarLayoutPrehydrationStateReader,

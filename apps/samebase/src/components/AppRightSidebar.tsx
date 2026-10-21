@@ -16,8 +16,8 @@ import {
   RepositoryDashboardStaticAccountSection,
   RepositoryDashboardStaticAccountStatusSection,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
-import { SessionPending } from "@/components/SessionPending";
+import { SignedIn } from "@samebase/convex-auth-tanstack-start";
+import { NotSignedIn } from "@/components/NotSignedIn";
 import { useQuery } from "@tanstack/react-query";
 import { rootQueries } from "@/routes/root.queries";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
@@ -32,7 +32,7 @@ import {
 } from "@/organization/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -215,10 +215,10 @@ function AppRightSidebarFooter({
   );
 }
 
-function PublicAppRightSidebarContent({ accountPending }: { accountPending: boolean }) {
+function PublicAppRightSidebarContent() {
   return (
     <RepositoryDashboardSidebarContent>
-      {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
+      <PublicLandingAccountSection />
       <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
     </RepositoryDashboardSidebarContent>
   );
@@ -419,10 +419,12 @@ function AuthenticatedAppRightSidebarContent({
 }: {
   showAdminNavigation: boolean;
 }) {
+  // The root loader fetched these for a server render with this access, so the links, the consent
+  // prompt, and the onboarding video are in the first HTML; the subscriptions keep them live.
   const { data: user } = useQuery(rootQueries.viewer);
-  const repositories = useConvexQuery(api.repository.list);
-  const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
-  const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
+  const { data: repositories } = useQuery(rootQueries.repositories);
+  const { data: productUpdateEmailConsent } = useQuery(rootQueries.productUpdateEmailConsent);
+  const { data: sessionRecordingConsent } = useQuery(rootQueries.sessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
   const navigationOrganization =
     surface.kind === "organization" && organizations
@@ -491,12 +493,9 @@ export function AppRightSidebarContent() {
       <SignedIn>
         <SignedInAppRightSidebarContent />
       </SignedIn>
-      <SignedOut>
-        <PublicAppRightSidebarContent accountPending={false} />
-      </SignedOut>
-      <SessionPending>
-        <PublicAppRightSidebarContent accountPending />
-      </SessionPending>
+      <NotSignedIn>
+        <PublicAppRightSidebarContent />
+      </NotSignedIn>
     </>
   );
 }

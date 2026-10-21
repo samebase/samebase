@@ -1,10 +1,9 @@
 import { expect, test as base, type Page } from "@playwright/test";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 
-const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
-
-const VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE = {
+/** Both sidebars closed: the starting state of visual fixtures and of live visual tests. */
+export const VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE = {
   leftDesktopOpen: false,
   leftDesktopWidthPx: 240,
   leftMobileWidthPx: 240,
@@ -24,14 +23,10 @@ export async function seedVisualFixtureWorkspaceSidebarState(
     ...overrides,
   } satisfies WorkspaceSidebarState;
   await page.addInitScript(
-    ({ state, storageKey, version }) => {
-      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
+    ({ state, storageKey }) => {
+      window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    {
-      state,
-      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
-    },
+    { state, storageKey: VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE_KEY },
   );
 }
 

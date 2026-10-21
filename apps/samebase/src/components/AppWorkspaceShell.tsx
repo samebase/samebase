@@ -1,7 +1,6 @@
 import {
   createContext,
   memo,
-  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -10,8 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { useConvexAuth } from "convex/react";
-import { useLocation, useRouter } from "@tanstack/react-router";
+import { useLocation, useMatches } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { OrganizationContextProvider } from "@/organization/OrganizationContext";
 import { useOrganizationContext } from "@/organization/context";
@@ -24,19 +22,19 @@ import {
 } from "@samebase/sidebars/SidebarRuntime";
 import { type SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/SidebarLayoutGeometry";
 import { type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
-import type { SidebarLayoutState } from "@samebase/sidebars/SidebarLayoutState";
-import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
+import type {
+  SidebarLayoutState,
+  SidebarLayoutStateController,
+} from "@samebase/sidebars/SidebarLayoutState";
+import { useLocalWorkspaceSidebarState } from "@/hooks/useLocalWorkspaceSidebarState";
+import { DocumentRenderedWithSessionContext } from "@/lib/documentSession";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
-import {
-  appWorkspaceMobilePanePrehydrationScript,
-  appWorkspaceSidebarPrehydrationScript,
-  clearAppWorkspaceSidebarDesktopPrehydrationStyle,
-} from "@/lib/appWorkspaceSidebarPrehydration";
+import { useVisualFixtureWorkspaceSidebarState } from "@/hooks/useVisualFixtureWorkspaceSidebarState";
 import {
   APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
   APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
 } from "@/lib/appWorkspaceSidebarPreferences";
+import prehydrateAppWorkspaceSidebarSource from "@/lib/appWorkspaceSidebarPrehydrationScript?inline-script";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -75,15 +73,8 @@ type AppWorkspaceRouteChromeContextValue = {
   store: AppWorkspaceRouteChromeStore;
 };
 
-type AppWorkspaceRouteWithStaticData = {
-  options: {
-    staticData?: {
-      appWorkspaceRouteChrome?: AppWorkspaceRouteChromeStaticData;
-    };
-  };
-};
-
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCRIPT = `(${prehydrateAppWorkspaceSidebarSource})();`;
 
 /**
  * A first visit starts with the left sidebar closed. The right sidebar starts open because it holds
@@ -182,17 +173,15 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
-function readAppWorkspaceRouteChromeStaticDataFromRoutes(
-  routes: readonly AppWorkspaceRouteWithStaticData[],
-): AppWorkspaceRouteChromeStaticData | null {
-  const leafRoute = routes.at(-1);
-  return leafRoute?.options.staticData?.appWorkspaceRouteChrome ?? null;
-}
-
-function useAppWorkspaceRouteChromeStaticData(pathname: string) {
-  const router = useRouter();
-
-  return readAppWorkspaceRouteChromeStaticDataFromRoutes(router.getMatchedRoutes(pathname)[0]);
+/**
+The route chrome of the rendered leaf route. It reads the rendered matches, not the location, so a
+navigation changes the panes in the same render as the route content, after the new route's loader
+has its data.
+*/
+function useAppWorkspaceRouteChromeStaticData() {
+  return useMatches({
+    select: (matches) => matches.at(-1)?.staticData.appWorkspaceRouteChrome ?? null,
+  });
 }
 
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
@@ -246,55 +235,49 @@ function AppWorkspacePaneShortcut({ side }: { side: SidebarSide }) {
   return null;
 }
 
-function useAppWorkspaceSidebarState() {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
-  });
-  const { isAuthenticated } = useConvexAuth();
-  const localSidebarState = useLocalStorageWorkspaceSidebarState({
-    defaults: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
-    reset: false,
-    storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  });
-  const isVisualFixtureRoute = pathname === VISUAL_FIXTURE_PATHNAME;
-  useLayoutEffect(() => {
-    // The localStorage hook above installs the real React state before this
-    // layout effect removes the temporary desktop prehydration stylesheet.
-    // Mobile prehydration writes root attributes and width variables that React
-    // replaces after ResizeObserver reports the viewport size.
-    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
-  }, []);
-  const setLocalSidebarState = localSidebarState.setState;
-  const mirrorPersistedSidebarState = useCallback(
-    (state: SidebarLayoutState) => {
-      setLocalSidebarState(() => state, "immediate");
-    },
-    [setLocalSidebarState],
+type AppWorkspaceShellFrameProps = {
+  children?: ReactNode;
+  chrome: AppWorkspaceRouteChromeSnapshot | null;
+  staticRouteChrome: AppWorkspaceRouteChromeStaticData | null;
+};
+
+function PersistedAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
+  const sidebarState = usePersistedWorkspaceSidebarState(APP_WORKSPACE_SIDEBAR_DEFAULT_STATE);
+
+  return <AppWorkspaceShellFrame {...props} sidebarState={sidebarState} />;
+}
+
+/**
+A page that renders without a session (a prerendered public page, or a server render for a visitor
+without one) keeps its sidebar state in local storage. The inline script after the layout shows the
+stored state before the first paint; a page rendered as the user never renders it.
+*/
+function LocalAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
+  const sidebarState = useLocalWorkspaceSidebarState(APP_WORKSPACE_SIDEBAR_DEFAULT_STATE);
+
+  return (
+    <>
+      <AppWorkspaceShellFrame {...props} sidebarState={sidebarState} />
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCRIPT }}
+      />
+    </>
   );
-  const persistedSidebarState = usePersistedWorkspaceSidebarState({
-    defaults: localSidebarState.state,
-    onPersistedStateApplied:
-      !isVisualFixtureRoute && isAuthenticated ? mirrorPersistedSidebarState : null,
-    workspaceKey: "app",
-  });
+}
 
-  if (!isVisualFixtureRoute && isAuthenticated && persistedSidebarState.isHydrated) {
-    return persistedSidebarState;
-  }
+function VisualFixtureAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
+  const sidebarState = useVisualFixtureWorkspaceSidebarState(APP_WORKSPACE_SIDEBAR_DEFAULT_STATE);
 
-  return localSidebarState;
+  return <AppWorkspaceShellFrame {...props} sidebarState={sidebarState} />;
 }
 
 function AppWorkspaceShellFrame({
   children,
   chrome,
+  sidebarState,
   staticRouteChrome,
-}: {
-  children?: ReactNode;
-  chrome: AppWorkspaceRouteChromeSnapshot | null;
-  staticRouteChrome: AppWorkspaceRouteChromeStaticData | null;
-}) {
-  const sidebarState = useAppWorkspaceSidebarState();
+}: AppWorkspaceShellFrameProps & { sidebarState: SidebarLayoutStateController }) {
   const appRightSidebarPane = useAppRightSidebarPane();
   const { surface } = useOrganizationContext();
   const headerAccessory = chrome?.headerAccessory;
@@ -304,20 +287,18 @@ function AppWorkspaceShellFrame({
         <div className="min-w-0 flex-1">{headerAccessory}</div>
       </div>
     );
-  const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
+  const staticLeftPane = staticRouteChrome?.leftPane;
   const mainPane = {
     header: mainHeader,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies PaneFrameProps;
-  const leftPane = staticLeftPaneAbsent
-    ? undefined
-    : chrome?.left === null
+  const leftPane =
+    staticLeftPane === "none"
       ? undefined
-      : (chrome?.left ?? {});
+      : (staticLeftPane ?? (chrome?.left === null ? undefined : (chrome?.left ?? {})));
   const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? appRightSidebarPane);
-  const leftToggleVisibility = staticLeftPaneAbsent
-    ? "hidden"
-    : (chrome?.leftToggleVisibility ?? "desktop");
+  const leftToggleVisibility =
+    staticLeftPane === "none" ? "hidden" : (chrome?.leftToggleVisibility ?? "desktop");
   const rightToggleVisibility =
     chrome?.rightToggleVisibility ??
     (surface.kind === "allRepositories" || surface.kind === "organization" ? "all" : "desktop");
@@ -334,20 +315,13 @@ function AppWorkspaceShellFrame({
         right={rightPane}
         rightToggleVisibility={rightToggleVisibility}
       />
-      <script
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: appWorkspaceSidebarPrehydrationScript }}
-      />
-      <script
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: appWorkspaceMobilePanePrehydrationScript }}
-      />
     </SidebarRuntimeProvider>
   );
 }
 
 export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   const routePathname = useLocation({ select: (location) => location.pathname });
+  const renderedWithSession = useContext(DocumentRenderedWithSessionContext);
 
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
@@ -358,15 +332,21 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
     [chromeStore],
   );
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
-  const staticRouteChrome = useAppWorkspaceRouteChromeStaticData(routePathname);
+  const staticRouteChrome = useAppWorkspaceRouteChromeStaticData();
+  const ShellFrame =
+    routePathname === VISUAL_FIXTURE_PATHNAME
+      ? VisualFixtureAppWorkspaceShellFrame
+      : renderedWithSession
+        ? PersistedAppWorkspaceShellFrame
+        : LocalAppWorkspaceShellFrame;
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <OrganizationContextProvider>
         <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-          <AppWorkspaceShellFrame chrome={chrome} staticRouteChrome={staticRouteChrome}>
+          <ShellFrame chrome={chrome} staticRouteChrome={staticRouteChrome}>
             {children}
-          </AppWorkspaceShellFrame>
+          </ShellFrame>
         </div>
       </OrganizationContextProvider>
     </AppWorkspaceRouteChromeContext.Provider>

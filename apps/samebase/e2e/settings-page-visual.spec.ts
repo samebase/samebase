@@ -1,11 +1,11 @@
 import { devices, expect, test, type Page } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
+import { openHydratedSignUpForm } from "./organizationContextAcceptance";
+import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
-const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 const MOBILE_RIGHT_SIDEBAR_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: 240,
@@ -33,10 +33,10 @@ async function openSettings(page: Page) {
 async function createPendingAccount(page: Page, email: string) {
   const passwordAuthSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await passwordAuthSection.getByPlaceholder("you@example.com").waitFor({ state: "visible" });
-  await passwordAuthSection.getByRole("button", { name: "Need an account?" }).click();
+  const createAccountButton = await openHydratedSignUpForm(passwordAuthSection);
   await passwordAuthSection.getByPlaceholder("you@example.com").fill(email);
   await passwordAuthSection.getByPlaceholder("Password").fill("settings-test-pass-1234");
-  await passwordAuthSection.getByRole("button", { exact: true, name: "Create account" }).click();
+  await createAccountButton.click();
   await expect(page.getByRole("link", { exact: true, name: "Account settings" })).toBeVisible();
 }
 
@@ -151,20 +151,12 @@ test("Pending-approval Settings shows only account exit actions on mobile", asyn
   });
   const page = await context.newPage();
   const email = `settings-mobile-${testInfo.workerIndex}-${Date.now()}@example.test`;
-  await page.addInitScript(
-    ({ state, storageKey, version }) => {
-      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
-    },
-    {
-      state: MOBILE_RIGHT_SIDEBAR_STATE,
-      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
-    },
-  );
 
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await createPendingAccount(page, email);
+    await saveWorkspaceSidebarState(page, MOBILE_RIGHT_SIDEBAR_STATE);
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
@@ -175,6 +167,13 @@ test("Pending-approval Settings shows only account exit actions on mobile", asyn
     await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
+    );
+    // The settings page mounts its own layout, which scrolls the carousel to the saved pane once it
+    // has measured the viewport; a scroll before that does not stick.
+    await expect(page.getByTestId("user-settings-page")).toBeVisible();
+    await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+      "data-viewport-measured",
+      "",
     );
     await page.locator('[data-sidebar-layout-part="carousel"]').evaluate((element) => {
       const mainPane = element.querySelector(
@@ -234,20 +233,12 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
   });
   const page = await context.newPage();
   const email = `settings-prehydration-${testInfo.workerIndex}-${Date.now()}@example.test`;
-  await page.addInitScript(
-    ({ state, storageKey, version }) => {
-      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
-    },
-    {
-      state: MOBILE_RIGHT_SIDEBAR_STATE,
-      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
-    },
-  );
 
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await createPendingAccount(page, email);
+    await saveWorkspaceSidebarState(page, MOBILE_RIGHT_SIDEBAR_STATE);
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",

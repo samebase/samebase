@@ -1,13 +1,14 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
+import { useConvexAuth, useMutation } from "convex/react";
 import * as React from "react";
 import { api } from "../../convex/_generated/api";
+import { rootQueries } from "@/routes/root.queries";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
   SidebarLayoutStatePersistenceMode,
   SidebarLayoutStateUpdate,
 } from "@samebase/sidebars/SidebarLayoutState";
-import type { WorkspaceSidebarStateKey } from "../../convex/userPreferenceModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 
@@ -36,39 +37,35 @@ function areWorkspaceSidebarStatesEqual(left: SidebarLayoutState, right: Sidebar
   return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
-type UsePersistedWorkspaceSidebarStateArgs = {
-  defaults: SidebarLayoutState;
-  onPersistedStateApplied: ((state: SidebarLayoutState) => void) | null;
-  workspaceKey: WorkspaceSidebarStateKey;
-};
-
 /**
- * Keep shared shell state responsive locally while syncing the durable source
- * of truth through Convex for real routes.
- */
-export function usePersistedWorkspaceSidebarState({
-  defaults,
-  onPersistedStateApplied,
-  workspaceKey,
-}: UsePersistedWorkspaceSidebarStateArgs): SidebarLayoutStateController {
-  const persistedState = useQuery(api.workspaceSidebarState.getWorkspaceSidebarState, {
-    workspaceKey,
-  });
+The app shell's sidebar state, saved in Convex. It starts from the saved state that the root loader
+read as the user, so the server HTML and the hydration already have the saved pane widths, open
+state, and mobile pane. It starts from `defaults` when there is no saved state: a visitor without a
+session, an account without a saved row, or a sign-in in this tab before the query answers. A change
+renders at once and is saved, a toggle immediately and a width after a short pause. A saved state
+from another tab or device replaces the local one unless a local change is still being saved.
+*/
+export function usePersistedWorkspaceSidebarState(
+  defaults: SidebarLayoutState,
+): SidebarLayoutStateController {
+  const { data: persistedState } = useQuery(rootQueries.workspaceSidebarState);
+  const { isAuthenticated } = useConvexAuth();
   const setWorkspaceSidebarState = useMutation(api.workspaceSidebarState.setWorkspaceSidebarState);
-  const [sidebarState, setSidebarState] = React.useState(defaults);
+  const [sidebarState, setSidebarState] = React.useState(() => persistedState ?? defaults);
   const latestSidebarStateRef = React.useRef(sidebarState);
-  const latestServerStateRef = React.useRef(defaults);
+  const latestServerStateRef = React.useRef(sidebarState);
   const hasSeenPersistedStateRef = React.useRef(false);
   const pendingPersistSignatureRef = React.useRef<string | null>(null);
   const pendingQueuedSignatureRef = React.useRef<string | null>(null);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
-  const lastWorkspaceKeyRef = React.useRef(workspaceKey);
-  const isHydrated = persistedState !== undefined;
-  const isHydratedRef = React.useRef(isHydrated);
+  // A visitor without a session keeps a change in this page. A save before the saved state is known
+  // would replace a saved state that the query has not returned yet.
+  const canPersist = isAuthenticated && persistedState !== undefined;
+  const canPersistRef = React.useRef(canPersist);
 
   React.useEffect(() => {
-    isHydratedRef.current = isHydrated;
-  }, [isHydrated]);
+    canPersistRef.current = canPersist;
+  }, [canPersist]);
 
   const clearPendingWidthPersist = React.useCallback(() => {
     pendingQueuedSignatureRef.current = null;
@@ -87,7 +84,7 @@ export function usePersistedWorkspaceSidebarState({
       pendingPersistSignatureRef.current = attemptedSignature;
       void setWorkspaceSidebarState({
         state: nextState,
-        workspaceKey,
+        workspaceKey: "app",
       }).catch((error: unknown) => {
         if (
           pendingPersistSignatureRef.current !== attemptedSignature ||
@@ -102,7 +99,7 @@ export function usePersistedWorkspaceSidebarState({
         setSidebarState(fallbackState);
       });
     },
-    [clearPendingWidthPersist, setWorkspaceSidebarState, workspaceKey],
+    [clearPendingWidthPersist, setWorkspaceSidebarState],
   );
 
   const scheduleWidthPersist = React.useCallback(
@@ -129,7 +126,7 @@ export function usePersistedWorkspaceSidebarState({
 
       latestSidebarStateRef.current = nextState;
       setSidebarState(nextState);
-      if (!isHydratedRef.current) {
+      if (!canPersistRef.current) {
         return;
       }
       if (persistenceMode === "immediate") {
@@ -140,20 +137,6 @@ export function usePersistedWorkspaceSidebarState({
     },
     [persistSidebarState, scheduleWidthPersist],
   );
-
-  React.useEffect(() => {
-    if (lastWorkspaceKeyRef.current === workspaceKey) {
-      return;
-    }
-
-    lastWorkspaceKeyRef.current = workspaceKey;
-    hasSeenPersistedStateRef.current = false;
-    pendingPersistSignatureRef.current = null;
-    clearPendingWidthPersist();
-    latestServerStateRef.current = defaults;
-    latestSidebarStateRef.current = defaults;
-    setSidebarState(defaults);
-  }, [clearPendingWidthPersist, defaults, workspaceKey]);
 
   React.useEffect(() => {
     if (persistedState === undefined) {
@@ -192,17 +175,13 @@ export function usePersistedWorkspaceSidebarState({
       pendingPersistSignatureRef.current = null;
     }
 
-    if (persistedState !== null && onPersistedStateApplied !== null) {
-      onPersistedStateApplied(nextServerState);
-    }
-
     if (areWorkspaceSidebarStatesEqual(latestSidebarStateRef.current, nextServerState)) {
       return;
     }
 
     latestSidebarStateRef.current = nextServerState;
     setSidebarState(nextServerState);
-  }, [clearPendingWidthPersist, defaults, onPersistedStateApplied, persistedState]);
+  }, [clearPendingWidthPersist, defaults, persistedState]);
 
   React.useEffect(() => {
     return () => {
@@ -212,10 +191,10 @@ export function usePersistedWorkspaceSidebarState({
 
   return React.useMemo(
     () => ({
-      isHydrated,
+      isHydrated: true,
       state: sidebarState,
       setState: applySidebarState,
     }),
-    [applySidebarState, isHydrated, sidebarState],
+    [applySidebarState, sidebarState],
   );
 }

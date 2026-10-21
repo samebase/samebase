@@ -1,10 +1,14 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import {
+  APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+  APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
+} from "../src/lib/appWorkspaceSidebarPreferences";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
+import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
 test.setTimeout(120_000);
 
@@ -842,9 +846,16 @@ test("logo raster distance scale keeps depth 3 on the geometric base path", asyn
 test("logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInForLogoAdminRoute(page);
-  await page.evaluate((storageKey) => {
-    window.localStorage.removeItem(storageKey);
-  }, APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
+  await saveWorkspaceSidebarState(page, {
+    leftDesktopOpen: false,
+    leftDesktopWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+    leftMobileWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+    mobilePane: "main",
+    mobileSurface: { kind: "unmerged" },
+    rightDesktopOpen: true,
+    rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
+    rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {
     waitUntil: "domcontentloaded",

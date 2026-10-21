@@ -7,12 +7,18 @@ import type { SidebarLayoutStateController } from "@samebase/sidebars/SidebarLay
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
 let mockedQueryState: WorkspaceSidebarState | null | undefined = undefined;
+let mockedIsAuthenticated = true;
 const mockedMutation = vi.fn(async () => null);
 let latestSidebarStateController: SidebarLayoutStateController | null = null;
 
 vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({ isAuthenticated: mockedIsAuthenticated, isLoading: false }),
   useMutation: () => mockedMutation,
-  useQuery: () => mockedQueryState,
+}));
+
+// The saved state comes from the root loader's query in the TanStack cache.
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => ({ data: mockedQueryState }),
 }));
 
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
@@ -49,21 +55,12 @@ const OPEN_LEFT_SIDEBAR_STATE = {
 } satisfies WorkspaceSidebarState;
 
 function SidebarStateProbe() {
-  const sidebarState = usePersistedWorkspaceSidebarState({
-    defaults: DEFAULT_SIDEBAR_STATE,
-    onPersistedStateApplied: null,
-    workspaceKey: "app",
-  });
+  const sidebarState = usePersistedWorkspaceSidebarState(DEFAULT_SIDEBAR_STATE);
   React.useEffect(() => {
     latestSidebarStateController = sidebarState;
   }, [sidebarState]);
 
-  return (
-    <div
-      data-hydrated={sidebarState.isHydrated ? "1" : "0"}
-      data-mobile-pane={sidebarState.state.mobilePane}
-    />
-  );
+  return <div data-mobile-pane={sidebarState.state.mobilePane} />;
 }
 
 function setLatestMobilePane(nextPane: React.SetStateAction<WorkspaceSidebarState["mobilePane"]>) {
@@ -102,6 +99,7 @@ describe("usePersistedWorkspaceSidebarState", () => {
 
   afterEach(() => {
     mockedQueryState = undefined;
+    mockedIsAuthenticated = true;
     mockedMutation.mockClear();
     mockedMutation.mockImplementation(async () => null);
     latestSidebarStateController = null;
@@ -114,6 +112,48 @@ describe("usePersistedWorkspaceSidebarState", () => {
     }
     rootElement?.remove();
     rootElement = null;
+  });
+
+  it("starts from the saved state of the root loader", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+    const renderedPanes: string[] = [];
+
+    function RecordingProbe() {
+      const sidebarState = usePersistedWorkspaceSidebarState(DEFAULT_SIDEBAR_STATE);
+      renderedPanes.push(sidebarState.state.mobilePane);
+      return null;
+    }
+
+    mockedQueryState = OPEN_LEFT_SIDEBAR_STATE;
+    act(() => {
+      mountedRoot.render(<RecordingProbe />);
+    });
+
+    expect(renderedPanes).not.toContain("main");
+    expect(renderedPanes.at(-1)).toBe("left");
+  });
+
+  it("keeps a change in the page without a session", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    mockedIsAuthenticated = false;
+    mockedQueryState = null;
+    act(() => {
+      mountedRoot.render(<SidebarStateProbe />);
+    });
+
+    act(() => {
+      setLatestMobilePane("left");
+    });
+
+    expect(mockedMutation).not.toHaveBeenCalled();
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
   });
 
   it("keeps the current pane when a persisted row disappears after hydration", () => {
@@ -172,7 +212,6 @@ describe("usePersistedWorkspaceSidebarState", () => {
     });
 
     expect(mockedMutation).not.toHaveBeenCalled();
-    expect(rootElement.firstElementChild?.getAttribute("data-hydrated")).toBe("0");
     expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
   });
 

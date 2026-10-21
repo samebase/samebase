@@ -3,7 +3,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "./appWorkspaceSidebarPreferences";
 import {
-  notifyBrowserLocalStorageChanged,
   readLocalStorageSnapshot,
   subscribeBrowserLocalStorageSnapshot,
 } from "./localStorageSnapshot";
@@ -89,15 +88,14 @@ describe("readLocalStorageSnapshot", () => {
     });
   });
 
-  it("subscribes to native and app-owned browser localStorage changes", () => {
+  it("subscribes to browser localStorage changes", () => {
     const onStoreChange = vi.fn();
     const unsubscribe = subscribeBrowserLocalStorageSnapshot(onStoreChange);
 
     window.dispatchEvent(new Event("storage"));
-    notifyBrowserLocalStorageChanged();
     unsubscribe();
-    notifyBrowserLocalStorageChanged();
+    window.dispatchEvent(new Event("storage"));
 
-    expect(onStoreChange).toHaveBeenCalledTimes(2);
+    expect(onStoreChange).toHaveBeenCalledTimes(1);
   });
 });

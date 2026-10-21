@@ -50,6 +50,18 @@
   flex-shrink: 0;
 }
 
+/* A browser paints a long page while it parses it, and the right pane's markup comes after the main
+   pane's content. Until the right pane is parsed, the carousel keeps its space, so the main pane
+   does not take the full width and then narrow when the right pane arrives. */
+:where(
+  [data-sidebar-layout-part="carousel"][data-has-right-pane]:not(
+      :has(> [data-sidebar-layout-part="pane"][data-pane-side="right"])
+    )
+)::after {
+  flex: 0 0 var(--sidebar-layout-right-mobile-width, 0px);
+  content: "";
+}
+
 :where(
   [data-sidebar-layout-part="pane"][data-pane-side="left"],
   [data-sidebar-layout-part="pane"][data-pane-side="right"]
@@ -177,6 +189,25 @@
     scroll-snap-stop: normal;
   }
 
+  /* The server HTML cannot scroll the carousel past the left pane to a saved main pane, so the left
+     pane sits out of view until React measures the viewport and scrolls to the same position. */
+  :where(
+    [data-sidebar-layout-part="viewport"][data-mobile-pane="main"]
+      > [data-sidebar-layout-part="carousel"]:not([data-viewport-measured])
+      > [data-sidebar-layout-part="pane"][data-pane-side="left"]
+  ) {
+    margin-inline-start: calc(-1 * var(--sidebar-layout-left-mobile-width, 0px));
+  }
+
+  /* The server HTML cannot scroll the carousel to a saved right pane, so the content aligns to the
+     end until React measures the viewport and scrolls to the same position. */
+  :where(
+    [data-sidebar-layout-part="viewport"][data-mobile-pane="right"]
+      > [data-sidebar-layout-part="carousel"]:not([data-viewport-measured])
+  ) {
+    justify-content: flex-end;
+  }
+
   :where([data-sidebar-layout-part="pane"])::before,
   :where([data-sidebar-layout-part="pane"])::after {
     pointer-events: none;
@@ -253,6 +284,14 @@
 
   :where([data-sidebar-layout-part="pane"][data-pane-side="right"]) {
     width: var(--sidebar-layout-right-desktop-width) !important;
+  }
+
+  :where(
+    [data-sidebar-layout-part="carousel"][data-has-right-pane]:not(
+        :has(> [data-sidebar-layout-part="pane"][data-pane-side="right"])
+      )
+  )::after {
+    flex-basis: var(--sidebar-layout-right-desktop-width);
   }
 
   :where([data-sidebar-layout-part="pane"][data-pane-side="left"]),

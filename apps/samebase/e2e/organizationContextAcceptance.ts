@@ -25,11 +25,11 @@ async function waitForAuthenticatedAccount(page: Page) {
 }
 
 /**
-Opens the sign-up form of the landing page. The landing page is a prerendered file whose form shows
-before hydration, when the toggle does nothing yet and the first render after hydration empties a
-filled field, so the click repeats until the sign-up form shows.
+Opens the sign-up form of the landing page. The server HTML has the form before hydration, when the
+toggle does nothing yet and the first render after hydration empties a filled field, so the click
+repeats until the sign-up form shows.
 */
-async function openHydratedSignUpForm(accountSection: Locator) {
+export async function openHydratedSignUpForm(accountSection: Locator) {
   const createAccountButton = accountSection.getByRole("button", {
     exact: true,
     name: "Create account",

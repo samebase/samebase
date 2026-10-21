@@ -1,5 +1,11 @@
 /// <reference types="vite/client" />
 
+/** A module's default export, compiled at build time into the source of a function expression (dev/inlineScriptPlugin.ts). */
+declare module "*?inline-script" {
+  const source: string;
+  export default source;
+}
+
 declare const __APP_BUILD_CONFIG__: import("./lib/appBuildConfig").AppBuildConfig;
 declare var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 

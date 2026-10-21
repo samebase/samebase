@@ -1,3 +1,4 @@
+import type { PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import {
   canAccessRouteAvailability,
   type RouteAvailability,
@@ -93,7 +94,13 @@ export type RouteSearchParamValueSuggestion<Key extends string = string> = Extra
 >;
 
 export type AppWorkspaceRouteChromeStaticData = {
-  leftPane?: "none";
+  /**
+  "none" = the route has no left pane.
+
+  A pane = the route's left pane. The shell renders it in the same render as the route, and it reads
+  the route's params and loader data, so the server HTML has it.
+  */
+  leftPane?: "none" | PaneFrameProps;
   // Routes always keep the standard right sidebar for navigation. Add an option
   // here only when a concrete product requirement needs to remove it.
 };

@@ -5,7 +5,7 @@
 - Status: Accepted
 - Owner: Samebase frontend/workspace shell
 - Created: 2026-05-08
-- Last updated: 2026-08-28
+- Last updated: 2026-10-21
 - Related specs:
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
   - `specs/094_SIDEBAR_LAYOUT_PANE_RUNTIME_SPEC.md`
@@ -16,11 +16,9 @@
 - Main code and tests:
   - `apps/samebase/convex/workspaceSidebarState.ts`
   - `packages/sidebars/src/SidebarLayout.tsx`
-  - `packages/sidebars/src/SidebarLayoutPrehydration.ts`
   - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
   - `packages/sidebars/src/useSidebarLayoutMobileResize.ts`
   - `packages/sidebars/test/layoutMobile.test.tsx`
-  - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/samebase/e2e/sidebar-layout.live.spec.ts`
   - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
@@ -59,8 +57,8 @@ If the current route does not provide the saved side pane, the layout must displ
 without a merge. It must keep the saved pane and merge state unchanged. When the user returns to a
 route that provides the side pane, the saved merge must be available again.
 
-Prehydration and React rendering must use the same fallback. The fallback must not write a state
-repair to Convex or local storage.
+The server markup, prehydration, and React rendering must use the same fallback. The fallback must
+not write a state repair to Convex or local storage.
 
 ### Viewport fallback is display-only
 
@@ -70,7 +68,8 @@ width back only because the viewport is different.
 
 If the current viewport cannot fit the saved merge within the pane constraints, the layout must
 display an unmerged surface. It must keep the saved merge state unchanged. The merge must return
-when a later viewport can fit it.
+when a later viewport can fit it. The server markup does not know the viewport width, so it shows a
+saved merge whose side pane is present, and React applies this fallback when it measures.
 
 The default merged layout must fit at a 320px mobile viewport. At that width, the responsive side
 pane minimum is 106px and the main pane minimum is 214px.
@@ -113,5 +112,4 @@ The current contract has these test owners:
   changing the saved merge.
 - `sidebar-layout.live.spec.ts` verifies that a signed-in merge stays active across different mobile
   viewport widths and is not cleared by a route without the saved pane.
-- `workspace-sidebar-drag.spec.ts` verifies that a mobile merge survives a local storage reload.
-- The local storage and persisted sidebar hook tests verify parser rules and merge-only writes.
+- The persisted sidebar hook tests verify merge-only writes.

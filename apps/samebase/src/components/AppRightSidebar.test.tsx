@@ -106,9 +106,9 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 });
 
 // A prerendered page: its render knows no session token, so the provider's loading state decides.
-vi.mock("@/components/SessionPending", () => ({
-  SessionPending: ({ children }: { children: ReactNode }) =>
-    authState.isLoading ? children : null,
+vi.mock("@/components/NotSignedIn", () => ({
+  NotSignedIn: ({ children }: { children: ReactNode }) =>
+    authState.isLoading || !authState.isAuthenticated ? children : null,
 }));
 
 // This jsdom mount has no Start server request or client compilation.
@@ -285,17 +285,17 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("Watch the complete onboarding");
   });
 
-  it("shows checking login while a prerendered page waits for the session", async () => {
+  it("shows the sign-in while a prerendered page waits for the session", async () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
 
     const markup = renderRightSidebar([]);
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
-    expect(markup).toContain("checking login");
-    expect(markup).not.toContain("Sign in or create an account");
-    expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Sign in or create an account");
+    expect(markup).toContain("Sign in or create an account");
+    expect(markup).not.toContain("checking login");
+    expect(hydratedMarkup).toContain("Sign in or create an account");
+    expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
   });
 

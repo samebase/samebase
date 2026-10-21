@@ -18,6 +18,7 @@ import {
 } from "./src/components/logo/logoStaticSvgAsset";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
+import { inlineScriptPlugin } from "./dev/inlineScriptPlugin";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { prerenderPages } from "./prerender.config";
 import { writePublicPrerenderWithoutModulePreloads } from "./scripts/strip-public-prerender-modulepreloads";
@@ -405,6 +406,7 @@ export default defineConfig(({ command }) => ({
     __APP_BUILD_CONFIG__: JSON.stringify(appBuildConfig),
   },
   plugins: [
+    inlineScriptPlugin(),
     syncStaticLogoSvgAssetPlugin(),
     syncStaticCompactIdentitySvgAssetsPlugin(),
     serveContentDocsMarkdownPlugin(),

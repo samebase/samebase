@@ -7,6 +7,7 @@ import { defineConfig } from "vite-plus";
 import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
 // The app's dependency, which the root does not install.
 import { convexAuth } from "./apps/samebase/node_modules/@samebase/convex-auth-tanstack-start/dist/vite.js";
+import { inlineScriptPlugin } from "./apps/samebase/dev/inlineScriptPlugin";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -237,7 +238,9 @@ export default defineConfig({
         extends: true,
         // `@samebase/convex-auth-tanstack-start` imports `@convex-dev/auth/ssr/nextjs/client`, which
         // only its `convexAuth()` plugin resolves, so Vitest runs that package through Vite.
-        plugins: [convexAuth()],
+        // The app's inline head scripts are `?inline-script` imports, which the app compiles at build
+        // time; the tests run the same compiled scripts.
+        plugins: [convexAuth(), inlineScriptPlugin()],
         test: {
           name: "unit",
           environment: "node",

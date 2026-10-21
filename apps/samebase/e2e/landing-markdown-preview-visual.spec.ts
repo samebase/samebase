@@ -1,5 +1,6 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
-import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE } from "./visualFixtureTest";
+import { seedLocalWorkspaceSidebarState } from "./workspaceSidebarState";
 import {
   DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
@@ -72,7 +73,8 @@ async function readMainPaneScrollTop(page: Page) {
 /** Landing YouTube embeds stay offline; screenshots mask the hero embed. */
 /** A first visit starts with the docs sidebar closed; docs navigation tests open it. */
 async function openDocsSidebar(page: Page) {
-  await seedVisualFixtureWorkspaceSidebarState(page, {
+  await seedLocalWorkspaceSidebarState(page, {
+    ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
     leftDesktopOpen: true,
     rightDesktopOpen: true,
   });

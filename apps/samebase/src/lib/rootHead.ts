@@ -75,6 +75,7 @@ const initialThemeScript = `
       (storedTheme === "dark" ||
         (storedTheme !== "light" && prefersDarkTheme)));
   document.documentElement.classList.toggle("dark", useDarkTheme);
+  document.documentElement.style.colorScheme = useDarkTheme ? "dark" : "light";
 })();
 `;
 // Production CSS stays owned by the client entry. This raw source URL is only
