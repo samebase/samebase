@@ -63,11 +63,12 @@ async function openSignedInApp(page: Page) {
 
 /**
 Signs up an approved account of its own, saves its workspace sidebar state in Convex, and opens the
-landing page, so its server render has the saved pane geometry. The email has the length of the
-seeded account's email, so the account row wraps the same way.
+landing page, so its server render has the saved pane geometry. The random email has the length of
+the seeded account's email, so the account row wraps the same way. The account is a member, so the
+right pane has no admin links.
 */
 async function openAccountWithSidebarState(page: Page, sidebarState: WorkspaceSidebarState) {
-  const email = `nr${String(Date.now()).slice(-8)}@s.test`;
+  const email = `n${Math.random().toString(36).slice(2, 11).padEnd(9, "0")}@s.test`;
   await createOrganizationContextAcceptanceAccount(page, email);
   await applyOrganizationContextAcceptanceFixture({ email, organizations: [] });
   await saveWorkspaceSidebarState(page, sidebarState);
