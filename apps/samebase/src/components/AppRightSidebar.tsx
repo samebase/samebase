@@ -16,8 +16,8 @@ import {
   RepositoryDashboardStaticAccountSection,
   RepositoryDashboardStaticAccountStatusSection,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
-import { SessionPending } from "@/components/SessionPending";
+import { SignedIn } from "@samebase/convex-auth-tanstack-start";
+import { NotSignedIn } from "@/components/NotSignedIn";
 import { useQuery } from "@tanstack/react-query";
 import { rootQueries } from "@/routes/root.queries";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
@@ -215,10 +215,10 @@ function AppRightSidebarFooter({
   );
 }
 
-function PublicAppRightSidebarContent({ accountPending }: { accountPending: boolean }) {
+function PublicAppRightSidebarContent() {
   return (
     <RepositoryDashboardSidebarContent>
-      {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
+      <PublicLandingAccountSection />
       <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
     </RepositoryDashboardSidebarContent>
   );
@@ -493,12 +493,9 @@ export function AppRightSidebarContent() {
       <SignedIn>
         <SignedInAppRightSidebarContent />
       </SignedIn>
-      <SignedOut>
-        <PublicAppRightSidebarContent accountPending={false} />
-      </SignedOut>
-      <SessionPending>
-        <PublicAppRightSidebarContent accountPending />
-      </SessionPending>
+      <NotSignedIn>
+        <PublicAppRightSidebarContent />
+      </NotSignedIn>
     </>
   );
 }

@@ -5,8 +5,8 @@ import {
   RepositoryDashboardAccountSection,
   RepositoryDashboardAccountSectionFrame,
 } from "@/components/repository-dashboard/RepositoryDashboardChrome";
-import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
-import { SessionPending } from "@/components/SessionPending";
+import { SignedIn } from "@samebase/convex-auth-tanstack-start";
+import { NotSignedIn } from "@/components/NotSignedIn";
 import { useQuery } from "@tanstack/react-query";
 import { rootQueries } from "@/routes/root.queries";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
@@ -145,12 +145,9 @@ export function PublicLandingAccountSection() {
       <SignedIn>
         <PublicLandingSignedInAccountSection />
       </SignedIn>
-      <SignedOut>
+      <NotSignedIn>
         <PublicLandingLoggedOutAccountSection />
-      </SignedOut>
-      <SessionPending>
-        <PublicLandingAccountLoadingSection />
-      </SessionPending>
+      </NotSignedIn>
     </>
   );
 }
