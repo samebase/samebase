@@ -660,6 +660,16 @@ export function resolveConvexPreviewDeployment(args: {
 
 const vStageOutputUrl = object({ url: string() });
 
+/** The attributes of each `Convex.Deployment` resource of a stage, in fqn order. */
+function readStageConvexDeployments(stage: AlchemyStage) {
+  return stage.resources.flatMap((resource) => {
+    const state: unknown = JSON.parse(resource.value);
+    return validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
+      ? [state.attr]
+      : [];
+  });
+}
+
 /** The preview of a pull request: the stage `pr-<number>` of the stack, the upstream Alchemy name. */
 export function buildPullRequestAlchemyPreview(args: {
   stack: PullRequestAlchemyStackRead;
@@ -680,13 +690,30 @@ export function buildPullRequestAlchemyPreview(args: {
   return {
     state: "available",
     url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
-    convexDeployments: stage.resources.flatMap((resource) => {
-      const state: unknown = JSON.parse(resource.value);
-      return validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
-        ? [{ name: state.attr.name, url: state.attr.url }]
-        : [];
-    }),
+    convexDeployments: readStageConvexDeployments(stage).map((deployment) => ({
+      name: deployment.name,
+      url: deployment.url,
+    })),
   };
+}
+
+/**
+The attached Convex projects whose pull request previews come from the branch-name match: each one
+that no stage of the stack deploys. Alchemy names a preview deployment after its stage,
+`pr-<number>`, so the branch name never matches it.
+*/
+export function selectBranchPreviewConvexProjects(args: {
+  stack: PullRequestAlchemyStackRead;
+  projects: readonly StableConvexProject[];
+}): StableConvexProject[] {
+  const stackProjectIds = new Set(
+    args.stack.state === "found"
+      ? args.stack.stages.flatMap((stage) =>
+          readStageConvexDeployments(stage).map((deployment) => String(deployment.projectId)),
+        )
+      : [],
+  );
+  return args.projects.filter((project) => !stackProjectIds.has(project.projectId));
 }
 
 /** Reads the stack of the repository once for every pull request of one resources read. */
@@ -1394,9 +1421,10 @@ export async function getPullRequestResourcesForUser(
     });
   }
 
-  // Alchemy names a preview deployment after its stage, `pr-<number>`, so the branch name never
-  // matches it: a repository with a stack in the store takes its previews from the stack.
-  const convexProjects = alchemyStack.state === "found" ? [] : context.convexProjects;
+  const convexProjects = selectBranchPreviewConvexProjects({
+    stack: alchemyStack,
+    projects: context.convexProjects,
+  });
   const projectResources = await Promise.all(
     convexProjects.map(async (project) => {
       const connection = await ctx.runQuery(

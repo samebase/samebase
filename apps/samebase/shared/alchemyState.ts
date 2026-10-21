@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-const { literal, object, optional, string, union } = v;
+const { literal, number, object, optional, string, union } = v;
 
 /**
 Alchemy's `encodeState` writes a `Redacted` value in clear text as `{ "__redacted__": <value> }`, and
@@ -21,7 +21,7 @@ the directory of the stack file, as a path or as an object with `path`; a deploy
 export const vAlchemyConvexDeploymentState = object({
   resourceType: literal("Convex.Deployment"),
   props: object({ source: optional(union(string(), object({ path: string() }))) }),
-  attr: object({ name: string(), url: string() }),
+  attr: object({ projectId: number(), name: string(), url: string() }),
 });
 
 /**

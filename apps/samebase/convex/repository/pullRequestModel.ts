@@ -326,7 +326,7 @@ export const vPullRequestResources = union(
     pullRequestId: string(),
     cloudflareBuilds: vPullRequestCloudflareBuilds,
     workers: array(vPullRequestWorkerResource),
-    /** Empty when the team store holds a stack for the repository, whose previews come from `alchemyPreview`. */
+    /** Without the projects that the stack of the repository deploys: their previews are in `alchemyPreview`. */
     convexProjects: array(vPullRequestConvexResource),
     hostingPreviews: vPullRequestHostingPreviews,
     alchemyPreview: vPullRequestAlchemyPreview,

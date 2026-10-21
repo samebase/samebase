@@ -16,6 +16,7 @@ import {
   readGitHubHostingCommentBodies,
   reportPullRequestHostingCommentParseFailures,
   resolveConvexPreviewDeployment,
+  selectBranchPreviewConvexProjects,
   validatePullRequestResourceIds,
   type PullRequestResourceHead,
 } from "./pullRequestResources";
@@ -63,6 +64,11 @@ const head: PullRequestResourceHead = {
 
 function fakeWorkerId(value: string): Id<"repositoryCloudflareWorkers"> {
   // @ts-expect-error Convex ids are strings at runtime; this test exercises stable Worker matching.
+  return value;
+}
+
+function fakeConvexProjectId(value: string): Id<"repositoryConvexProjects"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test matches provider project ids.
   return value;
 }
 
@@ -1107,5 +1113,29 @@ describe("buildPullRequestAlchemyPreview", () => {
     expect(
       buildPullRequestAlchemyPreview({ stack: { state: "failed" }, pullRequestNumber: 24 }),
     ).toEqual({ state: "unavailable" });
+  });
+
+  it("keeps the branch-name match only for Convex projects that the stack does not deploy", () => {
+    const projects = [
+      {
+        convexProjectId: fakeConvexProjectId("base-alchemy"),
+        teamId: "38516",
+        projectId: "3245938",
+        codeLocation: { kind: "config" as const, convexConfigPath: "convex.json" },
+      },
+      {
+        convexProjectId: fakeConvexProjectId("other"),
+        teamId: "38516",
+        projectId: "3300002",
+        codeLocation: { kind: "config" as const, convexConfigPath: "other/convex.json" },
+      },
+    ];
+
+    expect(
+      selectBranchPreviewConvexProjects({ stack, projects }).map((project) => project.projectId),
+    ).toEqual(["3300002"]);
+    for (const read of [{ state: "missing" as const }, { state: "failed" as const }]) {
+      expect(selectBranchPreviewConvexProjects({ stack: read, projects })).toEqual(projects);
+    }
   });
 });
