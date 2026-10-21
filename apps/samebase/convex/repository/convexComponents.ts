@@ -14,10 +14,10 @@ import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
+import { readConvexProductionDeployment } from "./convexProjectResources";
 import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexSchemaGraph";
 import {
   fetchConvexSystemQueryBatch,
-  findConvexProductionDeployment,
   withConvexInspectionDeployKey,
 } from "./convexDeploymentInspection";
 
@@ -122,10 +122,26 @@ export const observe = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const deployment = await findConvexProductionDeployment({
-      deploymentName: args.deploymentName,
-      target,
-    });
+    // A failed lookup of another attached project must not block a deployment that matched.
+    const lookups = await Promise.allSettled(
+      target.projects.map(
+        async (project) =>
+          await readConvexProductionDeployment({
+            token: target.token,
+            projectId: project.projectId,
+          }),
+      ),
+    );
+    const deployment = lookups
+      .flatMap((lookup) => (lookup.status === "fulfilled" && lookup.value ? [lookup.value] : []))
+      .find((candidate) => candidate.name === args.deploymentName);
+    if (!deployment) {
+      const failedLookup = lookups.find((lookup) => lookup.status === "rejected");
+      if (failedLookup) {
+        throw failedLookup.reason;
+      }
+      throw new Error("This repository has no Convex production deployment with this name.");
+    }
 
     const components = await withConvexInspectionDeployKey(
       { deployment, purpose: "components", target },

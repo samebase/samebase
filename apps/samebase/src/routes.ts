@@ -104,9 +104,6 @@ export const routes = rootRoute("root.tsx", [
       `${DASHBOARD_ROUTE}/$owner/$repository/components/$deploymentName`,
       "repository-components-deployment.tsx",
     ),
-    route(
-      `${DASHBOARD_ROUTE}/$owner/$repository/alchemy/$deploymentName`,
-      "repository-alchemy-deployment.tsx",
-    ),
+    route(`${DASHBOARD_ROUTE}/$owner/$repository/alchemy`, "repository-alchemy.tsx"),
   ]),
 ]);

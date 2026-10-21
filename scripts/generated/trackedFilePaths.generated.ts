@@ -1602,7 +1602,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/routes/pitch.tsx",
   "apps/samebase/src/routes/pricing.tsx",
   "apps/samebase/src/routes/privacy.tsx",
-  "apps/samebase/src/routes/repository-alchemy-deployment.tsx",
+  "apps/samebase/src/routes/repository-alchemy.tsx",
   "apps/samebase/src/routes/repository-components-deployment.tsx",
   "apps/samebase/src/routes/repository-dashboard-root.tsx",
   "apps/samebase/src/routes/repository-dashboard.queries.test.ts",

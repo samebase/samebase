@@ -12,7 +12,7 @@ import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySe
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
 
 export type AlchemyStateObservation = (typeof api.repository.alchemyState.observe)["_returnType"];
-type AlchemyStage = AlchemyStateObservation["stacks"][number]["stages"][number];
+type AlchemyStage = Extract<AlchemyStateObservation, { store: "found" }>["stages"][number];
 
 /** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
 const sureResourceState = sureObject({ status: sureString, resourceType: sureString });
@@ -91,39 +91,36 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
   );
 }
 
-export function AlchemyStateTree({
-  observation: { deploymentName, stacks },
-}: {
-  observation: AlchemyStateObservation;
-}) {
+export function AlchemyStateTree({ observation }: { observation: AlchemyStateObservation }) {
+  if (observation.store === "missing") {
+    return (
+      <RepositoryAlchemyStateStatus>
+        No Alchemy state store in this team yet.
+      </RepositoryAlchemyStateStatus>
+    );
+  }
+
   return (
     <div className="p-3 text-sm">
-      <div className="py-1 font-mono font-medium">{deploymentName}</div>
-      {stacks.length === 0 ? (
+      <div className="truncate py-1 font-mono font-medium">{observation.stack}</div>
+      {observation.stages.length === 0 ? (
         <div className="ml-2.5 border-l border-border py-1 pl-3 text-muted-foreground">
           No Alchemy state.
         </div>
       ) : (
         <ul className="ml-2.5 border-l border-border pl-3">
-          {stacks.map((stack) => (
-            <li key={stack.name}>
-              <div className="truncate py-1 font-mono">{stack.name}</div>
-              <ul className="ml-2.5 border-l border-border pl-3">
-                {stack.stages.map((stage) => (
-                  <li key={stage.name}>
-                    <details className="group">
-                      <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
-                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
-                        <span className="min-w-0 truncate font-mono">{stage.name}</span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
-                        </span>
-                      </summary>
-                      <AlchemyStageDetails stage={stage} />
-                    </details>
-                  </li>
-                ))}
-              </ul>
+          {observation.stages.map((stage) => (
+            <li key={stage.name}>
+              <details className="group">
+                <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
+                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
+                  <span className="min-w-0 truncate font-mono">{stage.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
+                  </span>
+                </summary>
+                <AlchemyStageDetails stage={stage} />
+              </details>
             </li>
           ))}
         </ul>
@@ -132,17 +129,11 @@ export function AlchemyStateTree({
   );
 }
 
-function RepositoryAlchemyStateTree({
-  deploymentName,
-  repositoryId,
-}: {
-  deploymentName: string;
-  repositoryId: Id<"repositories">;
-}) {
+function RepositoryAlchemyStateTree({ repositoryId }: { repositoryId: Id<"repositories"> }) {
   const observe = useAction(api.repository.alchemyState.observe);
   const observation = useQuery({
-    queryKey: ["repository-alchemy-state", repositoryId, deploymentName],
-    queryFn: async () => await observe({ repositoryId, deploymentName }),
+    queryKey: ["repository-alchemy-state", repositoryId],
+    queryFn: async () => await observe({ repositoryId }),
     retry: false,
   });
 
@@ -163,11 +154,9 @@ function RepositoryAlchemyStateTree({
 }
 
 export function RepositoryAlchemyStateView({
-  deploymentName,
   owner,
   repoName,
 }: {
-  deploymentName: string;
   owner: string;
   repoName: string;
 }) {
@@ -212,10 +201,7 @@ export function RepositoryAlchemyStateView({
             Loading Alchemy state
           </RepositoryAlchemyStateStatus>
         ) : workspace ? (
-          <RepositoryAlchemyStateTree
-            repositoryId={workspace.repository.repositoryId}
-            deploymentName={deploymentName}
-          />
+          <RepositoryAlchemyStateTree repositoryId={workspace.repository.repositoryId} />
         ) : (
           <RepositoryAlchemyStateStatus>Repository not found.</RepositoryAlchemyStateStatus>
         )}

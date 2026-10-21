@@ -22,36 +22,32 @@ function fixtureText(value: unknown): string {
 }
 
 const observation = {
-  deploymentName: "ideal-dolphin-15",
-  stacks: [
+  store: "found",
+  stack: "samebase/base-alchemy",
+  stages: [
     {
-      name: "BaseAlchemy",
-      stages: [
+      name: "main",
+      resources: [
         {
-          name: "main",
-          resources: [
-            {
-              fqn: "Deployment",
-              value: fixtureText(observedAlchemyResourceValues["main"]["Deployment"]),
-            },
-          ],
-          output: fixtureText(observedAlchemyOutputs["main"]),
-        },
-        {
-          name: previewStage,
-          resources: [
-            {
-              fqn: "Deployment",
-              value: fixtureText(observedAlchemyResourceValues[previewStage]["Deployment"]),
-            },
-            {
-              fqn: "PreviewComment",
-              value: fixtureText(observedAlchemyResourceValues[previewStage]["PreviewComment"]),
-            },
-          ],
-          output: fixtureText(observedAlchemyOutputs[previewStage]),
+          fqn: "Deployment",
+          value: fixtureText(observedAlchemyResourceValues["main"]["Deployment"]),
         },
       ],
+      output: fixtureText(observedAlchemyOutputs["main"]),
+    },
+    {
+      name: previewStage,
+      resources: [
+        {
+          fqn: "Deployment",
+          value: fixtureText(observedAlchemyResourceValues[previewStage]["Deployment"]),
+        },
+        {
+          fqn: "PreviewComment",
+          value: fixtureText(observedAlchemyResourceValues[previewStage]["PreviewComment"]),
+        },
+      ],
+      output: fixtureText(observedAlchemyOutputs[previewStage]),
     },
   ],
 } satisfies AlchemyStateObservation;
@@ -63,12 +59,14 @@ function renderTree(tree: AlchemyStateObservation) {
 }
 
 describe("AlchemyStateTree", () => {
-  it("nests stages under their stack and names the status and provider of each resource", () => {
+  it("lists the stages of the stack and names the status and provider of each resource", () => {
     const container = renderTree(observation);
 
-    expect(container.querySelector("li > div")?.textContent).toBe("BaseAlchemy");
+    expect(container.firstElementChild?.firstElementChild?.textContent).toBe(
+      "samebase/base-alchemy",
+    );
     expect(
-      Array.from(container.querySelectorAll("li > ul > li > details > summary"), (summary) => {
+      Array.from(container.querySelectorAll("ul > li > details > summary"), (summary) => {
         return summary.textContent;
       }),
     ).toEqual(["main1 resource", `${previewStage}2 resources`]);
@@ -95,18 +93,14 @@ describe("AlchemyStateTree", () => {
   it("shows only the key of a secret in the output", () => {
     // The action already replaces secret values with null, and the view must still hide a value that reaches it.
     const container = renderTree({
-      deploymentName: "ideal-dolphin-15",
-      stacks: [
+      store: "found",
+      stack: "samebase/base-alchemy",
+      stages: [
         {
-          name: "BaseAlchemy",
-          stages: [
-            {
-              name: "main",
-              resources: [],
-              output:
-                '{"url":"https://ideal-dolphin-15.convex.site","deployKey":{"__redacted__":"prod:ideal-dolphin-15|state-secret-value"},"nested":{"token":{"__redacted__":null}}}',
-            },
-          ],
+          name: "main",
+          resources: [],
+          output:
+            '{"url":"https://ideal-dolphin-15.convex.site","deployKey":{"__redacted__":"prod:ideal-dolphin-15|state-secret-value"},"nested":{"token":{"__redacted__":null}}}',
         },
       ],
     });
@@ -120,9 +114,15 @@ describe("AlchemyStateTree", () => {
     ).toEqual([["url", "https://ideal-dolphin-15.convex.site"], ["deployKey"], ["nested.token"]]);
   });
 
-  it("shows an empty deployment", () => {
-    expect(renderTree({ deploymentName: "ideal-dolphin-15", stacks: [] }).textContent).toBe(
-      "ideal-dolphin-15No Alchemy state.",
+  it("shows a stack without stages", () => {
+    expect(
+      renderTree({ store: "found", stack: "samebase/base-alchemy", stages: [] }).textContent,
+    ).toBe("samebase/base-alchemyNo Alchemy state.");
+  });
+
+  it("shows a team without a store", () => {
+    expect(renderTree({ store: "missing" }).textContent).toBe(
+      "No Alchemy state store in this team yet.",
     );
   });
 });

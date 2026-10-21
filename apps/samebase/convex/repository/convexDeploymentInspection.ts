@@ -19,7 +19,6 @@ import {
   type ConvexDeployKeyAllowedAction,
   type ConvexDeployKeyAuthMethod,
 } from "./convexDeployKeys";
-import { readConvexProductionDeployment } from "./convexProjectResources";
 import { vRepositoryConvexProjectDocument } from "./model";
 import { isLiveConnectedRepository } from "./state";
 
@@ -27,8 +26,12 @@ const { array, id, literal, object, string, union } = v;
 
 type ConvexInspectionTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
+  /** `owner/name` on GitHub. */
+  githubRepositoryFullName: string;
   /** The Convex projects attached to the repository. */
   projects: Doc<"repositoryConvexProjects">[];
+  /** The Convex team that the organization connected. */
+  teamId: string;
   token: string;
 };
 type ConvexSystemQueryResponse = {
@@ -45,7 +48,9 @@ const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
 const vConvexInspectionTarget = object({
   token: string(),
   authMethod: vConvexProviderAuthMethod,
+  githubRepositoryFullName: string(),
   projects: array(vRepositoryConvexProjectDocument),
+  teamId: string(),
 });
 
 export const readTarget = internalQuery({
@@ -59,7 +64,8 @@ export const readTarget = internalQuery({
       userId: args.userId,
       repositoryId: args.repositoryId,
     });
-    if (!isLiveConnectedRepository(repository)) {
+    const organization = await ctx.db.get(repository.organizationId);
+    if (!isLiveConnectedRepository(repository) || !organization) {
       throw new Error("Repository not found.");
     }
 
@@ -72,8 +78,8 @@ export const readTarget = internalQuery({
       ctx.db,
       repository.organizationId,
     );
-    const credential = configuration.convexCredential;
-    if (configuration.convexTeam?.teamId !== repository.convexTeamId || !credential) {
+    const { convexCredential: credential, convexTeam } = configuration;
+    if (!convexTeam || convexTeam.teamId !== repository.convexTeamId || !credential) {
       throw new Error("Convex connection is required.");
     }
     const token = credential.auth.credential.trim();
@@ -83,41 +89,12 @@ export const readTarget = internalQuery({
     return {
       token,
       authMethod: credential.auth.method,
+      githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
       projects: projects.filter((project) => project.organizationId === repository.organizationId),
+      teamId: convexTeam.teamId,
     };
   },
 });
-
-/**
-Finds `deploymentName` among the production deployments of the Convex projects attached to the
-repository. A failed lookup of another attached project does not block a deployment that matched.
-*/
-export async function findConvexProductionDeployment(args: {
-  deploymentName: string;
-  target: ConvexInspectionTarget;
-}): Promise<ConvexCloudDeployment> {
-  const lookups = await Promise.allSettled(
-    args.target.projects.map(
-      async (project) =>
-        await readConvexProductionDeployment({
-          token: args.target.token,
-          projectId: project.projectId,
-        }),
-    ),
-  );
-  const deployment = lookups
-    .flatMap((lookup) => (lookup.status === "fulfilled" && lookup.value ? [lookup.value] : []))
-    .find((candidate) => candidate.name === args.deploymentName);
-  if (deployment) {
-    return deployment;
-  }
-
-  const failedLookup = lookups.find((lookup) => lookup.status === "rejected");
-  if (failedLookup) {
-    throw failedLookup.reason;
-  }
-  throw new Error("This repository has no Convex production deployment with this name.");
-}
 
 /**
 Mints a short-lived `deployment:data:view` deploy key for `deployment`, passes it to `inspect`, and

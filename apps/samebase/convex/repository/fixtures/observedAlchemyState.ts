@@ -1,21 +1,18 @@
-// Captured on 2026-10-21 with `npx convex run --component alchemyState` (Convex CLI 1.46.0) from the
-// production deployment ideal-dolphin-15 of samebase/base-alchemy, which runs the alchemyState
-// component of samebase/alchemy-convex at d20307f. Values are real; the stages are trimmed to `main`
-// and `renovate-hono-4-x-73ca1d1d` (the reply listed 6 stages).
+// Replies of the Alchemy state store functions (samebase/alchemy-convex at d20307f), captured on
+// 2026-10-21 with `npx convex run` (Convex CLI 1.46.0) for samebase/base-alchemy, whose stack was
+// then named `BaseAlchemy`. Values are real; the stages are trimmed to `main` and
+// `renovate-hono-4-x-73ca1d1d` (the reply listed 6 stages).
 
-/** `state:stacks` */
-export const observedAlchemyStacks = ["BaseAlchemy"];
-
-/** `state:stages` for the stack `BaseAlchemy`, trimmed to two stages. */
+/** `state:stages` for the stack, trimmed to two stages. */
 export const observedAlchemyStages = ["main", "renovate-hono-4-x-73ca1d1d"];
 
-/** `state:list` for each stage of `BaseAlchemy`. */
+/** `state:list` for each stage. */
 export const observedAlchemyResourceFqns: Record<string, unknown> = {
   main: ["Deployment"],
   "renovate-hono-4-x-73ca1d1d": ["Deployment", "PreviewComment"],
 };
 
-/** `state:get` for each stage and fqn of `BaseAlchemy`: the JSON text of Alchemy's `encodeState`. */
+/** `state:get` for each stage and fqn: the JSON text of Alchemy's `encodeState`. */
 export const observedAlchemyResourceValues: Record<string, Record<string, unknown>> = {
   main: {
     Deployment:
@@ -29,7 +26,7 @@ export const observedAlchemyResourceValues: Record<string, Record<string, unknow
   },
 };
 
-/** `state:getOutput` for each stage of `BaseAlchemy`. */
+/** `state:getOutput` for each stage. */
 export const observedAlchemyOutputs: Record<string, unknown> = {
   main: '{"url":"https://ideal-dolphin-15.convex.site"}',
   "renovate-hono-4-x-73ca1d1d": '{"url":"https://insightful-perch-284.convex.site"}',

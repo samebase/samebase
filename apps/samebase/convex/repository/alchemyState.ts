@@ -9,52 +9,51 @@ import {
 import { Infer, v } from "convex/values";
 import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
 import { internal } from "../_generated/api";
+import { listConvexManagementProjects } from "../convexManagementApi/client";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import {
   fetchConvexDeploymentJson,
-  findConvexProductionDeployment,
   withConvexInspectionDeployKey,
 } from "./convexDeploymentInspection";
+import { readConvexProductionDeployment } from "./convexProjectResources";
 
-const { array, id, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
-/** The store is the alchemyState component that the app mounts under its default name. */
-const ALCHEMY_STATE_COMPONENT_PATH = "alchemyState";
+/** The Convex project of a team whose production deployment holds the Alchemy state of the team. */
+const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state";
 
-const vAlchemyStateObservation = object({
-  deploymentName: string(),
-  stacks: array(
-    object({
-      name: string(),
-      stages: array(
-        object({
-          name: string(),
-          /** `value` is the JSON text of Alchemy's `encodeState` without secret values. */
-          resources: array(object({ fqn: string(), value: string() })),
-          /** The JSON text of the stage output without secret values, or `null` before the first output. */
-          output: union(string(), v.null()),
-        }),
-      ),
-    }),
-  ),
-});
+const vAlchemyStateObservation = union(
+  object({ store: literal("missing") }),
+  object({
+    store: literal("found"),
+    /** The stack of the repository, keyed by its GitHub `owner/name`. */
+    stack: string(),
+    stages: array(
+      object({
+        name: string(),
+        /** `value` is the JSON text of Alchemy's `encodeState` without secret values. */
+        resources: array(object({ fqn: string(), value: string() })),
+        /** The JSON text of the stage output without secret values, or `null` before the first output. */
+        output: union(string(), v.null()),
+      }),
+    ),
+  }),
+);
 type AlchemyStateObservation = Infer<typeof vAlchemyStateObservation>;
 
 /**
 The function names of the store are a wire contract of samebase/alchemy-convex: a name is never
-renamed or removed. Each function runs through `POST <deployment>/api/function` with the component
-path, because `/api/query` ignores a component path. A query needs a deploy key with
-`deployment:data:view`. A function error is HTTP 560, which `fetchConvexDeploymentJson` throws.
+renamed or removed. Each one is a query of the root app, and a query needs a deploy key with
+`deployment:data:view`. A function error fails the request, which `fetchConvexDeploymentJson`
+throws.
 
-- `state:stacks` `{}`: the stack names, in index order.
 - `state:stages` `{ stack }`: the stage names of the stack, in index order.
 - `state:list` `{ stack, stage }`: the resource fqns of the stage, in index order.
 - `state:get` `{ stack, stage, fqn }`: the JSON text of the resource state, or `null`.
 - `state:getOutput` `{ stack, stage }`: the JSON text of the stage output, or `null`.
 
-@see https://github.com/samebase/alchemy-convex/blob/d20307f5681c699016466a54a5ea462037db7896/src/component/state.ts#L36-L159
-@see https://github.com/samebase/alchemy-convex/blob/d20307f5681c699016466a54a5ea462037db7896/src/State.ts#L47-L51
+@see https://github.com/samebase/alchemy-convex
 */
 const sureNamesReply = sureObject({ status: sureLiteral("success"), value: sureArray(sureString) });
 const sureTextReply = sureObject({
@@ -76,15 +75,15 @@ function withoutSecretValues(text: string): string {
 }
 
 /**
-Reads the Alchemy state that the stacks of the repository keep in the alchemyState component of
-`deploymentName`: each stack, its stages, the resources of each stage, and the stage output. The
-deployment must be the production deployment of a Convex project attached to the repository.
+Reads the stack of the repository from the Alchemy state store of the Convex team that the
+organization connected: its stages, the resources of each stage, and the stage output. The store is
+the production deployment of the team's `alchemy-state` project. Other stacks of the team are not
+read.
 */
 export const observe = action({
   access: "access_dashboard",
   args: {
     repositoryId: id("repositories"),
-    deploymentName: string(),
   },
   returns: vAlchemyStateObservation,
   handler: async (ctx, args): Promise<AlchemyStateObservation> => {
@@ -92,25 +91,27 @@ export const observe = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const deployment = await findConvexProductionDeployment({
-      deploymentName: args.deploymentName,
-      target,
-    });
+    const project = (
+      await listConvexManagementProjects({ token: target.token, teamId: target.teamId })
+    ).find((candidate) => candidate.name === ALCHEMY_STATE_PROJECT_NAME);
+    // A store project without a production deployment holds no state yet.
+    const deployment = project
+      ? await readConvexProductionDeployment({ token: target.token, projectId: project.id })
+      : null;
+    if (!deployment) {
+      return { store: "missing" };
+    }
 
-    const stacks = await withConvexInspectionDeployKey(
+    const stack = target.githubRepositoryFullName;
+    const stages = await withConvexInspectionDeployKey(
       { deployment, purpose: "alchemyState", target },
       async (deployKey) => {
         const run = async (path: string, functionArgs: Record<string, string>) =>
           await fetchConvexDeploymentJson({
             deployKey,
             deploymentUrl: deployment.deploymentUrl,
-            path: "/api/function",
-            body: {
-              componentPath: ALCHEMY_STATE_COMPONENT_PATH,
-              path,
-              args: functionArgs,
-              format: "json",
-            },
+            path: "/api/query",
+            body: { path, args: functionArgs, format: "json" },
           });
         const names = async (path: string, functionArgs: Record<string, string>) => {
           const [valid, reply] = sureNamesReply(await run(path, functionArgs));
@@ -128,35 +129,30 @@ export const observe = action({
         };
 
         return await Promise.all(
-          (await names("state:stacks", {})).map(async (stack) => ({
-            name: stack,
-            stages: await Promise.all(
-              (await names("state:stages", { stack })).map(async (stage) => {
-                const [fqns, output] = await Promise.all([
-                  names("state:list", { stack, stage }),
-                  text("state:getOutput", { stack, stage }),
-                ]);
-                const resources = await Promise.all(
-                  fqns.map(async (fqn) => ({
-                    fqn,
-                    value: await text("state:get", { stack, stage, fqn }),
-                  })),
-                );
-                return {
-                  name: stage,
-                  // A deploy that runs during this read can delete a resource after `state:list`.
-                  resources: resources.flatMap(({ fqn, value }) =>
-                    value === null ? [] : [{ fqn, value }],
-                  ),
-                  output,
-                };
-              }),
-            ),
-          })),
+          (await names("state:stages", { stack })).map(async (stage) => {
+            const [fqns, output] = await Promise.all([
+              names("state:list", { stack, stage }),
+              text("state:getOutput", { stack, stage }),
+            ]);
+            const resources = await Promise.all(
+              fqns.map(async (fqn) => ({
+                fqn,
+                value: await text("state:get", { stack, stage, fqn }),
+              })),
+            );
+            return {
+              name: stage,
+              // A deploy that runs during this read can delete a resource after `state:list`.
+              resources: resources.flatMap(({ fqn, value }) =>
+                value === null ? [] : [{ fqn, value }],
+              ),
+              output,
+            };
+          }),
         );
       },
     );
 
-    return { deploymentName: deployment.name, stacks };
+    return { store: "found", stack, stages };
   },
 });

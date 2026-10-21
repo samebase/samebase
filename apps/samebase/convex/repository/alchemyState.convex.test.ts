@@ -7,9 +7,25 @@ import {
   observedAlchemyOutputs,
   observedAlchemyResourceFqns,
   observedAlchemyResourceValues,
-  observedAlchemyStacks,
   observedAlchemyStages,
 } from "./fixtures/observedAlchemyState";
+
+const storeProject = {
+  createTime: 1710000000000,
+  id: 3300001,
+  name: "alchemy-state",
+  slug: "alchemy-state",
+  teamId: 38516,
+  teamSlug: "nicu",
+};
+const appProject = {
+  createTime: 1710000000000,
+  id: 3245938,
+  name: "base-alchemy",
+  slug: "base-alchemy",
+  teamId: 38516,
+  teamSlug: "nicu",
+};
 
 type RecordedRequest = {
   authorization: string | null;
@@ -17,6 +33,7 @@ type RecordedRequest = {
   url: string;
 };
 
+/** The captured replies answer for the stack `samebase/base-alchemy`, the key of its stack in the store. */
 function answerStateFunction(
   path: unknown,
   args: Record<string, unknown>,
@@ -24,10 +41,8 @@ function answerStateFunction(
 ): unknown {
   const stage = String(args["stage"]);
   switch (path) {
-    case "state:stacks":
-      return observedAlchemyStacks;
     case "state:stages":
-      return args["stack"] === "BaseAlchemy" ? observedAlchemyStages : [];
+      return args["stack"] === "samebase/base-alchemy" ? observedAlchemyStages : [];
     case "state:list":
       return observedAlchemyResourceFqns[stage];
     case "state:get":
@@ -133,10 +148,11 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
   };
 }
 
-function installAlchemyStateFetchStub(
-  requests: RecordedRequest[],
-  resourceValues: Record<string, Record<string, unknown>>,
-) {
+function installAlchemyStateFetchStub(args: {
+  requests: RecordedRequest[];
+  resourceValues: Record<string, Record<string, unknown>>;
+  teamProjects: unknown[];
+}) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -147,37 +163,44 @@ function installAlchemyStateFetchStub(
           : input instanceof Request && input.method !== "GET"
             ? await input.json()
             : undefined;
-      requests.push({ url, authorization: new Headers(init?.headers).get("Authorization"), body });
+      args.requests.push({
+        url,
+        authorization: new Headers(init?.headers).get("Authorization"),
+        body,
+      });
 
-      if (url.endsWith("/projects/3245938/deployment?defaultProd=true")) {
+      if (url === "https://api.convex.dev/v1/teams/38516/projects?limit=100") {
+        return jsonResponse({ items: args.teamProjects, pagination: { hasMore: false } });
+      }
+      if (url.endsWith("/projects/3300001/deployment?defaultProd=true")) {
         return jsonResponse({
           class: "s16",
           createTime: 1710000000000,
           deploymentType: "prod",
-          deploymentUrl: "https://ideal-dolphin-15.convex.cloud",
+          deploymentUrl: "https://brave-heron-201.convex.cloud",
           id: 2001,
           isDefault: true,
           kind: "cloud",
-          name: "ideal-dolphin-15",
-          projectId: "3245938",
+          name: "brave-heron-201",
+          projectId: "3300001",
           reference: "production",
           region: "aws-us-east-1",
         });
       }
       if (url.endsWith("/create_deploy_key")) {
-        return jsonResponse({ deployKey: "prod:ideal-dolphin-15|alchemy-state-secret" });
+        return jsonResponse({ deployKey: "prod:brave-heron-201|alchemy-state-secret" });
       }
       if (url.endsWith("/delete_deploy_key")) {
         return new Response(null, { status: 200 });
       }
       if (
-        url === "https://ideal-dolphin-15.convex.cloud/api/function" &&
+        url === "https://brave-heron-201.convex.cloud/api/query" &&
         isRecord(body) &&
         isRecord(body["args"])
       ) {
         return jsonResponse({
           status: "success",
-          value: answerStateFunction(body["path"], body["args"], resourceValues),
+          value: answerStateFunction(body["path"], body["args"], args.resourceValues),
           logLines: [],
         });
       }
@@ -193,67 +216,83 @@ afterEach(() => {
 });
 
 describe("repository Alchemy state", () => {
-  it("reads every stack, stage, resource, and output with a revoked inspection key", async () => {
+  it("reads the stack of the repository from the team store with a revoked inspection key", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: RecordedRequest[] = [];
-    installAlchemyStateFetchStub(requests, observedAlchemyResourceValues);
+    installAlchemyStateFetchStub({
+      requests,
+      resourceValues: observedAlchemyResourceValues,
+      teamProjects: [appProject, storeProject],
+    });
 
     const observation = await user.action(api.repository.alchemyState.observe, {
       repositoryId: ids.repositoryId,
-      deploymentName: "ideal-dolphin-15",
     });
 
     expect(observation).toEqual({
-      deploymentName: "ideal-dolphin-15",
-      stacks: [
+      store: "found",
+      stack: "samebase/base-alchemy",
+      stages: [
         {
-          name: "BaseAlchemy",
-          stages: [
+          name: "main",
+          resources: [
+            { fqn: "Deployment", value: observedAlchemyResourceValues["main"]?.["Deployment"] },
+          ],
+          output: observedAlchemyOutputs["main"],
+        },
+        {
+          name: "renovate-hono-4-x-73ca1d1d",
+          resources: [
             {
-              name: "main",
-              resources: [
-                { fqn: "Deployment", value: observedAlchemyResourceValues["main"]?.["Deployment"] },
-              ],
-              output: observedAlchemyOutputs["main"],
+              fqn: "Deployment",
+              value: observedAlchemyResourceValues["renovate-hono-4-x-73ca1d1d"]?.["Deployment"],
             },
             {
-              name: "renovate-hono-4-x-73ca1d1d",
-              resources: [
-                {
-                  fqn: "Deployment",
-                  value:
-                    observedAlchemyResourceValues["renovate-hono-4-x-73ca1d1d"]?.["Deployment"],
-                },
-                {
-                  fqn: "PreviewComment",
-                  value:
-                    observedAlchemyResourceValues["renovate-hono-4-x-73ca1d1d"]?.["PreviewComment"],
-                },
-              ],
-              output: observedAlchemyOutputs["renovate-hono-4-x-73ca1d1d"],
+              fqn: "PreviewComment",
+              value:
+                observedAlchemyResourceValues["renovate-hono-4-x-73ca1d1d"]?.["PreviewComment"],
             },
           ],
+          output: observedAlchemyOutputs["renovate-hono-4-x-73ca1d1d"],
         },
       ],
     });
 
-    const functionRequests = requests.filter((request) => request.url.endsWith("/api/function"));
-    expect(functionRequests).toHaveLength(9);
+    const storeRequests = requests.filter((request) => request.url.endsWith("/api/query"));
+    expect(storeRequests).toHaveLength(8);
     expect(
       new Set(
-        functionRequests.map((request) =>
-          isRecord(request.body) ? request.body["componentPath"] : null,
+        storeRequests.map((request) =>
+          isRecord(request.body) && isRecord(request.body["args"])
+            ? request.body["args"]["stack"]
+            : null,
         ),
       ),
-    ).toEqual(new Set(["alchemyState"]));
-    expect(new Set(functionRequests.map((request) => request.authorization))).toEqual(
-      new Set(["Convex prod:ideal-dolphin-15|alchemy-state-secret"]),
+    ).toEqual(new Set(["samebase/base-alchemy"]));
+    expect(new Set(storeRequests.map((request) => request.authorization))).toEqual(
+      new Set(["Convex prod:brave-heron-201|alchemy-state-secret"]),
     );
     expect(requests.find((request) => request.url.endsWith("/delete_deploy_key"))?.body).toEqual({
-      id: "samebase-alchemyState-ideal-dolphin-15-ltk9ukg0",
+      id: "samebase-alchemyState-brave-heron-201-ltk9ukg0",
     });
+  });
+
+  it("reports a missing store when the team has no alchemy-state project", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      resourceValues: observedAlchemyResourceValues,
+      teamProjects: [appProject],
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.observe, { repositoryId: ids.repositoryId }),
+    ).resolves.toEqual({ store: "missing" });
+    expect(requests.some((request) => request.url.endsWith("/create_deploy_key"))).toBe(false);
   });
 
   it("keeps the key of a secret and never returns its value", async () => {
@@ -272,17 +311,23 @@ describe("repository Alchemy state", () => {
     deploymentWithSecret["attr"]["deployKey"] = {
       __redacted__: "prod:ideal-dolphin-15|state-secret-value",
     };
-    installAlchemyStateFetchStub([], {
-      ...observedAlchemyResourceValues,
-      main: { Deployment: JSON.stringify(deploymentWithSecret) },
+    installAlchemyStateFetchStub({
+      requests: [],
+      resourceValues: {
+        ...observedAlchemyResourceValues,
+        main: { Deployment: JSON.stringify(deploymentWithSecret) },
+      },
+      teamProjects: [storeProject],
     });
 
     const observation = await user.action(api.repository.alchemyState.observe, {
       repositoryId: ids.repositoryId,
-      deploymentName: "ideal-dolphin-15",
     });
 
-    const value = observation.stacks[0]?.stages[0]?.resources[0]?.value ?? "";
+    if (observation.store !== "found") {
+      throw new Error("Expected the team store.");
+    }
+    const value = observation.stages[0]?.resources[0]?.value ?? "";
     expect(value).not.toContain("state-secret-value");
     expect(JSON.parse(value)).toMatchObject({ attr: { deployKey: { __redacted__: null } } });
   });
