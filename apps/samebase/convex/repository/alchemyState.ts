@@ -1,5 +1,5 @@
+import { parse } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
-import { z } from "zod";
 import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
 import { internal } from "../_generated/api";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
@@ -48,14 +48,8 @@ error fails the request, which `fetchConvexDeploymentJson` throws.
 
 @see https://github.com/samebase/alchemy-convex
 */
-const storeNamesReplySchema = z.object({
-  status: z.literal("success"),
-  value: z.array(z.string()),
-});
-const storeTextReplySchema = z.object({
-  status: z.literal("success"),
-  value: z.string().nullable(),
-});
+const vStoreNamesReply = object({ status: literal("success"), value: array(string()) });
+const vStoreTextReply = object({ status: literal("success"), value: union(string(), v.null()) });
 
 /**
 Alchemy state holds each `Redacted` value in clear text. This keeps the key of each secret and
@@ -109,23 +103,11 @@ export const observe = action({
             path: "/api/function",
             body: { path, args: functionArgs, format: "json" },
           });
-        const names = async (path: string, functionArgs: Record<string, string>) => {
-          const result = storeNamesReplySchema.safeParse(await run(path, functionArgs));
-          if (!result.success) {
-            throw new Error(
-              `Convex returned an unexpected reply to ${path}: ${z.prettifyError(result.error)}`,
-            );
-          }
-          return result.data.value;
-        };
+        const names = async (path: string, functionArgs: Record<string, string>) =>
+          parse(vStoreNamesReply, await run(path, functionArgs)).value;
         const text = async (path: string, functionArgs: Record<string, string>) => {
-          const result = storeTextReplySchema.safeParse(await run(path, functionArgs));
-          if (!result.success) {
-            throw new Error(
-              `Convex returned an unexpected reply to ${path}: ${z.prettifyError(result.error)}`,
-            );
-          }
-          return result.data.value === null ? null : withoutSecretValues(result.data.value);
+          const { value } = parse(vStoreTextReply, await run(path, functionArgs));
+          return value === null ? null : withoutSecretValues(value);
         };
 
         return await Promise.all(

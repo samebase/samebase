@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { validate } from "convex-helpers/validators";
 import { useAction } from "convex/react";
+import { v } from "convex/values";
 import { ChevronRight, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { z } from "zod";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
@@ -14,8 +15,10 @@ import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositor
 export type AlchemyStateObservation = (typeof api.repository.alchemyState.observe)["_returnType"];
 type AlchemyStage = Extract<AlchemyStateObservation, { store: "found" }>["stages"][number];
 
+const { object, string } = v;
+
 /** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
-const resourceStateSchema = z.object({ status: z.string(), resourceType: z.string() });
+const vResourceState = object({ status: string(), resourceType: string() });
 
 /**
 One entry for each value of the stage output, named by its dotted path. A secret keeps only its
@@ -69,13 +72,15 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
       {stage.resources.length === 0 ? null : (
         <AlchemyStateDetailRow label="Resources">
           {stage.resources.map((resource) => {
-            const state = resourceStateSchema.safeParse(JSON.parse(resource.value));
+            const state: unknown = JSON.parse(resource.value);
             return (
               <AlchemyStateDetailItem
                 key={resource.fqn}
                 name={resource.fqn}
                 detail={
-                  state.success ? `${state.data.status}, ${state.data.resourceType}` : "unknown"
+                  validate(vResourceState, state, { allowUnknownFields: true })
+                    ? `${state.status}, ${state.resourceType}`
+                    : "unknown"
                 }
               />
             );
