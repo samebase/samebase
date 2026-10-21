@@ -30,6 +30,28 @@ minimumReleaseAgeExclude:
   # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
+  # Reviewed security fix: https://github.com/advisories/GHSA-p458-7748-mcp3
+  # (Vitest servers serve files that server.fs.deny lists). Vite+ 1.3.0 and the Vitest 5.0.5 it
+  # pins, published 2026-10-16 05:42 UTC with npm provenance. Remove after 2026-10-23 05:43 UTC.
+  - "vite-plus@1.3.0"
+  - "@voidzero-dev/vite-plus-core@1.3.0"
+  - "@voidzero-dev/vite-plus-darwin-arm64@1.3.0"
+  - "@voidzero-dev/vite-plus-darwin-x64@1.3.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu@1.3.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl@1.3.0"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu@1.3.0"
+  - "@voidzero-dev/vite-plus-linux-x64-musl@1.3.0"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc@1.3.0"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc@1.3.0"
+  - "vitest@5.0.5"
+  - "@vitest/browser@5.0.5"
+  - "@vitest/browser-preview@5.0.5"
+  - "@vitest/mocker@5.0.5"
+  - "@vitest/pretty-format@5.0.5"
+  - "@vitest/snapshot@5.0.5"
+  - "@vitest/spy@5.0.5"
+  - "@vitest/ui@5.0.5"
+  - "@vitest/utils@5.0.5"
   # TODO(2026-09-06): Remove after qs 6.16.0 completes the normal
   # 7-day cooling period.
   - qs@6.16.0
@@ -111,9 +133,9 @@ allowBuilds:
   sharp: false
   workerd: true
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
-  vitest: 5.0.3
-  vite-plus: 1.1.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.3.0
+  vitest: 5.0.5
+  vite-plus: 1.3.0
 peerDependencyRules:
   allowAny:
     - vite
