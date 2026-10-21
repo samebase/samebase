@@ -3,6 +3,7 @@ import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktr
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
+import { openHydratedSignUpForm } from "./organizationContextAcceptance";
 import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
 const MOBILE_RIGHT_SIDEBAR_STATE = {
@@ -32,10 +33,10 @@ async function openSettings(page: Page) {
 async function createPendingAccount(page: Page, email: string) {
   const passwordAuthSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await passwordAuthSection.getByPlaceholder("you@example.com").waitFor({ state: "visible" });
-  await passwordAuthSection.getByRole("button", { name: "Need an account?" }).click();
+  const createAccountButton = await openHydratedSignUpForm(passwordAuthSection);
   await passwordAuthSection.getByPlaceholder("you@example.com").fill(email);
   await passwordAuthSection.getByPlaceholder("Password").fill("settings-test-pass-1234");
-  await passwordAuthSection.getByRole("button", { exact: true, name: "Create account" }).click();
+  await createAccountButton.click();
   await expect(page.getByRole("link", { exact: true, name: "Account settings" })).toBeVisible();
 }
 
@@ -166,6 +167,13 @@ test("Pending-approval Settings shows only account exit actions on mobile", asyn
     await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
+    );
+    // The settings page mounts its own layout, which scrolls the carousel to the saved pane once it
+    // has measured the viewport; a scroll before that does not stick.
+    await expect(page.getByTestId("user-settings-page")).toBeVisible();
+    await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+      "data-viewport-measured",
+      "",
     );
     await page.locator('[data-sidebar-layout-part="carousel"]').evaluate((element) => {
       const mainPane = element.querySelector(
