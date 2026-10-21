@@ -171,12 +171,11 @@ async function waitForFunctionsReady(bootstrapProcess: ReturnType<typeof spawn>)
 
 /**
  * `node --run` puts node_modules/.bin on PATH and appends the arguments to the script's last
- * command, as the convex-hosting actions call the deploy script. The deploy pushes with its own
- * `convex run --push`. On Linux the watcher never sees the new version file, so that push is the
- * one CI waits for. On Windows the watcher re-pushes as well, the two pushes race, and the deploy's
- * later `convex run` calls then sometimes abort inside the Convex CLI after the push landed. CI
- * needs the push, not the upload, so a failed deploy is fatal only when the functions never become
- * ready.
+ * command. The deploy pushes with its own `convex run --push`. On Linux the watcher never sees the
+ * new version file, so that push is the one CI waits for. On Windows the watcher re-pushes as well,
+ * the two pushes race, and the deploy's later `convex run` calls then sometimes abort inside the
+ * Convex CLI after the push landed. CI needs the push, not the upload, so a failed deploy is fatal
+ * only when the functions never become ready.
  */
 async function deployLocalSite(bootstrapProcess: ReturnType<typeof spawn>): Promise<void> {
   const result = spawnSync(process.execPath, ["--run", "deploy", "--", "--dev"], {
