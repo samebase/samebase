@@ -48,6 +48,9 @@ function renderLayoutMarkup({
 describe("SidebarLayout server markup", () => {
   it("renders one responsive pane tree", () => {
     const markup = renderLayoutMarkup({});
+    // Two open sidebars keep their saved widths while the main pane keeps its minimum, and share
+    // the free width in proportion to their width above the minimum when they do not fit.
+    const leftDesktopWidth = `min(${TEST_SIDEBAR_WIDTH_PX}px, round(160px + (100% - 480px) * 0.5, 1px))`;
 
     expect(markup).toContain('data-sidebar-layout-part="viewport"');
     expect(markup).toContain('data-mobile-min-resize-behavior="min_resize_to_merge"');
@@ -56,11 +59,11 @@ describe("SidebarLayout server markup", () => {
     expect((markup.match(/data-pane-side="right"/g) ?? []).length).toBe(1);
     expect(markup).toContain('data-sidebar-layout-part="carousel"');
     expect(markup).toContain(
-      `style="--sidebar-layout-left-desktop-width:${TEST_SIDEBAR_WIDTH_PX}px;width:var(--sidebar-layout-left-mobile-width, 0px)"`,
+      `style="--sidebar-layout-left-desktop-width:${leftDesktopWidth};width:var(--sidebar-layout-left-mobile-width, 0px)"`,
     );
     expect(markup).toContain('style="width:var(--sidebar-layout-main-mobile-width, 100%)"');
     expect(markup).toContain(
-      `style="--sidebar-layout-right-desktop-width:${TEST_SIDEBAR_WIDTH_PX}px;width:var(--sidebar-layout-right-mobile-width, 0px)"`,
+      `style="--sidebar-layout-right-desktop-width:min(${TEST_SIDEBAR_WIDTH_PX}px, calc(100% - 160px - ${leftDesktopWidth}));width:var(--sidebar-layout-right-mobile-width, 0px)"`,
     );
   });
 

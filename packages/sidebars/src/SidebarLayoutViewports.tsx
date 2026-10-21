@@ -18,7 +18,10 @@ type SidebarLayoutRightPaneStyle = CSSProperties & {
 type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
   activeResizeSide: SidebarLayoutActiveResizeSide;
   carouselRef: RefObject<HTMLDivElement | null>;
+  /** The left pane's desktop width as CSS: pixels once measured, a CSS fit of the saved width before. */
+  desktopLeftWidth: string;
   desktopLeftWidthPx: number;
+  desktopRightWidth: string;
   desktopRightWidthPx: number;
   enableDesktopPaneTransitions: boolean;
   hasMeasuredViewport: boolean;
@@ -36,7 +39,9 @@ type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
 export function SidebarLayoutViewport({
   activeResizeSide,
   carouselRef,
+  desktopLeftWidth,
   desktopLeftWidthPx,
+  desktopRightWidth,
   desktopRightWidthPx,
   enableDesktopPaneTransitions,
   hasMeasuredViewport,
@@ -56,13 +61,13 @@ export function SidebarLayoutViewport({
   // Each pane carries its own desktop width variable, so a pane that a render inserts has its width
   // in its first style and the width transition does not animate it from 0.
   const leftPaneStyle: SidebarLayoutLeftPaneStyle = {
-    "--sidebar-layout-left-desktop-width": `${desktopLeftWidthPx}px`,
+    "--sidebar-layout-left-desktop-width": desktopLeftWidth,
     width: hasMeasuredViewport
       ? `${leftWidthPx}px`
       : "var(--sidebar-layout-left-mobile-width, 0px)",
   };
   const rightPaneStyle: SidebarLayoutRightPaneStyle = {
-    "--sidebar-layout-right-desktop-width": `${desktopRightWidthPx}px`,
+    "--sidebar-layout-right-desktop-width": desktopRightWidth,
     width: hasMeasuredViewport
       ? `${rightWidthPx}px`
       : "var(--sidebar-layout-right-mobile-width, 0px)",

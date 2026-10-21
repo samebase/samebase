@@ -502,7 +502,7 @@ describe("AppWorkspaceShell", () => {
     );
 
     expect(markup).toContain("--sidebar-layout-left-desktop-width:0px");
-    expect(markup).toContain("--sidebar-layout-right-desktop-width:288px");
+    expect(markup).toContain("--sidebar-layout-right-desktop-width:min(288px, calc(100% - 160px))");
   });
 
   it("server-renders the root loader's saved sidebar state", () => {
@@ -520,15 +520,19 @@ describe("AppWorkspaceShell", () => {
     const leftPane = markupContainer.querySelector('[data-pane-side="left"]');
     const rightPane = markupContainer.querySelector('[data-pane-side="right"]');
 
-    expect(leftPane?.getAttribute("style")).toContain("--sidebar-layout-left-desktop-width:300px");
+    expect(leftPane?.getAttribute("style")).toContain(
+      "--sidebar-layout-left-desktop-width:min(300px, calc(100% - 160px))",
+    );
     expect(rightPane?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
     expect(viewport?.getAttribute("data-mobile-pane")).toBe("right");
     expect(viewport?.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
     expect(viewport?.getAttribute("style")).toContain(
       "--sidebar-layout-right-mobile-width:clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px))",
     );
+    const rightMobileWidth =
+      "clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px))";
     expect(viewport?.getAttribute("style")).toContain(
-      "--sidebar-layout-main-mobile-width:calc(100% - clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px)))",
+      `--sidebar-layout-main-mobile-width:calc(100% - ${rightMobileWidth} + clamp(0px, (214px - (100% - ${rightMobileWidth})) * 1000, ${rightMobileWidth}))`,
     );
     expect(viewport?.getAttribute("style")).toContain("--sidebar-layout-left-mobile-width:0px");
   });

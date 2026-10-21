@@ -78,6 +78,45 @@ function getUnmeasuredMobileSidebarWidth(storedWidthPx: number) {
 }
 
 /**
+The desktop pane widths before React measures the viewport, as CSS fitted to the carousel width
+(`100%` in a pane's `width`) with the rules of `getDesktopPaneWidths`: an open sidebar keeps its
+saved width while the main pane keeps its minimum, and two open sidebars that do not fit share the
+free width in proportion to their width above the sidebar minimum. Both are at least the minimum,
+so a desktop carousel always fits them.
+*/
+function getUnmeasuredDesktopWidths({
+  leftOpen,
+  leftWidthPx,
+  rightOpen,
+  rightWidthPx,
+}: {
+  leftOpen: boolean;
+  leftWidthPx: number;
+  rightOpen: boolean;
+  rightWidthPx: number;
+}) {
+  const mainMin = SIDEBAR_LAYOUT_DESKTOP_MAIN_MIN_WIDTH_PX;
+  const sidebarMin = SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX;
+  const left = leftOpen ? Math.max(sidebarMin, Math.round(leftWidthPx)) : 0;
+  const right = rightOpen ? Math.max(sidebarMin, Math.round(rightWidthPx)) : 0;
+  const extraPx = left + right - (Number(leftOpen) + Number(rightOpen)) * sidebarMin;
+  if (leftOpen && rightOpen && extraPx > 0) {
+    const leftShare = (left - sidebarMin) / extraPx;
+    const leftWidth = `min(${left}px, round(${sidebarMin}px + (100% - ${mainMin + 2 * sidebarMin}px) * ${leftShare}, 1px))`;
+
+    return {
+      left: leftWidth,
+      right: `min(${right}px, calc(100% - ${mainMin}px - ${leftWidth}))`,
+    };
+  }
+
+  return {
+    left: leftOpen ? `min(${left}px, calc(100% - ${mainMin}px))` : "0px",
+    right: rightOpen ? `min(${right}px, calc(100% - ${mainMin}px))` : "0px",
+  };
+}
+
+/**
 The mobile geometry of the server HTML and the hydration render, before React measures the viewport.
 It comes from the saved state alone, so the first paint shows the saved mobile pane without a
 script, and the measured render that follows has the same layout.
@@ -85,7 +124,9 @@ script, and the measured render that follows has the same layout.
 The carousel starts at scroll position 0 and CSS cannot scroll it. A saved left pane needs no
 scroll. For the main pane, the left pane has no width until React measures and scrolls past it. For
 the right pane, structure.css aligns the carousel content to its end until React measures. A saved
-merged surface shows its side pane beside a main pane that fills the rest of the carousel.
+merged surface shows its side pane beside a main pane that fills the rest of the carousel when the
+rest is at least the main pane's minimum, and an unmerged main pane otherwise: the clamp adds the
+side pane width back as soon as the rest falls below that minimum.
 */
 function getUnmeasuredMobileGeometry({
   hasLeftPane,
@@ -118,11 +159,17 @@ function getUnmeasuredMobileGeometry({
     "--sidebar-layout-main-mobile-width":
       mergedSide === null
         ? "100%"
-        : `calc(100% - ${mergedSide === "left" ? leftWidth : rightWidth})`,
+        : getUnmeasuredMergedMainWidth(mergedSide === "left" ? leftWidth : rightWidth),
     "--sidebar-layout-right-mobile-width": hasRightPane ? rightWidth : "0px",
   };
 
   return { mergedSide, rootStyle };
+}
+
+function getUnmeasuredMergedMainWidth(sideWidth: string) {
+  const rest = `100% - ${sideWidth}`;
+
+  return `calc(${rest} + clamp(0px, (${SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX}px - (${rest})) * 1000, ${sideWidth}))`;
 }
 
 function getAvailableMobilePane({
@@ -204,6 +251,14 @@ export function SidebarLayout({
     sidebarMinWidthPx: SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     viewportWidthPx: viewportSize.widthPx,
   });
+  const desktopPaneWidths = hasMeasuredViewport
+    ? { left: `${desktopWidths.leftWidthPx}px`, right: `${desktopWidths.rightWidthPx}px` }
+    : getUnmeasuredDesktopWidths({
+        leftOpen: hasLeftPane && leftDesktopOpen,
+        leftWidthPx: leftDesktopWidthPx,
+        rightOpen: hasRightPane && rightDesktopOpen,
+        rightWidthPx: rightDesktopWidthPx,
+      });
   const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
     configuredMinWidthPx: SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
@@ -431,7 +486,9 @@ export function SidebarLayout({
           <SidebarLayoutViewport
             activeResizeSide={activeResizeSide}
             carouselRef={mobileCarouselRef}
+            desktopLeftWidth={desktopPaneWidths.left}
             desktopLeftWidthPx={desktopWidths.leftWidthPx}
+            desktopRightWidth={desktopPaneWidths.right}
             desktopRightWidthPx={desktopWidths.rightWidthPx}
             enableDesktopPaneTransitions={enableDesktopPaneTransitions}
             hasMeasuredViewport={hasMeasuredViewport}
