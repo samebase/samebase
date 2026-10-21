@@ -7,19 +7,13 @@ import {
   isAgentBrowserHandoffTokenValue,
   normalizeAgentBrowserHandoffReturnToPath,
 } from "../../shared/agentBrowserHandoff";
+import stripAgentBrowserHandoffFragment, {
+  type AgentBrowserHandoffFragmentScriptArgs,
+} from "@/lib/agentBrowserHandoffFragmentScript";
+import stripAgentBrowserHandoffFragmentSource from "@/lib/agentBrowserHandoffFragmentScript?inline-script";
 
 export const AGENT_BROWSER_HANDOFF_STORAGE_KEY = "samebase_agent_browser_handoff";
 export const AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY = "samebaseAgentBrowserHandoff";
-
-type AgentBrowserHandoffPrehydrationArgs = {
-  defaultReturnToPath: string;
-  historyStateKey: string;
-  returnToFragmentKey: string;
-  route: string;
-  storageKey: string;
-  tokenFragmentKey: string;
-  tokenPatternSource: string;
-};
 
 const agentBrowserHandoffPrehydrationArgs = {
   defaultReturnToPath: AGENT_BROWSER_HANDOFF_DEFAULT_RETURN_TO_PATH,
@@ -29,79 +23,7 @@ const agentBrowserHandoffPrehydrationArgs = {
   storageKey: AGENT_BROWSER_HANDOFF_STORAGE_KEY,
   tokenFragmentKey: AGENT_BROWSER_HANDOFF_TOKEN_FRAGMENT_KEY,
   tokenPatternSource: AGENT_BROWSER_HANDOFF_TOKEN_PATTERN_SOURCE,
-} satisfies AgentBrowserHandoffPrehydrationArgs;
-
-function InlineScript_stripAgentBrowserHandoffFragment(args: AgentBrowserHandoffPrehydrationArgs) {
-  function normalizeReturnToPath(value: string | null) {
-    if (value === null) return args.defaultReturnToPath;
-
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
-      return args.defaultReturnToPath;
-    }
-
-    try {
-      const baseOrigin = "https://samebase.local";
-      const parsed = new URL(trimmed, baseOrigin);
-      if (parsed.origin !== baseOrigin) {
-        return args.defaultReturnToPath;
-      }
-      if (parsed.pathname === args.route || parsed.pathname === `${args.route}/`) {
-        return args.defaultReturnToPath;
-      }
-      const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-      if (new URL(normalized, baseOrigin).origin !== baseOrigin) {
-        return args.defaultReturnToPath;
-      }
-      return normalized;
-    } catch {
-      return args.defaultReturnToPath;
-    }
-  }
-
-  try {
-    if (window.location.pathname !== args.route && window.location.pathname !== `${args.route}/`)
-      return;
-
-    const rawHash = window.location.hash.startsWith("#")
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    const fragment = new URLSearchParams(rawHash);
-    const token = fragment.get(args.tokenFragmentKey);
-    const currentState = window.history.state;
-    const nextState =
-      currentState !== null && typeof currentState === "object"
-        ? Object.assign({}, currentState)
-        : {};
-
-    if (token === null) return;
-    if (!new RegExp(args.tokenPatternSource).test(token)) {
-      window.history.replaceState(
-        nextState,
-        "",
-        `${window.location.pathname}${window.location.search}`,
-      );
-      return;
-    }
-
-    const handoff = {
-      returnToPath: normalizeReturnToPath(fragment.get(args.returnToFragmentKey)),
-      token,
-    };
-
-    nextState[args.historyStateKey] = handoff;
-
-    try {
-      window.sessionStorage.setItem(args.storageKey, JSON.stringify(handoff));
-    } catch {}
-
-    window.history.replaceState(
-      nextState,
-      "",
-      `${window.location.pathname}${window.location.search}`,
-    );
-  } catch {}
-}
+} satisfies AgentBrowserHandoffFragmentScriptArgs;
 
 function parseStoredAgentBrowserHandoff(value: unknown) {
   if (value === null || typeof value !== "object") {
@@ -194,7 +116,7 @@ export function consumeStoredAgentBrowserHandoff() {
 
 export function stripAgentBrowserHandoffFragmentBeforeHydration() {
   // Fallback for clients where the inline head script did not run before hydration.
-  InlineScript_stripAgentBrowserHandoffFragment(agentBrowserHandoffPrehydrationArgs);
+  stripAgentBrowserHandoffFragment(agentBrowserHandoffPrehydrationArgs);
 }
 
-export const agentBrowserHandoffPrehydrationScript = `(${InlineScript_stripAgentBrowserHandoffFragment.toString()})(${JSON.stringify(agentBrowserHandoffPrehydrationArgs)});`;
+export const agentBrowserHandoffPrehydrationScript = `(${stripAgentBrowserHandoffFragmentSource})(${JSON.stringify(agentBrowserHandoffPrehydrationArgs)});`;
