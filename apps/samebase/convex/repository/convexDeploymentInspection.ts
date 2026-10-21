@@ -19,6 +19,7 @@ import {
   type ConvexDeployKeyAllowedAction,
   type ConvexDeployKeyAuthMethod,
 } from "./convexDeployKeys";
+import { readConvexProductionDeployment } from "./convexProjectResources";
 import { vRepositoryConvexProjectDocument } from "./model";
 import { isLiveConnectedRepository } from "./state";
 
@@ -88,6 +89,37 @@ export const readTarget = internalQuery({
 });
 
 /**
+Finds `deploymentName` among the production deployments of the Convex projects attached to the
+repository. A failed lookup of another attached project does not block a deployment that matched.
+*/
+export async function findConvexProductionDeployment(args: {
+  deploymentName: string;
+  target: ConvexInspectionTarget;
+}): Promise<ConvexCloudDeployment> {
+  const lookups = await Promise.allSettled(
+    args.target.projects.map(
+      async (project) =>
+        await readConvexProductionDeployment({
+          token: args.target.token,
+          projectId: project.projectId,
+        }),
+    ),
+  );
+  const deployment = lookups
+    .flatMap((lookup) => (lookup.status === "fulfilled" && lookup.value ? [lookup.value] : []))
+    .find((candidate) => candidate.name === args.deploymentName);
+  if (deployment) {
+    return deployment;
+  }
+
+  const failedLookup = lookups.find((lookup) => lookup.status === "rejected");
+  if (failedLookup) {
+    throw failedLookup.reason;
+  }
+  throw new Error("This repository has no Convex production deployment with this name.");
+}
+
+/**
 Mints a short-lived `deployment:data:view` deploy key for `deployment`, passes it to `inspect`, and
 revokes it afterwards. Under an OAuth connection the key is the team-wide OAuth token, so `inspect`
 must keep it on the server.
@@ -97,7 +129,7 @@ must keep it on the server.
 export async function withConvexInspectionDeployKey<Result>(
   args: {
     deployment: ConvexCloudDeployment;
-    purpose: "components" | "schema";
+    purpose: "alchemyState" | "components" | "schema";
     target: ConvexInspectionTarget;
   },
   inspect: (deployKey: string) => Promise<Result>,
