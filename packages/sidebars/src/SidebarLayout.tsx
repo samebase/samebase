@@ -182,10 +182,6 @@ export function SidebarLayout({
   const hasRightPane = right !== undefined;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
   const previousViewportWidthRef = useRef(0);
-  // A pane that appears with this render, such as the left pane of a page that a navigation
-  // opens, takes its width at once: React inserts it before it updates the carousel's width
-  // variables, so a transition would start from 0.
-  const previousPanePresenceRef = useRef({ left: hasLeftPane, right: hasRightPane });
   const enableDesktopPaneTransitions =
     hasMeasuredViewport &&
     previousViewportWidthRef.current === viewportSize.widthPx &&
@@ -193,9 +189,6 @@ export function SidebarLayout({
   useLayoutEffect(() => {
     previousViewportWidthRef.current = viewportSize.widthPx;
   }, [viewportSize.widthPx]);
-  useLayoutEffect(() => {
-    previousPanePresenceRef.current = { left: hasLeftPane, right: hasRightPane };
-  }, [hasLeftPane, hasRightPane]);
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
@@ -440,12 +433,7 @@ export function SidebarLayout({
             carouselRef={mobileCarouselRef}
             desktopLeftWidthPx={desktopWidths.leftWidthPx}
             desktopRightWidthPx={desktopWidths.rightWidthPx}
-            enableLeftPaneTransitions={
-              enableDesktopPaneTransitions && previousPanePresenceRef.current.left
-            }
-            enableRightPaneTransitions={
-              enableDesktopPaneTransitions && previousPanePresenceRef.current.right
-            }
+            enableDesktopPaneTransitions={enableDesktopPaneTransitions}
             hasMeasuredViewport={hasMeasuredViewport}
             inertClosedDesktopPanes={hasMeasuredViewport && !isMobile}
             leftContent={left}

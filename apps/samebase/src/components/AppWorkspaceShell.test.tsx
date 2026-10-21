@@ -13,18 +13,17 @@ import { createAppRouter } from "@/router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act, useState } = React;
-const {
-  savedSidebarState,
-  toggleLeftPaneMock,
-  toggleRightPaneMock,
-  useConvexAuthMock,
-  useQueryMock,
-} = vi.hoisted(() => ({
-  savedSidebarState: { current: null as SidebarLayoutState | null },
-  toggleLeftPaneMock: vi.fn(),
-  toggleRightPaneMock: vi.fn(),
-  useConvexAuthMock: vi.fn(),
-  useQueryMock: vi.fn(),
+const { toggleLeftPaneMock, toggleRightPaneMock, useConvexAuthMock, useQueryMock } = vi.hoisted(
+  () => ({
+    toggleLeftPaneMock: vi.fn(),
+    toggleRightPaneMock: vi.fn(),
+    useConvexAuthMock: vi.fn(),
+    useQueryMock: vi.fn(),
+  }),
+);
+// The root loader's saved sidebar state; none, as for a visitor without a session, by default.
+const savedSidebarState: { current: SidebarLayoutState | null } = vi.hoisted(() => ({
+  current: null,
 }));
 
 // This jsdom mount has no Start server request or client compilation.
@@ -518,10 +517,11 @@ describe("AppWorkspaceShell", () => {
     const markupContainer = document.createElement("div");
     markupContainer.innerHTML = markup;
     const viewport = markupContainer.querySelector('[data-sidebar-layout-part="viewport"]');
-    const carousel = markupContainer.querySelector('[data-sidebar-layout-part="carousel"]');
+    const leftPane = markupContainer.querySelector('[data-pane-side="left"]');
+    const rightPane = markupContainer.querySelector('[data-pane-side="right"]');
 
-    expect(carousel?.getAttribute("style")).toContain("--sidebar-layout-left-desktop-width:300px");
-    expect(carousel?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
+    expect(leftPane?.getAttribute("style")).toContain("--sidebar-layout-left-desktop-width:300px");
+    expect(rightPane?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
     expect(viewport?.getAttribute("data-mobile-pane")).toBe("right");
     expect(viewport?.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
     expect(viewport?.getAttribute("style")).toContain(
