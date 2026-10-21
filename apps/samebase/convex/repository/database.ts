@@ -10,8 +10,10 @@ import {
   deleteConvexDeploymentDeployKey,
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
+import { readAlchemyStack, readProductionConvexDeployments } from "./alchemyState";
 import { readConvexProductionDeployment } from "./convexProjectResources";
-import { requireRepositoryForUser } from "../organizationAccess";
+import { requireRepositoryForUser, requireRepositoryOrganization } from "../organizationAccess";
+import { isLiveConnectedRepository } from "./state";
 
 const { id, literal, object, string, union } = v;
 
@@ -66,24 +68,47 @@ type RepositoryDatabaseDeploymentContext =
   | ReadyRepositoryDatabaseDeploymentContext
   | Exclude<EmbeddedDashboardCredentialsResult, { kind: "ready" }>;
 
+/**
+attachment = `convexProjectId` names an attachment row of the repository.
+
+stack = `convexProjectId` names no attachment row; the caller accepts it only as the Convex project
+id of a deployment that the production stage of `stack`, the repository stack, deploys.
+*/
 export const readEmbeddedDashboardProject = internalQuery({
   args: {
     repositoryId: id("repositories"),
     userId: id("users"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
   },
   returns: union(
     object({
+      source: literal("attachment"),
       teamId: string(),
       projectId: string(),
+    }),
+    object({
+      source: literal("stack"),
+      teamId: string(),
+      stack: string(),
     }),
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const [repository, project] = await Promise.all([
-      requireRepositoryForUser(ctx.db, args),
-      ctx.db.get(args.convexProjectId),
-    ]);
+    const repository = await requireRepositoryForUser(ctx.db, args);
+    const attachmentId = ctx.db.normalizeId("repositoryConvexProjects", args.convexProjectId);
+    if (!attachmentId) {
+      if (!isLiveConnectedRepository(repository) || !repository.convexTeamId) {
+        return null;
+      }
+      const organization = await requireRepositoryOrganization(ctx.db, repository);
+      return {
+        source: "stack" as const,
+        teamId: repository.convexTeamId,
+        stack: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
+      };
+    }
+
+    const project = await ctx.db.get(attachmentId);
     if (
       !project ||
       project.repositoryId !== args.repositoryId ||
@@ -94,6 +119,7 @@ export const readEmbeddedDashboardProject = internalQuery({
     }
 
     return {
+      source: "attachment" as const,
       teamId: project.teamId,
       projectId: project.projectId,
     };
@@ -120,13 +146,42 @@ function isEmbeddedDashboardDeployKeyName(args: {
   return Number.isSafeInteger(expiresAt) && expiresAt > 0 && String(expiresAt) === expiresAtText;
 }
 
+/**
+`projectId` when the production stage of the repository stack deploys a Convex deployment of that
+project in the connected team, else null.
+*/
+async function readStackProjectId(args: {
+  convexTeam: { teamId: string };
+  credential: { auth: { method: "api_key" | "oauth"; credential: string } };
+  projectId: string;
+  stack: string;
+}): Promise<string | null> {
+  const read = await readAlchemyStack({
+    stack: args.stack,
+    target: {
+      authMethod: args.credential.auth.method,
+      teamId: args.convexTeam.teamId,
+      token: args.credential.auth.credential,
+    },
+  });
+  const deployed =
+    read.store === "found" &&
+    readProductionConvexDeployments(read.stages).some(
+      (deployment) =>
+        deployment.projectId === args.projectId &&
+        (deployment.teamId === null || deployment.teamId === args.convexTeam.teamId),
+    );
+  return deployed ? args.projectId : null;
+}
+
 async function readRepositoryDatabaseDeploymentContext(
   ctx: RepositoryDatabaseActionCtx,
   args: {
     owner: string;
     repoName: string;
     branch: string;
-    convexProjectId: Id<"repositoryConvexProjects">;
+    /** An attachment id, or the Convex project id of a deployment of the repository stack. */
+    convexProjectId: string;
   },
 ): Promise<RepositoryDatabaseDeploymentContext> {
   const repository: RepositoryDatabaseLookup = await ctx.runQuery(
@@ -176,10 +231,18 @@ async function readRepositoryDatabaseDeploymentContext(
   if (!connection || !credential || connection.teamId !== project.teamId) {
     return { kind: "missing_connection" };
   }
-  const deployment = await readConvexProductionDeployment({
-    token: credential.auth.credential,
-    projectId: project.projectId,
-  });
+  const projectId =
+    project.source === "attachment"
+      ? project.projectId
+      : await readStackProjectId({
+          convexTeam: connection,
+          credential,
+          projectId: args.convexProjectId,
+          stack: project.stack,
+        });
+  const deployment = projectId
+    ? await readConvexProductionDeployment({ token: credential.auth.credential, projectId })
+    : null;
   if (!deployment) {
     return { kind: "missing_deployment" };
   }
@@ -197,7 +260,8 @@ export const createEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    convexProjectId: v.id("repositoryConvexProjects"),
+    /** An attachment id, or the Convex project id of a deployment of the repository stack. */
+    convexProjectId: string(),
   },
   returns: embeddedDashboardCredentialsResult,
   handler: async (ctx, args): Promise<EmbeddedDashboardCredentialsResult> => {
@@ -241,7 +305,8 @@ export const revokeEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    convexProjectId: v.id("repositoryConvexProjects"),
+    /** An attachment id, or the Convex project id of a deployment of the repository stack. */
+    convexProjectId: string(),
     deployKeyName: string(),
   },
   returns: v.null(),

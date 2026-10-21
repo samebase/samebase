@@ -1,35 +1,97 @@
-// Replies of the Alchemy state store functions (samebase/alchemy-convex at d20307f), captured on
-// 2026-10-21 with `npx convex run` (Convex CLI 1.46.0) for samebase/base-alchemy, whose stack was
-// then named `BaseAlchemy`. Values are real; the stages are trimmed to `main` and
-// `renovate-hono-4-x-73ca1d1d` (the reply listed 6 stages).
-// The store serves the same functions as internal queries through `POST /api/function`
-// (https://github.com/samebase/alchemy-convex/pull/18).
-
-/** `state:stages` for the stack, trimmed to two stages. */
-export const observedAlchemyStages = ["main", "renovate-hono-4-x-73ca1d1d"];
-
-/** `state:list` for each stage. */
-export const observedAlchemyResourceFqns: Record<string, unknown> = {
-  main: ["Deployment"],
-  "renovate-hono-4-x-73ca1d1d": ["Deployment", "PreviewComment"],
+// The reply of `state:readStack` for the stack `samebase/base-alchemy`, captured on
+// 2026-10-21T20:10:08.576Z from the Alchemy state store of team `nicu` (deployment
+// artful-alligator-66, samebase/alchemy-convex 0.7.0) through `POST /api/function` with a temporary deploy
+// key limited to `deployment:functions:runInternalQueries`. The reply is complete and unedited. The
+// output of `prod` was written by the push to main that merged samebase/base-alchemy#23 (0.7.0) and holds a run
+// record; `pr-24` and `pr-25` were deployed from branches that predate 0.7.0 and hold none.
+// https://github.com/samebase/alchemy-convex/blob/v0.7.0/src/store/convex/state.ts#L221-L265
+export const observedAlchemyStackReply = {
+  status: "success",
+  value: {
+    stages: [
+      {
+        stage: "pr-24",
+        resources: [
+          {
+            fqn: "Deployment",
+            value:
+              '{"status":"created","fqn":"Deployment","logicalId":"Deployment","instanceId":"acc35e31035cec5e2c7429739f5819a8","resourceType":"Convex.Deployment","props":{"project":{"projectId":3245938,"slug":"base-alchemy","name":"base-alchemy","teamId":38516,"prodDeploymentName":"ideal-dolphin-15","prodDeploymentUrl":"https://ideal-dolphin-15.convex.cloud"},"type":"preview","name":"pr-24","source":{"path":"./convex","command":["node","--run","deploy"],"include":["src/**","public/**","scripts/**","vite.config.ts","tsconfig*.json"]}},"attr":{"projectId":3245938,"type":"preview","name":"nautical-eagle-647","reference":"preview/pr-24","previewName":"pr-24","url":"https://nautical-eagle-647.convex.cloud","siteUrl":"https://nautical-eagle-647.convex.site","hash":"d72f3609d31dc6598413d023186ba5e3acd22a032056d0a93a814807cf94857b","envNames":[]},"bindings":[],"providerVersion":0,"downstream":["PreviewComment"],"removalPolicy":"destroy"}',
+          },
+          {
+            fqn: "PreviewComment",
+            value:
+              '{"status":"created","fqn":"PreviewComment","logicalId":"PreviewComment","instanceId":"67dad8d9327c3532f8bb134e4d63e005","resourceType":"GitHub.Comment","props":{"owner":"samebase","repository":"base-alchemy","issueNumber":24,"body":"Preview `pr-24`: https://nautical-eagle-647.convex.site"},"attr":{"commentId":6325221197,"htmlUrl":"https://github.com/samebase/base-alchemy/pull/24#issuecomment-6325221197","updatedAt":"2026-10-21T19:56:46Z"},"bindings":[],"providerVersion":0,"downstream":[],"removalPolicy":"retain"}',
+          },
+        ],
+        output: '{"url":"https://nautical-eagle-647.convex.site"}',
+      },
+      {
+        stage: "pr-25",
+        resources: [
+          {
+            fqn: "Deployment",
+            value:
+              '{"status":"created","fqn":"Deployment","logicalId":"Deployment","instanceId":"e211354c8358b63d49f1f02c50b6c7d4","resourceType":"Convex.Deployment","props":{"project":{"projectId":3245938,"slug":"base-alchemy","name":"base-alchemy","teamId":38516,"prodDeploymentName":"ideal-dolphin-15","prodDeploymentUrl":"https://ideal-dolphin-15.convex.cloud"},"type":"preview","name":"pr-25","source":{"path":"./convex","command":["node","--run","deploy"],"include":["src/**","public/**","scripts/**","vite.config.ts","tsconfig*.json"]}},"attr":{"projectId":3245938,"type":"preview","name":"fastidious-squid-196","reference":"preview/pr-25","previewName":"pr-25","url":"https://fastidious-squid-196.convex.cloud","siteUrl":"https://fastidious-squid-196.convex.site","hash":"29621293225ebab2abf2ed56346104da76ca7aee114bb61d5f3ff3edc8d6efdc","envNames":[]},"bindings":[],"providerVersion":0,"downstream":["PreviewComment"],"removalPolicy":"destroy"}',
+          },
+          {
+            fqn: "PreviewComment",
+            value:
+              '{"status":"created","fqn":"PreviewComment","logicalId":"PreviewComment","instanceId":"9ac624e4a6b192b69bb88f0726d779a6","resourceType":"GitHub.Comment","props":{"owner":"samebase","repository":"base-alchemy","issueNumber":25,"body":"Preview `pr-25`: https://fastidious-squid-196.convex.site"},"attr":{"commentId":6325229031,"htmlUrl":"https://github.com/samebase/base-alchemy/pull/25#issuecomment-6325229031","updatedAt":"2026-10-21T19:57:09Z"},"bindings":[],"providerVersion":0,"downstream":[],"removalPolicy":"retain"}',
+          },
+        ],
+        output: '{"url":"https://fastidious-squid-196.convex.site"}',
+      },
+      {
+        stage: "prod",
+        resources: [
+          {
+            fqn: "Deployment",
+            value:
+              '{"status":"updated","fqn":"Deployment","logicalId":"Deployment","instanceId":"4d7ece351b21dbb5b0833760a438ea9a","resourceType":"Convex.Deployment","props":{"project":{"projectId":3245938,"slug":"base-alchemy","name":"base-alchemy","teamId":38516,"prodDeploymentName":"ideal-dolphin-15","prodDeploymentUrl":"https://ideal-dolphin-15.convex.cloud"},"type":"prod","source":{"path":"./convex","command":["node","--run","deploy"],"include":["src/**","public/**","scripts/**","vite.config.ts","tsconfig*.json"]}},"attr":{"projectId":3245938,"type":"prod","name":"ideal-dolphin-15","reference":"production","url":"https://ideal-dolphin-15.convex.cloud","siteUrl":"https://ideal-dolphin-15.convex.site","hash":"296fc2fcf62986dfc9712699f6784e3ad75d053c11e455709b5abf0aea4c5d2f","envNames":[]},"bindings":[],"providerVersion":0,"downstream":[],"removalPolicy":"retain"}',
+          },
+          {
+            fqn: "Project",
+            value:
+              '{"status":"updated","fqn":"Project","logicalId":"Project","instanceId":"11848c0297609207b73a6c4f1244439a","resourceType":"Convex.Project","props":{"team":"nicu","name":"base-alchemy"},"attr":{"projectId":3245938,"slug":"base-alchemy","name":"base-alchemy","teamId":38516,"prodDeploymentName":"ideal-dolphin-15","prodDeploymentUrl":"https://ideal-dolphin-15.convex.cloud"},"bindings":[],"providerVersion":0,"downstream":["Deployment"],"removalPolicy":"destroy"}',
+          },
+        ],
+        output:
+          '{"url":"https://ideal-dolphin-15.convex.site","samebase.run":{"version":1,"repository":"samebase/base-alchemy","stackFile":"alchemy.run.ts","branch":"main","pullRequest":null,"headCommit":"a4d98f2ad150dee07e19fa9c348e70240aca1dac","runUrl":"https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1","source":"github-actions","recordedAt":"2026-10-21T19:58:06.882Z"}}',
+      },
+    ],
+  },
 };
 
-/** `state:get` for each stage and fqn: the JSON text of Alchemy's `encodeState`. */
-export const observedAlchemyResourceValues: Record<string, Record<string, unknown>> = {
-  main: {
-    Deployment:
-      '{"status":"updated","fqn":"Deployment","logicalId":"Deployment","instanceId":"ac1ce491722f32f67587813138e02d7d","resourceType":"Convex.Deployment","props":{"project":{"projectId":3245938},"type":"prod","source":{"path":"./convex","command":["node","--run","deploy"],"include":["src/**","public/**","scripts/**","vite.config.ts","tsconfig*.json"]}},"attr":{"projectId":3245938,"type":"prod","name":"ideal-dolphin-15","reference":"production","url":"https://ideal-dolphin-15.convex.cloud","siteUrl":"https://ideal-dolphin-15.convex.site","hash":"795f23bfe121d30f87a82cb1ded561a9c6a1c6c18638f0cd688042fecbfd6c33","envNames":[]},"bindings":[],"providerVersion":0,"downstream":[],"removalPolicy":"retain"}',
-  },
-  "renovate-hono-4-x-73ca1d1d": {
-    Deployment:
-      '{"status":"created","fqn":"Deployment","logicalId":"Deployment","instanceId":"f81c7901bc5c927da723bf55e0fc1f5b","resourceType":"Convex.Deployment","props":{"project":{"projectId":3245938},"type":"preview","name":"renovate/hono-4.x","source":{"path":"./convex","command":["node","--run","deploy","--","--preview-name","renovate/hono-4.x"],"include":["src/**","public/**","scripts/**","vite.config.ts","tsconfig*.json"]}},"attr":{"projectId":3245938,"type":"preview","name":"insightful-perch-284","reference":"preview/renovate-hono-4-x","previewName":"renovate/hono-4.x","url":"https://insightful-perch-284.convex.cloud","siteUrl":"https://insightful-perch-284.convex.site","hash":"7f9fb3efd8a0e32abd925e1433bab1f0efa1434f1e20705d7074c2ce1ba2a454","envNames":[]},"bindings":[],"providerVersion":0,"downstream":["PreviewComment"],"removalPolicy":"destroy"}',
-    PreviewComment:
-      '{"status":"created","fqn":"PreviewComment","logicalId":"PreviewComment","instanceId":"04a27286f946b298b793f3265a99aeab","resourceType":"GitHub.Comment","props":{"owner":"samebase","repository":"base-alchemy","issueNumber":7,"body":"Preview `renovate/hono-4.x`: https://insightful-perch-284.convex.site"},"attr":{"commentId":6288425980,"htmlUrl":"https://github.com/samebase/base-alchemy/pull/7#issuecomment-6288425980","updatedAt":"2026-10-20T10:02:28Z"},"bindings":[],"providerVersion":0,"downstream":[],"removalPolicy":"retain"}',
-  },
+// The reply of the Convex Management API `GET /projects/3245938` for the project that the stage
+// `prod` above deploys, captured on 2026-10-22 with the Convex CLI login.
+export const observedBaseAlchemyProject = {
+  id: 3245938,
+  name: "base-alchemy",
+  slug: "base-alchemy",
+  teamId: 38516,
+  teamSlug: "nicu",
+  createTime: 1792474666951,
+  prodDeploymentName: "ideal-dolphin-15",
+  devDeploymentName: "steady-gopher-786",
 };
 
-/** `state:getOutput` for each stage. */
-export const observedAlchemyOutputs: Record<string, unknown> = {
-  main: '{"url":"https://ideal-dolphin-15.convex.site"}',
-  "renovate-hono-4-x-73ca1d1d": '{"url":"https://insightful-perch-284.convex.site"}',
+// The reply of the Convex Management API `GET /projects/3245938/deployment?defaultProd=true` for the
+// project that the stage `prod` above deploys, captured on 2026-10-22 with the Convex CLI login.
+export const observedBaseAlchemyProductionDeployment = {
+  kind: "cloud",
+  id: 6306909,
+  name: "ideal-dolphin-15",
+  createTime: 1792475812665,
+  lastDeployTime: 1792612685570,
+  deploymentType: "prod",
+  projectId: 3245938,
+  creator: 38842,
+  previewIdentifier: null,
+  region: "aws-us-east-1",
+  isDefault: true,
+  reference: "production",
+  dashboardEditConfirmation: null,
+  deploymentUrl: "https://ideal-dolphin-15.convex.cloud",
+  class: "s256",
+  sendLogsToClient: null,
 };

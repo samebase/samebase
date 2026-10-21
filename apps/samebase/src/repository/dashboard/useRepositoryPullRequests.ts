@@ -287,6 +287,7 @@ export function useRepositoryPullRequests(args: {
             workers: pullRequestResources.workers,
             convexProjects: pullRequestResources.convexProjects,
             hostingPreviews: pullRequestResources.hostingPreviews,
+            alchemyPreview: pullRequestResources.alchemyPreview,
           },
         });
       }

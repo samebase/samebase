@@ -164,6 +164,10 @@ function DestinationResource({
         <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
           May be from an earlier commit
         </span>
+      ) : resource.provenance === "pull_request_head" ? (
+        <span className="ml-[1.875rem] font-mono text-xs leading-5 text-muted-foreground">
+          {resource.headCommit.slice(0, 7)}
+        </span>
       ) : null}
       {resource.region ? (
         <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
@@ -253,6 +257,24 @@ export function RepositoryOverviewLoadingLines({ rows = 3 }: { rows?: number }) 
   );
 }
 
+/**
+The reads behind the default-branch block. The stack in the team store builds the block while it
+is read and when it exists; the live reads of the attachment rows build it when the store holds no
+stack or its first read failed, and that failure stays visible with its Retry.
+*/
+function readProductionObservationStates(workspace: RepositoryWorkspaceSelected) {
+  const alchemyObservations = workspace.alchemyObservations;
+  return alchemyObservations.state === "loading" ||
+    (alchemyObservations.state === "loaded" && alchemyObservations.observations.length > 0)
+    ? [alchemyObservations]
+    : [
+        workspace.cloudflareObservations.workers,
+        workspace.cloudflareObservations.builds,
+        workspace.convexObservations,
+        alchemyObservations,
+      ];
+}
+
 export function DefaultBranchSection({
   filesReadEnabled,
   workspace,
@@ -311,11 +333,7 @@ export function DefaultBranchSection({
     repoName: workspace.repository.githubRepositoryName,
     branch: defaultBranch,
   });
-  const productionObservationStates = [
-    workspace.cloudflareObservations.workers,
-    workspace.cloudflareObservations.builds,
-    workspace.convexObservations,
-  ];
+  const productionObservationStates = readProductionObservationStates(workspace);
   const productionLoading = productionObservationStates.some(
     (state) => state.state === "loading" || state.state === "checking",
   );
@@ -489,7 +507,7 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
             <BuildState state={worker.build.buildState} />
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
-        ) : (
+        ) : worker.build.state === "unrecorded" ? null : (
           <span className="shrink-0 text-sm text-muted-foreground">
             {worker.build.state === "absent"
               ? "No build"
@@ -521,10 +539,14 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
           ) : null}
         </div>
       ) : null}
-      {worker.destination.state === "available" &&
-      worker.destination.provenance === "earlier_check" ? (
+      {worker.destination.state !== "available" ? null : worker.destination.provenance ===
+        "earlier_check" ? (
         <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
           May be from an earlier commit
+        </span>
+      ) : worker.destination.provenance === "pull_request_head" ? (
+        <span className="ml-[1.875rem] font-mono text-xs leading-5 text-muted-foreground">
+          {worker.destination.headCommit.slice(0, 7)}
         </span>
       ) : null}
     </div>

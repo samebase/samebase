@@ -901,6 +901,7 @@ function fixturePullRequests(
                       cloudflare: { state: "available" as const, previews: [] },
                       netlify: { state: "available" as const, previews: [] },
                     },
+            alchemyPreview: { state: "absent" as const },
           },
         },
       ]),
@@ -932,6 +933,12 @@ function buildFixtureWorkspace({
   repository: UserRepositoryResult;
 }) {
   const workspace = {
+    alchemyObservations: {
+      state: "loaded",
+      observations: [],
+      refreshFailed: false,
+      reload: () => {},
+    },
     access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
     cloudflareConnection: {
       state: "ready",

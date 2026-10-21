@@ -6,19 +6,31 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
+import {
+  ALCHEMY_REDACTED_MARKER,
+  convexFunctionsDirectory,
+  vAlchemyCloudflareWorkerState,
+  vAlchemyConvexDeploymentState,
+} from "../../shared/alchemyState";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
 import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySelectedWorkspace";
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
 
 export type AlchemyStateObservation = (typeof api.repository.alchemyState.observe)["_returnType"];
 type AlchemyStage = Extract<AlchemyStateObservation, { store: "found" }>["stages"][number];
+type AlchemyRunRecord = Extract<AlchemyStage["run"], { state: "recorded" }>["record"];
 
 const { object, string } = v;
 
 /** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
 const vResourceState = object({ status: string(), resourceType: string() });
+
+const RUN_SOURCE_LABELS = {
+  "github-actions": "GitHub Actions",
+  laptop: "Laptop",
+} satisfies Record<AlchemyRunRecord["source"], string>;
 
 /**
 One entry for each value of the stage output, named by its dotted path. A secret keeps only its
@@ -53,7 +65,7 @@ function AlchemyStateDetailRow({ label, children }: { label: string; children: R
   );
 }
 
-function AlchemyStateDetailItem({ detail, name }: { detail: string | null; name: string }) {
+function AlchemyStateDetailItem({ detail, name }: { detail: ReactNode; name: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
       <span className="min-w-0 break-all font-mono">{name}</span>
@@ -64,27 +76,156 @@ function AlchemyStateDetailItem({ detail, name }: { detail: string | null; name:
   );
 }
 
+function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
+  const recordedAt = Date.parse(record.recordedAt);
+  const source = RUN_SOURCE_LABELS[record.source];
+
+  return (
+    <>
+      {record.pullRequest === null ? null : (
+        <AlchemyStateDetailRow label="Pull request">
+          <AlchemyStateDetailItem
+            name={
+              <a
+                href={`https://github.com/${record.repository}/pull/${record.pullRequest}`}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {`#${record.pullRequest}`}
+              </a>
+            }
+            detail={null}
+          />
+        </AlchemyStateDetailRow>
+      )}
+      <AlchemyStateDetailRow label="Branch">
+        <AlchemyStateDetailItem name={record.branch} detail={null} />
+      </AlchemyStateDetailRow>
+      <AlchemyStateDetailRow label="Commit">
+        <AlchemyStateDetailItem
+          name={
+            <a
+              href={`https://github.com/${record.repository}/commit/${record.headCommit}`}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {record.headCommit.slice(0, 7)}
+            </a>
+          }
+          detail={null}
+        />
+      </AlchemyStateDetailRow>
+      <AlchemyStateDetailRow label="Run">
+        <AlchemyStateDetailItem
+          name={
+            record.runUrl === null ? (
+              source
+            ) : (
+              <a href={record.runUrl} rel="noreferrer noopener" target="_blank">
+                {source}
+              </a>
+            )
+          }
+          detail={
+            <time dateTime={record.recordedAt} title={record.recordedAt}>
+              {Number.isFinite(recordedAt) ? formatRelativeTimeAgo(recordedAt) : record.recordedAt}
+            </time>
+          }
+        />
+      </AlchemyStateDetailRow>
+    </>
+  );
+}
+
 function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
   const output = stage.output === null ? [] : outputEntries(JSON.parse(stage.output), "");
+  const states = stage.resources.map((resource) => {
+    const state: unknown = JSON.parse(resource.value);
+    return { fqn: resource.fqn, state };
+  });
+  const stackFile = stage.run.state === "recorded" ? stage.run.record.stackFile : null;
+  const convexDeployments = states.flatMap(({ fqn, state }) => {
+    if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
+      return [];
+    }
+    const source = state.props.source;
+    const sourcePath = typeof source === "string" ? source : source?.path;
+    return [
+      {
+        fqn,
+        name: state.attr.name,
+        url: state.attr.url,
+        codeLocation:
+          stackFile === null || sourcePath === undefined
+            ? null
+            : convexFunctionsDirectory(stackFile, sourcePath),
+      },
+    ];
+  });
+  const workers = states.flatMap(({ fqn, state }) =>
+    validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
+      ? [{ fqn, name: state.attr.workerName, url: state.attr.url }]
+      : [],
+  );
 
   return (
     <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
-      {stage.resources.length === 0 ? null : (
+      {stage.run.state === "recorded" ? (
+        <AlchemyRunRecordRows record={stage.run.record} />
+      ) : (
+        <AlchemyStateDetailRow label="Run">
+          <span className="text-muted-foreground">
+            {stage.run.state === "none" ? "No run record" : "Unknown run record"}
+          </span>
+        </AlchemyStateDetailRow>
+      )}
+      {convexDeployments.length === 0 ? null : (
+        <AlchemyStateDetailRow label="Convex">
+          {convexDeployments.map((deployment) => (
+            <AlchemyStateDetailItem
+              key={deployment.fqn}
+              name={
+                <a href={deployment.url} rel="noreferrer noopener" target="_blank">
+                  {deployment.name}
+                </a>
+              }
+              detail={deployment.codeLocation}
+            />
+          ))}
+        </AlchemyStateDetailRow>
+      )}
+      {workers.length === 0 ? null : (
+        <AlchemyStateDetailRow label="Workers">
+          {workers.map((worker) => (
+            <AlchemyStateDetailItem
+              key={worker.fqn}
+              name={
+                worker.url === undefined ? (
+                  worker.name
+                ) : (
+                  <a href={worker.url} rel="noreferrer noopener" target="_blank">
+                    {worker.name}
+                  </a>
+                )
+              }
+              detail={null}
+            />
+          ))}
+        </AlchemyStateDetailRow>
+      )}
+      {states.length === 0 ? null : (
         <AlchemyStateDetailRow label="Resources">
-          {stage.resources.map((resource) => {
-            const state: unknown = JSON.parse(resource.value);
-            return (
-              <AlchemyStateDetailItem
-                key={resource.fqn}
-                name={resource.fqn}
-                detail={
-                  validate(vResourceState, state, { allowUnknownFields: true })
-                    ? `${state.status}, ${state.resourceType}`
-                    : "unknown"
-                }
-              />
-            );
-          })}
+          {states.map(({ fqn, state }) => (
+            <AlchemyStateDetailItem
+              key={fqn}
+              name={fqn}
+              detail={
+                validate(vResourceState, state, { allowUnknownFields: true })
+                  ? `${state.status}, ${state.resourceType}`
+                  : "unknown"
+              }
+            />
+          ))}
         </AlchemyStateDetailRow>
       )}
       {output.length === 0 ? null : (

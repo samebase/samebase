@@ -81,15 +81,13 @@ export function RepositoryDatabaseView({
     : null;
   const repository = attachment?.repository;
   const convexProject = attachment?.project;
-  const convexProjectId = convexProject?.convexProjectId;
+  // A route value that names no attachment row is the Convex project id of a deployment of the
+  // repository stack in the Alchemy state store; the server accepts it only for such a deployment.
+  const convexProjectId = repository
+    ? (convexProject?.convexProjectId ?? routeConvexProjectId)
+    : undefined;
   const projectNotice =
-    repositories === undefined
-      ? null
-      : !repository
-        ? "Repository not found."
-        : !convexProject
-          ? "Convex project is not attached to this repository."
-          : null;
+    repositories === undefined ? null : !repository ? "Repository not found." : null;
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -185,7 +183,11 @@ export function RepositoryDatabaseView({
     revokeEmbeddedDashboardCredentials,
   ]);
 
-  const titleParts = [`${owner}/${repoName}`, branch, convexProject?.projectId];
+  const titleParts = [
+    `${owner}/${repoName}`,
+    branch,
+    convexProject?.projectId ?? routeConvexProjectId,
+  ];
 
   return (
     <AppWorkspaceRouteChrome rightToggleVisibility="all">

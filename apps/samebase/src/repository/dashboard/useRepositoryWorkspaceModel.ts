@@ -7,7 +7,10 @@ import { rootQueries } from "@/routes/root.queries";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
-import { buildProductionEnvironmentRoots } from "./repositoryEnvironmentRoots";
+import {
+  buildAlchemyEnvironmentRoots,
+  buildProductionEnvironmentRoots,
+} from "./repositoryEnvironmentRoots";
 import type { RepositoryWorkspaceModel } from "./repositoryWorkspaceModel";
 import { useRepositoryProviderObservations } from "./useRepositoryProviderObservations";
 
@@ -114,6 +117,35 @@ export function useRepositoryWorkspaceModel(
         repositories: [],
       };
     }
+    const alchemyObservations = providerObservations.alchemy;
+    const alchemyStack =
+      alchemyObservations.state === "loaded" ? alchemyObservations.observations.at(0) : undefined;
+    const schemaGraphEnabled = viewerAccess?.accessKeys.includes("access_schema_graph") === true;
+    const defaultBranch = accessibleSelectedRepository.defaultBranch;
+    // By presence: a stack in the team store builds the default-branch block, and the attachment
+    // rows with their live reads build it otherwise. Neither builds it while the store read runs.
+    const environmentRoots = !defaultBranch
+      ? []
+      : alchemyStack
+        ? buildAlchemyEnvironmentRoots({
+            branch: defaultBranch,
+            owner: accessibleSelectedRepository.githubOwnerLogin,
+            repoName: accessibleSelectedRepository.githubRepositoryName,
+            schemaGraphEnabled,
+            repository: accessibleSelectedRepository,
+            stack: alchemyStack,
+          })
+        : alchemyObservations.state === "loading"
+          ? []
+          : buildProductionEnvironmentRoots({
+              branch: defaultBranch,
+              cloudflareObservations: providerObservations.cloudflare,
+              convexObservations: providerObservations.convex,
+              owner: accessibleSelectedRepository.githubOwnerLogin,
+              repoName: accessibleSelectedRepository.githubRepositoryName,
+              schemaGraphEnabled,
+              repository: accessibleSelectedRepository,
+            });
     return {
       folderState,
       organizationTreeSettings,
@@ -123,6 +155,7 @@ export function useRepositoryWorkspaceModel(
       selection: {
         state: "selected",
         workspace: {
+          alchemyObservations,
           access: viewerAccess
             ? {
                 state: "ready",
@@ -134,18 +167,7 @@ export function useRepositoryWorkspaceModel(
             ? { state: "ready", connection: cloudflareConnection }
             : { state: "loading" },
           convexObservations: providerObservations.convex,
-          environmentRoots: accessibleSelectedRepository.defaultBranch
-            ? buildProductionEnvironmentRoots({
-                branch: accessibleSelectedRepository.defaultBranch,
-                cloudflareObservations: providerObservations.cloudflare,
-                convexObservations: providerObservations.convex,
-                owner: accessibleSelectedRepository.githubOwnerLogin,
-                repoName: accessibleSelectedRepository.githubRepositoryName,
-                schemaGraphEnabled:
-                  viewerAccess?.accessKeys.includes("access_schema_graph") === true,
-                repository: accessibleSelectedRepository,
-              })
-            : [],
+          environmentRoots,
           githubRepositoryUrl: `https://github.com/${accessibleSelectedRepository.githubOwnerLogin}/${accessibleSelectedRepository.githubRepositoryName}`,
           pullRequests,
           repository: accessibleSelectedRepository,
@@ -156,6 +178,7 @@ export function useRepositoryWorkspaceModel(
       ),
     };
   }, [
+    providerObservations.alchemy,
     providerObservations.cloudflare,
     providerObservations.convex,
     cloudflareConnection,
