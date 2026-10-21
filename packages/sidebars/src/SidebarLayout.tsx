@@ -122,11 +122,12 @@ It comes from the saved state alone, so the first paint shows the saved mobile p
 script, and the measured render that follows has the same layout.
 
 The carousel starts at scroll position 0 and CSS cannot scroll it. A saved left pane needs no
-scroll. For the main pane, the left pane has no width until React measures and scrolls past it. For
-the right pane, structure.css aligns the carousel content to its end until React measures. A saved
-merged surface shows its side pane beside a main pane that fills the rest of the carousel when the
-rest is at least the main pane's minimum, and an unmerged main pane otherwise: the clamp adds the
-side pane width back as soon as the rest falls below that minimum.
+scroll. For the main pane, structure.css pulls the left pane out of view with a negative margin of
+its width until React measures and scrolls past it. For the right pane, structure.css aligns the
+carousel content to its end until React measures. Every pane has its measured position from the
+first paint. A saved merged surface shows its side pane beside a main pane that fills the rest of
+the carousel when the rest is at least the main pane's minimum, and an unmerged main pane otherwise:
+the clamp adds the side pane width back as soon as the rest falls below that minimum.
 */
 function getUnmeasuredMobileGeometry({
   hasLeftPane,
@@ -155,7 +156,7 @@ function getUnmeasuredMobileGeometry({
       ? mobileSurface.side
       : null;
   const rootStyle: SidebarLayoutRootStyle = {
-    "--sidebar-layout-left-mobile-width": hasLeftPane && mobilePane === "left" ? leftWidth : "0px",
+    "--sidebar-layout-left-mobile-width": hasLeftPane ? leftWidth : "0px",
     "--sidebar-layout-main-mobile-width":
       mergedSide === null
         ? "100%"

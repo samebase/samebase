@@ -542,7 +542,9 @@ describe("AppWorkspaceShell", () => {
     expect(viewport?.getAttribute("style")).toContain(
       `--sidebar-layout-main-mobile-width:calc(100% - ${rightMobileWidth} + clamp(0px, (214px - (100% - ${rightMobileWidth})) * 1000, ${rightMobileWidth}))`,
     );
-    expect(viewport?.getAttribute("style")).toContain("--sidebar-layout-left-mobile-width:0px");
+    expect(viewport?.getAttribute("style")).toContain(
+      "--sidebar-layout-left-mobile-width:clamp(min(175px, round(down, 100% / 3, 1px)), 300px, calc(100% - 40px))",
+    );
   });
 
   it("renders the local prehydration script only for a render without a session", () => {

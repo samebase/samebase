@@ -58,6 +58,7 @@ describe("SidebarLayout server markup", () => {
     expect((markup.match(/data-pane-side="main"/g) ?? []).length).toBe(1);
     expect((markup.match(/data-pane-side="right"/g) ?? []).length).toBe(1);
     expect(markup).toContain('data-sidebar-layout-part="carousel"');
+    expect(markup).toContain("data-has-right-pane");
     expect(markup).toContain(
       `style="--sidebar-layout-left-desktop-width:${leftDesktopWidth};width:var(--sidebar-layout-left-mobile-width, 0px)"`,
     );
@@ -73,10 +74,10 @@ describe("SidebarLayout server markup", () => {
     )?.[1];
     const savedWidth = `clamp(min(175px, round(down, 100% / 3, 1px)), ${TEST_SIDEBAR_WIDTH_PX}px, calc(100% - 40px))`;
 
-    // The main pane is the saved mobile pane: the left pane has no width until React measures the
-    // viewport and scrolls past it.
+    // The main pane is the saved mobile pane: structure.css pulls the left pane out of view until
+    // React measures the viewport and scrolls past it.
     expect(viewportStyle).toBe(
-      `--sidebar-layout-left-mobile-width:0px;--sidebar-layout-main-mobile-width:100%;--sidebar-layout-right-mobile-width:${savedWidth}`,
+      `--sidebar-layout-left-mobile-width:${savedWidth};--sidebar-layout-main-mobile-width:100%;--sidebar-layout-right-mobile-width:${savedWidth}`,
     );
   });
 

@@ -72,6 +72,11 @@ export function SidebarLayoutViewport({
       ? `${rightWidthPx}px`
       : "var(--sidebar-layout-right-mobile-width, 0px)",
   };
+  // The carousel also carries the right pane's desktop width: structure.css keeps that space while
+  // the browser has not parsed the right pane's markup yet.
+  const carouselStyle: SidebarLayoutRightPaneStyle = {
+    "--sidebar-layout-right-desktop-width": desktopRightWidth,
+  };
   const mainPaneWidth = hasMeasuredViewport
     ? `${paneWidthPx}px`
     : "var(--sidebar-layout-main-mobile-width, 100%)";
@@ -80,8 +85,10 @@ export function SidebarLayoutViewport({
     <div
       ref={carouselRef}
       data-carousel-scroll-locked={lockCarouselScroll ? "" : undefined}
+      data-has-right-pane={showRightPane ? "" : undefined}
       data-viewport-measured={hasMeasuredViewport ? "" : undefined}
       data-sidebar-layout-part="carousel"
+      style={carouselStyle}
       suppressHydrationWarning
     >
       {showLeftPane ? (
