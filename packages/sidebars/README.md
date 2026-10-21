@@ -227,7 +227,7 @@ state takes ownership.
 
 ## Development
 
-Use Node 24.11.0 or later and pnpm 11.18.0 or later.
+Use Node 24.11.0 or later and pnpm 12 or later.
 
 ```sh
 pnpm install --frozen-lockfile
