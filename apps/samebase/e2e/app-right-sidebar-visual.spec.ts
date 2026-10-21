@@ -11,6 +11,10 @@ import {
 } from "./organizationContextAcceptance";
 import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
+// The signed-in tests save the sidebar state of the shared seeded account in Convex, so they run one
+// after another in one worker.
+test.describe.configure({ mode: "default" });
+
 const APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: 240,
@@ -254,9 +258,12 @@ test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ pa
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
-  // A visitor without a session has no saved sidebar state, so the test opens the right pane and
-  // narrows it to its minimum with the keyboard.
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).first().click();
+  // A visitor without a session has no saved sidebar state, so the test swipes to the right pane
+  // and narrows it to its minimum with the keyboard.
+  await page.locator('[data-sidebar-layout-part="carousel"]').evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
   await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
     "data-mobile-pane",
     "right",

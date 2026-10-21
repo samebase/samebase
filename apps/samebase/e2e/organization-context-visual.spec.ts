@@ -5,7 +5,9 @@ import {
   createOrganizationContextAcceptanceAccount,
   signInOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
-import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
+import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE } from "./visualFixtureTest";
+import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
 const MAIN_HEADER_SELECTOR =
   '[data-sidebar-layout-part="pane"][data-pane-side="main"] [data-sidebar-layout-part="pane-header"]';
@@ -21,11 +23,13 @@ type AcceptanceOrganizations = Parameters<
   typeof applyOrganizationContextAcceptanceFixture
 >[0]["organizations"];
 
+/** Creates an approved account whose saved sidebar state has both sidebars closed. */
 async function createApprovedAccount(
   page: Page,
   testInfo: TestInfo,
   label: string,
   organizations: AcceptanceOrganizations,
+  sidebarState: WorkspaceSidebarState = VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
 ) {
   const email =
     "organization-context-" +
@@ -37,7 +41,7 @@ async function createApprovedAccount(
     "@example.test";
   await createOrganizationContextAcceptanceAccount(page, email);
   const fixture = await applyOrganizationContextAcceptanceFixture({ email, organizations });
-  await seedVisualFixtureWorkspaceSidebarState(page);
+  await saveWorkspaceSidebarState(page, sidebarState);
   return { email, organizationIds: fixture.organizationIds };
 }
 
@@ -577,18 +581,24 @@ test.describe("small screen organization context", () => {
       reducedMotion: "reduce",
     });
     const signupPage = await signupContext.newPage();
-    await createApprovedAccount(signupPage, testInfo, "mobile", [
-      {
-        access: "retain",
-        ownerLogin: "org-context-mobile-alpha",
-        repositories: ["mobile-app"],
-      },
-      {
-        access: "retain",
-        ownerLogin: "org-context-mobile-beta",
-        repositories: [],
-      },
-    ]);
+    await createApprovedAccount(
+      signupPage,
+      testInfo,
+      "mobile",
+      [
+        {
+          access: "retain",
+          ownerLogin: "org-context-mobile-alpha",
+          repositories: ["mobile-app"],
+        },
+        {
+          access: "retain",
+          ownerLogin: "org-context-mobile-beta",
+          repositories: [],
+        },
+      ],
+      { ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE, rightMobileWidthPx: 130 },
+    );
     const storageState = await signupContext.storageState();
     await signupContext.close();
 
@@ -599,7 +609,6 @@ test.describe("small screen organization context", () => {
       storageState,
     });
     const page = await context.newPage();
-    await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 130 });
 
     try {
       await openRoute(page, "/repo/org-context-mobile-alpha/mobile-app");

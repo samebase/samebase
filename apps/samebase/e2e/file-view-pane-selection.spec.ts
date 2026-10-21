@@ -4,7 +4,8 @@ import {
   applyOrganizationContextAcceptanceFixture,
   createOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
-import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE } from "./visualFixtureTest";
+import { saveWorkspaceSidebarState } from "./workspaceSidebarState";
 
 const FILE_VIEW_ACCEPTANCE_STAFF_EMAIL = "nicuchiciuc@gmail.com";
 
@@ -27,7 +28,10 @@ test("file selections keep the mobile left pane open", async ({ page }, testInfo
       },
     ],
   });
-  await seedVisualFixtureWorkspaceSidebarState(page, { mobilePane: "left" });
+  await saveWorkspaceSidebarState(page, {
+    ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
+    mobilePane: "left",
+  });
   await page.goto(route, { waitUntil: "domcontentloaded" });
 
   const workspace = page.locator('[data-sidebar-layout-part="viewport"]');

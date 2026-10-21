@@ -1,5 +1,4 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
-import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 import {
   DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
@@ -70,12 +69,17 @@ async function readMainPaneScrollTop(page: Page) {
 }
 
 /** Landing YouTube embeds stay offline; screenshots mask the hero embed. */
-/** A first visit starts with the docs sidebar closed; docs navigation tests open it. */
+/**
+A visitor without a session starts with the docs sidebar closed and has no saved sidebar state, so
+docs navigation tests open the sidebar after the page loads.
+*/
 async function openDocsSidebar(page: Page) {
-  await seedVisualFixtureWorkspaceSidebarState(page, {
-    leftDesktopOpen: true,
-    rightDesktopOpen: true,
-  });
+  const leftPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
+  if ((await leftPane.getAttribute("data-desktop-open")) === null) {
+    await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  }
+  await expect(leftPane).toHaveAttribute("data-desktop-open", "");
+  await expect.poll(async () => (await leftPane.boundingBox())?.width).toBe(240);
 }
 
 async function blockLandingYouTubeEmbeds(page: Page) {
@@ -316,12 +320,12 @@ test("landing document navigation resets pages, restores history, and aligns dir
       return Reflect.apply(originalGetContext, this, [contextId, ...args]);
     };
   });
-  await openDocsSidebar(page);
   await blockLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
+  await openDocsSidebar(page);
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
@@ -527,12 +531,11 @@ test.describe("mobile landing preview", () => {
 
 test("docs receipts route renders the claims ledger", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await openDocsSidebar(page);
-
   await page.goto(DOCS_RECEIPTS_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
+  await openDocsSidebar(page);
 
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -596,12 +599,11 @@ test("Cloudflare setup loads the onboarding video only after Play", async ({ pag
 
 test("pricing route renders the public pricing page", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await openDocsSidebar(page);
-
   await page.goto(DOCS_PRICING_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
+  await openDocsSidebar(page);
 
   await page.evaluate(async () => {
     await document.fonts.ready;

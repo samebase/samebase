@@ -2,7 +2,8 @@ import { expect, test as base, type Page } from "@playwright/test";
 import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 
-const VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE = {
+/** Both sidebars closed: the starting state of visual fixtures and of live visual tests. */
+export const VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE = {
   leftDesktopOpen: false,
   leftDesktopWidthPx: 240,
   leftMobileWidthPx: 240,
