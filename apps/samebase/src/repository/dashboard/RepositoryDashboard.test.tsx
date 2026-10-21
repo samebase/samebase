@@ -664,8 +664,13 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStack {
   return {
     store: "found",
     stack: "samebase/base-alchemy",
-    convexTeam: { teamId: "38516", teamSlug: "nicu" },
-    regions: [{ deploymentName: "ideal-dolphin-15", region: "aws-us-east-1" }],
+    liveDeployments: [
+      {
+        deploymentName: "ideal-dolphin-15",
+        dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+        region: "aws-us-east-1",
+      },
+    ],
     stages: [
       { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
       { name: pr25.stage, run: { state: "none" }, resources: pr25.resources, output: pr25.output },
@@ -791,8 +796,7 @@ describe("repository environment roots", () => {
       stack: {
         store: "found",
         stack: "samebase/tmp-k7m2-rows",
-        convexTeam: { teamId: "38516", teamSlug: "nicu" },
-        regions: [],
+        liveDeployments: [],
         stages: [
           {
             name: "main",

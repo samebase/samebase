@@ -730,7 +730,6 @@ async function readPullRequestAlchemyStack(
       target: {
         authMethod: credential.auth.method,
         teamId: connection.teamId,
-        teamSlug: connection.teamSlug ?? null,
         token,
       },
     });

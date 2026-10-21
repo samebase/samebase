@@ -151,7 +151,7 @@ function isEmbeddedDashboardDeployKeyName(args: {
 project in the connected team, else null.
 */
 async function readStackProjectId(args: {
-  convexTeam: { teamId: string; teamSlug?: string };
+  convexTeam: { teamId: string };
   credential: { auth: { method: "api_key" | "oauth"; credential: string } };
   projectId: string;
   stack: string;
@@ -161,7 +161,6 @@ async function readStackProjectId(args: {
     target: {
       authMethod: args.credential.auth.method,
       teamId: args.convexTeam.teamId,
-      teamSlug: args.convexTeam.teamSlug ?? null,
       token: args.credential.auth.credential,
     },
   });

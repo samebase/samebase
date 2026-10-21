@@ -32,8 +32,6 @@ export type ConvexInspectionTarget = {
   projects: Doc<"repositoryConvexProjects">[];
   /** The Convex team that the organization connected. */
   teamId: string;
-  /** The slug of that team, or null before Samebase has read it. */
-  teamSlug: string | null;
   token: string;
 };
 type ConvexSystemQueryResponse = {
@@ -59,7 +57,6 @@ const vConvexInspectionTarget = object({
   githubRepositoryFullName: string(),
   projects: array(vRepositoryConvexProjectDocument),
   teamId: string(),
-  teamSlug: union(string(), v.null()),
 });
 
 export const readTarget = internalQuery({
@@ -101,7 +98,6 @@ export const readTarget = internalQuery({
       githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
       projects: projects.filter((project) => project.organizationId === repository.organizationId),
       teamId: convexTeam.teamId,
-      teamSlug: convexTeam.teamSlug ?? null,
     };
   },
 });

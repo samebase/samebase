@@ -62,6 +62,19 @@ export const observedAlchemyStackReply = {
   },
 };
 
+// The reply of the Convex Management API `GET /projects/3245938` for the project that the stage
+// `prod` above deploys, captured on 2026-10-22 with the Convex CLI login.
+export const observedBaseAlchemyProject = {
+  id: 3245938,
+  name: "base-alchemy",
+  slug: "base-alchemy",
+  teamId: 38516,
+  teamSlug: "nicu",
+  createTime: 1792474666951,
+  prodDeploymentName: "ideal-dolphin-15",
+  devDeploymentName: "steady-gopher-786",
+};
+
 // The reply of the Convex Management API `GET /projects/3245938/deployment?defaultProd=true` for the
 // project that the stage `prod` above deploys, captured on 2026-10-22 with the Convex CLI login.
 export const observedBaseAlchemyProductionDeployment = {

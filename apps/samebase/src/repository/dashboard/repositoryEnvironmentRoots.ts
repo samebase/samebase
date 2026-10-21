@@ -5,13 +5,11 @@ import type {
   PullRequestResources,
   PullRequestWorkerResource,
 } from "../../../convex/repository/pullRequestModel";
-import { buildConvexDeploymentDashboardUrl } from "../../../convex/repository/providerDashboardUrls";
 import {
   convexFunctionsDirectory,
   findProductionStage,
   vAlchemyCloudflareWorkerState,
   vAlchemyConvexDeploymentState,
-  vAlchemyConvexProjectState,
 } from "../../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
@@ -395,10 +393,10 @@ function parentDirectory(path: string): string {
 /**
 The default-branch block from the stack of the repository in the Alchemy state store: its stage
 `prod`, or `main` for a stack whose stages are not renamed yet. The store records no build, so no
-build state shows; the region of a Convex deployment comes from a live read and shows when that
-read succeeded. A Convex deployment links to its dashboard with the team slug of the organization
-and the project slug of the stack. The Schema route reads schema snapshots stored for an attachment
-row, so a deployment offers it only when its project is attached.
+build state shows. A Convex deployment takes its dashboard link and region from the live reads of
+its project and production deployment, like an attached project. The Schema route reads schema
+snapshots stored for an attachment row, so a deployment offers it only when its project is
+attached.
 */
 export function buildAlchemyEnvironmentRoots({
   branch,
@@ -427,9 +425,6 @@ export function buildAlchemyEnvironmentRoots({
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
   });
-  const projects = states.flatMap(({ state }) =>
-    validate(vAlchemyConvexProjectState, state, { allowUnknownFields: true }) ? [state.attr] : [],
-  );
 
   const workers = states.flatMap(({ fqn, state }): RepositoryEnvironmentResourceInput[] => {
     if (!validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })) {
@@ -477,24 +472,12 @@ export function buildAlchemyEnvironmentRoots({
         return [];
       }
       const { attr, props } = state;
-      const project =
-        projects.find((candidate) => candidate.projectId === attr.projectId) ?? props.project;
-      const dashboardUrl =
-        stack.convexTeam.teamSlug !== null &&
-        project.slug !== undefined &&
-        String(project.teamId) === stack.convexTeam.teamId
-          ? buildConvexDeploymentDashboardUrl({
-              teamSlug: stack.convexTeam.teamSlug,
-              projectSlug: project.slug,
-              deploymentName: attr.name,
-            })
-          : null;
-      // Only a stack without a project slug, or an organization without a team slug, has no
-      // dashboard link; the deployment then links to its site.
-      const href = dashboardUrl ?? attr.siteUrl;
-      const region = stack.regions.find(
+      const live = stack.liveDeployments.find(
         (candidate) => candidate.deploymentName === attr.name,
-      )?.region;
+      );
+      // The deployment links to its site only when the live project read failed.
+      const href = live?.dashboardUrl ?? attr.siteUrl;
+      const region = live?.region;
       const source = props.source;
       const sourcePath = typeof source === "string" ? source : source?.path;
       const codeLocation =

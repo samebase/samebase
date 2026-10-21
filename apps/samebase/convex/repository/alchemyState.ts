@@ -16,7 +16,11 @@ import {
   withConvexInspectionDeployKey,
   type ConvexInspectionTarget,
 } from "./convexDeploymentInspection";
-import { readConvexProductionDeployment } from "./convexProjectResources";
+import {
+  readConvexProductionDeployment,
+  readConvexProjectResource,
+} from "./convexProjectResources";
+import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 
 const { array, id, literal, number, object, string, union } = v;
 
@@ -86,14 +90,18 @@ const vAlchemyStateObservation = union(
     store: literal("found"),
     /** The stack of the repository, keyed by its GitHub `owner/name`. */
     stack: string(),
-    /** The Convex team of the store; its slug builds Convex dashboard links. */
-    convexTeam: object({ teamId: string(), teamSlug: union(string(), v.null()) }),
     /**
-    The region of each Convex deployment of the production stage, read live like the production
-    deployment of an attached project. A deployment whose read fails, or that is no longer the
-    production deployment of its project, has none.
+    Each Convex deployment of the production stage, read live like the production deployment of
+    an attached project: its dashboard link from the project read, null when that read fails, and
+    its region from the deployment read, null when that read fails or names another deployment.
     */
-    regions: array(object({ deploymentName: string(), region: vConvexDeploymentRegion })),
+    liveDeployments: array(
+      object({
+        deploymentName: string(),
+        dashboardUrl: union(string(), v.null()),
+        region: union(vConvexDeploymentRegion, v.null()),
+      }),
+    ),
     stages: array(vAlchemyStage),
   }),
 );
@@ -101,7 +109,7 @@ type AlchemyStateObservation = Infer<typeof vAlchemyStateObservation>;
 /** The store read of `observe`, before its live reads. */
 type AlchemyStackRead =
   | { store: "missing" }
-  | Omit<Extract<AlchemyStateObservation, { store: "found" }>, "regions">;
+  | Omit<Extract<AlchemyStateObservation, { store: "found" }>, "liveDeployments">;
 
 /**
 The reply of `state:readStack` `{ stack }`: every stage of the stack in name order, each with its
@@ -173,7 +181,7 @@ production deployment of the team's `alchemy-state` project. Other stacks of the
 export async function readAlchemyStack(args: {
   /** The GitHub `owner/name` of the repository. */
   stack: string;
-  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "teamSlug" | "token">;
+  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
 }): Promise<AlchemyStackRead> {
   const project = (
     await listConvexManagementProjects({ token: args.target.token, teamId: args.target.teamId })
@@ -200,7 +208,6 @@ export async function readAlchemyStack(args: {
   return {
     store: "found",
     stack: args.stack,
-    convexTeam: { teamId: args.target.teamId, teamSlug: args.target.teamSlug },
     stages: parse(vStoreStackReply, reply).value.stages.map(readStage),
   };
 }
@@ -257,17 +264,32 @@ export const observe = action({
       return read;
     }
 
-    const regions = await Promise.all(
+    const liveDeployments = await Promise.all(
       readProductionConvexDeployments(read.stages).map(async (deployment) => {
-        const live = await readConvexProductionDeployment({
-          token: target.token,
-          projectId: deployment.projectId,
-        }).catch(() => null);
-        return live?.name === deployment.deploymentName
-          ? [{ deploymentName: deployment.deploymentName, region: live.region }]
-          : [];
+        const [project, live] = await Promise.all([
+          readConvexProjectResource({
+            token: target.token,
+            teamId: target.teamId,
+            projectId: deployment.projectId,
+          }).catch(() => null),
+          readConvexProductionDeployment({
+            token: target.token,
+            projectId: deployment.projectId,
+          }).catch(() => null),
+        ]);
+        return {
+          deploymentName: deployment.deploymentName,
+          dashboardUrl: project
+            ? buildConvexDeploymentDashboardUrl({
+                teamSlug: project.teamSlug,
+                projectSlug: project.slug,
+                deploymentName: deployment.deploymentName,
+              })
+            : null,
+          region: live?.name === deployment.deploymentName ? live.region : null,
+        };
       }),
     );
-    return { ...read, regions: regions.flat() };
+    return { ...read, liveDeployments };
   },
 });

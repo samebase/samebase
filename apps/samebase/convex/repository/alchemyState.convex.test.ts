@@ -6,6 +6,7 @@ import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.se
 import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
+  observedBaseAlchemyProject,
 } from "./fixtures/observedAlchemyState";
 
 const storeProject = {
@@ -182,6 +183,9 @@ function installAlchemyStateFetchStub(args: {
           region: "aws-us-east-1",
         });
       }
+      if (url.endsWith("/projects/3245938")) {
+        return jsonResponse(observedBaseAlchemyProject);
+      }
       if (url.endsWith("/projects/3245938/deployment?defaultProd=true")) {
         return jsonResponse(observedBaseAlchemyProductionDeployment);
       }
@@ -233,8 +237,13 @@ describe("repository Alchemy state", () => {
     expect(observation).toEqual({
       store: "found",
       stack: "samebase/base-alchemy",
-      convexTeam: { teamId: "38516", teamSlug: "nicu" },
-      regions: [{ deploymentName: "ideal-dolphin-15", region: "aws-us-east-1" }],
+      liveDeployments: [
+        {
+          deploymentName: "ideal-dolphin-15",
+          dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+          region: "aws-us-east-1",
+        },
+      ],
       stages: [
         {
           name: "pr-24",
@@ -323,8 +332,7 @@ describe("repository Alchemy state", () => {
     ).resolves.toEqual({
       store: "found",
       stack: "samebase/base-alchemy",
-      convexTeam: { teamId: "38516", teamSlug: "nicu" },
-      regions: [],
+      liveDeployments: [],
       stages: [],
     });
   });
