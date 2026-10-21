@@ -812,6 +812,7 @@ describe("repository environment roots", () => {
           cloudflare: { state: "available", previews: [] },
           netlify: { state: "available", previews: [] },
         },
+        alchemyPreview: { state: "absent" },
       },
     });
 
@@ -854,6 +855,44 @@ describe("repository environment roots", () => {
     ]);
   });
 
+  it("shows the preview of a pull request from the Alchemy state of the team", () => {
+    // The preview of samebase/base-alchemy#24, read from the captured stage pr-24.
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(
+      <PullRequestResources
+        resource={{
+          state: "current",
+          resources: {
+            pullRequestId: "pull-request-24",
+            cloudflareBuilds: { state: "available" },
+            workers: [],
+            convexProjects: [],
+            hostingPreviews: {
+              cloudflare: { state: "available", previews: [] },
+              netlify: { state: "available", previews: [] },
+            },
+            alchemyPreview: {
+              state: "available",
+              url: "https://nautical-eagle-647.convex.site",
+              convexDeployments: [
+                { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
+              ],
+            },
+          },
+        }}
+        settingsHref="/repo/samebase/base-alchemy/settings"
+      />,
+    );
+
+    const deployment = container.querySelector(
+      '[role="group"][aria-label="Convex deployment nautical-eagle-647"]',
+    );
+    expect(deployment?.querySelector("a")?.getAttribute("href")).toBe(
+      "https://nautical-eagle-647.convex.site",
+    );
+    expect(deployment?.textContent).toBe("nautical-eagle-647May be from an earlier commit");
+  });
+
   it("shows a Convex preview independently from a failed Cloudflare build", () => {
     const workerId = fakeCloudflareWorkerId();
     const convexProjectId = fakeConvexProjectId();
@@ -889,6 +928,7 @@ describe("repository environment roots", () => {
             cloudflare: { state: "available", previews: [] },
             netlify: { state: "available", previews: [] },
           },
+          alchemyPreview: { state: "absent" },
         },
       }),
     ).toEqual([
@@ -959,6 +999,7 @@ describe("repository environment roots", () => {
         cloudflare: { state: "available" as const, previews: [] },
         netlify: { state: "available" as const, previews: [] },
       },
+      alchemyPreview: { state: "absent" as const },
     };
     const roots = buildPullRequestEnvironmentRoots({ resources });
 
@@ -1009,6 +1050,7 @@ describe("repository environment roots", () => {
               cloudflare: { state: "unavailable" },
               netlify: { state: "available", previews: [] },
             },
+            alchemyPreview: { state: "absent" },
           },
         }}
         settingsHref="/repo/ada/demo/settings"
@@ -1059,6 +1101,7 @@ describe("repository environment roots", () => {
           cloudflare: { state: "available", previews: [] },
           netlify: { state: "available", previews: [] },
         },
+        alchemyPreview: { state: "absent" },
       },
     });
 
@@ -1151,6 +1194,7 @@ describe("PullRequestsSection", () => {
                   previews: [{ name: "demo-netlify", url: netlifyUrl }],
                 },
               },
+              alchemyPreview: { state: "absent" },
             },
           },
         ],

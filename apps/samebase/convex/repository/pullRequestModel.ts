@@ -300,14 +300,36 @@ const vPullRequestHostingPreviews = object({
   cloudflare: vCloudflareHostingPreviewResult,
   netlify: vNetlifyHostingPreviewResult,
 });
+/**
+The preview of the pull request in the Alchemy state store of the team: the stage `pr-<number>` of
+the stack named after the repository.
+
+absent = the store holds no stack for the repository, or the stack has no stage for the pull
+request.
+
+unavailable = the store could not be read.
+*/
+const vPullRequestAlchemyPreview = union(
+  object({
+    state: literal("available"),
+    /** The `url` of the stage output, or null when the output has none. */
+    url: union(string(), v.null()),
+    /** The name and client URL of each `Convex.Deployment` resource of the stage, in fqn order. */
+    convexDeployments: array(object({ name: string(), url: string() })),
+  }),
+  object({ state: literal("absent") }),
+  object({ state: literal("unavailable") }),
+);
 export const vPullRequestResources = union(
   object({
     state: literal("available"),
     pullRequestId: string(),
     cloudflareBuilds: vPullRequestCloudflareBuilds,
     workers: array(vPullRequestWorkerResource),
+    /** Empty when the team store holds a stack for the repository, whose previews come from `alchemyPreview`. */
     convexProjects: array(vPullRequestConvexResource),
     hostingPreviews: vPullRequestHostingPreviews,
+    alchemyPreview: vPullRequestAlchemyPreview,
   }),
   object({
     state: literal("unavailable"),
@@ -318,6 +340,7 @@ export const vPullRequestResources = union(
 export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>;
 export type PullRequestConvexResource = Infer<typeof vPullRequestConvexResource>;
 export type PullRequestHostingPreviews = Infer<typeof vPullRequestHostingPreviews>;
+export type PullRequestAlchemyPreview = Infer<typeof vPullRequestAlchemyPreview>;
 export type PullRequestResourceRead = Infer<typeof vPullRequestResources>;
 export type PullRequestResources = Omit<
   Extract<PullRequestResourceRead, { state: "available" }>,

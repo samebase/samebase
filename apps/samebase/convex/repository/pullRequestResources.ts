@@ -1,9 +1,11 @@
 "use node";
 
 import type { Octokit } from "@octokit/rest";
+import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { z } from "zod";
 
+import { vAlchemyConvexDeploymentState } from "../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -14,9 +16,12 @@ import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
 import { readCloudflareWorkerBranchPreviewUrls } from "../cloudflareResources";
+import { toErrorMessage } from "../jsonUtils";
+import { readAlchemyStack, type AlchemyStage } from "./alchemyState";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import {
   vPullRequestResources,
+  type PullRequestAlchemyPreview,
   type PullRequestConvexResource,
   type PullRequestHostingPreviews,
   type PullRequestResourceRead,
@@ -46,7 +51,7 @@ import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
 import { readCloudflareObservationInput } from "./providerObservations";
 
-const { array, id, string } = v;
+const { array, id, object, string } = v;
 
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
@@ -530,7 +535,18 @@ type PullRequestResourceAccumulator = {
   workers: PullRequestWorkerResource[];
   convexProjects: PullRequestConvexResource[];
   hostingPreviews: PullRequestHostingPreviews;
+  alchemyPreview: PullRequestAlchemyPreview;
 };
+/**
+The stack of the repository in the Alchemy state store of its Convex team.
+
+missing = the organization has no Convex connection for the team of the repository, the team has no
+store, or the store holds no stage of the stack.
+*/
+type PullRequestAlchemyStackRead =
+  | { state: "found"; stages: AlchemyStage[] }
+  | { state: "missing" }
+  | { state: "failed" };
 type ConvexPreviewRead =
   | {
       state: "available";
@@ -640,6 +656,74 @@ export function resolveConvexPreviewDeployment(args: {
     return { state: "unavailable", reason: "deployment_ambiguous" };
   }
   return { state: "branch", deployment: branchMatches[0] };
+}
+
+const vStageOutputUrl = object({ url: string() });
+
+/** The preview of a pull request: the stage `pr-<number>` of the stack, the upstream Alchemy name. */
+export function buildPullRequestAlchemyPreview(args: {
+  stack: PullRequestAlchemyStackRead;
+  pullRequestNumber: number;
+}): PullRequestAlchemyPreview {
+  if (args.stack.state === "failed") {
+    return { state: "unavailable" };
+  }
+  const stage =
+    args.stack.state === "found"
+      ? args.stack.stages.find((candidate) => candidate.name === `pr-${args.pullRequestNumber}`)
+      : undefined;
+  if (!stage) {
+    return { state: "absent" };
+  }
+
+  const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
+  return {
+    state: "available",
+    url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
+    convexDeployments: stage.resources.flatMap((resource) => {
+      const state: unknown = JSON.parse(resource.value);
+      return validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
+        ? [{ name: state.attr.name, url: state.attr.url }]
+        : [];
+    }),
+  };
+}
+
+/** Reads the stack of the repository once for every pull request of one resources read. */
+async function readPullRequestAlchemyStack(
+  ctx: ActionCtx,
+  args: { context: RepositoryProviderObservationContext; userId: Id<"users"> },
+): Promise<PullRequestAlchemyStackRead> {
+  const teamId = args.context.convexTeamId;
+  if (!teamId) {
+    return { state: "missing" };
+  }
+
+  try {
+    const connection = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
+      { organizationId: args.context.organizationId, userId: args.userId, teamId },
+    );
+    const credential = connection?.credential;
+    if (!connection || !credential) {
+      return { state: "missing" };
+    }
+    const token = credential.auth.credential.trim();
+    if (!token) {
+      return { state: "missing" };
+    }
+
+    const stack = await readAlchemyStack({
+      stack: `${args.context.githubOwnerLogin}/${args.context.githubRepositoryName}`,
+      target: { authMethod: credential.auth.method, teamId: connection.teamId, token },
+    });
+    return stack.store === "found" && stack.stages.length > 0
+      ? { state: "found", stages: stack.stages }
+      : { state: "missing" };
+  } catch (error) {
+    console.warn("Pull request Alchemy state read failed.", { message: toErrorMessage(error) });
+    return { state: "failed" };
+  }
 }
 
 export function buildPullRequestCloudflareWorkerResources(args: {
@@ -1225,6 +1309,7 @@ export async function getPullRequestResourcesForUser(
     }),
   ]);
   const signal = createGitHubRequestDeadlineSignal();
+  const alchemyStackRead = readPullRequestAlchemyStack(ctx, { context, userId: args.userId });
   const headReads = await readGitHubPullRequestResourceHeadReads({
     octokit: githubAccess.octokit,
     signal,
@@ -1285,6 +1370,7 @@ export async function getPullRequestResourcesForUser(
       );
     }
   }
+  const alchemyStack = await alchemyStackRead;
   const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
   for (const head of heads) {
     const hostingPreviews = buildPullRequestHostingPreviews({
@@ -1301,11 +1387,18 @@ export async function getPullRequestResourcesForUser(
       workers: cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [],
       convexProjects: [],
       hostingPreviews,
+      alchemyPreview: buildPullRequestAlchemyPreview({
+        stack: alchemyStack,
+        pullRequestNumber: head.number,
+      }),
     });
   }
 
+  // Alchemy names a preview deployment after its stage, `pr-<number>`, so the branch name never
+  // matches it: a repository with a stack in the store takes its previews from the stack.
+  const convexProjects = alchemyStack.state === "found" ? [] : context.convexProjects;
   const projectResources = await Promise.all(
-    context.convexProjects.map(async (project) => {
+    convexProjects.map(async (project) => {
       const connection = await ctx.runQuery(
         internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
         {
@@ -1331,7 +1424,7 @@ export async function getPullRequestResourcesForUser(
       });
     }),
   );
-  context.convexProjects.forEach((project, projectIndex) => {
+  convexProjects.forEach((project, projectIndex) => {
     heads.forEach((head, headIndex) => {
       const resource = projectResources[projectIndex][headIndex];
       if (resource.convexProjectId !== project.convexProjectId) {

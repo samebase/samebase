@@ -220,6 +220,7 @@ function installResourceHandler(args: { unavailablePullRequestId?: string } = {}
           cloudflare: { state: "available", previews: [] },
           netlify: { state: "available", previews: [] },
         },
+        alchemyPreview: { state: "absent" },
       };
     });
   });

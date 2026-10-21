@@ -416,8 +416,32 @@ export function buildPullRequestEnvironmentRoots({
       },
     ];
   });
+  const alchemyPreview = resources.alchemyPreview;
+  const alchemyDeployments =
+    alchemyPreview.state === "available"
+      ? alchemyPreview.convexDeployments.map((deployment) => ({
+          // The stack is keyed by the repository, so its preview sits at the repository root.
+          rootDirectory: "/",
+          sortKey: `1:${deployment.name}:alchemy`,
+          resource: {
+            kind: "destination" as const,
+            id: `alchemy:${deployment.name}`,
+            actions: [],
+            // The stage output names the preview; a stage without one links the deployment.
+            href: alchemyPreview.url ?? deployment.url,
+            label: deployment.name,
+            provider: "convex" as const,
+            provenance: "pull_request_branch" as const,
+            title: `Open the preview of Convex deployment ${deployment.name}`,
+          },
+        }))
+      : [];
 
-  return groupRepositoryEnvironmentResources([...workers, ...convexDeployments]);
+  return groupRepositoryEnvironmentResources([
+    ...workers,
+    ...convexDeployments,
+    ...alchemyDeployments,
+  ]);
 }
 
 export function buildPullRequestOtherPreviews({

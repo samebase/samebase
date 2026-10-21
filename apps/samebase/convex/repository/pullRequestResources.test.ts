@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../_generated/dataModel";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
+import { observedAlchemyStackReply } from "./fixtures/observedAlchemyState";
 import {
+  buildPullRequestAlchemyPreview,
   buildPullRequestCloudflareWorkerResources,
   buildPullRequestHostingPreviews,
   completeGitHubPullRequestCommitScan,
@@ -1051,5 +1053,59 @@ describe("resolveConvexPreviewDeployment", () => {
         head,
       }),
     ).toEqual({ state: "unavailable", reason: "deployment_ambiguous" });
+  });
+});
+
+describe("buildPullRequestAlchemyPreview", () => {
+  const [pr24, pr25, prod] = observedAlchemyStackReply.value.stages;
+  // The stages as `readAlchemyStack` returns the captured reply: no value holds a secret, and the
+  // run record of `prod` leaves its output.
+  const stack = {
+    state: "found" as const,
+    stages: [
+      {
+        name: pr24.stage,
+        run: { state: "none" as const },
+        resources: pr24.resources,
+        output: pr24.output,
+      },
+      {
+        name: pr25.stage,
+        run: { state: "none" as const },
+        resources: pr25.resources,
+        output: pr25.output,
+      },
+      {
+        name: prod.stage,
+        run: { state: "unknown" as const },
+        resources: prod.resources,
+        output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+      },
+    ],
+  };
+
+  it("reads the preview of a pull request from its stage pr-<number>", () => {
+    expect(buildPullRequestAlchemyPreview({ stack, pullRequestNumber: 24 })).toEqual({
+      state: "available",
+      url: "https://nautical-eagle-647.convex.site",
+      convexDeployments: [
+        { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
+      ],
+    });
+  });
+
+  it("finds no preview for a pull request without a stage or a repository without a stack", () => {
+    expect(buildPullRequestAlchemyPreview({ stack, pullRequestNumber: 23 })).toEqual({
+      state: "absent",
+    });
+    expect(
+      buildPullRequestAlchemyPreview({ stack: { state: "missing" }, pullRequestNumber: 24 }),
+    ).toEqual({ state: "absent" });
+  });
+
+  it("reports a store that could not be read", () => {
+    expect(
+      buildPullRequestAlchemyPreview({ stack: { state: "failed" }, pullRequestNumber: 24 }),
+    ).toEqual({ state: "unavailable" });
   });
 });
