@@ -72,3 +72,15 @@ export function convexFunctionsDirectory(stackFile: string, source: string): str
   }
   return parts.length === 0 ? "." : parts.join("/");
 }
+
+/**
+The stage that holds the production resources of a stack: `prod`, the upstream Alchemy name, or
+`main` for a stack whose stages are not renamed yet.
+*/
+export function findProductionStage<Stage extends { name: string }>(
+  stages: readonly Stage[],
+): Stage | undefined {
+  return (
+    stages.find((stage) => stage.name === "prod") ?? stages.find((stage) => stage.name === "main")
+  );
+}

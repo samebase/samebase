@@ -1,7 +1,13 @@
 import { parse, validate } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
-import { ALCHEMY_REDACTED_MARKER } from "../../shared/alchemyState";
+import {
+  ALCHEMY_REDACTED_MARKER,
+  findProductionStage,
+  vAlchemyConvexDeploymentState,
+  vAlchemyConvexProjectState,
+} from "../../shared/alchemyState";
 import { internal } from "../_generated/api";
+import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
@@ -49,6 +55,31 @@ const vRunRecord = object({
   recordedAt: string(),
 });
 
+const vAlchemyStage = object({
+  name: string(),
+  /**
+  recorded = the stage output holds a run record of version 1.
+
+  none = the stage has no output yet, or an output without a run record, such as one written
+  before @samebase/alchemy-convex 0.7.0.
+
+  unknown = the run record has another version or a shape that this reader does not know.
+  */
+  run: union(
+    object({ state: literal("recorded"), record: vRunRecord }),
+    object({ state: literal("none") }),
+    object({ state: literal("unknown") }),
+  ),
+  /** `value` is the JSON text of Alchemy's `encodeState` without secret values. */
+  resources: array(object({ fqn: string(), value: string() })),
+  /**
+  The JSON text of the stage output without the run record and without secret values, or
+  `null` before the first output.
+  */
+  output: union(string(), v.null()),
+});
+export type AlchemyStage = Infer<typeof vAlchemyStage>;
+
 const vAlchemyStateObservation = union(
   object({ store: literal("missing") }),
   object({
@@ -57,35 +88,20 @@ const vAlchemyStateObservation = union(
     stack: string(),
     /** The Convex team of the store; its slug builds Convex dashboard links. */
     convexTeam: object({ teamId: string(), teamSlug: union(string(), v.null()) }),
-    stages: array(
-      object({
-        name: string(),
-        /**
-        recorded = the stage output holds a run record of version 1.
-
-        none = the stage has no output yet, or an output without a run record, such as one written
-        before @samebase/alchemy-convex 0.7.0.
-
-        unknown = the run record has another version or a shape that this reader does not know.
-        */
-        run: union(
-          object({ state: literal("recorded"), record: vRunRecord }),
-          object({ state: literal("none") }),
-          object({ state: literal("unknown") }),
-        ),
-        /** `value` is the JSON text of Alchemy's `encodeState` without secret values. */
-        resources: array(object({ fqn: string(), value: string() })),
-        /**
-        The JSON text of the stage output without the run record and without secret values, or
-        `null` before the first output.
-        */
-        output: union(string(), v.null()),
-      }),
-    ),
+    /**
+    The region of each Convex deployment of the production stage, read live like the production
+    deployment of an attached project. A deployment whose read fails, or that is no longer the
+    production deployment of its project, has none.
+    */
+    regions: array(object({ deploymentName: string(), region: vConvexDeploymentRegion })),
+    stages: array(vAlchemyStage),
   }),
 );
 type AlchemyStateObservation = Infer<typeof vAlchemyStateObservation>;
-export type AlchemyStage = Extract<AlchemyStateObservation, { store: "found" }>["stages"][number];
+/** The store read of `observe`, before its live reads. */
+type AlchemyStackRead =
+  | { store: "missing" }
+  | Omit<Extract<AlchemyStateObservation, { store: "found" }>, "regions">;
 
 /**
 The reply of `state:readStack` `{ stack }`: every stage of the stack in name order, each with its
@@ -158,7 +174,7 @@ export async function readAlchemyStack(args: {
   /** The GitHub `owner/name` of the repository. */
   stack: string;
   target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "teamSlug" | "token">;
-}): Promise<AlchemyStateObservation> {
+}): Promise<AlchemyStackRead> {
   const project = (
     await listConvexManagementProjects({ token: args.target.token, teamId: args.target.teamId })
   ).find((candidate) => candidate.name === ALCHEMY_STATE_PROJECT_NAME);
@@ -190,9 +206,40 @@ export async function readAlchemyStack(args: {
 }
 
 /**
+The `Convex.Deployment` resources of the production stage of a stack, each with its Convex project
+and the team of that project when the state names it.
+*/
+export function readProductionConvexDeployments(stages: readonly AlchemyStage[]): {
+  projectId: string;
+  deploymentName: string;
+  teamId: string | null;
+}[] {
+  const stage = findProductionStage(stages);
+  const states = (stage?.resources ?? []).map((resource): unknown => JSON.parse(resource.value));
+  const projects = states.flatMap((state) =>
+    validate(vAlchemyConvexProjectState, state, { allowUnknownFields: true }) ? [state.attr] : [],
+  );
+  return states.flatMap((state) => {
+    if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
+      return [];
+    }
+    const project =
+      projects.find((candidate) => candidate.projectId === state.attr.projectId) ??
+      state.props.project;
+    return [
+      {
+        projectId: String(state.attr.projectId),
+        deploymentName: state.attr.name,
+        teamId: project.teamId === undefined ? null : String(project.teamId),
+      },
+    ];
+  });
+}
+
+/**
 Reads the stack of the repository from the Alchemy state store of the Convex team that the
 organization connected: its stages with the run record of each, the resources of each stage, and
-the stage output.
+the stage output, plus the live region of each production Convex deployment.
 */
 export const observe = action({
   access: "access_dashboard",
@@ -205,6 +252,22 @@ export const observe = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    return await readAlchemyStack({ stack: target.githubRepositoryFullName, target });
+    const read = await readAlchemyStack({ stack: target.githubRepositoryFullName, target });
+    if (read.store === "missing") {
+      return read;
+    }
+
+    const regions = await Promise.all(
+      readProductionConvexDeployments(read.stages).map(async (deployment) => {
+        const live = await readConvexProductionDeployment({
+          token: target.token,
+          projectId: deployment.projectId,
+        }).catch(() => null);
+        return live?.name === deployment.deploymentName
+          ? [{ deploymentName: deployment.deploymentName, region: live.region }]
+          : [];
+      }),
+    );
+    return { ...read, regions: regions.flat() };
   },
 });

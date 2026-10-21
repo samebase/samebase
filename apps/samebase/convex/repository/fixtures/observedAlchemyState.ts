@@ -61,3 +61,24 @@ export const observedAlchemyStackReply = {
     ],
   },
 };
+
+// The reply of the Convex Management API `GET /projects/3245938/deployment?defaultProd=true` for the
+// project that the stage `prod` above deploys, captured on 2026-10-22 with the Convex CLI login.
+export const observedBaseAlchemyProductionDeployment = {
+  kind: "cloud",
+  id: 6306909,
+  name: "ideal-dolphin-15",
+  createTime: 1792475812665,
+  lastDeployTime: 1792612685570,
+  deploymentType: "prod",
+  projectId: 3245938,
+  creator: 38842,
+  previewIdentifier: null,
+  region: "aws-us-east-1",
+  isDefault: true,
+  reference: "production",
+  dashboardEditConfirmation: null,
+  deploymentUrl: "https://ideal-dolphin-15.convex.cloud",
+  class: "s256",
+  sendLogsToClient: null,
+};

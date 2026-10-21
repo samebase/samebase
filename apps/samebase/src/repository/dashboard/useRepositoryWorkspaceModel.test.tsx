@@ -247,6 +247,7 @@ describe("useRepositoryWorkspaceModel", () => {
           store: "found",
           stack: "samebase/base-alchemy",
           convexTeam: { teamId: "38516", teamSlug: "nicu" },
+          regions: [{ deploymentName: "ideal-dolphin-15", region: "aws-us-east-1" }],
           // The stage as `alchemyState:observe` returns the captured one, without its run record.
           stages: [
             {

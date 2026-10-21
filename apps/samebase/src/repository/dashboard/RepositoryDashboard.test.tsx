@@ -665,6 +665,7 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStack {
     store: "found",
     stack: "samebase/base-alchemy",
     convexTeam: { teamId: "38516", teamSlug: "nicu" },
+    regions: [{ deploymentName: "ideal-dolphin-15", region: "aws-us-east-1" }],
     stages: [
       { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
       { name: pr25.stage, run: { state: "none" }, resources: pr25.resources, output: pr25.output },
@@ -716,22 +717,24 @@ describe("repository environment roots", () => {
           {
             kind: "destination",
             id: "alchemy:Deployment",
+            // The Data route resolves the Convex project id through the stack, with no attachment.
             actions: [
               {
-                destination: "external",
-                href: "https://ideal-dolphin-15.convex.site",
-                label: "ideal-dolphin-15.convex.site",
+                destination: "samebase",
+                href: "/repo/samebase/base-alchemy/db/main/project/3245938",
+                label: "Data",
               },
               {
-                destination: "external",
-                href: "https://ideal-dolphin-15.convex.cloud",
-                label: "ideal-dolphin-15.convex.cloud",
+                destination: "samebase",
+                href: "/repo/samebase/base-alchemy/components/ideal-dolphin-15",
+                label: "Components",
               },
             ],
             href: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
             label: "ideal-dolphin-15",
             provider: "convex",
             provenance: "production",
+            region: "aws-us-east-1",
             title: "Open production Convex deployment ideal-dolphin-15",
           },
         ],
@@ -739,16 +742,16 @@ describe("repository environment roots", () => {
     ]);
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    expect(container.textContent).toBe("ideal-dolphin-15");
+    expect(container.textContent).toBe("ideal-dolphin-15🇺🇸 US East (N. Virginia)");
   });
 
-  it("adds the Samebase routes of an attached project to a Convex deployment of the store", () => {
+  it("routes a Convex deployment of the store through its attachment row when one exists", () => {
     const convexProjectId = fakeConvexProjectId("convex-project-base-alchemy");
     const roots = buildAlchemyEnvironmentRoots({
       branch: "main",
       owner: "samebase",
       repoName: "base-alchemy",
-      schemaGraphEnabled: false,
+      schemaGraphEnabled: true,
       repository: makeRepositorySettingsBuilderRepository({
         convexTeamId: "38516",
         convexProjects: [
@@ -765,14 +768,13 @@ describe("repository environment roots", () => {
     expect(
       roots.flatMap((root) =>
         root.resources.flatMap((resource) =>
-          resource.kind === "destination" ? resource.actions.map((action) => action.label) : [],
+          resource.kind === "destination" ? resource.actions.map((action) => action.href) : [],
         ),
       ),
     ).toEqual([
-      "Data",
-      "Components",
-      "ideal-dolphin-15.convex.site",
-      "ideal-dolphin-15.convex.cloud",
+      "/repo/samebase/base-alchemy/db/main/project/convex-project-base-alchemy",
+      "/repo/samebase/base-alchemy/schema/main/project/convex-project-base-alchemy",
+      "/repo/samebase/base-alchemy/components/ideal-dolphin-15",
     ]);
   });
 
@@ -790,6 +792,7 @@ describe("repository environment roots", () => {
         store: "found",
         stack: "samebase/tmp-k7m2-rows",
         convexTeam: { teamId: "38516", teamSlug: "nicu" },
+        regions: [],
         stages: [
           {
             name: "main",

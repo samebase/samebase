@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { isRecord } from "../jsonUtils";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  observedAlchemyStackReply,
+  observedBaseAlchemyProductionDeployment,
+} from "./fixtures/observedAlchemyState";
 
 type ConvexAuth =
   | {
@@ -272,5 +277,176 @@ describe("revokeEmbeddedDashboardCredentials", () => {
     });
 
     expect(fetch).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+samebase/base-alchemy as the preview deployment of Samebase holds it: a connected repository whose
+Convex project has no attachment row, deployed by the stack in the team store.
+*/
+async function seedStackRepository(t: ReturnType<typeof makeConvexTest>) {
+  const userId = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      state: "active",
+      name: "Ada",
+      email: "nicu@samebase.com",
+      isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
+    });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "alchemy-installation",
+      githubOwnerId: "alchemy-owner",
+      githubOwnerLogin: "samebase",
+      githubOwnerLoginNormalized: "samebase",
+      githubOwnerType: "organization",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
+    });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
+    await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
+    await ctx.db.insert("organizationProviderCredentials", {
+      organizationId,
+      convex: {
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "convex-api-key" },
+        updatedAt: 2,
+      },
+    });
+    const repositoryId = await ctx.db.insert("repositories", {
+      organizationId,
+      convexTeamId: "38516",
+      deletion: { state: "not_deleting" },
+      createdAt: 1,
+      state: "not_connected",
+    });
+    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+      organizationId,
+      userId,
+      repositoryId,
+      githubRepositoryFullName: "samebase/base-alchemy",
+      trigger: "connect_existing_repository",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 10,
+      updatedAt: 20,
+      completedAt: 20,
+    });
+    await ctx.db.replace(repositoryId, {
+      organizationId,
+      convexTeamId: "38516",
+      deletion: { state: "not_deleting" },
+      createdAt: 1,
+      state: "connected",
+      githubMode: "connect_existing_repository",
+      runId,
+      githubRepositoryDatabaseId: "123",
+      githubRepositoryName: "base-alchemy",
+      visibility: "public",
+      defaultBranch: "main",
+      connectedAt: 20,
+    });
+    return userId;
+  });
+
+  return asUser(t, userId);
+}
+
+function installStackFetchStub() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const body: unknown =
+        typeof init?.body === "string"
+          ? JSON.parse(init.body)
+          : input instanceof Request && input.method !== "GET"
+            ? await input.json()
+            : undefined;
+      const json = (value: unknown) => jsonResponse(JSON.stringify(value));
+
+      if (url === "https://api.convex.dev/v1/teams/38516/projects?limit=100") {
+        return json({
+          items: [
+            {
+              createTime: 1710000000000,
+              id: 3259168,
+              name: "alchemy-state",
+              slug: "alchemy-state",
+              teamId: 38516,
+              teamSlug: "nicu",
+            },
+          ],
+          pagination: { hasMore: false },
+        });
+      }
+      if (url.endsWith("/projects/3259168/deployment?defaultProd=true")) {
+        return json({
+          class: "s16",
+          createTime: 1710000000000,
+          deploymentType: "prod",
+          deploymentUrl: "https://artful-alligator-66.convex.cloud",
+          id: 2001,
+          isDefault: true,
+          kind: "cloud",
+          name: "artful-alligator-66",
+          projectId: "3259168",
+          reference: "production",
+          region: "aws-us-east-1",
+        });
+      }
+      if (url.endsWith("/projects/3245938/deployment?defaultProd=true")) {
+        return json(observedBaseAlchemyProductionDeployment);
+      }
+      if (url.endsWith("/create_deploy_key")) {
+        return json({ deployKey: "prod:test|deploy-key-secret" });
+      }
+      if (url.endsWith("/delete_deploy_key")) {
+        return new Response(null, { status: 200 });
+      }
+      if (
+        url === "https://artful-alligator-66.convex.cloud/api/function" &&
+        isRecord(body) &&
+        body["path"] === "state:readStack"
+      ) {
+        return json(observedAlchemyStackReply);
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }),
+  );
+}
+
+describe("embedded dashboard credentials for a deployment of the repository stack", () => {
+  it("opens the production deployment that the stack deploys without an attachment row", async () => {
+    const t = makeConvexTest();
+    const user = await seedStackRepository(t);
+    installStackFetchStub();
+
+    const result = await user.action(api.repository.database.createEmbeddedDashboardCredentials, {
+      owner: "samebase",
+      repoName: "base-alchemy",
+      branch: "main",
+      convexProjectId: "3245938",
+    });
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      deploymentName: "ideal-dolphin-15",
+      deploymentUrl: "https://ideal-dolphin-15.convex.cloud",
+    });
+  });
+
+  it("refuses a Convex project that the stack does not deploy", async () => {
+    const t = makeConvexTest();
+    const user = await seedStackRepository(t);
+    installStackFetchStub();
+
+    await expect(
+      user.action(api.repository.database.createEmbeddedDashboardCredentials, {
+        owner: "samebase",
+        repoName: "base-alchemy",
+        branch: "main",
+        convexProjectId: "3300002",
+      }),
+    ).resolves.toEqual({ kind: "missing_deployment" });
   });
 });

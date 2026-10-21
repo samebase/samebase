@@ -28,6 +28,7 @@ const observation = {
   store: "found",
   stack: "samebase/base-alchemy",
   convexTeam: { teamId: "38516", teamSlug: "nicu" },
+  regions: [],
   stages: [
     { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
     {
@@ -63,6 +64,7 @@ function prodWithSource(stackFile: string, source: unknown): AlchemyStateObserva
     store: "found",
     stack: "samebase/base-alchemy",
     convexTeam: { teamId: "38516", teamSlug: "nicu" },
+    regions: [],
     stages: [
       {
         name: prod.stage,
@@ -141,6 +143,7 @@ describe("AlchemyStateTree", () => {
       store: "found",
       stack: "samebase/base-alchemy",
       convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      regions: [],
       stages: [
         {
           name: "pr-23",
@@ -191,6 +194,7 @@ describe("AlchemyStateTree", () => {
       store: "found",
       stack: "samebase/base-alchemy",
       convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      regions: [],
       stages: [{ name: prod.stage, run: { state: "unknown" }, resources: [], output: null }],
     });
 
@@ -204,6 +208,7 @@ describe("AlchemyStateTree", () => {
       store: "found",
       stack: "samebase/tmp-k7m2-rows",
       convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      regions: [],
       stages: [
         {
           name: "main",
@@ -232,6 +237,7 @@ describe("AlchemyStateTree", () => {
       store: "found",
       stack: "samebase/base-alchemy",
       convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      regions: [],
       stages: [
         {
           name: "prod",
@@ -258,6 +264,7 @@ describe("AlchemyStateTree", () => {
         store: "found",
         stack: "samebase/base-alchemy",
         convexTeam: { teamId: "38516", teamSlug: "nicu" },
+        regions: [],
         stages: [],
       }).textContent,
     ).toBe("samebase/base-alchemyNo Alchemy state.");

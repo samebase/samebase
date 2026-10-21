@@ -8,6 +8,7 @@ import type {
 import { buildConvexDeploymentDashboardUrl } from "../../../convex/repository/providerDashboardUrls";
 import {
   convexFunctionsDirectory,
+  findProductionStage,
   vAlchemyCloudflareWorkerState,
   vAlchemyConvexDeploymentState,
   vAlchemyConvexProjectState,
@@ -169,7 +170,11 @@ function buildProductionUrlLabel(url: string): string {
   }
 }
 
-/** The Samebase routes of the production deployment of an attached Convex project. */
+/**
+The Samebase routes of a production Convex deployment. `convexProjectId` is the attachment id, or
+the Convex project id of a deployment of the repository stack, which the Data route resolves
+through the Alchemy state store.
+*/
 function buildConvexProductionActions({
   branch,
   convexProjectId,
@@ -179,7 +184,7 @@ function buildConvexProductionActions({
   schemaGraphEnabled,
 }: {
   branch: string;
-  convexProjectId: Id<"repositoryConvexProjects">;
+  convexProjectId: string;
   deploymentName: string;
   owner: string;
   repoName: string;
@@ -389,10 +394,11 @@ function parentDirectory(path: string): string {
 
 /**
 The default-branch block from the stack of the repository in the Alchemy state store: its stage
-`prod`, or `main` for a stack whose stages are not renamed yet. The store records no build and no
-region, so neither shows. A Convex deployment links to its dashboard when the store names its
-project slug and the team of the organization, and offers the Samebase routes only when its project
-is attached, since those routes read the attachment.
+`prod`, or `main` for a stack whose stages are not renamed yet. The store records no build, so no
+build state shows; the region of a Convex deployment comes from a live read and shows when that
+read succeeded. A Convex deployment links to its dashboard with the team slug of the organization
+and the project slug of the stack. The Schema route reads schema snapshots stored for an attachment
+row, so a deployment offers it only when its project is attached.
 */
 export function buildAlchemyEnvironmentRoots({
   branch,
@@ -409,9 +415,7 @@ export function buildAlchemyEnvironmentRoots({
   repository: RepositoryDashboardRepository;
   stack: RepositoryAlchemyStack;
 }): RepositoryEnvironmentRoot[] {
-  const stage =
-    stack.stages.find((candidate) => candidate.name === "prod") ??
-    stack.stages.find((candidate) => candidate.name === "main");
+  const stage = findProductionStage(stack.stages);
   if (!stage) {
     return [];
   }
@@ -485,7 +489,12 @@ export function buildAlchemyEnvironmentRoots({
               deploymentName: attr.name,
             })
           : null;
+      // Only a stack without a project slug, or an organization without a team slug, has no
+      // dashboard link; the deployment then links to its site.
       const href = dashboardUrl ?? attr.siteUrl;
+      const region = stack.regions.find(
+        (candidate) => candidate.deploymentName === attr.name,
+      )?.region;
       const source = props.source;
       const sourcePath = typeof source === "string" ? source : source?.path;
       const codeLocation =
@@ -502,29 +511,19 @@ export function buildAlchemyEnvironmentRoots({
           resource: {
             kind: "destination",
             id: `alchemy:${fqn}`,
-            actions: [
-              ...(attachedProject
-                ? buildConvexProductionActions({
-                    branch,
-                    convexProjectId: attachedProject.convexProjectId,
-                    deploymentName: attr.name,
-                    owner,
-                    repoName,
-                    schemaGraphEnabled,
-                  })
-                : []),
-              ...[attr.siteUrl, attr.url]
-                .filter((destination) => destination !== href)
-                .map((destination) => ({
-                  destination: "external" as const,
-                  href: destination,
-                  label: buildProductionUrlLabel(destination),
-                })),
-            ],
+            actions: buildConvexProductionActions({
+              branch,
+              convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
+              deploymentName: attr.name,
+              owner,
+              repoName,
+              schemaGraphEnabled: schemaGraphEnabled && attachedProject !== undefined,
+            }),
             href,
             label: attr.name,
             provider: "convex",
             provenance: "production",
+            ...(region ? { region } : {}),
             title: `Open production Convex deployment ${attr.name}`,
           },
         },

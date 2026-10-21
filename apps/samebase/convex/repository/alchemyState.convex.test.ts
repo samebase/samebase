@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
-import { observedAlchemyStackReply } from "./fixtures/observedAlchemyState";
+import {
+  observedAlchemyStackReply,
+  observedBaseAlchemyProductionDeployment,
+} from "./fixtures/observedAlchemyState";
 
 const storeProject = {
   createTime: 1710000000000,
@@ -179,6 +182,9 @@ function installAlchemyStateFetchStub(args: {
           region: "aws-us-east-1",
         });
       }
+      if (url.endsWith("/projects/3245938/deployment?defaultProd=true")) {
+        return jsonResponse(observedBaseAlchemyProductionDeployment);
+      }
       if (url.endsWith("/create_deploy_key")) {
         return jsonResponse({ deployKey: "prod:brave-heron-201|alchemy-state-secret" });
       }
@@ -228,6 +234,7 @@ describe("repository Alchemy state", () => {
       store: "found",
       stack: "samebase/base-alchemy",
       convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      regions: [{ deploymentName: "ideal-dolphin-15", region: "aws-us-east-1" }],
       stages: [
         {
           name: "pr-24",
@@ -317,6 +324,7 @@ describe("repository Alchemy state", () => {
       store: "found",
       stack: "samebase/base-alchemy",
       convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      regions: [],
       stages: [],
     });
   });
