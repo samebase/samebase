@@ -63,6 +63,7 @@ import { Route as orgSettingsRouteImport } from "./routes/org-settings";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
 import { Route as orgMembersRouteImport } from "./routes/org-members";
+import { Route as repositoryAlchemyRouteImport } from "./routes/repository-alchemy";
 import { Route as repositorySettingsRouteImport } from "./routes/repository-settings";
 import { Route as repositoryComponentsDeploymentRouteImport } from "./routes/repository-components-deployment";
 import { Route as repositoryDatabaseProjectRouteImport } from "./routes/repository-database-project";
@@ -340,6 +341,11 @@ const orgMembersRoute = orgMembersRouteImport.update({
   path: "/org/$owner/settings/members",
   getParentRoute: () => authedRoute,
 } as any);
+const repositoryAlchemyRoute = repositoryAlchemyRouteImport.update({
+  id: "/repo/$owner/$repository/alchemy",
+  path: "/repo/$owner/$repository/alchemy",
+  getParentRoute: () => authedRoute,
+} as any);
 const repositorySettingsRoute = repositorySettingsRouteImport.update({
   id: "/repo/$owner/$repository/settings",
   path: "/repo/$owner/$repository/settings",
@@ -417,6 +423,7 @@ export interface FileRoutesByFullPath {
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
+  "/repo/$owner/$repository/alchemy": typeof repositoryAlchemyRoute;
   "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
@@ -476,6 +483,7 @@ export interface FileRoutesByTo {
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
+  "/repo/$owner/$repository/alchemy": typeof repositoryAlchemyRoute;
   "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
@@ -537,6 +545,7 @@ export interface FileRoutesById {
   "/_authed/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/_authed/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/_authed/org/$owner/settings/members": typeof orgMembersRoute;
+  "/_authed/repo/$owner/$repository/alchemy": typeof repositoryAlchemyRoute;
   "/_authed/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/_authed/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
@@ -598,6 +607,7 @@ export interface FileRouteTypes {
     | "/pitch/print/mobile"
     | "/repo/$owner/$repository"
     | "/org/$owner/settings/members"
+    | "/repo/$owner/$repository/alchemy"
     | "/repo/$owner/$repository/settings"
     | "/repo/$owner/$repository/components/$deploymentName"
     | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
@@ -657,6 +667,7 @@ export interface FileRouteTypes {
     | "/pitch/print/mobile"
     | "/repo/$owner/$repository"
     | "/org/$owner/settings/members"
+    | "/repo/$owner/$repository/alchemy"
     | "/repo/$owner/$repository/settings"
     | "/repo/$owner/$repository/components/$deploymentName"
     | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
@@ -717,6 +728,7 @@ export interface FileRouteTypes {
     | "/_authed/pitch/print/mobile"
     | "/_authed/repo/$owner/$repository"
     | "/_authed/org/$owner/settings/members"
+    | "/_authed/repo/$owner/$repository/alchemy"
     | "/_authed/repo/$owner/$repository/settings"
     | "/_authed/repo/$owner/$repository/components/$deploymentName"
     | "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId"
@@ -1137,6 +1149,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof orgMembersRouteImport;
       parentRoute: typeof authedRoute;
     };
+    "/_authed/repo/$owner/$repository/alchemy": {
+      id: "/_authed/repo/$owner/$repository/alchemy";
+      path: "/repo/$owner/$repository/alchemy";
+      fullPath: "/repo/$owner/$repository/alchemy";
+      preLoaderRoute: typeof repositoryAlchemyRouteImport;
+      parentRoute: typeof authedRoute;
+    };
     "/_authed/repo/$owner/$repository/settings": {
       id: "/_authed/repo/$owner/$repository/settings";
       path: "/repo/$owner/$repository/settings";
@@ -1192,6 +1211,7 @@ interface authedRouteChildren {
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   repositoryDashboardRoute: typeof repositoryDashboardRoute;
   orgMembersRoute: typeof orgMembersRoute;
+  repositoryAlchemyRoute: typeof repositoryAlchemyRoute;
   repositorySettingsRoute: typeof repositorySettingsRoute;
   repositoryComponentsDeploymentRoute: typeof repositoryComponentsDeploymentRoute;
   repositoryDatabaseProjectRoute: typeof repositoryDatabaseProjectRoute;
@@ -1222,6 +1242,7 @@ const authedRouteChildren: authedRouteChildren = {
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   repositoryDashboardRoute: repositoryDashboardRoute,
   orgMembersRoute: orgMembersRoute,
+  repositoryAlchemyRoute: repositoryAlchemyRoute,
   repositorySettingsRoute: repositorySettingsRoute,
   repositoryComponentsDeploymentRoute: repositoryComponentsDeploymentRoute,
   repositoryDatabaseProjectRoute: repositoryDatabaseProjectRoute,

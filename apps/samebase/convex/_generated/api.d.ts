@@ -123,6 +123,7 @@ import type * as providerOAuthCompletion from "../providerOAuthCompletion.js";
 import type * as providerResponseValidation from "../providerResponseValidation.js";
 import type * as repository from "../repository.js";
 import type * as repository_actions from "../repository/actions.js";
+import type * as repository_alchemyState from "../repository/alchemyState.js";
 import type * as repository_branchModel from "../repository/branchModel.js";
 import type * as repository_branches from "../repository/branches.js";
 import type * as repository_cloudflare from "../repository/cloudflare.js";
@@ -166,6 +167,7 @@ import type * as repository_deletion_state from "../repository/deletion/state.js
 import type * as repository_deletion_workflow from "../repository/deletion/workflow.js";
 import type * as repository_editorModel from "../repository/editorModel.js";
 import type * as repository_eventOrderModel from "../repository/eventOrderModel.js";
+import type * as repository_fixtures_observedAlchemyState from "../repository/fixtures/observedAlchemyState.js";
 import type * as repository_fixtures_observedConvexComponents from "../repository/fixtures/observedConvexComponents.js";
 import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
@@ -338,6 +340,7 @@ declare const fullApi: ApiFromModules<{
   providerResponseValidation: typeof providerResponseValidation;
   repository: typeof repository;
   "repository/actions": typeof repository_actions;
+  "repository/alchemyState": typeof repository_alchemyState;
   "repository/branchModel": typeof repository_branchModel;
   "repository/branches": typeof repository_branches;
   "repository/cloudflare": typeof repository_cloudflare;
@@ -381,6 +384,7 @@ declare const fullApi: ApiFromModules<{
   "repository/deletion/workflow": typeof repository_deletion_workflow;
   "repository/editorModel": typeof repository_editorModel;
   "repository/eventOrderModel": typeof repository_eventOrderModel;
+  "repository/fixtures/observedAlchemyState": typeof repository_fixtures_observedAlchemyState;
   "repository/fixtures/observedConvexComponents": typeof repository_fixtures_observedConvexComponents;
   "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
   "repository/folderModel": typeof repository_folderModel;
