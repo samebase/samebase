@@ -63,12 +63,12 @@ async function openSignedInApp(page: Page) {
 
 /**
 Signs up an approved account of its own, saves its workspace sidebar state in Convex, and opens the
-landing page, so its server render has the saved pane geometry. The random email has the length of
-the seeded account's email, so the account row wraps the same way. The account is a member, so the
+landing page, so its server render has the saved pane geometry. The email is random digits, which
+have one width, so the account row wraps the same way in every run. The account is a member, so the
 right pane has no admin links.
 */
 async function openAccountWithSidebarState(page: Page, sidebarState: WorkspaceSidebarState) {
-  const email = `n${Math.random().toString(36).slice(2, 11).padEnd(9, "0")}@s.test`;
+  const email = `n${String(Math.floor(Math.random() * 1e9)).padStart(9, "0")}@s.test`;
   await createOrganizationContextAcceptanceAccount(page, email);
   await applyOrganizationContextAcceptanceFixture({ email, organizations: [] });
   await saveWorkspaceSidebarState(page, sidebarState);
@@ -186,6 +186,12 @@ test("signed-in app right sidebar shows the session-recording choice", async ({
   await applyOrganizationContextAcceptanceFixture({ email, organizations: [] });
   await saveWorkspaceSidebarState(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
   await page.reload({ waitUntil: "domcontentloaded" });
+  // The server renders the consent prompt; its buttons work once the page hydrated, which the layout
+  // shows by measuring its viewport.
+  await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
+    "data-viewport-measured",
+    "",
+  );
 
   const rightPane = getRightPane(page);
   const productUpdateSection = rightPane
