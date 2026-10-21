@@ -266,7 +266,7 @@ describe("lint config", () => {
       ),
     );
 
-    expect(Object.keys(remotionRules)).toHaveLength(15);
+    expect(Object.keys(remotionRules)).toHaveLength(14);
     expect(remotionRules).toEqual(remotionEslintPlugin.configs.recommended.rules);
     expect(remotionOverride?.rules).toMatchObject({
       "no-console": "off",
@@ -285,8 +285,8 @@ describe("lint config", () => {
     const appPackage = readPackageSurface("apps/samebase/package.json");
 
     expect(rootPackage.devDependencies).toMatchObject({
-      "@convex-dev/eslint-plugin": "2.0.0",
-      "@remotion/eslint-plugin": "4.0.489",
+      "@convex-dev/eslint-plugin": "5.0.0",
+      "@remotion/eslint-plugin": "4.0.535",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
     expect(rootPackage.devDependencies?.["eslint-plugin-samebase-local"]).toBeUndefined();

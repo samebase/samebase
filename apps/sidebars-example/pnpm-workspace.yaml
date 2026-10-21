@@ -6,21 +6,6 @@ minimumReleaseAgeExclude:
   # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
   # Remove after 2026-10-07, when the 7-day cooling period is complete.
   - "source-map-js@1.2.2"
-  # TODO(2026-09-05): Remove after Sidebars 0.1.1 completes the normal
-  # 7-day cooling period.
-  - "@samebase/sidebars@0.1.1"
-  # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
-  # 7-day cooling period.
-  - "@voidzero-dev/vite-plus-core@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-arm64@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-x64@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
-  - "vite-plus@0.3.0"
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 blockExoticSubdeps: true
@@ -36,14 +21,14 @@ audit:
     # through chokidar, not shipped Worker code.
     - GHSA-vfj7-8cjw-p6xm
 overrides:
-  esbuild: 0.28.1
-  js-yaml: 4.3.2
-  "semver@6": 7.7.4
-  seroval: 1.6.8
+  esbuild: 0.28.2
+  js-yaml: 5.4.3
+  "semver@6": 7.8.5
+  seroval: 1.6.9
   sharp: 0.35.5
   source-map-js: 1.2.2
-  tinypool: 2.1.2
-  undici: 7.29.1
+  tinypool: 2.2.0
+  undici: 8.11.2
 allowBuilds:
   esbuild: true
   msw: false

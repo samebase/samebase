@@ -36,7 +36,8 @@ preference. A route and viewport that can show the saved merge must restore it.
 
 ```ts
 type WorkspaceMobileSurface =
-  { kind: "unmerged" } | { kind: "merged"; mainWidthPx: number; side: "left" | "right" };
+  | { kind: "unmerged" }
+  | { kind: "merged"; mainWidthPx: number; side: "left" | "right" };
 ```
 
 The field has these meanings:

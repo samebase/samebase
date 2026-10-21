@@ -11,7 +11,7 @@ export default defineConfig({
     tasks: {
       "typecheck:cached": {
         command: "tsc -b --pretty false",
-        input: [{ auto: true }, "!node_modules/.tmp/**"],
+        cache: { input: [{ auto: true }, "!node_modules/.tmp/**"] },
       },
     },
   },

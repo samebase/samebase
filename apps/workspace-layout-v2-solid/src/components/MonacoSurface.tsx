@@ -10,9 +10,9 @@ declare global {
 
 async function loadMonaco() {
   const [monaco, , workerModule] = await Promise.all([
-    import("monaco-editor/esm/vs/editor/editor.api.js"),
-    import("monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution.js"),
-    import("monaco-editor/esm/vs/editor/editor.worker?worker"),
+    import("monaco-editor/editor"),
+    import("monaco-editor/languages/definitions/markdown/register"),
+    import("monaco-editor/editor/editor.worker?worker"),
   ]);
 
   window.MonacoEnvironment ??= {

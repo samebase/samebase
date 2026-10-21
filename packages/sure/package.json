@@ -16,7 +16,7 @@
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
   },
   "devDependencies": {
-    "ajv": "8.18.0",
+    "ajv": "8.20.0",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },

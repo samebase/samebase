@@ -10,10 +10,6 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future package releases do not bypass
 # the cooling period automatically.
 minimumReleaseAgeExclude:
-  # Reviewed Effect patch: https://github.com/Effect-TS/effect/releases/tag/effect%404.0.3
-  # Approved for the Node adapter peer dependency. Remove after 2026-10-18
-  # 12:58:30 UTC, when the 7-day cooling period is complete.
-  - "effect@4.0.3"
   # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
   # Remove after 2026-10-07, when the 7-day cooling period is complete.
   - "source-map-js@1.2.2"
@@ -24,9 +20,6 @@ minimumReleaseAgeExclude:
   # Reviewed first-party releases. Remove after 2026-10-15.
   - "@samebase/convex-cloudflare-email-inbox@0.3.0"
   - "@samebase/convex-cloudflare-email-inbox-ui@0.1.0"
-  # Reviewed first-party Alchemy provider (apps/samebase/alchemy.run.ts),
-  # published 2026-10-05. Remove after 2026-10-13.
-  - "@samebase/alchemy-convex@0.2.0"
   # Reviewed first-party release (apps/samebase serves samebase.com with it),
   # published 2026-10-18. Remove after 2026-10-25.
   - "@samebase/convex-hosting@0.13.1"
@@ -37,18 +30,6 @@ minimumReleaseAgeExclude:
   # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
-  # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
-  # 7-day cooling period.
-  - "@voidzero-dev/vite-plus-core@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-arm64@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-x64@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
-  - vite-plus@0.3.0
   # TODO(2026-09-06): Remove after qs 6.16.0 completes the normal
   # 7-day cooling period.
   - qs@6.16.0
@@ -75,49 +56,49 @@ audit:
     - GHSA-vfj7-8cjw-p6xm
 overrides:
   # Shared adapter 4.0.5 requires Effect ^4.0.5.
-  "@effect/platform-node-shared": 4.0.3
+  "@effect/platform-node-shared": 4.0.4
   "@samebase/sidebars": "workspace:*"
   "@babel/core": 7.29.7
-  "@hono/node-server": 2.0.10
-  "@modelcontextprotocol/sdk": 1.31.0
+  "@hono/node-server": 2.1.5
+  "@modelcontextprotocol/sdk": 1.32.1
   "@protobufjs/utf8": 1.1.2
   "ajv@6": 6.15.0
-  "ajv@8": 8.18.0
+  "ajv@8": 8.20.0
   "brace-expansion@1": 5.0.12
   "brace-expansion@2": 5.0.12
   "brace-expansion@5": 5.0.12
   body-parser: 2.3.0
-  browserslist: 4.28.7
+  browserslist: 4.29.3
   # GHSA-g5c8-w9fp-h5vm also affects the copy pinned by the mail component.
-  convex-helpers: 0.1.127
-  dompurify: 3.4.16
-  esbuild: 0.28.1
-  fast-uri: 3.1.8
-  flatted: 3.4.2
+  convex-helpers: 0.1.128
+  dompurify: 3.4.17
+  esbuild: 0.28.2
+  fast-uri: 4.2.2
+  flatted: 3.4.4
   hono: 4.13.13
-  ip-address: 10.7.1
-  js-yaml: 4.3.2
+  ip-address: 10.7.4
+  js-yaml: 5.4.3
   lodash: 4.18.1
-  mailparser: 3.9.8
-  "minimatch@3": 3.1.5
-  nanoid: 3.3.18
-  "picomatch@2": 2.3.2
-  "picomatch@4.0.3": 4.0.4
-  postcss: 8.5.23
+  mailparser: 3.9.38
+  "minimatch@3": 10.2.6
+  nanoid: 6.0.2
+  "picomatch@2": 4.0.7
+  "picomatch@4.0.3": 4.0.7
+  postcss: 8.5.30
   postcss-selector-parser: 7.1.6
-  protobufjs: 7.6.3
+  protobufjs: 8.8.1
   proxy-addr: 2.0.8
   qs: 6.16.0
   sharp: 0.35.5
-  "semver@6": 7.7.4
+  "semver@6": 7.8.5
   shell-quote: 1.12.0
-  seroval: 1.6.8
+  seroval: 1.6.9
   source-map-js: 1.2.2
-  tinypool: 2.1.2
-  undici: 7.29.1
-  valibot: 1.4.2
+  tinypool: 2.2.0
+  undici: 8.11.2
+  valibot: 1.5.0
   vite: "catalog:"
-  ws: 8.21.0
+  ws: 8.22.0
   vitest: "catalog:"
 # Every dependency lifecycle script is reviewed explicitly. `true` allows the
 # script to run; `false` records that the script was seen and suppressed.
@@ -130,9 +111,9 @@ allowBuilds:
   sharp: false
   workerd: true
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.3.0
-  vitest: 4.1.11
-  vite-plus: 0.3.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vitest: 5.0.3
+  vite-plus: 1.1.0
 peerDependencyRules:
   allowAny:
     - vite

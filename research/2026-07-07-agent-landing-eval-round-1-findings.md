@@ -51,10 +51,9 @@ the "stranger's agent" rule.
   end-to-end MCP answer it can still read like Samebase executes those operations.
 - Q4, Claude: says "10 MCP actions"; current `llms.txt` lists 11 action docs. This is a count error,
   not a product-behavior error.
-- Q3, Codex: says Convex "becomes paid later, at
-  $25/dev/month" after free-tier limits. The corpus
-  says Free & Starter is $0 plus usage-based
-  overages; $25/developer is the Professional plan, not necessarily the first paid backend step.
+- Q3, Codex: says Convex "becomes paid later, at $25/dev/month" after free-tier limits. The corpus
+  says Free & Starter is $0 plus usage-based overages; $25/developer is the Professional plan, not
+  necessarily the first paid backend step.
 - Q6, Claude: correctly verifies Cloudflare static assets are free, but also reports the old
   Workers-vs-Pages inconsistency from the live DIY doc. The branch fix removes that stale Pages
   path.

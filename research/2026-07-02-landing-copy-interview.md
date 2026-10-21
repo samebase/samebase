@@ -63,11 +63,10 @@ Workers. (Repo copy rule: landing copy never names Vercel; "I moved my apps thre
   already had Netlify provisioning built and working, and the operator uprooted it — "if I know
   something is better, why would I sell anything else to my users."
 - Cloudflare Pages → Workers (recent, ~May 2026, around the TanStack Router move): Pages' free tier
-  is generous (500 production deploys/month), but parallel/branch deploys on Pages require the
-  $20
-  Pro zone, while Workers' paid plan is $5. Cloudflare is visibly pushing everyone from Pages
-  to Workers — "when you rely on these big companies you must read the direction they're going."
-  With static assets, Workers is roughly as cheap as Pages.
+  is generous (500 production deploys/month), but parallel/branch deploys on Pages require the $20
+  Pro zone, while Workers' paid plan is $5. Cloudflare is visibly pushing everyone from Pages to
+  Workers — "when you rely on these big companies you must read the direction they're going." With
+  static assets, Workers is roughly as cheap as Pages.
 - Cloudflare OAuth: originally a blocker (users must never copy API keys around). Cloudflare shipped
   standard OAuth apps in June 2026; before that the MCP OAuth support was the workaround.
 - Fewest providers possible: every extra provider multiplies complexity (the operator has debated

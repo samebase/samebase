@@ -9,12 +9,13 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "skipLibCheck": true,
+    "types": ["node"],
     "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true,
 
     /* These compiler options are required by Convex */
     "target": "ESNext",
-    "lib": ["ES2021", "dom"],
+    "lib": ["ES2022", "dom"],
     "module": "ESNext",
     "isolatedModules": true,
     "noEmit": true

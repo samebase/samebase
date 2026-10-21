@@ -6,18 +6,6 @@ minimumReleaseAgeExclude:
   # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
   # Remove after 2026-10-07, when the 7-day cooling period is complete.
   - "source-map-js@1.2.2"
-  # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
-  # 7-day cooling period.
-  - "@voidzero-dev/vite-plus-core@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-arm64@0.3.0"
-  - "@voidzero-dev/vite-plus-darwin-x64@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-arm64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-gnu@0.3.0"
-  - "@voidzero-dev/vite-plus-linux-x64-musl@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
-  - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
-  - "vite-plus@0.3.0"
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 blockExoticSubdeps: true
@@ -28,7 +16,7 @@ trustPolicyExclude:
   - "undici-types@6.21.0"
 overrides:
   source-map-js: 1.2.2
-  tinypool: 2.1.2
-  undici: 7.29.1
+  tinypool: 2.2.0
+  undici: 8.11.2
 allowBuilds:
   esbuild: true

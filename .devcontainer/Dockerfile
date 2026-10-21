@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
+FROM mcr.microsoft.com/devcontainers/javascript-node:26-bookworm
 
 # System deps for native builds and repo tooling.
 RUN apt-get update \
@@ -9,6 +9,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Tooling used in this monorepo.
-RUN npm install -g pnpm@11.18.0
+RUN npm install -g pnpm@11.28.5
 
 USER node

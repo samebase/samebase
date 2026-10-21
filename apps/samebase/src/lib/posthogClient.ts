@@ -105,10 +105,6 @@ function sanitizeSamebasePostHogUrlProperties(
 }
 
 const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
-  if (event === null) {
-    return null;
-  }
-
   const properties = sanitizeSamebasePostHogUrlProperties(event.properties);
   properties["$snapshot_data"] = sanitizeSamebasePostHogSnapshotData(properties["$snapshot_data"]);
 

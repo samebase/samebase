@@ -49,7 +49,7 @@ export type InferJustMetaOld<T
 
   // Here we'll not be able to differentiate MetaNever from MetaObj<undefined>
   // Both will be extracted as `undefined`
-  undefined
+  undefined;
 
 // prettier-ignore
 export type InferJustMeta<
@@ -87,7 +87,7 @@ export type InferJustMeta<
       Meta
   : // Here we'll not be able to differentiate MetaNever from MetaObj<undefined>
     // Both will be extracted as `undefined`
-    undefined
+    undefined;
 
 export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
   insure: TSchema,

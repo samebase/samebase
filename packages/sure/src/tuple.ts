@@ -10,9 +10,7 @@ export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer I
   : [];
 
 // Add test
-export type TupleInferGoods<
-  T,
-> = //
+export type TupleInferGoods<T> = //
   T extends readonly [infer First, ...infer InferRest]
     ? First extends Sure<unknown, infer Good, any, infer Meta>
       ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
