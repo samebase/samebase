@@ -17,7 +17,8 @@ type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
   carouselRef: RefObject<HTMLDivElement | null>;
   desktopLeftWidthPx: number;
   desktopRightWidthPx: number;
-  enableDesktopPaneTransitions: boolean;
+  enableLeftPaneTransitions: boolean;
+  enableRightPaneTransitions: boolean;
   hasMeasuredViewport: boolean;
   inertClosedDesktopPanes: boolean;
   leftPaneId: string;
@@ -35,7 +36,8 @@ export function SidebarLayoutViewport({
   carouselRef,
   desktopLeftWidthPx,
   desktopRightWidthPx,
-  enableDesktopPaneTransitions,
+  enableLeftPaneTransitions,
+  enableRightPaneTransitions,
   hasMeasuredViewport,
   inertClosedDesktopPanes,
   leftContent,
@@ -78,7 +80,7 @@ export function SidebarLayoutViewport({
           data-active-resize={activeResizeSide === "left" ? "" : undefined}
           data-desktop-open={desktopLeftWidthPx > 0 ? "" : undefined}
           data-pane-side="left"
-          data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
+          data-transition-enabled={enableLeftPaneTransitions ? "" : undefined}
           data-sidebar-layout-part="pane"
           id={leftPaneId}
           inert={inertClosedDesktopPanes && desktopLeftWidthPx === 0 ? true : undefined}
@@ -97,7 +99,7 @@ export function SidebarLayoutViewport({
           data-active-resize={activeResizeSide === "right" ? "" : undefined}
           data-desktop-open={desktopRightWidthPx > 0 ? "" : undefined}
           data-pane-side="right"
-          data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
+          data-transition-enabled={enableRightPaneTransitions ? "" : undefined}
           data-sidebar-layout-part="pane"
           id={rightPaneId}
           inert={inertClosedDesktopPanes && desktopRightWidthPx === 0 ? true : undefined}
