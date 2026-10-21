@@ -8,7 +8,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "354561682921e305d8823c3d72c6e12632aca2908ce4d5eb5501cd48a51c1bf1",
+      contentHash: "f1bfb7224e66e6d8db8e0ed7849d03b74f98b6ef08dffd9566cbc488d8f9f911",
       commitMessage: "Initialize app from Samebase starter build v2064",
     });
     expect(starterTemplateManifest.version).toBe(
@@ -87,7 +87,7 @@ describe("starterSeedManifest", () => {
           "vite-plus": "catalog:",
           vitest: "catalog:",
         }),
-        packageManager: "pnpm@11.28.5",
+        packageManager: "pnpm@12.14.0",
       }),
     );
     expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@1.1.0");
