@@ -55,6 +55,8 @@ const vAlchemyStateObservation = union(
     store: literal("found"),
     /** The stack of the repository, keyed by its GitHub `owner/name`. */
     stack: string(),
+    /** The Convex team of the store; its slug builds Convex dashboard links. */
+    convexTeam: object({ teamId: string(), teamSlug: union(string(), v.null()) }),
     stages: array(
       object({
         name: string(),
@@ -155,7 +157,7 @@ production deployment of the team's `alchemy-state` project. Other stacks of the
 export async function readAlchemyStack(args: {
   /** The GitHub `owner/name` of the repository. */
   stack: string;
-  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
+  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "teamSlug" | "token">;
 }): Promise<AlchemyStateObservation> {
   const project = (
     await listConvexManagementProjects({ token: args.target.token, teamId: args.target.teamId })
@@ -182,6 +184,7 @@ export async function readAlchemyStack(args: {
   return {
     store: "found",
     stack: args.stack,
+    convexTeam: { teamId: args.target.teamId, teamSlug: args.target.teamSlug },
     stages: parse(vStoreStackReply, reply).value.stages.map(readStage),
   };
 }

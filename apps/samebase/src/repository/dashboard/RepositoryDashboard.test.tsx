@@ -34,12 +34,15 @@ import {
 import { RepositoryConvexDialog, RepositoryConvexDialogContent } from "./RepositoryConvexDialog";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
 import { PullRequestResources, RepositoryEnvironmentTree } from "./RepositoryEnvironmentTree";
+import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import {
+  buildAlchemyEnvironmentRoots,
   buildProductionEnvironmentRoots,
   buildPullRequestEnvironmentRoots,
 } from "./repositoryEnvironmentRoots";
 import { buildRepositorySettingsState } from "./repositorySettingsState";
 import type {
+  RepositoryAlchemyStack,
   RepositoryCloudflareProviderObservationState,
   RepositoryCloudflareWorkerBuildsObservation,
   RepositoryCloudflareWorkerConvexBuildAccessObservation,
@@ -655,7 +658,158 @@ describe("buildProductionEnvironmentRoots", () => {
   });
 });
 
+/** The stack as `alchemyState:observe` returns the captured reply of samebase/base-alchemy. */
+function observedBaseAlchemyStack(): RepositoryAlchemyStack {
+  const [pr24, pr25, prod] = observedAlchemyStackReply.value.stages;
+  return {
+    store: "found",
+    stack: "samebase/base-alchemy",
+    convexTeam: { teamId: "38516", teamSlug: "nicu" },
+    stages: [
+      { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
+      { name: pr25.stage, run: { state: "none" }, resources: pr25.resources, output: pr25.output },
+      {
+        name: prod.stage,
+        run: {
+          state: "recorded",
+          record: {
+            version: 1,
+            repository: "samebase/base-alchemy",
+            stackFile: "alchemy.run.ts",
+            branch: "main",
+            pullRequest: null,
+            headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+            runUrl: "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+            source: "github-actions",
+            recordedAt: "2026-10-21T19:58:06.882Z",
+          },
+        },
+        resources: prod.resources,
+        output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+      },
+    ],
+  };
+}
+
 describe("repository environment roots", () => {
+  it("builds the default-branch block from the stage prod of the stack in the team store", () => {
+    // Like the preview deployment of Samebase: the repository has no attachment rows.
+    const repository = makeRepositorySettingsBuilderRepository({
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "base-alchemy",
+      githubRepositoryFullName: "samebase/base-alchemy",
+      convexTeamId: "38516",
+    });
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "base-alchemy",
+      schemaGraphEnabled: false,
+      repository,
+      stack: observedBaseAlchemyStack(),
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "/",
+        resources: [
+          {
+            kind: "destination",
+            id: "alchemy:Deployment",
+            actions: [
+              {
+                destination: "external",
+                href: "https://ideal-dolphin-15.convex.site",
+                label: "ideal-dolphin-15.convex.site",
+              },
+              {
+                destination: "external",
+                href: "https://ideal-dolphin-15.convex.cloud",
+                label: "ideal-dolphin-15.convex.cloud",
+              },
+            ],
+            href: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+            label: "ideal-dolphin-15",
+            provider: "convex",
+            provenance: "production",
+            title: "Open production Convex deployment ideal-dolphin-15",
+          },
+        ],
+      },
+    ]);
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
+    expect(container.textContent).toBe("ideal-dolphin-15");
+  });
+
+  it("adds the Samebase routes of an attached project to a Convex deployment of the store", () => {
+    const convexProjectId = fakeConvexProjectId("convex-project-base-alchemy");
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "base-alchemy",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({
+        convexTeamId: "38516",
+        convexProjects: [
+          makeRepositorySettingsConvexProject({
+            convexProjectId,
+            teamId: "38516",
+            projectId: "3245938",
+          }),
+        ],
+      }),
+      stack: observedBaseAlchemyStack(),
+    });
+
+    expect(
+      roots.flatMap((root) =>
+        root.resources.flatMap((resource) =>
+          resource.kind === "destination" ? resource.actions.map((action) => action.label) : [],
+        ),
+      ),
+    ).toEqual([
+      "Data",
+      "Components",
+      "ideal-dolphin-15.convex.site",
+      "ideal-dolphin-15.convex.cloud",
+    ]);
+  });
+
+  it("shows a Worker of the store without a build state", () => {
+    // The `main` Worker row measured in research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md.
+    const worker =
+      '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}';
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "tmp-k7m2-rows",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({}),
+      stack: {
+        store: "found",
+        stack: "samebase/tmp-k7m2-rows",
+        convexTeam: { teamId: "38516", teamSlug: "nicu" },
+        stages: [
+          {
+            name: "main",
+            run: { state: "none" },
+            resources: [{ fqn: "Worker", value: worker }],
+            output: null,
+          },
+        ],
+      },
+    });
+
+    const markup = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
+    const container = document.createElement("div");
+    container.innerHTML = markup;
+    expect(container.textContent).toBe("tmp-k7m2-rowstmp-k7m2-rows.pfp.workers.dev");
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://tmp-k7m2-rows.pfp.workers.dev",
+    );
+  });
+
   it("keeps a Convex row under its known root while deployment details load", () => {
     const convexProjectId = fakeConvexProjectId();
     const repository = makeRepositorySettingsBuilderRepository({
@@ -877,6 +1031,7 @@ describe("repository environment roots", () => {
               convexDeployments: [
                 { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
               ],
+              workers: [],
             },
           },
         }}
@@ -891,6 +1046,39 @@ describe("repository environment roots", () => {
       "https://nautical-eagle-647.convex.site",
     );
     expect(deployment?.textContent).toBe("nautical-eagle-647May be from an earlier commit");
+  });
+
+  it("shows a Worker preview of a pull request from the Alchemy state of the team", () => {
+    // The `pr-1` Worker URL measured in research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md.
+    const roots = buildPullRequestEnvironmentRoots({
+      resources: {
+        pullRequestId: "pull-request-1",
+        cloudflareBuilds: { state: "available" },
+        workers: [],
+        convexProjects: [],
+        hostingPreviews: {
+          cloudflare: { state: "available", previews: [] },
+          netlify: { state: "available", previews: [] },
+        },
+        alchemyPreview: {
+          state: "available",
+          url: null,
+          convexDeployments: [],
+          workers: [
+            { name: "tmp-k7m2-rows-pr-1", url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev" },
+          ],
+        },
+      },
+    });
+
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
+    expect(container.textContent).toBe(
+      "tmp-k7m2-rows-pr-1Branch previewMay be from an earlier commit",
+    );
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://tmp-k7m2-rows-pr-1.pfp.workers.dev",
+    );
   });
 
   it("shows a Convex preview independently from a failed Cloudflare build", () => {
@@ -1645,6 +1833,12 @@ describe("RepositoryOverviewPage", () => {
             repository,
           })}
           workspace={{
+            alchemyObservations: {
+              state: "loaded",
+              observations: [],
+              refreshFailed: false,
+              reload: () => {},
+            },
             access: { state: "ready", accessKeys: [] },
             cloudflareConnection: { state: "loading" },
             cloudflareObservations,
@@ -1713,6 +1907,12 @@ describe("RepositoryOverviewPage", () => {
               roots: [],
             }}
             workspace={{
+              alchemyObservations: {
+                state: "loaded",
+                observations: [],
+                refreshFailed: false,
+                reload: () => {},
+              },
               access: { state: "ready", accessKeys: [] },
               cloudflareConnection: { state: "loading" },
               cloudflareObservations,
@@ -1741,6 +1941,12 @@ describe("RepositoryOverviewPage", () => {
   it("keeps safe provider links during setup and provider checks", () => {
     const repository = makeRepositorySettingsBuilderRepository({});
     const workspace = {
+      alchemyObservations: {
+        state: "loaded" as const,
+        observations: [],
+        refreshFailed: false,
+        reload: () => {},
+      },
       access: { state: "ready" as const, accessKeys: [] },
       cloudflareConnection: { state: "loading" as const },
       cloudflareObservations: makeLoadedCloudflareObservations({
@@ -1811,6 +2017,12 @@ describe("RepositoryOverviewPage", () => {
       githubRepositoryFullName: "ada/agent-plugins",
     });
     const workspace = {
+      alchemyObservations: {
+        state: "loaded" as const,
+        observations: [],
+        refreshFailed: false,
+        reload: () => {},
+      },
       access: { state: "ready" as const, accessKeys: [] },
       cloudflareConnection: { state: "loading" as const },
       cloudflareObservations: makeLoadedCloudflareObservations({

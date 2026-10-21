@@ -5,7 +5,10 @@ import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { z } from "zod";
 
-import { vAlchemyConvexDeploymentState } from "../../shared/alchemyState";
+import {
+  vAlchemyCloudflareWorkerState,
+  vAlchemyConvexDeploymentState,
+} from "../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -660,16 +663,6 @@ export function resolveConvexPreviewDeployment(args: {
 
 const vStageOutputUrl = object({ url: string() });
 
-/** The attributes of each `Convex.Deployment` resource of a stage, in fqn order. */
-function readStageConvexDeployments(stage: AlchemyStage) {
-  return stage.resources.flatMap((resource) => {
-    const state: unknown = JSON.parse(resource.value);
-    return validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
-      ? [state.attr]
-      : [];
-  });
-}
-
 /** The preview of a pull request: the stage `pr-<number>` of the stack, the upstream Alchemy name. */
 export function buildPullRequestAlchemyPreview(args: {
   stack: PullRequestAlchemyStackRead;
@@ -687,33 +680,21 @@ export function buildPullRequestAlchemyPreview(args: {
   }
 
   const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
+  const states = stage.resources.map((resource): unknown => JSON.parse(resource.value));
   return {
     state: "available",
     url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
-    convexDeployments: readStageConvexDeployments(stage).map((deployment) => ({
-      name: deployment.name,
-      url: deployment.url,
-    })),
+    convexDeployments: states.flatMap((state) =>
+      validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
+        ? [{ name: state.attr.name, url: state.attr.url }]
+        : [],
+    ),
+    workers: states.flatMap((state) =>
+      validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
+        ? [{ name: state.attr.workerName, url: state.attr.url ?? null }]
+        : [],
+    ),
   };
-}
-
-/**
-The attached Convex projects whose pull request previews come from the branch-name match: each one
-that no stage of the stack deploys. Alchemy names a preview deployment after its stage,
-`pr-<number>`, so the branch name never matches it.
-*/
-export function selectBranchPreviewConvexProjects(args: {
-  stack: PullRequestAlchemyStackRead;
-  projects: readonly StableConvexProject[];
-}): StableConvexProject[] {
-  const stackProjectIds = new Set(
-    args.stack.state === "found"
-      ? args.stack.stages.flatMap((stage) =>
-          readStageConvexDeployments(stage).map((deployment) => String(deployment.projectId)),
-        )
-      : [],
-  );
-  return args.projects.filter((project) => !stackProjectIds.has(project.projectId));
 }
 
 /** Reads the stack of the repository once for every pull request of one resources read. */
@@ -742,7 +723,12 @@ async function readPullRequestAlchemyStack(
 
     const stack = await readAlchemyStack({
       stack: `${args.context.githubOwnerLogin}/${args.context.githubRepositoryName}`,
-      target: { authMethod: credential.auth.method, teamId: connection.teamId, token },
+      target: {
+        authMethod: credential.auth.method,
+        teamId: connection.teamId,
+        teamSlug: connection.teamSlug ?? null,
+        token,
+      },
     });
     return stack.store === "found" && stack.stages.length > 0
       ? { state: "found", stages: stack.stages }
@@ -1344,9 +1330,15 @@ export async function getPullRequestResourcesForUser(
     pullRequestIds: args.pullRequestIds,
   });
   const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
+  const alchemyStack = await alchemyStackRead;
+  // With a stack in the team store, the stage `pr-<number>` holds the preview of each pull request,
+  // and the attached Workers and Convex projects are not read.
+  const attachedWorkers = alchemyStack.state === "found" ? [] : context.cloudflareWorkers;
+  const attachedConvexProjects = alchemyStack.state === "found" ? [] : context.convexProjects;
   const nativePreviewUrlsByWorker = new Map<StableWorker["workerId"], Map<string, string>>();
   if (
     context.cloudflareAccountId !== undefined &&
+    attachedWorkers.length > 0 &&
     heads.some(
       (head) =>
         !head.isCrossRepository &&
@@ -1365,7 +1357,7 @@ export async function getPullRequestResourcesForUser(
     });
     if (input.state === "available") {
       await Promise.all(
-        context.cloudflareWorkers.map(async (worker) => {
+        attachedWorkers.map(async (worker) => {
           const branches = heads.flatMap((head) =>
             !head.isCrossRepository &&
             head.headRepositoryId !== null &&
@@ -1397,7 +1389,6 @@ export async function getPullRequestResourcesForUser(
       );
     }
   }
-  const alchemyStack = await alchemyStackRead;
   const resourcesByPullRequest = new Map<string, PullRequestResourceAccumulator>();
   for (const head of heads) {
     const hostingPreviews = buildPullRequestHostingPreviews({
@@ -1406,7 +1397,7 @@ export async function getPullRequestResourcesForUser(
     });
     const cloudflareWorkers = buildPullRequestCloudflareWorkerResources({
       head,
-      workers: context.cloudflareWorkers,
+      workers: attachedWorkers,
       nativePreviewUrlsByWorker,
     });
     resourcesByPullRequest.set(head.id, {
@@ -1421,12 +1412,8 @@ export async function getPullRequestResourcesForUser(
     });
   }
 
-  const convexProjects = selectBranchPreviewConvexProjects({
-    stack: alchemyStack,
-    projects: context.convexProjects,
-  });
   const projectResources = await Promise.all(
-    convexProjects.map(async (project) => {
+    attachedConvexProjects.map(async (project) => {
       const connection = await ctx.runQuery(
         internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
         {
@@ -1452,7 +1439,7 @@ export async function getPullRequestResourcesForUser(
       });
     }),
   );
-  convexProjects.forEach((project, projectIndex) => {
+  attachedConvexProjects.forEach((project, projectIndex) => {
     heads.forEach((head, headIndex) => {
       const resource = projectResources[projectIndex][headIndex];
       if (resource.convexProjectId !== project.convexProjectId) {

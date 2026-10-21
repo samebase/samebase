@@ -12,6 +12,11 @@ export type RepositoryCloudflareWorkerConvexBuildAccessObservation =
   (typeof api.repository.providerObservations.observeCloudflareWorkerConvexBuildAccess)["_returnType"][number];
 export type RepositoryConvexProjectObservation =
   (typeof api.repository.providerObservations.observeConvexProjects)["_returnType"][number];
+/** The stack of the repository in the Alchemy state store of its Convex team. */
+export type RepositoryAlchemyStack = Extract<
+  (typeof api.repository.alchemyState.observe)["_returnType"],
+  { store: "found" }
+>;
 
 export type RepositoryProviderObservationState<TObservation> =
   | { state: "loading" }
@@ -32,7 +37,7 @@ export type RepositoryCloudflareProviderObservationState = {
 
 type RepositoryProviderObservationTarget = Pick<
   UserRepositoryResult,
-  "repositoryId" | "providerWrite"
+  "repositoryId" | "providerWrite" | "convexTeamId"
 > & {
   cloudflareWorkers: readonly Pick<UserRepositoryResult["cloudflareWorkers"][number], "workerId">[];
   convexProjects: readonly Pick<
@@ -81,6 +86,8 @@ export function useRepositoryProviderObservations(
 ): {
   cloudflare: RepositoryCloudflareProviderObservationState;
   convex: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
+  /** One observation when the team store holds a stack with stages for the repository, else none. */
+  alchemy: RepositoryProviderObservationState<RepositoryAlchemyStack>;
 } {
   const observeCloudflareWorkers = useAction(
     api.repository.providerObservations.observeCloudflareWorkers,
@@ -94,7 +101,9 @@ export function useRepositoryProviderObservations(
   const observeConvexProjects = useAction(
     api.repository.providerObservations.observeConvexProjects,
   );
+  const observeAlchemyState = useAction(api.repository.alchemyState.observe);
   const repositoryId = repository?.repositoryId;
+  const convexTeamId = repository?.convexTeamId;
   const cloudflareLastWriteAt = repository?.providerWrite.lastWriteAt.cloudflare;
   const convexLastWriteAt = repository?.providerWrite.lastWriteAt.convex;
   const providerWrite = repository?.providerWrite;
@@ -209,6 +218,22 @@ export function useRepositoryProviderObservations(
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
 
+  // The store lives in the Convex team of the repository, so a repository without one has no stack.
+  const alchemyQuery = useQuery({
+    queryKey: [...repositoryExternalDataQueryKey(repositoryId), "alchemy-stack", convexTeamId],
+    queryFn: async () => {
+      if (!repositoryId) {
+        throw new Error("Repository is required to observe the Alchemy state.");
+      }
+      const observation = await observeAlchemyState({ repositoryId });
+      return observation.store === "found" && observation.stages.length > 0 ? [observation] : [];
+    },
+    enabled: Boolean(repositoryId && convexTeamId),
+    retry: false,
+    staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
+    gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
+  });
+
   const reloadCloudflareWorkers = () => {
     void cloudflareWorkersQuery.refetch();
   };
@@ -220,6 +245,9 @@ export function useRepositoryProviderObservations(
   };
   const reloadConvex = () => {
     void convexQuery.refetch();
+  };
+  const reloadAlchemy = () => {
+    void alchemyQuery.refetch();
   };
   const workers = providerObservationState({
     checking: activeManualWrite?.affectedProviders.includes("cloudflare") === true,
@@ -281,6 +309,16 @@ export function useRepositoryProviderObservations(
     requested: convexProjectTargets.length > 0,
   });
 
+  const alchemy = providerObservationState({
+    checking: false,
+    data: alchemyQuery.data,
+    isError: alchemyQuery.isError,
+    isRefetchError: alchemyQuery.isRefetchError,
+    lastWriteAt: undefined,
+    reload: reloadAlchemy,
+    requested: Boolean(convexTeamId),
+  });
+
   return {
     cloudflare: {
       workers,
@@ -288,5 +326,6 @@ export function useRepositoryProviderObservations(
       convexBuildAccess,
     },
     convex,
+    alchemy,
   };
 }

@@ -1,9 +1,17 @@
+import { validate } from "convex-helpers/validators";
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   PullRequestResources,
   PullRequestWorkerResource,
 } from "../../../convex/repository/pullRequestModel";
+import { buildConvexDeploymentDashboardUrl } from "../../../convex/repository/providerDashboardUrls";
+import {
+  convexFunctionsDirectory,
+  vAlchemyCloudflareWorkerState,
+  vAlchemyConvexDeploymentState,
+  vAlchemyConvexProjectState,
+} from "../../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import {
@@ -12,6 +20,7 @@ import {
   buildRepositorySchemaRoute,
 } from "@/lib/repositoryRoutes";
 import type {
+  RepositoryAlchemyStack,
   RepositoryCloudflareProviderObservationState,
   RepositoryCloudflareWorkerBuildsObservation,
   RepositoryConvexProjectObservation,
@@ -36,13 +45,17 @@ type RepositoryEnvironmentWorkerDestination =
     }
   | { state: "absent" };
 
+/**
+unrecorded = the Worker comes from the Alchemy state store, which records no build.
+*/
 export type RepositoryEnvironmentWorker = {
   workerName: string;
   build:
     | { state: "available"; buildState: RepositoryEnvironmentBuildState; logsUrl: string }
     | { state: "absent" }
     | { state: "loading" }
-    | { state: "unavailable" };
+    | { state: "unavailable" }
+    | { state: "unrecorded" };
   destination: RepositoryEnvironmentWorkerDestination;
   actions: readonly RepositoryEnvironmentAction[];
 };
@@ -75,7 +88,8 @@ export type RepositoryEnvironmentResource =
     }
   | {
       kind: "cloudflare_worker";
-      id: Id<"repositoryCloudflareWorkers">;
+      /** The attachment id, or `alchemy:<fqn>` for a Worker of the Alchemy state store. */
+      id: string;
       worker: RepositoryEnvironmentWorker;
     };
 
@@ -148,6 +162,45 @@ function buildProductionUrlLabel(url: string): string {
   } catch {
     return url.replace(/^https?:\/\//, "");
   }
+}
+
+/** The Samebase routes of the production deployment of an attached Convex project. */
+function buildConvexProductionActions({
+  branch,
+  convexProjectId,
+  deploymentName,
+  owner,
+  repoName,
+  schemaGraphEnabled,
+}: {
+  branch: string;
+  convexProjectId: Id<"repositoryConvexProjects">;
+  deploymentName: string;
+  owner: string;
+  repoName: string;
+  schemaGraphEnabled: boolean;
+}): RepositoryEnvironmentAction[] {
+  return [
+    {
+      destination: "samebase",
+      href: buildRepositoryDatabaseRoute({ owner, repoName, branch, convexProjectId }),
+      label: "Data",
+    },
+    ...(schemaGraphEnabled
+      ? [
+          {
+            destination: "samebase" as const,
+            href: buildRepositorySchemaRoute({ owner, repoName, branch, convexProjectId }),
+            label: "Schema",
+          },
+        ]
+      : []),
+    {
+      destination: "samebase",
+      href: buildRepositoryComponentsRoute({ owner, repoName, deploymentName }),
+      label: "Components",
+    },
+  ];
 }
 
 export function buildProductionEnvironmentRoots({
@@ -285,41 +338,14 @@ export function buildProductionEnvironmentRoots({
               resource: {
                 kind: "destination",
                 id: `convex:${href}`,
-                actions: [
-                  {
-                    destination: "samebase",
-                    href: buildRepositoryDatabaseRoute({
-                      owner,
-                      repoName,
-                      branch,
-                      convexProjectId: project.convexProjectId,
-                    }),
-                    label: "Data",
-                  },
-                  ...(schemaGraphEnabled
-                    ? [
-                        {
-                          destination: "samebase" as const,
-                          href: buildRepositorySchemaRoute({
-                            owner,
-                            repoName,
-                            branch,
-                            convexProjectId: project.convexProjectId,
-                          }),
-                          label: "Schema",
-                        },
-                      ]
-                    : []),
-                  {
-                    destination: "samebase",
-                    href: buildRepositoryComponentsRoute({
-                      owner,
-                      repoName,
-                      deploymentName: deployment.deploymentName,
-                    }),
-                    label: "Components",
-                  },
-                ],
+                actions: buildConvexProductionActions({
+                  branch,
+                  convexProjectId: project.convexProjectId,
+                  deploymentName: deployment.deploymentName,
+                  owner,
+                  repoName,
+                  schemaGraphEnabled,
+                }),
                 href,
                 label: deployment.deploymentName,
                 provider: "convex",
@@ -348,6 +374,160 @@ export function buildProductionEnvironmentRoots({
     ...convexDeployments,
     ...convexLoading,
   ]);
+}
+
+/** The directory that holds `path`, `/` for the repository root. */
+function parentDirectory(path: string): string {
+  const parts = path.split("/").slice(0, -1);
+  return parts.length === 0 ? "/" : parts.join("/");
+}
+
+/**
+The default-branch block from the stack of the repository in the Alchemy state store: its stage
+`prod`, or `main` for a stack whose stages are not renamed yet. The store records no build and no
+region, so neither shows. A Convex deployment links to its dashboard when the store names its
+project slug and the team of the organization, and offers the Samebase routes only when its project
+is attached, since those routes read the attachment.
+*/
+export function buildAlchemyEnvironmentRoots({
+  branch,
+  owner,
+  repoName,
+  schemaGraphEnabled,
+  repository,
+  stack,
+}: {
+  branch: string;
+  owner: string;
+  repoName: string;
+  schemaGraphEnabled: boolean;
+  repository: RepositoryDashboardRepository;
+  stack: RepositoryAlchemyStack;
+}): RepositoryEnvironmentRoot[] {
+  const stage =
+    stack.stages.find((candidate) => candidate.name === "prod") ??
+    stack.stages.find((candidate) => candidate.name === "main");
+  if (!stage) {
+    return [];
+  }
+
+  const stackFile = stage.run.state === "recorded" ? stage.run.record.stackFile : null;
+  // Without a run record the stack file is unknown, so its resources sit at the repository root.
+  const stackDirectory = stackFile === null ? "/" : parentDirectory(stackFile);
+  const states = stage.resources.map((resource) => {
+    const state: unknown = JSON.parse(resource.value);
+    return { fqn: resource.fqn, state };
+  });
+  const projects = states.flatMap(({ state }) =>
+    validate(vAlchemyConvexProjectState, state, { allowUnknownFields: true }) ? [state.attr] : [],
+  );
+
+  const workers = states.flatMap(({ fqn, state }): RepositoryEnvironmentResourceInput[] => {
+    if (!validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })) {
+      return [];
+    }
+    const { url, urls, workerName } = state.attr;
+    return [
+      {
+        rootDirectory: stackDirectory,
+        sortKey: `0:${workerName}:${fqn}`,
+        resource: {
+          kind: "cloudflare_worker",
+          id: `alchemy:${fqn}`,
+          worker: {
+            workerName,
+            build: { state: "unrecorded" },
+            destination:
+              url === undefined
+                ? { state: "absent" }
+                : {
+                    state: "available",
+                    href: url,
+                    label: buildProductionUrlLabel(url),
+                    provenance: "production",
+                    title:
+                      stackDirectory === "/"
+                        ? "Open production app"
+                        : `Open production app for ${stackDirectory}`,
+                  },
+            actions: urls
+              .filter((other) => other !== url)
+              .map((other) => ({
+                destination: "external",
+                href: other,
+                label: buildProductionUrlLabel(other),
+              })),
+          },
+        },
+      },
+    ];
+  });
+  const convexDeployments = states.flatMap(
+    ({ fqn, state }): RepositoryEnvironmentResourceInput[] => {
+      if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
+        return [];
+      }
+      const { attr, props } = state;
+      const project =
+        projects.find((candidate) => candidate.projectId === attr.projectId) ?? props.project;
+      const dashboardUrl =
+        stack.convexTeam.teamSlug !== null &&
+        project.slug !== undefined &&
+        String(project.teamId) === stack.convexTeam.teamId
+          ? buildConvexDeploymentDashboardUrl({
+              teamSlug: stack.convexTeam.teamSlug,
+              projectSlug: project.slug,
+              deploymentName: attr.name,
+            })
+          : null;
+      const href = dashboardUrl ?? attr.siteUrl;
+      const source = props.source;
+      const sourcePath = typeof source === "string" ? source : source?.path;
+      const codeLocation =
+        stackFile === null || sourcePath === undefined
+          ? null
+          : convexFunctionsDirectory(stackFile, sourcePath);
+      const attachedProject = repository.convexProjects.find(
+        (candidate) => candidate.projectId === String(attr.projectId),
+      );
+      return [
+        {
+          rootDirectory: codeLocation === null ? stackDirectory : parentDirectory(codeLocation),
+          sortKey: `1:${attr.name}:${fqn}`,
+          resource: {
+            kind: "destination",
+            id: `alchemy:${fqn}`,
+            actions: [
+              ...(attachedProject
+                ? buildConvexProductionActions({
+                    branch,
+                    convexProjectId: attachedProject.convexProjectId,
+                    deploymentName: attr.name,
+                    owner,
+                    repoName,
+                    schemaGraphEnabled,
+                  })
+                : []),
+              ...[attr.siteUrl, attr.url]
+                .filter((destination) => destination !== href)
+                .map((destination) => ({
+                  destination: "external" as const,
+                  href: destination,
+                  label: buildProductionUrlLabel(destination),
+                })),
+            ],
+            href,
+            label: attr.name,
+            provider: "convex",
+            provenance: "production",
+            title: `Open production Convex deployment ${attr.name}`,
+          },
+        },
+      ];
+    },
+  );
+
+  return groupRepositoryEnvironmentResources([...workers, ...convexDeployments]);
 }
 
 export function buildPullRequestEnvironmentRoots({
@@ -417,6 +597,33 @@ export function buildPullRequestEnvironmentRoots({
     ];
   });
   const alchemyPreview = resources.alchemyPreview;
+  const alchemyWorkers =
+    alchemyPreview.state === "available"
+      ? alchemyPreview.workers.map((worker) => ({
+          rootDirectory: "/",
+          sortKey: `0:${worker.name}:alchemy`,
+          resource: {
+            kind: "cloudflare_worker" as const,
+            id: `alchemy:${worker.name}`,
+            worker: {
+              workerName: worker.name,
+              build: { state: "unrecorded" as const },
+              // A stage may be from an earlier commit than the head of the pull request.
+              destination:
+                worker.url === null
+                  ? { state: "absent" as const }
+                  : {
+                      state: "available" as const,
+                      href: worker.url,
+                      label: "Branch preview",
+                      provenance: "earlier_check" as const,
+                      title: buildProductionUrlLabel(worker.url),
+                    },
+              actions: [],
+            },
+          },
+        }))
+      : [];
   const alchemyDeployments =
     alchemyPreview.state === "available"
       ? alchemyPreview.convexDeployments.map((deployment) => ({
@@ -440,6 +647,7 @@ export function buildPullRequestEnvironmentRoots({
   return groupRepositoryEnvironmentResources([
     ...workers,
     ...convexDeployments,
+    ...alchemyWorkers,
     ...alchemyDeployments,
   ]);
 }

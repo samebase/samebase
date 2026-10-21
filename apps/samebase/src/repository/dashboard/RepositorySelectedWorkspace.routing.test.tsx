@@ -118,6 +118,12 @@ function makeRepository({
 
 function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSelected {
   return {
+    alchemyObservations: {
+      state: "loaded",
+      observations: [],
+      refreshFailed: false,
+      reload: () => {},
+    },
     access: { state: "ready", accessKeys: [] },
     cloudflareConnection: { state: "loading" },
     cloudflareObservations: {

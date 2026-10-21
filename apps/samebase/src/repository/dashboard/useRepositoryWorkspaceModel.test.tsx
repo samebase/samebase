@@ -11,14 +11,21 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type { ViewerOrganization } from "@/organization/context";
 import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
+import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
+import type {
+  RepositoryAlchemyStack,
+  RepositoryProviderObservationState,
+} from "./useRepositoryProviderObservations";
 import { useRepositoryWorkspaceModel } from "./useRepositoryWorkspaceModel";
 
 const testState = vi.hoisted(
   (): {
+    alchemy: RepositoryProviderObservationState<RepositoryAlchemyStack>;
     providerRepositories: unknown[];
     pullRequestArgs: unknown[];
     queryCalls: { args: unknown; name: string }[];
   } => ({
+    alchemy: { state: "loading" },
     providerRepositories: [],
     pullRequestArgs: [],
     queryCalls: [],
@@ -48,6 +55,7 @@ vi.mock("./useRepositoryProviderObservations", () => ({
         workers: { state: "loading" },
       },
       convex: { state: "loading" },
+      alchemy: testState.alchemy,
     };
   },
 }));
@@ -127,6 +135,7 @@ function lostAccessRepository(): UserRepositoryResult {
 
 describe("useRepositoryWorkspaceModel", () => {
   beforeEach(() => {
+    testState.alchemy = { state: "loading" };
     testState.providerRepositories.length = 0;
     testState.pullRequestArgs.length = 0;
     testState.queryCalls.length = 0;
@@ -206,6 +215,84 @@ describe("useRepositoryWorkspaceModel", () => {
         args: { organizationId: organization.organizationId },
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
       });
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("builds the default-branch block from the stack in the team store when it exists", async () => {
+    // Like the preview deployment of Samebase: base-alchemy has no attachment rows there.
+    const repository = {
+      ...lostAccessRepository(),
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "base-alchemy",
+      githubRepositoryFullName: "samebase/base-alchemy",
+      convexTeamId: "38516",
+    } satisfies UserRepositoryResult;
+    const organization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-samebase",
+      githubOwnerLogin: "samebase",
+      githubOwnerType: "organization",
+      organizationId: repository.organizationId,
+      role: "owner",
+    } as const;
+    const prod = observedAlchemyStackReply.value.stages[2];
+    testState.alchemy = {
+      state: "loaded",
+      refreshFailed: false,
+      reload: () => {},
+      observations: [
+        {
+          store: "found",
+          stack: "samebase/base-alchemy",
+          convexTeam: { teamId: "38516", teamSlug: "nicu" },
+          // The stage as `alchemyState:observe` returns the captured one, without its run record.
+          stages: [
+            {
+              name: prod.stage,
+              run: { state: "none" },
+              resources: prod.resources,
+              output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+            },
+          ],
+        },
+      ],
+    };
+    let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useRepositoryWorkspaceModel(repository.githubRepositoryFullName);
+      return null;
+    }
+
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [organization],
+      repositories: [repository],
+    });
+
+    try {
+      if (latest?.state !== "ready" || latest.selection.state !== "selected") {
+        throw new Error("Expected the selected repository workspace.");
+      }
+      expect(
+        latest.selection.workspace.environmentRoots.map((root) => ({
+          rootDirectory: root.rootDirectory,
+          labels: root.resources.map((resource) =>
+            resource.kind === "destination" ? [resource.label, resource.href] : resource.kind,
+          ),
+        })),
+      ).toEqual([
+        {
+          rootDirectory: "/",
+          labels: [
+            [
+              "ideal-dolphin-15",
+              "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+            ],
+          ],
+        },
+      ]);
     } finally {
       await mounted.unmount();
     }

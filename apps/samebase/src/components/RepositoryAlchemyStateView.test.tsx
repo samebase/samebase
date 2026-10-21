@@ -27,6 +27,7 @@ const prodRecord = {
 const observation = {
   store: "found",
   stack: "samebase/base-alchemy",
+  convexTeam: { teamId: "38516", teamSlug: "nicu" },
   stages: [
     { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
     {
@@ -61,6 +62,7 @@ function prodWithSource(stackFile: string, source: unknown): AlchemyStateObserva
   return {
     store: "found",
     stack: "samebase/base-alchemy",
+    convexTeam: { teamId: "38516", teamSlug: "nicu" },
     stages: [
       {
         name: prod.stage,
@@ -138,6 +140,7 @@ describe("AlchemyStateTree", () => {
     const container = renderTree({
       store: "found",
       stack: "samebase/base-alchemy",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
       stages: [
         {
           name: "pr-23",
@@ -187,6 +190,7 @@ describe("AlchemyStateTree", () => {
     const container = renderTree({
       store: "found",
       stack: "samebase/base-alchemy",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
       stages: [{ name: prod.stage, run: { state: "unknown" }, resources: [], output: null }],
     });
 
@@ -199,6 +203,7 @@ describe("AlchemyStateTree", () => {
     const container = renderTree({
       store: "found",
       stack: "samebase/tmp-k7m2-rows",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
       stages: [
         {
           name: "main",
@@ -226,6 +231,7 @@ describe("AlchemyStateTree", () => {
     const container = renderTree({
       store: "found",
       stack: "samebase/base-alchemy",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
       stages: [
         {
           name: "prod",
@@ -248,7 +254,12 @@ describe("AlchemyStateTree", () => {
 
   it("shows a stack without stages", () => {
     expect(
-      renderTree({ store: "found", stack: "samebase/base-alchemy", stages: [] }).textContent,
+      renderTree({
+        store: "found",
+        stack: "samebase/base-alchemy",
+        convexTeam: { teamId: "38516", teamSlug: "nicu" },
+        stages: [],
+      }).textContent,
     ).toBe("samebase/base-alchemyNo Alchemy state.");
   });
 

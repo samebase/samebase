@@ -316,6 +316,8 @@ const vPullRequestAlchemyPreview = union(
     url: union(string(), v.null()),
     /** The name and client URL of each `Convex.Deployment` resource of the stage, in fqn order. */
     convexDeployments: array(object({ name: string(), url: string() })),
+    /** The name and URL of each `Cloudflare.Worker` resource of the stage, in fqn order. */
+    workers: array(object({ name: string(), url: union(string(), v.null()) })),
   }),
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
@@ -325,8 +327,11 @@ export const vPullRequestResources = union(
     state: literal("available"),
     pullRequestId: string(),
     cloudflareBuilds: vPullRequestCloudflareBuilds,
+    /**
+    `workers` and `convexProjects` hold the attached resources. They are empty when the team store
+    holds a stack for the repository, whose previews are in `alchemyPreview`.
+    */
     workers: array(vPullRequestWorkerResource),
-    /** Without the projects that the stack of the repository deploys: their previews are in `alchemyPreview`. */
     convexProjects: array(vPullRequestConvexResource),
     hostingPreviews: vPullRequestHostingPreviews,
     alchemyPreview: vPullRequestAlchemyPreview,

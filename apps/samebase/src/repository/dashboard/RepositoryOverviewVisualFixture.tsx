@@ -933,6 +933,12 @@ function buildFixtureWorkspace({
   repository: UserRepositoryResult;
 }) {
   const workspace = {
+    alchemyObservations: {
+      state: "loaded",
+      observations: [],
+      refreshFailed: false,
+      reload: () => {},
+    },
     access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
     cloudflareConnection: {
       state: "ready",

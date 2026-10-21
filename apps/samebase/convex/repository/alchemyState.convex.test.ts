@@ -227,6 +227,7 @@ describe("repository Alchemy state", () => {
     expect(observation).toEqual({
       store: "found",
       stack: "samebase/base-alchemy",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
       stages: [
         {
           name: "pr-24",
@@ -312,7 +313,12 @@ describe("repository Alchemy state", () => {
 
     await expect(
       user.action(api.repository.alchemyState.observe, { repositoryId: ids.repositoryId }),
-    ).resolves.toEqual({ store: "found", stack: "samebase/base-alchemy", stages: [] });
+    ).resolves.toEqual({
+      store: "found",
+      stack: "samebase/base-alchemy",
+      convexTeam: { teamId: "38516", teamSlug: "nicu" },
+      stages: [],
+    });
   });
 
   it("keeps the key of a secret and never returns its value", async () => {

@@ -13,6 +13,7 @@ const providerActions = vi.hoisted(() => ({
   observeCloudflareWorkerBuilds: vi.fn(async () => []),
   observeCloudflareWorkerConvexBuildAccess: vi.fn(async () => []),
   observeConvexProjects: vi.fn(async () => []),
+  observeAlchemyState: vi.fn(async (): Promise<unknown> => ({ store: "missing" })),
 }));
 
 vi.mock("convex/react", async () => {
@@ -28,6 +29,8 @@ vi.mock("convex/react", async () => {
           return providerActions.observeCloudflareWorkerConvexBuildAccess;
         case "repository/providerObservations:observeConvexProjects":
           return providerActions.observeConvexProjects;
+        case "repository/alchemyState:observe":
+          return providerActions.observeAlchemyState;
         default:
           throw new Error(`Unexpected provider observation action: ${getFunctionName(reference)}`);
       }

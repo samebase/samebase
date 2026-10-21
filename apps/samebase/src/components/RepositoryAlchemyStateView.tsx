@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
   ALCHEMY_REDACTED_MARKER,
+  convexFunctionsDirectory,
   vAlchemyCloudflareWorkerState,
   vAlchemyConvexDeploymentState,
 } from "../../shared/alchemyState";
@@ -30,28 +31,6 @@ const RUN_SOURCE_LABELS = {
   "github-actions": "GitHub Actions",
   laptop: "Laptop",
 } satisfies Record<AlchemyRunRecord["source"], string>;
-
-/**
-The Convex functions directory from the repository root: the directory of the stack file joined
-with `source`, such as `convex` for `alchemy.run.ts` and `./convex`, `apps/x/convex` for
-`apps/x/alchemy.run.ts`, or `.` for the root. Null for a `source` outside the repository.
-*/
-function convexFunctionsDirectory(stackFile: string, source: string): string | null {
-  if (source.startsWith("/")) {
-    return null;
-  }
-  const parts: string[] = [];
-  for (const part of [...stackFile.split("/").slice(0, -1), ...source.split("/")]) {
-    if (part === "..") {
-      if (parts.pop() === undefined) {
-        return null;
-      }
-    } else if (part !== "" && part !== ".") {
-      parts.push(part);
-    }
-  }
-  return parts.length === 0 ? "." : parts.join("/");
-}
 
 /**
 One entry for each value of the stage output, named by its dotted path. A secret keeps only its
