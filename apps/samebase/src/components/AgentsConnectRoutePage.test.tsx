@@ -69,6 +69,7 @@ describe("AgentsConnectRoutePage", () => {
 
     expect(consumeHandoffMock).not.toHaveBeenCalled();
     expect(signInMock).not.toHaveBeenCalled();
+    expect(rootElement.textContent).toBe("");
 
     authState.isLoading = false;
     await act(async () => root.render(<AgentsConnectRoutePage />));
@@ -77,6 +78,7 @@ describe("AgentsConnectRoutePage", () => {
     expect(signInMock).toHaveBeenCalledWith(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, {
       token: `agbh_${"a".repeat(43)}`,
     });
+    expect(rootElement.textContent).toBe("Connecting Samebase...");
   });
 
   it("adopts the minted session and opens the return path", async () => {

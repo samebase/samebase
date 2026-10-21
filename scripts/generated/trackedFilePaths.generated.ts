@@ -626,6 +626,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/file-view-pane-selection.spec.ts",
   "apps/samebase/e2e/file-view-prosemark-height.spec.ts",
   "apps/samebase/e2e/file-view-prosemark-height.spec.ts-snapshots/fileview-prosemark-flex-height.png",
+  "apps/samebase/e2e/first-paint-stability.spec.ts",
   "apps/samebase/e2e/indexed-db-route-visual.spec.ts",
   "apps/samebase/e2e/indexed-db-route-visual.spec.ts-snapshots/indexed-db-workspace.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts",

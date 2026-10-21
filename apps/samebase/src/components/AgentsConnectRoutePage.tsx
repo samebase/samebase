@@ -10,13 +10,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../../shared/agentBrowserHandoff";
 
-type HandoffState = "connecting" | "missing" | "failed";
+/**
+The server cannot see the handoff fragment, so the page starts in "unread" and shows no status
+until the browser has read the stored handoff. A server-rendered "Connecting Samebase..." would be
+false for a visit without a handoff and would change in place after hydration.
+*/
+type HandoffState = "unread" | "connecting" | "missing" | "failed";
+
+const messageByHandoffState = {
+  connecting: "Connecting Samebase...",
+  missing: "Connection link unavailable.",
+  failed:
+    "Connection link failed. If this browser is signed in to a different Samebase account, sign out and ask for a fresh link.",
+};
 
 export function AgentsConnectRoutePage() {
   const { setSession } = useAuthActions();
   const sessionRouteClient = useSessionRouteClient();
   const { isLoading: isAuthLoading } = useConvexAuth();
-  const [handoffState, setHandoffState] = useState<HandoffState>("connecting");
+  const [handoffState, setHandoffState] = useState<HandoffState>("unread");
   const startedRef = useRef(false);
   const pageMetadata = useMemo(
     () =>
@@ -41,6 +53,8 @@ export function AgentsConnectRoutePage() {
       return;
     }
 
+    setHandoffState("connecting");
+
     void sessionRouteClient()
       .mutation(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, { token: handoff.token })
       .then(async (result) => {
@@ -56,32 +70,29 @@ export function AgentsConnectRoutePage() {
       });
   }, [isAuthLoading, sessionRouteClient, setSession]);
 
-  const message =
-    handoffState === "connecting"
-      ? "Connecting Samebase..."
-      : handoffState === "missing"
-        ? "Connection link unavailable."
-        : "Connection link failed. If this browser is signed in to a different Samebase account, sign out and ask for a fresh link.";
-
   return (
     <main
       className="flex min-h-[60vh] items-center justify-center px-4"
       data-posthog-block
       data-testid="agents-connect-page"
     >
-      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">{message}</h1>
-        {handoffState === "connecting" ? null : (
-          <Button
-            variant="outline"
-            onClick={() => {
-              window.location.replace(DASHBOARD_ROUTE);
-            }}
-          >
-            Open Samebase
-          </Button>
-        )}
-      </div>
+      {handoffState === "unread" ? null : (
+        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {messageByHandoffState[handoffState]}
+          </h1>
+          {handoffState === "connecting" ? null : (
+            <Button
+              variant="outline"
+              onClick={() => {
+                window.location.replace(DASHBOARD_ROUTE);
+              }}
+            >
+              Open Samebase
+            </Button>
+          )}
+        </div>
+      )}
     </main>
   );
 }
