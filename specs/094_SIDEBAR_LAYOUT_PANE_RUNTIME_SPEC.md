@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-08-28
+- Last updated: 2026-10-21
 - Supersedes:
   - `archive/093_WORKSPACE_LAYOUT_V2_MODULE_SPLIT_SPEC.md`
 - Related files:
@@ -14,9 +14,9 @@
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
   - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
   - `apps/samebase/src/components/AppWorkspaceShell.tsx`
-  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
-  - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
+  - `apps/samebase/src/hooks/useVisualFixtureWorkspaceSidebarState.ts`
+  - `apps/samebase/src/routes/root.queries.ts`
   - `packages/sidebars/src/SidebarLayoutState.ts`
   - `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`
@@ -62,9 +62,10 @@ system.
 
 Samebase uses:
 
-- a Convex-backed controller for signed-in app routes
-- a local-storage controller for public routes
-- an in-memory controller for tests and fixtures
+- a Convex-backed controller for app routes, which starts from the saved state that the root loader
+  read for the server render; a visitor without a session gets the default state and keeps changes
+  in the page
+- an in-memory controller for the `/visual-fixture` route, tests, and fixtures
 
 The package must not import Convex, Samebase storage hooks, or Samebase schema modules. Samebase may
 keep the historical `WorkspaceSidebarState` name at its persistence boundary. The package runtime
@@ -93,21 +94,23 @@ This does not change the saved widths. If an embedded desktop layout cannot fit 
 minima scale down to fit. Resize controls report these same local limits.
 
 Sidebar width transitions are disabled during a resize and when the measured layout width changes.
-The desktop prehydration script uses the same calculation as the live layout.
+The package prehydration script uses the same calculation as the live layout. Each pane carries its
+own desktop width variable, so a pane that a render adds has its width in its first style.
 
 ### Static First Paint
 
-The package owns the data attributes, CSS variables, responsive boundary, and geometry rules used
-for prehydration. Samebase owns the persisted-state reader and renders the generated desktop and
-mobile prehydration scripts immediately after the matching layout markup.
+The package owns the data attributes, CSS variables, responsive boundary, and geometry rules of the
+first paint. Before React measures the viewport, `SidebarLayout` renders the controller state as
+markup: desktop open state and widths, the selected mobile pane, a saved merged side, and the mobile
+widths as CSS clamps of the carousel width. The carousel starts at scroll position 0, so a selected
+main pane gives the left pane no width until React measures and scrolls past it, and a selected
+right pane aligns the carousel content to its end. `@samebase/sidebars/structure.css` must load
+before the first layout paint. After measurement, the normal runtime owns the layout.
 
-The app prehydration adapter must pass validated state into the package contract. It must not copy
-the package selectors or geometry math. `@samebase/sidebars/structure.css` must load before the
-first layout paint.
-
-Before React measures the viewport, prehydration may apply stored desktop open state and widths or a
-valid stored mobile surface. After measurement, the normal runtime owns the layout. Prehydration
-must not write state or act as a second pane runtime.
+Samebase renders no inline sidebar script: the root loader reads the saved state as the user, and
+the controller starts from it. A consumer whose state is only in the browser may render the
+package's prehydration scripts after the layout markup. Prehydration must not write state or act as
+a second pane runtime.
 
 ### Pane Presence And Display Fallbacks
 

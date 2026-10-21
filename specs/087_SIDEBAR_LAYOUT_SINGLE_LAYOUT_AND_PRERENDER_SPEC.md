@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-08-28
+- Last updated: 2026-10-21
 - Supersedes:
   - `archive/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
 - Related files:
@@ -14,7 +14,7 @@
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
   - `packages/sidebars/src/structure.css`
   - `apps/samebase/src/components/AppWorkspaceShell.tsx`
-  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
+  - `apps/samebase/src/routes/root.queries.ts`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
   - `specs/094_SIDEBAR_LAYOUT_PANE_RUNTIME_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`
@@ -85,9 +85,13 @@ its pane chrome.
 Prerendering must use a standard React render path that invokes the same package components as the
 hydrated route. The structural stylesheet must be available for the first paint.
 
-Prehydration and React must use the same package attributes, CSS variables, responsive boundary, and
-geometry rules. The app may read its own persisted state before hydration, but it must apply that
-state through the package prehydration contract.
+The server markup and React must use the same package attributes, CSS variables, responsive
+boundary, and geometry rules. Before React measures the viewport, `SidebarLayout` renders the
+controller state as markup: the desktop widths on the panes, the mobile pane and merged side on the
+viewport, and the mobile widths as CSS expressions of the carousel width. Samebase gives the
+controller the saved state that the root loader read for the server render, so the first paint needs
+no inline script. A consumer whose state is only in the browser may use the package prehydration
+contract instead.
 
 The prerender must not:
 
@@ -119,6 +123,7 @@ These boundaries keep the package testable without making the consumer assemble 
 
 - Package tests verify desktop and mobile geometry without Tailwind or Tailwind preflight.
 - Server-render tests verify the canonical region and pane order.
+- Server-render tests verify that the first HTML carries the saved pane state.
 - Hydration tests verify that prehydration and React produce the same visible layout.
 - Interaction tests verify pointer, touch, keyboard, focus, resize, and mobile scroll behavior.
 - Samebase route tests verify address chrome placement and a visible mobile escape path.
