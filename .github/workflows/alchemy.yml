@@ -1,0 +1,184 @@
+# Deploys samebase.com and the previews of its pull requests with the Alchemy stack in
+# apps/samebase/alchemy.run.ts, run from apps/samebase. A push to main deploys the stage `prod`: the
+# Convex project, its production deployment, which serves samebase.com through convex-hosting, and
+# the Workers next to the app. A pull request from this repository deploys the stage `pr-<number>`,
+# a Convex preview deployment with that name, and comments its URLs on the pull request; closing the
+# pull request destroys the stage and deletes the preview. The state of every stage is in the
+# `alchemy-state` project of the Convex team, under the stack name samebase/samebase. Each run mints
+# its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod` gets the
+# Cloudflare token.
+name: Alchemy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  # Run once on main with adopt to take over resources that exist but are not in the state of the
+  # stage `prod`, such as the production deployment with its code.
+  workflow_dispatch:
+    inputs:
+      adopt:
+        description: Adopt resources that exist but are not in state yet
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One run per stage at a time: the state store has no lock. Pending runs wait in order instead of
+# replacing each other, so the destroy of a closed pull request waits for its running deploy.
+concurrency:
+  group:
+    alchemy-${{ github.event.pull_request.number && format('pr-{0}',
+    github.event.pull_request.number) || github.ref_name }}
+  queue: max
+  cancel-in-progress: false
+
+env:
+  # The stage, as https://alchemy.run/environments/ci names it: `pr-<number>` for a pull request,
+  # `prod` on main, and the branch name otherwise, where no job below runs.
+  STAGE:
+    ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || (github.ref
+    == 'refs/heads/main' && 'prod' || github.ref_name) }}
+  # GitHub.GitHubEnv in alchemy.run.ts reads it for the preview comment. Empty on main.
+  PULL_REQUEST: ${{ github.event.pull_request.number }}
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event_name == 'pull_request' && 'the preview' || 'production' }}
+    if: >-
+      github.event.action != 'closed' && (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository || github.event_name !=
+      'pull_request' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write # The stack keeps one comment with the preview's URLs.
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+      url:
+        ${{ github.event_name != 'pull_request' && 'https://samebase.com' ||
+        steps.preview.outputs.url }}
+
+    steps:
+      # The branch head, not the default merge commit of a pull request: the preview is the branch,
+      # and the head check below compares the checkout with it. Full history: the build reads the
+      # commit count for the version label (apps/samebase/dev/appBuildMetadata.ts), and without
+      # credentials it cannot unshallow itself.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A re-run of an old run, or a checkout of another commit, must not put older code over newer
+      # code. The job token lets git read the repository; the deploy does not get it.
+      - name: Check that the checkout is the head of the branch
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
+          head=$(git -c "http.extraheader=AUTHORIZATION: basic $auth" ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+          if [ "$(git rev-parse HEAD)" != "$head" ]; then
+            echo "::error::The checkout is not the head of $BRANCH ($head). Nothing was deployed."
+            exit 1
+          fi
+
+      # The build reads the production route environment, the prerender origin, and the first-party
+      # PostHog proxy with the project token from the repository variable. --detect-drift compares
+      # the Workers with the live account, so a route or setting changed in the dashboard is
+      # repaired. ADOPT is the workflow_dispatch input, empty on a push.
+      - name: Deploy production
+        if: github.event_name != 'pull_request'
+        working-directory: apps/samebase
+        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
+        env:
+          ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          VITE_SAMEBASE_ROUTE_ENVIRONMENT: production
+          SAMEBASE_PRERENDER_ORIGIN: https://samebase.com
+          VITE_PUBLIC_POSTHOG_HOST: https://e.samebase.com
+          VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PROD_POSTHOG_PROJECT_TOKEN }}
+
+      # convex-hosting writes the site URL of its push to $GITHUB_OUTPUT, the environment URL above.
+      - name: Deploy the preview
+        id: preview
+        if: github.event_name == 'pull_request'
+        working-directory: apps/samebase
+        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          VITE_SAMEBASE_ROUTE_ENVIRONMENT: preview
+
+  destroy:
+    name: Destroy the preview
+    # A pull request from a fork got no preview.
+    if: >-
+      github.event.action == 'closed' && github.event.pull_request.head.repo.full_name ==
+      github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: pnpm
+
+      # No build: the destroy deletes the preview deployment and forgets the stage.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Destroy the preview
+        working-directory: apps/samebase
+        run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+  fork:
+    name: Skip the preview of a fork
+    if: >-
+      github.event_name == 'pull_request' && github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+
+    steps:
+      - name: Explain the skip
+        run: echo "::notice::No preview. A pull request from a fork gets no secrets."
