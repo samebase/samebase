@@ -104,26 +104,32 @@ function EnvironmentActionsMenu({
         align="start"
         className="w-max min-w-40 max-w-[calc(100vw-2rem)] rounded-none shadow-none"
       >
-        {actions.map((action) => (
-          <DropdownMenuItem key={`${action.destination}:${action.href}`} asChild>
-            {action.destination === "samebase" ? (
-              <Link className="min-w-0 no-underline" to={action.href}>
-                <SamebaseLogoMark />
-                <span className="min-w-0 break-all">{action.label}</span>
-              </Link>
-            ) : (
-              <a
-                className="min-w-0 no-underline"
-                href={action.href}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                <span className="min-w-0 break-all">{action.label}</span>
-                <ExternalLink className="shrink-0" />
-              </a>
-            )}
-          </DropdownMenuItem>
-        ))}
+        {actions.map((action) =>
+          action.destination === "none" ? (
+            <DropdownMenuItem key={`none:${action.label}`}>
+              <span className="min-w-0 break-all">{action.label}</span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem key={`${action.destination}:${action.href}`} asChild>
+              {action.destination === "samebase" ? (
+                <Link className="min-w-0 no-underline" to={action.href}>
+                  <SamebaseLogoMark />
+                  <span className="min-w-0 break-all">{action.label}</span>
+                </Link>
+              ) : (
+                <a
+                  className="min-w-0 no-underline"
+                  href={action.href}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
+                  <span className="min-w-0 break-all">{action.label}</span>
+                  <ExternalLink className="shrink-0" />
+                </a>
+              )}
+            </DropdownMenuItem>
+          ),
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -517,7 +523,7 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
           </span>
         )}
       </div>
-      {worker.destination.state === "available" || worker.actions.length > 0 ? (
+      {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
         <div className="ml-[1.875rem] flex min-w-0 items-center gap-1 text-sm">
           {worker.destination.state === "available" ? (
             <a
@@ -533,6 +539,13 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
               <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
               <ExternalLink className="h-3 w-3 shrink-0" />
             </a>
+          ) : worker.destination.state === "unlinked" ? (
+            <span className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground @4xl:min-h-8">
+              <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+                <CloudflareProviderLogo />
+              </span>
+              <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+            </span>
           ) : null}
           {worker.actions.length > 0 ? (
             <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />

@@ -251,6 +251,44 @@ function routePathTemplateCanLoadDraft(templatePath: string, draftPath: string):
   return draftSegments.length === templateSegments.length;
 }
 
+/**
+The concrete path of a route path suggestion for the draft path: a static path as it is, and a
+template with every dynamic segment taken from the draft, such as `/repo/acme/demo/alchemy` for
+`/repo/$owner/$repository/alchemy` and the draft `/repo/acme/demo/`. The static segments before the
+last dynamic one must equal the draft's, and the segments after it are the template's, so a
+repository page offers the sibling routes of that repository. Null for a catch-all template, such
+as `/repo/$`, or a dynamic segment that the draft does not hold yet.
+*/
+export function readRoutePathSuggestionForDraft(
+  pathSuggestion: string,
+  draftPath: string,
+): string | null {
+  const templateSegments = readRoutePathSegments(pathSuggestion);
+  const draftSegments = readRoutePathSegments(draftPath);
+  const lastDynamicIndex = templateSegments.reduce(
+    (last, segment, index) => (segment.startsWith("$") ? index : last),
+    -1,
+  );
+  const segments: string[] = [];
+
+  for (const [index, templateSegment] of templateSegments.entries()) {
+    const draftSegment = draftSegments[index];
+    if (index > lastDynamicIndex) {
+      segments.push(templateSegment);
+    } else if (
+      templateSegment !== "$" &&
+      draftSegment &&
+      (templateSegment.startsWith("$") || templateSegment === draftSegment)
+    ) {
+      segments.push(draftSegment);
+    } else {
+      return null;
+    }
+  }
+
+  return `/${segments.join("/")}`;
+}
+
 function readRoutePathSegments(path: string): readonly string[] {
   return path.slice(1).split("/");
 }

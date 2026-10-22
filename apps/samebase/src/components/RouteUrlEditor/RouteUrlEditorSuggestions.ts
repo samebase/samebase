@@ -21,6 +21,7 @@ import {
   type RouteAddressSearchToken,
 } from "@/routing/addressParts";
 import {
+  readRoutePathSuggestionForDraft,
   readRouteUrlPathSuggestionEnvironment,
   readRouteUrlPathSuggestions,
 } from "@/routing/urlPathSuggestions";
@@ -204,18 +205,6 @@ function readSelectionIndex(args: {
 }): number {
   const routeIndex = args.selection.start - args.prefix.length + 1;
   return Math.min(Math.max(routeIndex, 0), args.routeAddress.length);
-}
-
-/**
-Current implementation: path dropdown rows only show concrete URL paths.
-
-Router template paths like `/repo/$` are registry syntax, not something the
-user should select into the URL editor. Keep this filter at the dropdown-row
-boundary: `readRouteAddressReadiness` still needs template paths to decide
-whether a user-typed concrete path has enough segments to load.
-*/
-function canShowPathSuggestionRow(routePath: string): boolean {
-  return !routePath.includes("$");
 }
 
 type TailwindColorValueCursor =
@@ -602,6 +591,12 @@ Reads path dropdown rows from the router registry.
 
 Example: `/terms?top=red-` plus path suggestion `/privacy` becomes
 `/privacy?top=red-`, because path suggestions replace only the path part.
+
+Rows only show concrete URL paths. Router template paths like `/repo/$` are registry syntax, not
+something the user should select into the URL editor, so a template shows only with its dynamic
+segments taken from the draft path (`readRoutePathSuggestionForDraft`): on `/repo/acme/demo`, the
+row `/repo/acme/demo/alchemy`. `readRouteAddressReadiness` still needs template paths to decide
+whether a user-typed concrete path has enough segments to load.
 */
 function readPathRows(args: {
   prefix: string;
@@ -610,6 +605,7 @@ function readPathRows(args: {
   viewer: RouteAccessViewer;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
+  const routeAddressParts = parseRouteAddress(args.routeAddress);
 
   return readRouteUrlPathSuggestions(
     args.routesByPath,
@@ -619,18 +615,17 @@ function readPathRows(args: {
       draftHref: args.routeAddress,
       origin,
     }),
-    parseRouteAddress(args.routeAddress).search?.tokens.some((token) => token.key === "dev") ??
-      false,
-  )
-    .filter(canShowPathSuggestionRow)
-    .map((suggestionRouteAddress): Suggestion => {
-      const routeWithQuerySlot = replaceRouteAddressPathAndOpenQuerySlot(
-        args.routeAddress,
-        suggestionRouteAddress,
-      );
-      const routeStaticData = args.routesByPath[suggestionRouteAddress].options.staticData;
+    routeAddressParts.search?.tokens.some((token) => token.key === "dev") ?? false,
+  ).flatMap((routePath): Suggestion[] => {
+    const path = readRoutePathSuggestionForDraft(routePath, routeAddressParts.path);
+    if (path === null) {
+      return [];
+    }
+    const routeWithQuerySlot = replaceRouteAddressPathAndOpenQuerySlot(args.routeAddress, path);
+    const routeStaticData = args.routesByPath[routePath].options.staticData;
 
-      return {
+    return [
+      {
         kind: "path",
         ...(routeStaticData.pathSuggestion === "dev" ? { dev: true as const } : {}),
         nextSelectionRouteIndex:
@@ -638,9 +633,10 @@ function readPathRows(args: {
         previewRouteAddress: routeWithQuerySlot.routeAddress,
         previewSelectionRouteIndex: 1,
         selectedRouteAddress: routeWithQuerySlot.routeAddress,
-        value: suggestionRouteAddress,
-      };
-    });
+        value: path,
+      },
+    ];
+  });
 }
 
 /**

@@ -47,13 +47,21 @@ export const vAlchemyConvexProjectState = object({
 /**
 The state of a `Cloudflare.Worker` resource. `attr.url` is the most significant URL of the Worker:
 its custom domain, else an alias, else its workers.dev URL. A Worker that no URL reaches has none.
-`attr.urls` lists every URL that serves the Worker, `attr.url` first.
+`attr.urls` lists every URL that serves the Worker, `attr.url` first, and no zone route.
+`attr.routes` lists the zone routes, such as `e.samebase.com/*`: the `url` of a route is the origin
+of its host, and a route with a wildcard host, such as `*.json.md/*`, has none.
 
-@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L1149-L1175
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L1149-L1198
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/RoutePattern.ts#L88-L95
 */
 export const vAlchemyCloudflareWorkerState = object({
   resourceType: literal("Cloudflare.Worker"),
-  attr: object({ workerName: string(), url: optional(string()), urls: array(string()) }),
+  attr: object({
+    workerName: string(),
+    url: optional(string()),
+    urls: array(string()),
+    routes: array(object({ pattern: string(), url: optional(string()) })),
+  }),
 });
 
 /**

@@ -24,9 +24,16 @@ type RepositoryDashboardRepository = NonNullable<
   (typeof api.repository.list)["_returnType"]
 >[number];
 
-export type RepositoryEnvironmentAction =
+type RepositoryEnvironmentLink =
   | { destination: "external"; href: string; label: string }
   | { destination: "samebase"; href: string; label: string };
+
+/**
+none = a host that no URL reaches, such as the wildcard host `*.xml.md` of a zone route.
+*/
+export type RepositoryEnvironmentAction =
+  | RepositoryEnvironmentLink
+  | { destination: "none"; label: string };
 
 /**
 pull_request_head = a preview of the Alchemy state store whose run record names the head commit of
@@ -34,11 +41,15 @@ the pull request, `headCommit`.
 */
 type RepositoryEnvironmentPullRequestHead = { provenance: "pull_request_head"; headCommit: string };
 
+/**
+unlinked = a host that no URL reaches, such as the wildcard host `*.json.md` of a zone route.
+*/
 type RepositoryEnvironmentWorkerDestination =
   | ({ state: "available"; href: string; label: string; title: string } & (
       | { provenance: "production" | "selected_result" | "earlier_check" }
       | RepositoryEnvironmentPullRequestHead
     ))
+  | { state: "unlinked"; label: string }
   | { state: "absent" };
 
 /**
@@ -70,7 +81,7 @@ export type RepositoryEnvironmentResource =
   | ({
       kind: "destination";
       id: string;
-      actions: readonly RepositoryEnvironmentAction[];
+      actions: readonly RepositoryEnvironmentLink[];
       href: string;
       label: string;
       provider: "convex";
@@ -181,7 +192,7 @@ function buildConvexProductionActions({
   owner: string;
   repoName: string;
   schemaGraphEnabled: boolean;
-}): RepositoryEnvironmentAction[] {
+}): RepositoryEnvironmentLink[] {
   return [
     {
       destination: "samebase",
@@ -380,10 +391,18 @@ export function buildProductionEnvironmentRoots({
 
 /**
 The default-branch block from the stacks of the repository in the Alchemy state store: the stage
-`prod` of each stack, each resource in its directory of the repository (`placeStageResources`). The store records no build, so no build state
-shows. A Convex deployment takes its dashboard link and region from the live reads of its project
-and production deployment, like an attached project. The Schema route reads schema snapshots stored
-for an attachment row, so a deployment offers it only when its project is attached.
+`prod` of each stack, each resource in its directory of the repository (`placeStageResources`). The
+store records no build, so no build state shows.
+
+A Worker links to its custom domains and workers.dev URL, `attr.urls`, and without them to its zone
+routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
+the route covers only a path, such as `example.com/api/`, and links to that path. A route with a
+wildcard host, such as `*.json.md/*`, has no URL and shows without a link. The first one is the
+Worker's destination and the others are in its menu.
+
+A Convex deployment takes its dashboard link and region from the live reads of its project and
+production deployment, like an attached project. The Schema route reads schema snapshots stored for
+an attachment row, so a deployment offers it only when its project is attached.
 */
 export function buildAlchemyEnvironmentRoots({
   branch,
@@ -413,7 +432,26 @@ export function buildAlchemyEnvironmentRoots({
 
       return [
         ...workers.map(({ fqn, state, rootDirectory }): RepositoryEnvironmentResourceInput => {
-          const { url, urls, workerName } = state.attr;
+          const { routes, urls, workerName } = state.attr;
+          const destinations: RepositoryEnvironmentAction[] =
+            urls.length > 0
+              ? urls.map((url) => ({
+                  destination: "external",
+                  href: url,
+                  label: buildProductionUrlLabel(url),
+                }))
+              : routes.map((route) => {
+                  // The pattern without its scheme and its last `*`, such as `e.samebase.com/` or
+                  // `example.com/api/`: the route reaches the Worker only on that path of the host.
+                  const target = route.pattern.replace(/^https?:\/\//i, "").replace(/\*$/, "");
+                  const host = target.replace(/\/.*$/, "");
+                  const path = target.slice(host.length);
+                  const label = path === "/" ? host : target;
+                  return route.url === undefined
+                    ? { destination: "none", label }
+                    : { destination: "external", href: `${route.url}${path}`, label };
+                });
+          const primary = destinations.at(0);
           return {
             rootDirectory,
             sortKey: `0:${workerName}:${stack.name}:${fqn}`,
@@ -423,26 +461,21 @@ export function buildAlchemyEnvironmentRoots({
               worker: {
                 workerName,
                 build: { state: "unrecorded" },
-                destination:
-                  url === undefined
-                    ? { state: "absent" }
+                destination: !primary
+                  ? { state: "absent" }
+                  : primary.destination === "none"
+                    ? { state: "unlinked", label: primary.label }
                     : {
                         state: "available",
-                        href: url,
-                        label: buildProductionUrlLabel(url),
+                        href: primary.href,
+                        label: primary.label,
                         provenance: "production",
                         title:
                           rootDirectory === "/"
                             ? "Open production app"
                             : `Open production app for ${rootDirectory}`,
                       },
-                actions: urls
-                  .filter((other) => other !== url)
-                  .map((other) => ({
-                    destination: "external",
-                    href: other,
-                    label: buildProductionUrlLabel(other),
-                  })),
+                actions: destinations.slice(1),
               },
             },
           };

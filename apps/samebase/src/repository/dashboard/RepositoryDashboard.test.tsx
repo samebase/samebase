@@ -784,6 +784,24 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
   };
 }
 
+/** The stacks of samebase/samebase after the move, with `replace` applied to every row. */
+function samebaseStacksWithRows(replace: (value: string) => string): RepositoryAlchemyStacks {
+  const stacks = samebaseStacksAfterTheMove();
+  return {
+    ...stacks,
+    stacks: stacks.stacks.map((stack) => ({
+      ...stack,
+      stages: stack.stages.map((stage) => ({
+        ...stage,
+        resources: stage.resources.map((resource) => ({
+          fqn: resource.fqn,
+          value: replace(resource.value),
+        })),
+      })),
+    })),
+  };
+}
+
 describe("repository environment roots", () => {
   it("builds the default-branch block from the stage prod of the stack in the team store", () => {
     // Like the preview deployment of Samebase: the repository has no attachment rows.
@@ -866,6 +884,97 @@ describe("repository environment roots", () => {
         rootDirectory: "apps/sidebars-example",
         resources: ["samebase-monorepo-sidebars-example"],
       },
+    ]);
+  });
+
+  it("links the Workers of samebase/samebase without URLs to their routes", () => {
+    // The captured Domains and PosthogProxy rows: no custom domain and no workers.dev URL.
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "samebase",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      stacks: samebaseStacksAfterTheMove(),
+    });
+    const rootWorkers = roots.filter((root) => root.rootDirectory === "/");
+
+    expect(
+      rootWorkers.flatMap((root) =>
+        root.resources.flatMap((resource) =>
+          resource.kind === "cloudflare_worker"
+            ? [
+                {
+                  workerName: resource.worker.workerName,
+                  destination: resource.worker.destination,
+                  actions: resource.worker.actions,
+                },
+              ]
+            : [],
+        ),
+      ),
+    ).toEqual([
+      {
+        workerName: "samebase-domains",
+        destination: { state: "unlinked", label: "*.json.md" },
+        actions: [{ destination: "none", label: "*.xml.md" }],
+      },
+      {
+        workerName: "samebase-posthog-proxy",
+        destination: {
+          state: "available",
+          href: "https://e.samebase.com/",
+          label: "e.samebase.com",
+          provenance: "production",
+          title: "Open production app",
+        },
+        actions: [],
+      },
+    ]);
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={rootWorkers} />);
+    expect(container.textContent).toBe(
+      "samebase-domains*.json.mdsamebase-posthog-proxye.samebase.com",
+    );
+    expect([...container.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
+      "https://e.samebase.com/",
+    ]);
+  });
+
+  it("links a route that covers a path of its host to that path", () => {
+    // The captured PosthogProxy row with a second route on a path of its host. Alchemy gives every
+    // route of the host the same url, the origin.
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "samebase",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      stacks: samebaseStacksWithRows((value) =>
+        value.replace(
+          '"url":"https://e.samebase.com"}]',
+          '"url":"https://e.samebase.com"},{"id":"static","pattern":"e.samebase.com/static/*","zoneId":"2f2e7713e926a7282b25796b02826f02","url":"https://e.samebase.com"}]',
+        ),
+      ),
+    });
+
+    expect(
+      roots.flatMap((root) =>
+        root.resources.flatMap((resource) =>
+          resource.kind === "cloudflare_worker" &&
+          resource.worker.workerName === "samebase-posthog-proxy"
+            ? [resource.worker.actions]
+            : [],
+        ),
+      ),
+    ).toEqual([
+      [
+        {
+          destination: "external",
+          href: "https://e.samebase.com/static/",
+          label: "e.samebase.com/static/",
+        },
+      ],
     ]);
   });
 
