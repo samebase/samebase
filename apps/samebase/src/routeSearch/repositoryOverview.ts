@@ -15,7 +15,7 @@ const RouteSearchSchema_repositoryOverview = defineRouteSearchParams({
   */
   attachments: routeSearchPresenceParam({
     access: "access_dashboard",
-    suggestion: "hidden",
+    suggestion: "route",
   }),
 });
 

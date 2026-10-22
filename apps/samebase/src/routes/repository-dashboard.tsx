@@ -47,7 +47,10 @@ export const Route = createFileRoute("/_authed/repo/$owner/$repository")({
         content: <RepositoryDashboardRouteLeftPane />,
       },
     },
-    searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    searchParamSuggestions: [
+      ...DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+      ...REPOSITORY_OVERVIEW_ROUTE_SEARCH_STATIC_DATA.searchParamSuggestions,
+    ],
   },
   loader: loadRepositoryDashboard,
   component: RepositoryDashboardRouteComponent,

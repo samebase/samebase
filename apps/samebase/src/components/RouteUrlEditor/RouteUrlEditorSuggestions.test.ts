@@ -289,6 +289,22 @@ describe("readSuggestions", () => {
     );
   });
 
+  it("lists ?attachments on the repository overview and hides ?reset", () => {
+    const overviewValues = readValues({
+      routeAddress: "/repo/acme/demo?",
+      routeTextBeforeCursor: "/repo/acme/demo?",
+    });
+    const termsValues = readValues({
+      routeAddress: "/terms?",
+      routeTextBeforeCursor: "/terms?",
+    });
+
+    expect(overviewValues.slice(0, 2)).toEqual(["?attachments", "?delete"]);
+    expect(overviewValues).not.toContain("?reset");
+    expect(termsValues).not.toContain("?attachments");
+    expect(termsValues).not.toContain("?reset");
+  });
+
   it("keeps the next query slot before an existing hash", () => {
     const rows = readRows({
       routeAddress: "/logo?da#top",
