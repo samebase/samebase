@@ -1058,104 +1058,39 @@ describe("resolveConvexPreviewDeployment", () => {
 });
 
 describe("buildPullRequestAlchemyPreview", () => {
-  const [pr24, pr25, prod] = observedAlchemyStackReply.value.stages;
-  // The stages as `readAlchemyStacks` returns the captured reply: no value holds a secret, and the
-  // run record of `prod` leaves its output.
+  const [pr1756, pr1768] = observedSamebaseStackReply.value.stages;
+  // The run record of the captured pr-1768 output, as `readAlchemyStacks` returns it.
+  const record = {
+    version: 1 as const,
+    repository: "samebase/samebase",
+    stackFile: "alchemy.run.ts",
+    branch: "alchemy-root-stack",
+    pullRequest: 1768,
+    headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+    runUrl: "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
+    source: "github-actions" as const,
+    recordedAt: "2026-10-22T09:34:35.577Z",
+  };
   const stack = {
     state: "found" as const,
     stacks: [
       {
-        name: "samebase/base-alchemy",
+        name: "samebase/samebase",
         stages: [
           {
-            name: pr24.stage,
-            run: { state: "none" as const },
-            resources: pr24.resources,
-            output: pr24.output,
-          },
-          {
-            name: pr25.stage,
-            run: { state: "none" as const },
-            resources: pr25.resources,
-            output: pr25.output,
-          },
-          {
-            name: prod.stage,
-            run: { state: "unknown" as const },
-            resources: prod.resources,
-            output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+            name: pr1768.stage,
+            record,
+            resources: pr1768.resources,
+            output: '{"url":"https://aware-bobcat-542.convex.site"}',
           },
         ],
       },
     ],
   };
+  const head1768 = { number: 1768, headRefOid: "429c1218a16d2ee74b9da68d684dc460a0a67ce8" };
 
-  // The head of samebase/base-alchemy#24 when the stack was captured.
-  const head24 = { number: 24, headRefOid: "078b296b3d5a3e191223ef3af18ad87c9ed8cb8d" };
-
-  it("reads the preview of a pull request from its stage pr-<number>", () => {
-    // Without a run record the stack file is unknown, so the preview sits at the repository root.
-    expect(buildPullRequestAlchemyPreview({ stack, head: head24 })).toEqual({
-      state: "available",
-      convexDeployments: [
-        {
-          name: "nautical-eagle-647",
-          href: "https://nautical-eagle-647.convex.site",
-          rootDirectory: "/",
-          headCommit: null,
-        },
-      ],
-      workers: [],
-    });
-  });
-
-  it("places the preview of samebase/samebase#1768 in the rootDir of its Convex app", () => {
-    const [pr1756, pr1768] = observedSamebaseStackReply.value.stages;
-    // The stages as `readAlchemyStacks` returns the captured reply: the run record of pr-1768
-    // leaves its output, and the interrupted pr-1756 has none.
-    const samebase = {
-      state: "found" as const,
-      stacks: [
-        {
-          name: "samebase/samebase",
-          stages: [
-            {
-              name: pr1756.stage,
-              run: { state: "none" as const },
-              resources: pr1756.resources,
-              output: pr1756.output,
-            },
-            {
-              name: pr1768.stage,
-              run: {
-                state: "recorded" as const,
-                record: {
-                  version: 1 as const,
-                  repository: "samebase/samebase",
-                  stackFile: "alchemy.run.ts",
-                  branch: "alchemy-root-stack",
-                  pullRequest: 1768,
-                  headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
-                  runUrl:
-                    "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
-                  source: "github-actions" as const,
-                  recordedAt: "2026-10-22T09:34:35.577Z",
-                },
-              },
-              resources: pr1768.resources,
-              output: '{"url":"https://aware-bobcat-542.convex.site"}',
-            },
-          ],
-        },
-      ],
-    };
-
-    expect(
-      buildPullRequestAlchemyPreview({
-        stack: samebase,
-        head: { number: 1768, headRefOid: "429c1218a16d2ee74b9da68d684dc460a0a67ce8" },
-      }),
-    ).toEqual({
+  it("places the preview of a pull request in the rootDir of its Convex app", () => {
+    expect(buildPullRequestAlchemyPreview({ stack, head: head1768 })).toEqual({
       state: "available",
       convexDeployments: [
         {
@@ -1167,77 +1102,50 @@ describe("buildPullRequestAlchemyPreview", () => {
       ],
       workers: [],
     });
-    // The Site row of the interrupted deploy has no attributes, so it is not a preview.
-    expect(
-      buildPullRequestAlchemyPreview({
-        stack: samebase,
-        head: { number: 1756, headRefOid: "d18e3fd06fd11312a6aeef8be1a681852bb6bdd1" },
-      }),
-    ).toEqual({ state: "available", convexDeployments: [], workers: [] });
   });
 
   it("names the head commit only when the run record of the stage names the head", () => {
-    // Stage pr-23 was destroyed when samebase/base-alchemy#23 merged, before a capture. This is the
-    // captured stage pr-24 renamed, with the record that the run of the pr-23 preview wrote.
-    const recordedStack = {
-      state: "found" as const,
-      stacks: [
-        {
-          name: "samebase/base-alchemy",
-          stages: [
-            {
-              name: "pr-23",
-              run: {
-                state: "recorded" as const,
-                record: {
-                  version: 1 as const,
-                  repository: "samebase/base-alchemy",
-                  stackFile: "alchemy.run.ts",
-                  branch: "alchemy-convex-0-7",
-                  pullRequest: 23,
-                  headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2",
-                  runUrl:
-                    "https://github.com/samebase/base-alchemy/actions/runs/39665600937/attempts/1",
-                  source: "github-actions" as const,
-                  recordedAt: "2026-10-21T19:56:46.000Z",
-                },
-              },
-              resources: pr24.resources,
-              output: pr24.output,
-            },
-          ],
-        },
-      ],
-    };
-
     expect(
       buildPullRequestAlchemyPreview({
-        stack: recordedStack,
-        head: { number: 23, headRefOid: "e63be559a98682f3b67090f9d9e294694e87fad2" },
-      }),
-    ).toMatchObject({
-      state: "available",
-      convexDeployments: [{ headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2" }],
-    });
-    expect(
-      buildPullRequestAlchemyPreview({
-        stack: recordedStack,
-        head: { number: 23, headRefOid: "b".repeat(40) },
+        stack,
+        head: { number: 1768, headRefOid: "b".repeat(40) },
       }),
     ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
   });
 
+  it("leaves out a Site row without attributes or without rootDir", () => {
+    // The rows of the interrupted pr-1756 have no `attr`, and the captured samebase/base-alchemy
+    // pr-24 Deployment row has no `rootDir`.
+    const [pr24] = observedAlchemyStackReply.value.stages;
+    const rowsWithout = (resources: readonly { fqn: string; value: string }[]) => ({
+      state: "found" as const,
+      stacks: [
+        {
+          name: "samebase/samebase",
+          stages: [{ name: pr1768.stage, record, resources: [...resources], output: "{}" }],
+        },
+      ],
+    });
+
+    expect(
+      buildPullRequestAlchemyPreview({ stack: rowsWithout(pr1756.resources), head: head1768 }),
+    ).toEqual({ state: "available", convexDeployments: [], workers: [] });
+    expect(
+      buildPullRequestAlchemyPreview({ stack: rowsWithout(pr24.resources), head: head1768 }),
+    ).toEqual({ state: "available", convexDeployments: [], workers: [] });
+  });
+
   it("finds no preview for a pull request without a stage or a repository without a stack", () => {
-    expect(buildPullRequestAlchemyPreview({ stack, head: { ...head24, number: 23 } })).toEqual({
+    expect(buildPullRequestAlchemyPreview({ stack, head: { ...head1768, number: 1767 } })).toEqual({
       state: "absent",
     });
-    expect(buildPullRequestAlchemyPreview({ stack: { state: "missing" }, head: head24 })).toEqual({
-      state: "absent",
-    });
+    expect(buildPullRequestAlchemyPreview({ stack: { state: "missing" }, head: head1768 })).toEqual(
+      { state: "absent" },
+    );
   });
 
   it("reports a store that could not be read", () => {
-    expect(buildPullRequestAlchemyPreview({ stack: { state: "failed" }, head: head24 })).toEqual({
+    expect(buildPullRequestAlchemyPreview({ stack: { state: "failed" }, head: head1768 })).toEqual({
       state: "unavailable",
     });
   });

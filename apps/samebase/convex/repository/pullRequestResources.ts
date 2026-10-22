@@ -682,12 +682,11 @@ export function buildPullRequestAlchemyPreview(args: {
   }
 
   const placed = stages.map((stage) => {
-    const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
-    const record = stage.run.state === "recorded" ? stage.run.record : null;
+    const output: unknown = JSON.parse(stage.output);
     return {
-      ...placeStageResources({ stackFile: record?.stackFile ?? null, resources: stage.resources }),
+      ...placeStageResources({ stackFile: stage.record.stackFile, resources: stage.resources }),
       url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
-      headCommit: record?.headCommit === args.head.headRefOid ? args.head.headRefOid : null,
+      headCommit: stage.record.headCommit === args.head.headRefOid ? args.head.headRefOid : null,
     };
   });
   return {

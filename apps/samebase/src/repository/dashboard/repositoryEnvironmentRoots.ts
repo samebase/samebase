@@ -4,7 +4,7 @@ import type {
   PullRequestResources,
   PullRequestWorkerResource,
 } from "../../../convex/repository/pullRequestModel";
-import { findProductionStage, placeStageResources } from "../../../shared/alchemyState";
+import { placeStageResources } from "../../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import {
@@ -380,8 +380,7 @@ export function buildProductionEnvironmentRoots({
 
 /**
 The default-branch block from the stacks of the repository in the Alchemy state store: the stage
-`prod` of each stack, or `main` for a stack whose stages are not renamed yet, each resource in its
-directory of the repository (`placeStageResources`). The store records no build, so no build state
+`prod` of each stack, each resource in its directory of the repository (`placeStageResources`). The store records no build, so no build state
 shows. A Convex deployment takes its dashboard link and region from the live reads of its project
 and production deployment, like an attached project. The Schema route reads schema snapshots stored
 for an attachment row, so a deployment offers it only when its project is attached.
@@ -403,12 +402,12 @@ export function buildAlchemyEnvironmentRoots({
 }): RepositoryEnvironmentRoot[] {
   return groupRepositoryEnvironmentResources(
     stacks.stacks.flatMap((stack): RepositoryEnvironmentResourceInput[] => {
-      const stage = findProductionStage(stack.stages);
+      const stage = stack.stages.find((candidate) => candidate.name === "prod");
       if (!stage) {
         return [];
       }
       const { convexDeployments, workers } = placeStageResources({
-        stackFile: stage.run.state === "recorded" ? stage.run.record.stackFile : null,
+        stackFile: stage.record.stackFile,
         resources: stage.resources,
       });
 

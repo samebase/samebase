@@ -1,8 +1,8 @@
+import { notEmpty } from "@samebase/dependent/main";
 import { parse, validate } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
 import {
   ALCHEMY_REDACTED_MARKER,
-  findProductionStage,
   vAlchemyConvexDeploymentState,
   vAlchemyConvexProjectState,
 } from "../../shared/alchemyState";
@@ -35,8 +35,8 @@ The key of the run record in a stage output.
 const RUN_RECORD_KEY = "samebase.run";
 
 /**
-The run record that @samebase/alchemy-convex 0.7.0 and later add to each stage output they write:
-the run of the last full deploy of the stage. It holds no secret.
+The run record that @samebase/alchemy-convex adds to each stage output it writes: the run of the
+last full deploy of the stage. It holds no secret.
 
 @see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/RunRecord.ts#L22-L39
 */
@@ -62,35 +62,21 @@ const vRunRecord = object({
   recordedAt: string(),
 });
 
+/** A stage whose output holds a run record of version 1. */
 const vAlchemyStage = object({
   name: string(),
-  /**
-  recorded = the stage output holds a run record of version 1.
-
-  none = the stage has no output yet, or an output without a run record, such as one written
-  before @samebase/alchemy-convex 0.7.0.
-
-  unknown = the run record has another version or a shape that this reader does not know.
-  */
-  run: union(
-    object({ state: literal("recorded"), record: vRunRecord }),
-    object({ state: literal("none") }),
-    object({ state: literal("unknown") }),
-  ),
+  record: vRunRecord,
   /** `value` is the JSON text of Alchemy's `encodeState` without secret values. */
   resources: array(object({ fqn: string(), value: string() })),
-  /**
-  The JSON text of the stage output without the run record and without secret values, or
-  `null` before the first output.
-  */
-  output: union(string(), v.null()),
+  /** The JSON text of the stage output without the run record and without secret values. */
+  output: string(),
 });
 export type AlchemyStage = Infer<typeof vAlchemyStage>;
 
 /**
-A stack of the repository with the stages that belong to it, in name order. The stack of the
-repository root is named after the repository, `owner/name`, and a stack in a folder after the
-repository and the folder, such as `owner/name/apps/web`.
+A stack of the repository with the stages whose run record names the repository, in name order.
+The stack of the repository root is named after the repository, `owner/name`, and a stack in a
+folder after the repository and the folder, such as `owner/name/apps/web`.
 */
 const vAlchemyStack = object({ name: string(), stages: array(vAlchemyStage) });
 export type AlchemyStack = Infer<typeof vAlchemyStack>;
@@ -166,38 +152,36 @@ function parseWithoutSecretValues(text: string): unknown {
   );
 }
 
-function readStage(stage: StoreStage): AlchemyStage {
-  const resources = stage.resources.map((resource) => ({
-    fqn: resource.fqn,
-    value: JSON.stringify(parseWithoutSecretValues(resource.value)),
-  }));
+/** The stage when its output holds a run record of version 1 that names `repository`, else null. */
+function readStage(stage: StoreStage, repository: string): AlchemyStage | null {
   const output = stage.output === null ? null : parseWithoutSecretValues(stage.output);
-  if (!isRecord(output) || !(RUN_RECORD_KEY in output)) {
-    return {
-      name: stage.stage,
-      run: { state: "none" },
-      resources,
-      output: output === null ? null : JSON.stringify(output),
-    };
+  if (!isRecord(output)) {
+    return null;
+  }
+  const { [RUN_RECORD_KEY]: record, ...stackOutput } = output;
+  if (!validate(vRunRecord, record, { allowUnknownFields: true })) {
+    return null;
   }
 
-  const { [RUN_RECORD_KEY]: record, ...stackOutput } = output;
-  return {
-    name: stage.stage,
-    run: validate(vRunRecord, record, { allowUnknownFields: true })
-      ? { state: "recorded", record: parse(vRunRecord, record) }
-      : { state: "unknown" },
-    resources,
-    output: JSON.stringify(stackOutput),
-  };
+  const recorded = parse(vRunRecord, record);
+  return recorded.repository === repository
+    ? {
+        name: stage.stage,
+        record: recorded,
+        resources: stage.resources.map((resource) => ({
+          fqn: resource.fqn,
+          value: JSON.stringify(parseWithoutSecretValues(resource.value)),
+        })),
+        output: JSON.stringify(stackOutput),
+      }
+    : null;
 }
 
 /**
 Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
 deployment of the team's `alchemy-state` project: `state:stacks`, then one `state:readStack` for each
-stack named `owner/name` or `owner/name/<folder>`. A stage belongs to the repository when its run
-record names the repository, or, without a run record, when its stack is named `owner/name`. Other
-stacks of the team are not read.
+stack named `owner/name` or `owner/name/<folder>`. A stack keeps the stages whose run record names
+the repository. Other stacks of the team are not read.
 */
 export async function readAlchemyStacks(args: {
   /** The GitHub `owner/name` of the repository. */
@@ -245,20 +229,16 @@ export async function readAlchemyStacks(args: {
     store: "found",
     stacks: replies.flatMap(({ name, reply }) => {
       const stages = parse(vStoreStackReply, reply)
-        .value.stages.map(readStage)
-        .filter((stage) =>
-          stage.run.state === "recorded"
-            ? stage.run.record.repository === args.repository
-            : name === args.repository,
-        );
+        .value.stages.map((stage) => readStage(stage, args.repository))
+        .filter(notEmpty);
       return stages.length === 0 ? [] : [{ name, stages }];
     }),
   };
 }
 
 /**
-The `Convex.Deployment` resources of the production stages of the stacks, each with its Convex
-project and the team of that project when the state names it.
+The `Convex.Deployment` resources of the production stages, `prod`, of the stacks, each with its
+Convex project and the team of that project when the state names it.
 */
 export function readProductionConvexDeployments(stacks: readonly AlchemyStack[]): {
   projectId: string;
@@ -266,7 +246,7 @@ export function readProductionConvexDeployments(stacks: readonly AlchemyStack[])
   teamId: string | null;
 }[] {
   return stacks.flatMap((stack) => {
-    const stage = findProductionStage(stack.stages);
+    const stage = stack.stages.find((candidate) => candidate.name === "prod");
     const states = (stage?.resources ?? []).map((resource): unknown => JSON.parse(resource.value));
     const projects = states.flatMap((state) =>
       validate(vAlchemyConvexProjectState, state, { allowUnknownFields: true }) ? [state.attr] : [],

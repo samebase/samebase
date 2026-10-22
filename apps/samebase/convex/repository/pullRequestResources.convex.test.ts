@@ -206,7 +206,7 @@ afterEach(() => {
 });
 
 describe("pull request resources from the Alchemy state of the team", () => {
-  it("reads the preview of samebase/base-alchemy#24 from the captured stack", async () => {
+  it("shows no preview for samebase/base-alchemy#24, whose captured stage has no run record", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedBaseAlchemy(t);
     githubMocks.graphql.mockImplementation(async (query: string) => {
@@ -222,24 +222,14 @@ describe("pull request resources from the Alchemy state of the team", () => {
       { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24"] },
     );
 
+    // The stage prod has a run record, so the store holds a stack of the repository and the
+    // attachment rows are not read; the stage pr-24 has none, so the pull request has no preview.
     expect(resources).toMatchObject({
       state: "available",
       pullRequestId: "PR_24",
       workers: [],
       convexProjects: [],
-      // The stage has no run record, so its stack file and head are unknown.
-      alchemyPreview: {
-        state: "available",
-        convexDeployments: [
-          {
-            name: "nautical-eagle-647",
-            href: "https://nautical-eagle-647.convex.site",
-            rootDirectory: "/",
-            headCommit: null,
-          },
-        ],
-        workers: [],
-      },
+      alchemyPreview: { state: "absent" },
     });
   });
 

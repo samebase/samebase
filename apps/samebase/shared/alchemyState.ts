@@ -16,19 +16,19 @@ export const ALCHEMY_REDACTED_MARKER = "__redacted__";
 /**
 The state of a `Convex.Deployment` resource. `props.project` holds every attribute of the project
 when the stack passes a `Convex.Project` resource, and only `projectId` otherwise (measured).
-`props.rootDir` is the app directory relative to the directory of the stack file, "." included; a
-row written before @samebase/alchemy-convex 0.8.0 has none. `props.source` is the Convex functions
-directory relative to `rootDir`, as a path or as an object with `path`; a deployment without
-`source` pushes nothing. `attr.url` is the client URL, such as
+`props.rootDir` is the app directory relative to the directory of the stack file, "." included.
+`props.source` is the Convex functions directory relative to `rootDir`, as a path or as an object
+with `path`; a deployment without `source` pushes nothing. `attr.url` is the client URL, such as
 `https://happy-animal-123.convex.cloud`, and `attr.siteUrl` the HTTP actions URL.
 
 @see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/Deployment.ts#L86-L120
+@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/Deployment.ts#L178-L194
 */
 export const vAlchemyConvexDeploymentState = object({
   resourceType: literal("Convex.Deployment"),
   props: object({
     project: object({ projectId: number(), slug: optional(string()), teamId: optional(number()) }),
-    rootDir: optional(string()),
+    rootDir: string(),
     source: optional(union(string(), object({ path: string() }))),
   }),
   attr: object({ projectId: number(), name: string(), url: string(), siteUrl: string() }),
@@ -88,18 +88,16 @@ function rootDirectoryOf(path: string): string {
 
 /**
 The deployed resources of one stage of a stack, each with the directory of the repository that it
-belongs to (`/` for the root). `stackFile` is the stack file of the stage's run record, or null for a
-stage without one, whose resources sit at the repository root.
+belongs to (`/` for the root). `stackFile` is the stack file of the stage's run record.
 
 A Convex deployment sits in its app directory, `props.rootDir` below the directory of the stack
-file, and in that directory for a row without `rootDir` or with one outside the repository. Its code
-location adds `source`, and is null without a run record or a `source`. Alchemy's
-`Cloudflare.Worker` has no `rootDir`, and its `main` and assets are relative to the directory where
-the stack runs, so a Worker sits in the directory of the stack file. A row without `attr`, such as
-one of an interrupted deploy, matches no validator and is left out.
+file, and its code location adds `source` (null without `source`). Alchemy's `Cloudflare.Worker` has
+no `rootDir`: its `main` and assets are relative to the directory where the stack runs, so a Worker
+sits in the directory of the stack file. A row that no validator accepts, such as one without
+`attr` from an interrupted deploy, and a path outside the repository are left out.
 */
 export function placeStageResources(stage: {
-  stackFile: string | null;
+  stackFile: string;
   resources: readonly { fqn: string; value: string }[];
 }): {
   convexDeployments: {
@@ -115,7 +113,7 @@ export function placeStageResources(stage: {
   }[];
 } {
   const { stackFile } = stage;
-  const stackDirectory = stackFile === null ? "." : (stackPath(stackFile) ?? ".");
+  const stackDirectory = stackPath(stackFile);
   const states = stage.resources.map((resource) => {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
@@ -126,39 +124,26 @@ export function placeStageResources(stage: {
       if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
         return [];
       }
-      const rootDir = state.props.rootDir ?? ".";
-      const source = state.props.source;
+      const { rootDir, source } = state.props;
+      const appDirectory = stackPath(stackFile, rootDir);
       const sourcePath = typeof source === "string" ? source : source?.path;
-      return [
-        {
-          fqn,
-          state,
-          rootDirectory: rootDirectoryOf(
-            (stackFile === null ? null : stackPath(stackFile, rootDir)) ?? stackDirectory,
-          ),
-          codeLocation:
-            stackFile === null || sourcePath === undefined
-              ? null
-              : stackPath(stackFile, rootDir, sourcePath),
-        },
-      ];
+      return appDirectory === null
+        ? []
+        : [
+            {
+              fqn,
+              state,
+              rootDirectory: rootDirectoryOf(appDirectory),
+              codeLocation:
+                sourcePath === undefined ? null : stackPath(stackFile, rootDir, sourcePath),
+            },
+          ];
     }),
     workers: states.flatMap(({ fqn, state }) =>
+      stackDirectory !== null &&
       validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
         ? [{ fqn, state, rootDirectory: rootDirectoryOf(stackDirectory) }]
         : [],
     ),
   };
-}
-
-/**
-The stage that holds the production resources of a stack: `prod`, the upstream Alchemy name, or
-`main` for a stack whose stages are not renamed yet.
-*/
-export function findProductionStage<Stage extends { name: string }>(
-  stages: readonly Stage[],
-): Stage | undefined {
-  return (
-    stages.find((stage) => stage.name === "prod") ?? stages.find((stage) => stage.name === "main")
-  );
 }

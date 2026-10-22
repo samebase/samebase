@@ -18,7 +18,7 @@ type AlchemyStage = Extract<
   AlchemyStateObservation,
   { store: "found" }
 >["stacks"][number]["stages"][number];
-type AlchemyRunRecord = Extract<AlchemyStage["run"], { state: "recorded" }>["record"];
+type AlchemyRunRecord = AlchemyStage["record"];
 
 const { object, string } = v;
 
@@ -136,27 +136,20 @@ function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
 }
 
 function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
-  const output = stage.output === null ? [] : outputEntries(JSON.parse(stage.output), "");
+  const output = outputEntries(JSON.parse(stage.output), "");
   const states = stage.resources.map((resource) => {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
   });
   const { convexDeployments, workers } = placeStageResources({
-    stackFile: stage.run.state === "recorded" ? stage.run.record.stackFile : null,
+    stackFile: stage.record.stackFile,
     resources: stage.resources,
   });
 
   return (
     <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
-      {stage.run.state === "recorded" ? (
-        <AlchemyRunRecordRows record={stage.run.record} />
-      ) : (
-        <AlchemyStateDetailRow label="Run">
-          <span className="text-muted-foreground">
-            {stage.run.state === "none" ? "No run record" : "Unknown run record"}
-          </span>
-        </AlchemyStateDetailRow>
-      )}
+      <AlchemyRunRecordRows record={stage.record} />
+
       {convexDeployments.length === 0 ? null : (
         <AlchemyStateDetailRow label="Convex">
           {convexDeployments.map(({ codeLocation, fqn, state }) => (

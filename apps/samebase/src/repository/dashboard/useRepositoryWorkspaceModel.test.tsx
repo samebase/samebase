@@ -261,15 +261,30 @@ describe("useRepositoryWorkspaceModel", () => {
               region: "aws-us-east-1",
             },
           ],
-          // The stage as `alchemyState:observe` returns the captured one, without its run record.
+          // The captured stage as `alchemyState:observe` returns it, with the `rootDir` "." on its
+          // Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack file at the root.
           stacks: [
             {
               name: "samebase/base-alchemy",
               stages: [
                 {
                   name: prod.stage,
-                  run: { state: "none" },
-                  resources: prod.resources,
+                  record: {
+                    version: 1,
+                    repository: "samebase/base-alchemy",
+                    stackFile: "alchemy.run.ts",
+                    branch: "main",
+                    pullRequest: null,
+                    headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+                    runUrl:
+                      "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+                    source: "github-actions",
+                    recordedAt: "2026-10-21T19:58:06.882Z",
+                  },
+                  resources: prod.resources.map((resource) => ({
+                    fqn: resource.fqn,
+                    value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
+                  })),
                   output: '{"url":"https://ideal-dolphin-15.convex.site"}',
                 },
               ],

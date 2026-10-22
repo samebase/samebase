@@ -659,9 +659,13 @@ describe("buildProductionEnvironmentRoots", () => {
   });
 });
 
-/** The stacks as `alchemyState:observe` returns the captured reply of samebase/base-alchemy. */
+/**
+The stacks as `alchemyState:observe` returns the captured stage `prod` of samebase/base-alchemy,
+with the `rootDir` "." on its Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack
+file at the repository root.
+*/
 function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
-  const [pr24, pr25, prod] = observedAlchemyStackReply.value.stages;
+  const [, , prod] = observedAlchemyStackReply.value.stages;
   return {
     store: "found",
     liveDeployments: [
@@ -676,35 +680,23 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
         name: "samebase/base-alchemy",
         stages: [
           {
-            name: pr24.stage,
-            run: { state: "none" },
-            resources: pr24.resources,
-            output: pr24.output,
-          },
-          {
-            name: pr25.stage,
-            run: { state: "none" },
-            resources: pr25.resources,
-            output: pr25.output,
-          },
-          {
             name: prod.stage,
-            run: {
-              state: "recorded",
-              record: {
-                version: 1,
-                repository: "samebase/base-alchemy",
-                stackFile: "alchemy.run.ts",
-                branch: "main",
-                pullRequest: null,
-                headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-                runUrl:
-                  "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
-                source: "github-actions",
-                recordedAt: "2026-10-21T19:58:06.882Z",
-              },
+            record: {
+              version: 1,
+              repository: "samebase/base-alchemy",
+              stackFile: "alchemy.run.ts",
+              branch: "main",
+              pullRequest: null,
+              headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+              runUrl:
+                "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+              source: "github-actions",
+              recordedAt: "2026-10-21T19:58:06.882Z",
             },
-            resources: prod.resources,
+            resources: prod.resources.map((resource) => ({
+              fqn: resource.fqn,
+              value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
+            })),
             output: '{"url":"https://ideal-dolphin-15.convex.site"}',
           },
         ],
@@ -752,7 +744,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
         stages: [
           {
             name: "prod",
-            run: { state: "recorded", record },
+            record,
             resources: [
               rowOf("Domains"),
               proxy,
@@ -774,10 +766,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
         stages: [
           {
             name: "prod",
-            run: {
-              state: "recorded",
-              record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
-            },
+            record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
             resources: [
               {
                 fqn: "Site",
@@ -787,7 +776,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
                 ),
               },
             ],
-            output: null,
+            output: "{}",
           },
         ],
       },
@@ -880,9 +869,9 @@ describe("repository environment roots", () => {
     ]);
   });
 
-  it("places the Convex deployment of a row without rootDir in the directory of the stack file", () => {
-    // The captured `prod` of samebase/samebase, deployed from apps/samebase/alchemy.run.ts with
-    // samebase/alchemy-convex 0.7.0: its Site row has no rootDir, and its Workers sit there too.
+  it("shows no Convex deployment for a row without rootDir", () => {
+    // The captured `prod` of samebase/samebase: its Site row has no rootDir, so only the Workers
+    // show, in the directory of the stack file.
     const [, , prod] = observedSamebaseStackReply.value.stages;
     const roots = buildAlchemyEnvironmentRoots({
       branch: "main",
@@ -899,20 +888,17 @@ describe("repository environment roots", () => {
             stages: [
               {
                 name: prod.stage,
-                run: {
-                  state: "recorded",
-                  record: {
-                    version: 1,
-                    repository: "samebase/samebase",
-                    stackFile: "apps/samebase/alchemy.run.ts",
-                    branch: "main",
-                    pullRequest: null,
-                    headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
-                    runUrl:
-                      "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
-                    source: "github-actions",
-                    recordedAt: "2026-10-22T08:22:58.152Z",
-                  },
+                record: {
+                  version: 1,
+                  repository: "samebase/samebase",
+                  stackFile: "apps/samebase/alchemy.run.ts",
+                  branch: "main",
+                  pullRequest: null,
+                  headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+                  runUrl:
+                    "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
+                  source: "github-actions",
+                  recordedAt: "2026-10-22T08:22:58.152Z",
                 },
                 resources: prod.resources,
                 output: '{"url":"https://clear-butterfly-858.convex.site"}',
@@ -923,9 +909,9 @@ describe("repository environment roots", () => {
       },
     });
 
-    expect(roots.map((root) => [root.rootDirectory, root.resources.length])).toEqual([
-      ["apps/samebase", 3],
-    ]);
+    expect(
+      roots.map((root) => [root.rootDirectory, root.resources.map((resource) => resource.kind)]),
+    ).toEqual([["apps/samebase", ["cloudflare_worker", "cloudflare_worker"]]]);
   });
 
   it("routes a Convex deployment of the store through its attachment row when one exists", () => {
@@ -979,10 +965,20 @@ describe("repository environment roots", () => {
             name: "samebase/tmp-k7m2-rows",
             stages: [
               {
-                name: "main",
-                run: { state: "none" },
+                name: "prod",
+                record: {
+                  version: 1,
+                  repository: "samebase/tmp-k7m2-rows",
+                  stackFile: "alchemy.run.ts",
+                  branch: "main",
+                  pullRequest: null,
+                  headCommit: "a".repeat(40),
+                  runUrl: null,
+                  source: "laptop",
+                  recordedAt: "2026-10-21T12:00:00.000Z",
+                },
                 resources: [{ fqn: "Worker", value: worker }],
-                output: null,
+                output: "{}",
               },
             ],
           },
