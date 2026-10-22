@@ -3,8 +3,8 @@
 Use this during `clean` for a branch whose PR is merged or closed, after `clean repositories` and
 before deleting the remote branch. This is a Codex/operator workflow, not a repo script.
 
-A pull request deploys the Alchemy stage `pr-<number>` of `apps/samebase/alchemy.run.ts`: a Convex
-preview deployment whose preview name is `pr-<number>`, and the state of that stage in the
+A pull request deploys the Alchemy stage `pr-<number>` of `alchemy.run.ts` at the repository root: a
+Convex preview deployment whose preview name is `pr-<number>`, and the state of that stage in the
 `alchemy-state` project of the Convex team `nicu`. When the PR closes, the `Destroy the preview` job
 of `.github/workflows/alchemy.yml` runs `alchemy destroy --stage pr-<number>`, which deletes the
 preview deployment and the state of the stage. This runbook confirms that destroy, and runs it by
@@ -113,12 +113,11 @@ A deployment of the PR is one where all of these are true:
 
 ## 4. Destroy By Hand
 
-For a preview named `$stage`, run the destroy of its stage from `apps/samebase` of a checkout of
-`main`. It deletes the preview deployment and the state of the stage, so the repository pages of
-Samebase no longer list the stage:
+For a preview named `$stage`, run the destroy of its stage from the root of a checkout of `main`. It
+deletes the preview deployment and the state of the stage, so the repository pages of Samebase no
+longer list the stage:
 
 ```bash
-cd apps/samebase
 pnpm exec alchemy destroy --stage "$stage" --yes --no-input
 ```
 

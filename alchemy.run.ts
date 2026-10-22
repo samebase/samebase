@@ -1,4 +1,4 @@
-// The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from apps/samebase:
+// The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from the repository root:
 //
 // - Stage `prod`, on each push to main: the Convex project `samebase`, its production deployment,
 //   which serves samebase.com through convex-hosting, and the Workers next to the app, so their
@@ -8,13 +8,14 @@
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
 //
 // The state of every stage is in the `alchemy-state` project of the Convex team, under the stack
-// name samebase/samebase, where the repository pages of Samebase read it. Every run needs the team
-// token CONVEX_ACCESS_TOKEN, or the Convex CLI login (`npx convex login`) on a laptop; it mints the
-// deploy key of each push itself. The stage `prod` also needs a Cloudflare login (`npx alchemy
-// login`, or CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in apps/samebase/.env). That token needs
-// Workers Scripts Edit and Account Settings Read, plus Workers Routes Edit and Zone Read on
-// samebase.com, json.md and xml.md. The build reads the variables that alchemy.yml sets on each
-// deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
+// name samebase/samebase, where the repository pages of Samebase read it. A stack in a folder of
+// this repository is named samebase/samebase/<folder>, such as apps/sidebars-example/alchemy.run.ts,
+// and runs from its folder. Every run needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI
+// login (`npx convex login`) on a laptop; it mints the deploy key of each push itself. The stage
+// `prod` also needs a Cloudflare login (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and
+// CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit and Account Settings Read,
+// plus Workers Routes Edit and Zone Read on samebase.com, json.md and xml.md. The build reads the
+// variables that alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Convex from "@samebase/alchemy-convex";
@@ -52,13 +53,15 @@ export default Alchemy.Stack(
         adopt(true),
       );
 
-      // Built like production with the route environment `preview`. The push command also sets
-      // SITE_URL to the preview's site URL and seeds the password account. adopt(true) takes over a
-      // preview with the name of this stage that an interrupted run left behind.
+      // Built like production with the route environment `preview`. The push command, relative to
+      // rootDir, also sets SITE_URL to the preview's site URL and seeds the password account.
+      // adopt(true) takes over a preview with the name of this stage that an interrupted run left
+      // behind.
       const site = yield* Convex.Deployment("Site", {
         project,
         type: "preview",
         name: stage,
+        rootDir: "apps/samebase",
         env: { SAMEBASE_COMMIT: commit },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
@@ -87,12 +90,14 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
       Alchemy.RemovalPolicy.retain(),
     );
 
-    // The production deployment that serves samebase.com. The push is the `deploy` script of
-    // package.json: the build, the upload of the site, and `convex deploy`. A run takes over a
-    // production deployment with code that is not in state only with --adopt.
+    // The production deployment that serves samebase.com. The push runs in rootDir, the app with
+    // its package.json: the `deploy` script, which is the build, the upload of the site, and
+    // `convex deploy`. A run takes over a production deployment with code that is not in state only
+    // with --adopt.
     const site = yield* Convex.Deployment("Site", {
       project,
       type: "prod",
+      rootDir: "apps/samebase",
       env: { SAMEBASE_COMMIT: commit },
       source: { path: "./convex", command: ["node", "--run", "deploy"] },
     });
@@ -100,13 +105,14 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
     // The PostHog reverse proxy on e.samebase.com. The name is the Worker that Workers Builds
     // deployed before this stack, so Alchemy finds it by name. adopt(true) lets the first deploy
     // take over that Worker and its route, which carry no Alchemy ownership tags. main is relative
-    // to apps/samebase, where this stack runs; Alchemy saves main in the state as written and reuses
-    // it when it repairs drift, so a file URL would pin the path of the machine that deployed last.
-    // Compatibility date and observability are Alchemy's defaults. workers.dev is off: the proxy has
-    // one address. Retained on destroy: samebase.com analytics run through it.
+    // to the repository root, where this stack runs: Alchemy's Cloudflare.Worker has no rootDir.
+    // Alchemy saves main in the state as written and reuses it when it repairs drift, so a file
+    // URL would pin the path of the machine that deployed last. Compatibility date and
+    // observability are Alchemy's defaults. workers.dev is off: the proxy has one address.
+    // Retained on destroy: samebase.com analytics run through it.
     const posthogProxy = yield* Cloudflare.Worker("PosthogProxy", {
       name: "samebase-posthog-proxy",
-      main: "../posthog-proxy/src/index.ts",
+      main: "apps/posthog-proxy/src/index.ts",
       workersDev: false,
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
@@ -117,7 +123,7 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
     // deleting it here deletes the Worker and its routes.
     const domains = yield* Cloudflare.Worker("Domains", {
       name: "samebase-domains",
-      main: "../domain-router/src/index.ts",
+      main: "apps/domain-router/src/index.ts",
       workersDev: false,
       routes: [
         { pattern: "*.json.md/*", zoneName: "json.md" },

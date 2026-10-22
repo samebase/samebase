@@ -161,21 +161,24 @@ without data (`/`, `/pricing`, `/docs` and its pages, `/privacy`, `/terms`), whi
 prerenders to `<path>/index.html`. Every other request goes to the server build
 `dist/server/server.js` (from `src/server.ts`), which `convex/http.ts` imports and which renders the
 page with the visitor's session in a Convex HTTP action. `.github/workflows/alchemy.yml` runs the
-deploy with the Alchemy stack in `apps/samebase/alchemy.run.ts`:
+deploy with the Alchemy stack in `alchemy.run.ts` at the repository root, then the sidebars example
+with the stack in `apps/sidebars-example/alchemy.run.ts`:
 
 - Every push to `main` deploys the stage `prod`: the production deployment, through the `deploy`
-  script, and the Workers next to the app. When the production deployment has code that the state of
-  `prod` does not hold, such as after a move of the state, the run stops until one run with adopt
-  takes it over: `gh workflow run alchemy.yml --ref main -f adopt=true`.
+  script of `apps/samebase`, the Workers next to the app, and the sidebars example Worker. When the
+  production deployment has code that the state of `prod` does not hold, such as after a move of the
+  state, the run stops until one run with adopt takes it over:
+  `gh workflow run alchemy.yml --ref main -f adopt=true`.
 - Every pull request from this repository deploys the stage `pr-<number>`, a Convex preview
   deployment with that name, through `apps/samebase/scripts/deploy-preview.ts`, which also sets its
   `SITE_URL` and seeds its password account. The run comments the preview's URLs on the pull
   request. Closing the pull request destroys the stage and deletes the preview.
 - The state of every stage is in the `alchemy-state` project of the Convex team `nicu`, under the
-  stack name `samebase/samebase`. Every run needs the `CONVEX_ACCESS_TOKEN` repository secret, a
-  team access token; each push mints its own short-lived deploy key. The stage `prod` also needs the
-  `CLOUDFLARE_API_TOKEN` secret, the `CLOUDFLARE_ACCOUNT_ID` variable, and the
-  `PROD_POSTHOG_PROJECT_TOKEN` variable, the PostHog project token of the production build.
+  stack name `samebase/samebase`, and `samebase/samebase/<folder>` for a stack in a folder. Every
+  run needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints its
+  own short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret, the
+  `CLOUDFLARE_ACCOUNT_ID` variable, and the `PROD_POSTHOG_PROJECT_TOKEN` variable, the PostHog
+  project token of the production build.
 
 A local build never deploys production. `convex/http.ts` imports `.convex-hosting/version.js`, which
 only a deploy writes, and `dist/server/server.js`, which only a build writes, so the first push of a
