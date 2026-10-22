@@ -232,6 +232,20 @@ describe("readSuggestions", () => {
     expect(values.some((value) => value.includes("$"))).toBe(false);
   });
 
+  it("offers the routes of a repository with the owner and name of the draft", () => {
+    const values = readValues({
+      routeAddress: "/repo/samebase/samebase/?",
+      routeTextBeforeCursor: "/repo/samebase/samebase/",
+    });
+
+    expect(values.filter((value) => value.startsWith("/repo/samebase/samebase"))).toEqual([
+      "/repo/samebase/samebase",
+      "/repo/samebase/samebase/alchemy",
+      "/repo/samebase/samebase/settings",
+    ]);
+    expect(values.some((value) => value.includes("$"))).toBe(false);
+  });
+
   it("shows query key suggestions when the cursor is after the query marker", () => {
     const values = readValues({
       routeAddress: "/logo?",
