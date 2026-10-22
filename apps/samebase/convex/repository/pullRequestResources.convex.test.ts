@@ -15,7 +15,10 @@ vi.mock("../githubAppAccess", async (importOriginal) => {
 import { api } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
-import { observedAlchemyStackReply } from "./fixtures/observedAlchemyState";
+import {
+  observedAlchemyStackReply,
+  observedBaseAlchemyProject,
+} from "./fixtures/observedAlchemyState";
 
 const storeProject = {
   createTime: 1710000000000,
@@ -99,7 +102,7 @@ async function seedBaseAlchemy(t: ReturnType<typeof makeConvexTest>) {
       connectedAt: 20,
     });
 
-    return { repositoryId, userId };
+    return { organizationId, repositoryId, userId };
   });
 
   return {
@@ -132,7 +135,8 @@ const pullRequest24 = {
   },
 };
 
-function installStoreFetchStub(storeReply: unknown) {
+/** Answers the store read and the preview read of the attached base-alchemy project. */
+function installConvexFetchStub(storeReply: unknown) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -175,6 +179,12 @@ function installStoreFetchStub(storeReply: unknown) {
       ) {
         return jsonResponse(storeReply);
       }
+      if (url === "https://api.convex.dev/v1/projects/3245938") {
+        return jsonResponse(observedBaseAlchemyProject);
+      }
+      if (url.startsWith("https://api.convex.dev/v1/projects/3245938/list_deployments?")) {
+        return jsonResponse([]);
+      }
 
       throw new Error(`Unexpected request: ${url}`);
     }),
@@ -197,7 +207,7 @@ describe("pull request resources from the Alchemy state of the team", () => {
       }
       throw new Error("Only the heads query is answered in this test.");
     });
-    installStoreFetchStub(observedAlchemyStackReply);
+    installConvexFetchStub(observedAlchemyStackReply);
 
     const [resources] = await user.action(
       api.repository.pullRequestResources.getPullRequestResources,
@@ -218,6 +228,48 @@ describe("pull request resources from the Alchemy state of the team", () => {
         workers: [],
         headCommit: null,
       },
+    });
+  });
+
+  it("reads the attachment row and not the store for source attachments", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedBaseAlchemy(t);
+    // Like samebase/samebase: the stack and an attachment row of the project it deploys.
+    const convexProjectId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert("repositoryConvexProjects", {
+          repositoryId: ids.repositoryId,
+          organizationId: ids.organizationId,
+          teamId: "38516",
+          projectId: "3245938",
+          convexConfigPath: "convex.json",
+          origin: "selected_existing",
+        }),
+    );
+    githubMocks.graphql.mockImplementation(async (query: string) => {
+      if (query.includes("query PullRequestResourceHeads")) {
+        return { nodes: [pullRequest24] };
+      }
+      throw new Error("Only the heads query is answered in this test.");
+    });
+    installConvexFetchStub(observedAlchemyStackReply);
+
+    const [resources] = await user.action(
+      api.repository.pullRequestResources.getPullRequestResources,
+      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24"], source: "attachments" },
+    );
+
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input))),
+    ).not.toContain("https://api.convex.dev/v1/teams/38516/projects?limit=100");
+    // The attached project gives the branch-name match, and the stage pr-24 of the store is not read.
+    expect(resources).toMatchObject({
+      state: "available",
+      pullRequestId: "PR_24",
+      convexProjects: [{ state: "absent", convexProjectId, rootDirectory: "/" }],
+      alchemyPreview: { state: "absent" },
     });
   });
 });
