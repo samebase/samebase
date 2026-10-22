@@ -78,12 +78,19 @@ are private implementation details. The experiment does not import CLI internals
 component definition path.
 
 `start_push` is a deployment operation, not a read-only graph query. The
-[backend handler](https://github.com/get-convex/convex-backend/blob/944a6b40659b14b31649335ebbb5d728c96dece4/crates/local_backend/src/deploy_config2.rs#L332)
+[backend handler](https://github.com/get-convex/convex-backend/blob/72ce13c379fe6dbdfc305bc8ad699c5663c68c2a/crates/local_backend/src/deploy_config2.rs#L331)
 requires deployment permission. The
-[backend's dry-run explanation](https://github.com/get-convex/convex-backend/blob/944a6b40659b14b31649335ebbb5d728c96dece4/crates/local_backend/src/deploy_config2.rs#L428)
-states that this step commits schema changes for validation. It can start schema validation and
-index backfill. These source links describe the inspected backend source, not a claim that the local
-precompiled binary has that exact commit. Only disposable local deployment state was used.
+[backend's dry-run explanation](https://github.com/get-convex/convex-backend/blob/72ce13c379fe6dbdfc305bc8ad699c5663c68c2a/crates/local_backend/src/deploy_config2.rs#L427)
+states that this step commits schema changes for validation. These links use the full source commit
+that matches the tested backend's `72ce13c` suffix.
+
+`dryRun` does not prevent all writes. The
+[schema write transaction](https://github.com/get-convex/convex-backend/blob/72ce13c379fe6dbdfc305bc8ad699c5663c68c2a/crates/application/src/deploy_config.rs#L359)
+still runs. It does change two later effects: the
+[index diff](https://github.com/get-convex/convex-backend/blob/72ce13c379fe6dbdfc305bc8ad699c5663c68c2a/crates/application/src/deploy_config.rs#L216)
+is computed in a discarded transaction, without committing pending indexes, and
+[`finish_push` is skipped](https://github.com/get-convex/convex-backend/blob/72ce13c379fe6dbdfc305bc8ad699c5663c68c2a/crates/local_backend/src/deploy_config2.rs#L464).
+Only disposable local deployment state was used here.
 
 The returned `env` field is absent from the installed CLI's `checkedComponent` TypeScript schema.
 `graph.ts` therefore validates the narrow shape observed in the real response. This is a pinned
