@@ -255,9 +255,9 @@ describe("readSuggestions", () => {
     expect(
       logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
     ).toEqual([
-      [null, "?reset"],
       ["theme", "?background=lime-50"],
       ["theme", "?border=rose-300"],
+      ["theme", "?dark"],
     ]);
     expect(
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),

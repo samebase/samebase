@@ -113,7 +113,9 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   }),
   [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_public",
-    suggestion: "global",
+    // Applying reset drops every visible search param; keep it typeable but out of suggestions so
+    // a hover, keyboard, or touch-scroll preview cannot apply it.
+    suggestion: "hidden",
   }),
   // The page that a signed-out visitor asked for: a private page's server render redirects to the
   // landing page with it, and the landing page returns there after the sign-in.
