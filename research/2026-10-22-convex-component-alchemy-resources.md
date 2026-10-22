@@ -1,6 +1,10 @@
 # Convex components with Alchemy resources
 
-Date: 2026-10-22. Status: research and recommendation, not an accepted implementation contract.
+Date: 2026-10-22. Updated: 2026-10-23. Status: research, not an accepted implementation contract.
+
+The [follow-up experiments](2026-10-23-component-binding-experiments.md#decision) test three
+concrete bindings with a Worker-backed component. They replace the original R2-first pilot
+recommendation.
 
 ## Recommendation
 
@@ -19,9 +23,10 @@ wiring reusable and define the record that connects deployment state to Samebase
 Call the package export a **component infrastructure definition** or **Alchemy companion**. It is
 part of the host stack unless it has a separate deployment and lifecycle.
 
-Start with a small R2-only component pilot. Prove the association, repeated mounts, environment
-bindings, and removal behavior before extending the existing email companion. The email case has an
-additional Worker/Convex deployment-order problem and zone-wide routing effects.
+Start with a Worker-backed component that calls the Worker and stores its result. This tests the
+connection between an installed component and its compute dependency directly. Repeated mounts and
+R2 retention are separate cases. The email case adds Worker/Convex deployment ordering and zone-wide
+routing effects.
 
 ## Refinement: make the installation the authoring unit
 
@@ -311,7 +316,7 @@ this stronger protocol out of the first display pilot.
 
 ## Deployment order and lifecycle
 
-### R2 is a suitable first case; bidirectional Worker wiring needs more work
+### One-way dependencies and bidirectional Worker wiring
 
 An R2-only flow can have a one-way dependency: create the bucket and runtime access configuration,
 set Convex environment values, then push the component. Provider 0.8.0 explicitly applies
@@ -403,32 +408,14 @@ transport can be addressed separately without changing resource identity.
 | A runtime component query that reports infrastructure  | Requires a new execution/auth contract and still needs provisioning-time data.                                                                 |
 | A package descriptor for automatic installation        | Possible later as an explicit convention. It does not prove what was deployed.                                                                 |
 
-## Proposed next experiment
+## Follow-up experiments
 
-Build one small component with an R2 companion and mount it twice, including one nested path. Use
-one host stack and a disposable project's production deployment for the first Samebase display test,
-because the current observer accepts production targets. Test preview isolation separately. Keep the
-first example free of email routing and Worker callbacks so it tests the component/resource contract
-directly.
+Three isolated local experiments now test explicit registration, a shared installation declaration,
+and discovery from Convex's analyzed graph. Each uses a component action, an HTTP Worker, a
+component-owned result table, and a host query. See the
+[results and next implementation boundary](2026-10-23-component-binding-experiments.md#results).
 
-The experiment passes only if:
-
-1. A fresh deploy provisions isolated buckets, binds each instance's runtime configuration, and
-   permits each instance to read and write only its own data. Each installation is declared once;
-   the adapters derive matching mounts, environment bindings, and resource associations.
-2. The output names the exact Convex target and actual resource FQNs. Samebase shows each bucket
-   under the correct full component path, with app-level resources still visible.
-3. A mount-path change preserves physical bucket identity. An infrastructure rename has an explicit
-   migration plan. A retained bucket remains managed after an intentional handoff.
-4. Preview creation and removal do not affect production resources. Preview display is tested only
-   after its authorization path has been implemented.
-5. An injected failed apply, a selected-resource apply, and a changed deployment target cannot make
-   old output appear to be a verified current relationship.
-6. No secret values enter the output record or browser response.
-
-After that passes, update the email companion for provider 0.8.0, instance-specific routes and env
-bindings, explicit routing ownership, and complete expanded resource references. Resolve and test
-its deployment order before claiming that any component can provision arbitrary dependencies.
-
-The offline experiment establishes that Alchemy composition is available now. The live pilot is
-still needed to establish the full component deployment and Samebase display contract.
+These probes establish local runtime connections. They do not establish cloud lifecycle behavior or
+the Samebase display contract. A later display test still needs the exact resolved deployment and
+resource identities, failed-apply freshness checks, secret-free output, and the existing production
+authorization checks. Preview display requires its own authorization extension.

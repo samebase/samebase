@@ -74,9 +74,9 @@ Cloudflare infrastructure imports into the Convex isolate.
 
 The runner checks the Convex and Alchemy versions and selects the backend version explicitly. The
 exact CLI source is commit
-[`c1c639a9`](https://github.com/get-convex/convex-js/tree/c1c639a9a117cc537a22a806995d6491206b7f1e).
-Its
-[request construction and hidden output branch](https://github.com/get-convex/convex-js/blob/c1c639a9a117cc537a22a806995d6491206b7f1e/src/cli/lib/components.ts#L434)
+[`8c51066f`](https://github.com/get-convex/convex-js/tree/8c51066fa6f95e8d553a1ab4d1030a0c4abd289d),
+the `npm/1.46.0` tag. Its request-construction file matches the installed source byte for byte. Its
+[request construction and hidden output branch](https://github.com/get-convex/convex-js/blob/8c51066fa6f95e8d553a1ab4d1030a0c4abd289d/src/cli/lib/components.ts#L434)
 are private implementation details. The experiment does not import CLI internals or fabricate a
 component definition path.
 
