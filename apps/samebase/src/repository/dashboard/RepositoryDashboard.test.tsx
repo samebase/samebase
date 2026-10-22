@@ -36,6 +36,7 @@ import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
 import { PullRequestResources, RepositoryEnvironmentTree } from "./RepositoryEnvironmentTree";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
+import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
 import {
   buildAlchemyEnvironmentRoots,
   buildProductionEnvironmentRoots,
@@ -803,6 +804,54 @@ function samebaseStacksWithRows(replace: (value: string) => string): RepositoryA
 }
 
 describe("repository environment roots", () => {
+  it.each([
+    ["alchemy.run.ts", "/"],
+    ["infrastructure/alchemy.run.ts", "infrastructure"],
+  ])(
+    "places R2 buckets beside %s and links their Cloudflare dashboard",
+    (stackFile, rootDirectory) => {
+      const stacks = observedBaseAlchemyStack();
+      const roots = buildAlchemyEnvironmentRoots({
+        branch: "main",
+        owner: "samebase",
+        repoName: "scout",
+        schemaGraphEnabled: false,
+        repository: makeRepositorySettingsBuilderRepository({}),
+        stacks: {
+          ...stacks,
+          stacks: stacks.stacks.map((stack) => ({
+            name: "samebase/scout",
+            stages: stack.stages.map((stage) => ({
+              ...stage,
+              record: { ...stage.record, stackFile },
+              resources: observedScoutR2Resources,
+            })),
+          })),
+        },
+      });
+
+      expect(roots.map((root) => root.rootDirectory)).toEqual([rootDirectory]);
+      const container = document.createElement("div");
+      container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
+      expect(
+        [...container.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
+      ).toEqual([
+        [
+          "scout-public-media",
+          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-public-media",
+        ],
+        [
+          "scout-workspaces",
+          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces",
+        ],
+        [
+          "scout-workspaces-prod",
+          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
+        ],
+      ]);
+    },
+  );
+
   it("builds the default-branch block from the stage prod of the stack in the team store", () => {
     // Like the preview deployment of Samebase: the repository has no attachment rows.
     const repository = makeRepositorySettingsBuilderRepository({

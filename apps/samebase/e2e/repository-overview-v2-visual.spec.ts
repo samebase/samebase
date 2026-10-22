@@ -174,6 +174,25 @@ test("opens the production Convex Schema route", async ({ page }) => {
   );
 });
 
+test("shows an R2 bucket with the production resources on desktop and mobile", async ({ page }) => {
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
+    await expect(
+      fixture.getByRole("link", { name: "scout-workspaces-prod", exact: true }),
+    ).toBeVisible();
+    await expect(fixture).toHaveScreenshot(`repository-overview-v2-r2-${viewport.width}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  }
+});
+
 test("shows comment-discovered hosting previews on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");

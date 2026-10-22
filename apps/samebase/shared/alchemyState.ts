@@ -65,6 +65,16 @@ export const vAlchemyCloudflareWorkerState = object({
 });
 
 /**
+The state of a `Cloudflare.R2.Bucket` resource. These attributes identify the bucket in Cloudflare.
+
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/R2/Bucket.ts#L263-L280
+*/
+export const vAlchemyCloudflareR2BucketState = object({
+  resourceType: literal("Cloudflare.R2.Bucket"),
+  attr: object({ bucketName: string(), accountId: string(), jurisdiction: string() }),
+});
+
+/**
 The path from the repository root of `paths` joined below the directory of the stack file, such as
 `apps/x/convex` for `apps/x/alchemy.run.ts` with `.` and `./convex`, or `.` for the root. Null for an
 absolute path or a path outside the repository.
@@ -101,8 +111,9 @@ belongs to (`/` for the root). `stackFile` is the stack file of the stage's run 
 A Convex deployment sits in its app directory, `props.rootDir` below the directory of the stack
 file, and its code location adds `source` (null without `source`). Alchemy's `Cloudflare.Worker` has
 no `rootDir`: its `main` and assets are relative to the directory where the stack runs, so a Worker
-sits in the directory of the stack file. A row that no validator accepts, such as one without
-`attr` from an interrupted deploy, and a path outside the repository are left out.
+sits in the directory of the stack file. R2 buckets also sit in the stack directory. A row that no
+validator accepts, such as one without `attr` from an interrupted deploy, and a path outside the
+repository are left out.
 */
 export function placeStageResources(stage: {
   stackFile: string;
@@ -117,6 +128,11 @@ export function placeStageResources(stage: {
   workers: {
     fqn: string;
     state: Infer<typeof vAlchemyCloudflareWorkerState>;
+    rootDirectory: string;
+  }[];
+  r2Buckets: {
+    fqn: string;
+    state: Infer<typeof vAlchemyCloudflareR2BucketState>;
     rootDirectory: string;
   }[];
 } {
@@ -150,6 +166,12 @@ export function placeStageResources(stage: {
     workers: states.flatMap(({ fqn, state }) =>
       stackDirectory !== null &&
       validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
+        ? [{ fqn, state, rootDirectory: rootDirectoryOf(stackDirectory) }]
+        : [],
+    ),
+    r2Buckets: states.flatMap(({ fqn, state }) =>
+      stackDirectory !== null &&
+      validate(vAlchemyCloudflareR2BucketState, state, { allowUnknownFields: true })
         ? [{ fqn, state, rootDirectory: rootDirectoryOf(stackDirectory) }]
         : [],
     ),

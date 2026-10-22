@@ -65,6 +65,7 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-provisioning-worker"
   | "repository-overview-v2-provisioning-ready"
   | "repository-overview-v2-root"
+  | "repository-overview-v2-r2"
   | "repository-overview-v2-settings"
   | "repository-overview-v2-settings-active"
   | "repository-overview-v2-settings-checking"
@@ -1504,6 +1505,20 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     pullRequests,
     repository: LIST_SPACING_REPOSITORY,
   });
+
+  if (mode === "repository-overview-v2-r2") {
+    workspace.environmentRoots.unshift({
+      rootDirectory: "/",
+      resources: [
+        {
+          kind: "cloudflare_r2_bucket",
+          id: "alchemy:samebase/scout:WorkspacesProd",
+          bucketName: "scout-workspaces-prod",
+          href: "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
+        },
+      ],
+    });
+  }
 
   return (
     <SidebarLayoutFixtureFrame
