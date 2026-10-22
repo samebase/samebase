@@ -3,28 +3,32 @@
 Use this during `clean` for a branch whose PR is merged or closed, after `clean repositories` and
 before deleting the remote branch. This is a Codex/operator workflow, not a repo script.
 
-`.github/workflows/preview-cleanup.yml` deletes the branch's Convex preview deployment when its PR
-closes and notes the delete in the preview comment on the PR. This runbook confirms that delete, and
-performs it by hand when the workflow did not run: a PR closed while it had a merge conflict, a head
-commit whose message skips CI, or a missing `CONVEX_PREVIEW_DEPLOY_KEY` secret.
+A pull request deploys the Alchemy stage `pr-<number>` of `apps/samebase/alchemy.run.ts`: a Convex
+preview deployment whose preview name is `pr-<number>`, and the state of that stage in the
+`alchemy-state` project of the Convex team `nicu`. When the PR closes, the `Destroy the preview` job
+of `.github/workflows/alchemy.yml` runs `alchemy destroy --stage pr-<number>`, which deletes the
+preview deployment and the state of the stage. This runbook confirms that destroy, and runs it by
+hand when the job did not run or failed: a PR closed while it had a merge conflict, or a head commit
+whose message skips CI.
 
 Any GitHub PR for the branch, including a draft PR, is enough evidence that a Convex preview
 deployment existed. Missing local environment files or inherited credentials do not change that
 assumption; they only block cleanup until the credentials are available.
 
-The scope is only the Convex preview deployment for the exact branch. Do not change deploy behavior,
-add cleanup scripts, or touch temporary Samebase-managed repository infrastructure as part of this
-workflow.
+The scope is only the Convex preview deployment of the PR and the state of its stage. Do not change
+deploy behavior, add cleanup scripts, or touch temporary Samebase-managed repository infrastructure
+as part of this workflow.
 
 ## Safety Rules
 
 1. Continue only after the branch's GitHub PR is no longer open: `state` is `MERGED` or `CLOSED`.
-2. Delete no Convex deployment unless it is a `preview` deployment for the exact branch.
-3. Load cleanup credentials from the repo seed env before using inherited shell values. Missing
+2. Delete no Convex deployment unless it is a `preview` deployment whose preview name is
+   `pr-<number>` of this PR. A PR deployed before `alchemy.yml` existed has a preview named after
+   its exact branch instead.
+3. Run `alchemy destroy` only with `--stage pr-<number>` of this PR. Never with `--stage prod`: that
+   stage holds the production deployment of samebase.com.
+4. Load cleanup credentials from the repo seed env before using inherited shell values. Missing
    values in the inherited shell environment alone are not a reason to stop.
-4. If the repo seed env is missing or incomplete, locate the correct cleanup credentials from the
-   primary checkout, the operator-provided environment, or the configured secret source before
-   continuing. Do not treat missing local env as evidence that the preview does not exist.
 5. If credentials or resource identity still cannot be resolved, stop with `clean` blocked. Do not
    delete the local branch, remote branch, or worktree while Convex preview cleanup is incomplete.
 
@@ -43,6 +47,9 @@ set +a
 : "${DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY:?missing DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY}"
 : "${DEV_SEED_SAMEBASE_CONVEX_TEAM_ID:?missing DEV_SEED_SAMEBASE_CONVEX_TEAM_ID}"
 ```
+
+The destroy by hand in section 4 also needs the Convex CLI login (`npx convex login`) of a member of
+the team `nicu`, or a team access token in `CONVEX_ACCESS_TOKEN`.
 
 If this preflight fails because the file or a value is missing, cleanup is blocked until the correct
 credentials are available from another trusted source. Do not skip Convex preview cleanup for a
@@ -65,17 +72,19 @@ branch="<headRefName from the PR JSON>"
 ```
 
 Continue only when `headRefName` equals `$branch` and `state` is `MERGED` or `CLOSED`. Keep the PR
-number, URL, state, branch, and head SHA visible while inspecting the deployments.
+number, URL, state, branch, and head SHA visible while inspecting the deployments, and set
+`stage="pr-<number>"`.
 
-## 2. Check The Cleanup Workflow
+## 2. Check The Destroy Job
 
 ```bash
-gh run list --workflow preview-cleanup.yml --branch "$branch" --json status,conclusion,url,createdAt
+gh run list --workflow alchemy.yml --branch "$branch" --limit 5 --json databaseId,conclusion,url,createdAt
+gh run view <databaseId of the run created after the close> --json jobs --jq '.jobs[] | {name, conclusion}'
 ```
 
-A run with conclusion `success` after the PR closed deleted the preview, and the preview comment on
-the PR ends with "Preview deleted when the pull request closed." Confirm it in the next section
-anyway, and delete by hand only when a preview for the branch remains.
+A run created after the PR closed whose `Destroy the preview` job concluded `success` deleted the
+preview and the state of the stage. Confirm it in the next section anyway, and destroy by hand only
+when a preview of the PR remains.
 
 ## 3. Inspect Convex Preview Deployments
 
@@ -96,13 +105,25 @@ curl --fail-with-body --request GET \
   --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
 ```
 
-Delete a Convex deployment only when all of these are true:
+A deployment of the PR is one where all of these are true:
 
 1. `deploymentType` is `preview`
-2. `previewIdentifier` is the exact branch name
+2. `previewIdentifier` is `$stage`, or the exact branch name for a PR deployed before `alchemy.yml`
 3. the deployment belongs to the `samebase` project resolved above
 
-Delete only the matching preview deployment:
+## 4. Destroy By Hand
+
+For a preview named `$stage`, run the destroy of its stage from `apps/samebase` of a checkout of
+`main`. It deletes the preview deployment and the state of the stage, so the repository pages of
+Samebase no longer list the stage:
+
+```bash
+cd apps/samebase
+pnpm exec alchemy destroy --stage "$stage" --yes --no-input
+```
+
+For a preview that the stage state does not hold, such as one named after the branch, delete only
+the matching deployment:
 
 ```bash
 deployment_name="<matching-convex-preview-deployment-name>"
@@ -112,10 +133,10 @@ curl --fail-with-body --request POST \
 ```
 
 Never delete a `prod`, `dev`, or local Convex deployment during Samebase PR preview cleanup. If a
-listed preview for the exact branch cannot be identified with certainty, stop with `clean` blocked
-and report the lookup evidence.
+listed preview of the PR cannot be identified with certainty, stop with `clean` blocked and report
+the lookup evidence.
 
-## 4. Report The Result
+## 5. Report The Result
 
 In the final `clean` response, include:
 
