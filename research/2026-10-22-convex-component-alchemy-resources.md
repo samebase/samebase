@@ -4,9 +4,10 @@ Date: 2026-10-22. Status: research and recommendation, not an accepted implement
 
 ## Recommendation
 
-A Convex component package can include its own infrastructure definition. Use two package exports:
-the normal Convex component config and an `/alchemy` function that the host app calls during
-deployment. Run that function inside the app's existing Alchemy stack, under a stable namespace.
+A Convex component package can include its own infrastructure definition. Declare each installation
+once and use that declaration to create its Convex mount and Alchemy resources. Behind this
+integration, keep separate exports for Convex config and deployment code. Run the Alchemy code
+inside the app's existing stack, under a stable namespace.
 
 Samebase should display the resulting resources under a specific mounted component. To do this, the
 deployment must record an explicit association between the Convex deployment, full component path,
@@ -21,6 +22,57 @@ part of the host stack unless it has a separate deployment and lifecycle.
 Start with a small R2-only component pilot. Prove the association, repeated mounts, environment
 bindings, and removal behavior before extending the existing email companion. The email case has an
 additional Worker/Convex deployment-order problem and zone-wide routing effects.
+
+## Refinement: make the installation the authoring unit
+
+The separate `/alchemy` export is a suitable execution boundary. On its own, it is an incomplete
+authoring interface: an app author must configure a Convex mount, call a companion, and manually
+keep their names and environment mappings aligned. This becomes more fragile with repeated or nested
+mounts.
+
+The preferred interface is one declaration for each installed instance. A small integration reads
+that same declaration in two environments:
+
+- The Convex adapter imports the actual component definition and calls `app.use` with its mount
+  name, environment references, and HTTP prefix where supported.
+- The Alchemy adapter imports the infrastructure implementation, creates its resources, supplies the
+  matching environment values, and emits the association record.
+
+For example, two installations of an email package, `sales` and `support`, each produce a Convex
+mount and their own resource group. The package provides the wiring rules. The host provides real
+choices such as provider account, route, and whether an existing resource is shared. The host should
+not have to repeat an instance's identity or write the display association by hand.
+
+The shared installation module must remain plain configuration and metadata. It must not import the
+actual `convex.config` modules or Alchemy implementations. Each environment imports its own adapter.
+A small, explicit adapter for the pilot package is enough to test this; do not build an automatic
+package catalog or whole-app generator first. Convex still needs statically discoverable component
+imports in its config path.
+
+This is a proposed integration, not an existing Convex API. The actual `app.use` result exposes
+component function exports. Its name and definition fields are internal, and it has no public full
+mount path, infrastructure handle, or serialization contract. A normal Node import of a config that
+mounts components fails because `app.use` expects Convex's synthetic `componentDefinitionPath`. Do
+not attach a fake `.resources()` method to that object or read its internal fields as a public
+contract.
+[Installed component API](https://github.com/get-convex/convex-js/blob/47e2b21fd3b29eb3355163e18c089c5ebe77fe12/src/server/components/index.ts#L352),
+[config runtime requirement](https://github.com/get-convex/convex-js/blob/47e2b21fd3b29eb3355163e18c089c5ebe77fe12/src/server/components/index.ts#L425).
+
+The integration can return its own installation handle for authoring. That handle describes the same
+intended installation in both processes; it is not the live Convex runtime object. Keep its stable
+infrastructure ID distinct from the component mount path so a path rename need not replace cloud
+resources.
+
+For nested installations, the parent contributes the child's definition and relative path. Mounting
+the parent twice expands two separate child paths, such as `sales/mail` and `support/mail`. Opaque
+third-party child mounts do not automatically acquire infrastructure support. Their package needs to
+participate in the convention, or the host must provide an explicit adapter.
+
+If ordinary `app.use` must be the sole authoritative declaration, another option is to collect
+Convex's analyzed component graph and resolve each definition to a companion. That uses an internal
+deployment protocol and still needs a package-to-companion convention. Prefer the shared
+installation declaration for the first prototype; an upstream metadata/export hook would be the
+better long-term route for transparent support of ordinary Convex configs.
 
 ## Evidence and scope
 
@@ -161,6 +213,8 @@ replace the deployed association record.
 flowchart TD
   P[Component package] --> C[Convex config export]
   P --> A[Alchemy companion export]
+  D[Shared installation definitions] --> H
+  D --> S
   C --> H[Host app component mounts]
   A --> S[Host Alchemy stack and stage]
   S --> R[Cloud resources]
@@ -174,11 +228,12 @@ flowchart TD
   I --> U
 ```
 
-1. The host imports the package's companion in `alchemy.run.ts` and supplies a stable infrastructure
-   ID. The companion declares resources in that namespace and returns their references plus the
-   runtime configuration the app needs.
-2. The host supplies the component's full mount path separately. A package can be mounted under any
-   parent; it cannot infer this path from its own package/default name.
+1. The deployment adapter reads the shared installation declaration and calls the package's
+   companion with its stable infrastructure ID. The companion declares resources in that namespace
+   and returns their references plus the runtime configuration the app needs.
+2. The same installation declaration supplies the full mount path. A package can be mounted under
+   any parent; it cannot infer this path from its own package/default name. The adapter keeps this
+   mapping out of manual per-instance configuration.
 3. The host deploys resources and Convex with explicit dependencies. It returns an allowlisted
    association record as part of the stack output.
 4. Samebase reads that output from the existing team Alchemy state project. It validates the record
@@ -339,14 +394,14 @@ transport can be addressed separately without changing resource identity.
 
 ## Options assessed
 
-| Approach                                              | Assessment                                                                                                                                     |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Companion export, namespace, explicit output record   | Recommended. Fits existing package and state-store mechanisms.                                                                                 |
-| Separate stack for every component                    | Use only for an independently managed lifecycle. Adds state, deployment order, output references, and cleanup coordination to ordinary mounts. |
-| Alchemy inside `convex.config.ts`                     | No supported execution or metadata hook for this.                                                                                              |
-| Infer infrastructure from package or component names  | Cannot establish the instance, configured resources, shared uses, or physical deployment.                                                      |
-| A runtime component query that reports infrastructure | Requires a new execution/auth contract and still needs provisioning-time data.                                                                 |
-| A package descriptor for automatic installation       | Possible later as an explicit convention. It does not prove what was deployed.                                                                 |
+| Approach                                               | Assessment                                                                                                                                     |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared installations, companion exports, output record | Recommended. Declares each instance once and uses existing provisioning and state mechanisms.                                                  |
+| Separate stack for every component                     | Use only for an independently managed lifecycle. Adds state, deployment order, output references, and cleanup coordination to ordinary mounts. |
+| Alchemy inside `convex.config.ts`                      | No supported execution or metadata hook for this.                                                                                              |
+| Infer infrastructure from package or component names   | Cannot establish the instance, configured resources, shared uses, or physical deployment.                                                      |
+| A runtime component query that reports infrastructure  | Requires a new execution/auth contract and still needs provisioning-time data.                                                                 |
+| A package descriptor for automatic installation        | Possible later as an explicit convention. It does not prove what was deployed.                                                                 |
 
 ## Proposed next experiment
 
@@ -359,7 +414,8 @@ directly.
 The experiment passes only if:
 
 1. A fresh deploy provisions isolated buckets, binds each instance's runtime configuration, and
-   permits each instance to read and write only its own data.
+   permits each instance to read and write only its own data. Each installation is declared once;
+   the adapters derive matching mounts, environment bindings, and resource associations.
 2. The output names the exact Convex target and actual resource FQNs. Samebase shows each bucket
    under the correct full component path, with app-level resources still visible.
 3. A mount-path change preserves physical bucket identity. An infrastructure rename has an explicit
