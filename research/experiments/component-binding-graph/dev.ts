@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { brotliCompressSync } from "node:zlib";
@@ -57,6 +57,8 @@ if (
 // required env values, so a repeat run needs a new database to prove first-run discovery.
 await rm(resolve(cwd, ".convex"), { recursive: true, force: true });
 await rm(resolve(cwd, ".env.local"), { force: true });
+await rm(resolve(cwd, "convex/_generated"), { recursive: true, force: true });
+await rm(resolve(cwd, "job/convex/_generated"), { recursive: true, force: true });
 
 const children: ReturnType<typeof spawn>[] = [];
 const logs: string[] = [];
@@ -109,6 +111,21 @@ try {
   ]);
   await waitFor(() =>
     fetch(url).then(
+      () => true,
+      () => false,
+    ),
+  );
+  // The backend listens before `convex dev` writes the initial generated APIs.
+  // A dry-run deploy does not create these missing files itself.
+  await waitFor(() =>
+    Promise.all(
+      [
+        "convex/_generated/api.js",
+        "convex/_generated/server.js",
+        "job/convex/_generated/api.ts",
+        "job/convex/_generated/server.ts",
+      ].map((path) => access(resolve(cwd, path))),
+    ).then(
       () => true,
       () => false,
     ),

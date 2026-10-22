@@ -24,8 +24,11 @@ Convex SDK, Zod, and Node types. The sample does not install another dependency 
 Alchemy local Worker on 33412. It runs the assertions and stops its child processes. There is no
 browser UI or tunnel. No preview stays running after the command.
 
-Each run deletes only this sample's `.convex` database and `.env.local`, then creates a new local
-backend. This is necessary to prove discovery before the required values exist. After a completed
+Each run deletes only this sample's `.convex` database, `.env.local`, and both `_generated`
+directories, then creates a new local backend. It waits for Convex to create both generated APIs
+before it captures the analysis request. The backend HTTP listener starts before code generation
+finishes, and a dry-run deploy does not create missing generated files. The clean reset proves
+discovery before the required values exist and tests the first-run setup. After a completed
 deployment, Convex rejects deletion of a required environment variable. The sample keeps its Alchemy
 local state so subsequent runs reconcile the same Worker identity.
 
