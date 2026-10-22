@@ -140,15 +140,21 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
 }
 
 /**
-Answers the Convex Management API and `POST /api/function` of the store. `state:readStack` answers
-`storeReply` for the stack `samebase/base-alchemy`, the key of the repository stack in the store, and
-no stages for any other stack.
+Answers the Convex Management API and `POST /api/function` of the store. `state:stacks` answers the
+names of `stackReplies`, and `state:readStack` answers the reply of the stack. By default the store
+holds `samebase/base-alchemy`, the stack of the repository, with `storeReply`, and the stack of
+another repository, `samebase/samebase`.
 */
 function installAlchemyStateFetchStub(args: {
   requests: RecordedRequest[];
   storeReply: unknown;
+  stackReplies?: Record<string, unknown>;
   teamProjects: unknown[];
 }) {
+  const stackReplies = args.stackReplies ?? {
+    "samebase/base-alchemy": args.storeReply,
+    "samebase/samebase": { status: "success", value: { stages: [] } },
+  };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -195,16 +201,13 @@ function installAlchemyStateFetchStub(args: {
       if (url.endsWith("/delete_deploy_key")) {
         return new Response(null, { status: 200 });
       }
-      if (
-        url === "https://brave-heron-201.convex.cloud/api/function" &&
-        isRecord(body) &&
-        body["path"] === "state:readStack" &&
-        isRecord(body["args"])
-      ) {
+      // A read of a stack that the store does not list answers nothing, which fails the read.
+      if (url === "https://brave-heron-201.convex.cloud/api/function" && isRecord(body)) {
+        const functionArgs = body["args"];
         return jsonResponse(
-          body["args"]["stack"] === "samebase/base-alchemy"
-            ? args.storeReply
-            : { status: "success", value: { stages: [] } },
+          body["path"] === "state:stacks"
+            ? { status: "success", value: Object.keys(stackReplies).sort() }
+            : stackReplies[isRecord(functionArgs) ? String(functionArgs["stack"]) : ""],
         );
       }
 
@@ -219,7 +222,7 @@ afterEach(() => {
 });
 
 describe("repository Alchemy state", () => {
-  it("reads the stack of the repository in one call with a revoked inspection key", async () => {
+  it("lists the stacks and reads only the stack of the repository with a revoked inspection key", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
@@ -236,7 +239,6 @@ describe("repository Alchemy state", () => {
 
     expect(observation).toEqual({
       store: "found",
-      stack: "samebase/base-alchemy",
       liveDeployments: [
         {
           deploymentName: "ideal-dolphin-15",
@@ -244,44 +246,55 @@ describe("repository Alchemy state", () => {
           region: "aws-us-east-1",
         },
       ],
-      stages: [
+      stacks: [
         {
-          name: "pr-24",
-          run: { state: "none" },
-          resources: pr24.resources,
-          output: '{"url":"https://nautical-eagle-647.convex.site"}',
-        },
-        {
-          name: "pr-25",
-          run: { state: "none" },
-          resources: pr25.resources,
-          output: '{"url":"https://fastidious-squid-196.convex.site"}',
-        },
-        {
-          name: "prod",
-          run: {
-            state: "recorded",
-            record: {
-              version: 1,
-              repository: "samebase/base-alchemy",
-              stackFile: "alchemy.run.ts",
-              branch: "main",
-              pullRequest: null,
-              headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-              runUrl:
-                "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
-              source: "github-actions",
-              recordedAt: "2026-10-21T19:58:06.882Z",
+          name: "samebase/base-alchemy",
+          stages: [
+            {
+              name: "pr-24",
+              run: { state: "none" },
+              resources: pr24.resources,
+              output: '{"url":"https://nautical-eagle-647.convex.site"}',
             },
-          },
-          resources: prod.resources,
-          output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+            {
+              name: "pr-25",
+              run: { state: "none" },
+              resources: pr25.resources,
+              output: '{"url":"https://fastidious-squid-196.convex.site"}',
+            },
+            {
+              name: "prod",
+              run: {
+                state: "recorded",
+                record: {
+                  version: 1,
+                  repository: "samebase/base-alchemy",
+                  stackFile: "alchemy.run.ts",
+                  branch: "main",
+                  pullRequest: null,
+                  headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+                  runUrl:
+                    "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+                  source: "github-actions",
+                  recordedAt: "2026-10-21T19:58:06.882Z",
+                },
+              },
+              resources: prod.resources,
+              output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+            },
+          ],
         },
       ],
     });
 
+    // The stack of another repository is listed but not read.
     const storeRequests = requests.filter((request) => request.url.endsWith("/api/function"));
     expect(storeRequests).toEqual([
+      {
+        url: "https://brave-heron-201.convex.cloud/api/function",
+        authorization: "Convex prod:brave-heron-201|alchemy-state-secret",
+        body: { path: "state:stacks", args: {}, format: "json" },
+      },
       {
         url: "https://brave-heron-201.convex.cloud/api/function",
         authorization: "Convex prod:brave-heron-201|alchemy-state-secret",
@@ -318,23 +331,81 @@ describe("repository Alchemy state", () => {
     expect(requests.some((request) => request.url.endsWith("/create_deploy_key"))).toBe(false);
   });
 
-  it("reports a stack without stages when the store does not hold the repository", async () => {
+  it("reports no stacks when the store does not hold the repository", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
-      requests: [],
-      storeReply: { status: "success", value: { stages: [] } },
+      requests,
+      storeReply: observedAlchemyStackReply,
+      stackReplies: { "samebase/samebase": observedAlchemyStackReply },
       teamProjects: [storeProject],
     });
 
     await expect(
       user.action(api.repository.alchemyState.observe, { repositoryId: ids.repositoryId }),
-    ).resolves.toEqual({
-      store: "found",
-      stack: "samebase/base-alchemy",
-      liveDeployments: [],
-      stages: [],
+    ).resolves.toEqual({ store: "found", liveDeployments: [], stacks: [] });
+    expect(
+      requests.filter(
+        (request) => isRecord(request.body) && request.body["path"] === "state:readStack",
+      ),
+    ).toEqual([]);
+  });
+
+  it("reads the stacks in folders of the repository and keeps the stages that its records name", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    // Mutations of the captured stack: the same stages in a stack of the folder apps/web, whose
+    // `prod` was deployed from that folder, and in a stack whose `prod` names another repository.
+    const folderReply = withProdStage((stage) => {
+      stage.output = stage.output.replace(
+        '"stackFile":"alchemy.run.ts"',
+        '"stackFile":"apps/web/alchemy.run.ts"',
+      );
     });
+    const otherRepositoryReply = withProdStage((stage) => {
+      stage.output = stage.output.replace(
+        '"repository":"samebase/base-alchemy"',
+        '"repository":"samebase/other"',
+      );
+    });
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      stackReplies: {
+        "samebase/base-alchemy/apps/web": folderReply,
+        "samebase/base-alchemy/apps/other": otherRepositoryReply,
+        "samebase/base-alchemy-two": observedAlchemyStackReply,
+      },
+      teamProjects: [storeProject],
+    });
+
+    const observation = await user.action(api.repository.alchemyState.observe, {
+      repositoryId: ids.repositoryId,
+    });
+
+    // A stage without a run record counts only in the stack named after the repository, and a
+    // stack whose name only starts with the repository name is another repository.
+    if (observation.store !== "found") {
+      throw new Error("Expected the team store.");
+    }
+    expect(
+      observation.stacks.map((stack) => ({
+        name: stack.name,
+        stages: stack.stages.map((stage) => stage.name),
+      })),
+    ).toEqual([{ name: "samebase/base-alchemy/apps/web", stages: ["prod"] }]);
+    expect(
+      requests.flatMap((request) =>
+        isRecord(request.body) && request.body["path"] === "state:readStack"
+          ? [request.body["args"]]
+          : [],
+      ),
+    ).toEqual([
+      { stack: "samebase/base-alchemy/apps/other" },
+      { stack: "samebase/base-alchemy/apps/web" },
+    ]);
   });
 
   it("keeps the key of a secret and never returns its value", async () => {
@@ -368,7 +439,7 @@ describe("repository Alchemy state", () => {
     if (observation.store !== "found") {
       throw new Error("Expected the team store.");
     }
-    const stage = observation.stages.find((candidate) => candidate.name === "prod");
+    const stage = observation.stacks[0]?.stages.find((candidate) => candidate.name === "prod");
     expect(JSON.parse(stage?.resources[0]?.value ?? "")).toMatchObject({
       attr: { deployKey: { __redacted__: null } },
     });
@@ -400,7 +471,7 @@ describe("repository Alchemy state", () => {
     if (observation.store !== "found") {
       throw new Error("Expected the team store.");
     }
-    expect(observation.stages.find((stage) => stage.name === "prod")).toMatchObject({
+    expect(observation.stacks[0]?.stages.find((stage) => stage.name === "prod")).toMatchObject({
       run: { state: "unknown" },
       output: '{"url":"https://ideal-dolphin-15.convex.site"}',
     });

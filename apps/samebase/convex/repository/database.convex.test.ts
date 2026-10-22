@@ -8,6 +8,7 @@ import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
 } from "./fixtures/observedAlchemyState";
+import { observedSamebaseStacksReply } from "./fixtures/observedSamebaseAlchemyState";
 
 type ConvexAuth =
   | {
@@ -402,6 +403,13 @@ function installStackFetchStub() {
       }
       if (url.endsWith("/delete_deploy_key")) {
         return new Response(null, { status: 200 });
+      }
+      if (
+        url === "https://artful-alligator-66.convex.cloud/api/function" &&
+        isRecord(body) &&
+        body["path"] === "state:stacks"
+      ) {
+        return json(observedSamebaseStacksReply);
       }
       if (
         url === "https://artful-alligator-66.convex.cloud/api/function" &&

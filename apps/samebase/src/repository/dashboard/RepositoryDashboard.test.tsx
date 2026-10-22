@@ -35,6 +35,7 @@ import { RepositoryConvexDialog, RepositoryConvexDialogContent } from "./Reposit
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
 import { PullRequestResources, RepositoryEnvironmentTree } from "./RepositoryEnvironmentTree";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
+import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import {
   buildAlchemyEnvironmentRoots,
   buildProductionEnvironmentRoots,
@@ -42,7 +43,7 @@ import {
 } from "./repositoryEnvironmentRoots";
 import { buildRepositorySettingsState } from "./repositorySettingsState";
 import type {
-  RepositoryAlchemyStack,
+  RepositoryAlchemyStacks,
   RepositoryCloudflareProviderObservationState,
   RepositoryCloudflareWorkerBuildsObservation,
   RepositoryCloudflareWorkerConvexBuildAccessObservation,
@@ -658,12 +659,11 @@ describe("buildProductionEnvironmentRoots", () => {
   });
 });
 
-/** The stack as `alchemyState:observe` returns the captured reply of samebase/base-alchemy. */
-function observedBaseAlchemyStack(): RepositoryAlchemyStack {
+/** The stacks as `alchemyState:observe` returns the captured reply of samebase/base-alchemy. */
+function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
   const [pr24, pr25, prod] = observedAlchemyStackReply.value.stages;
   return {
     store: "found",
-    stack: "samebase/base-alchemy",
     liveDeployments: [
       {
         deploymentName: "ideal-dolphin-15",
@@ -671,27 +671,125 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStack {
         region: "aws-us-east-1",
       },
     ],
-    stages: [
-      { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
-      { name: pr25.stage, run: { state: "none" }, resources: pr25.resources, output: pr25.output },
+    stacks: [
       {
-        name: prod.stage,
-        run: {
-          state: "recorded",
-          record: {
-            version: 1,
-            repository: "samebase/base-alchemy",
-            stackFile: "alchemy.run.ts",
-            branch: "main",
-            pullRequest: null,
-            headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-            runUrl: "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
-            source: "github-actions",
-            recordedAt: "2026-10-21T19:58:06.882Z",
+        name: "samebase/base-alchemy",
+        stages: [
+          {
+            name: pr24.stage,
+            run: { state: "none" },
+            resources: pr24.resources,
+            output: pr24.output,
           },
-        },
-        resources: prod.resources,
-        output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+          {
+            name: pr25.stage,
+            run: { state: "none" },
+            resources: pr25.resources,
+            output: pr25.output,
+          },
+          {
+            name: prod.stage,
+            run: {
+              state: "recorded",
+              record: {
+                version: 1,
+                repository: "samebase/base-alchemy",
+                stackFile: "alchemy.run.ts",
+                branch: "main",
+                pullRequest: null,
+                headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+                runUrl:
+                  "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+                source: "github-actions",
+                recordedAt: "2026-10-21T19:58:06.882Z",
+              },
+            },
+            resources: prod.resources,
+            output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+The stacks of samebase/samebase after the move of its stack to the repository root: the captured
+`prod` and `pr-1768` stages of the stack samebase/samebase, and a stack of the folder
+apps/sidebars-example. The `prod` record is the captured one with the stack file and commit that the
+first push after the move writes, and its Site row the captured one with the `rootDir` that the
+captured `pr-1768` row holds. The sidebars stack has no row yet, so its Worker is the captured
+PosthogProxy row renamed. The captured `prod` Workers sit at the root: Alchemy's Worker has no rootDir.
+*/
+function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
+  const [, , prod] = observedSamebaseStackReply.value.stages;
+  const record = {
+    version: 1 as const,
+    repository: "samebase/samebase",
+    stackFile: "alchemy.run.ts",
+    branch: "main",
+    pullRequest: null,
+    headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+    runUrl: "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
+    source: "github-actions" as const,
+    recordedAt: "2026-10-22T08:22:58.152Z",
+  };
+  const rowOf = (fqn: string) => {
+    const row = prod.resources.find((resource) => resource.fqn === fqn);
+    if (!row) {
+      throw new Error(`Expected the captured ${fqn} row.`);
+    }
+    return row;
+  };
+  const site = rowOf("Site");
+  const proxy = rowOf("PosthogProxy");
+  return {
+    store: "found",
+    liveDeployments: [],
+    stacks: [
+      {
+        name: "samebase/samebase",
+        stages: [
+          {
+            name: "prod",
+            run: { state: "recorded", record },
+            resources: [
+              rowOf("Domains"),
+              proxy,
+              rowOf("Project"),
+              {
+                fqn: "Site",
+                value: site.value.replace(
+                  '"type":"prod"',
+                  '"type":"prod","rootDir":"apps/samebase"',
+                ),
+              },
+            ],
+            output: '{"url":"https://clear-butterfly-858.convex.site"}',
+          },
+        ],
+      },
+      {
+        name: "samebase/samebase/apps/sidebars-example",
+        stages: [
+          {
+            name: "prod",
+            run: {
+              state: "recorded",
+              record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
+            },
+            resources: [
+              {
+                fqn: "Site",
+                value: proxy.value.replaceAll(
+                  "samebase-posthog-proxy",
+                  "samebase-monorepo-sidebars-example",
+                ),
+              },
+            ],
+            output: null,
+          },
+        ],
       },
     ],
   };
@@ -712,7 +810,7 @@ describe("repository environment roots", () => {
       repoName: "base-alchemy",
       schemaGraphEnabled: false,
       repository,
-      stack: observedBaseAlchemyStack(),
+      stacks: observedBaseAlchemyStack(),
     });
 
     expect(roots).toEqual([
@@ -721,7 +819,7 @@ describe("repository environment roots", () => {
         resources: [
           {
             kind: "destination",
-            id: "alchemy:Deployment",
+            id: "alchemy:samebase/base-alchemy:Deployment",
             // The Data route resolves the Convex project id through the stack, with no attachment.
             actions: [
               {
@@ -750,6 +848,86 @@ describe("repository environment roots", () => {
     expect(container.textContent).toBe("ideal-dolphin-15🇺🇸 US East (N. Virginia)");
   });
 
+  it("places the resources of every stack of samebase/samebase by stack file and rootDir", () => {
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "samebase",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({
+        githubOwnerLogin: "samebase",
+        githubRepositoryName: "samebase",
+        githubRepositoryFullName: "samebase/samebase",
+        convexTeamId: "38516",
+      }),
+      stacks: samebaseStacksAfterTheMove(),
+    });
+
+    expect(
+      roots.map((root) => ({
+        rootDirectory: root.rootDirectory,
+        resources: root.resources.map((resource) =>
+          resource.kind === "cloudflare_worker" ? resource.worker.workerName : resource.id,
+        ),
+      })),
+    ).toEqual([
+      { rootDirectory: "/", resources: ["samebase-domains", "samebase-posthog-proxy"] },
+      { rootDirectory: "apps/samebase", resources: ["alchemy:samebase/samebase:Site"] },
+      {
+        rootDirectory: "apps/sidebars-example",
+        resources: ["samebase-monorepo-sidebars-example"],
+      },
+    ]);
+  });
+
+  it("places the Convex deployment of a row without rootDir in the directory of the stack file", () => {
+    // The captured `prod` of samebase/samebase, deployed from apps/samebase/alchemy.run.ts with
+    // samebase/alchemy-convex 0.7.0: its Site row has no rootDir, and its Workers sit there too.
+    const [, , prod] = observedSamebaseStackReply.value.stages;
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "samebase",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      stacks: {
+        store: "found",
+        liveDeployments: [],
+        stacks: [
+          {
+            name: "samebase/samebase",
+            stages: [
+              {
+                name: prod.stage,
+                run: {
+                  state: "recorded",
+                  record: {
+                    version: 1,
+                    repository: "samebase/samebase",
+                    stackFile: "apps/samebase/alchemy.run.ts",
+                    branch: "main",
+                    pullRequest: null,
+                    headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+                    runUrl:
+                      "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
+                    source: "github-actions",
+                    recordedAt: "2026-10-22T08:22:58.152Z",
+                  },
+                },
+                resources: prod.resources,
+                output: '{"url":"https://clear-butterfly-858.convex.site"}',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(roots.map((root) => [root.rootDirectory, root.resources.length])).toEqual([
+      ["apps/samebase", 3],
+    ]);
+  });
+
   it("routes a Convex deployment of the store through its attachment row when one exists", () => {
     const convexProjectId = fakeConvexProjectId("convex-project-base-alchemy");
     const roots = buildAlchemyEnvironmentRoots({
@@ -767,7 +945,7 @@ describe("repository environment roots", () => {
           }),
         ],
       }),
-      stack: observedBaseAlchemyStack(),
+      stacks: observedBaseAlchemyStack(),
     });
 
     expect(
@@ -793,16 +971,20 @@ describe("repository environment roots", () => {
       repoName: "tmp-k7m2-rows",
       schemaGraphEnabled: false,
       repository: makeRepositorySettingsBuilderRepository({}),
-      stack: {
+      stacks: {
         store: "found",
-        stack: "samebase/tmp-k7m2-rows",
         liveDeployments: [],
-        stages: [
+        stacks: [
           {
-            name: "main",
-            run: { state: "none" },
-            resources: [{ fqn: "Worker", value: worker }],
-            output: null,
+            name: "samebase/tmp-k7m2-rows",
+            stages: [
+              {
+                name: "main",
+                run: { state: "none" },
+                resources: [{ fqn: "Worker", value: worker }],
+                output: null,
+              },
+            ],
           },
         ],
       },
@@ -1034,12 +1216,15 @@ describe("repository environment roots", () => {
             },
             alchemyPreview: {
               state: "available",
-              url: "https://nautical-eagle-647.convex.site",
               convexDeployments: [
-                { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
+                {
+                  name: "nautical-eagle-647",
+                  href: "https://nautical-eagle-647.convex.site",
+                  rootDirectory: "/",
+                  headCommit: null,
+                },
               ],
               workers: [],
-              headCommit: null,
             },
           },
         }}
@@ -1073,14 +1258,22 @@ describe("repository environment roots", () => {
             },
             alchemyPreview: {
               state: "available",
-              url: "https://nautical-eagle-647.convex.site",
               convexDeployments: [
-                { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
+                {
+                  name: "nautical-eagle-647",
+                  href: "https://nautical-eagle-647.convex.site",
+                  rootDirectory: "/",
+                  headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2",
+                },
               ],
               workers: [
-                { name: "tmp-k7m2-rows-pr-1", url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev" },
+                {
+                  name: "tmp-k7m2-rows-pr-1",
+                  url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev",
+                  rootDirectory: "/",
+                  headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2",
+                },
               ],
-              headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2",
             },
           },
         }}
@@ -1113,12 +1306,15 @@ describe("repository environment roots", () => {
         },
         alchemyPreview: {
           state: "available",
-          url: null,
           convexDeployments: [],
           workers: [
-            { name: "tmp-k7m2-rows-pr-1", url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev" },
+            {
+              name: "tmp-k7m2-rows-pr-1",
+              url: "https://tmp-k7m2-rows-pr-1.pfp.workers.dev",
+              rootDirectory: "/",
+              headCommit: null,
+            },
           ],
-          headCommit: null,
         },
       },
     });
@@ -1131,6 +1327,37 @@ describe("repository environment roots", () => {
     expect(container.querySelector("a")?.getAttribute("href")).toBe(
       "https://tmp-k7m2-rows-pr-1.pfp.workers.dev",
     );
+  });
+
+  it("places a preview of the Alchemy state in its directory of the repository", () => {
+    // The preview of samebase/samebase#1768, as buildPullRequestAlchemyPreview reads the captured
+    // stage pr-1768.
+    const roots = buildPullRequestEnvironmentRoots({
+      resources: {
+        pullRequestId: "pull-request-1768",
+        cloudflareBuilds: { state: "available" },
+        workers: [],
+        convexProjects: [],
+        hostingPreviews: {
+          cloudflare: { state: "available", previews: [] },
+          netlify: { state: "available", previews: [] },
+        },
+        alchemyPreview: {
+          state: "available",
+          convexDeployments: [
+            {
+              name: "aware-bobcat-542",
+              href: "https://aware-bobcat-542.convex.site",
+              rootDirectory: "apps/samebase",
+              headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+            },
+          ],
+          workers: [],
+        },
+      },
+    });
+
+    expect(roots.map((root) => root.rootDirectory)).toEqual(["apps/samebase"]);
   });
 
   it("shows a Convex preview independently from a failed Cloudflare build", () => {

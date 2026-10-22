@@ -13,14 +13,14 @@ import type { ViewerOrganization } from "@/organization/context";
 import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import type {
-  RepositoryAlchemyStack,
+  RepositoryAlchemyStacks,
   RepositoryProviderObservationState,
 } from "./useRepositoryProviderObservations";
 import { useRepositoryWorkspaceModel } from "./useRepositoryWorkspaceModel";
 
 const testState = vi.hoisted(
   (): {
-    alchemy: RepositoryProviderObservationState<RepositoryAlchemyStack>;
+    alchemy: RepositoryProviderObservationState<RepositoryAlchemyStacks>;
     providerRepositories: unknown[];
     providerSources: unknown[];
     pullRequestArgs: unknown[];
@@ -254,7 +254,6 @@ describe("useRepositoryWorkspaceModel", () => {
       observations: [
         {
           store: "found",
-          stack: "samebase/base-alchemy",
           liveDeployments: [
             {
               deploymentName: "ideal-dolphin-15",
@@ -263,12 +262,17 @@ describe("useRepositoryWorkspaceModel", () => {
             },
           ],
           // The stage as `alchemyState:observe` returns the captured one, without its run record.
-          stages: [
+          stacks: [
             {
-              name: prod.stage,
-              run: { state: "none" },
-              resources: prod.resources,
-              output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+              name: "samebase/base-alchemy",
+              stages: [
+                {
+                  name: prod.stage,
+                  run: { state: "none" },
+                  resources: prod.resources,
+                  output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+                },
+              ],
             },
           ],
         },

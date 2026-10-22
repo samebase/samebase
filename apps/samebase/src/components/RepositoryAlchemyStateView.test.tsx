@@ -4,10 +4,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { isRecord } from "../../convex/jsonUtils";
 import { observedAlchemyStackReply } from "../../convex/repository/fixtures/observedAlchemyState";
+import { observedSamebaseStackReply } from "../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import {
   AlchemyStateTree,
   type AlchemyStateObservation,
 } from "@/components/RepositoryAlchemyStateView";
+
+type AlchemyStage = Extract<
+  AlchemyStateObservation,
+  { store: "found" }
+>["stacks"][number]["stages"][number];
 
 const [pr24, , prod] = observedAlchemyStackReply.value.stages;
 
@@ -24,20 +30,20 @@ const prodRecord = {
   recordedAt: "2026-10-21T19:58:06.882Z",
 } as const;
 
-const observation = {
-  store: "found",
-  stack: "samebase/base-alchemy",
-  liveDeployments: [],
-  stages: [
-    { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
-    {
-      name: prod.stage,
-      run: { state: "recorded", record: prodRecord },
-      resources: prod.resources,
-      output: '{"url":"https://ideal-dolphin-15.convex.site"}',
-    },
-  ],
-} satisfies AlchemyStateObservation;
+/** An observation of one stack with `stages`. */
+function oneStack(name: string, stages: AlchemyStage[]): AlchemyStateObservation {
+  return { store: "found", liveDeployments: [], stacks: [{ name, stages }] };
+}
+
+const observation = oneStack("samebase/base-alchemy", [
+  { name: pr24.stage, run: { state: "none" }, resources: pr24.resources, output: pr24.output },
+  {
+    name: prod.stage,
+    run: { state: "recorded", record: prodRecord },
+    resources: prod.resources,
+    output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+  },
+]);
 
 function renderTree(tree: AlchemyStateObservation) {
   const container = document.createElement("div");
@@ -52,26 +58,26 @@ function stageDetails(container: HTMLElement) {
   );
 }
 
-/** The captured `prod` stage with another stack file and Deployment `props.source`. */
-function prodWithSource(stackFile: string, source: unknown): AlchemyStateObservation {
+/** The captured `prod` stage with another stack file and Deployment `props.rootDir` and `source`. */
+function prodWithSource(
+  stackFile: string,
+  rootDir: string | undefined,
+  source: unknown,
+): AlchemyStateObservation {
   const deployment: unknown = JSON.parse(prod.resources[0].value);
   if (!isRecord(deployment) || !isRecord(deployment["props"])) {
     throw new Error("Expected the captured Deployment props.");
   }
+  deployment["props"]["rootDir"] = rootDir;
   deployment["props"]["source"] = source;
-  return {
-    store: "found",
-    stack: "samebase/base-alchemy",
-    liveDeployments: [],
-    stages: [
-      {
-        name: prod.stage,
-        run: { state: "recorded", record: { ...prodRecord, stackFile } },
-        resources: [{ fqn: "Deployment", value: JSON.stringify(deployment) }],
-        output: null,
-      },
-    ],
-  };
+  return oneStack("samebase/base-alchemy", [
+    {
+      name: prod.stage,
+      run: { state: "recorded", record: { ...prodRecord, stackFile } },
+      resources: [{ fqn: "Deployment", value: JSON.stringify(deployment) }],
+      output: null,
+    },
+  ]);
 }
 
 afterEach(() => {
@@ -83,7 +89,7 @@ describe("AlchemyStateTree", () => {
     vi.useFakeTimers({ now: new Date("2026-10-21T20:10:08.576Z") });
     const container = renderTree(observation);
 
-    expect(container.firstElementChild?.firstElementChild?.textContent).toBe(
+    expect(container.firstElementChild?.firstElementChild?.firstElementChild?.textContent).toBe(
       "samebase/base-alchemy",
     );
     expect(
@@ -134,14 +140,78 @@ describe("AlchemyStateTree", () => {
     expect(container.querySelector("time")?.getAttribute("dateTime")).toBe(prodRecord.recordedAt);
   });
 
+  it("shows each stack of the repository with the code location from rootDir", () => {
+    // The captured samebase/samebase stack, as `observe` returns it: pr-1768 was deployed from the
+    // root stack file with rootDir apps/samebase, and prod from apps/samebase/alchemy.run.ts
+    // before rootDir. The stack of a folder holds no row yet, so its stage has none.
+    const [, pr1768, samebaseProd] = observedSamebaseStackReply.value.stages;
+    const container = renderTree({
+      store: "found",
+      liveDeployments: [],
+      stacks: [
+        {
+          name: "samebase/samebase",
+          stages: [
+            {
+              name: pr1768.stage,
+              run: {
+                state: "recorded",
+                record: {
+                  version: 1,
+                  repository: "samebase/samebase",
+                  stackFile: "alchemy.run.ts",
+                  branch: "alchemy-root-stack",
+                  pullRequest: 1768,
+                  headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+                  runUrl:
+                    "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
+                  source: "github-actions",
+                  recordedAt: "2026-10-22T09:34:35.577Z",
+                },
+              },
+              resources: pr1768.resources,
+              output: '{"url":"https://aware-bobcat-542.convex.site"}',
+            },
+            {
+              name: samebaseProd.stage,
+              run: {
+                state: "recorded",
+                record: {
+                  ...prodRecord,
+                  repository: "samebase/samebase",
+                  stackFile: "apps/samebase/alchemy.run.ts",
+                },
+              },
+              resources: samebaseProd.resources,
+              output: null,
+            },
+          ],
+        },
+        {
+          name: "samebase/samebase/apps/sidebars-example",
+          stages: [{ name: "prod", run: { state: "none" }, resources: [], output: null }],
+        },
+      ],
+    });
+
+    expect(
+      Array.from(container.querySelectorAll(".font-medium"), (name) => name.textContent),
+    ).toEqual(["samebase/samebase", "samebase/samebase/apps/sidebars-example"]);
+    const convex = stageDetails(container).flatMap((details) =>
+      details.includes("Convex") ? [details[details.indexOf("Convex") + 1]] : [],
+    );
+    expect(convex).toEqual([
+      "aware-bobcat-542apps/samebase/convex",
+      "clear-butterfly-858apps/samebase/convex",
+    ]);
+    expect(stageDetails(container)[1]).toContain("samebase-domainssamebase-posthog-proxy");
+  });
+
   it("links the pull request of a preview stage", () => {
     // Stage pr-23 was destroyed when samebase/base-alchemy#23 merged, before a capture. This is the
     // captured prod record with the values of the run that deployed pr-23.
-    const container = renderTree({
-      store: "found",
-      stack: "samebase/base-alchemy",
-      liveDeployments: [],
-      stages: [
+    const container = renderTree(
+      oneStack("samebase/base-alchemy", [
         {
           name: "pr-23",
           run: {
@@ -158,8 +228,8 @@ describe("AlchemyStateTree", () => {
           resources: [],
           output: null,
         },
-      ],
-    });
+      ]),
+    );
 
     expect(stageDetails(container)[0]?.slice(0, 4)).toEqual([
       "Pull request",
@@ -173,26 +243,32 @@ describe("AlchemyStateTree", () => {
   });
 
   it.each([
-    ["alchemy.run.ts", { path: "./convex" }, "ideal-dolphin-15convex"],
-    ["alchemy.run.ts", "./convex", "ideal-dolphin-15convex"],
-    ["apps/x/alchemy.run.ts", { path: "./convex" }, "ideal-dolphin-15apps/x/convex"],
-    ["alchemy.run.ts", ".", "ideal-dolphin-15."],
-    ["apps/x/alchemy.run.ts", "../../convex/", "ideal-dolphin-15convex"],
-    ["alchemy.run.ts", "../convex", "ideal-dolphin-15"],
-    ["alchemy.run.ts", undefined, "ideal-dolphin-15"],
-  ])("derives the code location from %s and source %j", (stackFile, source, convex) => {
-    const details = stageDetails(renderTree(prodWithSource(stackFile, source)))[0] ?? [];
+    ["alchemy.run.ts", undefined, { path: "./convex" }, "ideal-dolphin-15convex"],
+    ["alchemy.run.ts", undefined, "./convex", "ideal-dolphin-15convex"],
+    ["apps/x/alchemy.run.ts", undefined, { path: "./convex" }, "ideal-dolphin-15apps/x/convex"],
+    ["alchemy.run.ts", undefined, ".", "ideal-dolphin-15."],
+    ["apps/x/alchemy.run.ts", undefined, "../../convex/", "ideal-dolphin-15convex"],
+    ["alchemy.run.ts", undefined, "../convex", "ideal-dolphin-15"],
+    ["alchemy.run.ts", undefined, undefined, "ideal-dolphin-15"],
+    ["alchemy.run.ts", "apps/x", "./convex", "ideal-dolphin-15apps/x/convex"],
+    ["alchemy.run.ts", ".", "./convex", "ideal-dolphin-15convex"],
+    ["apps/x/alchemy.run.ts", "../y", "./convex", "ideal-dolphin-15apps/y/convex"],
+    ["alchemy.run.ts", "/abs", "./convex", "ideal-dolphin-15"],
+  ])(
+    "derives the code location from %s, rootDir %j, and source %j",
+    (stackFile, rootDir, source, convex) => {
+      const details = stageDetails(renderTree(prodWithSource(stackFile, rootDir, source)))[0] ?? [];
 
-    expect(details[details.indexOf("Convex") + 1]).toBe(convex);
-  });
+      expect(details[details.indexOf("Convex") + 1]).toBe(convex);
+    },
+  );
 
   it("shows a run record of an unknown version", () => {
-    const container = renderTree({
-      store: "found",
-      stack: "samebase/base-alchemy",
-      liveDeployments: [],
-      stages: [{ name: prod.stage, run: { state: "unknown" }, resources: [], output: null }],
-    });
+    const container = renderTree(
+      oneStack("samebase/base-alchemy", [
+        { name: prod.stage, run: { state: "unknown" }, resources: [], output: null },
+      ]),
+    );
 
     expect(stageDetails(container)).toEqual([["Run", "Unknown run record"]]);
   });
@@ -200,11 +276,8 @@ describe("AlchemyStateTree", () => {
   it("links each Cloudflare Worker to its URL", () => {
     // The `main` Worker row, verbatim, from section 4 of
     // research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md (alchemy 2.0.0-beta.83).
-    const container = renderTree({
-      store: "found",
-      stack: "samebase/tmp-k7m2-rows",
-      liveDeployments: [],
-      stages: [
+    const container = renderTree(
+      oneStack("samebase/tmp-k7m2-rows", [
         {
           name: "main",
           run: { state: "none" },
@@ -217,8 +290,8 @@ describe("AlchemyStateTree", () => {
           ],
           output: null,
         },
-      ],
-    });
+      ]),
+    );
 
     expect(stageDetails(container)[0]?.slice(2, 4)).toEqual(["Workers", "tmp-k7m2-rows"]);
     expect(container.querySelector("details > dl a")?.getAttribute("href")).toBe(
@@ -228,11 +301,8 @@ describe("AlchemyStateTree", () => {
 
   it("shows only the key of a secret in the output", () => {
     // The action already replaces secret values with null, and the view must still hide a value that reaches it.
-    const container = renderTree({
-      store: "found",
-      stack: "samebase/base-alchemy",
-      liveDeployments: [],
-      stages: [
+    const container = renderTree(
+      oneStack("samebase/base-alchemy", [
         {
           name: "prod",
           run: { state: "none" },
@@ -240,8 +310,8 @@ describe("AlchemyStateTree", () => {
           output:
             '{"url":"https://ideal-dolphin-15.convex.site","deployKey":{"__redacted__":"prod:ideal-dolphin-15|state-secret-value"},"nested":{"token":{"__redacted__":null}}}',
         },
-      ],
-    });
+      ]),
+    );
 
     expect(container.innerHTML).not.toContain("state-secret-value");
     expect(container.innerHTML).not.toContain("__redacted__");
@@ -252,15 +322,10 @@ describe("AlchemyStateTree", () => {
     ).toEqual([["url", "https://ideal-dolphin-15.convex.site"], ["deployKey"], ["nested.token"]]);
   });
 
-  it("shows a stack without stages", () => {
-    expect(
-      renderTree({
-        store: "found",
-        stack: "samebase/base-alchemy",
-        liveDeployments: [],
-        stages: [],
-      }).textContent,
-    ).toBe("samebase/base-alchemyNo Alchemy state.");
+  it("shows a repository without stacks", () => {
+    expect(renderTree({ store: "found", liveDeployments: [], stacks: [] }).textContent).toBe(
+      "No Alchemy state.",
+    );
   });
 
   it("shows a team without a store", () => {

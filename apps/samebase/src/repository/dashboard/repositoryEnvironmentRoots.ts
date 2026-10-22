@@ -1,16 +1,10 @@
-import { validate } from "convex-helpers/validators";
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   PullRequestResources,
   PullRequestWorkerResource,
 } from "../../../convex/repository/pullRequestModel";
-import {
-  convexFunctionsDirectory,
-  findProductionStage,
-  vAlchemyCloudflareWorkerState,
-  vAlchemyConvexDeploymentState,
-} from "../../../shared/alchemyState";
+import { findProductionStage, placeStageResources } from "../../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import {
@@ -19,7 +13,7 @@ import {
   buildRepositorySchemaRoute,
 } from "@/lib/repositoryRoutes";
 import type {
-  RepositoryAlchemyStack,
+  RepositoryAlchemyStacks,
   RepositoryCloudflareProviderObservationState,
   RepositoryCloudflareWorkerBuildsObservation,
   RepositoryConvexProjectObservation,
@@ -384,19 +378,13 @@ export function buildProductionEnvironmentRoots({
   ]);
 }
 
-/** The directory that holds `path`, `/` for the repository root. */
-function parentDirectory(path: string): string {
-  const parts = path.split("/").slice(0, -1);
-  return parts.length === 0 ? "/" : parts.join("/");
-}
-
 /**
-The default-branch block from the stack of the repository in the Alchemy state store: its stage
-`prod`, or `main` for a stack whose stages are not renamed yet. The store records no build, so no
-build state shows. A Convex deployment takes its dashboard link and region from the live reads of
-its project and production deployment, like an attached project. The Schema route reads schema
-snapshots stored for an attachment row, so a deployment offers it only when its project is
-attached.
+The default-branch block from the stacks of the repository in the Alchemy state store: the stage
+`prod` of each stack, or `main` for a stack whose stages are not renamed yet, each resource in its
+directory of the repository (`placeStageResources`). The store records no build, so no build state
+shows. A Convex deployment takes its dashboard link and region from the live reads of its project
+and production deployment, like an attached project. The Schema route reads schema snapshots stored
+for an attachment row, so a deployment offers it only when its project is attached.
 */
 export function buildAlchemyEnvironmentRoots({
   branch,
@@ -404,117 +392,101 @@ export function buildAlchemyEnvironmentRoots({
   repoName,
   schemaGraphEnabled,
   repository,
-  stack,
+  stacks,
 }: {
   branch: string;
   owner: string;
   repoName: string;
   schemaGraphEnabled: boolean;
   repository: RepositoryDashboardRepository;
-  stack: RepositoryAlchemyStack;
+  stacks: RepositoryAlchemyStacks;
 }): RepositoryEnvironmentRoot[] {
-  const stage = findProductionStage(stack.stages);
-  if (!stage) {
-    return [];
-  }
-
-  const stackFile = stage.run.state === "recorded" ? stage.run.record.stackFile : null;
-  // Without a run record the stack file is unknown, so its resources sit at the repository root.
-  const stackDirectory = stackFile === null ? "/" : parentDirectory(stackFile);
-  const states = stage.resources.map((resource) => {
-    const state: unknown = JSON.parse(resource.value);
-    return { fqn: resource.fqn, state };
-  });
-
-  const workers = states.flatMap(({ fqn, state }): RepositoryEnvironmentResourceInput[] => {
-    if (!validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })) {
-      return [];
-    }
-    const { url, urls, workerName } = state.attr;
-    return [
-      {
-        rootDirectory: stackDirectory,
-        sortKey: `0:${workerName}:${fqn}`,
-        resource: {
-          kind: "cloudflare_worker",
-          id: `alchemy:${fqn}`,
-          worker: {
-            workerName,
-            build: { state: "unrecorded" },
-            destination:
-              url === undefined
-                ? { state: "absent" }
-                : {
-                    state: "available",
-                    href: url,
-                    label: buildProductionUrlLabel(url),
-                    provenance: "production",
-                    title:
-                      stackDirectory === "/"
-                        ? "Open production app"
-                        : `Open production app for ${stackDirectory}`,
-                  },
-            actions: urls
-              .filter((other) => other !== url)
-              .map((other) => ({
-                destination: "external",
-                href: other,
-                label: buildProductionUrlLabel(other),
-              })),
-          },
-        },
-      },
-    ];
-  });
-  const convexDeployments = states.flatMap(
-    ({ fqn, state }): RepositoryEnvironmentResourceInput[] => {
-      if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
+  return groupRepositoryEnvironmentResources(
+    stacks.stacks.flatMap((stack): RepositoryEnvironmentResourceInput[] => {
+      const stage = findProductionStage(stack.stages);
+      if (!stage) {
         return [];
       }
-      const { attr, props } = state;
-      const live = stack.liveDeployments.find(
-        (candidate) => candidate.deploymentName === attr.name,
-      );
-      // The deployment links to its site only when the live project read failed.
-      const href = live?.dashboardUrl ?? attr.siteUrl;
-      const region = live?.region;
-      const source = props.source;
-      const sourcePath = typeof source === "string" ? source : source?.path;
-      const codeLocation =
-        stackFile === null || sourcePath === undefined
-          ? null
-          : convexFunctionsDirectory(stackFile, sourcePath);
-      const attachedProject = repository.convexProjects.find(
-        (candidate) => candidate.projectId === String(attr.projectId),
-      );
-      return [
-        {
-          rootDirectory: codeLocation === null ? stackDirectory : parentDirectory(codeLocation),
-          sortKey: `1:${attr.name}:${fqn}`,
-          resource: {
-            kind: "destination",
-            id: `alchemy:${fqn}`,
-            actions: buildConvexProductionActions({
-              branch,
-              convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
-              deploymentName: attr.name,
-              owner,
-              repoName,
-              schemaGraphEnabled: schemaGraphEnabled && attachedProject !== undefined,
-            }),
-            href,
-            label: attr.name,
-            provider: "convex",
-            provenance: "production",
-            ...(region ? { region } : {}),
-            title: `Open production Convex deployment ${attr.name}`,
-          },
-        },
-      ];
-    },
-  );
+      const { convexDeployments, workers } = placeStageResources({
+        stackFile: stage.run.state === "recorded" ? stage.run.record.stackFile : null,
+        resources: stage.resources,
+      });
 
-  return groupRepositoryEnvironmentResources([...workers, ...convexDeployments]);
+      return [
+        ...workers.map(({ fqn, state, rootDirectory }): RepositoryEnvironmentResourceInput => {
+          const { url, urls, workerName } = state.attr;
+          return {
+            rootDirectory,
+            sortKey: `0:${workerName}:${stack.name}:${fqn}`,
+            resource: {
+              kind: "cloudflare_worker",
+              id: `alchemy:${stack.name}:${fqn}`,
+              worker: {
+                workerName,
+                build: { state: "unrecorded" },
+                destination:
+                  url === undefined
+                    ? { state: "absent" }
+                    : {
+                        state: "available",
+                        href: url,
+                        label: buildProductionUrlLabel(url),
+                        provenance: "production",
+                        title:
+                          rootDirectory === "/"
+                            ? "Open production app"
+                            : `Open production app for ${rootDirectory}`,
+                      },
+                actions: urls
+                  .filter((other) => other !== url)
+                  .map((other) => ({
+                    destination: "external",
+                    href: other,
+                    label: buildProductionUrlLabel(other),
+                  })),
+              },
+            },
+          };
+        }),
+        ...convexDeployments.map(
+          ({ fqn, state, rootDirectory }): RepositoryEnvironmentResourceInput => {
+            const { attr } = state;
+            const live = stacks.liveDeployments.find(
+              (candidate) => candidate.deploymentName === attr.name,
+            );
+            // The deployment links to its site only when the live project read failed.
+            const href = live?.dashboardUrl ?? attr.siteUrl;
+            const region = live?.region;
+            const attachedProject = repository.convexProjects.find(
+              (candidate) => candidate.projectId === String(attr.projectId),
+            );
+            return {
+              rootDirectory,
+              sortKey: `1:${attr.name}:${stack.name}:${fqn}`,
+              resource: {
+                kind: "destination",
+                id: `alchemy:${stack.name}:${fqn}`,
+                actions: buildConvexProductionActions({
+                  branch,
+                  convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
+                  deploymentName: attr.name,
+                  owner,
+                  repoName,
+                  schemaGraphEnabled: schemaGraphEnabled && attachedProject !== undefined,
+                }),
+                href,
+                label: attr.name,
+                provider: "convex",
+                provenance: "production",
+                ...(region ? { region } : {}),
+                title: `Open production Convex deployment ${attr.name}`,
+              },
+            };
+          },
+        ),
+      ];
+    }),
+  );
 }
 
 export function buildPullRequestEnvironmentRoots({
@@ -583,14 +555,13 @@ export function buildPullRequestEnvironmentRoots({
       },
     ];
   });
-  const alchemyPreview = resources.alchemyPreview;
   // A stage whose run record names the head of the pull request is current; any other stage may
   // be from an earlier commit.
-  const headCommit = alchemyPreview.state === "available" ? alchemyPreview.headCommit : null;
+  const alchemyPreview = resources.alchemyPreview;
   const alchemyWorkers =
     alchemyPreview.state === "available"
       ? alchemyPreview.workers.map((worker) => ({
-          rootDirectory: "/",
+          rootDirectory: worker.rootDirectory,
           sortKey: `0:${worker.name}:alchemy`,
           resource: {
             kind: "cloudflare_worker" as const,
@@ -606,9 +577,12 @@ export function buildPullRequestEnvironmentRoots({
                       href: worker.url,
                       label: "Branch preview",
                       title: buildProductionUrlLabel(worker.url),
-                      ...(headCommit === null
+                      ...(worker.headCommit === null
                         ? { provenance: "earlier_check" as const }
-                        : { provenance: "pull_request_head" as const, headCommit }),
+                        : {
+                            provenance: "pull_request_head" as const,
+                            headCommit: worker.headCommit,
+                          }),
                     },
               actions: [],
             },
@@ -618,21 +592,19 @@ export function buildPullRequestEnvironmentRoots({
   const alchemyDeployments =
     alchemyPreview.state === "available"
       ? alchemyPreview.convexDeployments.map((deployment) => ({
-          // The stack is keyed by the repository, so its preview sits at the repository root.
-          rootDirectory: "/",
+          rootDirectory: deployment.rootDirectory,
           sortKey: `1:${deployment.name}:alchemy`,
           resource: {
             kind: "destination" as const,
             id: `alchemy:${deployment.name}`,
             actions: [],
-            // The stage output names the preview; a stage without one links the deployment.
-            href: alchemyPreview.url ?? deployment.url,
+            href: deployment.href,
             label: deployment.name,
             provider: "convex" as const,
             title: `Open the preview of Convex deployment ${deployment.name}`,
-            ...(headCommit === null
+            ...(deployment.headCommit === null
               ? { provenance: "pull_request_branch" as const }
-              : { provenance: "pull_request_head" as const, headCommit }),
+              : { provenance: "pull_request_head" as const, headCommit: deployment.headCommit }),
           },
         }))
       : [];

@@ -19,6 +19,7 @@ import {
   observedAlchemyStackReply,
   observedBaseAlchemyProject,
 } from "./fixtures/observedAlchemyState";
+import { observedSamebaseStacksReply } from "./fixtures/observedSamebaseAlchemyState";
 
 const storeProject = {
   createTime: 1710000000000,
@@ -175,6 +176,13 @@ function installConvexFetchStub(storeReply: unknown) {
       if (
         url === "https://artful-alligator-66.convex.cloud/api/function" &&
         isRecord(body) &&
+        body["path"] === "state:stacks"
+      ) {
+        return jsonResponse(observedSamebaseStacksReply);
+      }
+      if (
+        url === "https://artful-alligator-66.convex.cloud/api/function" &&
+        isRecord(body) &&
         body["path"] === "state:readStack"
       ) {
         return jsonResponse(storeReply);
@@ -219,14 +227,18 @@ describe("pull request resources from the Alchemy state of the team", () => {
       pullRequestId: "PR_24",
       workers: [],
       convexProjects: [],
+      // The stage has no run record, so its stack file and head are unknown.
       alchemyPreview: {
         state: "available",
-        url: "https://nautical-eagle-647.convex.site",
         convexDeployments: [
-          { name: "nautical-eagle-647", url: "https://nautical-eagle-647.convex.cloud" },
+          {
+            name: "nautical-eagle-647",
+            href: "https://nautical-eagle-647.convex.site",
+            rootDirectory: "/",
+            headCommit: null,
+          },
         ],
         workers: [],
-        headCommit: null,
       },
     });
   });

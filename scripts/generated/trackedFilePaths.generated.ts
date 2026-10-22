@@ -472,6 +472,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/repository/eventOrderModel.ts",
   "apps/samebase/convex/repository/fixtures/observedAlchemyState.ts",
   "apps/samebase/convex/repository/fixtures/observedConvexComponents.ts",
+  "apps/samebase/convex/repository/fixtures/observedSamebaseAlchemyState.ts",
   "apps/samebase/convex/repository/fixtures/observedSetupOutput.ts",
   "apps/samebase/convex/repository/folderModel.ts",
   "apps/samebase/convex/repository/folders.convex.test.ts",

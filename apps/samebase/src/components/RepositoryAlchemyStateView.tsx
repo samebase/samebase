@@ -6,12 +6,7 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import {
-  ALCHEMY_REDACTED_MARKER,
-  convexFunctionsDirectory,
-  vAlchemyCloudflareWorkerState,
-  vAlchemyConvexDeploymentState,
-} from "../../shared/alchemyState";
+import { ALCHEMY_REDACTED_MARKER, placeStageResources } from "../../shared/alchemyState";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
@@ -19,7 +14,10 @@ import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySe
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
 
 export type AlchemyStateObservation = (typeof api.repository.alchemyState.observe)["_returnType"];
-type AlchemyStage = Extract<AlchemyStateObservation, { store: "found" }>["stages"][number];
+type AlchemyStage = Extract<
+  AlchemyStateObservation,
+  { store: "found" }
+>["stacks"][number]["stages"][number];
 type AlchemyRunRecord = Extract<AlchemyStage["run"], { state: "recorded" }>["record"];
 
 const { object, string } = v;
@@ -143,30 +141,10 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
   });
-  const stackFile = stage.run.state === "recorded" ? stage.run.record.stackFile : null;
-  const convexDeployments = states.flatMap(({ fqn, state }) => {
-    if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
-      return [];
-    }
-    const source = state.props.source;
-    const sourcePath = typeof source === "string" ? source : source?.path;
-    return [
-      {
-        fqn,
-        name: state.attr.name,
-        url: state.attr.url,
-        codeLocation:
-          stackFile === null || sourcePath === undefined
-            ? null
-            : convexFunctionsDirectory(stackFile, sourcePath),
-      },
-    ];
+  const { convexDeployments, workers } = placeStageResources({
+    stackFile: stage.run.state === "recorded" ? stage.run.record.stackFile : null,
+    resources: stage.resources,
   });
-  const workers = states.flatMap(({ fqn, state }) =>
-    validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
-      ? [{ fqn, name: state.attr.workerName, url: state.attr.url }]
-      : [],
-  );
 
   return (
     <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
@@ -181,30 +159,30 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
       )}
       {convexDeployments.length === 0 ? null : (
         <AlchemyStateDetailRow label="Convex">
-          {convexDeployments.map((deployment) => (
+          {convexDeployments.map(({ codeLocation, fqn, state }) => (
             <AlchemyStateDetailItem
-              key={deployment.fqn}
+              key={fqn}
               name={
-                <a href={deployment.url} rel="noreferrer noopener" target="_blank">
-                  {deployment.name}
+                <a href={state.attr.url} rel="noreferrer noopener" target="_blank">
+                  {state.attr.name}
                 </a>
               }
-              detail={deployment.codeLocation}
+              detail={codeLocation}
             />
           ))}
         </AlchemyStateDetailRow>
       )}
       {workers.length === 0 ? null : (
         <AlchemyStateDetailRow label="Workers">
-          {workers.map((worker) => (
+          {workers.map(({ fqn, state }) => (
             <AlchemyStateDetailItem
-              key={worker.fqn}
+              key={fqn}
               name={
-                worker.url === undefined ? (
-                  worker.name
+                state.attr.url === undefined ? (
+                  state.attr.workerName
                 ) : (
-                  <a href={worker.url} rel="noreferrer noopener" target="_blank">
-                    {worker.name}
+                  <a href={state.attr.url} rel="noreferrer noopener" target="_blank">
+                    {state.attr.workerName}
                   </a>
                 )
               }
@@ -248,31 +226,33 @@ export function AlchemyStateTree({ observation }: { observation: AlchemyStateObs
     );
   }
 
+  if (observation.stacks.length === 0) {
+    return <RepositoryAlchemyStateStatus>No Alchemy state.</RepositoryAlchemyStateStatus>;
+  }
+
   return (
     <div className="p-3 text-sm">
-      <div className="truncate py-1 font-mono font-medium">{observation.stack}</div>
-      {observation.stages.length === 0 ? (
-        <div className="ml-2.5 border-l border-border py-1 pl-3 text-muted-foreground">
-          No Alchemy state.
+      {observation.stacks.map((stack) => (
+        <div key={stack.name}>
+          <div className="truncate py-1 font-mono font-medium">{stack.name}</div>
+          <ul className="ml-2.5 border-l border-border pl-3">
+            {stack.stages.map((stage) => (
+              <li key={stage.name}>
+                <details className="group">
+                  <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
+                    <span className="min-w-0 truncate font-mono">{stage.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
+                    </span>
+                  </summary>
+                  <AlchemyStageDetails stage={stage} />
+                </details>
+              </li>
+            ))}
+          </ul>
         </div>
-      ) : (
-        <ul className="ml-2.5 border-l border-border pl-3">
-          {observation.stages.map((stage) => (
-            <li key={stage.name}>
-              <details className="group">
-                <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
-                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
-                  <span className="min-w-0 truncate font-mono">{stage.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
-                  </span>
-                </summary>
-                <AlchemyStageDetails stage={stage} />
-              </details>
-            </li>
-          ))}
-        </ul>
-      )}
+      ))}
     </div>
   );
 }

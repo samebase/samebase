@@ -30,21 +30,24 @@ const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state";
 /**
 The key of the run record in a stage output.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.7.0/src/RunRecord.ts#L16
+@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/RunRecord.ts#L16
 */
 const RUN_RECORD_KEY = "samebase.run";
 
 /**
-The run record that @samebase/alchemy-convex 0.7.0 adds to each stage output it writes: the run of
-the last full deploy of the stage. It holds no secret.
+The run record that @samebase/alchemy-convex 0.7.0 and later add to each stage output they write:
+the run of the last full deploy of the stage. It holds no secret.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.7.0/src/RunRecord.ts#L22-L39
+@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/RunRecord.ts#L22-L39
 */
 const vRunRecord = object({
   version: literal(1),
   /** GitHub `owner/name`. */
   repository: string(),
-  /** The stack file from the repository root, with POSIX separators, such as `apps/x/alchemy.run.ts`. */
+  /**
+  The stack file from the repository root, with POSIX separators, such as `apps/x/alchemy.run.ts`:
+  the working directory of the run plus `alchemy.run.ts`.
+  */
   stackFile: string(),
   /** The head branch of a pull request, else the pushed branch. */
   branch: string(),
@@ -84,14 +87,22 @@ const vAlchemyStage = object({
 });
 export type AlchemyStage = Infer<typeof vAlchemyStage>;
 
+/**
+A stack of the repository with the stages that belong to it, in name order. The stack of the
+repository root is named after the repository, `owner/name`, and a stack in a folder after the
+repository and the folder, such as `owner/name/apps/web`.
+*/
+const vAlchemyStack = object({ name: string(), stages: array(vAlchemyStage) });
+export type AlchemyStack = Infer<typeof vAlchemyStack>;
+
 const vAlchemyStateObservation = union(
   object({ store: literal("missing") }),
   object({
     store: literal("found"),
-    /** The stack of the repository, keyed by its GitHub `owner/name`. */
-    stack: string(),
+    /** The stacks of the repository with at least one stage, in name order. */
+    stacks: array(vAlchemyStack),
     /**
-    Each Convex deployment of the production stage, read live like the production deployment of
+    Each Convex deployment of the production stages, read live like the production deployment of
     an attached project: its dashboard link from the project read, null when that read fails, and
     its region from the deployment read, null when that read fails or names another deployment.
     */
@@ -102,14 +113,21 @@ const vAlchemyStateObservation = union(
         region: union(vConvexDeploymentRegion, v.null()),
       }),
     ),
-    stages: array(vAlchemyStage),
   }),
 );
 type AlchemyStateObservation = Infer<typeof vAlchemyStateObservation>;
 /** The store read of `observe`, before its live reads. */
-type AlchemyStackRead =
+type AlchemyStacksRead =
   | { store: "missing" }
   | Omit<Extract<AlchemyStateObservation, { store: "found" }>, "liveDeployments">;
+
+/**
+The reply of `state:stacks`: the name of every stack of the store with a resource or an output, in
+name order.
+
+@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/store/convex/state.ts#L63-L88
+*/
+const vStoreStacksReply = object({ status: literal("success"), value: array(string()) });
 
 /**
 The reply of `state:readStack` `{ stack }`: every stage of the stack in name order, each with its
@@ -120,7 +138,7 @@ the root app: only `POST /api/function` reaches it, with a deploy key that allow
 `deployment:functions:runInternalQueries`. A function error fails the request, which
 `fetchConvexDeploymentJson` throws.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.7.0/src/store/convex/state.ts#L221-L265
+@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/store/convex/state.ts#L221-L265
 */
 const vStoreStackReply = object({
   status: literal("success"),
@@ -175,14 +193,17 @@ function readStage(stage: StoreStage): AlchemyStage {
 }
 
 /**
-Reads one stack in one `state:readStack` call from the Alchemy state store of a Convex team: the
-production deployment of the team's `alchemy-state` project. Other stacks of the team are not read.
+Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
+deployment of the team's `alchemy-state` project: `state:stacks`, then one `state:readStack` for each
+stack named `owner/name` or `owner/name/<folder>`. A stage belongs to the repository when its run
+record names the repository, or, without a run record, when its stack is named `owner/name`. Other
+stacks of the team are not read.
 */
-export async function readAlchemyStack(args: {
+export async function readAlchemyStacks(args: {
   /** The GitHub `owner/name` of the repository. */
-  stack: string;
+  repository: string;
   target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
-}): Promise<AlchemyStackRead> {
+}): Promise<AlchemyStacksRead> {
   const project = (
     await listConvexManagementProjects({ token: args.target.token, teamId: args.target.teamId })
   ).find((candidate) => candidate.name === ALCHEMY_STATE_PROJECT_NAME);
@@ -194,58 +215,83 @@ export async function readAlchemyStack(args: {
     return { store: "missing" };
   }
 
-  const reply = await withConvexInspectionDeployKey(
+  const replies = await withConvexInspectionDeployKey(
     { deployment, purpose: "alchemyState", target: args.target },
-    async (deployKey) =>
-      await fetchConvexDeploymentJson({
-        deployKey,
-        deploymentUrl: deployment.deploymentUrl,
-        path: "/api/function",
-        body: { path: "state:readStack", args: { stack: args.stack }, format: "json" },
-      }),
+    async (deployKey) => {
+      const names = parse(
+        vStoreStacksReply,
+        await fetchConvexDeploymentJson({
+          deployKey,
+          deploymentUrl: deployment.deploymentUrl,
+          path: "/api/function",
+          body: { path: "state:stacks", args: {}, format: "json" },
+        }),
+      ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
+      return await Promise.all(
+        names.map(async (name) => ({
+          name,
+          reply: await fetchConvexDeploymentJson({
+            deployKey,
+            deploymentUrl: deployment.deploymentUrl,
+            path: "/api/function",
+            body: { path: "state:readStack", args: { stack: name }, format: "json" },
+          }),
+        })),
+      );
+    },
   );
 
   return {
     store: "found",
-    stack: args.stack,
-    stages: parse(vStoreStackReply, reply).value.stages.map(readStage),
+    stacks: replies.flatMap(({ name, reply }) => {
+      const stages = parse(vStoreStackReply, reply)
+        .value.stages.map(readStage)
+        .filter((stage) =>
+          stage.run.state === "recorded"
+            ? stage.run.record.repository === args.repository
+            : name === args.repository,
+        );
+      return stages.length === 0 ? [] : [{ name, stages }];
+    }),
   };
 }
 
 /**
-The `Convex.Deployment` resources of the production stage of a stack, each with its Convex project
-and the team of that project when the state names it.
+The `Convex.Deployment` resources of the production stages of the stacks, each with its Convex
+project and the team of that project when the state names it.
 */
-export function readProductionConvexDeployments(stages: readonly AlchemyStage[]): {
+export function readProductionConvexDeployments(stacks: readonly AlchemyStack[]): {
   projectId: string;
   deploymentName: string;
   teamId: string | null;
 }[] {
-  const stage = findProductionStage(stages);
-  const states = (stage?.resources ?? []).map((resource): unknown => JSON.parse(resource.value));
-  const projects = states.flatMap((state) =>
-    validate(vAlchemyConvexProjectState, state, { allowUnknownFields: true }) ? [state.attr] : [],
-  );
-  return states.flatMap((state) => {
-    if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
-      return [];
-    }
-    const project =
-      projects.find((candidate) => candidate.projectId === state.attr.projectId) ??
-      state.props.project;
-    return [
-      {
-        projectId: String(state.attr.projectId),
-        deploymentName: state.attr.name,
-        teamId: project.teamId === undefined ? null : String(project.teamId),
-      },
-    ];
+  return stacks.flatMap((stack) => {
+    const stage = findProductionStage(stack.stages);
+    const states = (stage?.resources ?? []).map((resource): unknown => JSON.parse(resource.value));
+    const projects = states.flatMap((state) =>
+      validate(vAlchemyConvexProjectState, state, { allowUnknownFields: true }) ? [state.attr] : [],
+    );
+    return states.flatMap((state) => {
+      if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
+        return [];
+      }
+      const project =
+        projects.find((candidate) => candidate.projectId === state.attr.projectId) ??
+        state.props.project;
+      return [
+        {
+          projectId: String(state.attr.projectId),
+          deploymentName: state.attr.name,
+          teamId: project.teamId === undefined ? null : String(project.teamId),
+        },
+      ];
+    });
   });
 }
 
 /**
-Reads the stack of the repository from the Alchemy state store of the Convex team that the
-organization connected: its stages with the run record of each, the resources of each stage, and
+Reads the stacks of the repository from the Alchemy state store of the Convex team that the
+organization connected: their stages with the run record of each, the resources of each stage, and
 the stage output, plus the live region of each production Convex deployment.
 */
 export const observe = action({
@@ -259,13 +305,13 @@ export const observe = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const read = await readAlchemyStack({ stack: target.githubRepositoryFullName, target });
+    const read = await readAlchemyStacks({ repository: target.githubRepositoryFullName, target });
     if (read.store === "missing") {
       return read;
     }
 
     const liveDeployments = await Promise.all(
-      readProductionConvexDeployments(read.stages).map(async (deployment) => {
+      readProductionConvexDeployments(read.stacks).map(async (deployment) => {
         const [project, live] = await Promise.all([
           readConvexProjectResource({
             token: target.token,

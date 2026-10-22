@@ -5,10 +5,7 @@ import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { z } from "zod";
 
-import {
-  vAlchemyCloudflareWorkerState,
-  vAlchemyConvexDeploymentState,
-} from "../../shared/alchemyState";
+import { placeStageResources } from "../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -20,7 +17,7 @@ import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
 import { readCloudflareWorkerBranchPreviewUrls } from "../cloudflareResources";
 import { toErrorMessage } from "../jsonUtils";
-import { readAlchemyStack, type AlchemyStage } from "./alchemyState";
+import { readAlchemyStacks, type AlchemyStack } from "./alchemyState";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import {
   vPullRequestResources,
@@ -541,13 +538,13 @@ type PullRequestResourceAccumulator = {
   alchemyPreview: PullRequestAlchemyPreview;
 };
 /**
-The stack of the repository in the Alchemy state store of its Convex team.
+The stacks of the repository in the Alchemy state store of its Convex team.
 
 missing = the read asked for the attachment rows only, the organization has no Convex connection for
-the team of the repository, the team has no store, or the store holds no stage of the stack.
+the team of the repository, the team has no store, or the store holds no stage of the repository.
 */
 type PullRequestAlchemyStackRead =
-  | { state: "found"; stages: AlchemyStage[] }
+  | { state: "found"; stacks: AlchemyStack[] }
   | { state: "missing" }
   | { state: "failed" };
 type ConvexPreviewRead =
@@ -663,7 +660,10 @@ export function resolveConvexPreviewDeployment(args: {
 
 const vStageOutputUrl = object({ url: string() });
 
-/** The preview of a pull request: the stage `pr-<number>` of the stack, the upstream Alchemy name. */
+/**
+The preview of a pull request: the stages `pr-<number>`, the upstream Alchemy name, of the stacks of
+the repository, each resource in its directory of the repository.
+*/
 export function buildPullRequestAlchemyPreview(args: {
   stack: PullRequestAlchemyStackRead;
   head: Pick<PullRequestResourceHead, "headRefOid" | "number">;
@@ -671,37 +671,47 @@ export function buildPullRequestAlchemyPreview(args: {
   if (args.stack.state === "failed") {
     return { state: "unavailable" };
   }
-  const stage =
+  const stages =
     args.stack.state === "found"
-      ? args.stack.stages.find((candidate) => candidate.name === `pr-${args.head.number}`)
-      : undefined;
-  if (!stage) {
+      ? args.stack.stacks.flatMap((stack) =>
+          stack.stages.filter((candidate) => candidate.name === `pr-${args.head.number}`),
+        )
+      : [];
+  if (stages.length === 0) {
     return { state: "absent" };
   }
 
-  const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
-  const states = stage.resources.map((resource): unknown => JSON.parse(resource.value));
+  const placed = stages.map((stage) => {
+    const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
+    const record = stage.run.state === "recorded" ? stage.run.record : null;
+    return {
+      ...placeStageResources({ stackFile: record?.stackFile ?? null, resources: stage.resources }),
+      url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
+      headCommit: record?.headCommit === args.head.headRefOid ? args.head.headRefOid : null,
+    };
+  });
   return {
     state: "available",
-    url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
-    convexDeployments: states.flatMap((state) =>
-      validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
-        ? [{ name: state.attr.name, url: state.attr.url }]
-        : [],
+    convexDeployments: placed.flatMap((stage) =>
+      stage.convexDeployments.map(({ state, rootDirectory }) => ({
+        name: state.attr.name,
+        href: stage.url ?? state.attr.url,
+        rootDirectory,
+        headCommit: stage.headCommit,
+      })),
     ),
-    workers: states.flatMap((state) =>
-      validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
-        ? [{ name: state.attr.workerName, url: state.attr.url ?? null }]
-        : [],
+    workers: placed.flatMap((stage) =>
+      stage.workers.map(({ state, rootDirectory }) => ({
+        name: state.attr.workerName,
+        url: state.attr.url ?? null,
+        rootDirectory,
+        headCommit: stage.headCommit,
+      })),
     ),
-    headCommit:
-      stage.run.state === "recorded" && stage.run.record.headCommit === args.head.headRefOid
-        ? args.head.headRefOid
-        : null,
   };
 }
 
-/** Reads the stack of the repository once for every pull request of one resources read. */
+/** Reads the stacks of the repository once for every pull request of one resources read. */
 async function readPullRequestAlchemyStack(
   ctx: ActionCtx,
   args: {
@@ -729,16 +739,16 @@ async function readPullRequestAlchemyStack(
       return { state: "missing" };
     }
 
-    const stack = await readAlchemyStack({
-      stack: `${args.context.githubOwnerLogin}/${args.context.githubRepositoryName}`,
+    const read = await readAlchemyStacks({
+      repository: `${args.context.githubOwnerLogin}/${args.context.githubRepositoryName}`,
       target: {
         authMethod: credential.auth.method,
         teamId: connection.teamId,
         token,
       },
     });
-    return stack.store === "found" && stack.stages.length > 0
-      ? { state: "found", stages: stack.stages }
+    return read.store === "found" && read.stacks.length > 0
+      ? { state: "found", stacks: read.stacks }
       : { state: "missing" };
   } catch (error) {
     console.warn("Pull request Alchemy state read failed.", { message: toErrorMessage(error) });
@@ -1348,7 +1358,7 @@ export async function getPullRequestResourcesForUser(
   });
   const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
   const alchemyStack = await alchemyStackRead;
-  // With a stack in the team store, the stage `pr-<number>` holds the preview of each pull request,
+  // With stacks in the team store, the stages `pr-<number>` hold the preview of each pull request,
   // and the attached Workers and Convex projects are not read.
   const attachedWorkers = alchemyStack.state === "found" ? [] : context.cloudflareWorkers;
   const attachedConvexProjects = alchemyStack.state === "found" ? [] : context.convexProjects;
