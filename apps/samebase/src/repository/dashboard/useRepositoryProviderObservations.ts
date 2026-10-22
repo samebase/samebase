@@ -83,6 +83,8 @@ function providerObservationState<TObservation>({
 
 export function useRepositoryProviderObservations(
   repository: RepositoryProviderObservationTarget | null,
+  /** `attachments` reads no team store: `alchemy` holds no stack. */
+  source?: "attachments",
 ): {
   cloudflare: RepositoryCloudflareProviderObservationState;
   convex: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
@@ -219,6 +221,8 @@ export function useRepositoryProviderObservations(
   });
 
   // The store lives in the Convex team of the repository, so a repository without one has no stack.
+  // `requested` also ignores a stack that an earlier read of the same key left in the cache.
+  const alchemyRequested = Boolean(convexTeamId) && source !== "attachments";
   const alchemyQuery = useQuery({
     queryKey: [...repositoryExternalDataQueryKey(repositoryId), "alchemy-stack", convexTeamId],
     queryFn: async () => {
@@ -228,7 +232,7 @@ export function useRepositoryProviderObservations(
       const observation = await observeAlchemyState({ repositoryId });
       return observation.store === "found" && observation.stages.length > 0 ? [observation] : [];
     },
-    enabled: Boolean(repositoryId && convexTeamId),
+    enabled: Boolean(repositoryId) && alchemyRequested,
     retry: false,
     staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
@@ -316,7 +320,7 @@ export function useRepositoryProviderObservations(
     isRefetchError: alchemyQuery.isRefetchError,
     lastWriteAt: undefined,
     reload: reloadAlchemy,
-    requested: Boolean(convexTeamId),
+    requested: alchemyRequested,
   });
 
   return {

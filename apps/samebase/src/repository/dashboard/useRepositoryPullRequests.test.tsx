@@ -493,6 +493,7 @@ describe("useRepositoryPullRequests", () => {
         queryKey: [
           ...repositoryExternalDataQueryKey(fakeRepositoryId()),
           "pull-request-resources",
+          undefined,
           [],
           [],
           [["pull-request:1259", refreshedHeadRefOid]],

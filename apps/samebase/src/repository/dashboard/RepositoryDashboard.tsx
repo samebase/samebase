@@ -23,18 +23,24 @@ export type RepositoryDashboardProps = {
   organizationOwner?: string;
   page?: RepositoryOverviewPageKind;
   selectedRepositoryFullName?: string;
+  source?: "attachments";
 };
 
 export function RepositoryDashboard({
   organizationOwner,
   page = "overview",
   selectedRepositoryFullName,
+  source,
 }: RepositoryDashboardProps) {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const workspaceModel = useRepositoryWorkspaceModel(selectedRepositoryFullName, organizationOwner);
+  const workspaceModel = useRepositoryWorkspaceModel(
+    selectedRepositoryFullName,
+    organizationOwner,
+    source,
+  );
   const treeActions = useRepositoryTreeActions();
   const selectedRepositoryAvailable =
     workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
