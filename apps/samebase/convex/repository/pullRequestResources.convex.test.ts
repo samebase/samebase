@@ -99,7 +99,7 @@ async function seedBaseAlchemy(t: ReturnType<typeof makeConvexTest>) {
       connectedAt: 20,
     });
 
-    return { repositoryId, userId };
+    return { organizationId, repositoryId, userId };
   });
 
   return {
@@ -218,6 +218,55 @@ describe("pull request resources from the Alchemy state of the team", () => {
         workers: [],
         headCommit: null,
       },
+    });
+  });
+
+  it("shows no preview for a pull request without a stage and reads no attachment row", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedBaseAlchemy(t);
+    // A Worker and a Convex project that the stack does not deploy. With the stack in the team
+    // store, no pull request row reads them, so no branch-name preview fills the missing stage.
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.repositoryId, { cloudflareAccountId: "cloudflare-account" });
+      await ctx.db.insert("repositoryCloudflareWorkers", {
+        repositoryId: ids.repositoryId,
+        organizationId: ids.organizationId,
+        accountId: "cloudflare-account",
+        workerName: "base-alchemy-web",
+        workerTag: "base-alchemy-web-tag",
+        rootDirectory: "/",
+        origin: "selected_existing",
+      });
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: ids.repositoryId,
+        organizationId: ids.organizationId,
+        teamId: "38516",
+        projectId: "3300002",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+    });
+    // The captured stack has the stages pr-24, pr-25, and prod, so #24 renumbered has no stage.
+    const pullRequest26 = { ...pullRequest24, id: "PR_26", number: 26 };
+    githubMocks.graphql.mockImplementation(async (query: string) => {
+      if (query.includes("query PullRequestResourceHeads")) {
+        return { nodes: [pullRequest26] };
+      }
+      throw new Error("Only the heads query is answered in this test.");
+    });
+    installStoreFetchStub(observedAlchemyStackReply);
+
+    const [resources] = await user.action(
+      api.repository.pullRequestResources.getPullRequestResources,
+      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_26"] },
+    );
+
+    expect(resources).toMatchObject({
+      state: "available",
+      pullRequestId: "PR_26",
+      workers: [],
+      convexProjects: [],
+      alchemyPreview: { state: "absent" },
     });
   });
 });
