@@ -47,7 +47,6 @@ export async function construct(secret: string, localWorkerUrl: string) {
       deployment,
       association: {
         version: 1,
-        componentDefinition: feature.definition.componentConfig,
         componentPath: feature.name,
         deploymentFqn: deployment.FQN,
         resources: [{ fqn: worker.FQN, type: worker.Type }],

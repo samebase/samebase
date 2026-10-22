@@ -6,11 +6,10 @@ DSL or application framework is added.
 
 ## Proposed API
 
-The feature definition points to normal source files and declares its binding fields:
+The feature definition points to the Worker source and declares its binding fields:
 
 ```ts
 export const textJob = {
-  componentConfig: "./feature/convex/convex.config.ts",
   workerEntry: "./feature/worker.ts",
   binding: {
     componentUrl: "WORKER_URL",
@@ -34,8 +33,9 @@ executing any component config in Node.
 `infrastructure.ts` constructs real `Cloudflare.Worker` and `Convex.Deployment` declarations. Their
 FQNs are `textJobs/Transform` and `Site`. The component URL refers to the Worker's output. The same
 binding supplies the Worker secret and the component secret, and produces the association record.
-The component source path in that record is metadata. The required static import in the host config
-remains a manual link; this experiment does not prove automatic package discovery.
+The required static component import in the host config remains a manual link. The association uses
+the same instance name as the actual `app.use` call. It does not claim a discovered package
+identity.
 
 ## Run
 
@@ -120,7 +120,7 @@ components, repeated mounts, R2, provider deletion, production identity, or stat
 
 ## Size and integration advice
 
-Excluding this README and the lockfile, the experiment has 20 authored files and 473 lines. The
+Excluding this README and the lockfile, the experiment has 20 authored files and 471 lines. The
 local runner and verification script account for 200 lines. Convex generates 9 standard files with
 720 lines; these are ignored and regenerated. There is no custom generated source file. Three
 ignored runtime files hold the Worker config, local secret, and association. The separate lockfile
