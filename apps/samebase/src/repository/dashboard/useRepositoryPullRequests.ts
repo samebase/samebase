@@ -163,6 +163,8 @@ function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): 
 
 export function useRepositoryPullRequests(args: {
   repository: RepositoryPullRequestTarget | null;
+  /** `attachments` reads the pull request rows as if the team store held no stack. */
+  source?: "attachments";
 }): RepositoryPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(
@@ -236,6 +238,7 @@ export function useRepositoryPullRequests(args: {
         queryKey: [
           ...repositoryExternalDataQueryKey(repositoryId),
           "pull-request-resources",
+          args.source,
           workerAttachments,
           projectAttachments,
           pagePullRequestResourceIdentities,
@@ -249,6 +252,7 @@ export function useRepositoryPullRequests(args: {
             pullRequestIds: pagePullRequestResourceIdentities.map(
               ([pullRequestId]) => pullRequestId,
             ),
+            source: args.source,
           });
         },
         enabled: Boolean(repositoryId),

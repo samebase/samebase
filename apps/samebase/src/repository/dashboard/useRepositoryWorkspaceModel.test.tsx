@@ -22,11 +22,13 @@ const testState = vi.hoisted(
   (): {
     alchemy: RepositoryProviderObservationState<RepositoryAlchemyStack>;
     providerRepositories: unknown[];
+    providerSources: unknown[];
     pullRequestArgs: unknown[];
     queryCalls: { args: unknown; name: string }[];
   } => ({
     alchemy: { state: "loading" },
     providerRepositories: [],
+    providerSources: [],
     pullRequestArgs: [],
     queryCalls: [],
   }),
@@ -46,8 +48,9 @@ vi.mock("@/repository/dashboard/useRepositorySidebarSummaries", () => ({
 }));
 
 vi.mock("./useRepositoryProviderObservations", () => ({
-  useRepositoryProviderObservations: (repository: unknown) => {
+  useRepositoryProviderObservations: (repository: unknown, source: unknown) => {
     testState.providerRepositories.push(repository);
+    testState.providerSources.push(source);
     return {
       cloudflare: {
         builds: { state: "loading" },
@@ -106,6 +109,11 @@ function fakeOrganizationId(value = "organization-lost-access"): Id<"organizatio
   return value;
 }
 
+function fakeConvexProjectId(): Id<"repositoryConvexProjects"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
+  return "convex-project-attached";
+}
+
 function lostAccessRepository(): UserRepositoryResult {
   return {
     repositoryId: fakeRepositoryId(),
@@ -137,6 +145,7 @@ describe("useRepositoryWorkspaceModel", () => {
   beforeEach(() => {
     testState.alchemy = { state: "loading" };
     testState.providerRepositories.length = 0;
+    testState.providerSources.length = 0;
     testState.pullRequestArgs.length = 0;
     testState.queryCalls.length = 0;
   });
@@ -298,6 +307,67 @@ describe("useRepositoryWorkspaceModel", () => {
             ],
           ],
         },
+      ]);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("builds the default-branch block from the attachment rows for ?attachments", async () => {
+    const convexProjectId = fakeConvexProjectId();
+    const repository = {
+      ...lostAccessRepository(),
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "samebase",
+      githubRepositoryFullName: "samebase/samebase",
+      convexProjects: [
+        {
+          convexProjectId,
+          teamId: "38516",
+          projectId: "3245938",
+          codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+        },
+      ],
+    } satisfies UserRepositoryResult;
+    const organization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-samebase",
+      githubOwnerLogin: "samebase",
+      githubOwnerType: "organization",
+      organizationId: repository.organizationId,
+      role: "owner",
+    } as const;
+    // What the provider observations return for `source: "attachments"`: no stack.
+    testState.alchemy = {
+      state: "loaded",
+      observations: [],
+      refreshFailed: false,
+      reload: () => {},
+    };
+    let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useRepositoryWorkspaceModel(
+        repository.githubRepositoryFullName,
+        undefined,
+        "attachments",
+      );
+      return null;
+    }
+
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [organization],
+      repositories: [repository],
+    });
+
+    try {
+      if (latest?.state !== "ready" || latest.selection.state !== "selected") {
+        throw new Error("Expected the selected repository workspace.");
+      }
+      expect(testState.providerSources.at(-1)).toBe("attachments");
+      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository, source: "attachments" });
+      expect(latest.selection.workspace.environmentRoots).toEqual([
+        { rootDirectory: "/", resources: [{ kind: "convex_loading", id: convexProjectId }] },
       ]);
     } finally {
       await mounted.unmount();

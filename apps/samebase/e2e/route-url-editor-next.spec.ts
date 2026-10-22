@@ -510,7 +510,7 @@ test.describe("route URL editor touch scroll picker", () => {
         options.map((option) => option.getAttribute("data-route-url-editor-suggestion-index")),
       ),
     ).toEqual(await suggestions.evaluateAll((options) => options.map((_, index) => `${index}`)));
-    await expectTouchSlateAlignedToSuggestion(page, "?reset");
+    await expectTouchSlateAlignedToSuggestion(page, "?background=lime-50");
 
     await scrollTouchPickerToSuggestion(page, "?auto-rotate");
     await expect(input).toHaveValue(`${prefix}logo?auto-rotate&`);
@@ -1332,23 +1332,17 @@ test("route URL editor restores suggestion previews before Refresh reloads", asy
 });
 
 test.describe("route URL editor public route query stories", () => {
-  test("reset canonicalizes the browser route without closing the editor", async ({ page }) => {
+  test("typed reset canonicalizes the browser route without closing the editor", async ({
+    page,
+  }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?dark");
 
     await input.press("End");
+    await input.type("reset");
 
-    const resetOption = page.getByRole("option", { exact: true, name: "&reset" });
-    await expect(resetOption).toBeVisible();
-
-    await resetOption.click();
-
-    await expect(input).toHaveValue(`${prefix}logo?dark&reset&`);
+    await expect(input).toHaveValue(`${prefix}logo?dark&reset`);
     await expect(page).toHaveURL(/\/logo$/);
     await expect(input).toBeFocused();
-    await expect(page.getByRole("option", { exact: true, name: "&dark" })).toHaveCount(0);
-    await expect(
-      page.getByRole("option", { exact: true, name: "&background=lime-50" }),
-    ).toBeVisible();
 
     await input.press("Escape");
 

@@ -438,6 +438,80 @@ describe("useRepositoryProviderObservations", () => {
     }
   });
 
+  it("reads no team store for ?attachments, even with a stack in the cache", async () => {
+    providerActions.observeAlchemyState.mockResolvedValue({
+      store: "found",
+      stack: "samebase/base-alchemy",
+      liveDeployments: [],
+      stages: [{ name: "prod", run: { state: "none" }, resources: [], output: null }],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useRepositoryProviderObservations> | undefined;
+    const repositoryId = fakeRepositoryId("repository-attachments");
+
+    function Probe({ source }: { source?: "attachments" }) {
+      latest = useRepositoryProviderObservations(
+        {
+          repositoryId,
+          convexTeamId: "38516",
+          cloudflareWorkers: [],
+          convexProjects: [
+            {
+              codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+              convexProjectId: fakeConvexProjectId("convex-attached"),
+              projectId: "3245938",
+              teamId: "38516",
+            },
+          ],
+          providerWrite: { status: "idle", lastWriteAt: {} },
+        },
+        source,
+      );
+      return null;
+    }
+
+    async function render(source?: "attachments") {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe source={source} />
+          </QueryClientProvider>,
+        );
+      });
+    }
+
+    try {
+      await render("attachments");
+      expect(providerActions.observeAlchemyState).not.toHaveBeenCalled();
+      expect(providerActions.observeConvexProjects).toHaveBeenCalledWith({ repositoryId });
+      expect(latest?.alchemy).toMatchObject({ state: "loaded", observations: [] });
+
+      // Without the param the overview reads the stack, and the cache keeps it.
+      await render();
+      await vi.waitFor(() => {
+        expect(latest?.alchemy).toMatchObject({
+          state: "loaded",
+          observations: [{ store: "found" }],
+        });
+      });
+
+      await render("attachments");
+      expect(latest?.alchemy).toMatchObject({ state: "loaded", observations: [] });
+      expect(providerActions.observeAlchemyState).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
   it("polls Cloudflare build status while the selected repository remains mounted", async () => {
     vi.useFakeTimers();
     const queryClient = new QueryClient({

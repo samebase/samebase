@@ -273,7 +273,8 @@ These stories should stay covered with real route-level interactions, not mocked
   focused editor still owns the visible draft until blur/Escape.
 - `/logo?dark&reset`: `reset` may canonicalize the browser route to `/logo`, but the focused editor
   stays open and blur/Escape shows `/logo`.
-- `auth`, `signup`, and `prod-ui` are valid for direct URLs but hidden from query suggestions.
+- `auth`, `signup`, `prod-ui`, and `reset` are valid for direct URLs but hidden from query
+  suggestions.
 - `?dev` and `?devtools` are typeable but hidden from suggestions. Manually entering `?dev` reveals
   developer route suggestions. React Query Devtools mounts debug UI and should not be activated by
   hover/keyboard preview.

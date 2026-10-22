@@ -255,9 +255,9 @@ describe("readSuggestions", () => {
     expect(
       logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
     ).toEqual([
-      [null, "?reset"],
       ["theme", "?background=lime-50"],
       ["theme", "?border=rose-300"],
+      ["theme", "?dark"],
     ]);
     expect(
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
@@ -287,6 +287,22 @@ describe("readSuggestions", () => {
     expect(termsRows.map((row) => row.value)).not.toEqual(
       expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
     );
+  });
+
+  it("lists ?attachments on the repository overview and hides ?reset", () => {
+    const overviewValues = readValues({
+      routeAddress: "/repo/acme/demo?",
+      routeTextBeforeCursor: "/repo/acme/demo?",
+    });
+    const termsValues = readValues({
+      routeAddress: "/terms?",
+      routeTextBeforeCursor: "/terms?",
+    });
+
+    expect(overviewValues.slice(0, 2)).toEqual(["?attachments", "?delete"]);
+    expect(overviewValues).not.toContain("?reset");
+    expect(termsValues).not.toContain("?attachments");
+    expect(termsValues).not.toContain("?reset");
   });
 
   it("keeps the next query slot before an existing hash", () => {

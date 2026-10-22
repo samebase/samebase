@@ -29,9 +29,15 @@ function selectRepository(
   );
 }
 
+/**
+`source: "attachments"` is `?attachments` on the repository overview: the default-branch block and
+the pull request rows come from the attachment rows and their live reads, and no read consults the
+Alchemy state store of the team.
+*/
 export function useRepositoryWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
   organizationOwner?: string,
+  source?: "attachments",
 ): RepositoryWorkspaceModel {
   // The loaders of the routes that render this model fetch these before the page renders, on the
   // server and on a navigation in the browser.
@@ -56,13 +62,17 @@ export function useRepositoryWorkspaceModel(
     [organizations, selectedRepository],
   );
   const accessibleSelectedRepository = selectedOrganization ? selectedRepository : null;
-  const providerObservations = useRepositoryProviderObservations(accessibleSelectedRepository);
+  const providerObservations = useRepositoryProviderObservations(
+    accessibleSelectedRepository,
+    source,
+  );
   const pullRequests = useRepositoryPullRequests({
     repository:
       accessibleSelectedRepository?.hasConnectedGitHubRepository &&
       accessibleSelectedRepository.deletion.state === "not_deleting"
         ? accessibleSelectedRepository
         : null,
+    source,
   });
   const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
   const cloudflareConnection = useConvexQuery(

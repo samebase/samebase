@@ -54,7 +54,7 @@ import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
 import { readCloudflareObservationInput } from "./providerObservations";
 
-const { array, id, object, string } = v;
+const { array, id, literal, object, optional, string } = v;
 
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
@@ -543,8 +543,8 @@ type PullRequestResourceAccumulator = {
 /**
 The stack of the repository in the Alchemy state store of its Convex team.
 
-missing = the organization has no Convex connection for the team of the repository, the team has no
-store, or the store holds no stage of the stack.
+missing = the read asked for the attachment rows only, the organization has no Convex connection for
+the team of the repository, the team has no store, or the store holds no stage of the stack.
 */
 type PullRequestAlchemyStackRead =
   | { state: "found"; stages: AlchemyStage[] }
@@ -704,10 +704,14 @@ export function buildPullRequestAlchemyPreview(args: {
 /** Reads the stack of the repository once for every pull request of one resources read. */
 async function readPullRequestAlchemyStack(
   ctx: ActionCtx,
-  args: { context: RepositoryProviderObservationContext; userId: Id<"users"> },
+  args: {
+    context: RepositoryProviderObservationContext;
+    source: "attachments" | undefined;
+    userId: Id<"users">;
+  },
 ): Promise<PullRequestAlchemyStackRead> {
   const teamId = args.context.convexTeamId;
-  if (!teamId) {
+  if (args.source === "attachments" || !teamId) {
     return { state: "missing" };
   }
 
@@ -1307,7 +1311,13 @@ async function readGitHubPullRequestResourceHeadReads(args: {
 
 export async function getPullRequestResourcesForUser(
   ctx: ActionCtx,
-  args: { userId: Id<"users">; repositoryId: Id<"repositories">; pullRequestIds: string[] },
+  args: {
+    userId: Id<"users">;
+    repositoryId: Id<"repositories">;
+    pullRequestIds: string[];
+    /** `attachments` reads the attachment rows as if the team store held no stack of the repository. */
+    source?: "attachments";
+  },
 ): Promise<PullRequestResourceRead[]> {
   validatePullRequestResourceIds(args.pullRequestIds);
 
@@ -1325,7 +1335,11 @@ export async function getPullRequestResourcesForUser(
     }),
   ]);
   const signal = createGitHubRequestDeadlineSignal();
-  const alchemyStackRead = readPullRequestAlchemyStack(ctx, { context, userId: args.userId });
+  const alchemyStackRead = readPullRequestAlchemyStack(ctx, {
+    context,
+    source: args.source,
+    userId: args.userId,
+  });
   const headReads = await readGitHubPullRequestResourceHeadReads({
     octokit: githubAccess.octokit,
     signal,
@@ -1466,6 +1480,8 @@ export const getPullRequestResources = action({
   args: {
     repositoryId: id("repositories"),
     pullRequestIds: array(string()),
+    /** `?attachments` on the repository overview. */
+    source: optional(literal("attachments")),
   },
   returns: array(vPullRequestResources),
   handler: async (ctx, args): Promise<PullRequestResourceRead[]> =>
@@ -1473,5 +1489,6 @@ export const getPullRequestResources = action({
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
       pullRequestIds: args.pullRequestIds,
+      source: args.source,
     }),
 });

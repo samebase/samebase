@@ -12,13 +12,16 @@ import { useRepositoryWorkspaceModel } from "./useRepositoryWorkspaceModel";
 type RepositoryDashboardLeftPaneProps = {
   page: RepositoryOverviewPageKind;
   selectedRepositoryFullName: string;
+  source?: "attachments";
 };
 
 function RepositoryDashboardLeftPaneTree({
   page,
   selectedRepositoryFullName,
+  source,
 }: RepositoryDashboardLeftPaneProps) {
-  const workspaceModel = useRepositoryWorkspaceModel(selectedRepositoryFullName);
+  // The page's source: the pane shares the page's queries and reads no store for `?attachments`.
+  const workspaceModel = useRepositoryWorkspaceModel(selectedRepositoryFullName, undefined, source);
   const treeActions = useRepositoryTreeActions();
   if (workspaceModel.state === "loading") {
     return <RepositoryOverviewSidebarLoading />;
