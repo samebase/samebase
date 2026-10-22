@@ -108,11 +108,11 @@ file, and its code location adds `source` (null without `source`).
 Alchemy's `Cloudflare.Worker` has no `rootDir`, so a Worker sits in the folder of its entry file,
 `props.main` below the directory of the stack file, without a last `src` segment:
 `apps/posthog-proxy/src/index.ts` from `alchemy.run.ts` places it in `apps/posthog-proxy`. A Worker
-whose `main` is in the directory of the stack file, or an assets-only Worker without `main`, sits in
-the directory of the stack file.
+sits in the directory of the stack file when its `main` is in that directory, when it is an
+assets-only Worker without `main`, or when its `main` names no path in the repository.
 
-A row that no validator accepts, such as one without `attr` from an interrupted deploy, and a path
-outside the repository are left out.
+A row that no validator accepts, such as one without `attr` from an interrupted deploy, and a
+`rootDir` outside the repository are left out.
 */
 export function placeStageResources(stage: {
   stackFile: string;
@@ -131,6 +131,7 @@ export function placeStageResources(stage: {
   }[];
 } {
   const { stackFile } = stage;
+  const stackDirectory = stackPath(stackFile);
   const states = stage.resources.map((resource) => {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
@@ -161,13 +162,17 @@ export function placeStageResources(stage: {
         return [];
       }
       const { main } = state.props;
+      // Alchemy keeps a `main` outside the directory where the stack ran as written, which can be an
+      // absolute path or a `file:` URL: neither names a path of the repository.
       const entryFolder =
-        main === undefined ? stackPath(stackFile) : stackPath(stackFile, main, "..");
-      if (entryFolder === null) {
-        return [];
-      }
-      const folder = entryFolder === "src" ? "." : entryFolder.replace(/\/src$/, "");
-      return [{ fqn, state, rootDirectory: rootDirectoryOf(folder) }];
+        main === undefined || /^[a-z]+:/i.test(main) ? null : stackPath(stackFile, main, "..");
+      const folder =
+        entryFolder === null || entryFolder === stackDirectory
+          ? stackDirectory
+          : entryFolder === "src"
+            ? "."
+            : entryFolder.replace(/\/src$/, "");
+      return folder === null ? [] : [{ fqn, state, rootDirectory: rootDirectoryOf(folder) }];
     }),
   };
 }

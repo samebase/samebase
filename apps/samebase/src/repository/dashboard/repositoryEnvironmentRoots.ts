@@ -395,8 +395,10 @@ The default-branch block from the stacks of the repository in the Alchemy state 
 store records no build, so no build state shows.
 
 A Worker links to its custom domains and workers.dev URL, `attr.urls`, and without them to its zone
-routes: a route with a wildcard host, such as `*.json.md/*`, shows the host without a link. The
-first one is the Worker's destination and the others are in its menu.
+routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
+the route covers only a path, such as `example.com/api/`, and links to that path. A route with a
+wildcard host, such as `*.json.md/*`, has no URL and shows without a link. The first one is the
+Worker's destination and the others are in its menu.
 
 A Convex deployment takes its dashboard link and region from the live reads of its project and
 production deployment, like an attached project. The Schema route reads schema snapshots stored for
@@ -438,18 +440,17 @@ export function buildAlchemyEnvironmentRoots({
                   href: url,
                   label: buildProductionUrlLabel(url),
                 }))
-              : routes.map((route) =>
-                  route.url === undefined
-                    ? {
-                        destination: "none",
-                        label: route.pattern.replace(/^https?:\/\//i, "").replace(/\/.*$/, ""),
-                      }
-                    : {
-                        destination: "external",
-                        href: route.url,
-                        label: buildProductionUrlLabel(route.url),
-                      },
-                );
+              : routes.map((route) => {
+                  // The pattern without its scheme and its last `*`, such as `e.samebase.com/` or
+                  // `example.com/api/`: the route reaches the Worker only on that path of the host.
+                  const target = route.pattern.replace(/^https?:\/\//i, "").replace(/\*$/, "");
+                  const host = target.replace(/\/.*$/, "");
+                  const path = target.slice(host.length);
+                  const label = path === "/" ? host : target;
+                  return route.url === undefined
+                    ? { destination: "none", label }
+                    : { destination: "external", href: `${route.url}${path}`, label };
+                });
           const primary = destinations.at(0);
           return {
             rootDirectory,
