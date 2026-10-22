@@ -1,0 +1,13 @@
+{
+  "name": "component-binding-explicit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.ts",
+    "verify": "node verify.ts"
+  },
+  "dependencies": {
+    "convex": "1.46.0"
+  },
+  "packageManager": "pnpm@12.14.0"
+}

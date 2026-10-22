@@ -1,0 +1,9 @@
+.local/
+.alchemy/
+.convex/
+.env.local
+node_modules/
+pnpm-lock.yaml
+convex/_generated/
+convex/components/jobs/_generated/
+convex/tsconfig.json
