@@ -1,0 +1,3 @@
+packages: []
+# setup.ts links versions from the parent workspace lockfile.
+verifyDepsBeforeRun: false

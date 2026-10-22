@@ -1,0 +1,31 @@
+{
+  "convexVersion": "1.46.0",
+  "backendVersion": "precompiled-2026-10-10-72ce13c",
+  "alchemyVersion": "2.0.0-beta.83",
+  "mount": {
+    "definitionPath": "../job/convex",
+    "componentPath": "jobs",
+    "env": {
+      "WORKER_URL": {
+        "type": "envVar",
+        "name": "JOB_WORKER_URL"
+      },
+      "WORKER_SECRET": {
+        "type": "envVar",
+        "name": "JOB_WORKER_SECRET"
+      }
+    }
+  },
+  "resource": {
+    "url": "http://localhost:33412",
+    "fqn": "jobs",
+    "resourceType": "Cloudflare.Worker"
+  },
+  "unauthorizedStatus": 401,
+  "wrongSecretStatus": 401,
+  "result": "COMPONENT GRAPH BINDING",
+  "latest": {
+    "input": "component graph binding",
+    "result": "COMPONENT GRAPH BINDING"
+  }
+}

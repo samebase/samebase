@@ -1,0 +1,12 @@
+{
+  "name": "component-binding-graph-experiment",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node setup.ts && node dev.ts",
+    "check": "node ../../../node_modules/vite-plus/bin/vp fmt --check . && node ../../../node_modules/vite-plus/bin/vp lint . && node ../../../node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "convex": "1.46.0"
+  }
+}
