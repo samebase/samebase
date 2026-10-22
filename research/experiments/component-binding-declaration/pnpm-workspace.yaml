@@ -1,4 +1,8 @@
 packages: []
+allowBuilds:
+  # Same reviewed build scripts as the parent workspace.
+  esbuild: true
+  workerd: true
 minimumReleaseAgeExclude:
   # Same first-party release exception as the repository root.
   - "@samebase/alchemy-convex@0.8.0"

@@ -45,7 +45,7 @@ Use Node 24.22.1. The checked package versions are Convex 1.46.0, Alchemy 2.0.0-
 From this directory:
 
 ```sh
-pnpm install --ignore-workspace --ignore-scripts
+pnpm install
 pnpm run dev --once
 pnpm run typecheck
 ```
@@ -106,8 +106,10 @@ object in `defineApp`, and one `mount` call. The host's action/query wrappers ex
 behavior and remain ordinary Convex code.
 
 The isolated dependency install initially mixed Effect 4.0.4 with Node platform 4.0.5. Their exports
-did not match. The sample pins the platform packages to 4.0.4. The first-party provider release-age
-exception matches the already reviewed exception in the repository root.
+did not match. The sample pins the platform packages to 4.0.4. Its local workspace owns these
+overrides. Do not use `--ignore-workspace`, which bypasses them. The first-party provider
+release-age exception and `esbuild`/`workerd` build-script approvals match the repository root. The
+sample pins pnpm 12.14.0.
 
 The first runner tried a second anonymous `convex dev` while one was running. That CLI rejected the
 occupied backend port. The final runner uses one dev process and explicit local credentials for
@@ -120,11 +122,12 @@ components, repeated mounts, R2, provider deletion, production identity, or stat
 
 ## Size and integration advice
 
-Excluding this README and the lockfile, the experiment has 20 authored files and 471 lines. The
+Excluding this README and the lockfile, the experiment has 20 authored files and 477 lines. The
 local runner and verification script account for 200 lines. Convex generates 9 standard files with
 720 lines; these are ignored and regenerated. There is no custom generated source file. Three
-ignored runtime files hold the Worker config, local secret, and association. The separate lockfile
-has 2911 lines and should not be counted as feature API code.
+ignored runtime files hold the Worker config, local secret, and association. The dependency lockfile
+is a local artifact, excluded from the research commit. Direct dependency versions and the Effect
+platform override are pinned in the sample manifests.
 
 Keep the neutral installation declaration and the normal host config adapter when comparing this
 approach with explicit wiring. Prefer Alchemy's own local Worker runtime for a product integration
