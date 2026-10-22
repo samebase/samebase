@@ -301,28 +301,39 @@ const vPullRequestHostingPreviews = object({
   netlify: vNetlifyHostingPreviewResult,
 });
 /**
-The preview of the pull request in the Alchemy state store of the team: the stage `pr-<number>` of
-the stack named after the repository.
+The preview of the pull request in the Alchemy state store of the team: the stages `pr-<number>` of
+the stacks of the repository. Each resource has its directory of the repository, `rootDirectory`
+(`/` for the root), and `headCommit`: the head commit of the pull request when the run record of its
+stage names it, so the stage is current, else null.
 
-absent = the store holds no stack for the repository, or the stack has no stage for the pull
-request.
+absent = the store holds no stack for the repository, or no stack has a stage for the pull request.
 
 unavailable = the store could not be read.
 */
 const vPullRequestAlchemyPreview = union(
   object({
     state: literal("available"),
-    /** The `url` of the stage output, or null when the output has none. */
-    url: union(string(), v.null()),
-    /** The name and client URL of each `Convex.Deployment` resource of the stage, in fqn order. */
-    convexDeployments: array(object({ name: string(), url: string() })),
-    /** The name and URL of each `Cloudflare.Worker` resource of the stage, in fqn order. */
-    workers: array(object({ name: string(), url: union(string(), v.null()) })),
     /**
-    The head commit of the pull request when the run record of the stage names it, so the stage
-    is current. Null when the stage has no run record or the record names another commit.
+    Each `Convex.Deployment` resource of the stages, in stack and fqn order. `href` is the `url` of
+    the stage output, or the client URL of the deployment when the output has none.
     */
-    headCommit: union(string(), v.null()),
+    convexDeployments: array(
+      object({
+        name: string(),
+        href: string(),
+        rootDirectory: string(),
+        headCommit: union(string(), v.null()),
+      }),
+    ),
+    /** Each `Cloudflare.Worker` resource of the stages, in stack and fqn order, with its URL. */
+    workers: array(
+      object({
+        name: string(),
+        url: union(string(), v.null()),
+        rootDirectory: string(),
+        headCommit: union(string(), v.null()),
+      }),
+    ),
   }),
   object({ state: literal("absent") }),
   object({ state: literal("unavailable") }),
@@ -334,7 +345,7 @@ export const vPullRequestResources = union(
     cloudflareBuilds: vPullRequestCloudflareBuilds,
     /**
     `workers` and `convexProjects` hold the attached resources. They are empty when the team store
-    holds a stack for the repository, whose previews are in `alchemyPreview`.
+    holds a stack of the repository, whose previews are in `alchemyPreview`.
     */
     workers: array(vPullRequestWorkerResource),
     convexProjects: array(vPullRequestConvexResource),

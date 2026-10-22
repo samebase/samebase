@@ -10,7 +10,7 @@ import {
   deleteConvexDeploymentDeployKey,
   type ConvexDeployKeyAllowedAction,
 } from "./convexDeployKeys";
-import { readAlchemyStack, readProductionConvexDeployments } from "./alchemyState";
+import { readAlchemyStacks, readProductionConvexDeployments } from "./alchemyState";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import { requireRepositoryForUser, requireRepositoryOrganization } from "../organizationAccess";
 import { isLiveConnectedRepository } from "./state";
@@ -72,7 +72,7 @@ type RepositoryDatabaseDeploymentContext =
 attachment = `convexProjectId` names an attachment row of the repository.
 
 stack = `convexProjectId` names no attachment row; the caller accepts it only as the Convex project
-id of a deployment that the production stage of `stack`, the repository stack, deploys.
+id of a deployment that the production stage of a stack of `repository` deploys.
 */
 export const readEmbeddedDashboardProject = internalQuery({
   args: {
@@ -89,7 +89,8 @@ export const readEmbeddedDashboardProject = internalQuery({
     object({
       source: literal("stack"),
       teamId: string(),
-      stack: string(),
+      /** The GitHub `owner/name` of the repository. */
+      repository: string(),
     }),
     v.null(),
   ),
@@ -104,7 +105,7 @@ export const readEmbeddedDashboardProject = internalQuery({
       return {
         source: "stack" as const,
         teamId: repository.convexTeamId,
-        stack: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
+        repository: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
       };
     }
 
@@ -147,17 +148,17 @@ function isEmbeddedDashboardDeployKeyName(args: {
 }
 
 /**
-`projectId` when the production stage of the repository stack deploys a Convex deployment of that
-project in the connected team, else null.
+`projectId` when the production stage of a stack of the repository deploys a Convex deployment of
+that project in the connected team, else null.
 */
 async function readStackProjectId(args: {
   convexTeam: { teamId: string };
   credential: { auth: { method: "api_key" | "oauth"; credential: string } };
   projectId: string;
-  stack: string;
+  repository: string;
 }): Promise<string | null> {
-  const read = await readAlchemyStack({
-    stack: args.stack,
+  const read = await readAlchemyStacks({
+    repository: args.repository,
     target: {
       authMethod: args.credential.auth.method,
       teamId: args.convexTeam.teamId,
@@ -166,7 +167,7 @@ async function readStackProjectId(args: {
   });
   const deployed =
     read.store === "found" &&
-    readProductionConvexDeployments(read.stages).some(
+    readProductionConvexDeployments(read.stacks).some(
       (deployment) =>
         deployment.projectId === args.projectId &&
         (deployment.teamId === null || deployment.teamId === args.convexTeam.teamId),
@@ -180,7 +181,7 @@ async function readRepositoryDatabaseDeploymentContext(
     owner: string;
     repoName: string;
     branch: string;
-    /** An attachment id, or the Convex project id of a deployment of the repository stack. */
+    /** An attachment id, or the Convex project id of a deployment of a stack of the repository. */
     convexProjectId: string;
   },
 ): Promise<RepositoryDatabaseDeploymentContext> {
@@ -238,7 +239,7 @@ async function readRepositoryDatabaseDeploymentContext(
           convexTeam: connection,
           credential,
           projectId: args.convexProjectId,
-          stack: project.stack,
+          repository: project.repository,
         });
   const deployment = projectId
     ? await readConvexProductionDeployment({ token: credential.auth.credential, projectId })
@@ -260,7 +261,7 @@ export const createEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    /** An attachment id, or the Convex project id of a deployment of the repository stack. */
+    /** An attachment id, or the Convex project id of a deployment of a stack of the repository. */
     convexProjectId: string(),
   },
   returns: embeddedDashboardCredentialsResult,
@@ -305,7 +306,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     owner: string(),
     repoName: string(),
     branch: string(),
-    /** An attachment id, or the Convex project id of a deployment of the repository stack. */
+    /** An attachment id, or the Convex project id of a deployment of a stack of the repository. */
     convexProjectId: string(),
     deployKeyName: string(),
   },

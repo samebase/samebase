@@ -1,6 +1,6 @@
-// The push command of a preview stage of alchemy.run.ts. Convex.Deployment runs it in apps/samebase
-// with CONVEX_DEPLOY_KEY set to a short-lived key of the preview deployment, so each Convex CLI call
-// below reaches that deployment and no other.
+// The push command of a preview stage of the root alchemy.run.ts. Convex.Deployment runs it in its
+// rootDir, apps/samebase, with CONVEX_DEPLOY_KEY set to a short-lived key of the preview deployment,
+// so each Convex CLI call below reaches that deployment and no other.
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 

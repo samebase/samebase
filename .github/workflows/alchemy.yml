@@ -1,12 +1,15 @@
 # Deploys samebase.com and the previews of its pull requests with the Alchemy stack in
-# apps/samebase/alchemy.run.ts, run from apps/samebase. A push to main deploys the stage `prod`: the
-# Convex project, its production deployment, which serves samebase.com through convex-hosting, and
-# the Workers next to the app. A pull request from this repository deploys the stage `pr-<number>`,
-# a Convex preview deployment with that name, and comments its URLs on the pull request; closing the
-# pull request destroys the stage and deletes the preview. The state of every stage is in the
-# `alchemy-state` project of the Convex team, under the stack name samebase/samebase. Each run mints
-# its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod` gets the
-# Cloudflare token.
+# alchemy.run.ts, run from the repository root, then the sidebars example with the stack in
+# apps/sidebars-example/alchemy.run.ts, run from its folder. A push to main deploys the stage `prod`
+# of both: the Convex project, its production deployment, which serves samebase.com through
+# convex-hosting, the Workers next to the app, and the Worker of the sidebars example. A pull
+# request from this repository deploys the stage `pr-<number>` of the root stack, a Convex preview
+# deployment with that name, and comments its URLs on the pull request; closing the pull request
+# destroys the stage and deletes the preview. The sidebars stack has only the stage `prod`, so pull
+# request runs skip it. The state of every stage is in the `alchemy-state` project of the Convex
+# team, under the stack names samebase/samebase and samebase/samebase/apps/sidebars-example. Each
+# run mints its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod`
+# gets the Cloudflare token.
 name: Alchemy
 
 on:
@@ -15,7 +18,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
   # Run once on main with adopt to take over resources that exist but are not in the state of the
-  # stage `prod`, such as the production deployment with its code.
+  # stage `prod` of either stack, such as the production deployment with its code or the Worker of
+  # the sidebars example.
   workflow_dispatch:
     inputs:
       adopt:
@@ -41,7 +45,7 @@ env:
   STAGE:
     ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || (github.ref
     == 'refs/heads/main' && 'prod' || github.ref_name) }}
-  # GitHub.GitHubEnv in alchemy.run.ts reads it for the preview comment. Empty on main.
+  # GitHub.GitHubEnv in the root alchemy.run.ts reads it for the preview comment. Empty on main.
   PULL_REQUEST: ${{ github.event.pull_request.number }}
 
 jobs:
@@ -109,7 +113,6 @@ jobs:
       # repaired. ADOPT is the workflow_dispatch input, empty on a push.
       - name: Deploy production
         if: github.event_name != 'pull_request'
-        working-directory: apps/samebase
         run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
         env:
           ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
@@ -121,11 +124,27 @@ jobs:
           VITE_PUBLIC_POSTHOG_HOST: https://e.samebase.com
           VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PROD_POSTHOG_PROJECT_TOKEN }}
 
+      # The sidebars example has its own lockfile, and Workers Builds built it in its folder with
+      # that install: the install and the build here are the same, then its stack deploys the build.
+      - name: Build the sidebars example
+        if: github.event_name != 'pull_request'
+        working-directory: apps/sidebars-example
+        run: pnpm install --frozen-lockfile && pnpm run build
+
+      - name: Deploy the sidebars example
+        if: github.event_name != 'pull_request'
+        working-directory: apps/sidebars-example
+        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
+        env:
+          ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
       # convex-hosting writes the site URL of its push to $GITHUB_OUTPUT, the environment URL above.
       - name: Deploy the preview
         id: preview
         if: github.event_name == 'pull_request'
-        working-directory: apps/samebase
         run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
@@ -167,8 +186,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      # Only the root stack has the stage of a pull request.
       - name: Destroy the preview
-        working-directory: apps/samebase
         run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}

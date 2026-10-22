@@ -14,7 +14,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
-import { readAlchemyStack, readProductionConvexDeployments } from "./alchemyState";
+import { readAlchemyStacks, readProductionConvexDeployments } from "./alchemyState";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexSchemaGraph";
 import {
@@ -114,7 +114,7 @@ deployment must be the production deployment of a Convex project attached to the
 a project that the production stage of the repository's Alchemy stack deploys.
 */
 /**
-The Convex projects that the production stage of the repository stack deploys as `deploymentName`
+The Convex projects that the production stages of the repository stacks deploy as `deploymentName`
 in the team of the repository.
 */
 async function readStackProjectIds(
@@ -122,12 +122,13 @@ async function readStackProjectIds(
   deploymentName: string,
 ): Promise<string[]> {
   // A store that cannot be read proves no deployment, like a team without a store.
-  const read = await readAlchemyStack({ stack: target.githubRepositoryFullName, target }).catch(
-    () => ({ store: "missing" as const }),
-  );
+  const read = await readAlchemyStacks({
+    repository: target.githubRepositoryFullName,
+    target,
+  }).catch(() => ({ store: "missing" as const }));
   return read.store === "missing"
     ? []
-    : readProductionConvexDeployments(read.stages).flatMap((deployment) =>
+    : readProductionConvexDeployments(read.stacks).flatMap((deployment) =>
         deployment.deploymentName === deploymentName &&
         (deployment.teamId === null || deployment.teamId === target.teamId)
           ? [deployment.projectId]

@@ -43,6 +43,12 @@ connection as described in the
 [migration guide](https://samebase.com/docs/cloudflare-previews-migration). This app does not use
 Convex or deploy keys.
 
+In the [samebase/samebase](https://github.com/samebase/samebase) monorepo, `alchemy.run.ts` deploys
+this folder instead of Workers Builds: its `alchemy.yml` workflow runs `pnpm install`,
+`pnpm run build`, and the stack in this folder on each push to `main`, and the stack uploads
+`dist/client` to the Worker `samebase-monorepo-sidebars-example` with the settings of
+`wrangler.jsonc`.
+
 Build before a manual deploy. Use `pnpm run deploy --name samebase-sidebars-example` for production
 or `pnpm run deploy:preview --worker-name samebase-sidebars-example` for a preview. For a local
 check without an upload, run `pnpm run deploy:dry-run --name samebase-sidebars-example`. It builds

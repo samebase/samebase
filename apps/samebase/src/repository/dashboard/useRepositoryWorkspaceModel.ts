@@ -128,22 +128,22 @@ export function useRepositoryWorkspaceModel(
       };
     }
     const alchemyObservations = providerObservations.alchemy;
-    const alchemyStack =
+    const alchemyStacks =
       alchemyObservations.state === "loaded" ? alchemyObservations.observations.at(0) : undefined;
     const schemaGraphEnabled = viewerAccess?.accessKeys.includes("access_schema_graph") === true;
     const defaultBranch = accessibleSelectedRepository.defaultBranch;
-    // By presence: a stack in the team store builds the default-branch block, and the attachment
+    // By presence: the stacks in the team store build the default-branch block, and the attachment
     // rows with their live reads build it otherwise. Neither builds it while the store read runs.
     const environmentRoots = !defaultBranch
       ? []
-      : alchemyStack
+      : alchemyStacks
         ? buildAlchemyEnvironmentRoots({
             branch: defaultBranch,
             owner: accessibleSelectedRepository.githubOwnerLogin,
             repoName: accessibleSelectedRepository.githubRepositoryName,
             schemaGraphEnabled,
             repository: accessibleSelectedRepository,
-            stack: alchemyStack,
+            stacks: alchemyStacks,
           })
         : alchemyObservations.state === "loading"
           ? []

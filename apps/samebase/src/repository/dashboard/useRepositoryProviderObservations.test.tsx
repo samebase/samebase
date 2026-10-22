@@ -441,9 +441,30 @@ describe("useRepositoryProviderObservations", () => {
   it("reads no team store for ?attachments, even with a stack in the cache", async () => {
     providerActions.observeAlchemyState.mockResolvedValue({
       store: "found",
-      stack: "samebase/base-alchemy",
       liveDeployments: [],
-      stages: [{ name: "prod", run: { state: "none" }, resources: [], output: null }],
+      stacks: [
+        {
+          name: "samebase/base-alchemy",
+          stages: [
+            {
+              name: "prod",
+              record: {
+                version: 1,
+                repository: "samebase/base-alchemy",
+                stackFile: "alchemy.run.ts",
+                branch: "main",
+                pullRequest: null,
+                headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+                runUrl: null,
+                source: "laptop",
+                recordedAt: "2026-10-21T19:58:06.882Z",
+              },
+              resources: [],
+              output: "{}",
+            },
+          ],
+        },
+      ],
     });
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

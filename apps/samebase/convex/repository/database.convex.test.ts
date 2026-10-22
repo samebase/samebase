@@ -8,6 +8,7 @@ import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
 } from "./fixtures/observedAlchemyState";
+import { observedSamebaseStacksReply } from "./fixtures/observedSamebaseAlchemyState";
 
 type ConvexAuth =
   | {
@@ -351,6 +352,23 @@ async function seedStackRepository(t: ReturnType<typeof makeConvexTest>) {
   return asUser(t, userId);
 }
 
+/**
+The captured stack with the `rootDir` "." on the `prod` Deployment row that @samebase/alchemy-convex
+0.8.0 writes for a stack file at the repository root.
+*/
+const storeReply = {
+  status: observedAlchemyStackReply.status,
+  value: {
+    stages: observedAlchemyStackReply.value.stages.map((stage) => ({
+      ...stage,
+      resources: stage.resources.map((resource) => ({
+        fqn: resource.fqn,
+        value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
+      })),
+    })),
+  },
+};
+
 function installStackFetchStub() {
   vi.stubGlobal(
     "fetch",
@@ -406,9 +424,16 @@ function installStackFetchStub() {
       if (
         url === "https://artful-alligator-66.convex.cloud/api/function" &&
         isRecord(body) &&
+        body["path"] === "state:stacks"
+      ) {
+        return json(observedSamebaseStacksReply);
+      }
+      if (
+        url === "https://artful-alligator-66.convex.cloud/api/function" &&
+        isRecord(body) &&
         body["path"] === "state:readStack"
       ) {
-        return json(observedAlchemyStackReply);
+        return json(storeReply);
       }
       throw new Error(`Unexpected request: ${url}`);
     }),

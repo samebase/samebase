@@ -258,9 +258,9 @@ export function RepositoryOverviewLoadingLines({ rows = 3 }: { rows?: number }) 
 }
 
 /**
-The reads behind the default-branch block. The stack in the team store builds the block while it
-is read and when it exists; the live reads of the attachment rows build it when the store holds no
-stack or its first read failed, and that failure stays visible with its Retry.
+The reads behind the default-branch block. The stacks in the team store build the block while they
+are read and when they exist; the live reads of the attachment rows build it when the store holds
+no stack of the repository or its first read failed, and that failure stays visible with its Retry.
 */
 function readProductionObservationStates(workspace: RepositoryWorkspaceSelected) {
   const alchemyObservations = workspace.alchemyObservations;

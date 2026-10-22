@@ -30,9 +30,9 @@ minimumReleaseAgeExclude:
   # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
-  # Reviewed first-party release (apps/samebase/alchemy.run.ts deploys samebase.com with it and keeps
-  # its state in the team store), published 2026-10-21 19:53 UTC. Remove after 2026-10-28 19:54 UTC.
-  - "@samebase/alchemy-convex@0.7.0"
+  # Reviewed first-party release (alchemy.run.ts deploys samebase.com with it and keeps its state in
+  # the team store), published 2026-10-22 09:04 UTC. Remove after 2026-10-29 09:05 UTC.
+  - "@samebase/alchemy-convex@0.8.0"
   # Reviewed security fix: https://github.com/advisories/GHSA-p458-7748-mcp3
   # (Vitest servers serve files that server.fs.deny lists). Vite+ 1.3.0 and the Vitest 5.0.5 it
   # pins, published 2026-10-16 05:42 UTC with npm provenance. Remove after 2026-10-23 05:43 UTC.

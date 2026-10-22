@@ -12,8 +12,8 @@ export type RepositoryCloudflareWorkerConvexBuildAccessObservation =
   (typeof api.repository.providerObservations.observeCloudflareWorkerConvexBuildAccess)["_returnType"][number];
 export type RepositoryConvexProjectObservation =
   (typeof api.repository.providerObservations.observeConvexProjects)["_returnType"][number];
-/** The stack of the repository in the Alchemy state store of its Convex team. */
-export type RepositoryAlchemyStack = Extract<
+/** The stacks of the repository in the Alchemy state store of its Convex team. */
+export type RepositoryAlchemyStacks = Extract<
   (typeof api.repository.alchemyState.observe)["_returnType"],
   { store: "found" }
 >;
@@ -88,8 +88,8 @@ export function useRepositoryProviderObservations(
 ): {
   cloudflare: RepositoryCloudflareProviderObservationState;
   convex: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
-  /** One observation when the team store holds a stack with stages for the repository, else none. */
-  alchemy: RepositoryProviderObservationState<RepositoryAlchemyStack>;
+  /** One observation when the team store holds a stack with stages of the repository, else none. */
+  alchemy: RepositoryProviderObservationState<RepositoryAlchemyStacks>;
 } {
   const observeCloudflareWorkers = useAction(
     api.repository.providerObservations.observeCloudflareWorkers,
@@ -230,7 +230,7 @@ export function useRepositoryProviderObservations(
         throw new Error("Repository is required to observe the Alchemy state.");
       }
       const observation = await observeAlchemyState({ repositoryId });
-      return observation.store === "found" && observation.stages.length > 0 ? [observation] : [];
+      return observation.store === "found" && observation.stacks.length > 0 ? [observation] : [];
     },
     enabled: Boolean(repositoryId) && alchemyRequested,
     retry: false,
