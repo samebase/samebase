@@ -124,7 +124,7 @@ describe("AlchemyStateTree", () => {
         "Convex",
         "aware-bobcat-542apps/samebase/convex",
         "Resources",
-        "PreviewCommentcreated, GitHub.CommentProjectupdated, Convex.ProjectSitecreated, Convex.Deployment",
+        "PreviewCommentcreated, GitHub.CommentProjectupdated, Convex.ProjectSitecreated, Convex deployment",
         "Output",
         "urlhttps://aware-bobcat-542.convex.site",
       ],
@@ -144,6 +144,12 @@ describe("AlchemyStateTree", () => {
       ["aware-bobcat-542", "https://aware-bobcat-542.convex.cloud"],
     ]);
     expect(container.querySelector("time")?.getAttribute("dateTime")).toBe(pr1768Record.recordedAt);
+    const resourceRows = container.querySelectorAll("dt");
+    const resources = [...resourceRows].find(
+      (row) => row.textContent === "Resources",
+    )?.nextElementSibling;
+    expect(resources?.querySelectorAll("svg")).toHaveLength(3);
+    expect(resources?.querySelectorAll("svg.lucide-box")).toHaveLength(2);
   });
 
   it("shows each stack of the repository with the resources that its rows place", () => {
@@ -246,6 +252,7 @@ describe("AlchemyStateTree", () => {
 
     const details = stageDetails(container)[0] ?? [];
     expect(details[details.indexOf("Workers") + 1]).toBe("tmp-k7m2-rows");
+    expect(details[details.indexOf("Resources") + 1]).toBe("Workercreated, Worker");
     expect(
       container.querySelector('a[href="https://tmp-k7m2-rows.pfp.workers.dev"]')?.textContent,
     ).toBe("tmp-k7m2-rows");

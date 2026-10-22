@@ -12,6 +12,7 @@ import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
 import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySelectedWorkspace";
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
+import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 
 export type AlchemyStateObservation = (typeof api.repository.alchemyState.observe)["_returnType"];
 type AlchemyStage = Extract<
@@ -186,17 +187,25 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
       )}
       {states.length === 0 ? null : (
         <AlchemyStateDetailRow label="Resources">
-          {states.map(({ fqn, state }) => (
-            <AlchemyStateDetailItem
-              key={fqn}
-              name={fqn}
-              detail={
-                validate(vResourceState, state, { allowUnknownFields: true })
-                  ? `${state.status}, ${state.resourceType}`
-                  : "unknown"
-              }
-            />
-          ))}
+          {states.map(({ fqn, state }) => {
+            const resource = validate(vResourceState, state, { allowUnknownFields: true })
+              ? state
+              : null;
+            const presentation = resourceTypePresentation(resource?.resourceType ?? "unknown");
+
+            return (
+              <AlchemyStateDetailItem
+                key={fqn}
+                name={
+                  <span className="inline-flex max-w-full items-center gap-1.5">
+                    <span className="shrink-0">{presentation.icon}</span>
+                    <span className="min-w-0 break-all">{fqn}</span>
+                  </span>
+                }
+                detail={resource ? `${resource.status}, ${presentation.label}` : "unknown"}
+              />
+            );
+          })}
         </AlchemyStateDetailRow>
       )}
       {output.length === 0 ? null : (
