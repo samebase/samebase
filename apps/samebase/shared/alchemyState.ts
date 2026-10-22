@@ -45,15 +45,26 @@ export const vAlchemyConvexProjectState = object({
 });
 
 /**
-The state of a `Cloudflare.Worker` resource. `attr.url` is the most significant URL of the Worker:
-its custom domain, else an alias, else its workers.dev URL. A Worker that no URL reaches has none.
-`attr.urls` lists every URL that serves the Worker, `attr.url` first.
+The state of a `Cloudflare.Worker` resource. `props.main` is the entry module relative to the
+directory where the stack runs; an assets-only Worker has none. `attr.url` is the most significant
+URL of the Worker: its custom domain, else an alias, else its workers.dev URL. A Worker that no URL
+reaches has none. `attr.urls` lists every URL that serves the Worker, `attr.url` first, and no zone
+route. `attr.routes` lists the zone routes, such as `e.samebase.com/*`: the `url` of a route is
+`https://<host>` of its pattern, and a route with a wildcard host, such as `*.json.md/*`, has none.
 
-@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L1149-L1175
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L706-L717
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L1149-L1198
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/RoutePattern.ts#L88-L95
 */
 export const vAlchemyCloudflareWorkerState = object({
   resourceType: literal("Cloudflare.Worker"),
-  attr: object({ workerName: string(), url: optional(string()), urls: array(string()) }),
+  props: object({ main: optional(string()) }),
+  attr: object({
+    workerName: string(),
+    url: optional(string()),
+    urls: array(string()),
+    routes: array(object({ pattern: string(), url: optional(string()) })),
+  }),
 });
 
 /**
@@ -88,13 +99,20 @@ function rootDirectoryOf(path: string): string {
 
 /**
 The deployed resources of one stage of a stack, each with the directory of the repository that it
-belongs to (`/` for the root). `stackFile` is the stack file of the stage's run record.
+belongs to (`/` for the root). `stackFile` is the stack file of the stage's run record, and the
+stack runs in its directory.
 
 A Convex deployment sits in its app directory, `props.rootDir` below the directory of the stack
-file, and its code location adds `source` (null without `source`). Alchemy's `Cloudflare.Worker` has
-no `rootDir`: its `main` and assets are relative to the directory where the stack runs, so a Worker
-sits in the directory of the stack file. A row that no validator accepts, such as one without
-`attr` from an interrupted deploy, and a path outside the repository are left out.
+file, and its code location adds `source` (null without `source`).
+
+Alchemy's `Cloudflare.Worker` has no `rootDir`, so a Worker sits in the folder of its entry file,
+`props.main` below the directory of the stack file, without a last `src` segment:
+`apps/posthog-proxy/src/index.ts` from `alchemy.run.ts` places it in `apps/posthog-proxy`. A Worker
+whose `main` is in the directory of the stack file, or an assets-only Worker without `main`, sits in
+the directory of the stack file.
+
+A row that no validator accepts, such as one without `attr` from an interrupted deploy, and a path
+outside the repository are left out.
 */
 export function placeStageResources(stage: {
   stackFile: string;
@@ -113,7 +131,6 @@ export function placeStageResources(stage: {
   }[];
 } {
   const { stackFile } = stage;
-  const stackDirectory = stackPath(stackFile);
   const states = stage.resources.map((resource) => {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
@@ -139,11 +156,18 @@ export function placeStageResources(stage: {
             },
           ];
     }),
-    workers: states.flatMap(({ fqn, state }) =>
-      stackDirectory !== null &&
-      validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
-        ? [{ fqn, state, rootDirectory: rootDirectoryOf(stackDirectory) }]
-        : [],
-    ),
+    workers: states.flatMap(({ fqn, state }) => {
+      if (!validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })) {
+        return [];
+      }
+      const { main } = state.props;
+      const entryFolder =
+        main === undefined ? stackPath(stackFile) : stackPath(stackFile, main, "..");
+      if (entryFolder === null) {
+        return [];
+      }
+      const folder = entryFolder === "src" ? "." : entryFolder.replace(/\/src$/, "");
+      return [{ fqn, state, rootDirectory: rootDirectoryOf(folder) }];
+    }),
   };
 }
