@@ -1,0 +1,8 @@
+node_modules/
+.convex/
+.env.local
+.local/
+.wrangler/
+.local-*.log
+feature/convex/_generated/
+convex/_generated/

@@ -1,0 +1,6 @@
+packages: []
+minimumReleaseAgeExclude:
+  # Same first-party release exception as the repository root.
+  - "@samebase/alchemy-convex@0.8.0"
+overrides:
+  "@effect/platform-node-shared": "4.0.4"
