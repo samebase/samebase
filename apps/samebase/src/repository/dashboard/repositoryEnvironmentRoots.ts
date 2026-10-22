@@ -100,6 +100,12 @@ export type RepositoryEnvironmentResource =
       /** The attachment id, or `alchemy:<fqn>` for a Worker of the Alchemy state store. */
       id: string;
       worker: RepositoryEnvironmentWorker;
+    }
+  | {
+      kind: "cloudflare_r2_bucket";
+      id: string;
+      bucketName: string;
+      href: string;
     };
 
 export type RepositoryEnvironmentRoot = {
@@ -425,7 +431,7 @@ export function buildAlchemyEnvironmentRoots({
       if (!stage) {
         return [];
       }
-      const { convexDeployments, workers } = placeStageResources({
+      const { convexDeployments, workers, r2Buckets } = placeStageResources({
         stackFile: stage.record.stackFile,
         resources: stage.resources,
       });
@@ -516,6 +522,19 @@ export function buildAlchemyEnvironmentRoots({
             };
           },
         ),
+        ...r2Buckets.map(({ fqn, state, rootDirectory }): RepositoryEnvironmentResourceInput => {
+          const { accountId, bucketName, jurisdiction } = state.attr;
+          return {
+            rootDirectory,
+            sortKey: `2:${bucketName}`,
+            resource: {
+              kind: "cloudflare_r2_bucket",
+              id: `alchemy:${stack.name}:${fqn}`,
+              bucketName,
+              href: `https://dash.cloudflare.com/${encodeURIComponent(accountId)}/r2/${encodeURIComponent(jurisdiction)}/buckets/${encodeURIComponent(bucketName)}`,
+            },
+          };
+        }),
       ];
     }),
   );

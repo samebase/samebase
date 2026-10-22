@@ -209,6 +209,24 @@ function RepositoryEnvironmentResourceRow({
       );
     case "cloudflare_worker":
       return <CloudflareWorkerResource worker={resource.worker} />;
+    case "cloudflare_r2_bucket":
+      return (
+        <a
+          className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-2.5 py-1.5 text-foreground no-underline hover:no-underline"
+          href={resource.href}
+          rel="noreferrer noopener"
+          target="_blank"
+          title={`Open R2 bucket ${resource.bucketName}`}
+        >
+          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+            <CloudflareProviderLogo />
+          </span>
+          <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+            {resource.bucketName}
+          </span>
+          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </a>
+      );
     default:
       resource satisfies never;
       return null;
