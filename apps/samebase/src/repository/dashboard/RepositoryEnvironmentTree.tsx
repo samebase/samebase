@@ -12,6 +12,7 @@ import {
   SamebaseLogoMark,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
+import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import {
   buildPullRequestEnvironmentRoots,
   buildPullRequestOtherPreviews,
@@ -44,17 +45,17 @@ type EnvironmentBuildState = Extract<
   { state: "available" }
 >["buildState"];
 
-function DestinationIcon({ href, provider }: { href: string; provider: "cloudflare" | "convex" }) {
+function DestinationIcon({ href }: { href: string }) {
   const [faviconFailed, setFaviconFailed] = useState(false);
   let origin: URL;
   try {
     origin = new URL(href);
   } catch {
-    return provider === "convex" ? <ConvexProviderLogo /> : <CloudflareProviderLogo />;
+    return <CloudflareProviderLogo />;
   }
 
-  if (provider === "convex" || origin.hostname.endsWith(".workers.dev") || faviconFailed) {
-    return provider === "convex" ? <ConvexProviderLogo /> : <CloudflareProviderLogo />;
+  if (origin.hostname.endsWith(".workers.dev") || faviconFailed) {
+    return <CloudflareProviderLogo />;
   }
 
   const faviconUrl = `${origin.origin}/favicon.ico`;
@@ -140,6 +141,8 @@ function DestinationResource({
 }: {
   resource: Extract<RepositoryEnvironmentResource, { kind: "destination" }>;
 }) {
+  const presentation = resourceTypePresentation("Convex.Deployment");
+
   return (
     <div
       aria-label={`Convex deployment ${resource.label}`}
@@ -155,13 +158,14 @@ function DestinationResource({
           title={resource.title}
         >
           <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-            <DestinationIcon href={resource.href} provider={resource.provider} />
+            {presentation.icon}
           </span>
           <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
             {resource.label}
           </span>
           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
         </a>
+        <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
         {resource.actions.length > 0 ? (
           <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
         ) : null}
@@ -209,24 +213,29 @@ function RepositoryEnvironmentResourceRow({
       );
     case "cloudflare_worker":
       return <CloudflareWorkerResource worker={resource.worker} />;
-    case "cloudflare_r2_bucket":
+    case "cloudflare_r2_bucket": {
+      const presentation = resourceTypePresentation("Cloudflare.R2.Bucket");
       return (
-        <a
-          className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-2.5 py-1.5 text-foreground no-underline hover:no-underline"
-          href={resource.href}
-          rel="noreferrer noopener"
-          target="_blank"
-          title={`Open R2 bucket ${resource.bucketName}`}
-        >
-          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-            <CloudflareProviderLogo />
-          </span>
-          <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
-            {resource.bucketName}
-          </span>
-          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-        </a>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <a
+            className="inline-flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-foreground no-underline hover:no-underline"
+            href={resource.href}
+            rel="noreferrer noopener"
+            target="_blank"
+            title={`Open R2 bucket ${resource.bucketName}`}
+          >
+            <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+              {presentation.icon}
+            </span>
+            <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+              {resource.bucketName}
+            </span>
+            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+          </a>
+          <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
+        </div>
       );
+    }
     default:
       resource satisfies never;
       return null;
@@ -507,6 +516,8 @@ function BuildState({ state }: { state: EnvironmentBuildState }) {
 }
 
 function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWorker }) {
+  const presentation = resourceTypePresentation("Cloudflare.Worker");
+
   return (
     <div
       aria-label={`Cloudflare Worker ${worker.workerName}`}
@@ -515,11 +526,12 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-          <CloudflareProviderLogo />
+          {presentation.icon}
         </span>
         <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
           {worker.workerName}
         </span>
+        <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
         {worker.build.state === "available" ? (
           <a
             className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
@@ -552,7 +564,7 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
               title={worker.destination.title}
             >
               <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                <DestinationIcon href={worker.destination.href} provider="cloudflare" />
+                <DestinationIcon href={worker.destination.href} />
               </span>
               <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
               <ExternalLink className="h-3 w-3 shrink-0" />

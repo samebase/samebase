@@ -833,6 +833,7 @@ describe("repository environment roots", () => {
       expect(roots.map((root) => root.rootDirectory)).toEqual([rootDirectory]);
       const container = document.createElement("div");
       container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
+      expect(container.textContent.match(/R2 bucket/g)).toHaveLength(3);
       expect(
         [...container.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
       ).toEqual([
@@ -901,7 +902,7 @@ describe("repository environment roots", () => {
     ]);
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    expect(container.textContent).toBe("ideal-dolphin-15🇺🇸 US East (N. Virginia)");
+    expect(container.textContent).toBe("ideal-dolphin-15Convex deployment🇺🇸 US East (N. Virginia)");
   });
 
   it("places the resources of every stack of samebase/samebase by stack file and rootDir", () => {
@@ -983,7 +984,7 @@ describe("repository environment roots", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={rootWorkers} />);
     expect(container.textContent).toBe(
-      "samebase-domains*.json.mdsamebase-posthog-proxye.samebase.com",
+      "samebase-domainsWorker*.json.mdsamebase-posthog-proxyWorkere.samebase.com",
     );
     expect([...container.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://e.samebase.com/",
@@ -1147,7 +1148,7 @@ describe("repository environment roots", () => {
     const markup = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
     const container = document.createElement("div");
     container.innerHTML = markup;
-    expect(container.textContent).toBe("tmp-k7m2-rowstmp-k7m2-rows.pfp.workers.dev");
+    expect(container.textContent).toBe("tmp-k7m2-rowsWorkertmp-k7m2-rows.pfp.workers.dev");
     expect(container.querySelector("a")?.getAttribute("href")).toBe(
       "https://tmp-k7m2-rows.pfp.workers.dev",
     );
@@ -1392,7 +1393,9 @@ describe("repository environment roots", () => {
     expect(deployment?.querySelector("a")?.getAttribute("href")).toBe(
       "https://nautical-eagle-647.convex.site",
     );
-    expect(deployment?.textContent).toBe("nautical-eagle-647May be from an earlier commit");
+    expect(deployment?.textContent).toBe(
+      "nautical-eagle-647Convex deploymentMay be from an earlier commit",
+    );
   });
 
   it("shows the head commit in place of the note when the run record names the head", () => {
@@ -1438,11 +1441,11 @@ describe("repository environment roots", () => {
     expect(
       container.querySelector('[role="group"][aria-label="Convex deployment nautical-eagle-647"]')
         ?.textContent,
-    ).toBe("nautical-eagle-647e63be55");
+    ).toBe("nautical-eagle-647Convex deploymente63be55");
     expect(
       container.querySelector('[role="group"][aria-label="Cloudflare Worker tmp-k7m2-rows-pr-1"]')
         ?.textContent,
-    ).toBe("tmp-k7m2-rows-pr-1Branch previewe63be55");
+    ).toBe("tmp-k7m2-rows-pr-1WorkerBranch previewe63be55");
     expect(container.textContent).not.toContain("May be from an earlier commit");
   });
 
@@ -1476,7 +1479,7 @@ describe("repository environment roots", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
     expect(container.textContent).toBe(
-      "tmp-k7m2-rows-pr-1Branch previewMay be from an earlier commit",
+      "tmp-k7m2-rows-pr-1WorkerBranch previewMay be from an earlier commit",
     );
     expect(container.querySelector("a")?.getAttribute("href")).toBe(
       "https://tmp-k7m2-rows-pr-1.pfp.workers.dev",
