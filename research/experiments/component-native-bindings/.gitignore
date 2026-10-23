@@ -1,0 +1,7 @@
+node_modules/
+.convex/
+.alchemy/
+.env*
+.local/
+convex/_generated/
+job/convex/_generated/

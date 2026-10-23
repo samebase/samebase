@@ -1,0 +1,50 @@
+{
+  "convexVersion": "1.46.0",
+  "backendVersion": "precompiled-2026-10-10-72ce13c",
+  "alchemyVersion": "2.0.0-beta.83",
+  "initial": {
+    "associations": [
+      {
+        "componentPath": "jobs",
+        "resources": [
+          {
+            "fqn": "Processor",
+            "type": "Cloudflare.Worker"
+          }
+        ],
+        "envNames": ["JOBS_MARKER", "JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+      }
+    ],
+    "envNames": ["JOBS_MARKER", "JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+  },
+  "updated": {
+    "associations": [
+      {
+        "componentPath": "jobs",
+        "resources": [
+          {
+            "fqn": "Processor",
+            "type": "Cloudflare.Worker"
+          }
+        ],
+        "envNames": ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+      }
+    ],
+    "envNames": ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+  },
+  "initialResult": {
+    "input": "native binding first apply",
+    "result": "NATIVE BINDING FIRST APPLY"
+  },
+  "updatedResult": {
+    "input": "native binding changed apply",
+    "result": "NATIVE BINDING CHANGED APPLY"
+  },
+  "invalidApply": {
+    "status": "updating",
+    "previousAssociationRetained": true,
+    "newSuccessRecord": false
+  },
+  "unauthorizedStatus": 401,
+  "wrongSecretStatus": 401
+}
