@@ -2,82 +2,69 @@
 
 Date: 2026-10-22. Updated: 2026-10-23. Status: research, not an accepted implementation contract.
 
-The [follow-up experiments](2026-10-23-component-binding-experiments.md#decision) test three
-concrete bindings with a Worker-backed component. They replace the original R2-first pilot
-recommendation.
+The [follow-up experiments](2026-10-23-component-binding-experiments.md#decision) test resource
+exports, registration, graph discovery, native provider bindings, and a runtime bridge with a
+Worker-backed component. They replace the original R2-first pilot recommendation.
 
 ## Recommendation
 
-A Convex component package can include its own infrastructure definition. Declare each installation
-once and use that declaration to create its Convex mount and Alchemy resources. Behind this
-integration, keep separate exports for Convex config and deployment code. Run the Alchemy code
-inside the app's existing stack, under a stable namespace.
+A Convex component package can export ordinary Alchemy resource Effects beside its component code.
+The application imports and yields those resources in its existing stack. Alchemy already supplies
+module composition, resource identity, namespaces, and references. Do not add a separate feature
+declaration format to reproduce those facilities.
 
 Samebase should display the resulting resources under a specific mounted component. To do this, the
 deployment must record an explicit association between the Convex deployment, full component path,
 and Alchemy resource names. Runtime component inspection supplies the component tree, but it does
 not supply this association.
 
-The package pattern already exists in our email component. The new work is to make its instance
-wiring reusable and define the record that connects deployment state to Samebase's component view.
-Call the package export a **component infrastructure definition** or **Alchemy companion**. It is
-part of the host stack unless it has a separate deployment and lifecycle.
+The package pattern already exists in our email component. The remaining work is the connection to
+the mounted Convex component and the record that connects deployment state to Samebase's view. Call
+the package export a **component infrastructure definition** or **Alchemy companion**. It is part of
+the host stack unless it has a separate deployment and lifecycle.
 
 Start with a Worker-backed component that calls the Worker and stores its result. This tests the
 connection between an installed component and its compute dependency directly. Repeated mounts and
 R2 retention are separate cases. The email case adds Worker/Convex deployment ordering and zone-wide
 routing effects.
 
-## Refinement: make the installation the authoring unit
+## Native Alchemy composition and the Convex boundary
 
-The separate `/alchemy` export is a suitable execution boundary. On its own, it is an incomplete
-authoring interface: an app author must configure a Convex mount, call a companion, and manually
-keep their names and environment mappings aligned. This becomes more fragile with repeated or nested
-mounts.
+The initial recommendation added a neutral installation descriptor and separate adapters before
+testing Alchemy's native composition. That recommendation was premature. An exported resource Effect
+or grouped `Effect.gen` already carries a package's infrastructure. Importing it does not deploy
+anything. Yielding the same resource in the same namespace reuses its FQN.
+[Resource modules](https://alchemy.run/infrastructure-as-code/resource/#sharing-across-files),
+[grouped resource Effects](https://alchemy.run/project-structure/file-layout/#wrap-units-in-effects-not-in-the-stack).
 
-The preferred interface is one declaration for each installed instance. A small integration reads
-that same declaration in two environments:
+Resource `.ref` reads persisted state from an existing stack or stage. It is useful when the
+resource has a separate owner. It does not install a Convex component or supply that component's
+runtime configuration. The same-stack case can use the imported resource directly.
+[References](https://alchemy.run/infrastructure-as-code/references/).
 
-- The Convex adapter imports the actual component definition and calls `app.use` with its mount
-  name, environment references, and HTTP prefix where supported.
-- The Alchemy adapter imports the infrastructure implementation, creates its resources, supplies the
-  matching environment values, and emits the association record.
+There are two distinct integration boundaries:
 
-For example, two installations of an email package, `sales` and `support`, each produce a Convex
-mount and their own resource group. The package provides the wiring rules. The host provides real
-choices such as provider account, route, and whether an existing resource is shared. The host should
-not have to repeat an instance's identity or write the display association by hand.
+- Deployment-time bindings can use Alchemy's native `Resource.bind`. A Convex provider can accept
+  component environment values and resource associations as binding data, then use its ordinary
+  Convex source push. Provider 0.8.0 has no binding contract, so this requires a provider extension.
+- Direct use of Alchemy Outputs or bound clients inside a Convex handler needs a runtime bridge.
+  Alchemy supplies `RuntimeContext`, `Output.bind`, Layers, and runtime-aware bundling for its
+  platforms. A local probe used `Bundle.build`, a captured native reference, and a small runtime
+  context with an ordinary Convex action. Provider 0.8.0 does not supply this integration. The probe
+  used a state fixture for reference resolution, not a provider apply.
 
-The shared installation module must remain plain configuration and metadata. It must not import the
-actual `convex.config` modules or Alchemy implementations. Each environment imports its own adapter.
-A small, explicit adapter for the pilot package is enough to test this; do not build an automatic
-package catalog or whole-app generator first. Convex still needs statically discoverable component
-imports in its config path.
-
-This is a proposed integration, not an existing Convex API. The actual `app.use` result exposes
-component function exports. Its name and definition fields are internal, and it has no public full
-mount path, infrastructure handle, or serialization contract. A normal Node import of a config that
-mounts components fails because `app.use` expects Convex's synthetic `componentDefinitionPath`. Do
-not attach a fake `.resources()` method to that object or read its internal fields as a public
-contract.
+Normal `app.use` remains the component mount API. Its result exposes component function exports. Its
+name and definition fields are internal, and it has no public full mount path, infrastructure
+handle, or serialization contract. A normal Node import of a config that mounts children fails
+because `app.use` expects Convex's synthetic `componentDefinitionPath`. Do not attach a fake
+`.resources()` method to that object or read its internal fields as a public contract.
 [Installed component API](https://github.com/get-convex/convex-js/blob/47e2b21fd3b29eb3355163e18c089c5ebe77fe12/src/server/components/index.ts#L352),
 [config runtime requirement](https://github.com/get-convex/convex-js/blob/47e2b21fd3b29eb3355163e18c089c5ebe77fe12/src/server/components/index.ts#L425).
 
-The integration can return its own installation handle for authoring. That handle describes the same
-intended installation in both processes; it is not the live Convex runtime object. Keep its stable
-infrastructure ID distinct from the component mount path so a path rename need not replace cloud
-resources.
-
-For nested installations, the parent contributes the child's definition and relative path. Mounting
-the parent twice expands two separate child paths, such as `sales/mail` and `support/mail`. Opaque
-third-party child mounts do not automatically acquire infrastructure support. Their package needs to
-participate in the convention, or the host must provide an explicit adapter.
-
-If ordinary `app.use` must be the sole authoritative declaration, another option is to collect
-Convex's analyzed component graph and resolve each definition to a companion. That uses an internal
-deployment protocol and still needs a package-to-companion convention. Prefer the shared
-installation declaration for the first prototype; an upstream metadata/export hook would be the
-better long-term route for transparent support of ordinary Convex configs.
+The [follow-up experiments](2026-10-23-component-binding-experiments.md) distinguish native Alchemy
+composition from the missing Convex integration. Convex's analyzed component graph is another source
+of mount identity, but currently requires a private deployment protocol. None of these mechanisms
+should be described as automatic component discovery until a real mount is checked.
 
 ## Evidence and scope
 
@@ -218,8 +205,6 @@ replace the deployed association record.
 flowchart TD
   P[Component package] --> C[Convex config export]
   P --> A[Alchemy companion export]
-  D[Shared installation definitions] --> H
-  D --> S
   C --> H[Host app component mounts]
   A --> S[Host Alchemy stack and stage]
   S --> R[Cloud resources]
@@ -233,12 +218,12 @@ flowchart TD
   I --> U
 ```
 
-1. The deployment adapter reads the shared installation declaration and calls the package's
-   companion with its stable infrastructure ID. The companion declares resources in that namespace
-   and returns their references plus the runtime configuration the app needs.
-2. The same installation declaration supplies the full mount path. A package can be mounted under
-   any parent; it cannot infer this path from its own package/default name. The adapter keeps this
-   mapping out of manual per-instance configuration.
+1. The application imports the package's native Alchemy resources into its stack. Their Outputs
+   supply the runtime configuration the component needs.
+2. The application supplies the full component mount path. A package can be mounted under any
+   parent; it cannot infer this path from its package/default name. A native Convex provider binding
+   can carry the path, resource identities, and environment values together. This extension is
+   prototyped locally; it is not part of provider 0.8.0.
 3. The host deploys resources and Convex with explicit dependencies. It returns an allowlisted
    association record as part of the stack output.
 4. Samebase reads that output from the existing team Alchemy state project. It validates the record
@@ -399,20 +384,20 @@ transport can be addressed separately without changing resource identity.
 
 ## Options assessed
 
-| Approach                                               | Assessment                                                                                                                                     |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared installations, companion exports, output record | Recommended. Declares each instance once and uses existing provisioning and state mechanisms.                                                  |
-| Separate stack for every component                     | Use only for an independently managed lifecycle. Adds state, deployment order, output references, and cleanup coordination to ordinary mounts. |
-| Alchemy inside `convex.config.ts`                      | No supported execution or metadata hook for this.                                                                                              |
-| Infer infrastructure from package or component names   | Cannot establish the instance, configured resources, shared uses, or physical deployment.                                                      |
-| A runtime component query that reports infrastructure  | Requires a new execution/auth contract and still needs provisioning-time data.                                                                 |
-| A package descriptor for automatic installation        | Possible later as an explicit convention. It does not prove what was deployed.                                                                 |
+| Approach                                              | Assessment                                                                                                                                     |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native resource exports and component bindings        | Native exports are available now. A local provider prototype tests bindings that carry runtime env and the component association together.     |
+| Separate stack for every component                    | Use only for an independently managed lifecycle. Adds state, deployment order, output references, and cleanup coordination to ordinary mounts. |
+| Alchemy inside `convex.config.ts`                     | No supported execution or metadata hook for this.                                                                                              |
+| Infer infrastructure from package or component names  | Cannot establish the instance, configured resources, shared uses, or physical deployment.                                                      |
+| A runtime component query that reports infrastructure | Requires a new execution/auth contract and still needs provisioning-time data.                                                                 |
+| A package descriptor for automatic installation       | Possible later as an explicit convention. It does not prove what was deployed.                                                                 |
 
 ## Follow-up experiments
 
-Three isolated local experiments now test explicit registration, a shared installation declaration,
-and discovery from Convex's analyzed graph. Each uses a component action, an HTTP Worker, a
-component-owned result table, and a host query. See the
+The experiments cover explicit registration, native resource modules, native provider bindings,
+runtime imports, and discovery from Convex's analyzed graph. The working runtime probes use a
+component action, an HTTP Worker, a component-owned result table, and a host query. See the
 [results and next implementation boundary](2026-10-23-component-binding-experiments.md#results).
 
 These probes establish local runtime connections. They do not establish cloud lifecycle behavior or

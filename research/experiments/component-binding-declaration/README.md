@@ -135,4 +135,5 @@ The existing runner, component, Worker, and host functions remain. There is no s
 The relevant Alchemy guidance is [Resources](https://alchemy.run/infrastructure-as-code/resource/),
 [References](https://alchemy.run/infrastructure-as-code/references/), and
 [File layout](https://alchemy.run/project-structure/file-layout/). This sample uses native exports
-and `yield*`, available in beta83. It does not use the newer `Output.ref` shown in current docs.
+and `yield*`, available in beta83. Current docs show `Output.ref`, but beta83 does not export it.
+Resource constructors do expose `.ref` for persisted resource references.
