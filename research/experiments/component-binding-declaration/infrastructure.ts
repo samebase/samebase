@@ -1,13 +1,16 @@
 import * as Convex from "@samebase/alchemy-convex";
 import * as Output from "alchemy/Output";
 import * as Effect from "effect/Effect";
+import { captureBinding } from "./captureBinding.ts";
 import { BridgeSecret, Transform } from "./feature/alchemy.ts";
 import { componentName } from "./feature/name.ts";
+import { workerUrl } from "./feature/workerBinding.ts";
 
-export function infrastructure(project: { projectId: number }) {
+export function infrastructure(project: { projectId: number }, binding = workerUrl) {
   return Effect.gen(function* () {
     const worker = yield* Transform;
     const secret = yield* BridgeSecret;
+    const captured = yield* captureBinding(binding);
     const deployment = yield* Convex.Deployment("Site", {
       project,
       type: "dev",
@@ -15,9 +18,9 @@ export function infrastructure(project: { projectId: number }) {
       rootDir: ".",
       source: "./convex",
       env: {
-        TEXT_JOB_URL: worker.url.pipe(
+        TEXT_JOB_URL: captured.workerUrl.pipe(
           Output.map((url) => {
-            if (!url) throw new Error("The Worker has no URL");
+            if (typeof url !== "string") throw new Error("The Worker has no URL");
             return url;
           }),
         ),
@@ -27,6 +30,7 @@ export function infrastructure(project: { projectId: number }) {
     return {
       worker,
       deployment,
+      captured,
       association: {
         componentPath: componentName,
         deploymentFqn: deployment.FQN,

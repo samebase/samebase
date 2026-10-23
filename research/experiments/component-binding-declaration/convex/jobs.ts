@@ -6,7 +6,7 @@ import { action, query } from "./_generated/server";
 export const run = action({
   args: { input: v.string() },
   returns: v.string(),
-  handler: (ctx, args) => ctx.runAction(components.textJobs.jobs.run, { input: args.input }),
+  handler: (ctx, args) => ctx.runAction(components.textJobs.native.read, { input: args.input }),
 });
 
 export const latest = query({

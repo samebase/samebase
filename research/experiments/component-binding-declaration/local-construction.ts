@@ -7,10 +7,11 @@ import { inMemoryState } from "alchemy/State/InMemoryState";
 import * as Effect from "effect/Effect";
 import * as Redacted from "effect/Redacted";
 import { BridgeSecret, Transform } from "./feature/alchemy.ts";
+import { workerUrl } from "./feature/workerBinding.ts";
 import { infrastructure } from "./infrastructure.ts";
 
 /** Local construction fixture. It does not plan, apply, or contact cloud providers. */
-export async function construct(secretValue: string, localWorkerUrl: string) {
+export async function construct(secretValue: string, localWorkerUrl: string, binding = workerUrl) {
   const stack: Omit<StackSpec<unknown>, "output"> = {
     name: "ComponentNativeAlchemyExperiment",
     stage: "local",
@@ -27,7 +28,7 @@ export async function construct(secretValue: string, localWorkerUrl: string) {
   };
   const declared = await Effect.runPromise(
     Effect.gen(function* () {
-      const resources = yield* infrastructure({ projectId: 0 });
+      const resources = yield* infrastructure({ projectId: 0 }, binding);
       const workerAgain = yield* Transform;
       const secret = yield* BridgeSecret;
       const secretAgain = yield* BridgeSecret;
@@ -43,11 +44,34 @@ export async function construct(secretValue: string, localWorkerUrl: string) {
     [declared.worker.FQN]: { url: localWorkerUrl },
     [declared.secret.FQN]: { text: Redacted.make(secretValue) },
   };
+  // This fixture records the live Wrangler endpoint. It is not an Alchemy apply result.
+  const workerState = inMemoryState({
+    [stack.name]: {
+      [stack.stage]: {
+        [declared.worker.FQN]: {
+          status: "created",
+          resourceType: declared.worker.Type,
+          namespace: undefined,
+          fqn: declared.worker.FQN,
+          logicalId: "Transform",
+          instanceId: "local-wrangler-fixture",
+          providerVersion: 1,
+          downstream: [],
+          bindings: [],
+          props: {},
+          attr: { url: localWorkerUrl },
+        },
+      },
+    },
+  });
+  const capturedValues = await Effect.runPromise(
+    Output.evaluate(declared.captured, outputs).pipe(Effect.provide(workerState)),
+  );
   const deploymentProps = await Effect.runPromise(
-    Output.evaluate(declared.deployment.Props, outputs).pipe(Effect.provide(inMemoryState())),
+    Output.evaluate(declared.deployment.Props, outputs).pipe(Effect.provide(workerState)),
   );
   const workerProps = await Effect.runPromise(
     Output.evaluate(declared.worker.Props, outputs).pipe(Effect.provide(inMemoryState())),
   );
-  return { ...declared, stack, deploymentProps, workerProps };
+  return { ...declared, stack, deploymentProps, workerProps, capturedValues };
 }

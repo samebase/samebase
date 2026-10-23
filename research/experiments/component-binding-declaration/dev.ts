@@ -8,6 +8,7 @@ import { makeFunctionReference } from "convex/server";
 import { construct } from "./local-construction.ts";
 
 const cwd = fileURLToPath(new URL("./", import.meta.url));
+await import("./build-runtime.ts");
 const once = process.argv.includes("--once");
 if (once) {
   for (const path of [".convex", ".env.local", "convex/_generated", "feature/convex/_generated"]) {
@@ -20,7 +21,7 @@ const convexCli = fileURLToPath(
 const workerCli = fileURLToPath(
   new URL("./bin/wrangler.js", import.meta.resolve("wrangler/package.json")),
 );
-const workerUrl = "http://127.0.0.1:33312";
+const workerUrl = "http://127.0.0.1:33612";
 const secret = randomBytes(32).toString("hex");
 const declared = await construct(secret, workerUrl);
 const workerSecret = declared.workerProps.env?.BRIDGE_SECRET;
@@ -48,7 +49,7 @@ await writeFile(
     name: "component-binding-declaration",
     main: fileURLToPath(new URL(declared.workerProps.main, import.meta.url)),
     compatibility_date: "2026-10-01",
-    dev: { ip: "127.0.0.1", port: 33312, inspector_port: 33313 },
+    dev: { ip: "127.0.0.1", port: 33612, inspector_port: 33613 },
   }),
 );
 await writeFile(
@@ -111,13 +112,13 @@ try {
   start(convexCli, [
     "dev",
     "--local-cloud-port",
-    "33310",
+    "33610",
     "--local-site-port",
-    "33311",
+    "33611",
     "--typecheck-components",
     "--tail-logs=disable",
   ]);
-  await Promise.all([ready(workerUrl), ready("http://127.0.0.1:33310/version")]);
+  await Promise.all([ready(workerUrl), ready("http://127.0.0.1:33610/version")]);
   const localConfig: unknown = JSON.parse(
     await readFile(new URL("./.convex/local/default/config.json", import.meta.url), "utf8"),
   );
@@ -136,12 +137,12 @@ try {
       name,
       Redacted.isRedacted(value) ? Redacted.value(value) : value,
       "--url",
-      "http://127.0.0.1:33310",
+      "http://127.0.0.1:33610",
       "--admin-key",
       localConfig.adminKey,
     ]);
   }
-  const client = new ConvexHttpClient("http://127.0.0.1:33310");
+  const client = new ConvexHttpClient("http://127.0.0.1:33610");
   const deadline = Date.now() + 120_000;
   for (;;) {
     try {
