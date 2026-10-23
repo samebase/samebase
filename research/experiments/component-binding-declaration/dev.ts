@@ -6,10 +6,12 @@ import * as Redacted from "effect/Redacted";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { construct } from "./local-construction.ts";
+import { workerUrl as runtimeBinding } from "./feature/workerBinding.ts";
 
 const cwd = fileURLToPath(new URL("./", import.meta.url));
 await import("./build-runtime.ts");
 const once = process.argv.includes("--once");
+const runtimeImport = process.argv.includes("--runtime-import");
 if (once) {
   for (const path of [".convex", ".env.local", "convex/_generated", "feature/convex/_generated"]) {
     await rm(new URL(path, import.meta.url), { recursive: true, force: true });
@@ -23,7 +25,7 @@ const workerCli = fileURLToPath(
 );
 const workerUrl = "http://127.0.0.1:33612";
 const secret = randomBytes(32).toString("hex");
-const declared = await construct(secret, workerUrl);
+const declared = await construct(secret, workerUrl, runtimeImport ? runtimeBinding : undefined);
 const workerSecret = declared.workerProps.env?.BRIDGE_SECRET;
 const workerSecretText = Redacted.isRedacted(workerSecret)
   ? Redacted.value(workerSecret)
@@ -154,7 +156,10 @@ try {
     }
   }
   if (once) {
-    await command(fileURLToPath(new URL("./verify.ts", import.meta.url)), []);
+    await command(
+      fileURLToPath(new URL("./verify.ts", import.meta.url)),
+      runtimeImport ? ["--runtime-import"] : [],
+    );
   } else {
     console.log("Local sample ready. Run pnpm run verify in another terminal.");
     await new Promise(() => {});

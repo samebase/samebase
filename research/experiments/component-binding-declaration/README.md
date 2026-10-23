@@ -5,6 +5,10 @@ feature descriptor, mount adapter, generated config, or query DSL. The host stil
 component and maps its environment values explicitly. This is a working baseline, not an automatic
 Alchemy binding for Convex.
 
+An optional [runtime import probe](./RUNTIME_IMPORT.md) uses the same app and Worker. Run
+`pnpm run dev --once --runtime-import` to test native Ref capture and Output access inside the
+component action. The default command below keeps the simpler native-export path.
+
 ## The connection in code
 
 `feature/alchemy.ts` owns the secret and Worker. These are ordinary native Alchemy Effects:
@@ -58,8 +62,8 @@ The checked versions are Alchemy 2.0.0-beta.83, `@samebase/alchemy-convex` 0.8.0
 Effect and Node platform 4.0.4, Wrangler 4.151.0, TypeScript 6.0.3, and pnpm 12.14.0. The workspace
 pins the Effect Node shared package to 4.0.4 to avoid mismatched exports. The lockfile stays local.
 
-`pnpm run dev` keeps the sample open. `pnpm run verify` checks a running sample. Ports are 33310
-(Convex), 33311 (HTTP actions), 33312 (Worker), and 33313 (Worker inspector). All state and secrets
+`pnpm run dev` keeps the sample open. `pnpm run verify` checks a running sample. Ports are 33610
+(Convex), 33611 (HTTP actions), 33612 (Worker), and 33613 (Worker inspector). All state and secrets
 stay in this directory's ignored files. The runner passes no inherited provider or deployment keys.
 `--once` first removes only this sample's `.convex`, `.env.local`, and both Convex `_generated`
 directories. It creates a fresh backend, regenerates types, verifies the result, and stops the

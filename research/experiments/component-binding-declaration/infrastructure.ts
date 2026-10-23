@@ -4,13 +4,13 @@ import * as Effect from "effect/Effect";
 import { captureBinding } from "./captureBinding.ts";
 import { BridgeSecret, Transform } from "./feature/alchemy.ts";
 import { componentName } from "./feature/name.ts";
-import { workerUrl } from "./feature/workerBinding.ts";
+import type { workerUrl } from "./feature/workerBinding.ts";
 
-export function infrastructure(project: { projectId: number }, binding = workerUrl) {
+export function infrastructure(project: { projectId: number }, binding?: typeof workerUrl) {
   return Effect.gen(function* () {
     const worker = yield* Transform;
     const secret = yield* BridgeSecret;
-    const captured = yield* captureBinding(binding);
+    const captured = binding ? yield* captureBinding(binding) : undefined;
     const deployment = yield* Convex.Deployment("Site", {
       project,
       type: "dev",
@@ -18,7 +18,7 @@ export function infrastructure(project: { projectId: number }, binding = workerU
       rootDir: ".",
       source: "./convex",
       env: {
-        TEXT_JOB_URL: captured.workerUrl.pipe(
+        TEXT_JOB_URL: (captured ? captured.workerUrl : worker.url).pipe(
           Output.map((url) => {
             if (typeof url !== "string") throw new Error("The Worker has no URL");
             return url;

@@ -24,7 +24,7 @@ export const workerUrl = map(
 2. The captured Output supplies the deployment environment. Alchemy evaluates its Ref against a
    local state fixture whose URL is the endpoint used by the real Wrangler process.
 3. `build-runtime.ts` uses Alchemy's own `Bundle.build` to produce a runtime bundle. The bundle
-   contains the binding and native RuntimeContext helpers. Its checked size was 8,424 bytes, with no
+   contains the binding and native RuntimeContext helpers. Its checked size was about 8 KiB, with no
    Node built-in imports. Effect remains an external dependency.
 4. The ordinary component action imports that bundle, supplies its typed component environment
    through a small `BaseRuntimeContext`, and runs the binding, then its returned accessor.
@@ -40,9 +40,14 @@ requirements. This probe captures only its pure Ref expression.
 
 ```sh
 pnpm install
-pnpm run dev --once
+pnpm run dev --once --runtime-import
 pnpm run typecheck
 ```
+
+The default `pnpm run dev --once` keeps the simpler native-export path. The explicit flag selects
+the shared Ref capture and alternate component action. Use `pnpm run verify --runtime-import` when
+that mode is already running. Both modes build the small runtime module because Convex bundles both
+component actions. The default mode does not capture or evaluate a Ref.
 
 The runner builds the runtime bundle before Convex starts. It uses ports 33610 to 33613. It passes
 no shared provider credentials and creates a fresh local secret. The command stops its servers. The
