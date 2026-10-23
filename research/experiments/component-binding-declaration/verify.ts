@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { ConvexHttpClient } from "convex/browser";
+import * as Redacted from "effect/Redacted";
 import { api } from "./convex/_generated/api.js";
-import { construct } from "./infrastructure.ts";
-import { feature } from "./host.ts";
+import { construct } from "./local-construction.ts";
+import { componentName } from "./feature/name.ts";
 
 const client = new ConvexHttpClient("http://127.0.0.1:33310");
 const input = `  declaration ${Date.now()}  `;
@@ -24,10 +25,19 @@ const declared = await construct("verification-only-secret", "http://127.0.0.1:3
 assert.equal(associationText, JSON.stringify(declared.association, null, 2));
 assert.deepEqual(
   Object.keys(declared.stack.resources).sort(),
-  ["Site", `${feature.name}/Transform`].sort(),
+  ["Site", `${componentName}/Transform`, `${componentName}/Secret`].sort(),
 );
+assert.equal(declared.worker, declared.workerAgain);
+assert.equal(declared.secret, declared.secretAgain);
+assert.equal(declared.deploymentProps.env?.TEXT_JOB_URL, "http://127.0.0.1:33312");
+const convexSecret = declared.deploymentProps.env.TEXT_JOB_SECRET;
+const workerSecret = declared.workerProps.env?.BRIDGE_SECRET;
+assert(Redacted.isRedacted(convexSecret));
+assert(Redacted.isRedacted(workerSecret));
+assert.equal(Redacted.value(convexSecret), "verification-only-secret");
+assert.equal(Redacted.value(workerSecret), Redacted.value(convexSecret));
 assert.equal(associationText.includes("verification-only-secret"), false);
-assert.equal(declared.association.componentPath, feature.name);
+assert.equal(declared.association.componentPath, componentName);
 console.log(
   JSON.stringify(
     {
@@ -36,7 +46,9 @@ console.log(
       hostQuery: "pass",
       wrongSecretStatus: denied.status,
       alchemyResources: Object.keys(declared.stack.resources),
-      associationFromRuntimeBinding: "pass",
+      nativeResourceReuse: "pass",
+      nativeOutputToDeployment: "pass",
+      explicitComponentAssociation: "pass",
       cloudApply: "not run",
     },
     null,

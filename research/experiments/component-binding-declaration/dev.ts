@@ -5,8 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as Redacted from "effect/Redacted";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
-import { construct } from "./infrastructure.ts";
-import { feature } from "./host.ts";
+import { construct } from "./local-construction.ts";
 
 const cwd = fileURLToPath(new URL("./", import.meta.url));
 const convexCli = fileURLToPath(
@@ -18,8 +17,11 @@ const workerCli = fileURLToPath(
 const workerUrl = "http://127.0.0.1:33312";
 const secret = randomBytes(32).toString("hex");
 const declared = await construct(secret, workerUrl);
-const workerSecret = declared.workerProps.env?.[feature.definition.binding.workerSecret];
-if (!Redacted.isRedacted(workerSecret) || typeof declared.workerProps.main !== "string") {
+const workerSecret = declared.workerProps.env?.BRIDGE_SECRET;
+const workerSecretText = Redacted.isRedacted(workerSecret)
+  ? Redacted.value(workerSecret)
+  : undefined;
+if (typeof workerSecretText !== "string" || typeof declared.workerProps.main !== "string") {
   throw new Error("The sample needs a file Worker with a secret binding");
 }
 const env = {
@@ -45,7 +47,7 @@ await writeFile(
 );
 await writeFile(
   new URL("./.local/.dev.vars", import.meta.url),
-  `${feature.definition.binding.workerSecret}=${Redacted.value(workerSecret)}\n`,
+  `BRIDGE_SECRET=${workerSecretText}\n`,
   { mode: 0o600 },
 );
 
