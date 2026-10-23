@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import * as Redacted from "effect/Redacted";
 import { ConvexHttpClient } from "convex/browser";
@@ -8,6 +8,12 @@ import { makeFunctionReference } from "convex/server";
 import { construct } from "./local-construction.ts";
 
 const cwd = fileURLToPath(new URL("./", import.meta.url));
+const once = process.argv.includes("--once");
+if (once) {
+  for (const path of [".convex", ".env.local", "convex/_generated", "feature/convex/_generated"]) {
+    await rm(new URL(path, import.meta.url), { recursive: true, force: true });
+  }
+}
 const convexCli = fileURLToPath(
   new URL("./bin/main.js", import.meta.resolve("convex/package.json")),
 );
@@ -146,7 +152,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
-  if (process.argv.includes("--once")) {
+  if (once) {
     await command(fileURLToPath(new URL("./verify.ts", import.meta.url)), []);
   } else {
     console.log("Local sample ready. Run pnpm run verify in another terminal.");

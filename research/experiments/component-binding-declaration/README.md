@@ -61,7 +61,9 @@ pins the Effect Node shared package to 4.0.4 to avoid mismatched exports. The lo
 `pnpm run dev` keeps the sample open. `pnpm run verify` checks a running sample. Ports are 33310
 (Convex), 33311 (HTTP actions), 33312 (Worker), and 33313 (Worker inspector). All state and secrets
 stay in this directory's ignored files. The runner passes no inherited provider or deployment keys.
-`--once` stops the servers after verification. No preview or tunnel remains running.
+`--once` first removes only this sample's `.convex`, `.env.local`, and both Convex `_generated`
+directories. It creates a fresh backend, regenerates types, verifies the result, and stops the
+servers. This command resets the sample's local data. No preview or tunnel remains running.
 
 ## Evidence and test boundary
 
@@ -77,8 +79,18 @@ stay in this directory's ignored files. The runner passes no inherited provider 
 - The association contains the mounted component name and actual resource FQNs, without a secret.
 - `pnpm run typecheck` passed after code generation.
 
-The backend was `precompiled-2026-10-10-72ce13c`. Convex installed `textJobs` and completed the push
-in 1.06 seconds. Standard Convex generated files remain ignored.
+The backend was `precompiled-2026-10-10-72ce13c`. Standard Convex generated files remain ignored.
+
+An independent rerun found a startup race: a query from a previous local push could succeed before
+the current push finished. Verification then used the old component environment and received HTTP
+401 from the Worker. The disposable `--once` flow now resets the local backend before startup, so
+that query cannot exist until the current functions have been pushed. Use `--once` for repeatable
+verification. Interactive dev retains its database; wait for the CLI's successful push before
+running verification there.
+
+Two consecutive `pnpm run dev --once` runs passed after this fix. Each installed `textJobs` and
+reported a successful push before verification started (984.6 ms and 955.18 ms). All runtime checks
+and the subsequent `pnpm run typecheck` passed.
 
 `local-construction.ts` is test equipment. It supplies an empty Stack, rejects cloud provider
 operations, uses fixture project ID `0`, and supplies local output values for the Worker and Random
