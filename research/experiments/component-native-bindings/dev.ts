@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { globSync } from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout } from "node:timers/promises";
+import { isDeepStrictEqual } from "node:util";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { z } from "zod";
@@ -106,6 +107,38 @@ async function state() {
   }
   throw new Error("Alchemy did not persist the deployment resource");
 }
+let previousOutputTime = 0n;
+async function committedState(
+  expected: z.infer<typeof attributes>,
+  child: ReturnType<typeof spawn>,
+) {
+  // The reconcile artifact precedes Apply's state and output commits. Wait for both.
+  const outputPath =
+    ".alchemy/state/component-native-bindings/local-experiment/__stack_output__.json";
+  await waitFor(async () => {
+    const current = await state();
+    if (current.status !== "created" && current.status !== "updated") return false;
+    if (!isDeepStrictEqual(current.attr, expected)) return false;
+    if (
+      !(await access(outputPath).then(
+        () => true,
+        () => false,
+      ))
+    )
+      return false;
+    const output = z
+      .object({ associations: z.array(association) })
+      .parse(JSON.parse(await readFile(outputPath, "utf8")));
+    return (
+      (await stat(outputPath, { bigint: true })).mtimeNs > previousOutputTime &&
+      isDeepStrictEqual(output.associations, expected.associations)
+    );
+  }, child);
+  previousOutputTime = (await stat(outputPath, { bigint: true })).mtimeNs;
+  const committed = await state();
+  assert.deepEqual(committed.attr, expected);
+  return committed;
+}
 const client = new ConvexHttpClient(backendUrl);
 async function verifyRuntime(input: string) {
   const result = await client.action(
@@ -188,6 +221,7 @@ try {
     initial,
   );
   const first = attributes.parse(JSON.parse(await readFile(".local/applied-initial.json", "utf8")));
+  const firstState = await committedState(first, initial);
   assert.deepEqual(first.envNames, ["JOBS_MARKER", "JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]);
   assert.deepEqual(first.associations[0]?.resources, [
     { fqn: "Processor", type: "Cloudflare.Worker" },
@@ -198,7 +232,6 @@ try {
     assert.equal((await fetch(workerUrl, { method: "POST", headers, body: "reject" })).status, 401);
   }
   const initialResult = await verifyRuntime("native binding first apply");
-  const firstState = await state();
   assert.equal(firstState.bindings.length, 2);
   console.log(
     "Native bindings applied: normal component action saved the Worker result; both 401 checks passed.",
@@ -220,15 +253,60 @@ try {
   const updated = attributes.parse(
     JSON.parse(await readFile(".local/applied-changed.json", "utf8")),
   );
+  const changedState = await committedState(updated, changed);
   assert.deepEqual(updated.envNames, ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]);
   assert.match(await convex(["env", "get", "JOBS_WORKER_URL"]), /\?revision=2/);
   const names = await convex(["env", "list", "--names-only"]);
   assert(!names.includes("JOBS_MARKER"));
   const updatedResult = await verifyRuntime("native binding changed apply");
-  const changedState = await state();
   assert.equal(changedState.bindings.length, 1);
   console.log("Changed binding reached Convex; removing the marker binding removed its env value.");
   await stop(changed);
+
+  logs = "";
+  const nextSecret = randomBytes(32).toString("hex");
+  secrets.push(nextSecret);
+  childEnv.EXPERIMENT_SECRET = nextSecret;
+  process.env.EXPERIMENT_SECRET = nextSecret;
+  const beforeRotationUrl = (await convex(["env", "get", "JOBS_WORKER_URL"])).trim();
+  const rotation = start(
+    [alchemy, "dev", "alchemy.run.ts", "--stage", "local-experiment", "--no-input"],
+    "secret-only",
+  );
+  await waitFor(
+    () =>
+      access(".local/applied-secret-only.json").then(
+        () => true,
+        () => false,
+      ),
+    rotation,
+  );
+  const rotated = attributes.parse(
+    JSON.parse(await readFile(".local/applied-secret-only.json", "utf8")),
+  );
+  assert.deepEqual(rotated, updated);
+  const rotationState = await committedState(rotated, rotation);
+  assert.equal(rotationState.bindings.length, 1);
+  assert.equal((await convex(["env", "get", "JOBS_WORKER_URL"])).trim(), beforeRotationUrl);
+  assert.equal((await convex(["env", "get", "JOBS_WORKER_SECRET"])).trim() === nextSecret, true);
+  const oldSecretResponse = await fetch(beforeRotationUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}` },
+    body: "reject old secret",
+  });
+  assert.equal(oldSecretResponse.status, 401);
+  const newSecretResponse = await fetch(beforeRotationUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${nextSecret}` },
+    body: "new secret",
+  });
+  assert.equal(newSecretResponse.status, 200);
+  assert.equal(await newSecretResponse.text(), "NEW SECRET");
+  const rotationResult = await verifyRuntime("native binding secret only");
+  console.log(
+    "Secret-only native binding update committed; URL stayed fixed, old secret rejected, component action passed.",
+  );
+  await stop(rotation);
 
   logs = "";
   const invalid = start(
@@ -255,6 +333,18 @@ try {
     updated,
     initialResult,
     updatedResult,
+    committedStates: {
+      initial: firstState.status,
+      changed: changedState.status,
+      secretOnly: rotationState.status,
+    },
+    stackOutputsCommitted: true,
+    secretOnlyUpdate: {
+      urlUnchanged: true,
+      oldSecretStatus: oldSecretResponse.status,
+      newSecretStatus: newSecretResponse.status,
+      result: rotationResult,
+    },
     invalidApply: {
       status: failedState.status,
       previousAssociationRetained: true,

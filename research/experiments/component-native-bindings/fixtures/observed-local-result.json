@@ -40,6 +40,21 @@
     "input": "native binding changed apply",
     "result": "NATIVE BINDING CHANGED APPLY"
   },
+  "committedStates": {
+    "initial": "created",
+    "changed": "updated",
+    "secretOnly": "updated"
+  },
+  "stackOutputsCommitted": true,
+  "secretOnlyUpdate": {
+    "urlUnchanged": true,
+    "oldSecretStatus": 401,
+    "newSecretStatus": 200,
+    "result": {
+      "input": "native binding secret only",
+      "result": "NATIVE BINDING SECRET ONLY"
+    }
+  },
   "invalidApply": {
     "status": "updating",
     "previousAssociationRetained": true,

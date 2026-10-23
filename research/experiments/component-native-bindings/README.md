@@ -61,12 +61,18 @@ The sanitized captured result is in `fixtures/observed-local-result.json`.
   stored its uppercase result in the component table, and the host query read that row.
 - Requests without authorization and with the wrong secret each returned HTTP 401.
 - A second apply changed the Worker URL environment value. The action still succeeded.
+- A secret-only apply kept that URL fixed and changed only the random 256-bit secret in the Worker
+  and its native deployment binding. The old secret returned HTTP 401, the new secret returned HTTP
+  200, Convex held the new secret, and the component action saved its result.
 - Removing the marker binding removed `JOBS_MARKER` from Convex and from the successful association.
   Alchemy state contained only the remaining binding.
 - An invalid URL failed before environment writes. Alchemy retained the previous attributes in its
   `updating` state. The previous environment value stayed intact, and no new success record was
   produced.
 - The scoped format, lint, and full sample TypeScript checks passed after real Convex codegen.
+- Each successful phase waited for Alchemy's terminal resource state and a fresh stack output write.
+  The persisted attributes and output association matched the reconcile result. Observed states were
+  `created`, `updated`, and `updated` for the initial, changed, and secret-only applies.
 
 ## Boundaries and source evidence
 

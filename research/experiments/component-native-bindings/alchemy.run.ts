@@ -8,7 +8,9 @@ import * as Redacted from "effect/Redacted";
 import { z } from "zod";
 import { Deployment, deploymentProvider } from "./deployment.ts";
 
-const phase = z.enum(["initial", "changed", "invalid"]).parse(process.env.EXPERIMENT_PHASE);
+const phase = z
+  .enum(["initial", "changed", "secret-only", "invalid"])
+  .parse(process.env.EXPERIMENT_PHASE);
 const secret = Redacted.make(z.string().min(1).parse(process.env.EXPERIMENT_SECRET));
 
 export default Alchemy.Stack(
@@ -31,7 +33,7 @@ export default Alchemy.Stack(
             : worker.url.pipe(
                 Output.map((url) => {
                   if (url === undefined) throw new Error("Worker has no URL");
-                  return phase === "changed" ? `${url}?revision=2` : url;
+                  return phase === "initial" ? url : `${url}?revision=2`;
                 }),
               ),
         WORKER_SECRET: secret,
