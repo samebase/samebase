@@ -390,11 +390,8 @@ function DefaultBranchCommit({
         <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
           {observation.headCommitTitle}
         </div>
-        {pullRequests.state === "stale" || pullRequests.refreshing ? (
-          <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
-            {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
-            {pullRequests.refreshing ? <span>Updating</span> : null}
-          </div>
+        {pullRequests.state === "stale" ? (
+          <div className="mt-1 text-xs leading-5 text-muted-foreground">May be out of date</div>
         ) : null}
       </div>
       <div className="justify-self-start @4xl:justify-self-end">
