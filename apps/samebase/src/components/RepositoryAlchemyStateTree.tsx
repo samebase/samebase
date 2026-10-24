@@ -1,8 +1,12 @@
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { ChevronRight } from "lucide-react";
-import type { ReactNode } from "react";
-import { ALCHEMY_REDACTED_MARKER, placeStageResources } from "../../shared/alchemyState";
+import { Fragment, type ReactNode } from "react";
+import {
+  ALCHEMY_REDACTED_MARKER,
+  groupResourcesByComponent,
+  placeStageResources,
+} from "../../shared/alchemyState";
 import type { AlchemyStage, AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
@@ -60,6 +64,23 @@ function AlchemyStateDetailItem({ detail, name }: { detail: ReactNode; name: Rea
         <span className="min-w-0 break-all text-muted-foreground">{detail}</span>
       )}
     </div>
+  );
+}
+
+function AlchemyResourceItem({ fqn, state }: { fqn: string; state: unknown }) {
+  const resource = validate(vResourceState, state, { allowUnknownFields: true }) ? state : null;
+  const presentation = resourceTypePresentation(resource?.resourceType ?? "unknown");
+
+  return (
+    <AlchemyStateDetailItem
+      name={
+        <span className="inline-flex max-w-full items-center gap-1.5">
+          <span className="shrink-0">{presentation.icon}</span>
+          <span className="min-w-0 break-all">{fqn}</span>
+        </span>
+      }
+      detail={resource ? `${resource.status}, ${presentation.label}` : "unknown"}
+    />
   );
 }
 
@@ -135,6 +156,7 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
     stackFile: stage.record.stackFile,
     resources: stage.resources,
   });
+  const { others, components } = groupResourcesByComponent(states);
 
   return (
     <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
@@ -176,25 +198,19 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
       )}
       {states.length === 0 ? null : (
         <AlchemyStateDetailRow label="Resources">
-          {states.map(({ fqn, state }) => {
-            const resource = validate(vResourceState, state, { allowUnknownFields: true })
-              ? state
-              : null;
-            const presentation = resourceTypePresentation(resource?.resourceType ?? "unknown");
-
-            return (
-              <AlchemyStateDetailItem
-                key={fqn}
-                name={
-                  <span className="inline-flex max-w-full items-center gap-1.5">
-                    <span className="shrink-0">{presentation.icon}</span>
-                    <span className="min-w-0 break-all">{fqn}</span>
-                  </span>
-                }
-                detail={resource ? `${resource.status}, ${presentation.label}` : "unknown"}
-              />
-            );
-          })}
+          {others.map(({ fqn, state }) => (
+            <AlchemyResourceItem key={fqn} fqn={fqn} state={state} />
+          ))}
+          {components.map((component) => (
+            <Fragment key={component.path}>
+              <AlchemyStateDetailItem name={component.path} detail={null} />
+              <div className="ml-2.5 grid gap-0.5 border-l border-border pl-3">
+                {component.resources.map(({ fqn, state }) => (
+                  <AlchemyResourceItem key={fqn} fqn={fqn} state={state} />
+                ))}
+              </div>
+            </Fragment>
+          ))}
         </AlchemyStateDetailRow>
       )}
       {output.length === 0 ? null : (

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { isRecord } from "../../convex/jsonUtils";
 import { observedAlchemyStackReply } from "../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../convex/repository/fixtures/observedSamebaseAlchemyState";
+import { observedScoutR2Resources } from "../../convex/repository/fixtures/observedScoutR2Resources";
 import type { AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import { AlchemyStateTree } from "@/components/RepositoryAlchemyStateTree";
 
@@ -48,6 +49,16 @@ const pr1768Stage: AlchemyStage = {
   deployedHeadCommit: pr1768Record.headCommit,
   resources: pr1768.resources,
   output: '{"url":"https://aware-bobcat-542.convex.site"}',
+};
+
+/**
+The `main` Worker row, verbatim, from section 4 of
+research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md (alchemy 2.0.0-beta.83).
+*/
+const workerRow = {
+  fqn: "Worker",
+  value:
+    '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}',
 };
 
 /** An observation of one stack with `stages`. */
@@ -239,8 +250,6 @@ describe("AlchemyStateTree", () => {
   });
 
   it("links each Cloudflare Worker to its URL", () => {
-    // The `main` Worker row, verbatim, from section 4 of
-    // research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md (alchemy 2.0.0-beta.83).
     const container = renderTree(
       oneStack("samebase/tmp-k7m2-rows", [
         {
@@ -251,13 +260,7 @@ describe("AlchemyStateTree", () => {
             stackFile: "alchemy.run.ts",
           },
           deployedHeadCommit: prodRecord.headCommit,
-          resources: [
-            {
-              fqn: "Worker",
-              value:
-                '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}',
-            },
-          ],
+          resources: [workerRow],
           output: "{}",
         },
       ]),
@@ -269,6 +272,60 @@ describe("AlchemyStateTree", () => {
     expect(
       container.querySelector('a[href="https://tmp-k7m2-rows.pfp.workers.dev"]')?.textContent,
     ).toBe("tmp-k7m2-rows");
+  });
+
+  it("shows the resources of a bound namespace under their component", () => {
+    // The captured Deployment, Project, and Worker rows and the first Scout bucket of
+    // observedScoutR2Resources.ts, with the rootDir that 0.8.0 writes, the Mail binding of
+    // https://github.com/samebase/alchemy-convex/blob/v0.10.0/test/Component.test.ts#L73-L77, and
+    // the namespace that alchemy 2.0.0-beta.83 writes last on a row under `Namespace.push("Mail")`.
+    const [deployment, project] = prod.resources;
+    const inMail = (fqn: string, value: string) => ({
+      fqn,
+      value: value.replace(/}$/, ',"namespace":{"Id":"Mail"}}'),
+    });
+    const container = renderTree(
+      oneStack("samebase/base-alchemy", [
+        {
+          name: "prod",
+          record: {
+            ...prodRecord,
+            repository: "samebase/base-alchemy",
+            stackFile: "alchemy.run.ts",
+          },
+          deployedHeadCommit: prodRecord.headCommit,
+          resources: [
+            {
+              fqn: "Deployment",
+              value: deployment.value
+                .replace('"type":"prod"', '"type":"prod","rootDir":"."')
+                .replace(
+                  '"bindings":[]',
+                  '"bindings":[{"sid":"convex.component:[\\"Mail\\"]","data":{"type":"component","path":"mail","namespace":["Mail"]}}]',
+                ),
+            },
+            inMail("Mail/Bucket", observedScoutR2Resources[0].value),
+            inMail("Mail/Worker", workerRow.value.replace('"fqn":"Worker"', '"fqn":"Mail/Worker"')),
+            project,
+          ],
+          output: "{}",
+        },
+      ]),
+    );
+
+    const resources = Array.from(container.querySelectorAll("dt")).find(
+      (label) => label.textContent === "Resources",
+    )?.nextElementSibling;
+    expect(
+      Array.from(resources?.children ?? [], (row) =>
+        Array.from(row.children, (part) => part.textContent),
+      ),
+    ).toEqual([
+      ["Deployment", "updated, Convex deployment"],
+      ["Project", "updated, Convex.Project"],
+      ["mail"],
+      ["Mail/Bucketunknown", "Mail/Workercreated, Worker"],
+    ]);
   });
 
   it("shows only the key of a secret in the output", () => {
