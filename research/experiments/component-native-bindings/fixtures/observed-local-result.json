@@ -5,29 +5,285 @@
   "initial": {
     "associations": [
       {
-        "componentPath": "jobs",
-        "resources": [
+        "componentPath": "processing",
+        "namespace": ["Processing"],
+        "uses": []
+      },
+      {
+        "componentPath": "processing/jobs",
+        "namespace": ["Processing", "Jobs"],
+        "uses": [
           {
-            "fqn": "Processor",
-            "type": "Cloudflare.Worker"
+            "stack": "component-binding-shared",
+            "stage": "local-experiment",
+            "fqn": "Archive"
           }
-        ],
-        "envNames": ["JOBS_MARKER", "JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+        ]
       }
     ],
     "envNames": ["JOBS_MARKER", "JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
   },
-  "updated": {
-    "associations": [
-      {
-        "componentPath": "jobs",
-        "resources": [
+  "firstInventory": [
+    {
+      "fqn": "App",
+      "type": "Experiment.ConvexDeployment",
+      "namespace": [],
+      "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+      "status": "created",
+      "componentPath": null
+    },
+    {
+      "fqn": "Processing/Jobs/Processor",
+      "type": "Cloudflare.Worker",
+      "namespace": ["Processing", "Jobs"],
+      "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+      "status": "created",
+      "componentPath": "processing/jobs"
+    },
+    {
+      "fqn": "Processing/Jobs/Storage",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": ["Processing", "Jobs"],
+      "instanceId": "e55487b6395c2789053a56ef02716237",
+      "status": "created",
+      "componentPath": "processing/jobs"
+    },
+    {
+      "fqn": "Processing/Lookalike",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": [],
+      "instanceId": "d6f886138377811b432dd627962143ab",
+      "status": "created",
+      "componentPath": null
+    },
+    {
+      "fqn": "Processing/Receipts",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": ["Processing"],
+      "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+      "status": "created",
+      "componentPath": "processing"
+    }
+  ],
+  "changedInventory": [
+    {
+      "fqn": "App",
+      "type": "Experiment.ConvexDeployment",
+      "namespace": [],
+      "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+      "status": "updated",
+      "componentPath": null
+    },
+    {
+      "fqn": "Processing/Jobs/Cache",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": ["Processing", "Jobs"],
+      "instanceId": "cd761ad831f0c374be702f8c985b3ffc",
+      "status": "created",
+      "componentPath": "processing/jobs"
+    },
+    {
+      "fqn": "Processing/Jobs/Processor",
+      "type": "Cloudflare.Worker",
+      "namespace": ["Processing", "Jobs"],
+      "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+      "status": "updated",
+      "componentPath": "processing/jobs"
+    },
+    {
+      "fqn": "Processing/Jobs/Storage",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": ["Processing", "Jobs"],
+      "instanceId": "e55487b6395c2789053a56ef02716237",
+      "status": "created",
+      "componentPath": "processing/jobs"
+    },
+    {
+      "fqn": "Processing/Lookalike",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": [],
+      "instanceId": "d6f886138377811b432dd627962143ab",
+      "status": "created",
+      "componentPath": null
+    },
+    {
+      "fqn": "Processing/Receipts",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": ["Processing"],
+      "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+      "status": "created",
+      "componentPath": "processing"
+    }
+  ],
+  "sharedInventory": [
+    {
+      "fqn": "Archive",
+      "type": "Cloudflare.R2.Bucket",
+      "namespace": [],
+      "instanceId": "c5489fdc2b05ac865b19408cabad5cc6",
+      "status": "created",
+      "componentPath": null
+    }
+  ],
+  "lifecycle": [
+    {
+      "phase": "renamed",
+      "attributes": {
+        "associations": [
           {
-            "fqn": "Processor",
-            "type": "Cloudflare.Worker"
+            "componentPath": "pipeline",
+            "namespace": ["Processing"],
+            "uses": []
+          },
+          {
+            "componentPath": "pipeline/jobs",
+            "namespace": ["Processing", "Jobs"],
+            "uses": [
+              {
+                "stack": "component-binding-shared",
+                "stage": "local-experiment",
+                "fqn": "Archive"
+              }
+            ]
           }
         ],
         "envNames": ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+      },
+      "resources": [
+        {
+          "fqn": "App",
+          "type": "Experiment.ConvexDeployment",
+          "namespace": [],
+          "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+          "status": "updated",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Jobs/Cache",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": ["Processing", "Jobs"],
+          "instanceId": "cd761ad831f0c374be702f8c985b3ffc",
+          "status": "created",
+          "componentPath": "pipeline/jobs"
+        },
+        {
+          "fqn": "Processing/Jobs/Processor",
+          "type": "Cloudflare.Worker",
+          "namespace": ["Processing", "Jobs"],
+          "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+          "status": "updated",
+          "componentPath": "pipeline/jobs"
+        },
+        {
+          "fqn": "Processing/Jobs/Storage",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": ["Processing", "Jobs"],
+          "instanceId": "e55487b6395c2789053a56ef02716237",
+          "status": "created",
+          "componentPath": "pipeline/jobs"
+        },
+        {
+          "fqn": "Processing/Lookalike",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": [],
+          "instanceId": "d6f886138377811b432dd627962143ab",
+          "status": "created",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Receipts",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": ["Processing"],
+          "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+          "status": "created",
+          "componentPath": "pipeline"
+        }
+      ],
+      "result": {
+        "input": "native binding renamed",
+        "result": "NATIVE BINDING RENAMED"
+      }
+    },
+    {
+      "phase": "unlinked",
+      "attributes": {
+        "associations": [],
+        "envNames": ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+      },
+      "resources": [
+        {
+          "fqn": "App",
+          "type": "Experiment.ConvexDeployment",
+          "namespace": [],
+          "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+          "status": "updated",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Jobs/Cache",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": ["Processing", "Jobs"],
+          "instanceId": "cd761ad831f0c374be702f8c985b3ffc",
+          "status": "created",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Jobs/Processor",
+          "type": "Cloudflare.Worker",
+          "namespace": ["Processing", "Jobs"],
+          "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+          "status": "updated",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Jobs/Storage",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": ["Processing", "Jobs"],
+          "instanceId": "e55487b6395c2789053a56ef02716237",
+          "status": "created",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Lookalike",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": [],
+          "instanceId": "d6f886138377811b432dd627962143ab",
+          "status": "created",
+          "componentPath": null
+        },
+        {
+          "fqn": "Processing/Receipts",
+          "type": "Cloudflare.R2.Bucket",
+          "namespace": ["Processing"],
+          "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+          "status": "created",
+          "componentPath": null
+        }
+      ],
+      "result": {
+        "input": "native binding unlinked",
+        "result": "NATIVE BINDING UNLINKED"
+      }
+    }
+  ],
+  "convexDataMigratedOnRename": false,
+  "updated": {
+    "associations": [
+      {
+        "componentPath": "processing",
+        "namespace": ["Processing"],
+        "uses": []
+      },
+      {
+        "componentPath": "processing/jobs",
+        "namespace": ["Processing", "Jobs"],
+        "uses": [
+          {
+            "stack": "component-binding-shared",
+            "stage": "local-experiment",
+            "fqn": "Archive"
+          }
+        ]
       }
     ],
     "envNames": ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
@@ -57,8 +313,41 @@
   },
   "invalidApply": {
     "status": "updating",
+    "associationSnapshot": "last-successful",
     "previousAssociationRetained": true,
     "newSuccessRecord": false
+  },
+  "missingParent": {
+    "rejected": true,
+    "lastSuccessfulOutputUnchanged": true
+  },
+  "recovery": {
+    "status": "updated",
+    "attributes": {
+      "associations": [
+        {
+          "componentPath": "pipeline",
+          "namespace": ["Processing"],
+          "uses": []
+        },
+        {
+          "componentPath": "pipeline/jobs",
+          "namespace": ["Processing", "Jobs"],
+          "uses": [
+            {
+              "stack": "component-binding-shared",
+              "stage": "local-experiment",
+              "fqn": "Archive"
+            }
+          ]
+        }
+      ],
+      "envNames": ["JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]
+    },
+    "result": {
+      "input": "native binding recovered",
+      "result": "NATIVE BINDING RECOVERED"
+    }
   },
   "unauthorizedStatus": 401,
   "wrongSecretStatus": 401

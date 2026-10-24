@@ -7,20 +7,24 @@ import * as Effect from "effect/Effect";
 import * as Redacted from "effect/Redacted";
 import { z } from "zod";
 
-type ComponentBinding = {
-  componentPath: string;
-  resource: { fqn: string; type: string };
+export const association = z.object({
+  componentPath: z.string(),
+  namespace: z.array(z.string()),
+  uses: z.array(z.object({ stack: z.string(), stage: z.string(), fqn: z.string() })),
+});
+export const attributes = z.object({
+  associations: z.array(association),
+  envNames: z.array(z.string()),
+});
+type Association = z.infer<typeof association>;
+type ComponentBinding = Omit<Association, "namespace"> & {
+  namespace: string[] | null;
   env: Record<string, string | Redacted.Redacted<string>>;
-};
-type Association = {
-  componentPath: string;
-  resources: { fqn: string; type: string }[];
-  envNames: string[];
 };
 type LocalDeployment = Resource<
   "Experiment.ConvexDeployment",
   Record<string, never>,
-  { associations: Association[]; envNames: string[] },
+  z.infer<typeof attributes>,
   ComponentBinding
 >;
 export const Deployment = Resource<LocalDeployment>("Experiment.ConvexDeployment");
@@ -71,34 +75,35 @@ export const deploymentProvider = Provider.succeed(Deployment, {
     Effect.tryPromise(async () => {
       const env: Record<string, string> = {};
       const associations = new Map<string, Association>();
+      const targets = new Set<string>();
       for (const { data } of bindings) {
-        // This prototype supports one top-level mount. Nested names need a collision-free encoding.
         const componentPath = z
           .string()
-          .regex(/^[a-z][a-z0-9]*$/)
+          .regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*$/)
           .parse(data.componentPath);
-        const association = associations.get(componentPath) ?? {
-          componentPath,
-          resources: [],
-          envNames: [],
-        };
-        if (!association.resources.some((resource) => resource.fqn === data.resource.fqn))
-          association.resources.push(data.resource);
-        for (const [name, value] of Object.entries(data.env)) {
-          const envName = `${componentPath.toUpperCase()}_${name}`;
+        targets.add(componentPath);
+        if (data.namespace !== null) {
+          if (associations.has(componentPath)) throw new Error("Duplicate component association");
+          if (
+            [...associations.values()].some(
+              (item) => JSON.stringify(item.namespace) === JSON.stringify(data.namespace),
+            )
+          )
+            throw new Error("Namespace has more than one component owner");
+          associations.set(componentPath, {
+            componentPath,
+            namespace: data.namespace,
+            uses: data.uses,
+          });
+        }
+        for (const [envName, value] of Object.entries(data.env)) {
           if (Object.hasOwn(env, envName)) throw new Error(`Duplicate binding for ${envName}`);
           env[envName] = Redacted.isRedacted(value) ? Redacted.value(value) : value;
-          if (name === "WORKER_URL") z.url().parse(env[envName]);
-          association.envNames.push(envName);
+          if (envName.endsWith("_URL")) z.url().parse(env[envName]);
         }
-        associations.set(componentPath, association);
       }
       for (const [name, value] of Object.entries(env)) await convex(["env", "set", name, value]);
       await convex(["deploy", "--yes", "--typecheck", "disable"]);
-      // Required env removal is valid only after a push has removed its config references.
-      for (const name of output?.envNames ?? []) {
-        if (!Object.hasOwn(env, name)) await convex(["env", "remove", name]);
-      }
       // Pinned private dashboard protocol, not a public component installation API.
       const response = await fetch(`${backendUrl}/api/query_batch`, {
         method: "POST",
@@ -123,20 +128,18 @@ export const deploymentProvider = Provider.succeed(Deployment, {
           ]),
         })
         .parse(await response.json());
-      for (const componentPath of associations.keys()) {
+      for (const componentPath of targets) {
         if (!mounts.some((mount) => mount.path === componentPath && mount.state === "active"))
           throw new Error(`Component ${componentPath} is not mounted`);
       }
+      // Validate the pushed mounts before removing env that is no longer owned by a binding.
+      for (const name of output?.envNames ?? []) {
+        if (!Object.hasOwn(env, name)) await convex(["env", "remove", name]);
+      }
       const result = {
-        associations: [...associations.values()]
-          .sort((left, right) => left.componentPath.localeCompare(right.componentPath))
-          .map((association) => ({
-            ...association,
-            resources: association.resources.sort((left, right) =>
-              left.fqn.localeCompare(right.fqn),
-            ),
-            envNames: association.envNames.sort(),
-          })),
+        associations: [...associations.values()].sort((left, right) =>
+          left.componentPath.localeCompare(right.componentPath),
+        ),
         envNames: Object.keys(env).sort(),
       };
       await writeFile(

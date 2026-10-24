@@ -6,11 +6,11 @@ import { action, query } from "./_generated/server";
 export const run = action({
   args: { text: v.string() },
   returns: v.string(),
-  handler: (ctx, args) => ctx.runAction(components.jobs.jobs.run, { text: args.text }),
+  handler: (ctx, args) => ctx.runAction(components.processing.jobs.run, { text: args.text }),
 });
 
 export const latest = query({
   args: {},
   returns: v.union(v.null(), v.object({ input: v.string(), result: v.string() })),
-  handler: (ctx) => ctx.runQuery(components.jobs.jobs.latest, {}),
+  handler: (ctx) => ctx.runQuery(components.processing.jobs.latest, {}),
 });

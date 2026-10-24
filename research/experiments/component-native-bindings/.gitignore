@@ -5,3 +5,4 @@ node_modules/
 .local/
 convex/_generated/
 job/convex/_generated/
+processing/_generated/
