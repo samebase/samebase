@@ -15,8 +15,9 @@ import {
   type RepositoryCheckSummary,
 } from "../../../shared/repositoryChecks";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
-import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
+import { infiniteQueryOptions, useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
+import type { FunctionArgs } from "convex/server";
 import { useCallback, useMemo } from "react";
 import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
 import { buildPullRequestAlchemyPreview } from "../../../shared/pullRequestAlchemyPreview";
@@ -97,6 +98,42 @@ function pullRequestsFromPage(
 function nextCursor(page: RepositoryPullRequestPage | undefined): string | null {
   const pageInfo = page?.repository?.pullRequests.pageInfo;
   return pageInfo?.hasNextPage ? pageInfo.endCursor : null;
+}
+
+/**
+The open pull requests of a repository, a page at a time. The first page also holds the default
+branch, which the default-branch block of the overview waits for, so the loaders of the pages that
+render the overview fetch that page.
+*/
+export function openPullRequestsQuery(args: {
+  repositoryId: Id<"repositories"> | undefined;
+  sourceSetupStatus: UserRepositoryResult["sourceSetup"]["status"] | undefined;
+  listOpenPullRequests: (
+    args: FunctionArgs<typeof api.repositoryPullRequests.listOpenPullRequests>,
+  ) => Promise<RepositoryPullRequestPage>;
+}) {
+  return infiniteQueryOptions({
+    queryKey: ["repository-pull-requests", args.repositoryId, args.sourceSetupStatus],
+    queryFn: async ({ pageParam }) => {
+      if (!args.repositoryId) {
+        throw new Error("Repository is required to load pull requests.");
+      }
+      const page = await args.listOpenPullRequests({
+        repositoryId: args.repositoryId,
+        first: PULL_REQUEST_PAGE_SIZE,
+        after: pageParam,
+      });
+      if (page.repository === null) {
+        throw new Error("GitHub repository unavailable.");
+      }
+      return page;
+    },
+    initialPageParam: INITIAL_PULL_REQUEST_CURSOR,
+    getNextPageParam: (lastPage) => nextCursor(lastPage) ?? undefined,
+    staleTime: PULL_REQUEST_STALE_MS,
+    gcTime: PULL_REQUEST_GC_MS,
+    retry: false,
+  });
 }
 
 function resourcesNeedPolling(resources: PullRequestResourceRead[] | undefined): boolean {
@@ -206,27 +243,8 @@ export function useRepositoryPullRequests(args: {
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
 
   const pullRequestQuery = useInfiniteQuery({
-    queryKey: ["repository-pull-requests", repositoryId, sourceSetupStatus],
-    queryFn: async ({ pageParam }) => {
-      if (!repositoryId) {
-        throw new Error("Repository is required to load pull requests.");
-      }
-      const page = await listOpenPullRequests({
-        repositoryId,
-        first: PULL_REQUEST_PAGE_SIZE,
-        after: pageParam,
-      });
-      if (page.repository === null) {
-        throw new Error("GitHub repository unavailable.");
-      }
-      return page;
-    },
-    initialPageParam: INITIAL_PULL_REQUEST_CURSOR,
-    getNextPageParam: (lastPage) => nextCursor(lastPage) ?? undefined,
+    ...openPullRequestsQuery({ repositoryId, sourceSetupStatus, listOpenPullRequests }),
     enabled: Boolean(repositoryId),
-    staleTime: PULL_REQUEST_STALE_MS,
-    gcTime: PULL_REQUEST_GC_MS,
-    retry: false,
     // TanStack keeps the retained pages and refetches them through their current
     // cursors, so refreshing does not collapse the list or move the scroll
     // position. Polling every minute also lets a settled repository discover a
