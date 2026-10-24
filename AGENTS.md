@@ -281,6 +281,8 @@ Simplicity and deletion:
   closed instead of using placeholder fallbacks.
 - Delete obsolete adapters, test-only production helpers, pass-through props, re-export shims, and
   dead scaffolding. App-internal backwards compatibility is a non-goal.
+- No compatibility with earlier versions of our own packages, stores, or data: consumers are
+  upgraded instead. No fallbacks, no migrations, no version branches.
 - Do not add app barrel files or same-name re-export files. Update imports directly.
 - Do not add presence checks, redundant guards, or other runtime statements only to satisfy the type
   checker. Declare the type gap instead.
