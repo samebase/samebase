@@ -752,7 +752,8 @@ test("reproduces the observed new repository provisioning states", async ({ page
     "repository-overview-v2-provisioning-github",
   );
   await expect(githubFixture.getByRole("status")).toHaveText("Setting up");
-  await expect(githubFixture.getByLabel("Loading default branch")).toBeVisible();
+  await expect(githubFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
+  await expect(githubFixture.getByLabel("Loading default branch commit")).toBeVisible();
   await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toBeVisible();
 
   const earlyEmptyFixture = await openRepositoryOverviewV2(

@@ -22,7 +22,10 @@ import {
   type RepositoryEnvironmentWorker,
   type RepositoryOtherPreview,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
-import type { PullRequestResourceState } from "@/repository/dashboard/useRepositoryPullRequests";
+import type {
+  PullRequestResourceState,
+  RepositoryPullRequestsState,
+} from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
@@ -308,6 +311,106 @@ function readProductionObservationStates(workspace: RepositoryWorkspaceSelected)
       ];
 }
 
+/**
+The head commit of the default branch, its title and its checks come from the GitHub pull-request
+query, which runs in the browser. The branch name comes from the repository row, so the branch link
+renders in the first frame and only this part waits for that query.
+*/
+function DefaultBranchCommit({
+  branchUrl,
+  defaultBranch,
+  pullRequests,
+}: {
+  branchUrl: string;
+  defaultBranch: string;
+  pullRequests: RepositoryPullRequestsState;
+}) {
+  const branchLink = (
+    <a
+      className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+      href={branchUrl}
+      rel="noreferrer noopener"
+      target="_blank"
+    >
+      {defaultBranch}
+    </a>
+  );
+  if (
+    pullRequests.state === "loading" ||
+    pullRequests.state === "problem" ||
+    pullRequests.state === "not_requested" ||
+    !pullRequests.defaultBranch
+  ) {
+    return (
+      <>
+        <div className="flex">{branchLink}</div>
+        {pullRequests.state === "loading" ? (
+          <div aria-label="Loading default branch commit">
+            <RepositoryOverviewLoadingLines rows={1} />
+          </div>
+        ) : pullRequests.state === "problem" ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span>Could not load the default branch from GitHub.</span>
+            <Button size="sm" type="button" variant="outline" onClick={pullRequests.reload}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            {pullRequests.state === "not_requested"
+              ? "The GitHub repository is not ready yet."
+              : "No default branch commit is available."}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  const observation = pullRequests.defaultBranch;
+  const commitTime = Date.parse(observation.headCommitCommittedAt);
+  const relativeCommitTime = Number.isFinite(commitTime)
+    ? formatRelativeTimeAgo(commitTime)
+    : observation.headCommitCommittedAt;
+
+  return (
+    <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {branchLink}
+          <span className="text-xs text-muted-foreground">·</span>
+          <a
+            className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+            href={observation.headCommitUrl}
+            rel="noreferrer noopener"
+            target="_blank"
+          >
+            {observation.headCommitOid.slice(0, 7)}
+          </a>
+          <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
+        </div>
+        <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
+          {observation.headCommitTitle}
+        </div>
+        {pullRequests.state === "stale" || pullRequests.refreshing ? (
+          <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
+            {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
+            {pullRequests.refreshing ? <span>Updating</span> : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="justify-self-start @4xl:justify-self-end">
+        <RepositoryChecksPopover
+          checks={observation.checks}
+          detailsUrl={`${observation.headCommitUrl}/checks`}
+          heading={`${defaultBranch} checks`}
+          statusCheckRollup={observation.statusCheckRollup}
+          triggerTitle={`Show ${defaultBranch} checks`}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function DefaultBranchSection({
   filesReadEnabled,
   workspace,
@@ -318,34 +421,33 @@ export function DefaultBranchSection({
   const pullRequests = workspace.pullRequests;
   const defaultBranch = workspace.repository.defaultBranch?.trim();
 
-  if (pullRequests.state === "loading") {
-    return (
-      <section aria-label="Loading default branch" className="pb-5">
-        <RepositoryOverviewLoadingLines rows={2} />
-      </section>
-    );
-  }
-  if (pullRequests.state === "problem") {
-    return (
-      <section className="pb-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>Could not load the default branch from GitHub.</span>
-          <Button size="sm" type="button" variant="outline" onClick={pullRequests.reload}>
-            Retry
-          </Button>
-        </div>
-      </section>
-    );
-  }
-  if (pullRequests.state === "not_requested") {
-    return (
-      <section className="pb-5 text-sm text-muted-foreground">
-        The GitHub repository is not ready yet.
-      </section>
-    );
-  }
-  const observation = pullRequests.defaultBranch;
-  if (!observation || !defaultBranch) {
+  if (!defaultBranch) {
+    if (pullRequests.state === "loading") {
+      return (
+        <section aria-label="Loading default branch" className="pb-5">
+          <RepositoryOverviewLoadingLines rows={2} />
+        </section>
+      );
+    }
+    if (pullRequests.state === "problem") {
+      return (
+        <section className="pb-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span>Could not load the default branch from GitHub.</span>
+            <Button size="sm" type="button" variant="outline" onClick={pullRequests.reload}>
+              Retry
+            </Button>
+          </div>
+        </section>
+      );
+    }
+    if (pullRequests.state === "not_requested") {
+      return (
+        <section className="pb-5 text-sm text-muted-foreground">
+          The GitHub repository is not ready yet.
+        </section>
+      );
+    }
     return (
       <section className="pb-5 text-sm text-muted-foreground">
         No default branch commit is available.
@@ -353,10 +455,6 @@ export function DefaultBranchSection({
     );
   }
 
-  const commitTime = Date.parse(observation.headCommitCommittedAt);
-  const relativeCommitTime = Number.isFinite(commitTime)
-    ? formatRelativeTimeAgo(commitTime)
-    : observation.headCommitCommittedAt;
   const branchUrl = buildGitHubBranchTreeUrl({
     branchName: defaultBranch,
     githubRepositoryFullName: workspace.repository.githubRepositoryFullName,
@@ -381,51 +479,18 @@ export function DefaultBranchSection({
   return (
     <section
       aria-label={`Default branch ${defaultBranch}`}
-      aria-busy={pullRequests.refreshing}
+      aria-busy={
+        pullRequests.state === "current" || pullRequests.state === "stale"
+          ? pullRequests.refreshing
+          : undefined
+      }
       className="pb-5"
     >
-      <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <a
-              className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-              href={branchUrl}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              {defaultBranch}
-            </a>
-            <span className="text-xs text-muted-foreground">·</span>
-            <a
-              className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-              href={observation.headCommitUrl}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              {observation.headCommitOid.slice(0, 7)}
-            </a>
-            <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
-          </div>
-          <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
-            {observation.headCommitTitle}
-          </div>
-          {pullRequests.state === "stale" || pullRequests.refreshing ? (
-            <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
-              {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
-              {pullRequests.refreshing ? <span>Updating</span> : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="justify-self-start @4xl:justify-self-end">
-          <RepositoryChecksPopover
-            checks={observation.checks}
-            detailsUrl={`${observation.headCommitUrl}/checks`}
-            heading={`${defaultBranch} checks`}
-            statusCheckRollup={observation.statusCheckRollup}
-            triggerTitle={`Show ${defaultBranch} checks`}
-          />
-        </div>
-      </div>
+      <DefaultBranchCommit
+        branchUrl={branchUrl}
+        defaultBranch={defaultBranch}
+        pullRequests={pullRequests}
+      />
       {filesReadEnabled ? (
         <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
           <Link
