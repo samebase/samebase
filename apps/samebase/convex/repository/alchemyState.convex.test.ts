@@ -150,7 +150,10 @@ function installAlchemyStateFetchStub(args: {
   storeReply: unknown;
   stackReplies?: Record<string, unknown>;
   teamProjects: unknown[];
+  storeVersion?: number;
+  authorizationReply?: unknown;
 }) {
+  const storeVersion = args.storeVersion ?? 2;
   const stackReplies = args.stackReplies ?? {
     "samebase/base-alchemy": args.storeReply,
     "samebase/samebase": { status: "success", value: { stages: [] } },
@@ -203,6 +206,14 @@ function installAlchemyStateFetchStub(args: {
       }
       // A read of a stack that the store does not list answers nothing, which fails the read.
       if (url === "https://brave-heron-201.convex.cloud/api/function" && isRecord(body)) {
+        if (body["path"] === "state:version") {
+          return jsonResponse({ status: "success", value: storeVersion });
+        }
+        if (body["path"] === "reader:authorize") {
+          return jsonResponse(
+            args.authorizationReply ?? { status: "success", value: { token: "reader-token" } },
+          );
+        }
         const functionArgs = body["args"];
         return jsonResponse(
           body["path"] === "state:stacks"
@@ -222,6 +233,137 @@ afterEach(() => {
 });
 
 describe("repository Alchemy state", () => {
+  it("returns only the repository reader token and revokes the server deploy key", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+      storeVersion: 3,
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.connect, { repositoryId: ids.repositoryId }),
+    ).resolves.toEqual({
+      store: "live",
+      deploymentUrl: "https://brave-heron-201.convex.cloud",
+      token: "reader-token",
+    });
+    expect(
+      requests.find((request) => request.url.endsWith("/create_deploy_key"))?.body,
+    ).toMatchObject({
+      allowedActions: [
+        "deployment:functions:runInternalQueries",
+        "deployment:functions:runInternalMutations",
+      ],
+    });
+    expect(
+      requests
+        .filter((request) => request.url.endsWith("/api/function"))
+        .map((request) => request.body),
+    ).toEqual([
+      { path: "state:version", args: {}, format: "json" },
+      {
+        path: "reader:authorize",
+        args: {
+          repository: "samebase/base-alchemy",
+          subject: expect.stringContaining(`:${ids.userId}`),
+        },
+        format: "json",
+      },
+    ]);
+    expect(requests.at(-1)?.url).toContain("/delete_deploy_key");
+
+    await t.run(async (ctx) => {
+      const membership = await ctx.db.query("organizationMemberships").first();
+      if (!membership) throw new Error("Expected the seeded membership.");
+      await ctx.db.delete(membership._id);
+    });
+    requests.length = 0;
+    await expect(
+      user.action(api.repository.alchemyState.connect, { repositoryId: ids.repositoryId }),
+    ).rejects.toThrow();
+    expect(requests).toEqual([]);
+  });
+
+  it("keeps the snapshot protocol for stores before version 3", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+      storeVersion: 2,
+    });
+    const result = await user.action(api.repository.alchemyState.connect, {
+      repositoryId: ids.repositoryId,
+    });
+    expect(result).toMatchObject({ store: "snapshot", observation: { store: "found" } });
+    expect(
+      requests.some(
+        (request) => isRecord(request.body) && request.body["path"] === "reader:authorize",
+      ),
+    ).toBe(false);
+    expect(requests.at(-1)?.url).toContain("/delete_deploy_key");
+  });
+
+  it("fails on a reader authorization error and still revokes the deploy key", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+      storeVersion: 3,
+      authorizationReply: { status: "error", errorMessage: "Reader authorization failed" },
+    });
+    await expect(
+      user.action(api.repository.alchemyState.connect, { repositoryId: ids.repositoryId }),
+    ).rejects.toThrow();
+    expect(
+      requests.some(
+        (request) => isRecord(request.body) && request.body["path"] === "state:readStack",
+      ),
+    ).toBe(false);
+    expect(requests.at(-1)?.url).toContain("/delete_deploy_key");
+  });
+
+  it("reads deployment metadata for a first deploy before the stage has an output", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const output: unknown = JSON.parse(prod.output);
+    if (!isRecord(output)) throw new Error("Expected the captured stage output.");
+    const current = withProdStage((stage) => {
+      stage.resources[0].value = stage.resources[0].value.replace(
+        '"type":"prod"',
+        '"type":"prod","rootDir":"."',
+      );
+    }).value.stages[2];
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: {
+        status: "success",
+        value: { stages: [{ ...current, output: null, record: output["samebase.run"] }] },
+      },
+      teamProjects: [storeProject],
+    });
+    await expect(
+      user.action(api.repository.alchemyState.readDeploymentMetadata, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toEqual([
+      {
+        deploymentName: "ideal-dolphin-15",
+        dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+        region: "aws-us-east-1",
+      },
+    ]);
+  });
+
   it("lists the stacks and reads only the stack of the repository with a revoked inspection key", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);

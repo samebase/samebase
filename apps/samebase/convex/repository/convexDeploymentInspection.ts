@@ -41,11 +41,15 @@ type ConvexSystemQueryResponse = {
 const CONVEX_INSPECTION_REQUEST_TIMEOUT_MS = 10_000;
 const CONVEX_INSPECTION_KEY_TTL_MS = 31 * 60 * 1000;
 /**
-The components and schema reads call system queries, which need `deployment:data:view`. Every
-function of the Alchemy state store is internal, and `deployment:data:view` cannot run it.
+The components and schema reads call system queries, which need `deployment:data:view`. The
+Alchemy reader connection also calls an internal mutation to issue a repository read token.
 */
 const CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS = {
   alchemyState: ["deployment:functions:runInternalQueries"],
+  alchemyReader: [
+    "deployment:functions:runInternalQueries",
+    "deployment:functions:runInternalMutations",
+  ],
   components: ["deployment:data:view"],
   schema: ["deployment:data:view"],
 } satisfies Record<string, ConvexDeployKeyAllowedAction[]>;
@@ -103,7 +107,7 @@ export const readTarget = internalQuery({
 });
 
 /**
-Mints a short-lived read-only deploy key for `deployment` with the allowed actions of `purpose`,
+Mints a short-lived deploy key for `deployment` with the allowed actions of `purpose`,
 passes it to `inspect`, and revokes it afterwards. Under an OAuth connection the key is the team-wide OAuth token, so `inspect`
 must keep it on the server.
 
