@@ -14,6 +14,8 @@ import {
   useRepositoryPullRequests,
   type RepositoryPullRequestsState,
 } from "./useRepositoryPullRequests";
+import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
+import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 
 const actionState = vi.hoisted(() => ({
   handlersByFunctionName: new Map<string, (args: unknown) => Promise<unknown>>(),
@@ -146,9 +148,11 @@ let currentConvexProjects: Array<{
   codeLocation: { kind: "config"; convexConfigPath: string };
 }> = [];
 let currentSourceSetupRunning = false;
+let currentAlchemyState: RepositoryAlchemyState;
 
 function Harness() {
   latestState = useRepositoryPullRequests({
+    alchemyState: currentAlchemyState,
     repository: {
       repositoryId: fakeRepositoryId(),
       cloudflareWorkers: currentCloudflareWorkers,
@@ -237,6 +241,12 @@ beforeEach(() => {
   currentCloudflareWorkers = [];
   currentConvexProjects = [];
   currentSourceSetupRunning = false;
+  currentAlchemyState = {
+    state: "loaded",
+    observation: { store: "missing" },
+    refreshFailed: false,
+    reload: () => {},
+  };
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -263,6 +273,83 @@ async function renderHarness(): Promise<void> {
 }
 
 describe("useRepositoryPullRequests", () => {
+  it("updates Alchemy previews without repeating provider enrichment", async () => {
+    const headRefOid = "a".repeat(40);
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      async () => page({ number: 24, endCursor: null, headRefOid }),
+    );
+    const resourceHandler = installResourceHandler();
+    const [, stage] = observedSamebaseStackReply.value.stages;
+    const observation = {
+      store: "found" as const,
+      liveDeployments: [],
+      stacks: [
+        {
+          name: "samebase/base-alchemy",
+          stages: [
+            {
+              name: "pr-24",
+              resources: stage.resources,
+              output: JSON.stringify({ url: "https://first-preview.example.com" }),
+              record: {
+                version: 1 as const,
+                repository: "samebase/base-alchemy",
+                stackFile: "alchemy.run.ts",
+                branch: "codex/pr-24",
+                pullRequest: 24,
+                headCommit: headRefOid,
+                runUrl: null,
+                source: "laptop" as const,
+                recordedAt: "2026-10-21T19:58:06.882Z",
+              },
+              deployedHeadCommit: headRefOid,
+            },
+          ],
+        },
+      ],
+    };
+    currentAlchemyState = {
+      state: "loaded",
+      observation,
+      refreshFailed: false,
+      reload: () => {},
+    };
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.resourcesByPullRequestId.size > 0,
+    );
+    await vi.waitFor(() => {
+      expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([
+        {
+          state: "current",
+          resources: {
+            alchemyPreview: { convexDeployments: [{ href: "https://first-preview.example.com" }] },
+          },
+        },
+      ]);
+    });
+    expect(resourceHandler).toHaveBeenCalledWith(expect.objectContaining({ source: "alchemy" }));
+    const calls = resourceHandler.mock.calls.length;
+    observation.stacks[0].stages[0].output = JSON.stringify({
+      url: "https://next-preview.example.com",
+    });
+    currentAlchemyState = { ...currentAlchemyState, observation: { ...observation } };
+    await renderHarness();
+    expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([
+      {
+        state: "current",
+        resources: {
+          alchemyPreview: { convexDeployments: [{ href: "https://next-preview.example.com" }] },
+          hostingPreviews: { cloudflare: { state: "available" }, netlify: { state: "available" } },
+        },
+      },
+    ]);
+    expect(resourceHandler).toHaveBeenCalledTimes(calls);
+  });
+
   it("loads one provider page at a time", async () => {
     const listHandler = vi.fn(async (value: unknown) => {
       if (!value || typeof value !== "object" || !("after" in value)) {
@@ -379,8 +466,16 @@ describe("useRepositoryPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1260"] },
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1259"] },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1260"],
+        source: "attachments",
+      },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1259"],
+        source: "attachments",
+      },
     ]);
 
     currentCloudflareWorkers = [
@@ -409,8 +504,16 @@ describe("useRepositoryPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1260"] },
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1259"] },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1260"],
+        source: "attachments",
+      },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1259"],
+        source: "attachments",
+      },
     ]);
     expect(listHandler).toHaveBeenCalledTimes(2);
 
@@ -427,8 +530,16 @@ describe("useRepositoryPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.slice(4).map((call) => call[0])).toEqual([
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1260"] },
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1259"] },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1260"],
+        source: "attachments",
+      },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1259"],
+        source: "attachments",
+      },
     ]);
     expect(listHandler).toHaveBeenCalledTimes(2);
   });
@@ -486,6 +597,7 @@ describe("useRepositoryPullRequests", () => {
     expect(resourceHandler.mock.calls[2]?.[0]).toEqual({
       repositoryId: fakeRepositoryId(),
       pullRequestIds: ["pull-request:1259"],
+      source: "attachments",
     });
     expect(
       queryClient.getQueryCache().find({
@@ -493,7 +605,7 @@ describe("useRepositoryPullRequests", () => {
         queryKey: [
           ...repositoryExternalDataQueryKey(fakeRepositoryId()),
           "pull-request-resources",
-          undefined,
+          "attachments",
           [],
           [],
           [["pull-request:1259", refreshedHeadRefOid]],

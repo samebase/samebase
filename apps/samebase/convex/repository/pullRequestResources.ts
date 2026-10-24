@@ -1,11 +1,13 @@
 "use node";
 
 import type { Octokit } from "@octokit/rest";
-import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { z } from "zod";
 
-import { placeStageResources } from "../../shared/alchemyState";
+import {
+  buildPullRequestAlchemyPreview,
+  type PullRequestAlchemyStackRead,
+} from "../../shared/pullRequestAlchemyPreview";
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -17,7 +19,7 @@ import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
 import { readCloudflareWorkerBranchPreviewUrls } from "../cloudflareResources";
 import { toErrorMessage } from "../jsonUtils";
-import { readAlchemyStacks, type AlchemyStack } from "./alchemyState";
+import { readAlchemyStacks } from "./alchemyState";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import {
   vPullRequestResources,
@@ -51,7 +53,7 @@ import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
 import { readCloudflareObservationInput } from "./providerObservations";
 
-const { array, id, literal, object, optional, string } = v;
+const { array, id, literal, string, union } = v;
 
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
@@ -537,16 +539,6 @@ type PullRequestResourceAccumulator = {
   hostingPreviews: PullRequestHostingPreviews;
   alchemyPreview: PullRequestAlchemyPreview;
 };
-/**
-The stacks of the repository in the Alchemy state store of its Convex team.
-
-missing = the read asked for the attachment rows only, the organization has no Convex connection for
-the team of the repository, the team has no store, or the store holds no stage of the repository.
-*/
-type PullRequestAlchemyStackRead =
-  | { state: "found"; stacks: AlchemyStack[] }
-  | { state: "missing" }
-  | { state: "failed" };
 type ConvexPreviewRead =
   | {
       state: "available";
@@ -658,69 +650,17 @@ export function resolveConvexPreviewDeployment(args: {
   return { state: "branch", deployment: branchMatches[0] };
 }
 
-const vStageOutputUrl = object({ url: string() });
-
-/**
-The preview of a pull request: the stages `pr-<number>`, the upstream Alchemy name, of the stacks of
-the repository, each resource in its directory of the repository.
-*/
-export function buildPullRequestAlchemyPreview(args: {
-  stack: PullRequestAlchemyStackRead;
-  head: Pick<PullRequestResourceHead, "headRefOid" | "number">;
-}): PullRequestAlchemyPreview {
-  if (args.stack.state === "failed") {
-    return { state: "unavailable" };
-  }
-  const stages =
-    args.stack.state === "found"
-      ? args.stack.stacks.flatMap((stack) =>
-          stack.stages.filter((candidate) => candidate.name === `pr-${args.head.number}`),
-        )
-      : [];
-  if (stages.length === 0) {
-    return { state: "absent" };
-  }
-
-  const placed = stages.map((stage) => {
-    const output: unknown = JSON.parse(stage.output);
-    return {
-      ...placeStageResources({ stackFile: stage.record.stackFile, resources: stage.resources }),
-      url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
-      headCommit: stage.record.headCommit === args.head.headRefOid ? args.head.headRefOid : null,
-    };
-  });
-  return {
-    state: "available",
-    convexDeployments: placed.flatMap((stage) =>
-      stage.convexDeployments.map(({ state, rootDirectory }) => ({
-        name: state.attr.name,
-        href: stage.url ?? state.attr.url,
-        rootDirectory,
-        headCommit: stage.headCommit,
-      })),
-    ),
-    workers: placed.flatMap((stage) =>
-      stage.workers.map(({ state, rootDirectory }) => ({
-        name: state.attr.workerName,
-        url: state.attr.url ?? null,
-        rootDirectory,
-        headCommit: stage.headCommit,
-      })),
-    ),
-  };
-}
-
 /** Reads the stacks of the repository once for every pull request of one resources read. */
 async function readPullRequestAlchemyStack(
   ctx: ActionCtx,
   args: {
     context: RepositoryProviderObservationContext;
-    source: "attachments" | undefined;
+    source: "attachments" | "alchemy" | undefined;
     userId: Id<"users">;
   },
 ): Promise<PullRequestAlchemyStackRead> {
   const teamId = args.context.convexTeamId;
-  if (args.source === "attachments" || !teamId) {
+  if (args.source !== undefined || !teamId) {
     return { state: "missing" };
   }
 
@@ -1324,8 +1264,8 @@ export async function getPullRequestResourcesForUser(
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
     pullRequestIds: string[];
-    /** `attachments` reads the attachment rows as if the team store held no stack of the repository. */
-    source?: "attachments";
+    /** Browser callers supply the source from their store subscription. Other callers read it here. */
+    source?: "attachments" | "alchemy";
   },
 ): Promise<PullRequestResourceRead[]> {
   validatePullRequestResourceIds(args.pullRequestIds);
@@ -1359,8 +1299,9 @@ export async function getPullRequestResourcesForUser(
   const alchemyStack = await alchemyStackRead;
   // With stacks in the team store, the stages `pr-<number>` hold the preview of each pull request,
   // and the attached Workers and Convex projects are not read.
-  const attachedWorkers = alchemyStack.state === "found" ? [] : context.cloudflareWorkers;
-  const attachedConvexProjects = alchemyStack.state === "found" ? [] : context.convexProjects;
+  const alchemyOwnsResources = args.source === "alchemy" || alchemyStack.state === "found";
+  const attachedWorkers = alchemyOwnsResources ? [] : context.cloudflareWorkers;
+  const attachedConvexProjects = alchemyOwnsResources ? [] : context.convexProjects;
   const nativePreviewUrlsByWorker = new Map<StableWorker["workerId"], Map<string, string>>();
   if (
     context.cloudflareAccountId !== undefined &&
@@ -1489,8 +1430,8 @@ export const getPullRequestResources = action({
   args: {
     repositoryId: id("repositories"),
     pullRequestIds: array(string()),
-    /** `?attachments` on the repository overview. */
-    source: optional(literal("attachments")),
+    /** The browser picks the source from its store subscription. */
+    source: union(literal("attachments"), literal("alchemy")),
   },
   returns: array(vPullRequestResources),
   handler: async (ctx, args): Promise<PullRequestResourceRead[]> =>

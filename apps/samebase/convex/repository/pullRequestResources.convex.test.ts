@@ -206,30 +206,40 @@ afterEach(() => {
 });
 
 describe("pull request resources from the Alchemy state of the team", () => {
-  it("shows no preview for samebase/base-alchemy#24, whose captured stage has no run record", async () => {
+  it("keeps GitHub enrichment without rereading the store or attachments for a live source", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedBaseAlchemy(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: ids.repositoryId,
+        organizationId: ids.organizationId,
+        teamId: "38516",
+        projectId: "3245938",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+    });
     githubMocks.graphql.mockImplementation(async (query: string) => {
-      if (query.includes("query PullRequestResourceHeads")) {
-        return { nodes: [pullRequest24] };
-      }
+      if (query.includes("query PullRequestResourceHeads")) return { nodes: [pullRequest24] };
       throw new Error("Only the heads query is answered in this test.");
     });
     installConvexFetchStub(observedAlchemyStackReply);
 
     const [resources] = await user.action(
       api.repository.pullRequestResources.getPullRequestResources,
-      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24"] },
+      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24"], source: "alchemy" },
     );
 
-    // The stage prod has a run record, so the store holds a stack of the repository and the
-    // attachment rows are not read; the stage pr-24 has none, so the pull request has no preview.
+    expect(fetch).not.toHaveBeenCalled();
+    expect(githubMocks.graphql).toHaveBeenCalled();
     expect(resources).toMatchObject({
       state: "available",
-      pullRequestId: "PR_24",
       workers: [],
       convexProjects: [],
-      alchemyPreview: { state: "absent" },
+      hostingPreviews: {
+        cloudflare: { state: "available" },
+        netlify: { state: "available" },
+      },
     });
   });
 

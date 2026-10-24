@@ -661,7 +661,7 @@ describe("buildProductionEnvironmentRoots", () => {
 });
 
 /**
-The stacks as `alchemyState:observe` returns the captured stage `prod` of samebase/base-alchemy,
+The stacks as `reader:repository` returns the captured stage `prod` of samebase/base-alchemy,
 with the `rootDir` "." on its Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack
 file at the repository root.
 */
@@ -694,6 +694,7 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
               source: "github-actions",
               recordedAt: "2026-10-21T19:58:06.882Z",
             },
+            deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
             resources: prod.resources.map((resource) => ({
               fqn: resource.fqn,
               value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
@@ -746,6 +747,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
           {
             name: "prod",
             record,
+            deployedHeadCommit: record.headCommit,
             resources: [
               rowOf("Domains"),
               proxy,
@@ -768,6 +770,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
           {
             name: "prod",
             record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
+            deployedHeadCommit: record.headCommit,
             resources: [
               {
                 fqn: "Site",
@@ -1059,6 +1062,7 @@ describe("repository environment roots", () => {
                   source: "github-actions",
                   recordedAt: "2026-10-22T08:22:58.152Z",
                 },
+                deployedHeadCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
                 resources: prod.resources,
                 output: '{"url":"https://clear-butterfly-858.convex.site"}',
               },
@@ -1136,6 +1140,7 @@ describe("repository environment roots", () => {
                   source: "laptop",
                   recordedAt: "2026-10-21T12:00:00.000Z",
                 },
+                deployedHeadCommit: "a".repeat(40),
                 resources: [{ fqn: "Worker", value: worker }],
                 output: "{}",
               },
@@ -2269,6 +2274,12 @@ describe("RepositoryOverviewPage", () => {
             repository,
           })}
           workspace={{
+            alchemyState: {
+              state: "loaded" as const,
+              observation: { store: "missing" as const },
+              refreshFailed: false,
+              reload: () => {},
+            },
             alchemyObservations: {
               state: "loaded",
               observations: [],
@@ -2343,6 +2354,12 @@ describe("RepositoryOverviewPage", () => {
               roots: [],
             }}
             workspace={{
+              alchemyState: {
+                state: "loaded" as const,
+                observation: { store: "missing" as const },
+                refreshFailed: false,
+                reload: () => {},
+              },
               alchemyObservations: {
                 state: "loaded",
                 observations: [],
@@ -2377,6 +2394,12 @@ describe("RepositoryOverviewPage", () => {
   it("keeps safe provider links during setup and provider checks", () => {
     const repository = makeRepositorySettingsBuilderRepository({});
     const workspace = {
+      alchemyState: {
+        state: "loaded" as const,
+        observation: { store: "missing" as const },
+        refreshFailed: false,
+        reload: () => {},
+      },
       alchemyObservations: {
         state: "loaded" as const,
         observations: [],
@@ -2453,6 +2476,12 @@ describe("RepositoryOverviewPage", () => {
       githubRepositoryFullName: "ada/agent-plugins",
     });
     const workspace = {
+      alchemyState: {
+        state: "loaded" as const,
+        observation: { store: "missing" as const },
+        refreshFailed: false,
+        reload: () => {},
+      },
       alchemyObservations: {
         state: "loaded" as const,
         observations: [],

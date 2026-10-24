@@ -59,6 +59,15 @@ vi.mock("./useRepositoryProviderObservations", () => ({
       },
       convex: { state: "loading" },
       alchemy: testState.alchemy,
+      alchemyState:
+        testState.alchemy.state === "loaded"
+          ? {
+              state: "loaded",
+              observation: testState.alchemy.observations.at(0) ?? { store: "missing" },
+              refreshFailed: testState.alchemy.refreshFailed,
+              reload: testState.alchemy.reload,
+            }
+          : { state: "loading" },
     };
   },
 }));
@@ -175,7 +184,9 @@ describe("useRepositoryWorkspaceModel", () => {
         repositories: [],
       });
       expect(testState.providerRepositories).toEqual([null]);
-      expect(testState.pullRequestArgs).toEqual([{ repository: null }]);
+      expect(testState.pullRequestArgs).toEqual([
+        { repository: null, source: undefined, alchemyState: { state: "loading" } },
+      ]);
       expect(testState.queryCalls).toContainEqual({
         args: "skip",
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
@@ -215,7 +226,11 @@ describe("useRepositoryWorkspaceModel", () => {
       expect(latest.selection.state).toBe("selected");
       expect(testState.providerRepositories).not.toContain(null);
       expect(testState.providerRepositories.at(-1)).toBe(repository);
-      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository });
+      expect(testState.pullRequestArgs.at(-1)).toEqual({
+        repository,
+        source: undefined,
+        alchemyState: { state: "loading" },
+      });
       expect(testState.queryCalls).not.toContainEqual({
         args: "skip",
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
@@ -261,7 +276,7 @@ describe("useRepositoryWorkspaceModel", () => {
               region: "aws-us-east-1",
             },
           ],
-          // The captured stage as `alchemyState:observe` returns it, with the `rootDir` "." on its
+          // The captured stage as `reader:repository` returns it, with the `rootDir` "." on its
           // Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack file at the root.
           stacks: [
             {
@@ -281,6 +296,7 @@ describe("useRepositoryWorkspaceModel", () => {
                     source: "github-actions",
                     recordedAt: "2026-10-21T19:58:06.882Z",
                   },
+                  deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
                   resources: prod.resources.map((resource) => ({
                     fqn: resource.fqn,
                     value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
@@ -384,7 +400,11 @@ describe("useRepositoryWorkspaceModel", () => {
         throw new Error("Expected the selected repository workspace.");
       }
       expect(testState.providerSources.at(-1)).toBe("attachments");
-      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository, source: "attachments" });
+      expect(testState.pullRequestArgs.at(-1)).toMatchObject({
+        repository,
+        source: "attachments",
+        alchemyState: { state: "loaded", observation: { store: "missing" } },
+      });
       expect(latest.selection.workspace.environmentRoots).toEqual([
         { rootDirectory: "/", resources: [{ kind: "convex_loading", id: convexProjectId }] },
       ]);

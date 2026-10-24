@@ -5,10 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { isRecord } from "../../convex/jsonUtils";
 import { observedAlchemyStackReply } from "../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../convex/repository/fixtures/observedSamebaseAlchemyState";
-import {
-  AlchemyStateTree,
-  type AlchemyStateObservation,
-} from "@/components/RepositoryAlchemyStateView";
+import type { AlchemyStateObservation } from "../../shared/alchemyStateModel";
+import { AlchemyStateTree } from "@/components/RepositoryAlchemyStateTree";
 
 type AlchemyStage = Extract<
   AlchemyStateObservation,
@@ -18,7 +16,7 @@ type AlchemyStage = Extract<
 const [, , prod] = observedAlchemyStackReply.value.stages;
 const [, pr1768, samebaseProd] = observedSamebaseStackReply.value.stages;
 
-/** The run record of the captured pr-1768 output, as `observe` returns it. */
+/** The run record of the captured pr-1768 stage, as `reader:repository` returns it. */
 const pr1768Record = {
   version: 1,
   repository: "samebase/samebase",
@@ -31,7 +29,7 @@ const pr1768Record = {
   recordedAt: "2026-10-22T09:34:35.577Z",
 } as const;
 
-/** The run record of the captured samebase/samebase prod output, as `observe` returns it. */
+/** The run record of the captured `prod` stage of samebase/samebase, as the reader returns it. */
 const prodRecord = {
   version: 1,
   repository: "samebase/samebase",
@@ -47,6 +45,7 @@ const prodRecord = {
 const pr1768Stage: AlchemyStage = {
   name: pr1768.stage,
   record: pr1768Record,
+  deployedHeadCommit: pr1768Record.headCommit,
   resources: pr1768.resources,
   output: '{"url":"https://aware-bobcat-542.convex.site"}',
 };
@@ -88,6 +87,7 @@ function deploymentWith(
     {
       name: "prod",
       record: { ...prodRecord, stackFile },
+      deployedHeadCommit: prodRecord.headCommit,
       resources: [{ fqn: "Deployment", value: JSON.stringify(deployment) }],
       output: "{}",
     },
@@ -99,6 +99,16 @@ afterEach(() => {
 });
 
 describe("AlchemyStateTree", () => {
+  it("shows a stage before its first output without an empty Output row", () => {
+    const container = renderTree(
+      oneStack("samebase/samebase", [{ ...pr1768Stage, output: "null" }]),
+    );
+    expect(container.textContent).toContain("pr-1768");
+    expect(
+      Array.from(container.querySelectorAll("dt"), (label) => label.textContent),
+    ).not.toContain("Output");
+  });
+
   it("labels each stage with its run record and each Convex deployment with its code", () => {
     vi.useFakeTimers({ now: new Date("2026-10-22T09:46:35.577Z") });
     const container = renderTree(oneStack("samebase/samebase", [pr1768Stage]));
@@ -166,6 +176,7 @@ describe("AlchemyStateTree", () => {
             {
               name: samebaseProd.stage,
               record: prodRecord,
+              deployedHeadCommit: prodRecord.headCommit,
               resources: samebaseProd.resources,
               output: '{"url":"https://clear-butterfly-858.convex.site"}',
             },
@@ -177,6 +188,7 @@ describe("AlchemyStateTree", () => {
             {
               name: "prod",
               record: { ...prodRecord, stackFile: "apps/sidebars-example/alchemy.run.ts" },
+              deployedHeadCommit: prodRecord.headCommit,
               resources: [],
               output: "{}",
             },
@@ -238,6 +250,7 @@ describe("AlchemyStateTree", () => {
             repository: "samebase/tmp-k7m2-rows",
             stackFile: "alchemy.run.ts",
           },
+          deployedHeadCommit: prodRecord.headCommit,
           resources: [
             {
               fqn: "Worker",
@@ -265,6 +278,7 @@ describe("AlchemyStateTree", () => {
         {
           name: "prod",
           record: prodRecord,
+          deployedHeadCommit: prodRecord.headCommit,
           resources: [],
           output:
             '{"url":"https://clear-butterfly-858.convex.site","deployKey":{"__redacted__":"prod:clear-butterfly-858|state-secret-value"},"nested":{"token":{"__redacted__":null}}}',

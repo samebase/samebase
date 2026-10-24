@@ -5,8 +5,8 @@ import type { Id } from "../_generated/dataModel";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { observedAlchemyStackReply } from "./fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "./fixtures/observedSamebaseAlchemyState";
+import { buildPullRequestAlchemyPreview } from "../../shared/pullRequestAlchemyPreview";
 import {
-  buildPullRequestAlchemyPreview,
   buildPullRequestCloudflareWorkerResources,
   buildPullRequestHostingPreviews,
   completeGitHubPullRequestCommitScan,
@@ -1080,6 +1080,7 @@ describe("buildPullRequestAlchemyPreview", () => {
           {
             name: pr1768.stage,
             record,
+            deployedHeadCommit: record.headCommit,
             resources: pr1768.resources,
             output: '{"url":"https://aware-bobcat-542.convex.site"}',
           },
@@ -1113,6 +1114,43 @@ describe("buildPullRequestAlchemyPreview", () => {
     ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
   });
 
+  it("credits the head only when the latest resource write and completed deploy match it", () => {
+    const currentHead = "b".repeat(40);
+    const advancing = {
+      ...stack,
+      stacks: stack.stacks.map((entry) => ({
+        ...entry,
+        stages: entry.stages.map((stage) => ({
+          ...stage,
+          record: { ...stage.record, headCommit: currentHead },
+          deployedHeadCommit: record.headCommit,
+        })),
+      })),
+    };
+    expect(
+      buildPullRequestAlchemyPreview({
+        stack: advancing,
+        head: { number: 1768, headRefOid: currentHead },
+      }),
+    ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
+
+    advancing.stacks[0].stages[0].deployedHeadCommit = currentHead;
+    expect(
+      buildPullRequestAlchemyPreview({
+        stack: advancing,
+        head: { number: 1768, headRefOid: currentHead },
+      }),
+    ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: currentHead }] });
+
+    advancing.stacks[0].stages[0].record.headCommit = record.headCommit;
+    expect(
+      buildPullRequestAlchemyPreview({
+        stack: advancing,
+        head: { number: 1768, headRefOid: currentHead },
+      }),
+    ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
+  });
+
   it("leaves out a Site row without attributes or without rootDir", () => {
     // The rows of the interrupted pr-1756 have no `attr`, and the captured samebase/base-alchemy
     // pr-24 Deployment row has no `rootDir`.
@@ -1122,7 +1160,15 @@ describe("buildPullRequestAlchemyPreview", () => {
       stacks: [
         {
           name: "samebase/samebase",
-          stages: [{ name: pr1768.stage, record, resources: [...resources], output: "{}" }],
+          stages: [
+            {
+              name: pr1768.stage,
+              record,
+              deployedHeadCommit: record.headCommit,
+              resources: [...resources],
+              output: "{}",
+            },
+          ],
         },
       ],
     });

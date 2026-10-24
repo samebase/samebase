@@ -4,6 +4,7 @@ import type { AccessKey } from "../../../shared/accessModel";
 import type { RepositoryPullRequestsState } from "@/repository/dashboard/useRepositoryPullRequests";
 import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import type { RepositoryEnvironmentRoot } from "./repositoryEnvironmentRoots";
+import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 import type {
   RepositoryAlchemyStacks,
   RepositoryCloudflareProviderObservationState,
@@ -35,6 +36,7 @@ export type RepositoryWorkspaceSelected = {
   access: RepositoryWorkspaceAccessState;
   /** One observation when the team store holds the stack of the repository: it then owns `environmentRoots`. */
   alchemyObservations: RepositoryProviderObservationState<RepositoryAlchemyStacks>;
+  alchemyState: RepositoryAlchemyState;
   cloudflareObservations: RepositoryCloudflareProviderObservationState;
   cloudflareConnection: RepositoryWorkspaceCloudflareConnectionState;
   convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
