@@ -163,7 +163,7 @@ function DestinationResource({
           <span className="flex h-4 w-5 shrink-0 items-center justify-center">
             {presentation.icon}
           </span>
-          <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+          <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 [overflow-wrap:anywhere]">
             {resource.label}
           </span>
           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -173,43 +173,47 @@ function DestinationResource({
           <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
         ) : null}
       </div>
-      {resource.provenance === "pull_request_branch" ? (
-        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
-          May be from an earlier commit
-        </span>
-      ) : resource.provenance === "pull_request_head" ? (
-        <span className="ml-[1.875rem] font-mono text-xs leading-5 text-muted-foreground">
-          {resource.headCommit.slice(0, 7)}
-        </span>
-      ) : null}
-      {resource.region ? (
-        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
-          {formatConvexDeploymentRegionLabel(resource.region)}
-        </span>
-      ) : null}
-      {resource.components?.map((component) => (
-        <div
-          key={component.path}
-          aria-label={`Convex component ${component.path}`}
-          className="pl-4"
-          role="group"
-        >
-          <div className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5">
-            <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
-              {component.path}
+      {resource.provenance === "production" && !resource.region && !resource.components ? null : (
+        <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
+          {resource.provenance === "pull_request_branch" ? (
+            <span className="text-xs leading-5 text-muted-foreground">
+              May be from an earlier commit
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
-          </div>
-          <div className="pl-4">
-            {component.resources.map((child) => (
-              <RepositoryEnvironmentResourceRow
-                key={`${child.kind}:${child.id}`}
-                resource={child}
-              />
-            ))}
-          </div>
+          ) : resource.provenance === "pull_request_head" ? (
+            <span className="font-mono text-xs leading-5 text-muted-foreground">
+              {resource.headCommit.slice(0, 7)}
+            </span>
+          ) : null}
+          {resource.region ? (
+            <span className="text-xs leading-5 text-muted-foreground">
+              {formatConvexDeploymentRegionLabel(resource.region)}
+            </span>
+          ) : null}
+          {resource.components?.map((component) => (
+            <div
+              key={component.path}
+              aria-label={`Convex component ${component.path}`}
+              className="min-w-0"
+              role="group"
+            >
+              <div className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5">
+                <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
+                  {component.path}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
+              </div>
+              <div className="ml-2.5 border-l border-border pl-3">
+                {component.resources.map((child) => (
+                  <RepositoryEnvironmentResourceRow
+                    key={`${child.kind}:${child.id}`}
+                    resource={child}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -253,7 +257,7 @@ function RepositoryEnvironmentResourceRow({
             <span className="flex h-4 w-5 shrink-0 items-center justify-center">
               {presentation.icon}
             </span>
-            <span className="min-w-0 truncate text-sm font-medium leading-5 underline decoration-border underline-offset-4">
+            <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 [overflow-wrap:anywhere]">
               {resource.bucketName}
             </span>
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -287,14 +291,14 @@ export function RepositoryEnvironmentTree({
               <RootDirectoryLabel rootDirectory={root.rootDirectory} />
             </div>
           )}
-          <div className={hideRootDirectory ? undefined : "pb-0.5"}>
+          <div
+            className={hideRootDirectory ? undefined : "ml-2.5 border-l border-border pb-0.5 pl-3"}
+          >
             {root.resources.map((resource) => (
-              <div
+              <RepositoryEnvironmentResourceRow
                 key={`${resource.kind}:${resource.id}`}
-                className={hideRootDirectory ? undefined : "pl-4"}
-              >
-                <RepositoryEnvironmentResourceRow resource={resource} />
-              </div>
+                resource={resource}
+              />
             ))}
           </div>
         </div>
@@ -586,7 +590,7 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           {presentation.icon}
         </span>
-        <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+        <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
           {worker.workerName}
         </span>
         <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
@@ -612,43 +616,45 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
         )}
       </div>
       {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
-        <div className="ml-[1.875rem] flex min-w-0 items-center gap-1 text-sm">
-          {worker.destination.state === "available" ? (
-            <a
-              className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
-              href={worker.destination.href}
-              rel="noreferrer noopener"
-              target="_blank"
-              title={worker.destination.title}
-            >
-              <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                <DestinationIcon href={worker.destination.href} />
+        <div className="ml-2.5 grid min-w-0 gap-1.5 border-l border-border pl-3">
+          <div className="flex min-w-0 items-center gap-1 text-sm">
+            {worker.destination.state === "available" ? (
+              <a
+                className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+                href={worker.destination.href}
+                rel="noreferrer noopener"
+                target="_blank"
+                title={worker.destination.title}
+              >
+                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+                  <DestinationIcon href={worker.destination.href} />
+                </span>
+                <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            ) : worker.destination.state === "unlinked" ? (
+              <span className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground @4xl:min-h-8">
+                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+                  <CloudflareProviderLogo />
+                </span>
+                <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
               </span>
-              <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
-              <ExternalLink className="h-3 w-3 shrink-0" />
-            </a>
-          ) : worker.destination.state === "unlinked" ? (
-            <span className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground @4xl:min-h-8">
-              <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                <CloudflareProviderLogo />
-              </span>
-              <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+            ) : null}
+            {worker.actions.length > 0 ? (
+              <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
+            ) : null}
+          </div>
+          {worker.destination.state !== "available" ? null : worker.destination.provenance ===
+            "earlier_check" ? (
+            <span className="text-xs leading-5 text-muted-foreground">
+              May be from an earlier commit
+            </span>
+          ) : worker.destination.provenance === "pull_request_head" ? (
+            <span className="font-mono text-xs leading-5 text-muted-foreground">
+              {worker.destination.headCommit.slice(0, 7)}
             </span>
           ) : null}
-          {worker.actions.length > 0 ? (
-            <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
-          ) : null}
         </div>
-      ) : null}
-      {worker.destination.state !== "available" ? null : worker.destination.provenance ===
-        "earlier_check" ? (
-        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
-          May be from an earlier commit
-        </span>
-      ) : worker.destination.provenance === "pull_request_head" ? (
-        <span className="ml-[1.875rem] font-mono text-xs leading-5 text-muted-foreground">
-          {worker.destination.headCommit.slice(0, 7)}
-        </span>
       ) : null}
     </div>
   );
@@ -689,7 +695,7 @@ function OtherPreviewRow({ preview }: { preview: RepositoryOtherPreview }) {
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           <OtherPreviewProviderLogo provider={preview.provider} />
         </span>
-        <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+        <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
           <span className="sr-only">{providerLabel}: </span>
           {preview.name}
         </span>
@@ -709,7 +715,7 @@ function OtherPreviewRow({ preview }: { preview: RepositoryOtherPreview }) {
           </Link>
         ) : null}
       </div>
-      <div className="ml-[1.875rem] flex min-w-0 items-center text-sm">
+      <div className="ml-2.5 flex min-w-0 items-center border-l border-border pl-3 text-sm">
         <a
           aria-label={`${providerLabel} ${preview.name}: ${preview.destinationLabel}`}
           className="inline-flex min-h-10 min-w-0 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
@@ -735,7 +741,7 @@ function OtherPreviews({ previews }: { previews: readonly RepositoryOtherPreview
       <div className="pt-3">
         <RootDirectoryLabel rootDirectory="Other previews" />
       </div>
-      <div className="pb-0.5 pl-4">
+      <div className="ml-2.5 border-l border-border pb-0.5 pl-3">
         {previews.map((preview) => (
           <OtherPreviewRow key={preview.id} preview={preview} />
         ))}
