@@ -214,21 +214,23 @@ The resources of a stage under the installed Convex components that own them, by
 the `Convex.Deployment` rows of the stage. A resource belongs to the component of the longest bound
 namespace that its row's `namespace` starts with, so a child namespace bound to another component
 takes precedence. The fqn does not decide: a slash in a logical id or in a namespace id, such as
-`Mail/Shared`, is not a namespace boundary. `others` are the resources outside every bound
-namespace. Components are in path order, and each list keeps the order of `resources`.
+`Mail/Shared`, is not a namespace boundary. A component is installed in one deployment, so
+`deployment` is the row whose binding names it. `others` are the resources outside every bound
+namespace. Components are in path order, then in the order of their first resource, and each list
+keeps the order of `resources`.
 */
 export function groupResourcesByComponent<Resource extends { state: unknown }>(
   resources: readonly Resource[],
 ) {
   const bindings = resources
-    .flatMap(({ state }) =>
-      validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })
-        ? state.bindings.map(({ data }) => data)
+    .flatMap((deployment) =>
+      validate(vAlchemyConvexDeploymentState, deployment.state, { allowUnknownFields: true })
+        ? deployment.state.bindings.map(({ data }) => ({ deployment, ...data }))
         : [],
     )
     .sort((left, right) => right.namespace.length - left.namespace.length);
   const others: Resource[] = [];
-  const components = new Map<string, Resource[]>();
+  const components: { path: string; deployment: Resource; resources: Resource[] }[] = [];
 
   for (const resource of resources) {
     const namespace = namespaceOf(isRecord(resource.state) ? resource.state["namespace"] : null);
@@ -237,15 +239,20 @@ export function groupResourcesByComponent<Resource extends { state: unknown }>(
     );
     if (owner === undefined) {
       others.push(resource);
+      continue;
+    }
+    const component = components.find(
+      ({ deployment, path }) => deployment === owner.deployment && path === owner.path,
+    );
+    if (component === undefined) {
+      components.push({ path: owner.path, deployment: owner.deployment, resources: [resource] });
     } else {
-      components.set(owner.path, [...(components.get(owner.path) ?? []), resource]);
+      component.resources.push(resource);
     }
   }
 
   return {
     others,
-    components: [...components]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([path, owned]) => ({ path, resources: owned })),
+    components: components.sort((left, right) => left.path.localeCompare(right.path)),
   };
 }

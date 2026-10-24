@@ -47,10 +47,14 @@ describe("groupResourcesByComponent", () => {
       "Mail/Shared/Inbox/Bucket",
     ]);
     expect(
-      components.map(({ path, resources }) => [path, resources.map(({ fqn }) => fqn)]),
+      components.map(({ path, deployment, resources }) => [
+        path,
+        deployment.fqn,
+        resources.map(({ fqn }) => fqn),
+      ]),
     ).toEqual([
-      ["archive", ["Mail/Archive/Bucket"]],
-      ["mail", ["Mail/Worker"]],
+      ["archive", "Deployment", ["Mail/Archive/Bucket"]],
+      ["mail", "Deployment", ["Mail/Worker"]],
     ]);
   });
 });

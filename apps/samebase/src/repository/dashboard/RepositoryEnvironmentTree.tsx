@@ -187,6 +187,29 @@ function DestinationResource({
           {formatConvexDeploymentRegionLabel(resource.region)}
         </span>
       ) : null}
+      {resource.components?.map((component) => (
+        <div
+          key={component.path}
+          aria-label={`Convex component ${component.path}`}
+          className="pl-4"
+          role="group"
+        >
+          <div className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5">
+            <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+              {component.path}
+            </span>
+            <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
+          </div>
+          <div className="pl-4">
+            {component.resources.map((child) => (
+              <RepositoryEnvironmentResourceRow
+                key={`${child.kind}:${child.id}`}
+                resource={child}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -202,7 +202,7 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
             <AlchemyResourceItem key={fqn} fqn={fqn} state={state} />
           ))}
           {components.map((component) => (
-            <Fragment key={component.path}>
+            <Fragment key={`${component.deployment.fqn}:${component.path}`}>
               <AlchemyStateDetailItem name={component.path} detail={null} />
               <div className="ml-2.5 grid gap-0.5 border-l border-border pl-3">
                 {component.resources.map(({ fqn, state }) => (
