@@ -210,6 +210,28 @@ describe("loadRepositoryAlchemyPage", () => {
     });
   });
 
+  it("keeps cached pull request pages for the page's query to refresh", async () => {
+    const { action, load, queryClient } = loadPage({
+      client: "browser",
+      convexTeamId: "38516",
+      connect: async () => liveConnection,
+    });
+    const cached = { pages: [pullRequestPage, pullRequestPage], pageParams: [null, "cursor-2"] };
+    queryClient.setQueryData(["repository-pull-requests", "repository-a", "ready"], cached, {
+      updatedAt: 0,
+    });
+
+    await load;
+
+    expect(action).toHaveBeenCalledExactlyOnceWith(
+      api.repository.alchemyState.connectWithSnapshot,
+      { repositoryId: "repository-a" },
+    );
+    expect(queryClient.getQueryData(["repository-pull-requests", "repository-a", "ready"])).toBe(
+      cached,
+    );
+  });
+
   it("reads no store for a repository without a Convex team or with ?attachments", async () => {
     const withoutTeam = loadPage({
       client: "server",

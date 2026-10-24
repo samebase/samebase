@@ -148,9 +148,9 @@ export function useRepositoryAlchemyState(
     };
 
     const start = async () => {
-      // A failed first read stays on screen until a reload.
-      if (target.firstRead?.state === "failed") return;
-      const connection = target.firstRead ? target.firstRead.connection : await readConnection();
+      // A failed first read stays on screen while the browser connects with its retries.
+      const connection =
+        target.firstRead?.state === "loaded" ? target.firstRead.connection : await readConnection();
       if (!connection || stopped) return;
       if (connection.store === "missing") {
         setResult({ target, value: { state: "loaded", read: connection } });

@@ -128,24 +128,23 @@ async function loadOverviewPage({
   }
 
   const { convexTeamId, repositoryId } = repository;
+  const pullRequests = openPullRequestsQuery({
+    repositoryId,
+    sourceSetupStatus: repository.sourceSetup.status,
+    listOpenPullRequests: (args) =>
+      runViewerAction(convexQueryClient, api.repositoryPullRequests.listOpenPullRequests, args),
+  });
   const [alchemyState] = await Promise.all([
     readsStore && convexTeamId
       ? connectAlchemyState(convexQueryClient, { repositoryId, convexTeamId })
       : null,
-    // The pull requests that `useRepositoryWorkspaceModel` requests.
-    repository.hasConnectedGitHubRepository && repository.deletion.state === "not_deleting"
-      ? queryClient.prefetchInfiniteQuery(
-          openPullRequestsQuery({
-            repositoryId,
-            sourceSetupStatus: repository.sourceSetup.status,
-            listOpenPullRequests: (args) =>
-              runViewerAction(
-                convexQueryClient,
-                api.repositoryPullRequests.listOpenPullRequests,
-                args,
-              ),
-          }),
-        )
+    // The pull requests that `useRepositoryWorkspaceModel` requests. Cached pages render at once,
+    // and the page's query refreshes them after it mounts: a refetch here would read every cached
+    // page in turn before the page opens.
+    repository.hasConnectedGitHubRepository &&
+    repository.deletion.state === "not_deleting" &&
+    !queryClient.getQueryData(pullRequests.queryKey)
+      ? queryClient.prefetchInfiniteQuery(pullRequests)
       : null,
   ]);
   return alchemyState;

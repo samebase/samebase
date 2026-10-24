@@ -395,23 +395,24 @@ describe("useRepositoryAlchemyState", () => {
     expect(latest).toEqual({ state: "loading" });
   });
 
-  it("shows a failed loader read until a reload connects", async () => {
+  it("shows a failed loader read while the browser connects again", async () => {
     mocks.overview.read = {
       state: "failed",
       repositoryId,
       convexTeamId: teamId,
       message: ALCHEMY_CONNECTION_UNAVAILABLE,
     };
+    mocks.authenticated = false;
     await render();
     expect(latest).toMatchObject({
       state: "failed",
       error: { message: ALCHEMY_CONNECTION_UNAVAILABLE },
     });
-    expect(mocks.connect).not.toHaveBeenCalled();
-    expect(mocks.clients).toHaveLength(0);
 
-    await act(async () => latest.state === "failed" && latest.reload());
+    mocks.authenticated = true;
+    await render();
     expect(mocks.connect).toHaveBeenCalled();
+    expect(latest.state).toBe("failed");
     await act(async () => client().value?.(liveRead));
     expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
   });
