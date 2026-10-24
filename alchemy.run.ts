@@ -1,8 +1,8 @@
 // The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from the repository root:
 //
 // - Stage `prod`, on each push to main: the Convex project `samebase`, its production deployment,
-//   which serves samebase.com through convex-hosting, and the Workers next to the app, so their
-//   routes and settings are code instead of settings in the Cloudflare dashboard.
+//   which serves samebase.com through convex-hosting, and the PostHog proxy Worker of the app, so
+//   its route and settings are code instead of settings in the Cloudflare dashboard.
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
@@ -14,8 +14,8 @@
 // login (`npx convex login`) on a laptop; it mints the deploy key of each push itself. The stage
 // `prod` also needs a Cloudflare login (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and
 // CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit and Account Settings Read,
-// plus Workers Routes Edit and Zone Read on samebase.com, json.md and xml.md. The build reads the
-// variables that alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
+// plus Workers Routes Edit and Zone Read on samebase.com. The build reads the variables that
+// alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Convex from "@samebase/alchemy-convex";
@@ -102,35 +102,22 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
       source: { path: "./convex", command: ["node", "--run", "deploy"] },
     });
 
-    // The PostHog reverse proxy on e.samebase.com. The name is the Worker that Workers Builds
-    // deployed before this stack, so Alchemy finds it by name. adopt(true) lets the first deploy
-    // take over that Worker and its route, which carry no Alchemy ownership tags. main is relative
-    // to the repository root, where this stack runs: Alchemy's Cloudflare.Worker has no rootDir.
+    // The PostHog reverse proxy on e.samebase.com, part of the Samebase app, with its code in the
+    // folder of the app. The name is the Worker that Workers Builds deployed before this stack, so
+    // Alchemy finds it by name. adopt(true) lets the first deploy take over that Worker and its
+    // route, which carry no Alchemy ownership tags. main is relative to the repository root, where
+    // this stack runs: Alchemy's Cloudflare.Worker has no rootDir.
     // Alchemy saves main in the state as written and reuses it when it repairs drift, so a file
     // URL would pin the path of the machine that deployed last. Compatibility date and
     // observability are Alchemy's defaults. workers.dev is off: the proxy has one address.
     // Retained on destroy: samebase.com analytics run through it.
     const posthogProxy = yield* Cloudflare.Worker("PosthogProxy", {
       name: "samebase-posthog-proxy",
-      main: "apps/posthog-proxy/src/index.ts",
+      main: "apps/samebase/workers/posthog-proxy/index.ts",
       workersDev: false,
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
-    // The domain router: redirects registered <label>.json.md and <label>.xml.md hostnames to their
-    // targets, declared in its source. Same takeover as the proxy. The CI token needs Workers Routes
-    // on json.md and xml.md. This is a test outside the Samebase app, so it is not retained:
-    // deleting it here deletes the Worker and its routes.
-    const domains = yield* Cloudflare.Worker("Domains", {
-      name: "samebase-domains",
-      main: "apps/domain-router/src/index.ts",
-      workersDev: false,
-      routes: [
-        { pattern: "*.json.md/*", zoneName: "json.md" },
-        { pattern: "*.xml.md/*", zoneName: "xml.md" },
-      ],
-    }).pipe(adopt(true));
-
-    return { url: site.siteUrl, posthogProxy: posthogProxy.url, domains: domains.url };
+    return { url: site.siteUrl, posthogProxy: posthogProxy.url };
   }),
 );

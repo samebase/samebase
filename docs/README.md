@@ -24,9 +24,9 @@ Current key docs:
   existing Convex app to Worker Previews, separating build keys, and checking that repeated preview
   builds preserve data and sessions
 - `alchemy.run.ts` for the Samebase stack: the Convex project, its production deployment and pull
-  request previews, and the `samebase-posthog-proxy` and `samebase-domains` Workers with their
-  routes, and `apps/sidebars-example/alchemy.run.ts` for the sidebars example Worker, both deployed
-  by `.github/workflows/alchemy.yml`
+  request previews, and the `samebase-posthog-proxy` Worker with its route, and
+  `apps/sidebars-example/alchemy.run.ts` for the sidebars example Worker, both deployed by
+  `.github/workflows/alchemy.yml`
 - `docs/compliance/` for compliance artifacts
 
 Do not use `docs/` as a dumping ground for accepted behavior or open-ended research; put those in

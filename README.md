@@ -40,8 +40,6 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 .
 ├── AGENTS.md
 ├── apps/
-│   ├── domain-router/
-│   ├── posthog-proxy/
 │   ├── remotion-studio/
 │   ├── samebase/
 │   │   ├── src/
