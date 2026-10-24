@@ -144,7 +144,7 @@
     "libsodium-wrappers": "0.8.4",
     "pixelmatch": "^8.0.0",
     "pngjs": "^7.0.0",
-    "shadcn": "^4.21.4",
+    "shadcn": "^4.22.0",
     "tailwindcss": "^4.3.3",
     "typescript": "6.0.3",
     "unplugin-typegpu": "0.12.5",

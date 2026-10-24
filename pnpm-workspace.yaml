@@ -55,6 +55,18 @@ minimumReleaseAgeExclude:
   - "@vitest/spy@5.0.5"
   - "@vitest/ui@5.0.5"
   - "@vitest/utils@5.0.5"
+  # Reviewed security fixes: https://github.com/advisories/GHSA-w74x-v6f9-j3xg,
+  # GHSA-wjr9-j795-jxcr, GHSA-xhq7-xmqj-769h, and GHSA-333x-w4r6-6crp (fast-uri URI parsing), published
+  # 2026-10-19 22:51 UTC with npm provenance. Remove after 2026-10-26 22:52 UTC.
+  - "fast-uri@4.2.3"
+  # Reviewed security fix: https://github.com/advisories/GHSA-27r3-jxmh-p828 (body-parser denial of
+  # service via trailing bytes after a compressed body), published 2026-10-22 11:39 UTC with npm
+  # provenance. Remove after 2026-10-29 11:40 UTC.
+  - "body-parser@2.4.0"
+  # Reviewed security fix: https://github.com/advisories/GHSA-f2hq-32vh-53cc (postal-mime quadratic
+  # header decoding), published 2026-10-17 15:06 UTC with npm provenance. Remove after 2026-10-24
+  # 15:07 UTC.
+  - "postal-mime@4.0.8"
   # TODO(2026-09-06): Remove after qs 6.16.0 completes the normal
   # 7-day cooling period.
   - qs@6.16.0
@@ -92,13 +104,13 @@ overrides:
   "brace-expansion@1": 5.0.12
   "brace-expansion@2": 5.0.12
   "brace-expansion@5": 5.0.12
-  body-parser: 2.3.0
+  body-parser: 2.4.0
   browserslist: 4.29.3
   # GHSA-g5c8-w9fp-h5vm also affects the copy pinned by the mail component.
   convex-helpers: 0.1.128
   dompurify: 3.4.17
   esbuild: 0.28.2
-  fast-uri: 4.2.2
+  fast-uri: 4.2.3
   flatted: 3.4.4
   hono: 4.13.13
   ip-address: 10.7.4
@@ -109,6 +121,8 @@ overrides:
   nanoid: 6.0.2
   "picomatch@2": 4.0.7
   "picomatch@4.0.3": 4.0.7
+  # GHSA-f2hq-32vh-53cc: the mail component declares postal-mime ^3, and no 3.x release has the fix.
+  postal-mime: 4.0.8
   postcss: 8.5.30
   postcss-selector-parser: 7.1.6
   protobufjs: 8.8.1
@@ -120,11 +134,12 @@ overrides:
   seroval: 1.6.9
   source-map-js: 1.2.2
   tinypool: 2.2.0
-  undici: 8.11.2
+  undici: 8.12.2
   valibot: 1.5.0
   vite: "catalog:"
   ws: 8.22.0
   vitest: "catalog:"
+  zod: 4.6.7
 # Every dependency lifecycle script is reviewed explicitly. `true` allows the
 # script to run; `false` records that the script was seen and suppressed.
 allowBuilds:
