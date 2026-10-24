@@ -716,8 +716,11 @@ The stacks of samebase/samebase after the move of its stack to the repository ro
 `prod` and `pr-1768` stages of the stack samebase/samebase, and a stack of the folder
 apps/sidebars-example. The `prod` record is the captured one with the stack file and commit that the
 first push after the move writes, and its Site row the captured one with the `rootDir` that the
-captured `pr-1768` row holds. The sidebars stack has no row yet, so its Worker is the captured
-PosthogProxy row renamed. The captured `prod` Workers sit at the root: Alchemy's Worker has no rootDir.
+captured `pr-1768` row holds. Its PosthogProxy row is the captured one with the `main` that the root
+stack writes, in apps/samebase, so it sits with the Site deployment. Its Domains row keeps the
+captured `main`, which is relative to apps/samebase and leaves the repository from the root, so it
+sits at the root. The sidebars stack has no row yet, so its Worker is the captured PosthogProxy row
+renamed.
 */
 function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
   const [, , prod] = observedSamebaseStackReply.value.stages;
@@ -754,7 +757,13 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
             deployedHeadCommit: record.headCommit,
             resources: [
               rowOf("Domains"),
-              proxy,
+              {
+                fqn: "PosthogProxy",
+                value: proxy.value.replace(
+                  '"main":"../posthog-proxy/src/index.ts"',
+                  '"main":"apps/samebase/workers/posthog-proxy/index.ts"',
+                ),
+              },
               rowOf("Project"),
               {
                 fqn: "Site",
@@ -979,7 +988,7 @@ describe("repository environment roots", () => {
     ]);
   });
 
-  it("places the resources of every stack of samebase/samebase by stack file and rootDir", () => {
+  it("places the resources of every stack of samebase/samebase by stack file, rootDir, and main", () => {
     const roots = buildAlchemyEnvironmentRoots({
       branch: "main",
       owner: "samebase",
@@ -1002,8 +1011,11 @@ describe("repository environment roots", () => {
         ),
       })),
     ).toEqual([
-      { rootDirectory: "/", resources: ["samebase-domains", "samebase-posthog-proxy"] },
-      { rootDirectory: "apps/samebase", resources: ["alchemy:samebase/samebase:Site"] },
+      { rootDirectory: "/", resources: ["samebase-domains"] },
+      {
+        rootDirectory: "apps/samebase",
+        resources: ["samebase-posthog-proxy", "alchemy:samebase/samebase:Site"],
+      },
       {
         rootDirectory: "apps/sidebars-example",
         resources: ["samebase-monorepo-sidebars-example"],
@@ -1021,21 +1033,20 @@ describe("repository environment roots", () => {
       repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
       stacks: samebaseStacksAfterTheMove(),
     });
-    const rootWorkers = roots.filter((root) => root.rootDirectory === "/");
+    const workerRoots = roots
+      .filter((root) => root.rootDirectory !== "apps/sidebars-example")
+      .map((root) => ({
+        rootDirectory: root.rootDirectory,
+        resources: root.resources.filter((resource) => resource.kind === "cloudflare_worker"),
+      }));
 
     expect(
-      rootWorkers.flatMap((root) =>
-        root.resources.flatMap((resource) =>
-          resource.kind === "cloudflare_worker"
-            ? [
-                {
-                  workerName: resource.worker.workerName,
-                  destination: resource.worker.destination,
-                  actions: resource.worker.actions,
-                },
-              ]
-            : [],
-        ),
+      workerRoots.flatMap((root) =>
+        root.resources.map(({ worker }) => ({
+          workerName: worker.workerName,
+          destination: worker.destination,
+          actions: worker.actions,
+        })),
       ),
     ).toEqual([
       {
@@ -1050,15 +1061,15 @@ describe("repository environment roots", () => {
           href: "https://e.samebase.com/",
           label: "e.samebase.com",
           provenance: "production",
-          title: "Open production app",
+          title: "Open production app for apps/samebase",
         },
         actions: [],
       },
     ]);
     const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={rootWorkers} />);
+    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={workerRoots} />);
     expect(container.textContent).toBe(
-      "samebase-domainsWorker*.json.mdsamebase-posthog-proxyWorkere.samebase.com",
+      "/samebase-domainsWorker*.json.mdapps/samebasesamebase-posthog-proxyWorkere.samebase.com",
     );
     expect([...container.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://e.samebase.com/",
