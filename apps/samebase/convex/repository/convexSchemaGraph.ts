@@ -719,7 +719,7 @@ async function fetchConvexSchemaGraph(args: {
   const warnings: string[] = [];
   const [inferredShapes, schemaResponse] = await Promise.all([
     fetchConvexDeploymentJson({
-      deployKey: args.deployKey,
+      authorization: `Convex ${args.deployKey}`,
       deploymentUrl: args.deploymentUrl,
       path: "/api/shapes2",
     }),

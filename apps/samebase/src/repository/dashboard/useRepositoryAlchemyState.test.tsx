@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { parse } from "convex-helpers/validators";
 import type { ConvexClient } from "convex/browser";
 import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -10,13 +11,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { observedSamebaseRepositoryReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
-import { ALCHEMY_CONNECTION_UNAVAILABLE } from "../../../shared/alchemyStateModel";
+import {
+  ALCHEMY_CONNECTION_UNAVAILABLE,
+  vAlchemyStacksRead,
+} from "../../../shared/alchemyStateModel";
+import type { loadRepositoryAlchemyPage } from "@/routes/repository-dashboard.queries";
 import {
   useRepositoryAlchemyState,
   type RepositoryAlchemyState,
 } from "./useRepositoryAlchemyState";
 
 type Connection = (typeof api.repository.alchemyState.connect)["_returnType"];
+type LoaderRead = NonNullable<Awaited<ReturnType<typeof loadRepositoryAlchemyPage>>>;
 type DeploymentMetadata =
   (typeof api.repository.alchemyState.readDeploymentMetadata)["_returnType"];
 const transportError =
@@ -63,15 +69,22 @@ type ClientState = {
 };
 const mocks = vi.hoisted(() => {
   const clients: ClientState[] = [];
+  /** The loader data of the repository overview, the current page. */
+  const overview: { read: LoaderRead | undefined } = { read: undefined };
   return {
     connect: vi.fn<() => Promise<Connection>>(),
     metadata: vi.fn<() => Promise<DeploymentMetadata>>(),
     clients,
     userId: "user-a",
     authenticated: true,
+    overview,
   };
 });
 
+vi.mock("@tanstack/react-router", () => ({
+  useMatch: (options: { from: string }) =>
+    options.from === "/_authed/repo/$owner/$repository" ? mocks.overview.read : undefined,
+}));
 vi.mock("convex/react", () => ({
   useConvexAuth: () => ({ isAuthenticated: mocks.authenticated }),
   useQuery: () => ({ _id: mocks.userId }),
@@ -141,6 +154,7 @@ beforeEach(() => {
   mocks.clients.length = 0;
   mocks.userId = "user-a";
   mocks.authenticated = true;
+  mocks.overview.read = undefined;
   mocks.connect.mockReset();
   mocks.connect.mockResolvedValue({
     store: "live",
@@ -336,6 +350,72 @@ describe("useRepositoryAlchemyState", () => {
       expect(latest).toMatchObject({ observation: { liveDeployments: [] } });
     },
   );
+
+  it("starts from the loader's read and subscribes with its token", async () => {
+    mocks.overview.read = {
+      state: "loaded",
+      repositoryId,
+      convexTeamId: teamId,
+      connection: {
+        store: "live",
+        deploymentUrl: "https://test-store.convex.cloud",
+        token: "loader-token",
+        snapshot: parse(vAlchemyStacksRead, liveRead),
+      },
+    };
+    // The server render and the hydration know no session yet.
+    mocks.authenticated = false;
+    await render();
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+    expect(mocks.clients).toHaveLength(0);
+
+    mocks.authenticated = true;
+    await render();
+    const current = client();
+    expect(await current.fetchToken?.({ forceRefreshToken: false })).toBe("loader-token");
+    expect(mocks.connect).not.toHaveBeenCalled();
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+    await act(async () => current.value?.({ store: "found", stacks: [] }));
+    expect(latest).toMatchObject({ state: "loaded", observation: { store: "found", stacks: [] } });
+
+    // The renewal checks access again.
+    mocks.connect.mockResolvedValue({
+      store: "live",
+      deploymentUrl: "https://test-store.convex.cloud",
+      token: "renewed-token",
+    });
+    expect(await current.fetchToken?.({ forceRefreshToken: true })).toBe("renewed-token");
+    expect(mocks.connect).toHaveBeenCalledOnce();
+
+    // The read belongs to its repository.
+    // @ts-expect-error Convex ids are strings at runtime; this changes the selected repository.
+    repositoryId = "repository-b";
+    await render();
+    expect(current.close).toHaveBeenCalledOnce();
+    expect(latest).toEqual({ state: "loading" });
+  });
+
+  it("shows a failed loader read while the browser connects again", async () => {
+    mocks.overview.read = {
+      state: "failed",
+      repositoryId,
+      convexTeamId: teamId,
+      message: ALCHEMY_CONNECTION_UNAVAILABLE,
+    };
+    mocks.authenticated = false;
+    await render();
+    expect(latest).toMatchObject({
+      state: "failed",
+      error: { message: ALCHEMY_CONNECTION_UNAVAILABLE },
+    });
+
+    mocks.authenticated = true;
+    await render();
+    expect(mocks.connect).toHaveBeenCalled();
+    expect(latest.state).toBe("failed");
+    await act(async () => client().value?.(liveRead));
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+  });
 
   it("opens no client for a missing store and rejects invalid live replies", async () => {
     mocks.connect.mockResolvedValue({ store: "missing" });

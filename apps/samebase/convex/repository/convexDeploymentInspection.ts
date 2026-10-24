@@ -151,7 +151,8 @@ export async function withConvexInspectionDeployKey<Result>(
 }
 
 export async function fetchConvexDeploymentJson(args: {
-  deployKey: string;
+  /** `Convex <deploy key>`, or `Bearer <token>` for a token that the deployment accepts. */
+  authorization: string;
   deploymentUrl: string;
   path: string;
   body?: unknown;
@@ -161,7 +162,7 @@ export async function fetchConvexDeploymentJson(args: {
     controller.abort();
   }, CONVEX_INSPECTION_REQUEST_TIMEOUT_MS);
   const headers = new Headers({
-    Authorization: `Convex ${args.deployKey}`,
+    Authorization: args.authorization,
     "Content-Type": "application/json",
   });
   let body: string | undefined;
@@ -199,7 +200,7 @@ export async function fetchConvexSystemQuery(args: {
   queryArgs: unknown;
 }): Promise<ConvexSystemQueryResponse | null> {
   const response = await fetchConvexDeploymentJson({
-    deployKey: args.deployKey,
+    authorization: `Convex ${args.deployKey}`,
     deploymentUrl: args.deploymentUrl,
     path: "/api/query",
     body: {
@@ -234,7 +235,7 @@ export async function fetchConvexSystemQueryBatch(args: {
   queries: { path: string; args: Record<string, unknown> }[];
 }): Promise<unknown[]> {
   const response = await fetchConvexDeploymentJson({
-    deployKey: args.deployKey,
+    authorization: `Convex ${args.deployKey}`,
     deploymentUrl: args.deploymentUrl,
     path: "/api/query_batch",
     body: {

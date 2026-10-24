@@ -33,7 +33,11 @@ import {
 } from "./RepositoryCloudflareDialog";
 import { RepositoryConvexDialog, RepositoryConvexDialogContent } from "./RepositoryConvexDialog";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
-import { PullRequestResources, RepositoryEnvironmentTree } from "./RepositoryEnvironmentTree";
+import {
+  DefaultBranchSection,
+  PullRequestResources,
+  RepositoryEnvironmentTree,
+} from "./RepositoryEnvironmentTree";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
@@ -906,6 +910,70 @@ describe("repository environment roots", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
     expect(container.textContent).toBe("ideal-dolphin-15Convex deployment🇺🇸 US East (N. Virginia)");
+  });
+
+  it("renders the production stacks of the team store while the GitHub pull-request query loads", () => {
+    const repository = makeRepositorySettingsBuilderRepository({
+      githubOwnerLogin: "samebase",
+      githubRepositoryName: "base-alchemy",
+      githubRepositoryFullName: "samebase/base-alchemy",
+      convexTeamId: "38516",
+    });
+    const stacks = observedBaseAlchemyStack();
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/repo/samebase/base-alchemy"]}>
+        <DefaultBranchSection
+          filesReadEnabled={false}
+          workspace={{
+            access: { state: "ready", accessKeys: [] },
+            alchemyObservations: {
+              state: "loaded",
+              observations: [stacks],
+              refreshFailed: false,
+              reload: () => {},
+            },
+            alchemyState: {
+              state: "loaded",
+              observation: stacks,
+              refreshFailed: false,
+              reload: () => {},
+            },
+            cloudflareConnection: { state: "loading" },
+            cloudflareObservations: {
+              workers: { state: "loading" },
+              builds: { state: "loading" },
+              convexBuildAccess: { state: "loading" },
+            },
+            convexObservations: { state: "loading" },
+            environmentRoots: buildAlchemyEnvironmentRoots({
+              branch: "main",
+              owner: "samebase",
+              repoName: "base-alchemy",
+              schemaGraphEnabled: false,
+              repository,
+              stacks,
+            }),
+            githubRepositoryUrl: "https://github.com/samebase/base-alchemy",
+            pullRequests: { state: "loading" },
+            repository,
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(container.querySelector("section")?.getAttribute("aria-label")).toBe(
+      "Default branch main",
+    );
+    expect(container.querySelectorAll('[aria-label="Loading default branch commit"]')).toHaveLength(
+      1,
+    );
+    expect(
+      [...container.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
+    ).toEqual([
+      ["main", "https://github.com/samebase/base-alchemy/tree/main"],
+      ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
+    ]);
   });
 
   it("places the resources of every stack of samebase/samebase by stack file and rootDir", () => {

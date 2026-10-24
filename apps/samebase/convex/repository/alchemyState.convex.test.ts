@@ -8,6 +8,7 @@ import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
   observedBaseAlchemyProject,
+  observedBaseAlchemyRepositoryReply,
 } from "./fixtures/observedAlchemyState";
 
 const storeProject = {
@@ -154,11 +155,16 @@ function installAlchemyStateFetchStub(args: {
   stackReplies?: Record<string, unknown>;
   teamProjects: unknown[];
   authorizationReply?: unknown;
+  /** The answer of `POST /api/query` for `reader:repository` with the issued token. */
+  repositoryReply?: Response;
 }) {
   const stackReplies = args.stackReplies ?? {
     "samebase/base-alchemy": args.storeReply,
     "samebase/samebase": { status: "success", value: { stages: [] } },
   };
+  const repositoryReply =
+    args.repositoryReply ??
+    jsonResponse({ status: "success", value: observedBaseAlchemyRepositoryReply });
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -204,6 +210,10 @@ function installAlchemyStateFetchStub(args: {
       }
       if (url.endsWith("/delete_deploy_key")) {
         return new Response(null, { status: 200 });
+      }
+      // `reader:repository` is the one query of the store.
+      if (url === "https://brave-heron-201.convex.cloud/api/query") {
+        return repositoryReply;
       }
       // A read of a stack that the store does not list answers nothing, which fails the read.
       if (url === "https://brave-heron-201.convex.cloud/api/function" && isRecord(body)) {
@@ -300,6 +310,80 @@ describe("repository Alchemy state", () => {
       ),
     ).toBe(false);
     expect(requests.at(-1)?.url).toContain("/delete_deploy_key");
+  });
+
+  it("reads the repository once with the issued token for a first paint", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.connectWithSnapshot, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toEqual({
+      store: "live",
+      deploymentUrl: "https://brave-heron-201.convex.cloud",
+      token: "reader-token",
+      snapshot: observedBaseAlchemyRepositoryReply,
+    });
+    // The deploy key is revoked before the read, which only the reader token makes.
+    expect(requests.slice(-2)).toEqual([
+      expect.objectContaining({ url: expect.stringContaining("/delete_deploy_key") }),
+      {
+        url: "https://brave-heron-201.convex.cloud/api/query",
+        authorization: "Bearer reader-token",
+        body: { path: "reader:repository", args: {}, format: "json" },
+      },
+    ]);
+  });
+
+  it("fails a first read that the store rejects", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+      // A function error answers with the error envelope and the status that the HTTP client of
+      // convex/browser 1.48.0 names `STATUS_CODE_UDF_FAILED`, 560.
+      repositoryReply: new Response(
+        JSON.stringify({
+          status: "error",
+          errorMessage: "Alchemy repository read access is required.",
+        }),
+        { status: 560 },
+      ),
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.connectWithSnapshot, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).rejects.toThrow("Alchemy state is temporarily unavailable.");
+  });
+
+  it("reads nothing for a first paint when the team has no store", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [appProject],
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.connectWithSnapshot, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toEqual({ store: "missing" });
+    expect(requests.some((request) => request.url.endsWith("/api/query"))).toBe(false);
   });
 
   it("reads deployment metadata for a first deploy before the stage has an output", async () => {

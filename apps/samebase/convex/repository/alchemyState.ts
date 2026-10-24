@@ -10,12 +10,14 @@ import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
   vAlchemyRunRecord,
   vAlchemyLiveDeployments,
+  vAlchemyStacksRead,
   type AlchemyStage,
   type AlchemyStack,
   type AlchemyStacksRead,
 } from "../../shared/alchemyStateModel";
 import { internal } from "../_generated/api";
-import { env } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { env, type ActionCtx } from "../_generated/server";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
@@ -153,7 +155,7 @@ export async function readAlchemyStacks(args: {
       const names = parse(
         vStoreStacksReply,
         await fetchConvexDeploymentJson({
-          deployKey,
+          authorization: `Convex ${deployKey}`,
           deploymentUrl: deployment.deploymentUrl,
           path: "/api/function",
           body: { path: "state:stacks", args: {}, format: "json" },
@@ -163,7 +165,7 @@ export async function readAlchemyStacks(args: {
         names.map(async (name) => ({
           name,
           reply: await fetchConvexDeploymentJson({
-            deployKey,
+            authorization: `Convex ${deployKey}`,
             deploymentUrl: deployment.deploymentUrl,
             path: "/api/function",
             body: { path: "state:readStack", args: { stack: name }, format: "json" },
@@ -221,52 +223,104 @@ const vAlchemyConnection = union(
   object({ store: literal("missing") }),
   object({ store: literal("live"), deploymentUrl: string(), token: string() }),
 );
+const vAlchemyConnectionWithSnapshot = union(
+  object({ store: literal("missing") }),
+  object({
+    store: literal("live"),
+    deploymentUrl: string(),
+    token: string(),
+    snapshot: vAlchemyStacksRead,
+  }),
+);
 const vReaderAuthorizationReply = object({
   status: literal("success"),
   value: object({ token: string() }),
 });
+/** The reply of `POST /api/query` for `reader:repository`, the query that the browser subscribes to. */
+const vReaderRepositoryReply = object({ status: literal("success"), value: vAlchemyStacksRead });
 
 /**
 Checks Samebase access on every connection and token renewal. Only a five-minute, repository-scoped
 read token reaches the browser. The deploy key used to ask the store for that token stays here.
 */
+async function connectReader(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+): Promise<Infer<typeof vAlchemyConnection>> {
+  const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+    repositoryId: args.repositoryId,
+    userId: args.userId,
+  });
+  try {
+    const deployment = await findAlchemyDeployment(target);
+    if (!deployment) {
+      return { store: "missing" };
+    }
+
+    return await withConvexInspectionDeployKey(
+      { deployment, purpose: "alchemyReader", target },
+      async (deployKey): Promise<Infer<typeof vAlchemyConnection>> => {
+        const { token } = parse(
+          vReaderAuthorizationReply,
+          await fetchConvexDeploymentJson({
+            authorization: `Convex ${deployKey}`,
+            deploymentUrl: deployment.deploymentUrl,
+            path: "/api/function",
+            body: {
+              path: "reader:authorize",
+              args: {
+                repository: target.githubRepositoryFullName,
+                subject: `${env.CONVEX_CLOUD_URL}:${args.userId}`,
+              },
+              format: "json",
+            },
+          }),
+        ).value;
+        return { store: "live", deploymentUrl: deployment.deploymentUrl, token };
+      },
+    );
+  } catch {
+    throw new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE);
+  }
+}
+
 export const connect = action({
   access: "access_dashboard",
   args: { repositoryId: id("repositories") },
   returns: vAlchemyConnection,
-  handler: async (ctx, args): Promise<Infer<typeof vAlchemyConnection>> => {
-    const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+  handler: async (ctx, args): Promise<Infer<typeof vAlchemyConnection>> =>
+    await connectReader(ctx, { repositoryId: args.repositoryId, userId: ctx.viewer.userId }),
+});
+
+/**
+`connect` with one read of `reader:repository` through the issued token, for the loaders of the
+repository overview and the Alchemy page: the page renders the read in its first paint, and the
+browser subscribes with the same token.
+*/
+export const connectWithSnapshot = action({
+  access: "access_dashboard",
+  args: { repositoryId: id("repositories") },
+  returns: vAlchemyConnectionWithSnapshot,
+  handler: async (ctx, args): Promise<Infer<typeof vAlchemyConnectionWithSnapshot>> => {
+    const connection = await connectReader(ctx, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    try {
-      const deployment = await findAlchemyDeployment(target);
-      if (!deployment) {
-        return { store: "missing" };
-      }
+    if (connection.store === "missing") {
+      return connection;
+    }
 
-      return await withConvexInspectionDeployKey(
-        { deployment, purpose: "alchemyReader", target },
-        async (deployKey): Promise<Infer<typeof vAlchemyConnection>> => {
-          const { token } = parse(
-            vReaderAuthorizationReply,
-            await fetchConvexDeploymentJson({
-              deployKey,
-              deploymentUrl: deployment.deploymentUrl,
-              path: "/api/function",
-              body: {
-                path: "reader:authorize",
-                args: {
-                  repository: target.githubRepositoryFullName,
-                  subject: `${env.CONVEX_CLOUD_URL}:${ctx.viewer.userId}`,
-                },
-                format: "json",
-              },
-            }),
-          ).value;
-          return { store: "live", deploymentUrl: deployment.deploymentUrl, token };
-        },
+    try {
+      const { value: snapshot } = parse(
+        vReaderRepositoryReply,
+        await fetchConvexDeploymentJson({
+          authorization: `Bearer ${connection.token}`,
+          deploymentUrl: connection.deploymentUrl,
+          path: "/api/query",
+          body: { path: "reader:repository", args: {}, format: "json" },
+        }),
       );
+      return { ...connection, snapshot };
     } catch {
       throw new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE);
     }

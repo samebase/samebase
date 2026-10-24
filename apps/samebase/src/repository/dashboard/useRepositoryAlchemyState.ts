@@ -1,6 +1,7 @@
 import { useQuery as useCachedQuery } from "@tanstack/react-query";
 import { parse } from "convex-helpers/validators";
 import { ConvexClient } from "convex/browser";
+import { useMatch } from "@tanstack/react-router";
 import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -31,7 +32,33 @@ export type RepositoryAlchemyState =
 
 type StoreResult = { state: "failed"; error: Error } | { state: "loaded"; read: AlchemyStacksRead };
 
-/** One connection for the selected repository. Cleanup closes it; results belong to its target. */
+/**
+The store read that the loader of the current page made for its first paint, when it is for this
+repository and team: the repository overview and the Alchemy page load one. Both routes keep no
+loader data after the page is left, so this is never a read of an earlier visit.
+*/
+function useLoaderRead(repositoryId: Id<"repositories"> | null, convexTeamId: string | undefined) {
+  const overviewRead = useMatch({
+    from: "/_authed/repo/$owner/$repository",
+    shouldThrow: false,
+    select: (match) => match.loaderData,
+  });
+  const alchemyPageRead = useMatch({
+    from: "/_authed/repo/$owner/$repository/alchemy",
+    shouldThrow: false,
+    select: (match) => match.loaderData,
+  });
+  const read = overviewRead ?? alchemyPageRead;
+  return read?.repositoryId === repositoryId && read.convexTeamId === convexTeamId
+    ? read
+    : undefined;
+}
+
+/**
+One connection for the selected repository. Cleanup closes it; results belong to its target. The
+loader's read stands until the first subscription result, and the connection starts with its token,
+so the page has the stacks before any request of the browser. A reload connects again.
+*/
 export function useRepositoryAlchemyState(
   repositoryId: Id<"repositories"> | null,
   convexTeamId: string | undefined,
@@ -40,14 +67,31 @@ export function useRepositoryAlchemyState(
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
   const connect = useAction(api.repository.alchemyState.connect);
   const readDeploymentMetadata = useAction(api.repository.alchemyState.readDeploymentMetadata);
+  const loaderRead = useLoaderRead(repositoryId, convexTeamId);
   const [attempt, setAttempt] = useState(0);
+  const [reloadedRead, setReloadedRead] = useState<typeof loaderRead>();
+  const firstRead = loaderRead === reloadedRead ? undefined : loaderRead;
   const userId = isAuthenticated ? viewer?._id : undefined;
   const target = useMemo(
-    () => (repositoryId && userId ? { repositoryId, userId, convexTeamId, attempt } : null),
-    [repositoryId, userId, convexTeamId, attempt],
+    () =>
+      repositoryId && userId ? { repositoryId, userId, convexTeamId, attempt, firstRead } : null,
+    [repositoryId, userId, convexTeamId, attempt, firstRead],
   );
   const [result, setResult] = useState<{ target: typeof target; value: StoreResult }>();
-  const reload = useCallback(() => setAttempt((current) => current + 1), []);
+  const reload = useCallback(() => {
+    setReloadedRead(loaderRead);
+    setAttempt((current) => current + 1);
+  }, [loaderRead]);
+  const firstResult = useMemo((): StoreResult | undefined => {
+    if (!firstRead) return undefined;
+    if (firstRead.state === "failed")
+      return { state: "failed", error: new Error(firstRead.message) };
+    const { connection } = firstRead;
+    return {
+      state: "loaded",
+      read: connection.store === "missing" ? connection : connection.snapshot,
+    };
+  }, [firstRead]);
 
   // The second client reads the team store. Samebase hooks keep their existing provider and auth.
   useEffect(() => {
@@ -104,7 +148,9 @@ export function useRepositoryAlchemyState(
     };
 
     const start = async () => {
-      const connection = await readConnection();
+      // A failed first read stays on screen while the browser connects with its retries.
+      const connection =
+        target.firstRead?.state === "loaded" ? target.firstRead.connection : await readConnection();
       if (!connection || stopped) return;
       if (connection.store === "missing") {
         setResult({ target, value: { state: "loaded", read: connection } });
@@ -164,7 +210,7 @@ export function useRepositoryAlchemyState(
     };
   }, [target, connect]);
 
-  const current = result?.target === target ? result.value : undefined;
+  const current = (result?.target === target ? result.value : undefined) ?? firstResult;
   const deployments =
     current?.state === "loaded" && current.read.store === "found"
       ? current.read.stacks.flatMap((stack) =>
