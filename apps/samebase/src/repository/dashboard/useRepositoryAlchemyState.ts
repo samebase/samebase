@@ -59,6 +59,7 @@ export function useRepositoryAlchemyState(
     let stopped = false;
     let client: ConvexClient | undefined;
     let cancelRetry: (() => void) | undefined;
+    let snapshotTimeout: ReturnType<typeof setTimeout> | undefined;
     const fail = (error: unknown) => {
       if (stopped) return;
       setResult({
@@ -70,102 +71,109 @@ export function useRepositoryAlchemyState(
       });
       stopped = true;
       cancelRetry?.();
+      clearTimeout(snapshotTimeout);
       void client?.close();
     };
 
-    void connect({ repositoryId: target.repositoryId })
-      .then((connection) => {
-        if (stopped) return;
-        if (connection.store !== "live") {
-          setResult({
-            target,
-            value: {
-              state: "snapshot",
-              observation: connection.store === "missing" ? connection : connection.observation,
-            },
+    const readConnection = async () => {
+      for (const delay of [0, 2_000, 5_000]) {
+        if (stopped) return null;
+        if (delay) {
+          await new Promise<void>((resolve) => {
+            const timeout = setTimeout(resolve, delay);
+            cancelRetry = () => {
+              clearTimeout(timeout);
+              resolve();
+            };
           });
-          return;
+          cancelRetry = undefined;
+          // eslint-disable-next-line typescript/no-unnecessary-condition -- Cleanup can run while the retry timer awaits.
+          if (stopped) return null;
         }
-        client = new ConvexClient(connection.deploymentUrl, {
-          expectAuth: true,
-          authRefreshTokenLeewaySeconds: 60,
-          unsavedChangesWarning: false,
-        });
-        let initialToken: string | null = connection.token;
-        client.setAuth(
-          async ({ forceRefreshToken }) => {
-            if (stopped) return null;
-            if (initialToken && !forceRefreshToken) {
-              const token = initialToken;
-              initialToken = null;
-              return token;
-            }
-            initialToken = null;
-            for (const delay of [0, 2_000, 5_000]) {
-              if (delay) {
-                // eslint-disable-next-line typescript/no-unnecessary-condition -- Cleanup can run before a rejected renewal reaches the next attempt.
-                if (stopped) return null;
-                await new Promise<void>((resolve) => {
-                  const timeout = setTimeout(resolve, delay);
-                  cancelRetry = () => {
-                    clearTimeout(timeout);
-                    resolve();
-                  };
-                });
-                cancelRetry = undefined;
-              }
-              // eslint-disable-next-line typescript/no-unnecessary-condition -- Cleanup can run while the retry timer awaits.
-              if (stopped) return null;
-              try {
-                const refreshed = await connect({ repositoryId: target.repositoryId });
-                // eslint-disable-next-line typescript/no-unnecessary-condition -- Cleanup can run while token renewal awaits.
-                if (stopped) return null;
-                if (
-                  refreshed.store !== "live" ||
-                  refreshed.deploymentUrl !== connection.deploymentUrl
-                ) {
-                  throw new Error("The Alchemy state connection changed. Try again.");
-                }
-                return refreshed.token;
-              } catch (error) {
-                if (
-                  !(error instanceof ConvexError) ||
-                  error.data !== ALCHEMY_CONNECTION_UNAVAILABLE ||
-                  delay === 5_000
-                ) {
-                  fail(error);
-                  return null;
-                }
-              }
-            }
+        try {
+          return await connect({ repositoryId: target.repositoryId });
+        } catch (error) {
+          // Convex wraps request_manager's transport failure with the action path in logging.ts.
+          const transient =
+            error instanceof ConvexError
+              ? error.data === ALCHEMY_CONNECTION_UNAVAILABLE
+              : error instanceof Error &&
+                error.message ===
+                  "[CONVEX A(repository/alchemyState:connect)] Connection lost while action was in flight\n  Called by client";
+          if (!transient || delay === 5_000) {
+            fail(error);
             return null;
+          }
+        }
+      }
+      return null;
+    };
+
+    const start = async () => {
+      const connection = await readConnection();
+      if (!connection || stopped) return;
+      if (connection.store !== "live") {
+        setResult({
+          target,
+          value: {
+            state: "snapshot",
+            observation: connection.store === "missing" ? connection : connection.observation,
           },
-          (authenticated) => {
-            if (!authenticated) fail(new Error("Alchemy state access ended. Try again."));
-          },
-        );
-        client.onUpdate(
-          repositoryQuery,
-          {},
-          (reply) => {
-            if (stopped) return;
-            try {
-              setResult({
-                target,
-                value: { state: "live", read: parse(vAlchemyStacksRead, reply) },
-              });
-            } catch (error) {
-              fail(error);
-            }
-          },
-          fail,
-        );
-      })
-      .catch(fail);
+        });
+        snapshotTimeout = setTimeout(() => void start().catch(fail), 30_000);
+        return;
+      }
+      client = new ConvexClient(connection.deploymentUrl, {
+        expectAuth: true,
+        authRefreshTokenLeewaySeconds: 60,
+        unsavedChangesWarning: false,
+      });
+      let initialToken: string | null = connection.token;
+      client.setAuth(
+        async ({ forceRefreshToken }) => {
+          if (stopped) return null;
+          if (initialToken && !forceRefreshToken) {
+            const token = initialToken;
+            initialToken = null;
+            return token;
+          }
+          initialToken = null;
+          const refreshed = await readConnection();
+          // eslint-disable-next-line typescript/no-unnecessary-condition -- Cleanup can run while token renewal awaits.
+          if (!refreshed || stopped) return null;
+          if (refreshed.store !== "live" || refreshed.deploymentUrl !== connection.deploymentUrl) {
+            fail(new Error("The Alchemy state connection changed. Try again."));
+            return null;
+          }
+          return refreshed.token;
+        },
+        (authenticated) => {
+          if (!authenticated) fail(new Error("Alchemy state access ended. Try again."));
+        },
+      );
+      client.onUpdate(
+        repositoryQuery,
+        {},
+        (reply) => {
+          if (stopped) return;
+          try {
+            setResult({
+              target,
+              value: { state: "live", read: parse(vAlchemyStacksRead, reply) },
+            });
+          } catch (error) {
+            fail(error);
+          }
+        },
+        fail,
+      );
+    };
+    void start().catch(fail);
     return () => {
       if (stopped) return;
       stopped = true;
       cancelRetry?.();
+      clearTimeout(snapshotTimeout);
       void client?.close();
     };
   }, [target, connect]);
@@ -196,6 +204,12 @@ export function useRepositoryAlchemyState(
       if (!repositoryId) throw new Error("Repository is required to read deployment metadata.");
       return await readDeploymentMetadata({ repositoryId });
     },
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[1] === repositoryId &&
+      previousQuery.queryKey[2] === userId &&
+      previousQuery.queryKey[3] === convexTeamId
+        ? previousData
+        : undefined,
     enabled: target !== null && deployments.length > 0,
     retry: false,
     staleTime: 60_000,
@@ -228,7 +242,7 @@ export function useRepositoryAlchemyState(
       current.read.store === "missing"
         ? current.read
         : { ...current.read, liveDeployments: metadata.data ?? [] },
-    refreshFailed: metadata.isRefetchError,
+    refreshFailed: metadata.isError,
     reload,
   };
 }

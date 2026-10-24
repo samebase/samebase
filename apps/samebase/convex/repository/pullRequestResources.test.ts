@@ -1113,7 +1113,7 @@ describe("buildPullRequestAlchemyPreview", () => {
     ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
   });
 
-  it("keeps the previous preview commit until the current run finishes", () => {
+  it("credits the head only when the latest resource write and completed deploy match it", () => {
     const currentHead = "b".repeat(40);
     const advancing = {
       ...stack,
@@ -1140,6 +1140,14 @@ describe("buildPullRequestAlchemyPreview", () => {
         head: { number: 1768, headRefOid: currentHead },
       }),
     ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: currentHead }] });
+
+    advancing.stacks[0].stages[0].record.headCommit = record.headCommit;
+    expect(
+      buildPullRequestAlchemyPreview({
+        stack: advancing,
+        head: { number: 1768, headRefOid: currentHead },
+      }),
+    ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
   });
 
   it("leaves out a Site row without attributes or without rootDir", () => {

@@ -32,7 +32,11 @@ export function buildPullRequestAlchemyPreview(args: {
     return {
       ...placeStageResources({ stackFile: stage.record.stackFile, resources: stage.resources }),
       url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
-      headCommit: deployedHeadCommit === args.head.headRefOid ? args.head.headRefOid : null,
+      headCommit:
+        deployedHeadCommit === args.head.headRefOid &&
+        stage.record.headCommit === deployedHeadCommit
+          ? args.head.headRefOid
+          : null,
     };
   });
   return {

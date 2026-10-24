@@ -26,7 +26,9 @@ run Alchemy once to install store version 3. Use a temporary repository name tha
 7. Confirm nested Alchemy `Redacted` values show only the secret marker. Do not use real secrets in
    this test, or capture tokens in screenshots or logs.
 8. Check a separate version-2 store. Confirm its existing snapshot view and pull request refresh
-   still work. A version-3 authorization error must show an error rather than use the snapshot path.
+   still work. Upgrade that store while the page stays open. Confirm the next 30-second check
+   switches it to live updates without reload. A version-3 authorization error must show an error
+   rather than use the snapshot path.
 
 ## Expected Results
 
