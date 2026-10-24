@@ -31,7 +31,7 @@ import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import { applyRepositoryDashboardProviderAddSearch } from "@/routeSearch/root";
 import { Link } from "@tanstack/react-router";
-import { formatConvexDeploymentRegionLabel } from "../../../shared/convexDeploymentRegions";
+import { convexDeploymentRegionDetails } from "../../../shared/convexDeploymentRegions";
 import {
   CircleCheck,
   CircleDashed,
@@ -145,6 +145,7 @@ function DestinationResource({
   resource: Extract<RepositoryEnvironmentResource, { kind: "destination" }>;
 }) {
   const presentation = resourceTypePresentation("Convex.Deployment");
+  const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
 
   return (
     <div
@@ -169,11 +170,17 @@ function DestinationResource({
           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
         </a>
         <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
+        {region ? (
+          <span className="text-xs" title={region.displayName}>
+            <span aria-hidden="true">{region.icon}</span>
+            <span className="sr-only">{region.displayName}</span>
+          </span>
+        ) : null}
         {resource.actions.length > 0 ? (
           <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
         ) : null}
       </div>
-      {resource.provenance === "production" && !resource.region && !resource.components ? null : (
+      {resource.provenance === "production" && !resource.components ? null : (
         <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
           {resource.provenance === "pull_request_branch" ? (
             <span className="text-xs leading-5 text-muted-foreground">
@@ -182,11 +189,6 @@ function DestinationResource({
           ) : resource.provenance === "pull_request_head" ? (
             <span className="font-mono text-xs leading-5 text-muted-foreground">
               {resource.headCommit.slice(0, 7)}
-            </span>
-          ) : null}
-          {resource.region ? (
-            <span className="text-xs leading-5 text-muted-foreground">
-              {formatConvexDeploymentRegionLabel(resource.region)}
             </span>
           ) : null}
           {resource.components?.map((component) => (
