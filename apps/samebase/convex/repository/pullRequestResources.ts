@@ -53,7 +53,7 @@ import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
 import { readCloudflareObservationInput } from "./providerObservations";
 
-const { array, id, literal, optional, string, union } = v;
+const { array, id, literal, string, union } = v;
 
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
@@ -1430,8 +1430,8 @@ export const getPullRequestResources = action({
   args: {
     repositoryId: id("repositories"),
     pullRequestIds: array(string()),
-    /** Browser resource source. Omitted by callers that need the server to read the store. */
-    source: optional(union(literal("attachments"), literal("alchemy"))),
+    /** The browser picks the source from its store subscription. */
+    source: union(literal("attachments"), literal("alchemy")),
   },
   returns: array(vPullRequestResources),
   handler: async (ctx, args): Promise<PullRequestResourceRead[]> =>

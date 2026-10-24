@@ -185,14 +185,7 @@ export function useRepositoryPullRequests(args: {
         : [],
     [args.source, args.alchemyState],
   );
-  const resourceSource =
-    args.source === "attachments"
-      ? "attachments"
-      : args.alchemyState.state === "loaded" && args.alchemyState.transport === "snapshot"
-        ? undefined
-        : alchemyStacks.length > 0
-          ? "alchemy"
-          : "attachments";
+  const resourceSource = alchemyStacks.length > 0 ? "alchemy" : "attachments";
 
   const workerAttachments = [...(args.repository?.cloudflareWorkers ?? [])]
     .map((worker) => ({
@@ -323,8 +316,7 @@ export function useRepositoryPullRequests(args: {
             workers: pullRequestResources.workers,
             convexProjects: pullRequestResources.convexProjects,
             hostingPreviews: pullRequestResources.hostingPreviews,
-            alchemyPreview:
-              resourceSource === undefined ? pullRequestResources.alchemyPreview : alchemyPreview,
+            alchemyPreview,
           },
         });
       }
@@ -336,7 +328,6 @@ export function useRepositoryPullRequests(args: {
     allPullRequests,
     alchemyStacks,
     args.alchemyState,
-    resourceSource,
   ]);
 
   const { fetchNextPage, refetch } = pullRequestQuery;

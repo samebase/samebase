@@ -31,7 +31,6 @@ vi.mock("./useRepositoryAlchemyState", () => ({
     alchemy.requested(repositoryId);
     return {
       state: "loaded",
-      transport: "live",
       observation: repositoryId ? alchemy.observation : { store: "missing" },
       refreshFailed: false,
       reload: () => {},
@@ -482,6 +481,7 @@ describe("useRepositoryProviderObservations", () => {
                 source: "laptop",
                 recordedAt: "2026-10-21T19:58:06.882Z",
               },
+              deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
               resources: [],
               output: "{}",
             },

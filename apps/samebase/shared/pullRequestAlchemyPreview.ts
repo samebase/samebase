@@ -27,14 +27,12 @@ export function buildPullRequestAlchemyPreview(args: {
 
   const placed = stages.map((stage) => {
     const output: unknown = JSON.parse(stage.output);
-    const deployedHeadCommit =
-      stage.deployedHeadCommit === undefined ? stage.record.headCommit : stage.deployedHeadCommit;
     return {
       ...placeStageResources({ stackFile: stage.record.stackFile, resources: stage.resources }),
       url: validate(vStageOutputUrl, output, { allowUnknownFields: true }) ? output.url : null,
       headCommit:
-        deployedHeadCommit === args.head.headRefOid &&
-        stage.record.headCommit === deployedHeadCommit
+        stage.deployedHeadCommit === args.head.headRefOid &&
+        stage.record.headCommit === stage.deployedHeadCommit
           ? args.head.headRefOid
           : null,
     };

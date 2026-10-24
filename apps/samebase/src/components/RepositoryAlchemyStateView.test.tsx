@@ -45,6 +45,7 @@ const prodRecord = {
 const pr1768Stage: AlchemyStage = {
   name: pr1768.stage,
   record: pr1768Record,
+  deployedHeadCommit: pr1768Record.headCommit,
   resources: pr1768.resources,
   output: '{"url":"https://aware-bobcat-542.convex.site"}',
 };
@@ -86,6 +87,7 @@ function deploymentWith(
     {
       name: "prod",
       record: { ...prodRecord, stackFile },
+      deployedHeadCommit: prodRecord.headCommit,
       resources: [{ fqn: "Deployment", value: JSON.stringify(deployment) }],
       output: "{}",
     },
@@ -174,6 +176,7 @@ describe("AlchemyStateTree", () => {
             {
               name: samebaseProd.stage,
               record: prodRecord,
+              deployedHeadCommit: prodRecord.headCommit,
               resources: samebaseProd.resources,
               output: '{"url":"https://clear-butterfly-858.convex.site"}',
             },
@@ -185,6 +188,7 @@ describe("AlchemyStateTree", () => {
             {
               name: "prod",
               record: { ...prodRecord, stackFile: "apps/sidebars-example/alchemy.run.ts" },
+              deployedHeadCommit: prodRecord.headCommit,
               resources: [],
               output: "{}",
             },
@@ -246,6 +250,7 @@ describe("AlchemyStateTree", () => {
             repository: "samebase/tmp-k7m2-rows",
             stackFile: "alchemy.run.ts",
           },
+          deployedHeadCommit: prodRecord.headCommit,
           resources: [
             {
               fqn: "Worker",
@@ -273,6 +278,7 @@ describe("AlchemyStateTree", () => {
         {
           name: "prod",
           record: prodRecord,
+          deployedHeadCommit: prodRecord.headCommit,
           resources: [],
           output:
             '{"url":"https://clear-butterfly-858.convex.site","deployKey":{"__redacted__":"prod:clear-butterfly-858|state-secret-value"},"nested":{"token":{"__redacted__":null}}}',

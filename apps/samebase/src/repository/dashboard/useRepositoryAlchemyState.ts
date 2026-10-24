@@ -24,16 +24,12 @@ export type RepositoryAlchemyState =
   | { state: "failed"; error: Error; reload: () => void }
   | {
       state: "loaded";
-      transport: "live" | "snapshot";
       observation: AlchemyStateObservation;
       refreshFailed: boolean;
       reload: () => void;
     };
 
-type StoreResult =
-  | { state: "failed"; error: Error }
-  | { state: "snapshot"; observation: AlchemyStateObservation }
-  | { state: "live"; read: AlchemyStacksRead };
+type StoreResult = { state: "failed"; error: Error } | { state: "loaded"; read: AlchemyStacksRead };
 
 /** One connection for the selected repository. Cleanup closes it; results belong to its target. */
 export function useRepositoryAlchemyState(
@@ -59,7 +55,6 @@ export function useRepositoryAlchemyState(
     let stopped = false;
     let client: ConvexClient | undefined;
     let cancelRetry: (() => void) | undefined;
-    let snapshotTimeout: ReturnType<typeof setTimeout> | undefined;
     const fail = (error: unknown) => {
       if (stopped) return;
       setResult({
@@ -71,7 +66,6 @@ export function useRepositoryAlchemyState(
       });
       stopped = true;
       cancelRetry?.();
-      clearTimeout(snapshotTimeout);
       void client?.close();
     };
 
@@ -112,15 +106,8 @@ export function useRepositoryAlchemyState(
     const start = async () => {
       const connection = await readConnection();
       if (!connection || stopped) return;
-      if (connection.store !== "live") {
-        setResult({
-          target,
-          value: {
-            state: "snapshot",
-            observation: connection.store === "missing" ? connection : connection.observation,
-          },
-        });
-        snapshotTimeout = setTimeout(() => void start().catch(fail), 30_000);
+      if (connection.store === "missing") {
+        setResult({ target, value: { state: "loaded", read: connection } });
         return;
       }
       client = new ConvexClient(connection.deploymentUrl, {
@@ -159,7 +146,7 @@ export function useRepositoryAlchemyState(
           try {
             setResult({
               target,
-              value: { state: "live", read: parse(vAlchemyStacksRead, reply) },
+              value: { state: "loaded", read: parse(vAlchemyStacksRead, reply) },
             });
           } catch (error) {
             fail(error);
@@ -173,14 +160,13 @@ export function useRepositoryAlchemyState(
       if (stopped) return;
       stopped = true;
       cancelRetry?.();
-      clearTimeout(snapshotTimeout);
       void client?.close();
     };
   }, [target, connect]);
 
   const current = result?.target === target ? result.value : undefined;
   const deployments =
-    current?.state === "live" && current.read.store === "found"
+    current?.state === "loaded" && current.read.store === "found"
       ? current.read.stacks.flatMap((stack) =>
           stack.stages
             .filter((stage) => stage.name === "prod")
@@ -216,28 +202,12 @@ export function useRepositoryAlchemyState(
   });
 
   if (!repositoryId) {
-    return {
-      state: "loaded",
-      transport: "snapshot",
-      observation: { store: "missing" },
-      refreshFailed: false,
-      reload,
-    };
+    return { state: "loaded", observation: { store: "missing" }, refreshFailed: false, reload };
   }
   if (!current) return { state: "loading" };
   if (current.state === "failed") return { ...current, reload };
-  if (current.state === "snapshot") {
-    return {
-      state: "loaded",
-      transport: "snapshot",
-      observation: current.observation,
-      refreshFailed: false,
-      reload,
-    };
-  }
   return {
     state: "loaded",
-    transport: "live",
     observation:
       current.read.store === "missing"
         ? current.read

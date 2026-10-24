@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { vConvexDeploymentRegion } from "../convex/convexDeploymentRegionModel";
 
-const { array, literal, number, object, optional, string, union } = v;
+const { array, literal, number, object, string, union } = v;
 
 /** Renewal may retry provider failures. Samebase access failures remain separate. */
 export const ALCHEMY_CONNECTION_UNAVAILABLE = "Alchemy state is temporarily unavailable.";
@@ -25,8 +25,8 @@ export const vAlchemyRunRecord = object({
 const vAlchemyStage = object({
   name: string(),
   record: vAlchemyRunRecord,
-  /** Last completed deploy. Absent in snapshots from stores before version 3. */
-  deployedHeadCommit: optional(union(string(), v.null())),
+  /** Last completed deploy. */
+  deployedHeadCommit: union(string(), v.null()),
   /** JSON from Alchemy's `encodeState`, with marked secret values removed. */
   resources: array(object({ fqn: string(), value: string() })),
   /** JSON without the run record or marked secret values. */

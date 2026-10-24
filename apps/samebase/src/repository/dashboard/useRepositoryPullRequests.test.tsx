@@ -243,7 +243,6 @@ beforeEach(() => {
   currentSourceSetupRunning = false;
   currentAlchemyState = {
     state: "loaded",
-    transport: "snapshot",
     observation: { store: "missing" },
     refreshFailed: false,
     reload: () => {},
@@ -304,6 +303,7 @@ describe("useRepositoryPullRequests", () => {
                 source: "laptop" as const,
                 recordedAt: "2026-10-21T19:58:06.882Z",
               },
+              deployedHeadCommit: headRefOid,
             },
           ],
         },
@@ -311,7 +311,6 @@ describe("useRepositoryPullRequests", () => {
     };
     currentAlchemyState = {
       state: "loaded",
-      transport: "live",
       observation,
       refreshFailed: false,
       reload: () => {},
@@ -467,8 +466,16 @@ describe("useRepositoryPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1260"] },
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1259"] },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1260"],
+        source: "attachments",
+      },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1259"],
+        source: "attachments",
+      },
     ]);
 
     currentCloudflareWorkers = [
@@ -497,8 +504,16 @@ describe("useRepositoryPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1260"] },
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1259"] },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1260"],
+        source: "attachments",
+      },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1259"],
+        source: "attachments",
+      },
     ]);
     expect(listHandler).toHaveBeenCalledTimes(2);
 
@@ -515,8 +530,16 @@ describe("useRepositoryPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.slice(4).map((call) => call[0])).toEqual([
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1260"] },
-      { repositoryId: fakeRepositoryId(), pullRequestIds: ["pull-request:1259"] },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1260"],
+        source: "attachments",
+      },
+      {
+        repositoryId: fakeRepositoryId(),
+        pullRequestIds: ["pull-request:1259"],
+        source: "attachments",
+      },
     ]);
     expect(listHandler).toHaveBeenCalledTimes(2);
   });
@@ -574,6 +597,7 @@ describe("useRepositoryPullRequests", () => {
     expect(resourceHandler.mock.calls[2]?.[0]).toEqual({
       repositoryId: fakeRepositoryId(),
       pullRequestIds: ["pull-request:1259"],
+      source: "attachments",
     });
     expect(
       queryClient.getQueryCache().find({
@@ -581,7 +605,7 @@ describe("useRepositoryPullRequests", () => {
         queryKey: [
           ...repositoryExternalDataQueryKey(fakeRepositoryId()),
           "pull-request-resources",
-          undefined,
+          "attachments",
           [],
           [],
           [["pull-request:1259", refreshedHeadRefOid]],

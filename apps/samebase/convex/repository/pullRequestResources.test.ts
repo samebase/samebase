@@ -1080,6 +1080,7 @@ describe("buildPullRequestAlchemyPreview", () => {
           {
             name: pr1768.stage,
             record,
+            deployedHeadCommit: record.headCommit,
             resources: pr1768.resources,
             output: '{"url":"https://aware-bobcat-542.convex.site"}',
           },
@@ -1159,7 +1160,15 @@ describe("buildPullRequestAlchemyPreview", () => {
       stacks: [
         {
           name: "samebase/samebase",
-          stages: [{ name: pr1768.stage, record, resources: [...resources], output: "{}" }],
+          stages: [
+            {
+              name: pr1768.stage,
+              record,
+              deployedHeadCommit: record.headCommit,
+              resources: [...resources],
+              output: "{}",
+            },
+          ],
         },
       ],
     });

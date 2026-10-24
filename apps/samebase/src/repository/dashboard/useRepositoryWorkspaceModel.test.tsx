@@ -63,7 +63,6 @@ vi.mock("./useRepositoryProviderObservations", () => ({
         testState.alchemy.state === "loaded"
           ? {
               state: "loaded",
-              transport: "snapshot",
               observation: testState.alchemy.observations.at(0) ?? { store: "missing" },
               refreshFailed: testState.alchemy.refreshFailed,
               reload: testState.alchemy.reload,
@@ -297,6 +296,7 @@ describe("useRepositoryWorkspaceModel", () => {
                     source: "github-actions",
                     recordedAt: "2026-10-21T19:58:06.882Z",
                   },
+                  deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
                   resources: prod.resources.map((resource) => ({
                     fqn: resource.fqn,
                     value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),

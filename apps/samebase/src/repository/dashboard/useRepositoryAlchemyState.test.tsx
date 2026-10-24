@@ -49,6 +49,7 @@ const productionStack = {
         source: "laptop" as const,
         recordedAt: "2026-10-22T09:34:35.577Z",
       },
+      deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
     },
   ],
 };
@@ -295,51 +296,6 @@ describe("useRepositoryAlchemyState", () => {
     },
   );
 
-  it("refreshes missing and legacy stores, then stops polling when the store supports live reads", async () => {
-    vi.useFakeTimers();
-    mocks.connect.mockResolvedValue({ store: "missing" });
-    await render();
-    expect(latest).toMatchObject({ transport: "snapshot", observation: { store: "missing" } });
-    mocks.connect.mockResolvedValue({
-      store: "snapshot",
-      observation: { store: "found", stacks: [{ name: "first", stages: [] }], liveDeployments: [] },
-    });
-    await act(async () => vi.advanceTimersByTimeAsync(30_000));
-    expect(latest).toMatchObject({
-      transport: "snapshot",
-      observation: { stacks: [{ name: "first" }] },
-    });
-    mocks.connect.mockResolvedValue({
-      store: "snapshot",
-      observation: { store: "found", stacks: [{ name: "next", stages: [] }], liveDeployments: [] },
-    });
-    await act(async () => vi.advanceTimersByTimeAsync(30_000));
-    expect(latest).toMatchObject({ observation: { stacks: [{ name: "next" }] } });
-    mocks.connect.mockResolvedValue({
-      store: "live",
-      deploymentUrl: "https://test-store.convex.cloud",
-      token: "initial-token",
-    });
-    await act(async () => vi.advanceTimersByTimeAsync(30_000));
-    await act(async () => client().value?.({ store: "found", stacks: [] }));
-    expect(latest).toMatchObject({ transport: "live" });
-    const calls = mocks.connect.mock.calls.length;
-    await act(async () => vi.advanceTimersByTimeAsync(60_000));
-    expect(mocks.connect).toHaveBeenCalledTimes(calls);
-  });
-
-  it("cancels legacy checks when the user signs out", async () => {
-    vi.useFakeTimers();
-    mocks.connect.mockResolvedValue({ store: "missing" });
-    await render();
-    const calls = mocks.connect.mock.calls.length;
-    mocks.authenticated = false;
-    await render();
-    await act(async () => vi.advanceTimersByTimeAsync(60_000));
-    expect(mocks.connect).toHaveBeenCalledTimes(calls);
-    expect(latest).toEqual({ state: "loading" });
-  });
-
   it("reports a failed first metadata request", async () => {
     vi.useFakeTimers();
     mocks.metadata.mockRejectedValue(new Error("Deployment metadata is unavailable."));
@@ -394,8 +350,8 @@ describe("useRepositoryAlchemyState", () => {
     },
   );
 
-  it("uses an explicit old-store snapshot and rejects invalid live replies", async () => {
-    mocks.connect.mockResolvedValue({ store: "snapshot", observation: { store: "missing" } });
+  it("opens no client for a missing store and rejects invalid live replies", async () => {
+    mocks.connect.mockResolvedValue({ store: "missing" });
     await render();
     expect(mocks.clients).toHaveLength(0);
     expect(latest).toMatchObject({ state: "loaded", observation: { store: "missing" } });
@@ -404,7 +360,6 @@ describe("useRepositoryAlchemyState", () => {
       deploymentUrl: "https://test-store.convex.cloud",
       token: "initial-token",
     });
-    if (latest.state !== "loaded") throw new Error("Snapshot did not load.");
     await act(async () => latest.state === "loaded" && latest.reload());
     await act(async () => client().value?.({ store: "found", stacks: "invalid" }));
     expect(latest.state).toBe("failed");

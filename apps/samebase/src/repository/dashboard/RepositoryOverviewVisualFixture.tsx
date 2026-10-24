@@ -936,7 +936,6 @@ function buildFixtureWorkspace({
   const workspace = {
     alchemyState: {
       state: "loaded",
-      transport: "snapshot",
       observation: { store: "missing" },
       refreshFailed: false,
       reload: () => {},

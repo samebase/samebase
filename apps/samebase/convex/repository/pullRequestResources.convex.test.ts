@@ -243,33 +243,6 @@ describe("pull request resources from the Alchemy state of the team", () => {
     });
   });
 
-  it("shows no preview for samebase/base-alchemy#24, whose captured stage has no run record", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedBaseAlchemy(t);
-    githubMocks.graphql.mockImplementation(async (query: string) => {
-      if (query.includes("query PullRequestResourceHeads")) {
-        return { nodes: [pullRequest24] };
-      }
-      throw new Error("Only the heads query is answered in this test.");
-    });
-    installConvexFetchStub(observedAlchemyStackReply);
-
-    const [resources] = await user.action(
-      api.repository.pullRequestResources.getPullRequestResources,
-      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24"] },
-    );
-
-    // The stage prod has a run record, so the store holds a stack of the repository and the
-    // attachment rows are not read; the stage pr-24 has none, so the pull request has no preview.
-    expect(resources).toMatchObject({
-      state: "available",
-      pullRequestId: "PR_24",
-      workers: [],
-      convexProjects: [],
-      alchemyPreview: { state: "absent" },
-    });
-  });
-
   it("reads the attachment row and not the store for source attachments", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedBaseAlchemy(t);

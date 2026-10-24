@@ -120,7 +120,6 @@ function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSel
   return {
     alchemyState: {
       state: "loaded",
-      transport: "snapshot",
       observation: { store: "missing" },
       refreshFailed: false,
       reload: () => {},

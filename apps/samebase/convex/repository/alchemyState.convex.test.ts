@@ -150,10 +150,8 @@ function installAlchemyStateFetchStub(args: {
   storeReply: unknown;
   stackReplies?: Record<string, unknown>;
   teamProjects: unknown[];
-  storeVersion?: number;
   authorizationReply?: unknown;
 }) {
-  const storeVersion = args.storeVersion ?? 2;
   const stackReplies = args.stackReplies ?? {
     "samebase/base-alchemy": args.storeReply,
     "samebase/samebase": { status: "success", value: { stages: [] } },
@@ -206,9 +204,6 @@ function installAlchemyStateFetchStub(args: {
       }
       // A read of a stack that the store does not list answers nothing, which fails the read.
       if (url === "https://brave-heron-201.convex.cloud/api/function" && isRecord(body)) {
-        if (body["path"] === "state:version") {
-          return jsonResponse({ status: "success", value: storeVersion });
-        }
         if (body["path"] === "reader:authorize") {
           return jsonResponse(
             args.authorizationReply ?? { status: "success", value: { token: "reader-token" } },
@@ -241,7 +236,6 @@ describe("repository Alchemy state", () => {
       requests,
       storeReply: observedAlchemyStackReply,
       teamProjects: [storeProject],
-      storeVersion: 3,
     });
 
     await expect(
@@ -264,7 +258,6 @@ describe("repository Alchemy state", () => {
         .filter((request) => request.url.endsWith("/api/function"))
         .map((request) => request.body),
     ).toEqual([
-      { path: "state:version", args: {}, format: "json" },
       {
         path: "reader:authorize",
         args: {
@@ -288,28 +281,6 @@ describe("repository Alchemy state", () => {
     expect(requests).toEqual([]);
   });
 
-  it("keeps the snapshot protocol for stores before version 3", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
-    const requests: RecordedRequest[] = [];
-    installAlchemyStateFetchStub({
-      requests,
-      storeReply: observedAlchemyStackReply,
-      teamProjects: [storeProject],
-      storeVersion: 2,
-    });
-    const result = await user.action(api.repository.alchemyState.connect, {
-      repositoryId: ids.repositoryId,
-    });
-    expect(result).toMatchObject({ store: "snapshot", observation: { store: "found" } });
-    expect(
-      requests.some(
-        (request) => isRecord(request.body) && request.body["path"] === "reader:authorize",
-      ),
-    ).toBe(false);
-    expect(requests.at(-1)?.url).toContain("/delete_deploy_key");
-  });
-
   it("fails on a reader authorization error and still revokes the deploy key", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
@@ -318,7 +289,6 @@ describe("repository Alchemy state", () => {
       requests,
       storeReply: observedAlchemyStackReply,
       teamProjects: [storeProject],
-      storeVersion: 3,
       authorizationReply: { status: "error", errorMessage: "Reader authorization failed" },
     });
     await expect(
@@ -415,6 +385,7 @@ describe("repository Alchemy state", () => {
                 source: "github-actions",
                 recordedAt: "2026-10-21T19:58:06.882Z",
               },
+              deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
               resources: storeReply.value.stages[2]?.resources,
               output: '{"url":"https://ideal-dolphin-15.convex.site"}',
             },

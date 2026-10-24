@@ -32,7 +32,7 @@ import {
 } from "./convexProjectResources";
 import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { array, id, literal, object, optional, string, union } = v;
 
 /** The Convex project of a team whose production deployment holds the Alchemy state of the team. */
 const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state";
@@ -114,7 +114,7 @@ function readStage(stage: StoreStage, repository: string): AlchemyStage | null {
     ? {
         name: stage.stage,
         record: recorded,
-        deployedHeadCommit: stage.record === undefined ? undefined : deployedHeadCommit,
+        deployedHeadCommit,
         resources: stage.resources.map((resource) => ({
           fqn: resource.fqn,
           value: JSON.stringify(parseWithoutSecretValues(resource.value)),
@@ -135,30 +135,46 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
     : null;
 }
 
-async function readStacks(args: {
+/**
+Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
+deployment of the team's `alchemy-state` project: `state:stacks`, then one `state:readStack` for each
+stack named `owner/name` or `owner/name/<folder>`. A stack keeps the stages whose run record names
+the repository. Other stacks of the team are not read.
+*/
+export async function readAlchemyStacks(args: {
+  /** The GitHub `owner/name` of the repository. */
   repository: string;
-  deployKey: string;
-  deploymentUrl: string;
-}): Promise<Extract<AlchemyStacksRead, { store: "found" }>> {
-  const names = parse(
-    vStoreStacksReply,
-    await fetchConvexDeploymentJson({
-      deployKey: args.deployKey,
-      deploymentUrl: args.deploymentUrl,
-      path: "/api/function",
-      body: { path: "state:stacks", args: {}, format: "json" },
-    }),
-  ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
-  const replies = await Promise.all(
-    names.map(async (name) => ({
-      name,
-      reply: await fetchConvexDeploymentJson({
-        deployKey: args.deployKey,
-        deploymentUrl: args.deploymentUrl,
-        path: "/api/function",
-        body: { path: "state:readStack", args: { stack: name }, format: "json" },
-      }),
-    })),
+  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
+}): Promise<AlchemyStacksRead> {
+  const deployment = await findAlchemyDeployment(args.target);
+  if (!deployment) {
+    return { store: "missing" };
+  }
+
+  const replies = await withConvexInspectionDeployKey(
+    { deployment, purpose: "alchemyState", target: args.target },
+    async (deployKey) => {
+      const names = parse(
+        vStoreStacksReply,
+        await fetchConvexDeploymentJson({
+          deployKey,
+          deploymentUrl: deployment.deploymentUrl,
+          path: "/api/function",
+          body: { path: "state:stacks", args: {}, format: "json" },
+        }),
+      ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
+      return await Promise.all(
+        names.map(async (name) => ({
+          name,
+          reply: await fetchConvexDeploymentJson({
+            deployKey,
+            deploymentUrl: deployment.deploymentUrl,
+            path: "/api/function",
+            body: { path: "state:readStack", args: { stack: name }, format: "json" },
+          }),
+        })),
+      );
+    },
   );
 
   return {
@@ -170,29 +186,6 @@ async function readStacks(args: {
       return stages.length === 0 ? [] : [{ name, stages }];
     }),
   };
-}
-
-/**
-Reads only stacks named `owner/name` or `owner/name/<folder>` and stages whose run record names the
-repository. Server inspection and clients of stores before version 3 use this HTTP read path.
-*/
-export async function readAlchemyStacks(args: {
-  repository: string;
-  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
-}): Promise<AlchemyStacksRead> {
-  const deployment = await findAlchemyDeployment(args.target);
-  if (!deployment) {
-    return { store: "missing" };
-  }
-  return await withConvexInspectionDeployKey(
-    { deployment, purpose: "alchemyState", target: args.target },
-    (deployKey) =>
-      readStacks({
-        repository: args.repository,
-        deployKey,
-        deploymentUrl: deployment.deploymentUrl,
-      }),
-  );
 }
 
 /**
@@ -256,10 +249,8 @@ export const observe = action({
 
 const vAlchemyConnection = union(
   object({ store: literal("missing") }),
-  object({ store: literal("snapshot"), observation: vAlchemyStateObservation }),
   object({ store: literal("live"), deploymentUrl: string(), token: string() }),
 );
-const vStoreVersionReply = object({ status: literal("success"), value: number() });
 const vReaderAuthorizationReply = object({
   status: literal("success"),
   value: object({ token: string() }),
@@ -268,7 +259,6 @@ const vReaderAuthorizationReply = object({
 /**
 Checks Samebase access on every connection and token renewal. Only a five-minute, repository-scoped
 read token reaches the browser. The deploy key used to ask the store for that token stays here.
-Stores before version 3 retain their snapshot view until their next provider upgrade.
 */
 export const connect = action({
   access: "access_dashboard",
@@ -288,30 +278,6 @@ export const connect = action({
       return await withConvexInspectionDeployKey(
         { deployment, purpose: "alchemyReader", target },
         async (deployKey): Promise<Infer<typeof vAlchemyConnection>> => {
-          const version = parse(
-            vStoreVersionReply,
-            await fetchConvexDeploymentJson({
-              deployKey,
-              deploymentUrl: deployment.deploymentUrl,
-              path: "/api/function",
-              body: { path: "state:version", args: {}, format: "json" },
-            }),
-          ).value;
-          if (version < 3) {
-            const read = await readStacks({
-              repository: target.githubRepositoryFullName,
-              deployKey,
-              deploymentUrl: deployment.deploymentUrl,
-            });
-            return {
-              store: "snapshot",
-              observation: {
-                ...read,
-                liveDeployments: await readLiveDeployments(read.stacks, target),
-              },
-            };
-          }
-
           const { token } = parse(
             vReaderAuthorizationReply,
             await fetchConvexDeploymentJson({
