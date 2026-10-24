@@ -1,7 +1,12 @@
+import { parse } from "convex-helpers/validators";
 import { describe, expect, it } from "vite-plus/test";
 import { observedAlchemyStackReply } from "../convex/repository/fixtures/observedAlchemyState";
-import { observedSamebaseStackReply } from "../convex/repository/fixtures/observedSamebaseAlchemyState";
-import { groupResourcesByComponent, placeStageResources } from "./alchemyState";
+import {
+  observedSamebaseRepositoryReply,
+  observedSamebaseStackReply,
+} from "../convex/repository/fixtures/observedSamebaseAlchemyState";
+import { groupResourcesByComponent, placeStageResources, stackCards } from "./alchemyState";
+import { vAlchemyStacksRead, type AlchemyStack } from "./alchemyStateModel";
 
 const [, , prod] = observedAlchemyStackReply.value.stages;
 const [deploymentRow, projectRow] = prod.resources;
@@ -120,5 +125,160 @@ describe("groupResourcesByComponent", () => {
       ["archive", "Deployment", ["Mail/Archive/Bucket"]],
       ["mail", "Deployment", ["Mail/Worker"]],
     ]);
+  });
+});
+
+/** The captured stages of samebase/samebase as `reader:repository` returns them. */
+function readerStage(name: string) {
+  const read = parse(vAlchemyStacksRead, observedSamebaseRepositoryReply);
+  const stage =
+    read.store === "found"
+      ? read.stacks.flatMap((stack) => stack.stages).find((candidate) => candidate.name === name)
+      : undefined;
+  if (!stage) {
+    throw new Error(`Expected the captured stage ${name}.`);
+  }
+  return stage;
+}
+
+/** A stack `name` whose stage `prod` is the captured one from `stackFile` with `resources`. */
+function prodStack(
+  name: string,
+  stackFile: string,
+  resources: readonly { fqn: string; value: string }[],
+): AlchemyStack {
+  const stage = readerStage("prod");
+  return {
+    name,
+    stages: [{ ...stage, record: { ...stage.record, stackFile }, resources: [...resources] }],
+  };
+}
+
+/** The captured Site row with the `rootDir` that @samebase/alchemy-convex 0.8.0 writes. */
+const site = {
+  fqn: "Site",
+  value: siteRow.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
+};
+/** The captured PosthogProxy row: its zone route gives it no URL. */
+const proxy = { fqn: "PosthogProxy", value: proxyRow.value };
+/** The captured PosthogProxy row with a workers.dev URL. */
+const proxyWithUrl = {
+  fqn: "Proxy",
+  value: proxyRow.value.replace(
+    '"urls":[]',
+    '"url":"https://samebase-posthog-proxy.samebase.workers.dev","urls":["https://samebase-posthog-proxy.samebase.workers.dev"]',
+  ),
+};
+
+type LiveDeployment = Parameters<typeof stackCards>[0]["liveDeployments"][number];
+
+/** The address of the one card of a root stack with `resources`. */
+function addressOf(
+  liveDeployments: LiveDeployment[],
+  resources: readonly { fqn: string; value: string }[],
+) {
+  return stackCards({
+    liveDeployments,
+    stacks: [prodStack("samebase/samebase", "alchemy.run.ts", resources)],
+  }).map((card) => card.address);
+}
+
+/** The live read of clear-butterfly-858 with `customDomains`. */
+function liveSite(customDomains: LiveDeployment["customDomains"]): LiveDeployment[] {
+  return [
+    { deploymentName: "clear-butterfly-858", dashboardUrl: null, region: null, customDomains },
+  ];
+}
+
+/** The live read gives the recorded reply of `observedConvexCustomDomains.ts` oldest first. */
+const siteAndCloudDomains: LiveDeployment["customDomains"] = [
+  { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
+  { domain: "samebase.com", requestDestination: "convexSite" },
+];
+
+describe("stackCards", () => {
+  it("makes one card for each stack with a stage prod, in stack file order", () => {
+    const cards = stackCards({
+      liveDeployments: [],
+      stacks: [
+        prodStack("samebase/samebase", "infra/alchemy.run.ts", [site]),
+        { name: "samebase/samebase/apps/preview", stages: [readerStage("pr-1768")] },
+        prodStack(
+          "samebase/samebase/apps/sidebars-example",
+          "apps/sidebars-example/alchemy.run.ts",
+          [proxy],
+        ),
+      ],
+    });
+
+    expect(cards.map(({ stack, stackFile, folder }) => [stack, stackFile, folder])).toEqual([
+      [
+        "samebase/samebase/apps/sidebars-example",
+        "apps/sidebars-example/alchemy.run.ts",
+        "apps/sidebars-example",
+      ],
+      ["samebase/samebase", "infra/alchemy.run.ts", "infra"],
+    ]);
+  });
+
+  it("names no folder only for the one card of a stack file at the root", () => {
+    const foldersOf = (stackFiles: readonly string[]) =>
+      stackCards({
+        liveDeployments: [],
+        stacks: stackFiles.map((stackFile) => prodStack(stackFile, stackFile, [proxy])),
+      }).map((card) => card.folder);
+
+    expect(foldersOf(["alchemy.run.ts"])).toEqual([null]);
+    expect(foldersOf(["infra/alchemy.run.ts"])).toEqual(["infra"]);
+    expect(foldersOf(["alchemy.run.ts", "apps/sidebars-example/alchemy.run.ts"])).toEqual([
+      "/",
+      "apps/sidebars-example",
+    ]);
+  });
+
+  it("takes the commit, time, and link of the run line from the stage", () => {
+    expect(
+      stackCards({
+        liveDeployments: [],
+        stacks: [prodStack("samebase/samebase", "apps/samebase/alchemy.run.ts", [site])],
+      }).map(({ deployedHeadCommit, recordedAt, runUrl }) => ({
+        deployedHeadCommit,
+        recordedAt,
+        runUrl,
+      })),
+    ).toEqual([
+      {
+        deployedHeadCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+        recordedAt: "2026-10-22T08:22:58.152Z",
+        runUrl: "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
+      },
+    ]);
+  });
+
+  it("serves a stack at the site custom domain of its first Convex deployment, else at its site URL", () => {
+    expect(addressOf(liveSite(siteAndCloudDomains), [site, proxyWithUrl])).toEqual([
+      "https://samebase.com",
+    ]);
+    // A `convexCloud` domain serves the client API, not the site.
+    expect(addressOf(liveSite([siteAndCloudDomains[0]]), [site])).toEqual([
+      "https://clear-butterfly-858.convex.site",
+    ]);
+    // Convex refused the custom domains, or the live read failed.
+    expect(addressOf(liveSite([]), [site])).toEqual(["https://clear-butterfly-858.convex.site"]);
+    expect(addressOf([], [site])).toEqual(["https://clear-butterfly-858.convex.site"]);
+    // The first deployment by fqn decides.
+    expect(
+      addressOf(liveSite(siteAndCloudDomains), [
+        { fqn: "Api", value: site.value.replaceAll("clear-butterfly-858", "happy-otter-123") },
+        site,
+      ]),
+    ).toEqual(["https://happy-otter-123.convex.site"]);
+  });
+
+  it("serves a stack without a Convex deployment at its first Worker URL, else at none", () => {
+    expect(addressOf([], [proxy, proxyWithUrl])).toEqual([
+      "https://samebase-posthog-proxy.samebase.workers.dev",
+    ]);
+    expect(addressOf([], [proxy])).toEqual([null]);
   });
 });

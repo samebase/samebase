@@ -1,6 +1,7 @@
-import { isRecord } from "@samebase/dependent/main";
+import { isRecord, notEmpty } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v, type Infer } from "convex/values";
+import type { AlchemyStateObservation } from "./alchemyStateModel";
 import { REPOSITORY_ROOT_DIRECTORY } from "./repositoryRootDirectory";
 
 const { array, literal, number, object, optional, string, union } = v;
@@ -220,6 +221,69 @@ export function placeStageResources(stage: {
         : [],
     ),
   };
+}
+
+/**
+The stacks of a repository as the overview shows them: one card for each stack with a stage `prod`,
+in stack file order. `folder` is the directory of the stack file, `/` for the root, and null for
+the only card of a repository when its stack file is at the root. A stack file outside the
+repository has no card. `deployedHeadCommit` is the last completed deploy, and `recordedAt` and
+`runUrl` come from the run record of the stage.
+
+`address` is where the stack serves: the first Convex deployment by fqn at its first `convexSite`
+custom domain, else at its `siteUrl`, which a failed read of the custom domains also gives. A stack
+without a Convex deployment serves at the first Worker URL, and a stack with neither has no address.
+*/
+export function stackCards({
+  stacks,
+  liveDeployments,
+}: Pick<Extract<AlchemyStateObservation, { store: "found" }>, "stacks" | "liveDeployments">) {
+  const cards = stacks
+    .flatMap((stack) => {
+      const stage = stack.stages.find((candidate) => candidate.name === "prod");
+      const directory = stage ? stackPath(stage.record.stackFile) : null;
+      if (!stage || directory === null) {
+        return [];
+      }
+
+      const { record } = stage;
+      const resources = placeStageResources({
+        stackFile: record.stackFile,
+        resources: stage.resources,
+      });
+      // The store gives the rows of a stage in fqn order.
+      const deployment = resources.convexDeployments.at(0);
+      const siteDomain = deployment
+        ? liveDeployments
+            .find((live) => live.deploymentName === deployment.state.attr.name)
+            ?.customDomains.find((domain) => domain.requestDestination === "convexSite")
+        : undefined;
+      return [
+        {
+          stack: stack.name,
+          stackFile: record.stackFile,
+          folder: rootDirectoryOf(directory),
+          deployedHeadCommit: stage.deployedHeadCommit,
+          recordedAt: record.recordedAt,
+          runUrl: record.runUrl,
+          address: !deployment
+            ? (resources.workers.map(({ state }) => state.attr.url).find(notEmpty) ?? null)
+            : siteDomain
+              ? `https://${siteDomain.domain}`
+              : deployment.state.attr.siteUrl,
+          resources,
+        },
+      ];
+    })
+    .sort(
+      (left, right) =>
+        left.stackFile.localeCompare(right.stackFile) || left.stack.localeCompare(right.stack),
+    );
+
+  return cards.map((card) => ({
+    ...card,
+    folder: cards.length === 1 && card.folder === REPOSITORY_ROOT_DIRECTORY ? null : card.folder,
+  }));
 }
 
 /**

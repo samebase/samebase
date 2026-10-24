@@ -274,6 +274,7 @@ describe("useRepositoryWorkspaceModel", () => {
               deploymentName: "ideal-dolphin-15",
               dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
               region: "aws-us-east-1",
+              customDomains: [],
             },
           ],
           // The captured stage as `reader:repository` returns it, with the `rootDir` "." on its

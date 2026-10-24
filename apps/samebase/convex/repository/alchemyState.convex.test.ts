@@ -10,6 +10,7 @@ import {
   observedBaseAlchemyProject,
   observedBaseAlchemyRepositoryReply,
 } from "./fixtures/observedAlchemyState";
+import { observedCustomDomainsReply } from "./fixtures/observedConvexCustomDomains";
 
 const storeProject = {
   createTime: 1710000000000,
@@ -157,6 +158,8 @@ function installAlchemyStateFetchStub(args: {
   authorizationReply?: unknown;
   /** The answer of `POST /api/query` for `reader:repository` with the issued token. */
   repositoryReply?: Response;
+  /** The answer of the custom domains of `ideal-dolphin-15`, by default none. */
+  customDomainsReply?: Response;
 }) {
   const stackReplies = args.stackReplies ?? {
     "samebase/base-alchemy": args.storeReply,
@@ -165,6 +168,18 @@ function installAlchemyStateFetchStub(args: {
   const repositoryReply =
     args.repositoryReply ??
     jsonResponse({ status: "success", value: observedBaseAlchemyRepositoryReply });
+  // The live reads of the production deployment `ideal-dolphin-15` of samebase/base-alchemy.
+  const liveReplies = new Map([
+    ["https://api.convex.dev/v1/projects/3245938", () => jsonResponse(observedBaseAlchemyProject)],
+    [
+      "https://api.convex.dev/v1/projects/3245938/deployment?defaultProd=true",
+      () => jsonResponse(observedBaseAlchemyProductionDeployment),
+    ],
+    [
+      "https://api.convex.dev/v1/deployments/ideal-dolphin-15/custom_domains",
+      () => args.customDomainsReply ?? jsonResponse({ domains: [] }),
+    ],
+  ]);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -199,11 +214,9 @@ function installAlchemyStateFetchStub(args: {
           region: "aws-us-east-1",
         });
       }
-      if (url.endsWith("/projects/3245938")) {
-        return jsonResponse(observedBaseAlchemyProject);
-      }
-      if (url.endsWith("/projects/3245938/deployment?defaultProd=true")) {
-        return jsonResponse(observedBaseAlchemyProductionDeployment);
+      const liveReply = liveReplies.get(url);
+      if (liveReply) {
+        return liveReply();
       }
       if (url.endsWith("/create_deploy_key")) {
         return jsonResponse({ deployKey: "prod:brave-heron-201|alchemy-state-secret" });
@@ -414,6 +427,76 @@ describe("repository Alchemy state", () => {
         deploymentName: "ideal-dolphin-15",
         dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
         region: "aws-us-east-1",
+        customDomains: [],
+      },
+    ]);
+  });
+
+  it("reads the verified custom domains of a production deployment, oldest first", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    // The recorded reply of clear-butterfly-858 for ideal-dolphin-15, with a domain that Convex has
+    // not verified yet.
+    const [siteDomain] = observedCustomDomainsReply.domains;
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: withProdStage((stage) => {
+        stage.resources[0].value = stage.resources[0].value.replace(
+          '"type":"prod"',
+          '"type":"prod","rootDir":"."',
+        );
+      }),
+      teamProjects: [storeProject],
+      customDomainsReply: jsonResponse({
+        domains: [
+          ...observedCustomDomainsReply.domains,
+          { ...siteDomain, domain: "www.samebase.com", verificationTime: null },
+        ].map((domain) => ({ ...domain, deploymentName: "ideal-dolphin-15" })),
+      }),
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.readDeploymentMetadata, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toEqual([
+      {
+        deploymentName: "ideal-dolphin-15",
+        dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+        region: "aws-us-east-1",
+        customDomains: [
+          { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
+          { domain: "samebase.com", requestDestination: "convexSite" },
+        ],
+      },
+    ]);
+  });
+
+  it("reads no custom domains when Convex refuses them to the credential", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: withProdStage((stage) => {
+        stage.resources[0].value = stage.resources[0].value.replace(
+          '"type":"prod"',
+          '"type":"prod","rootDir":"."',
+        );
+      }),
+      teamProjects: [storeProject],
+      customDomainsReply: new Response(null, { status: 403 }),
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.readDeploymentMetadata, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toEqual([
+      {
+        deploymentName: "ideal-dolphin-15",
+        dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
+        region: "aws-us-east-1",
+        customDomains: [],
       },
     ]);
   });

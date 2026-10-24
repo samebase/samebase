@@ -18,7 +18,11 @@ import {
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
-import { listConvexManagementProjects } from "../convexManagementApi/client";
+import {
+  createConvexManagementClient,
+  listConvexManagementProjects,
+} from "../convexManagementApi/client";
+import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import {
@@ -348,7 +352,7 @@ async function readLiveDeployments(
 ) {
   return await Promise.all(
     readProductionConvexDeployments(stacks).map(async (deployment) => {
-      const [project, live] = await Promise.all([
+      const [project, live, customDomains] = await Promise.all([
         readConvexProjectResource({
           token: target.token,
           teamId: target.teamId,
@@ -358,6 +362,12 @@ async function readLiveDeployments(
           token: target.token,
           projectId: deployment.projectId,
         }).catch(() => null),
+        ConvexManagement.GET["/deployments/{deployment_name}/custom_domains"]({
+          client: createConvexManagementClient({ token: target.token }),
+          path: { deployment_name: deployment.deploymentName },
+        })
+          .then(({ domains }) => domains)
+          .catch(() => []),
       ]);
       return {
         deploymentName: deployment.deploymentName,
@@ -369,6 +379,13 @@ async function readLiveDeployments(
             })
           : null,
         region: live?.name === deployment.deploymentName ? live.region : null,
+        customDomains: customDomains
+          .filter(({ verificationTime }) => verificationTime)
+          .sort(
+            (left, right) =>
+              left.creationTime - right.creationTime || left.domain.localeCompare(right.domain),
+          )
+          .map(({ domain, requestDestination }) => ({ domain, requestDestination })),
       };
     }),
   );
