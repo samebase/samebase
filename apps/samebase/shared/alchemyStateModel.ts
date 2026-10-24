@@ -3,6 +3,9 @@ import { vConvexDeploymentRegion } from "../convex/convexDeploymentRegionModel";
 
 const { array, literal, number, object, optional, string, union } = v;
 
+/** Renewal may retry provider failures. Samebase access failures remain separate. */
+export const ALCHEMY_CONNECTION_UNAVAILABLE = "Alchemy state is temporarily unavailable.";
+
 /** The run that last wrote stage state, or the last full deploy for stores before version 3. */
 export const vAlchemyRunRecord = object({
   version: literal(1),

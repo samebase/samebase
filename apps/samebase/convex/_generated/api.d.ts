@@ -170,6 +170,7 @@ import type * as repository_eventOrderModel from "../repository/eventOrderModel.
 import type * as repository_fixtures_observedAlchemyState from "../repository/fixtures/observedAlchemyState.js";
 import type * as repository_fixtures_observedConvexComponents from "../repository/fixtures/observedConvexComponents.js";
 import type * as repository_fixtures_observedSamebaseAlchemyState from "../repository/fixtures/observedSamebaseAlchemyState.js";
+import type * as repository_fixtures_observedScoutR2Resources from "../repository/fixtures/observedScoutR2Resources.js";
 import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
 import type * as repository_folders from "../repository/folders.js";
@@ -388,6 +389,7 @@ declare const fullApi: ApiFromModules<{
   "repository/fixtures/observedAlchemyState": typeof repository_fixtures_observedAlchemyState;
   "repository/fixtures/observedConvexComponents": typeof repository_fixtures_observedConvexComponents;
   "repository/fixtures/observedSamebaseAlchemyState": typeof repository_fixtures_observedSamebaseAlchemyState;
+  "repository/fixtures/observedScoutR2Resources": typeof repository_fixtures_observedScoutR2Resources;
   "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
   "repository/folderModel": typeof repository_folderModel;
   "repository/folders": typeof repository_folders;

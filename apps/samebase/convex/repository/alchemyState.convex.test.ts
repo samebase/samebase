@@ -284,7 +284,7 @@ describe("repository Alchemy state", () => {
     requests.length = 0;
     await expect(
       user.action(api.repository.alchemyState.connect, { repositoryId: ids.repositoryId }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Repository not found");
     expect(requests).toEqual([]);
   });
 
@@ -323,7 +323,7 @@ describe("repository Alchemy state", () => {
     });
     await expect(
       user.action(api.repository.alchemyState.connect, { repositoryId: ids.repositoryId }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Alchemy state is temporarily unavailable.");
     expect(
       requests.some(
         (request) => isRecord(request.body) && request.body["path"] === "state:readStack",

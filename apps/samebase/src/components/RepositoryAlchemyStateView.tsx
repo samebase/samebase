@@ -1,273 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
-import { validate } from "convex-helpers/validators";
-import { useAction } from "convex/react";
-import { v } from "convex/values";
-import { ChevronRight, Loader2 } from "lucide-react";
-import type { ReactNode } from "react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import { ALCHEMY_REDACTED_MARKER, placeStageResources } from "../../shared/alchemyState";
+import { Loader2 } from "lucide-react";
+import { AlchemyStateTree, RepositoryAlchemyStateStatus } from "./RepositoryAlchemyStateTree";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
 import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySelectedWorkspace";
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
-import { resourceTypePresentation } from "@/components/resourceTypePresentation";
+import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
 
-export type AlchemyStateObservation = (typeof api.repository.alchemyState.observe)["_returnType"];
-type AlchemyStage = Extract<
-  AlchemyStateObservation,
-  { store: "found" }
->["stacks"][number]["stages"][number];
-type AlchemyRunRecord = AlchemyStage["record"];
-
-const { object, string } = v;
-
-/** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
-const vResourceState = object({ status: string(), resourceType: string() });
-
-const RUN_SOURCE_LABELS = {
-  "github-actions": "GitHub Actions",
-  laptop: "Laptop",
-} satisfies Record<AlchemyRunRecord["source"], string>;
-
-/**
-One entry for each value of the stage output, named by its dotted path. A secret keeps only its
-path, with `value: null`.
-*/
-function outputEntries(output: unknown, path: string): { path: string; value: string | null }[] {
-  if (typeof output !== "object" || output === null) {
-    return [{ path, value: typeof output === "string" ? output : JSON.stringify(output) }];
-  }
-  if (ALCHEMY_REDACTED_MARKER in output) {
-    return [{ path, value: null }];
-  }
-  return Object.entries(output).flatMap(([key, child]) =>
-    outputEntries(child, path ? `${path}.${key}` : key),
-  );
-}
-
-function RepositoryAlchemyStateStatus({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-full items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function AlchemyStateDetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="grid min-w-0 gap-0.5">{children}</dd>
-    </>
-  );
-}
-
-function AlchemyStateDetailItem({ detail, name }: { detail: ReactNode; name: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-      <span className="min-w-0 break-all font-mono">{name}</span>
-      {detail === null ? null : (
-        <span className="min-w-0 break-all text-muted-foreground">{detail}</span>
-      )}
-    </div>
-  );
-}
-
-function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
-  const recordedAt = Date.parse(record.recordedAt);
-  const source = RUN_SOURCE_LABELS[record.source];
-
-  return (
-    <>
-      {record.pullRequest === null ? null : (
-        <AlchemyStateDetailRow label="Pull request">
-          <AlchemyStateDetailItem
-            name={
-              <a
-                href={`https://github.com/${record.repository}/pull/${record.pullRequest}`}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                {`#${record.pullRequest}`}
-              </a>
-            }
-            detail={null}
-          />
-        </AlchemyStateDetailRow>
-      )}
-      <AlchemyStateDetailRow label="Branch">
-        <AlchemyStateDetailItem name={record.branch} detail={null} />
-      </AlchemyStateDetailRow>
-      <AlchemyStateDetailRow label="Commit">
-        <AlchemyStateDetailItem
-          name={
-            <a
-              href={`https://github.com/${record.repository}/commit/${record.headCommit}`}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              {record.headCommit.slice(0, 7)}
-            </a>
-          }
-          detail={null}
-        />
-      </AlchemyStateDetailRow>
-      <AlchemyStateDetailRow label="Run">
-        <AlchemyStateDetailItem
-          name={
-            record.runUrl === null ? (
-              source
-            ) : (
-              <a href={record.runUrl} rel="noreferrer noopener" target="_blank">
-                {source}
-              </a>
-            )
-          }
-          detail={
-            <time dateTime={record.recordedAt} title={record.recordedAt}>
-              {Number.isFinite(recordedAt) ? formatRelativeTimeAgo(recordedAt) : record.recordedAt}
-            </time>
-          }
-        />
-      </AlchemyStateDetailRow>
-    </>
-  );
-}
-
-function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
-  const output = outputEntries(JSON.parse(stage.output), "");
-  const states = stage.resources.map((resource) => {
-    const state: unknown = JSON.parse(resource.value);
-    return { fqn: resource.fqn, state };
-  });
-  const { convexDeployments, workers } = placeStageResources({
-    stackFile: stage.record.stackFile,
-    resources: stage.resources,
-  });
-
-  return (
-    <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
-      <AlchemyRunRecordRows record={stage.record} />
-
-      {convexDeployments.length === 0 ? null : (
-        <AlchemyStateDetailRow label="Convex">
-          {convexDeployments.map(({ codeLocation, fqn, state }) => (
-            <AlchemyStateDetailItem
-              key={fqn}
-              name={
-                <a href={state.attr.url} rel="noreferrer noopener" target="_blank">
-                  {state.attr.name}
-                </a>
-              }
-              detail={codeLocation}
-            />
-          ))}
-        </AlchemyStateDetailRow>
-      )}
-      {workers.length === 0 ? null : (
-        <AlchemyStateDetailRow label="Workers">
-          {workers.map(({ fqn, state }) => (
-            <AlchemyStateDetailItem
-              key={fqn}
-              name={
-                state.attr.url === undefined ? (
-                  state.attr.workerName
-                ) : (
-                  <a href={state.attr.url} rel="noreferrer noopener" target="_blank">
-                    {state.attr.workerName}
-                  </a>
-                )
-              }
-              detail={null}
-            />
-          ))}
-        </AlchemyStateDetailRow>
-      )}
-      {states.length === 0 ? null : (
-        <AlchemyStateDetailRow label="Resources">
-          {states.map(({ fqn, state }) => {
-            const resource = validate(vResourceState, state, { allowUnknownFields: true })
-              ? state
-              : null;
-            const presentation = resourceTypePresentation(resource?.resourceType ?? "unknown");
-
-            return (
-              <AlchemyStateDetailItem
-                key={fqn}
-                name={
-                  <span className="inline-flex max-w-full items-center gap-1.5">
-                    <span className="shrink-0">{presentation.icon}</span>
-                    <span className="min-w-0 break-all">{fqn}</span>
-                  </span>
-                }
-                detail={resource ? `${resource.status}, ${presentation.label}` : "unknown"}
-              />
-            );
-          })}
-        </AlchemyStateDetailRow>
-      )}
-      {output.length === 0 ? null : (
-        <AlchemyStateDetailRow label="Output">
-          {output.map((entry) => (
-            <AlchemyStateDetailItem key={entry.path} name={entry.path} detail={entry.value} />
-          ))}
-        </AlchemyStateDetailRow>
-      )}
-    </dl>
-  );
-}
-
-export function AlchemyStateTree({ observation }: { observation: AlchemyStateObservation }) {
-  if (observation.store === "missing") {
-    return (
-      <RepositoryAlchemyStateStatus>
-        No Alchemy state store in this team yet.
-      </RepositoryAlchemyStateStatus>
-    );
-  }
-
-  if (observation.stacks.length === 0) {
-    return <RepositoryAlchemyStateStatus>No Alchemy state.</RepositoryAlchemyStateStatus>;
-  }
-
-  return (
-    <div className="p-3 text-sm">
-      {observation.stacks.map((stack) => (
-        <div key={stack.name}>
-          <div className="truncate py-1 font-mono font-medium">{stack.name}</div>
-          <ul className="ml-2.5 border-l border-border pl-3">
-            {stack.stages.map((stage) => (
-              <li key={stage.name}>
-                <details className="group">
-                  <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
-                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
-                    <span className="min-w-0 truncate font-mono">{stage.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
-                    </span>
-                  </summary>
-                  <AlchemyStageDetails stage={stage} />
-                </details>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RepositoryAlchemyStateTree({ repositoryId }: { repositoryId: Id<"repositories"> }) {
-  const observe = useAction(api.repository.alchemyState.observe);
-  const observation = useQuery({
-    queryKey: ["repository-alchemy-state", repositoryId],
-    queryFn: async () => await observe({ repositoryId }),
-    retry: false,
-  });
-
-  if (observation.isPending) {
+function RepositoryAlchemyStateTree({ state }: { state: RepositoryAlchemyState }) {
+  if (state.state === "loading") {
     return (
       <RepositoryAlchemyStateStatus>
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -276,11 +16,11 @@ function RepositoryAlchemyStateTree({ repositoryId }: { repositoryId: Id<"reposi
     );
   }
 
-  if (observation.isError) {
-    return <RepositoryAlchemyStateStatus>{observation.error.message}</RepositoryAlchemyStateStatus>;
+  if (state.state === "failed") {
+    return <RepositoryAlchemyStateStatus>{state.error.message}</RepositoryAlchemyStateStatus>;
   }
 
-  return <AlchemyStateTree observation={observation.data} />;
+  return <AlchemyStateTree observation={state.observation} />;
 }
 
 export function RepositoryAlchemyStateView({
@@ -331,7 +71,7 @@ export function RepositoryAlchemyStateView({
             Loading Alchemy state
           </RepositoryAlchemyStateStatus>
         ) : workspace ? (
-          <RepositoryAlchemyStateTree repositoryId={workspace.repository.repositoryId} />
+          <RepositoryAlchemyStateTree state={workspace.alchemyState} />
         ) : (
           <RepositoryAlchemyStateStatus>Repository not found.</RepositoryAlchemyStateStatus>
         )}

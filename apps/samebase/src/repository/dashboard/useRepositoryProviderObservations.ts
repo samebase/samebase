@@ -3,6 +3,10 @@ import type { UserRepositoryResult } from "../../../convex/repository/contracts/
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
+import {
+  useRepositoryAlchemyState,
+  type RepositoryAlchemyState,
+} from "./useRepositoryAlchemyState";
 
 export type RepositoryCloudflareWorkerObservation =
   (typeof api.repository.providerObservations.observeCloudflareWorkers)["_returnType"][number];
@@ -90,6 +94,7 @@ export function useRepositoryProviderObservations(
   convex: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
   /** One observation when the team store holds a stack with stages of the repository, else none. */
   alchemy: RepositoryProviderObservationState<RepositoryAlchemyStacks>;
+  alchemyState: RepositoryAlchemyState;
 } {
   const observeCloudflareWorkers = useAction(
     api.repository.providerObservations.observeCloudflareWorkers,
@@ -103,7 +108,6 @@ export function useRepositoryProviderObservations(
   const observeConvexProjects = useAction(
     api.repository.providerObservations.observeConvexProjects,
   );
-  const observeAlchemyState = useAction(api.repository.alchemyState.observe);
   const repositoryId = repository?.repositoryId;
   const convexTeamId = repository?.convexTeamId;
   const cloudflareLastWriteAt = repository?.providerWrite.lastWriteAt.cloudflare;
@@ -221,22 +225,11 @@ export function useRepositoryProviderObservations(
   });
 
   // The store lives in the Convex team of the repository, so a repository without one has no stack.
-  // `requested` also ignores a stack that an earlier read of the same key left in the cache.
   const alchemyRequested = Boolean(convexTeamId) && source !== "attachments";
-  const alchemyQuery = useQuery({
-    queryKey: [...repositoryExternalDataQueryKey(repositoryId), "alchemy-stack", convexTeamId],
-    queryFn: async () => {
-      if (!repositoryId) {
-        throw new Error("Repository is required to observe the Alchemy state.");
-      }
-      const observation = await observeAlchemyState({ repositoryId });
-      return observation.store === "found" && observation.stacks.length > 0 ? [observation] : [];
-    },
-    enabled: Boolean(repositoryId) && alchemyRequested,
-    retry: false,
-    staleTime: PROVIDER_OBSERVATION_STALE_TIME_MS,
-    gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
-  });
+  const alchemyState = useRepositoryAlchemyState(
+    alchemyRequested ? (repositoryId ?? null) : null,
+    convexTeamId,
+  );
 
   const reloadCloudflareWorkers = () => {
     void cloudflareWorkersQuery.refetch();
@@ -249,9 +242,6 @@ export function useRepositoryProviderObservations(
   };
   const reloadConvex = () => {
     void convexQuery.refetch();
-  };
-  const reloadAlchemy = () => {
-    void alchemyQuery.refetch();
   };
   const workers = providerObservationState({
     checking: activeManualWrite?.affectedProviders.includes("cloudflare") === true,
@@ -313,15 +303,18 @@ export function useRepositoryProviderObservations(
     requested: convexProjectTargets.length > 0,
   });
 
-  const alchemy = providerObservationState({
-    checking: false,
-    data: alchemyQuery.data,
-    isError: alchemyQuery.isError,
-    isRefetchError: alchemyQuery.isRefetchError,
-    lastWriteAt: undefined,
-    reload: reloadAlchemy,
-    requested: alchemyRequested,
-  });
+  const alchemy: RepositoryProviderObservationState<RepositoryAlchemyStacks> =
+    alchemyState.state === "loaded"
+      ? {
+          state: "loaded",
+          observations:
+            alchemyState.observation.store === "found" && alchemyState.observation.stacks.length > 0
+              ? [alchemyState.observation]
+              : [],
+          refreshFailed: alchemyState.refreshFailed,
+          reload: alchemyState.reload,
+        }
+      : alchemyState;
 
   return {
     cloudflare: {
@@ -331,5 +324,6 @@ export function useRepositoryProviderObservations(
     },
     convex,
     alchemy,
+    alchemyState,
   };
 }

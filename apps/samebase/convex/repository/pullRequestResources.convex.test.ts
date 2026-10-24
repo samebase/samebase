@@ -206,6 +206,43 @@ afterEach(() => {
 });
 
 describe("pull request resources from the Alchemy state of the team", () => {
+  it("keeps GitHub enrichment without rereading the store or attachments for a live source", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedBaseAlchemy(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId: ids.repositoryId,
+        organizationId: ids.organizationId,
+        teamId: "38516",
+        projectId: "3245938",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+    });
+    githubMocks.graphql.mockImplementation(async (query: string) => {
+      if (query.includes("query PullRequestResourceHeads")) return { nodes: [pullRequest24] };
+      throw new Error("Only the heads query is answered in this test.");
+    });
+    installConvexFetchStub(observedAlchemyStackReply);
+
+    const [resources] = await user.action(
+      api.repository.pullRequestResources.getPullRequestResources,
+      { repositoryId: ids.repositoryId, pullRequestIds: ["PR_24"], source: "alchemy" },
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(githubMocks.graphql).toHaveBeenCalled();
+    expect(resources).toMatchObject({
+      state: "available",
+      workers: [],
+      convexProjects: [],
+      hostingPreviews: {
+        cloudflare: { state: "available" },
+        netlify: { state: "available" },
+      },
+    });
+  });
+
   it("shows no preview for samebase/base-alchemy#24, whose captured stage has no run record", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedBaseAlchemy(t);

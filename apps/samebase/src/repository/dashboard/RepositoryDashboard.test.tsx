@@ -2269,6 +2269,13 @@ describe("RepositoryOverviewPage", () => {
             repository,
           })}
           workspace={{
+            alchemyState: {
+              state: "loaded" as const,
+              transport: "snapshot" as const,
+              observation: { store: "missing" as const },
+              refreshFailed: false,
+              reload: () => {},
+            },
             alchemyObservations: {
               state: "loaded",
               observations: [],
@@ -2343,6 +2350,13 @@ describe("RepositoryOverviewPage", () => {
               roots: [],
             }}
             workspace={{
+              alchemyState: {
+                state: "loaded" as const,
+                transport: "snapshot" as const,
+                observation: { store: "missing" as const },
+                refreshFailed: false,
+                reload: () => {},
+              },
               alchemyObservations: {
                 state: "loaded",
                 observations: [],
@@ -2377,6 +2391,13 @@ describe("RepositoryOverviewPage", () => {
   it("keeps safe provider links during setup and provider checks", () => {
     const repository = makeRepositorySettingsBuilderRepository({});
     const workspace = {
+      alchemyState: {
+        state: "loaded" as const,
+        transport: "snapshot" as const,
+        observation: { store: "missing" as const },
+        refreshFailed: false,
+        reload: () => {},
+      },
       alchemyObservations: {
         state: "loaded" as const,
         observations: [],
@@ -2453,6 +2474,13 @@ describe("RepositoryOverviewPage", () => {
       githubRepositoryFullName: "ada/agent-plugins",
     });
     const workspace = {
+      alchemyState: {
+        state: "loaded" as const,
+        transport: "snapshot" as const,
+        observation: { store: "missing" as const },
+        refreshFailed: false,
+        reload: () => {},
+      },
       alchemyObservations: {
         state: "loaded" as const,
         observations: [],

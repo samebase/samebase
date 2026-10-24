@@ -73,6 +73,7 @@ export function useRepositoryWorkspaceModel(
         ? accessibleSelectedRepository
         : null,
     source,
+    alchemyState: providerObservations.alchemyState,
   });
   const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
   const cloudflareConnection = useConvexQuery(
@@ -166,6 +167,7 @@ export function useRepositoryWorkspaceModel(
         state: "selected",
         workspace: {
           alchemyObservations,
+          alchemyState: providerObservations.alchemyState,
           access: viewerAccess
             ? {
                 state: "ready",
@@ -189,6 +191,7 @@ export function useRepositoryWorkspaceModel(
     };
   }, [
     providerObservations.alchemy,
+    providerObservations.alchemyState,
     providerObservations.cloudflare,
     providerObservations.convex,
     cloudflareConnection,

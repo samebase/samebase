@@ -19,6 +19,8 @@ import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
 import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
+import { buildPullRequestAlchemyPreview } from "../../../shared/pullRequestAlchemyPreview";
+import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 
 const PULL_REQUEST_STALE_MS = 60_000;
 const PULL_REQUEST_GC_MS = 5 * 60_000;
@@ -165,6 +167,7 @@ export function useRepositoryPullRequests(args: {
   repository: RepositoryPullRequestTarget | null;
   /** `attachments` reads the pull request rows as if the team store held no stack. */
   source?: "attachments";
+  alchemyState: RepositoryAlchemyState;
 }): RepositoryPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
   const getPullRequestResources = useAction(
@@ -173,6 +176,23 @@ export function useRepositoryPullRequests(args: {
 
   const repositoryId = args.repository?.repositoryId;
   const sourceSetupStatus = args.repository?.sourceSetup.status;
+  const alchemyStacks = useMemo(
+    () =>
+      args.source !== "attachments" &&
+      args.alchemyState.state === "loaded" &&
+      args.alchemyState.observation.store === "found"
+        ? args.alchemyState.observation.stacks
+        : [],
+    [args.source, args.alchemyState],
+  );
+  const resourceSource =
+    args.source === "attachments"
+      ? "attachments"
+      : args.alchemyState.state === "loaded" && args.alchemyState.transport === "snapshot"
+        ? undefined
+        : alchemyStacks.length > 0
+          ? "alchemy"
+          : "attachments";
 
   const workerAttachments = [...(args.repository?.cloudflareWorkers ?? [])]
     .map((worker) => ({
@@ -238,7 +258,7 @@ export function useRepositoryPullRequests(args: {
         queryKey: [
           ...repositoryExternalDataQueryKey(repositoryId),
           "pull-request-resources",
-          args.source,
+          resourceSource,
           workerAttachments,
           projectAttachments,
           pagePullRequestResourceIdentities,
@@ -252,10 +272,10 @@ export function useRepositoryPullRequests(args: {
             pullRequestIds: pagePullRequestResourceIdentities.map(
               ([pullRequestId]) => pullRequestId,
             ),
-            source: args.source,
+            source: resourceSource,
           });
         },
-        enabled: Boolean(repositoryId),
+        enabled: Boolean(repositoryId) && args.alchemyState.state !== "loading",
         staleTime: PULL_REQUEST_STALE_MS,
         gcTime: PULL_REQUEST_GC_MS,
         retry: false,
@@ -268,6 +288,9 @@ export function useRepositoryPullRequests(args: {
 
   const resourcesByPullRequestId = useMemo(() => {
     const resources = new Map<string, PullRequestResourceState>();
+    const pullRequestsById = new Map(
+      allPullRequests.map((pullRequest) => [pullRequest.id, pullRequest]),
+    );
     pullRequestResourceIdentityPages.forEach((pagePullRequestResourceIdentities, pageIndex) => {
       const resourceQuery = resourceQueries[pageIndex];
       const byPullRequestId = new Map(
@@ -283,6 +306,15 @@ export function useRepositoryPullRequests(args: {
           resources.set(pullRequestId, { state: "failed" });
           continue;
         }
+        const pullRequest = pullRequestsById.get(pullRequestId);
+        if (!pullRequest) continue;
+        const alchemyPreview = buildPullRequestAlchemyPreview({
+          stack:
+            args.alchemyState.state === "failed"
+              ? { state: "failed" }
+              : { state: "found", stacks: alchemyStacks },
+          head: { number: pullRequest.number, headRefOid: pullRequest.headRefOid },
+        });
         resources.set(pullRequestId, {
           state: resourceQuery.isRefetchError ? "stale" : "current",
           resources: {
@@ -291,13 +323,21 @@ export function useRepositoryPullRequests(args: {
             workers: pullRequestResources.workers,
             convexProjects: pullRequestResources.convexProjects,
             hostingPreviews: pullRequestResources.hostingPreviews,
-            alchemyPreview: pullRequestResources.alchemyPreview,
+            alchemyPreview:
+              resourceSource === undefined ? pullRequestResources.alchemyPreview : alchemyPreview,
           },
         });
       }
     });
     return resources;
-  }, [pullRequestResourceIdentityPages, resourceQueries]);
+  }, [
+    pullRequestResourceIdentityPages,
+    resourceQueries,
+    allPullRequests,
+    alchemyStacks,
+    args.alchemyState,
+    resourceSource,
+  ]);
 
   const { fetchNextPage, refetch } = pullRequestQuery;
   const loadMore = useCallback(() => {

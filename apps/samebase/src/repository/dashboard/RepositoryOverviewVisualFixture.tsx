@@ -934,6 +934,13 @@ function buildFixtureWorkspace({
   repository: UserRepositoryResult;
 }) {
   const workspace = {
+    alchemyState: {
+      state: "loaded",
+      transport: "snapshot",
+      observation: { store: "missing" },
+      refreshFailed: false,
+      reload: () => {},
+    },
     alchemyObservations: {
       state: "loaded",
       observations: [],

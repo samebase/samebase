@@ -59,6 +59,16 @@ vi.mock("./useRepositoryProviderObservations", () => ({
       },
       convex: { state: "loading" },
       alchemy: testState.alchemy,
+      alchemyState:
+        testState.alchemy.state === "loaded"
+          ? {
+              state: "loaded",
+              transport: "snapshot",
+              observation: testState.alchemy.observations.at(0) ?? { store: "missing" },
+              refreshFailed: testState.alchemy.refreshFailed,
+              reload: testState.alchemy.reload,
+            }
+          : { state: "loading" },
     };
   },
 }));
@@ -175,7 +185,9 @@ describe("useRepositoryWorkspaceModel", () => {
         repositories: [],
       });
       expect(testState.providerRepositories).toEqual([null]);
-      expect(testState.pullRequestArgs).toEqual([{ repository: null }]);
+      expect(testState.pullRequestArgs).toEqual([
+        { repository: null, source: undefined, alchemyState: { state: "loading" } },
+      ]);
       expect(testState.queryCalls).toContainEqual({
         args: "skip",
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
@@ -215,7 +227,11 @@ describe("useRepositoryWorkspaceModel", () => {
       expect(latest.selection.state).toBe("selected");
       expect(testState.providerRepositories).not.toContain(null);
       expect(testState.providerRepositories.at(-1)).toBe(repository);
-      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository });
+      expect(testState.pullRequestArgs.at(-1)).toEqual({
+        repository,
+        source: undefined,
+        alchemyState: { state: "loading" },
+      });
       expect(testState.queryCalls).not.toContainEqual({
         args: "skip",
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
@@ -384,7 +400,11 @@ describe("useRepositoryWorkspaceModel", () => {
         throw new Error("Expected the selected repository workspace.");
       }
       expect(testState.providerSources.at(-1)).toBe("attachments");
-      expect(testState.pullRequestArgs.at(-1)).toEqual({ repository, source: "attachments" });
+      expect(testState.pullRequestArgs.at(-1)).toMatchObject({
+        repository,
+        source: "attachments",
+        alchemyState: { state: "loaded", observation: { store: "missing" } },
+      });
       expect(latest.selection.workspace.environmentRoots).toEqual([
         { rootDirectory: "/", resources: [{ kind: "convex_loading", id: convexProjectId }] },
       ]);

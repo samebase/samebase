@@ -5,8 +5,8 @@ import type { Id } from "../_generated/dataModel";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { observedAlchemyStackReply } from "./fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "./fixtures/observedSamebaseAlchemyState";
+import { buildPullRequestAlchemyPreview } from "../../shared/pullRequestAlchemyPreview";
 import {
-  buildPullRequestAlchemyPreview,
   buildPullRequestCloudflareWorkerResources,
   buildPullRequestHostingPreviews,
   completeGitHubPullRequestCommitScan,
@@ -1111,6 +1111,35 @@ describe("buildPullRequestAlchemyPreview", () => {
         head: { number: 1768, headRefOid: "b".repeat(40) },
       }),
     ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
+  });
+
+  it("keeps the previous preview commit until the current run finishes", () => {
+    const currentHead = "b".repeat(40);
+    const advancing = {
+      ...stack,
+      stacks: stack.stacks.map((entry) => ({
+        ...entry,
+        stages: entry.stages.map((stage) => ({
+          ...stage,
+          record: { ...stage.record, headCommit: currentHead },
+          deployedHeadCommit: record.headCommit,
+        })),
+      })),
+    };
+    expect(
+      buildPullRequestAlchemyPreview({
+        stack: advancing,
+        head: { number: 1768, headRefOid: currentHead },
+      }),
+    ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: null }] });
+
+    advancing.stacks[0].stages[0].deployedHeadCommit = currentHead;
+    expect(
+      buildPullRequestAlchemyPreview({
+        stack: advancing,
+        head: { number: 1768, headRefOid: currentHead },
+      }),
+    ).toMatchObject({ state: "available", convexDeployments: [{ headCommit: currentHead }] });
   });
 
   it("leaves out a Site row without attributes or without rootDir", () => {

@@ -5,10 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { isRecord } from "../../convex/jsonUtils";
 import { observedAlchemyStackReply } from "../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../convex/repository/fixtures/observedSamebaseAlchemyState";
-import {
-  AlchemyStateTree,
-  type AlchemyStateObservation,
-} from "@/components/RepositoryAlchemyStateView";
+import type { AlchemyStateObservation } from "../../shared/alchemyStateModel";
+import { AlchemyStateTree } from "@/components/RepositoryAlchemyStateTree";
 
 type AlchemyStage = Extract<
   AlchemyStateObservation,
@@ -99,6 +97,16 @@ afterEach(() => {
 });
 
 describe("AlchemyStateTree", () => {
+  it("shows a stage before its first output without an empty Output row", () => {
+    const container = renderTree(
+      oneStack("samebase/samebase", [{ ...pr1768Stage, output: "null" }]),
+    );
+    expect(container.textContent).toContain("pr-1768");
+    expect(
+      Array.from(container.querySelectorAll("dt"), (label) => label.textContent),
+    ).not.toContain("Output");
+  });
+
   it("labels each stage with its run record and each Convex deployment with its code", () => {
     vi.useFakeTimers({ now: new Date("2026-10-22T09:46:35.577Z") });
     const container = renderTree(oneStack("samebase/samebase", [pr1768Stage]));

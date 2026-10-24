@@ -7,13 +7,36 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useRepositoryProviderObservations } from "./useRepositoryProviderObservations";
+import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 
 const providerActions = vi.hoisted(() => ({
   observeCloudflareWorkers: vi.fn(async () => []),
   observeCloudflareWorkerBuilds: vi.fn(async () => []),
   observeCloudflareWorkerConvexBuildAccess: vi.fn(async () => []),
   observeConvexProjects: vi.fn(async () => []),
-  observeAlchemyState: vi.fn(async (): Promise<unknown> => ({ store: "missing" })),
+}));
+
+const alchemy = vi.hoisted(
+  (): {
+    observation: AlchemyStateObservation;
+    requested: ReturnType<typeof vi.fn<(repositoryId: Id<"repositories"> | null) => void>>;
+  } => ({
+    observation: { store: "missing" },
+    requested: vi.fn(),
+  }),
+);
+
+vi.mock("./useRepositoryAlchemyState", () => ({
+  useRepositoryAlchemyState: (repositoryId: Id<"repositories"> | null) => {
+    alchemy.requested(repositoryId);
+    return {
+      state: "loaded",
+      transport: "live",
+      observation: repositoryId ? alchemy.observation : { store: "missing" },
+      refreshFailed: false,
+      reload: () => {},
+    };
+  },
 }));
 
 vi.mock("convex/react", async () => {
@@ -29,8 +52,6 @@ vi.mock("convex/react", async () => {
           return providerActions.observeCloudflareWorkerConvexBuildAccess;
         case "repository/providerObservations:observeConvexProjects":
           return providerActions.observeConvexProjects;
-        case "repository/alchemyState:observe":
-          return providerActions.observeAlchemyState;
         default:
           throw new Error(`Unexpected provider observation action: ${getFunctionName(reference)}`);
       }
@@ -55,6 +76,8 @@ function fakeConvexProjectId(value: string): Id<"repositoryConvexProjects"> {
 
 describe("useRepositoryProviderObservations", () => {
   beforeEach(() => {
+    alchemy.observation = { store: "missing" };
+    alchemy.requested.mockClear();
     for (const action of Object.values(providerActions)) {
       action.mockReset();
       action.mockResolvedValue([]);
@@ -438,8 +461,8 @@ describe("useRepositoryProviderObservations", () => {
     }
   });
 
-  it("reads no team store for ?attachments, even with a stack in the cache", async () => {
-    providerActions.observeAlchemyState.mockResolvedValue({
+  it("requests no team store for ?attachments, even after a live result", async () => {
+    alchemy.observation = {
       store: "found",
       liveDeployments: [],
       stacks: [
@@ -465,7 +488,7 @@ describe("useRepositoryProviderObservations", () => {
           ],
         },
       ],
-    });
+    };
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -508,11 +531,11 @@ describe("useRepositoryProviderObservations", () => {
 
     try {
       await render("attachments");
-      expect(providerActions.observeAlchemyState).not.toHaveBeenCalled();
+      expect(alchemy.requested).toHaveBeenLastCalledWith(null);
       expect(providerActions.observeConvexProjects).toHaveBeenCalledWith({ repositoryId });
       expect(latest?.alchemy).toMatchObject({ state: "loaded", observations: [] });
 
-      // Without the param the overview reads the stack, and the cache keeps it.
+      // Without the param the overview uses the live stack.
       await render();
       await vi.waitFor(() => {
         expect(latest?.alchemy).toMatchObject({
@@ -523,7 +546,7 @@ describe("useRepositoryProviderObservations", () => {
 
       await render("attachments");
       expect(latest?.alchemy).toMatchObject({ state: "loaded", observations: [] });
-      expect(providerActions.observeAlchemyState).toHaveBeenCalledTimes(1);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(null);
     } finally {
       await act(async () => {
         root.unmount();

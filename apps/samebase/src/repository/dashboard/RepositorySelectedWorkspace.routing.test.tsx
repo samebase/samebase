@@ -118,6 +118,13 @@ function makeRepository({
 
 function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSelected {
   return {
+    alchemyState: {
+      state: "loaded",
+      transport: "snapshot",
+      observation: { store: "missing" },
+      refreshFailed: false,
+      reload: () => {},
+    },
     alchemyObservations: {
       state: "loaded",
       observations: [],

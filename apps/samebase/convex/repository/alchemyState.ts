@@ -1,12 +1,13 @@
 import { notEmpty } from "@samebase/dependent/main";
 import { parse, validate } from "convex-helpers/validators";
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 import {
   ALCHEMY_REDACTED_MARKER,
   vAlchemyConvexDeploymentState,
   vAlchemyConvexProjectState,
 } from "../../shared/alchemyState";
 import {
+  ALCHEMY_CONNECTION_UNAVAILABLE,
   vAlchemyRunRecord,
   vAlchemyStateObservation,
   vAlchemyLiveDeployments,
@@ -59,6 +60,8 @@ store version 2 (0.7.0): a name is never renamed or removed. The function is an 
 the root app: only `POST /api/function` reaches it, with a deploy key that allows
 `deployment:functions:runInternalQueries`. A function error fails the request, which
 `fetchConvexDeploymentJson` throws.
+
+Store version 3 also returns the current run record, before a full deploy writes its output.
 
 @see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/store/convex/state.ts#L221-L265
 */
@@ -276,57 +279,61 @@ export const connect = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const deployment = await findAlchemyDeployment(target);
-    if (!deployment) {
-      return { store: "missing" };
-    }
+    try {
+      const deployment = await findAlchemyDeployment(target);
+      if (!deployment) {
+        return { store: "missing" };
+      }
 
-    return await withConvexInspectionDeployKey(
-      { deployment, purpose: "alchemyReader", target },
-      async (deployKey): Promise<Infer<typeof vAlchemyConnection>> => {
-        const version = parse(
-          vStoreVersionReply,
-          await fetchConvexDeploymentJson({
-            deployKey,
-            deploymentUrl: deployment.deploymentUrl,
-            path: "/api/function",
-            body: { path: "state:version", args: {}, format: "json" },
-          }),
-        ).value;
-        if (version < 3) {
-          const read = await readStacks({
-            repository: target.githubRepositoryFullName,
-            deployKey,
-            deploymentUrl: deployment.deploymentUrl,
-          });
-          return {
-            store: "snapshot",
-            observation: {
-              ...read,
-              liveDeployments: await readLiveDeployments(read.stacks, target),
-            },
-          };
-        }
-
-        const { token } = parse(
-          vReaderAuthorizationReply,
-          await fetchConvexDeploymentJson({
-            deployKey,
-            deploymentUrl: deployment.deploymentUrl,
-            path: "/api/function",
-            body: {
-              path: "reader:authorize",
-              args: {
-                repository: target.githubRepositoryFullName,
-                subject: `${env.CONVEX_CLOUD_URL}:${ctx.viewer.userId}`,
+      return await withConvexInspectionDeployKey(
+        { deployment, purpose: "alchemyReader", target },
+        async (deployKey): Promise<Infer<typeof vAlchemyConnection>> => {
+          const version = parse(
+            vStoreVersionReply,
+            await fetchConvexDeploymentJson({
+              deployKey,
+              deploymentUrl: deployment.deploymentUrl,
+              path: "/api/function",
+              body: { path: "state:version", args: {}, format: "json" },
+            }),
+          ).value;
+          if (version < 3) {
+            const read = await readStacks({
+              repository: target.githubRepositoryFullName,
+              deployKey,
+              deploymentUrl: deployment.deploymentUrl,
+            });
+            return {
+              store: "snapshot",
+              observation: {
+                ...read,
+                liveDeployments: await readLiveDeployments(read.stacks, target),
               },
-              format: "json",
-            },
-          }),
-        ).value;
-        return { store: "live", deploymentUrl: deployment.deploymentUrl, token };
-      },
-    );
+            };
+          }
+
+          const { token } = parse(
+            vReaderAuthorizationReply,
+            await fetchConvexDeploymentJson({
+              deployKey,
+              deploymentUrl: deployment.deploymentUrl,
+              path: "/api/function",
+              body: {
+                path: "reader:authorize",
+                args: {
+                  repository: target.githubRepositoryFullName,
+                  subject: `${env.CONVEX_CLOUD_URL}:${ctx.viewer.userId}`,
+                },
+                format: "json",
+              },
+            }),
+          ).value;
+          return { store: "live", deploymentUrl: deployment.deploymentUrl, token };
+        },
+      );
+    } catch {
+      throw new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE);
+    }
   },
 });
 
