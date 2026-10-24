@@ -317,25 +317,24 @@ query, which runs in the browser. The branch name comes from the repository row,
 renders in the first frame and only this part waits for that query.
 */
 function DefaultBranchCommit({
-  branchUrl,
-  defaultBranch,
+  branch,
   pullRequests,
 }: {
-  branchUrl: string;
-  defaultBranch: string;
+  branch: { name: string; url: string } | undefined;
   pullRequests: RepositoryPullRequestsState;
 }) {
-  const branchLink = (
+  const branchLink = branch ? (
     <a
       className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-      href={branchUrl}
+      href={branch.url}
       rel="noreferrer noopener"
       target="_blank"
     >
-      {defaultBranch}
+      {branch.name}
     </a>
-  );
+  ) : null;
   if (
+    !branch ||
     pullRequests.state === "loading" ||
     pullRequests.state === "problem" ||
     pullRequests.state === "not_requested" ||
@@ -343,7 +342,7 @@ function DefaultBranchCommit({
   ) {
     return (
       <>
-        <div className="flex">{branchLink}</div>
+        {branchLink ? <div className="flex">{branchLink}</div> : null}
         {pullRequests.state === "loading" ? (
           <div aria-label="Loading default branch commit">
             <RepositoryOverviewLoadingLines rows={1} />
@@ -402,9 +401,9 @@ function DefaultBranchCommit({
         <RepositoryChecksPopover
           checks={observation.checks}
           detailsUrl={`${observation.headCommitUrl}/checks`}
-          heading={`${defaultBranch} checks`}
+          heading={`${branch.name} checks`}
           statusCheckRollup={observation.statusCheckRollup}
-          triggerTitle={`Show ${defaultBranch} checks`}
+          triggerTitle={`Show ${branch.name} checks`}
         />
       </div>
     </div>
@@ -420,49 +419,27 @@ export function DefaultBranchSection({
 }) {
   const pullRequests = workspace.pullRequests;
   const defaultBranch = workspace.repository.defaultBranch?.trim();
-
-  if (!defaultBranch) {
-    if (pullRequests.state === "loading") {
-      return (
-        <section aria-label="Loading default branch" className="pb-5">
-          <RepositoryOverviewLoadingLines rows={2} />
-        </section>
-      );
-    }
-    if (pullRequests.state === "problem") {
-      return (
-        <section className="pb-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span>Could not load the default branch from GitHub.</span>
-            <Button size="sm" type="button" variant="outline" onClick={pullRequests.reload}>
-              Retry
-            </Button>
-          </div>
-        </section>
-      );
-    }
-    if (pullRequests.state === "not_requested") {
-      return (
-        <section className="pb-5 text-sm text-muted-foreground">
-          The GitHub repository is not ready yet.
-        </section>
-      );
-    }
+  const branch = defaultBranch
+    ? {
+        name: defaultBranch,
+        url: buildGitHubBranchTreeUrl({
+          branchName: defaultBranch,
+          githubRepositoryFullName: workspace.repository.githubRepositoryFullName,
+        }),
+      }
+    : undefined;
+  if (!branch) {
     return (
-      <section className="pb-5 text-sm text-muted-foreground">
-        No default branch commit is available.
+      <section className="pb-5">
+        <DefaultBranchCommit branch={branch} pullRequests={pullRequests} />
       </section>
     );
   }
 
-  const branchUrl = buildGitHubBranchTreeUrl({
-    branchName: defaultBranch,
-    githubRepositoryFullName: workspace.repository.githubRepositoryFullName,
-  });
   const filesHref = buildRepositoryFileRoute({
     owner: workspace.repository.githubOwnerLogin,
     repoName: workspace.repository.githubRepositoryName,
-    branch: defaultBranch,
+    branch: branch.name,
   });
   const productionObservationStates = readProductionObservationStates(workspace);
   const productionLoading = productionObservationStates.some(
@@ -478,7 +455,7 @@ export function DefaultBranchSection({
 
   return (
     <section
-      aria-label={`Default branch ${defaultBranch}`}
+      aria-label={`Default branch ${branch.name}`}
       aria-busy={
         pullRequests.state === "current" || pullRequests.state === "stale"
           ? pullRequests.refreshing
@@ -486,11 +463,7 @@ export function DefaultBranchSection({
       }
       className="pb-5"
     >
-      <DefaultBranchCommit
-        branchUrl={branchUrl}
-        defaultBranch={defaultBranch}
-        pullRequests={pullRequests}
-      />
+      <DefaultBranchCommit branch={branch} pullRequests={pullRequests} />
       {filesReadEnabled ? (
         <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
           <Link
