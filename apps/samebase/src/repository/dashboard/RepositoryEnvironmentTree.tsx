@@ -187,6 +187,29 @@ function DestinationResource({
           {formatConvexDeploymentRegionLabel(resource.region)}
         </span>
       ) : null}
+      {resource.components?.map((component) => (
+        <div
+          key={component.path}
+          aria-label={`Convex component ${component.path}`}
+          className="pl-4"
+          role="group"
+        >
+          <div className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5">
+            <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
+              {component.path}
+            </span>
+            <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
+          </div>
+          <div className="pl-4">
+            {component.resources.map((child) => (
+              <RepositoryEnvironmentResourceRow
+                key={`${child.kind}:${child.id}`}
+                resource={child}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -390,11 +413,8 @@ function DefaultBranchCommit({
         <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
           {observation.headCommitTitle}
         </div>
-        {pullRequests.state === "stale" || pullRequests.refreshing ? (
-          <div className="mt-1 flex flex-wrap gap-x-2 text-xs leading-5 text-muted-foreground">
-            {pullRequests.state === "stale" ? <span>May be out of date</span> : null}
-            {pullRequests.refreshing ? <span>Updating</span> : null}
-          </div>
+        {pullRequests.state === "stale" ? (
+          <div className="mt-1 text-xs leading-5 text-muted-foreground">May be out of date</div>
         ) : null}
       </div>
       <div className="justify-self-start @4xl:justify-self-end">

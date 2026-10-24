@@ -1227,6 +1227,106 @@ describe("repository environment roots", () => {
     );
   });
 
+  it("shows the resources of a bound namespace under their component, below its deployment", () => {
+    // Like the Mail stack: the captured prod stage of samebase/base-alchemy from
+    // apps/mail/alchemy.run.ts, its Deployment row with a `mail` binding in the shape of
+    // https://github.com/samebase/alchemy-convex/blob/v0.10.0/test/Component.test.ts#L73-L77, the
+    // captured PosthogProxy Worker row and a Scout bucket with the `namespace` that alchemy
+    // 2.0.0-beta.83 writes under `Namespace.push("Mail", ...)`, and the captured Domains Worker row
+    // at the stack root.
+    const [, , samebaseProd] = observedSamebaseStackReply.value.stages;
+    const workerRow = (fqn: string) => {
+      const row = samebaseProd.resources.find((resource) => resource.fqn === fqn);
+      if (!row) {
+        throw new Error(`Expected the captured ${fqn} row.`);
+      }
+      return row;
+    };
+    const [bucketRow] = observedScoutR2Resources;
+    const inMail = (value: string) => value.replace(/}$/, ',"namespace":{"Id":"Mail"}}');
+    const stacks = observedBaseAlchemyStack();
+    const roots = buildAlchemyEnvironmentRoots({
+      branch: "main",
+      owner: "samebase",
+      repoName: "convex-cloudflare-email-inbox",
+      schemaGraphEnabled: false,
+      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      stacks: {
+        ...stacks,
+        stacks: stacks.stacks.map((stack) => ({
+          ...stack,
+          stages: stack.stages.map((stage) => ({
+            ...stage,
+            record: { ...stage.record, stackFile: "apps/mail/alchemy.run.ts" },
+            resources: [
+              ...stage.resources.map((resource) => ({
+                fqn: resource.fqn,
+                value:
+                  resource.fqn === "Deployment"
+                    ? resource.value.replace(
+                        '"bindings":[]',
+                        '"bindings":[{"sid":"convex.component:[\\"Mail\\"]","data":{"type":"component","path":"mail","namespace":["Mail"]}}]',
+                      )
+                    : resource.value,
+              })),
+              workerRow("Domains"),
+              { fqn: "Mail/PosthogProxy", value: inMail(workerRow("PosthogProxy").value) },
+              { fqn: `Mail/${bucketRow.fqn}`, value: inMail(bucketRow.value) },
+            ],
+          })),
+        })),
+      },
+    });
+
+    expect(
+      roots.map((root) => ({
+        rootDirectory: root.rootDirectory,
+        resources: root.resources.map((resource) =>
+          resource.kind === "destination"
+            ? {
+                id: resource.id,
+                components: resource.components?.map((component) => ({
+                  path: component.path,
+                  resources: component.resources.map((child) => child.id),
+                })),
+              }
+            : resource.id,
+        ),
+      })),
+    ).toEqual([
+      {
+        rootDirectory: "apps/mail",
+        resources: [
+          "alchemy:samebase/base-alchemy:Domains",
+          {
+            id: "alchemy:samebase/base-alchemy:Deployment",
+            components: [
+              {
+                path: "mail",
+                resources: [
+                  "alchemy:samebase/base-alchemy:Mail/PosthogProxy",
+                  "alchemy:samebase/base-alchemy:Mail/Workspaces",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
+    const deployment = container.querySelector('[aria-label="Convex deployment ideal-dolphin-15"]');
+    expect(deployment?.querySelector('[aria-label="Convex component mail"]')?.textContent).toBe(
+      "mailConvex componentsamebase-posthog-proxyWorkere.samebase.comscout-workspacesR2 bucket",
+    );
+    expect(
+      deployment?.querySelector('[aria-label="Cloudflare Worker samebase-domains"]'),
+    ).toBeNull();
+    expect(container.textContent).toBe(
+      "apps/mailsamebase-domainsWorker*.json.mdideal-dolphin-15Convex deployment🇺🇸 US East (N. Virginia)mailConvex componentsamebase-posthog-proxyWorkere.samebase.comscout-workspacesR2 bucket",
+    );
+  });
+
   it("keeps a Convex row under its known root while deployment details load", () => {
     const convexProjectId = fakeConvexProjectId();
     const repository = makeRepositorySettingsBuilderRepository({

@@ -1,3 +1,4 @@
+import { isRecord } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v, type Infer } from "convex/values";
 import { REPOSITORY_ROOT_DIRECTORY } from "./repositoryRootDirectory";
@@ -14,15 +15,30 @@ its `reviveState` reads every object with this key as a secret.
 export const ALCHEMY_REDACTED_MARKER = "__redacted__";
 
 /**
+A binding that `bindComponent` writes on a `Convex.Deployment` row: the installed component `path`
+from the app's `convex.config.ts`, such as `mail` or `workspace/mail`, owns the resources of the
+Alchemy `namespace` in the same stack and stage. `namespace` lists the namespace ids from the stack
+root, such as `["Mail/Shared", "Inbox"]`, and `[]` is the stack root.
+
+@see https://github.com/samebase/alchemy-convex/blob/v0.10.0/src/Component.ts#L22-L54
+*/
+const vAlchemyConvexComponentBinding = object({
+  data: object({ type: literal("component"), path: string(), namespace: array(string()) }),
+});
+
+/**
 The state of a `Convex.Deployment` resource. `props.project` holds every attribute of the project
 when the stack passes a `Convex.Project` resource, and only `projectId` otherwise (measured).
 `props.rootDir` is the app directory relative to the directory of the stack file, "." included.
 `props.source` is the Convex functions directory relative to `rootDir`, as a path or as an object
 with `path`; a deployment without `source` pushes nothing. `attr.url` is the client URL, such as
-`https://happy-animal-123.convex.cloud`, and `attr.siteUrl` the HTTP actions URL.
+`https://happy-animal-123.convex.cloud`, and `attr.siteUrl` the HTTP actions URL. Alchemy writes
+`bindings` on every row, and a `Convex.Deployment` takes only component bindings.
 
 @see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/Deployment.ts#L86-L120
 @see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/Deployment.ts#L178-L194
+@see https://github.com/samebase/alchemy-convex/blob/v0.10.0/src/Deployment.ts#L145-L151
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Apply.ts#L521-L547
 */
 export const vAlchemyConvexDeploymentState = object({
   resourceType: literal("Convex.Deployment"),
@@ -32,6 +48,7 @@ export const vAlchemyConvexDeploymentState = object({
     source: optional(union(string(), object({ path: string() }))),
   }),
   attr: object({ projectId: number(), name: string(), url: string(), siteUrl: string() }),
+  bindings: array(vAlchemyConvexComponentBinding),
 });
 
 /**
@@ -175,5 +192,67 @@ export function placeStageResources(stage: {
         ? [{ fqn, state, rootDirectory: rootDirectoryOf(stackDirectory) }]
         : [],
     ),
+  };
+}
+
+/**
+The namespace ids of a state row from the stack root. Alchemy writes the namespace of a row as a
+chain from the innermost id, such as `{ "Id": "Inbox", "Parent": { "Id": "Mail/Shared" } }` for
+`["Mail/Shared", "Inbox"]`, and a row at the stack root has no `namespace`.
+
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Namespace.ts#L5-L8
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/State/ResourceState.ts#L36-L37
+*/
+function namespaceOf(node: unknown): string[] {
+  return isRecord(node) && typeof node["Id"] === "string"
+    ? [...namespaceOf(node["Parent"]), node["Id"]]
+    : [];
+}
+
+/**
+The resources of a stage under the installed Convex components that own them, by the `bindings` of
+the `Convex.Deployment` rows of the stage. A resource belongs to the component of the longest bound
+namespace that its row's `namespace` starts with, so a child namespace bound to another component
+takes precedence. The fqn does not decide: a slash in a logical id or in a namespace id, such as
+`Mail/Shared`, is not a namespace boundary. A component is installed in one deployment, so
+`deployment` is the row whose binding names it. `others` are the resources outside every bound
+namespace. Components are in path order, then in the order of their first resource, and each list
+keeps the order of `resources`.
+*/
+export function groupResourcesByComponent<Resource extends { state: unknown }>(
+  resources: readonly Resource[],
+) {
+  const bindings = resources
+    .flatMap((deployment) =>
+      validate(vAlchemyConvexDeploymentState, deployment.state, { allowUnknownFields: true })
+        ? deployment.state.bindings.map(({ data }) => ({ deployment, ...data }))
+        : [],
+    )
+    .sort((left, right) => right.namespace.length - left.namespace.length);
+  const others: Resource[] = [];
+  const components: { path: string; deployment: Resource; resources: Resource[] }[] = [];
+
+  for (const resource of resources) {
+    const namespace = namespaceOf(isRecord(resource.state) ? resource.state["namespace"] : null);
+    const owner = bindings.find((binding) =>
+      binding.namespace.every((id, index) => namespace[index] === id),
+    );
+    if (owner === undefined) {
+      others.push(resource);
+      continue;
+    }
+    const component = components.find(
+      ({ deployment, path }) => deployment === owner.deployment && path === owner.path,
+    );
+    if (component === undefined) {
+      components.push({ path: owner.path, deployment: owner.deployment, resources: [resource] });
+    } else {
+      component.resources.push(resource);
+    }
+  }
+
+  return {
+    others,
+    components: components.sort((left, right) => left.path.localeCompare(right.path)),
   };
 }
