@@ -1,7 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexReactClient } from "convex/react";
-import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
@@ -88,13 +87,10 @@ const liveConnection = {
   snapshot: observedBaseAlchemyRepositoryReply,
 } as const;
 
-/** The page of open pull requests that the client answers; the loader only caches it. */
-const pullRequestPage = { repository: { pullRequests: { nodes: [] } } };
-
 /**
 The loader of a page of samebase/base-alchemy for a member, with the dashboard queries answered from
-the repository list: the repository is in the member's organization, has its GitHub repository, and
-has `convexTeamId`. The viewer's client answers the store connection with `connect`.
+the repository list: the repository is in the member's organization and has `convexTeamId`. The
+viewer's client answers the store connection with `connect`.
 */
 function loadPage(args: {
   convexTeamId: string | undefined;
@@ -118,9 +114,6 @@ function loadPage(args: {
                   organizationId: "organization-a",
                   repositoryId: "repository-a",
                   convexTeamId: args.convexTeamId,
-                  hasConnectedGitHubRepository: true,
-                  deletion: { state: "not_deleting" },
-                  sourceSetup: { status: "ready" },
                 },
               ];
             default:
@@ -132,14 +125,10 @@ function loadPage(args: {
   });
   const serverHttpClient = new ConvexHttpClient("https://samebase-test.convex.cloud");
   const convexClient = new ConvexReactClient("https://samebase-test.convex.cloud");
-  const answer = async (...[reference]: Parameters<ConvexHttpClient["action"]>) =>
-    getFunctionName(reference) === "repository/alchemyState:connectWithSnapshot"
-      ? await args.connect()
-      : pullRequestPage;
   const action =
     args.client === "server"
-      ? vi.spyOn(serverHttpClient, "action").mockImplementation(answer)
-      : vi.spyOn(convexClient, "action").mockImplementation(answer);
+      ? vi.spyOn(serverHttpClient, "action").mockImplementation(args.connect)
+      : vi.spyOn(convexClient, "action").mockImplementation(args.connect);
   const context = {
     convexQueryClient: {
       convexClient,
@@ -150,7 +139,6 @@ function loadPage(args: {
   const params = { owner: "samebase", repository: "base-alchemy" };
   return {
     action,
-    queryClient,
     load: args.attachments
       ? loadRepositoryOverview({ context, params, deps: { attachments: true } })
       : loadRepositoryAlchemyPage({ context, params }),
@@ -161,7 +149,7 @@ describe("loadRepositoryAlchemyPage", () => {
   it.each(["server", "browser"] as const)(
     "returns the store connection with its first read through the %s client",
     async (client) => {
-      const { action, load, queryClient } = loadPage({
+      const { action, load } = loadPage({
         client,
         convexTeamId: "38516",
         connect: async () => liveConnection,
@@ -173,20 +161,10 @@ describe("loadRepositoryAlchemyPage", () => {
         convexTeamId: "38516",
         connection: liveConnection,
       });
-      expect(action.mock.calls).toEqual(
-        expect.arrayContaining([
-          [api.repository.alchemyState.connectWithSnapshot, { repositoryId: "repository-a" }],
-          [
-            api.repositoryPullRequests.listOpenPullRequests,
-            { repositoryId: "repository-a", first: 6, after: null },
-          ],
-        ]),
+      expect(action).toHaveBeenCalledExactlyOnceWith(
+        api.repository.alchemyState.connectWithSnapshot,
+        { repositoryId: "repository-a" },
       );
-      expect(action).toHaveBeenCalledTimes(2);
-      // The default-branch block of the overview waits for the first page.
-      expect(
-        queryClient.getQueryData(["repository-pull-requests", "repository-a", "ready"]),
-      ).toEqual({ pages: [pullRequestPage], pageParams: [null] });
     },
   );
 
@@ -210,28 +188,6 @@ describe("loadRepositoryAlchemyPage", () => {
     });
   });
 
-  it("keeps cached pull request pages for the page's query to refresh", async () => {
-    const { action, load, queryClient } = loadPage({
-      client: "browser",
-      convexTeamId: "38516",
-      connect: async () => liveConnection,
-    });
-    const cached = { pages: [pullRequestPage, pullRequestPage], pageParams: [null, "cursor-2"] };
-    queryClient.setQueryData(["repository-pull-requests", "repository-a", "ready"], cached, {
-      updatedAt: 0,
-    });
-
-    await load;
-
-    expect(action).toHaveBeenCalledExactlyOnceWith(
-      api.repository.alchemyState.connectWithSnapshot,
-      { repositoryId: "repository-a" },
-    );
-    expect(queryClient.getQueryData(["repository-pull-requests", "repository-a", "ready"])).toBe(
-      cached,
-    );
-  });
-
   it("reads no store for a repository without a Convex team or with ?attachments", async () => {
     const withoutTeam = loadPage({
       client: "server",
@@ -248,10 +204,7 @@ describe("loadRepositoryAlchemyPage", () => {
     await expect(attachments.load).resolves.toBeNull();
 
     for (const { action } of [withoutTeam, attachments]) {
-      expect(action).toHaveBeenCalledExactlyOnceWith(
-        api.repositoryPullRequests.listOpenPullRequests,
-        { repositoryId: "repository-a", first: 6, after: null },
-      );
+      expect(action).not.toHaveBeenCalled();
     }
   });
 });

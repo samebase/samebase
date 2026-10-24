@@ -4,7 +4,6 @@ import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "co
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { openPullRequestsQuery } from "@/repository/dashboard/useRepositoryPullRequests";
 import { rootQueries, unlessAccountGone } from "@/routes/root.queries";
 
 /**
@@ -96,11 +95,10 @@ async function connectAlchemyState(
 
 /**
 The loader of the pages that render the repository overview: the overview, and the Alchemy page in
-its left pane. With the dashboard data, it fetches the first page of open pull requests, which holds
-the default branch that the default-branch block waits for, and, when `readsStore`, the store
-connection with its first read. It returns that connection, or `null` when the page reads no store,
-as `useRepositoryProviderObservations` decides: no dashboard access, a repository outside the
-viewer's organizations, or a repository without a Convex team.
+its left pane. With the dashboard data, it waits only for the store connection with its first read,
+when `readsStore`, so no GitHub read delays the first byte. It returns that connection, or `null`
+when the page reads no store, as `useRepositoryProviderObservations` decides: no dashboard access, a
+repository outside the viewer's organizations, or a repository without a Convex team.
 */
 async function loadOverviewPage({
   context: { convexQueryClient, queryClient },
@@ -128,26 +126,9 @@ async function loadOverviewPage({
   }
 
   const { convexTeamId, repositoryId } = repository;
-  const pullRequests = openPullRequestsQuery({
-    repositoryId,
-    sourceSetupStatus: repository.sourceSetup.status,
-    listOpenPullRequests: (args) =>
-      runViewerAction(convexQueryClient, api.repositoryPullRequests.listOpenPullRequests, args),
-  });
-  const [alchemyState] = await Promise.all([
-    readsStore && convexTeamId
-      ? connectAlchemyState(convexQueryClient, { repositoryId, convexTeamId })
-      : null,
-    // The pull requests that `useRepositoryWorkspaceModel` requests. Cached pages render at once,
-    // and the page's query refreshes them after it mounts: a refetch here would read every cached
-    // page in turn before the page opens.
-    repository.hasConnectedGitHubRepository &&
-    repository.deletion.state === "not_deleting" &&
-    !queryClient.getQueryData(pullRequests.queryKey)
-      ? queryClient.prefetchInfiniteQuery(pullRequests)
-      : null,
-  ]);
-  return alchemyState;
+  return readsStore && convexTeamId
+    ? await connectAlchemyState(convexQueryClient, { repositoryId, convexTeamId })
+    : null;
 }
 
 /** The loader of the repository overview. `?attachments` reads no team store. */
