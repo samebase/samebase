@@ -302,12 +302,6 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/browser-preview@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.3.0(@arethetypeswrong/core@0.18.5)(@types/node@24.19.2)(@typescript/native-preview@7.0.0-dev.20260707.2)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(yaml@2.9.1))(jsdom@30.1.2(@noble/hashes@2.4.0))(msw@2.13.4(@types/node@24.19.2)(typescript@6.0.3))
 
-  apps/domain-router:
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: 5.20261013.1
-        version: 5.20261013.1
-
   apps/remotion-studio:
     dependencies:
       '@react-three/fiber':
